@@ -263,13 +263,16 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 }
 @media(max-width:768px){
   :root{--sw:100vw}
+  .ab{height:auto!important;overflow:visible!important}
   .main{padding:18px 14px 70px}
   .dg{grid-template-columns:repeat(2,1fr)}
   .ops-grid{grid-template-columns:1fr}
   .pp{grid-template-columns:repeat(2,1fr)}
   .hbg{display:flex}
-  .sb{position:fixed;top:var(--th);left:0;bottom:0;z-index:200}
+  .sb{position:fixed;top:var(--th);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th))!important}
   .sb.hm{transform:translateX(-100%)}
+  #pane-assign{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:100;background:var(--bg);overflow-y:auto}
+  #pane-assign.hd-sp{display:none!important}
   .tb-sub,.tb-sep,.sl{display:none}
   #month-size{display:none!important}
   .tb{gap:6px;padding:0 10px}
@@ -3004,7 +3007,6 @@ function renderPage(ds) {
   h+='<div class="st">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'')+'</div>';
   if(dlk)h+='<div class="ln">🔒 担当割り当ては管理者によってロックされています</div>';
   h+='<div class="dg" id="dg"></div>';
-  if(!dlk) h+='<div id="extra-free-wrap"></div>';
 
   /* OC担当（担当ロックに連動） */
   h+='<div class="oc-card"><div class="oc-ttl">📞 オンコール（OC）担当'+(dlk?'<span class="slb lk">🔒</span>':'')+'</div>';
@@ -3652,37 +3654,39 @@ function buildDG(ds,dat,locked) {
   }
   /* ===== フリー枠の追加 ===== */
   if (!locked) {
-    var efWrap = document.getElementById('extra-free-wrap');
-    if (efWrap) {
-      var extraFrees = dat.extra_free || [];
-      renderExtraFrees(ds, dat, extraFrees, locked, showPhs, phsLk);
-      var addFreeBtn = document.createElement('button');
-      addFreeBtn.className = 'btn btn-g btn-sm';
-      addFreeBtn.type = 'button';
-      addFreeBtn.style.cssText = 'margin-top:6px;width:100%';
-      addFreeBtn.innerHTML = '+ フリー枠を追加';
-      addFreeBtn.onclick = function() {
-        if (!D.pages[ds].extra_free) D.pages[ds].extra_free = [];
-        D.pages[ds].extra_free.push({name:'',phs:'',note:'',role:'フリー',checks:{}});
-        saveD();
-        renderExtraFrees(ds, D.pages[ds], D.pages[ds].extra_free, locked, showPhs, phsLk);
-      };
-      efWrap.appendChild(addFreeBtn);
-    }
+    var extraFrees2 = dat.extra_free || [];
+    renderExtraFrees(ds, dat, extraFrees2, locked, showPhs, phsLk);
+    /* 追加ボタンはdgの直後に配置 */
+    var dgEl2 = document.getElementById('dg');
+    var oldAddBtn = document.getElementById('add-free-btn');
+    if (oldAddBtn) oldAddBtn.parentNode.removeChild(oldAddBtn);
+    var addFreeBtn = document.createElement('button');
+    addFreeBtn.id = 'add-free-btn';
+    addFreeBtn.className = 'btn btn-g btn-sm';
+    addFreeBtn.type = 'button';
+    addFreeBtn.style.cssText = 'margin-top:6px;width:100%';
+    addFreeBtn.textContent = '+ フリー枠を追加';
+    addFreeBtn.onclick = function() {
+      if (!D.pages[ds].extra_free) D.pages[ds].extra_free = [];
+      D.pages[ds].extra_free.push({name:'',phs:'',note:'',role:'フリー',checks:{}});
+      saveD();
+      renderExtraFrees(ds, D.pages[ds], D.pages[ds].extra_free, locked, showPhs, phsLk);
+    };
+    if (dgEl2 && dgEl2.parentNode) dgEl2.parentNode.insertBefore(addFreeBtn, dgEl2.nextSibling);
   }
 }
 
 function renderExtraFrees(ds, dat, extras, locked, showPhs, phsLk) {
-  var wrap = document.getElementById('extra-free-wrap');
-  if (!wrap) return;
-  /* 追加ボタンを除いた既存コンテンツをクリア */
-  var addBtn = wrap.querySelector('.btn');
-  wrap.innerHTML = '';
-  if (addBtn) wrap.appendChild(addBtn);
+  /* 追加済みのフリーカードを全削除してdgに再追加 */
+  var dg = document.getElementById('dg');
+  if (!dg) return;
+  /* 既存のextra-freeカードを削除 */
+  var old = dg.querySelectorAll('.dc-extra-free');
+  for (var oi = 0; oi < old.length; oi++) dg.removeChild(old[oi]);
 
   extras.forEach(function(ef, idx) {
     var efCard = document.createElement('div');
-    efCard.className = 'dc' + (locked?' lc':'');
+    efCard.className = 'dc dc-extra-free' + (locked?' lc':'');
     var idPfx = 'ef-' + idx;
 
     /* 担当者選択 */
@@ -3725,7 +3729,7 @@ function renderExtraFrees(ds, dat, extras, locked, showPhs, phsLk) {
     html += '<input type="text" class="ds2" id="'+idPfx+'-note" placeholder="備考..." value="'+(ef.note||'')+'"'+(locked?' disabled':'')+'>';
 
     efCard.innerHTML = html;
-    wrap.insertBefore(efCard, wrap.querySelector('.btn') || null);
+    dg.appendChild(efCard);
 
     if (!locked) {
       (function(idx2, idPfx2){
@@ -4235,8 +4239,16 @@ function swTab(t) {
     var tb=document.getElementById('tab-'+id); if(tb) tb.classList.toggle('on',id===t);
     if(id==='assign'){
       var ap=document.getElementById('pane-assign'), mn=document.getElementById('main');
-      if(t==='assign'){ap.style.display='flex';mn.style.display='none';renderAT();}
-      else{ap.style.display='none';mn.style.display='';}
+      if(t==='assign'){
+        ap.style.display='flex';
+        ap.classList.remove('hd-sp');
+        mn.style.display='none';
+        renderAT();
+      } else {
+        ap.style.display='none';
+        ap.classList.add('hd-sp');
+        mn.style.display='';
+      }
     }else{
       var pn=document.getElementById('pane-'+id);
       if(pn) pn.style.display=id===t?'flex':'none';
