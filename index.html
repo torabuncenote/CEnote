@@ -890,13 +890,13 @@ function loadD() {
 /* ===== FIREBASE =====
    ★ 下記7行をご自身のFirebase設定値に書き換えてください ★ */
 var FB_CFG = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT.firebaseapp.com",
-  databaseURL:       "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+  apiKey: "AIzaSyDcTFuXXSPikUntsQytQDbK-ja0jIQ3E7U",
+  authDomain: "cenote-c790a.firebaseapp.com",
+  databaseURL: "https://cenote-c790a-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "cenote-c790a",
+  storageBucket: "cenote-c790a.firebasestorage.app",
+  messagingSenderId: "992048410496",
+  appId: "1:992048410496:web:a960b3189d69a83f969b65"
 };
 var FB_ON = !FB_CFG.apiKey.includes("YOUR_");
 var fbDB  = null;
@@ -3894,34 +3894,70 @@ function buildOPS(ds,dat,locked) {
           if (D.sup) D.sup.forEach(function(sm){ var op=document.createElement('option'); op.value=sm; dl.appendChild(op); });
           supRow.appendChild(dl);
 
-          /* テキスト入力（カンマ区切りで複数入力可） */
+          /* テキスト入力（直接編集・カンマ区切り） */
           var supInp = document.createElement('input');
           supInp.type = 'text';
           supInp.className = 'ops-txt';
           supInp.style.cssText = 'flex:1;font-size:12px';
-          supInp.placeholder = '例: 清潔手袋, 電気メス, 吸引管（カンマ区切りで複数入力可）';
-          supInp.setAttribute('list', dlId);
+          supInp.placeholder = 'プルダウンから選択または直接入力（カンマ区切りで複数可）';
           supInp.disabled = !!locked;
           /* 保存値を「カンマ区切り文字列」として復元 */
           supInp.value = (item.sup && item.sup.length) ? item.sup.join(', ') : '';
 
+          /* プルダウン（選ぶたびにテキスト欄に追記） */
+          var supSel = document.createElement('select');
+          supSel.className = 'ops-sel';
+          supSel.style.cssText = 'flex-shrink:0;min-width:100px;font-size:11px';
+          supSel.disabled = !!locked;
+          var supSelOpts = '<option value="">+ 物品を追加</option>';
+          if (D.sup) D.sup.forEach(function(sm){ supSelOpts += '<option value="'+sm+'">'+sm+'</option>'; });
+          supSelOpts += '<option value="__free__">自由記述...</option>';
+          supSel.innerHTML = supSelOpts;
+
           if (!locked) {
-            (function(idx5, supInp5){
+            (function(idx5, supInp5, supSel5){
               var saveT5 = null;
+
+              function parseSup(val) {
+                return val.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+              }
+              function saveSup() {
+                items[idx5].sup = parseSup(supInp5.value);
+                saveItems();
+              }
+
+              /* テキスト欄の直接入力 */
               supInp5.oninput = function(){
-                /* カンマ区切りで分割してsup配列に保存 */
-                var parts = this.value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-                items[idx5].sup = parts;
+                items[idx5].sup = parseSup(this.value);
                 clearTimeout(saveT5);
                 saveT5 = setTimeout(saveItems, 600);
               };
-              supInp5.onchange = function(){
-                var parts = this.value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-                items[idx5].sup = parts;
-                saveItems();
+              supInp5.onblur = function(){
+                /* フォーカスが外れたら末尾のカンマ・スペースを除去 */
+                this.value = this.value.replace(/[,\s]+$/, '');
+                saveSup();
               };
-            })(idx, supInp);
+
+              /* プルダウンから選択 → テキスト欄に追記 */
+              supSel5.onchange = function(){
+                var v = this.value;
+                if (!v) return;
+                if (v === '__free__') {
+                  v = prompt('使用物品を入力してください');
+                  if (!v || !v.trim()) { this.value = ''; return; }
+                  v = v.trim();
+                }
+                /* 現在のテキストに追記 */
+                var cur = supInp5.value.replace(/[,\s]+$/, '');
+                supInp5.value = cur ? cur + ', ' + v : v;
+                this.value = ''; /* プルダウンを元に戻す */
+                supInp5.focus();
+                saveSup();
+              };
+            })(idx, supInp, supSel);
           }
+
+          supRow.appendChild(supSel);
           supRow.appendChild(supInp);
         }
 
