@@ -269,8 +269,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   /* スマホでも.abはflexのまま（sbがfixedで浮くので実質mainのみ表示される） */
   .ab{height:auto!important;overflow:visible!important}
   .main{padding:18px 14px 70px}
-  .dg{grid-template-columns:repeat(2,1fr)}
+  .dg{grid-template-columns:1fr}
   .ops-grid{grid-template-columns:1fr}
+  .ops-item-row{flex-wrap:wrap}
+  .ops-item-row>div{flex:1 1 100%!important;min-width:0}
   .pp{grid-template-columns:repeat(2,1fr)}
   .hbg{display:flex}
   /* スマホではサイドバーをfixedで全画面表示 */
@@ -295,7 +297,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .uc-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 @media(max-width:480px){
-  .dg{grid-template-columns:1fr 1fr}
+  .dg{grid-template-columns:1fr}
   .pp{grid-template-columns:1fr 1fr}
   .pt2{font-size:17px}
 }
@@ -331,6 +333,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-mention-item{padding:7px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
 .memo-mention-item:hover,.memo-mention-item.active{background:var(--ac-bg);color:var(--ac)}
 .memo-mention-tag{color:var(--ac);font-weight:700;background:var(--ac-bg);border-radius:4px;padding:0 3px}
+.memo-post{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;position:relative}
 .memo-post.memo-done{opacity:0.55;background:var(--sur)}
 .memo-post.memo-done .mp-body{text-decoration:line-through;color:var(--txt3)}
 .memo-done-label{position:absolute;top:8px;right:36px;display:flex;align-items:center;gap:3px;cursor:pointer;user-select:none}
@@ -997,14 +1000,13 @@ function loadD() {
 /* ===== FIREBASE =====
    ★ 下記7行をご自身のFirebase設定値に書き換えてください ★ */
 var FB_CFG = {
-  apiKey: "AIzaSyA3-4YOQxnnlEXtMZXfoAtHUs_ZN3DtG6k",
-  authDomain: "torabunce-ce814.firebaseapp.com",
-  databaseURL: "https://torabunce-ce814-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "torabunce-ce814",
-  storageBucket: "torabunce-ce814.firebasestorage.app",
-  messagingSenderId: "187211496263",
-  appId: "1:187211496263:web:7d902d76cbb710ed0a6a62",
-  measurementId: "G-XHFGNSWNK7"
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
 };
 var FB_ON = !FB_CFG.apiKey.includes("YOUR_");
 var fbDB  = null;
@@ -1139,9 +1141,6 @@ function doLogin() {
   var btn   = document.querySelector('#login-ov .btn-p');
   errEl.textContent = '';
   if (!email || !pass) { errEl.textContent = 'メールアドレスとパスワードを入力してください'; return; }
-  /* パスワード強度チェック */
-  if (pass.length < 8) { errEl.textContent = 'パスワードは8文字以上必要です'; return; }
-  if (!/[a-zA-Z]/.test(pass) || !/\d/.test(pass)) { errEl.textContent = 'パスワードは英字と数字を両方含めてください'; return; }
   if (!FB_ON) {
     errEl.textContent = 'Firebaseが設定されていません。管理者に連絡してください。';
     return;
@@ -2785,7 +2784,7 @@ function loadLogs() {
     el.innerHTML = h;
   });
 }
-function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function saveD() {
   if (FB_ON && fbDB) {
@@ -2850,7 +2849,7 @@ function renderStfList() {
   for (var i = 0; i < D.stf.length; i++) {
     var el = document.createElement('div'); el.className = 'ri';
     var btns = ok ? '<button class="ru" onclick="mvStf('+i+',-1)">↑</button><button class="rdw" onclick="mvStf('+i+',1)">↓</button><button class="rd2" onclick="rmStf('+i+')">×</button>' : '';
-    el.innerHTML = '<span class="rn">👤 ' + D.stf[i] + '</span>' + btns;
+    el.innerHTML = '<span class="rn">👤 ' + escH(D.stf[i]) + '</span>' + btns;
     l.appendChild(el);
   }
   document.getElementById('stf-ar').style.display = ok ? 'flex' : 'none';
@@ -2866,7 +2865,7 @@ function renderPhsList() {
   for (var i = 0; i < D.phs.length; i++) {
     var el = document.createElement('div'); el.className = 'ri';
     var btns = ok ? '<button class="rd2" onclick="rmPhs('+i+')">×</button>' : '';
-    el.innerHTML = '<span class="rn" style="font-family:var(--mo)">📞 ' + D.phs[i] + '</span>' + btns;
+    el.innerHTML = '<span class="rn" style="font-family:var(--mo)">📞 ' + escH(D.phs[i]) + '</span>' + btns;
     l.appendChild(el);
   }
   document.getElementById('phs-ar').style.display = ok ? 'flex' : 'none';
@@ -2881,7 +2880,7 @@ function renderDlyList() {
   for (var i = 0; i < D.dly.length; i++) {
     var el = document.createElement('div'); el.className = 'ri';
     var btns = ok ? '<button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
-    el.innerHTML = '<span class="rn" style="font-size:11px">📌 ' + D.dly[i] + '</span>' + btns;
+    el.innerHTML = '<span class="rn" style="font-size:11px">📌 ' + escH(D.dly[i]) + '</span>' + btns;
     l.appendChild(el);
   }
   document.getElementById('dly-ar').style.display = ok ? 'flex' : 'none';
@@ -2912,7 +2911,7 @@ function renderWdlyList() {
     for (var i = 0; i < ts.length; i++) {
       var el = document.createElement('div'); el.className = 'ri';
       var btns = ok ? '<button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>' : '';
-      el.innerHTML = '<span class="rn" style="font-size:11px">📅 ' + ts[i] + '</span>' + btns;
+      el.innerHTML = '<span class="rn" style="font-size:11px">📅 ' + escH(ts[i]) + '</span>' + btns;
       l.appendChild(el);
     }
   }
@@ -2923,10 +2922,10 @@ function rmWdly(i) { if(!can('wm'))return; D.wd[selWd].splice(i,1); renderWdlyLi
 function mvWdly(i,d) { if(!can('wm'))return; var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return; var t=arr[i];arr[i]=arr[j];arr[j]=t; renderWdlyList(); saveD(); }
 
 /* ===== OPE/CATH/OC MASTER ===== */
-function renderOpeList() { var l=document.getElementById('ope-list');l.innerHTML='';for(var i=0;i<D.ope.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🔪 '+D.ope[i]+'</span><button class="rd2" onclick="rmOpe('+i+')">×</button>';l.appendChild(el);} }
+function renderOpeList() { var l=document.getElementById('ope-list');l.innerHTML='';for(var i=0;i<D.ope.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🔪 '+escH(D.ope[i])+'</span><button class="rd2" onclick="rmOpe('+i+')">×</button>';l.appendChild(el);} }
 function addOpe() { var v=document.getElementById('in-ope').value.trim();if(!v)return;D.ope.push(v);document.getElementById('in-ope').value='';renderOpeList();saveD(); }
 function rmOpe(i) { D.ope.splice(i,1);renderOpeList();saveD(); }
-function renderCathList() { var l=document.getElementById('cath-list');l.innerHTML='';for(var i=0;i<D.cath.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🫀 '+D.cath[i]+'</span><button class="rd2" onclick="rmCath('+i+')">×</button>';l.appendChild(el);} }
+function renderCathList() { var l=document.getElementById('cath-list');l.innerHTML='';for(var i=0;i<D.cath.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🫀 '+escH(D.cath[i])+'</span><button class="rd2" onclick="rmCath('+i+')">×</button>';l.appendChild(el);} }
 function addCath() { var v=document.getElementById('in-cath').value.trim();if(!v)return;D.cath.push(v);document.getElementById('in-cath').value='';renderCathList();saveD(); }
 function rmCath(i) { D.cath.splice(i,1);renderCathList();saveD(); }
 function renderDutyMasterList() {
@@ -2972,7 +2971,7 @@ function rmDutyMaster(idx) {
   saveD();
 }
 
-function renderSupList() { var l=document.getElementById('sup-list');if(!l)return;l.innerHTML='';if(!D.sup)D.sup=DEF_SUP.slice();for(var i=0;i<D.sup.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🧰 '+D.sup[i]+'</span><button class="rd2" onclick="rmSup('+i+')">×</button>';l.appendChild(el);} }
+function renderSupList() { var l=document.getElementById('sup-list');if(!l)return;l.innerHTML='';if(!D.sup)D.sup=DEF_SUP.slice();for(var i=0;i<D.sup.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🧰 '+escH(D.sup[i])+'</span><button class="rd2" onclick="rmSup('+i+')">×</button>';l.appendChild(el);} }
 function addSup() { if(!D.sup)D.sup=DEF_SUP.slice();var v=document.getElementById('in-sup').value.trim();if(!v)return;D.sup.push(v);document.getElementById('in-sup').value='';renderSupList();saveD(); }
 function rmSup(i) { D.sup.splice(i,1);renderSupList();saveD(); }
 
@@ -3895,7 +3894,7 @@ function renderMemos(ds, dat, locked) {
       h += '<div class="memo-post-media">';
       for (var mi = 0; mi < m.media.length; mi++) {
         var med = m.media[mi];
-        var mediaSrc = med.url || med.data || '';
+        var mediaSrc = escH(med.url || med.data || '');
         if (med.type === 'image') {
           h += '<img src="' + mediaSrc + '" alt="' + escH(med.name) + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
         } else {
@@ -4155,8 +4154,9 @@ function highlightMention(escapedText) {
   var result = escapedText;
   names.forEach(function(name) {
     var escaped = name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    result = result.replace(new RegExp('@' + escaped, 'g'),
-      '<span class="memo-mention-tag">@' + name + '</span>');
+    var safeTag = '<span class="memo-mention-tag">@' + escH(name) + '</span>';
+    /* replacer関数を使い$パターン誤展開を防ぐ */
+    result = result.replace(new RegExp('@' + escaped, 'g'), function(){ return safeTag; });
   });
   return result;
 }
