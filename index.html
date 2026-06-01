@@ -163,7 +163,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-lbl{font-size:12px;font-weight:700;color:var(--txt2);min-width:60px;flex-shrink:0}
 .ops-sel{flex:1;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;font-family:var(--fn)}
 .ops-sel:focus{border-color:var(--ac)}
-.ops-txt{flex:1;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn)}
+.ops-txt{flex:1;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn);resize:vertical;min-height:34px;line-height:1.5}
 .ops-txt:focus{border-color:var(--ac)}
 .ops-num{width:56px;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--mo);text-align:center}
 .ops-num:focus{border-color:var(--ac)}
@@ -326,7 +326,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .btn-logout:hover{background:var(--rd-bg);border-color:var(--rd);color:var(--rd)}
 /* ===== MEMO POSTS ===== */
 .memo-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:260px;overflow-y:auto}
-.memo-post{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;position:relative}
+.memo-post{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;position:relative;transition:opacity .2s,background .2s}
+.memo-post.memo-done{opacity:0.55;background:var(--sur)}
+.memo-post.memo-done .mp-body{text-decoration:line-through;color:var(--txt3)}
+.memo-done-label{position:absolute;top:8px;right:36px;display:flex;align-items:center;gap:3px;cursor:pointer;user-select:none}
+.memo-done-cb{width:14px;height:14px;cursor:pointer;accent-color:var(--ac)}
+.memo-done-txt{font-size:10px;color:var(--txt3);white-space:nowrap}
 .memo-post .mp-meta{font-size:10px;color:var(--txt3);margin-bottom:4px;display:flex;align-items:center;gap:6px}
 .memo-post .mp-name{font-weight:700;color:var(--ac)}
 .memo-post .mp-del{position:absolute;top:7px;right:9px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
@@ -754,17 +759,29 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openGM()">📅 1ヶ月生成</button>
         <button class="btn btn-g btn-sm" onclick="printAt()">🖨️ 印刷</button>
       </div>
-      <div class="alg">
-        <span style="font-weight:700;color:var(--txt2)">凡例：</span>
-        <div class="ali"><span class="dch dc-o">OPE</span></div>
-        <div class="ali"><span class="dch dc-os">OPEサブ</span></div>
-        <div class="ali"><span class="dch dc-c">カテ</span></div>
-        <div class="ali"><span class="dch dc-cs">カテサブ</span></div>
-        <div class="ali"><span class="dch dc-w">病棟外回り</span></div>
-        <div class="ali"><span class="dch dc-dv">機器管理</span></div>
-        <div class="ali" style="color:var(--txt3);font-size:11px">🔴左線=未完了　🔵左線=完了</div>
+      <!-- サブタブ -->
+      <div style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
+        <button id="subtab-at" class="btn btn-g btn-sm" onclick="swSubTab('at')" style="border-radius:6px 6px 0 0;border-bottom:2px solid var(--ac);font-weight:700">📊 担当表</button>
+        <button id="subtab-oc" class="btn btn-g btn-sm" onclick="swSubTab('oc')" style="border-radius:6px 6px 0 0">📞 OC集計</button>
       </div>
-      <div class="ato"><div id="at-body"></div></div>
+      <!-- 担当表 -->
+      <div id="subpane-at">
+        <div class="alg">
+          <span style="font-weight:700;color:var(--txt2)">凡例：</span>
+          <div class="ali"><span class="dch dc-o">OPE</span></div>
+          <div class="ali"><span class="dch dc-os">OPEサブ</span></div>
+          <div class="ali"><span class="dch dc-c">カテ</span></div>
+          <div class="ali"><span class="dch dc-cs">カテサブ</span></div>
+          <div class="ali"><span class="dch dc-w">病棟外回り</span></div>
+          <div class="ali"><span class="dch dc-dv">機器管理</span></div>
+          <div class="ali" style="color:var(--txt3);font-size:11px">🔴左線=未完了　🔵左線=完了</div>
+        </div>
+        <div class="ato"><div id="at-body"></div></div>
+      </div>
+      <!-- OC集計シート -->
+      <div id="subpane-oc" style="display:none">
+        <div id="oc-sum-body"></div>
+      </div>
     </div>
   </div>
 
@@ -879,6 +896,7 @@ var DEF_CATH = ['CAG','PCI','EVT','アブレーション','ペースメーカー
 var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
+var _savingTs = 0; /* saveD()後のリスナー再描画抑制タイムスタンプ */
 
 /* ===== INIT ===== */
 function init() {
@@ -1059,7 +1077,9 @@ function fbInit() {
             var isEditingInPage = focused &&
               (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT') &&
               mainEl && mainEl.contains(focused);
-            if (curDs && D.pages[curDs] && !isEditingInPage) {
+            /* saveD()後2秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
+            var justSaved = (Date.now() - _savingTs) < 2000;
+            if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
               renderPage(curDs);
             }
           }, function(err) { setSyncLbl('同期エラー'); });
@@ -2466,6 +2486,64 @@ function removeOpsCard(ds, cid) {
   saveD(); renderPage(ds);
 }
 
+/* ===== 担当表サブタブ切り替え ===== */
+function swSubTab(id) {
+  document.getElementById('subpane-at').style.display = id==='at' ? '' : 'none';
+  document.getElementById('subpane-oc').style.display = id==='oc' ? '' : 'none';
+  var atBtn = document.getElementById('subtab-at');
+  var ocBtn = document.getElementById('subtab-oc');
+  if(atBtn){ atBtn.style.borderBottom = id==='at' ? '2px solid var(--ac)' : 'none'; atBtn.style.fontWeight = id==='at' ? '700' : ''; }
+  if(ocBtn){ ocBtn.style.borderBottom = id==='oc' ? '2px solid var(--ac)' : 'none'; ocBtn.style.fontWeight = id==='oc' ? '700' : ''; }
+  if(id==='oc') renderOCSummary();
+}
+
+/* ===== OC集計シート ===== */
+function renderOCSummary() {
+  var el = document.getElementById('oc-sum-body');
+  if (!el) return;
+  var days = new Date(asY, asM+1, 0).getDate();
+  var rows = [];
+  for (var d=1; d<=days; d++) {
+    var ds = asY+'-'+pad(asM+1)+'-'+pad(d);
+    var pg = D.pages[ds];
+    if (!pg || !pg.ocData || !pg.ocData.staff) continue;
+    rows.push({ds:ds, pg:pg});
+  }
+  if (!rows.length) {
+    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">この月にOC担当の記録がありません</div>';
+    return;
+  }
+  /* 集計 */
+  var totalDone   = rows.filter(function(r){return r.pg.ocData.done;}).length;
+  var totalNenkyu = rows.filter(function(r){return r.pg.ocData.nenkyu;}).length;
+  var h = '';
+  /* サマリーバッジ */
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">';
+  h += '<span style="font-size:13px;font-weight:700">'+asY+'年'+(asM+1)+'月　OC集計</span>';
+  h += '<span style="background:var(--oc-bg);color:var(--oc);border:1px solid var(--oc-bdr);border-radius:8px;padding:2px 10px;font-size:12px">対応件数: '+totalDone+'/'+rows.length+'件</span>';
+  h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">年休取得: '+totalNenkyu+'件</span>';
+  h += '</div>';
+  /* テーブル */
+  h += '<div style="overflow-x:auto"><table class="spec-tbl" style="min-width:520px">';
+  h += '<thead><tr><th style="width:70px">日付</th><th style="width:80px">担当者</th><th>備考</th><th style="width:80px">対応</th><th style="width:110px">対応時間</th><th style="width:70px">年休</th></tr></thead><tbody>';
+  rows.forEach(function(r) {
+    var oc = r.pg.ocData;
+    var w  = new Date(r.ds).getDay();
+    var wdCls = w===0?'color:var(--rd)':w===6?'color:var(--ac)':'';
+    var dn = parseInt(r.ds.split('-')[2]);
+    h += '<tr>';
+    h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'日</strong> '+WDL[w]+'</td>';
+    h += '<td style="font-weight:700">'+escH(oc.staff||'')+'</td>';
+    h += '<td style="white-space:pre-wrap;font-size:11px">'+escH(oc.note||'')+'</td>';
+    h += '<td style="text-align:center">'+(oc.done?'<span style="color:var(--oc);font-weight:700">✔ 対応</span>':'<span style="color:var(--txt3)">—</span>')+'</td>';
+    h += '<td style="font-size:12px;white-space:pre-wrap">'+escH(oc.time||'')+'</td>';
+    h += '<td style="text-align:center">'+(oc.nenkyu?'<span style="color:var(--ac);font-weight:700">✔ 年休</span>':'<span style="color:var(--txt3)">—</span>')+'</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  el.innerHTML = h;
+}
+
 function loadLogs() {
   if (!FB_ON || !fbDB) return;
   var el = document.getElementById('log-list');
@@ -2497,6 +2575,7 @@ function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').r
 function saveD() {
   if (FB_ON && fbDB) {
     setSyncLbl('保存中...');
+    _savingTs = Date.now(); /* 保存中フラグ：リスナーからの再描画を一時抑制 */
     fbDB.ref('/data').set(D)
       .then(function(){ setSyncLbl('同期済'); })
       .catch(function(){ setSyncLbl('同期エラー'); });
@@ -3280,7 +3359,20 @@ function renderPage(ds) {
   h+='<option value="">— 担当者を選択 —</option>';
   for(var i=0;i<D.stf.length;i++) h+='<option value="'+D.stf[i]+'"'+(dat.ocData.staff===D.stf[i]?' selected':'')+'>'+D.stf[i]+'</option>';
   h+='</select></div>';
-  h+='<div class="oc-row"><span class="oc-lbl">備考</span><input type="text" class="oc-txt" id="oc-note" value="'+(dat.ocData.note||'')+'" placeholder="備考など..."'+(dlk?' disabled':'')+'></div>';
+  h+='<div class="oc-row"><span class="oc-lbl">備考</span><textarea class="oc-txt" id="oc-note" placeholder="備考など..." rows="2"'+(dlk?' disabled':'')+'>'+(dat.ocData.note||'')+'</textarea></div>';
+  /* 対応チェックボックス */
+  var ocDone = !!(dat.ocData.done);
+  h+='<div class="oc-row oc-done-row">';
+  h+='<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:var(--oc)">';
+  h+='<input type="checkbox" id="oc-done"'+(ocDone?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
+  h+='対応</label></div>';
+  /* 対応時間・年休（チェック時に展開） */
+  h+='<div id="oc-done-detail" style="'+(ocDone?'':'display:none;')+'margin-top:4px;display:'+(ocDone?'flex':'none')+';flex-direction:column;gap:6px">';
+  h+='<div class="oc-row"><span class="oc-lbl">対応時間</span><textarea class="oc-txt" id="oc-time" placeholder="例：23:00〜01:30" rows="2"'+(dlk?' disabled':'')+'>'+(dat.ocData.time||'')+'</textarea></div>';
+  h+='<div class="oc-row"><label style="display:flex;align-items:center;gap:6px;cursor:pointer">';
+  h+='<input type="checkbox" id="oc-nenkyu"'+(dat.ocData.nenkyu?' checked':'')+(dlk?' disabled':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:var(--oc)">';
+  h+='<span style="font-size:13px">年休取得</span></label></div>';
+  h+='</div>';
   h+='</div><hr>';
 
   /* 業務内容 */
@@ -3407,6 +3499,23 @@ function renderPage(ds) {
     var os=document.getElementById('oc-staff'), on2=document.getElementById('oc-note');
     if(os){os.onchange=function(){this.classList.toggle('set',!!this.value);D.pages[ds].ocData.staff=this.value;saveD();refreshPool(ds);};}
     if(on2){var t;on2.oninput=function(){var v=this.value;clearTimeout(t);t=setTimeout(function(){D.pages[ds].ocData.note=v;saveD();},600);};}
+    /* OC対応チェック・時間・年休 */
+    var ocDoneCb=document.getElementById('oc-done');
+    var ocDetail=document.getElementById('oc-done-detail');
+    var ocTime=document.getElementById('oc-time');
+    var ocNenkyu=document.getElementById('oc-nenkyu');
+    if(ocDoneCb){
+      ocDoneCb.onchange=function(){
+        D.pages[ds].ocData.done=this.checked;
+        if(!this.checked){D.pages[ds].ocData.time='';D.pages[ds].ocData.nenkyu=false;}
+        saveD();
+        if(ocDetail) ocDetail.style.display=this.checked?'flex':'none';
+        if(ocTime&&!this.checked) ocTime.value='';
+        if(ocNenkyu&&!this.checked) ocNenkyu.checked=false;
+      };
+    }
+    if(ocTime){var t2;ocTime.oninput=function(){var v=this.value;clearTimeout(t2);t2=setTimeout(function(){D.pages[ds].ocData.time=v;saveD();},600);};}
+    if(ocNenkyu){ocNenkyu.onchange=function(){D.pages[ds].ocData.nenkyu=this.checked;saveD();};}
   })(ds);
 
   /* 申し送り投稿リストを描画 */
@@ -3487,13 +3596,21 @@ function renderMemos(ds, dat, locked) {
   for (var i = memos.length - 1; i >= 0; i--) {
     var m = memos[i];
     var canDel = !locked && (isAdmin || (currentUser && currentUser.uid === m.uid));
-    h += '<div class="memo-post">';
+    var isDone = !!m.done;
+    h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
+    /* 済チェックボックス */
+    h += '<label class="memo-done-label" title="既読・完了">'
+       + '<input type="checkbox" class="memo-done-cb"'
+       + ' data-idx="' + i + '" data-ds="' + ds + '" data-action="doneMemo"'
+       + (isDone ? ' checked' : '') + '>'
+       + '<span class="memo-done-txt">済</span>'
+       + '</label>';
     h += '<div class="mp-meta">';
     h += '<span class="mp-name">' + escH(m.name || '不明') + '</span>';
     h += '<span>' + (m.ts ? fmtTS(m.ts) : '') + '</span>';
     if (m.isAdmin) h += '<span style="font-size:9px;background:var(--gd-bg);color:var(--gd);border-radius:4px;padding:1px 5px;border:1px solid var(--gd-bdr)">管理者</span>';
     h += '</div>';
-    if (m.text) h += '<div style="white-space:pre-wrap">' + escH(m.text) + '</div>';
+    if (m.text) h += '<div class="mp-body" style="white-space:pre-wrap">' + escH(m.text) + '</div>';
     /* 画像・動画 */
     if (m.media && m.media.length) {
       h += '<div class="memo-post-media">';
@@ -3513,11 +3630,27 @@ function renderMemos(ds, dat, locked) {
   }
   el.innerHTML = h;
   el.addEventListener('click', function(e) {
+    /* 削除ボタン */
     var btn = e.target.closest('[data-action="delMemo"]');
-    if (!btn) return;
-    var idx  = parseInt(btn.getAttribute('data-idx'));
-    var bds  = btn.getAttribute('data-ds');
-    delMemo(bds, idx);
+    if (btn) {
+      delMemo(btn.getAttribute('data-ds'), parseInt(btn.getAttribute('data-idx')));
+      return;
+    }
+    /* 済チェックボックス */
+    var cb = e.target.closest('[data-action="doneMemo"]');
+    if (cb) {
+      var idx = parseInt(cb.getAttribute('data-idx'));
+      var bds = cb.getAttribute('data-ds');
+      if (!D.pages[bds] || !D.pages[bds].memos) return;
+      D.pages[bds].memos[idx].done = cb.checked;
+      /* チェックしたユーザーと時刻を記録 */
+      D.pages[bds].memos[idx].doneBy   = currentUser ? (currentUser.displayName || currentUser.email) : '';
+      D.pages[bds].memos[idx].doneAt   = cb.checked ? Date.now() : null;
+      saveD();
+      /* 投稿ボックスのクラスを即時切り替え（再描画なし） */
+      var post = cb.closest('.memo-post');
+      if (post) post.classList.toggle('memo-done', cb.checked);
+    }
   });
 }
 
@@ -4794,7 +4927,7 @@ function buildOPS(ds,dat,locked) {
     buildItemList(opeCard, 'ope_items', D.ope, '術式', 'ope', true, false, true, false);
     var opeNoteRow = document.createElement('div'); opeNoteRow.className='ops-row';
     opeNoteRow.style.marginTop='6px';
-    opeNoteRow.innerHTML='<span class="ops-lbl">備考</span><input type="text" class="ops-txt" id="ops-ope-note" value="'+(ops.ope_note||'')+'" placeholder="備考..."'+dis+'>';
+    opeNoteRow.innerHTML='<span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-ope-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.ope_note||'')+'</textarea>';
     opeCard.appendChild(opeNoteRow);
     g.appendChild(opeCard);
   }
@@ -4803,7 +4936,7 @@ function buildOPS(ds,dat,locked) {
     buildItemList(cathCard, 'cath_items', D.cath, '種別', 'cath', false, true, false, false);
     var cathNoteRow = document.createElement('div'); cathNoteRow.className='ops-row';
     cathNoteRow.style.marginTop='6px';
-    cathNoteRow.innerHTML='<span class="ops-lbl">備考</span><input type="text" class="ops-txt" id="ops-cath-note" value="'+(ops.cath_note||'')+'" placeholder="備考..."'+dis+'>';
+    cathNoteRow.innerHTML='<span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-cath-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.cath_note||'')+'</textarea>';
     cathCard.appendChild(cathNoteRow);
     g.appendChild(cathCard);
   }
@@ -4811,7 +4944,7 @@ function buildOPS(ds,dat,locked) {
     var c2=card('🚶 6MW（6分間歩行）');
     var sfx=uid?'-'+uid:'';
     c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">件数</span><input type="number" class="ops-num" id="ops-mw-n'+sfx+'" min="0" value="'+(ops.mw_n||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span></div>'
-      +'<div class="ops-row"><span class="ops-lbl">備考</span><input type="text" class="ops-txt" id="ops-mw-note'+sfx+'" value="'+(ops.mw_note||'')+'" placeholder="備考..."'+dis+'></div>';
+      +'<div class="ops-row"><span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-mw-note'+sfx+'" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.mw_note||'')+'</textarea></div>';
     g.appendChild(c2);
   }
   function buildPsgCard(uid){
@@ -4821,19 +4954,19 @@ function buildOPS(ds,dat,locked) {
     var psgOnRow=document.createElement('div'); psgOnRow.className='ops-row';
     psgOnRow.innerHTML=
       '<span class="ops-lbl">装着</span>'
-      +'<input type="text" class="ops-txt" id="ops-psg-on'+sfx+'" value="'+(ops.psg_on||'')+'" placeholder="号室など..."'+dis+'>'
+      +'<textarea class="ops-txt" id="ops-psg-on'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_on||'')+'</textarea>'
       +'<div class="psg-fusen-wrap">'
       +'<input type="checkbox" class="psg-fusen-cb" id="ops-psg-fusen'+sfx+'"'+(fusenChecked?' checked':'')+(locked?' disabled':'')+'>'
       +'<label class="psg-fusen-lbl" for="ops-psg-fusen'+sfx+'">付箋入力済</label>'
       +'</div>';
     c3.appendChild(psgOnRow);
-    c3.innerHTML+='<div class="ops-row"><span class="ops-lbl">外し</span><input type="text" class="ops-txt" id="ops-psg-off'+sfx+'" value="'+(ops.psg_off||'')+'" placeholder="号室など..."'+dis+'></div>'
+    c3.innerHTML+='<div class="ops-row"><span class="ops-lbl">外し</span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea></div>'
       +'<div class="ops-row"><span class="ops-lbl">解析残</span><input type="number" class="ops-num" id="ops-psg-rest'+sfx+'" min="0" value="'+(ops.psg_rest||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span></div>';
     g.appendChild(c3);
   }
   function buildFreeCard(uid){
     var fc=card('📋 フリー業務');
-    fc.innerHTML+='<div class="ops-row"><input type="text" class="ops-txt" id="ops-free-'+uid+'" value="'+(ops['free_'+uid]||'')+'" placeholder="業務内容を入力..."'+dis+'></div>';
+    fc.innerHTML+='<div class="ops-row"><textarea class="ops-txt" id="ops-free-'+uid+'" rows="2" placeholder="業務内容を入力..."'+dis+'>'+escH(ops['free_'+uid]||'')+'</textarea></div>';
     g.appendChild(fc);
   }
 
@@ -5026,8 +5159,8 @@ function updProg(ds) {
 }
 
 /* ===== ASSIGN TABLE ===== */
-function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();}
-function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();}
+function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}}
+function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}}
 function renderAT() {
   document.getElementById('atml').textContent=asY+'年'+(asM+1)+'月';
   var wrap=document.getElementById('at-body');
