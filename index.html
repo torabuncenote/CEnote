@@ -3608,10 +3608,10 @@ function renderPage(ds) {
       {id:'mw',  icon:'🚶', label:'6MW'},
       {id:'psg', icon:'🌙', label:'PSG'},
     ];
-    /* 管理者のみ：現在カードのタグ表示＋テンプレ操作 */
-    if(isAdmin){
+    /* 現在のカードタグ＋×削除ボタン（全ユーザー）＋テンプレ操作（管理者のみ） */
+    if(displayCards2.length>0 || isAdmin){
       h+='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:6px 10px;background:var(--sur2);border-radius:var(--rs);border:1px solid var(--bdr);margin-bottom:6px">';
-      h+='<span style="font-size:10px;color:var(--txt3);white-space:nowrap">'+(isCustomOps?'個別':'テンプレ')+'</span>';
+      if(isAdmin) h+='<span style="font-size:10px;color:var(--txt3);white-space:nowrap">'+(isCustomOps?'個別':'テンプレ')+'</span>';
       displayCards2.forEach(function(cid){
         var def2=null;
         for(var di=0;di<opsCardDefs.length;di++){if(opsCardDefs[di].id===cid){def2=opsCardDefs[di];break;}}
@@ -3620,12 +3620,10 @@ function renderPage(ds) {
         h+=lbl2+'<button type="button" onclick="removeOpsCard(\''+ds+'\',\''+cid+'\')" style="background:none;border:none;cursor:pointer;color:var(--rd);font-size:11px;padding:0 0 0 2px;line-height:1">×</button></span>';
       });
       h+='<span style="flex:1"></span>';
-      h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap">💾 テンプレ保存</button>';
-      if(isCustomOps){
-        h+='<button type="button" onclick="resetOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap">↩ 戻す</button>';
-      }
-      if(displayCards2.length>0){
-        h+='<button type="button" onclick="clearOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap" title="全カードを削除">🗑</button>';
+      if(isAdmin){
+        h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap">💾 テンプレ保存</button>';
+        if(isCustomOps) h+='<button type="button" onclick="resetOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap">↩ 戻す</button>';
+        if(displayCards2.length>0) h+='<button type="button" onclick="clearOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap" title="全カードを削除">🗑</button>';
       }
       h+='</div>';
     }
@@ -4612,15 +4610,17 @@ function buildDG(ds, dat, locked) {
     editorWrap.id = 'duty-editor-wrap';
     editorWrap.style.cssText = 'grid-column:1/-1;margin-bottom:6px;padding:6px 8px;background:var(--sur2);border-radius:var(--rs);border:1px solid var(--bdr)';
 
-    /* 管理者のみ：1行目（状態ラベル + 現在の枠タグ + テンプレ操作ボタン） */
-    if (isAdmin) {
+    /* 1行目：現在の枠タグ＋×削除（全ユーザー）＋テンプレ操作（管理者のみ） */
+    if (duties.length > 0 || isAdmin) {
       var tagRow = document.createElement('div');
       tagRow.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:5px';
 
-      var stLbl = document.createElement('span');
-      stLbl.style.cssText = 'font-size:10px;color:var(--txt3);white-space:nowrap';
-      stLbl.textContent = isCustom ? '個別' : 'テンプレ';
-      tagRow.appendChild(stLbl);
+      if (isAdmin) {
+        var stLbl = document.createElement('span');
+        stLbl.style.cssText = 'font-size:10px;color:var(--txt3);white-space:nowrap';
+        stLbl.textContent = isCustom ? '個別' : 'テンプレ';
+        tagRow.appendChild(stLbl);
+      }
 
       for (var di=0; di<duties.length; di++) {
         (function(slot){
@@ -4644,41 +4644,43 @@ function buildDG(ds, dat, locked) {
 
       var sp2=document.createElement('span'); sp2.style.cssText='flex:1'; tagRow.appendChild(sp2);
 
-      var tplBtn2=document.createElement('button');
-      tplBtn2.className='btn btn-p btn-sm'; tplBtn2.type='button';
-      tplBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
-      tplBtn2.textContent='💾 テンプレ保存';
-      tplBtn2.title='現在の枠設定をテンプレとして保存（担当未入力ページのみ適用）';
-      tplBtn2.onclick=function(){
-        if(!confirm('現在の枠設定をテンプレートとして保存しますか？\n担当者が未入力のページにのみ適用されます（入力済みページは変更されません）。')) return;
-        D.dutyCfg=getDutyCfg(dat).map(function(x){return Object.assign({},x);});
-        var updated=0;
-        for(var pg in D.pages){
-          var pgDat=D.pages[pg]; var hasDuty=false;
-          if(pgDat.duties){for(var k in pgDat.duties){if(pgDat.duties[k]){hasDuty=true;break;}}}
-          if(!hasDuty){pgDat.customDuties=null;updated++;}
-        }
-        saveD(); alert('テンプレートを保存しました（'+updated+'ページに適用）。');
-      };
-      tagRow.appendChild(tplBtn2);
-      if(isCustom){
-        var rstBtn2=document.createElement('button');
-        rstBtn2.className='btn btn-d btn-sm'; rstBtn2.type='button';
-        rstBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
-        rstBtn2.textContent='↩';  rstBtn2.title='テンプレートに戻す';
-        rstBtn2.onclick=function(){ D.pages[ds].customDuties=null; saveD(); renderPage(ds); };
-        tagRow.appendChild(rstBtn2);
-      }
-      if(duties.length>0){
-        var clrBtn2=document.createElement('button');
-        clrBtn2.className='btn btn-d btn-sm'; clrBtn2.type='button';
-        clrBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
-        clrBtn2.textContent='🗑'; clrBtn2.title='全枠クリア';
-        clrBtn2.onclick=function(){
-          if(!confirm('全担当枠を削除しますか？')) return;
-          D.pages[ds].customDuties=[]; saveD(); renderPage(ds);
+      if (isAdmin) {
+        var tplBtn2=document.createElement('button');
+        tplBtn2.className='btn btn-p btn-sm'; tplBtn2.type='button';
+        tplBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
+        tplBtn2.textContent='💾 テンプレ保存';
+        tplBtn2.title='現在の枠設定をテンプレとして保存（担当未入力ページのみ適用）';
+        tplBtn2.onclick=function(){
+          if(!confirm('現在の枠設定をテンプレートとして保存しますか？\n担当者が未入力のページにのみ適用されます（入力済みページは変更されません）。')) return;
+          D.dutyCfg=getDutyCfg(dat).map(function(x){return Object.assign({},x);});
+          var updated=0;
+          for(var pg in D.pages){
+            var pgDat=D.pages[pg]; var hasDuty=false;
+            if(pgDat.duties){for(var k in pgDat.duties){if(pgDat.duties[k]){hasDuty=true;break;}}}
+            if(!hasDuty){pgDat.customDuties=null;updated++;}
+          }
+          saveD(); alert('テンプレートを保存しました（'+updated+'ページに適用）。');
         };
-        tagRow.appendChild(clrBtn2);
+        tagRow.appendChild(tplBtn2);
+        if(isCustom){
+          var rstBtn2=document.createElement('button');
+          rstBtn2.className='btn btn-d btn-sm'; rstBtn2.type='button';
+          rstBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
+          rstBtn2.textContent='↩';  rstBtn2.title='テンプレートに戻す';
+          rstBtn2.onclick=function(){ D.pages[ds].customDuties=null; saveD(); renderPage(ds); };
+          tagRow.appendChild(rstBtn2);
+        }
+        if(duties.length>0){
+          var clrBtn2=document.createElement('button');
+          clrBtn2.className='btn btn-d btn-sm'; clrBtn2.type='button';
+          clrBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
+          clrBtn2.textContent='🗑'; clrBtn2.title='全枠クリア';
+          clrBtn2.onclick=function(){
+            if(!confirm('全担当枠を削除しますか？')) return;
+            D.pages[ds].customDuties=[]; saveD(); renderPage(ds);
+          };
+          tagRow.appendChild(clrBtn2);
+        }
       }
       editorWrap.appendChild(tagRow);
     }
