@@ -2294,13 +2294,14 @@ function downloadDevMd() {
     '## Firebase設定',
     '```js',
     'var FB_CFG = {',
-    '  apiKey:            "YOUR_API_KEY",',
-    '  authDomain:        "YOUR.firebaseapp.com",',
-    '  databaseURL:       "https://YOUR-rtdb.firebaseio.com",',
-    '  projectId:         "YOUR_ID",',
-    '  storageBucket:     "YOUR.appspot.com",',
-    '  messagingSenderId: "YOUR_ID",',
-    '  appId:             "YOUR_APP_ID"',
+    apiKey: "AIzaSyA3-4YOQxnnlEXtMZXfoAtHUs_ZN3DtG6k",
+  authDomain: "torabunce-ce814.firebaseapp.com",
+  databaseURL: "https://torabunce-ce814-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "torabunce-ce814",
+  storageBucket: "torabunce-ce814.firebasestorage.app",
+  messagingSenderId: "187211496263",
+  appId: "1:187211496263:web:7d902d76cbb710ed0a6a62",
+  measurementId: "G-XHFGNSWNK7"
     '};',
     '// FB_ON = !apiKey.includes("YOUR_") が true → Firebase有効',
     '// 書き込み: fbDB.ref(\'/data\').set(D)  ← /data/配下のみ',
@@ -3593,8 +3594,8 @@ function renderPage(ds) {
   /* 業務内容 */
   h+='<div class="st">🏥 当日業務内容'+(olk?'<span class="slb lk">🔒</span>':'')+'</div>';
   if(olk)h+='<div class="ln">🔒 業務内容は管理者によってロックされています</div>';
-  /* 業務カードコントローラー（管理者のみ） */
-  if(isAdmin && !olk){
+  /* 業務カードコントローラー（ロック時以外は全ユーザーに表示） */
+  if(!olk){
     var activeCards2 = dat.ops_cards;
     /* cardsToRenderと同じロジックで表示するカードを決定 */
     var displayCards2 = (activeCards2 !== null && activeCards2 !== undefined)
@@ -3607,30 +3608,28 @@ function renderPage(ds) {
       {id:'mw',  icon:'🚶', label:'6MW'},
       {id:'psg', icon:'🌙', label:'PSG'},
     ];
-    h+='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:6px 10px;background:var(--sur2);border-radius:var(--rs);border:1px solid var(--bdr);margin-bottom:6px">';
-    /* 状態ラベル */
-    h+='<span style="font-size:10px;color:var(--txt3);white-space:nowrap">'+(isCustomOps?'個別':'テンプレ')+'</span>';
-    /* 現在アクティブなカードのタグ */
-    displayCards2.forEach(function(cid){
-      var def2=null;
-      for(var di=0;di<opsCardDefs.length;di++){if(opsCardDefs[di].id===cid){def2=opsCardDefs[di];break;}}
-      var lbl2=def2?def2.icon+' '+def2.label:(cid.indexOf('free_')===0?'➕ フリー':'?');
-      h+='<span style="display:inline-flex;align-items:center;gap:2px;background:var(--ac-bg);border:1px solid var(--ac);border-radius:10px;padding:1px 6px;font-size:11px">';
-      h+=lbl2+'<button type="button" onclick="removeOpsCard(\''+ds+'\',\''+cid+'\')" style="background:none;border:none;cursor:pointer;color:var(--rd);font-size:11px;padding:0 0 0 2px;line-height:1">×</button></span>';
-    });
-    h+='<span style="flex:1"></span>';
-    /* テンプレ保存ボタン */
-    h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap">💾 テンプレ保存</button>';
-    /* テンプレに戻すボタン（個別設定時のみ） */
-    if(isCustomOps){
-      h+='<button type="button" onclick="resetOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap">↩ 戻す</button>';
+    /* 管理者のみ：現在カードのタグ表示＋テンプレ操作 */
+    if(isAdmin){
+      h+='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:6px 10px;background:var(--sur2);border-radius:var(--rs);border:1px solid var(--bdr);margin-bottom:6px">';
+      h+='<span style="font-size:10px;color:var(--txt3);white-space:nowrap">'+(isCustomOps?'個別':'テンプレ')+'</span>';
+      displayCards2.forEach(function(cid){
+        var def2=null;
+        for(var di=0;di<opsCardDefs.length;di++){if(opsCardDefs[di].id===cid){def2=opsCardDefs[di];break;}}
+        var lbl2=def2?def2.icon+' '+def2.label:(cid.indexOf('free_')===0?'➕ フリー':'?');
+        h+='<span style="display:inline-flex;align-items:center;gap:2px;background:var(--ac-bg);border:1px solid var(--ac);border-radius:10px;padding:1px 6px;font-size:11px">';
+        h+=lbl2+'<button type="button" onclick="removeOpsCard(\''+ds+'\',\''+cid+'\')" style="background:none;border:none;cursor:pointer;color:var(--rd);font-size:11px;padding:0 0 0 2px;line-height:1">×</button></span>';
+      });
+      h+='<span style="flex:1"></span>';
+      h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap">💾 テンプレ保存</button>';
+      if(isCustomOps){
+        h+='<button type="button" onclick="resetOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap">↩ 戻す</button>';
+      }
+      if(displayCards2.length>0){
+        h+='<button type="button" onclick="clearOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap" title="全カードを削除">🗑</button>';
+      }
+      h+='</div>';
     }
-    /* 全クリアボタン */
-    if(displayCards2.length>0){
-      h+='<button type="button" onclick="clearOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap" title="全カードを削除">🗑</button>';
-    }
-    h+='</div>';
-    /* 追加ボタン行 */
+    /* 全ユーザー：追加ボタン行 */
     h+='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:8px">';
     h+='<span style="font-size:10px;color:var(--txt3);white-space:nowrap">追加:</span>';
     opsCardDefs.forEach(function(def3){
@@ -4607,27 +4606,27 @@ function buildDG(ds, dat, locked) {
   var duties = getDutyCfg(dat);
   var isCustom = !!(dat.customDuties && dat.customDuties.length);
 
-  /* 担当枠エディタ（管理者のみ表示） */
-  if (isAdmin) {
+  /* 担当枠エディタ（ロック時以外は全ユーザーに表示） */
+  if (!locked) {
     var editorWrap = document.createElement('div');
     editorWrap.id = 'duty-editor-wrap';
     editorWrap.style.cssText = 'grid-column:1/-1;margin-bottom:6px;padding:6px 8px;background:var(--sur2);border-radius:var(--rs);border:1px solid var(--bdr)';
 
-    /* 1行目: 状態ラベル + 現在の枠タグ + 操作ボタン */
-    var tagRow = document.createElement('div');
-    tagRow.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:5px';
+    /* 管理者のみ：1行目（状態ラベル + 現在の枠タグ + テンプレ操作ボタン） */
+    if (isAdmin) {
+      var tagRow = document.createElement('div');
+      tagRow.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:5px';
 
-    var stLbl = document.createElement('span');
-    stLbl.style.cssText = 'font-size:10px;color:var(--txt3);white-space:nowrap';
-    stLbl.textContent = isCustom ? '個別' : 'テンプレ';
-    tagRow.appendChild(stLbl);
+      var stLbl = document.createElement('span');
+      stLbl.style.cssText = 'font-size:10px;color:var(--txt3);white-space:nowrap';
+      stLbl.textContent = isCustom ? '個別' : 'テンプレ';
+      tagRow.appendChild(stLbl);
 
-    for (var di=0; di<duties.length; di++) {
-      (function(slot){
-        var tag = document.createElement('span');
-        tag.style.cssText = 'display:inline-flex;align-items:center;gap:2px;background:var(--ac-bg);border:1px solid var(--ac);border-radius:10px;padding:1px 6px;font-size:11px;white-space:nowrap';
-        tag.textContent = slot.icon+' '+slot.label;
-        if (!locked) {
+      for (var di=0; di<duties.length; di++) {
+        (function(slot){
+          var tag = document.createElement('span');
+          tag.style.cssText = 'display:inline-flex;align-items:center;gap:2px;background:var(--ac-bg);border:1px solid var(--ac);border-radius:10px;padding:1px 6px;font-size:11px;white-space:nowrap';
+          tag.textContent = slot.icon+' '+slot.label;
           var rx = document.createElement('button');
           rx.type='button';
           rx.style.cssText='background:none;border:none;cursor:pointer;color:var(--rd);font-size:11px;padding:0 0 0 2px;line-height:1';
@@ -4639,15 +4638,12 @@ function buildDG(ds, dat, locked) {
             saveD(); renderPage(ds);
           };})(slot.id);
           tag.appendChild(rx);
-        }
-        tagRow.appendChild(tag);
-      })(duties[di]);
-    }
+          tagRow.appendChild(tag);
+        })(duties[di]);
+      }
 
-    var sp2=document.createElement('span'); sp2.style.cssText='flex:1'; tagRow.appendChild(sp2);
+      var sp2=document.createElement('span'); sp2.style.cssText='flex:1'; tagRow.appendChild(sp2);
 
-    if (!locked) {
-      /* テンプレ保存（担当未入力ページのみ適用） */
       var tplBtn2=document.createElement('button');
       tplBtn2.className='btn btn-p btn-sm'; tplBtn2.type='button';
       tplBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
@@ -4684,31 +4680,29 @@ function buildDG(ds, dat, locked) {
         };
         tagRow.appendChild(clrBtn2);
       }
+      editorWrap.appendChild(tagRow);
     }
-    editorWrap.appendChild(tagRow);
 
-    /* 2行目: マスタの枠をボタンとして並べる */
-    if (!locked) {
-      var btnRow2=document.createElement('div');
-      btnRow2.style.cssText='display:flex;align-items:center;gap:4px;flex-wrap:wrap';
-      var addLbl2=document.createElement('span');
-      addLbl2.style.cssText='font-size:10px;color:var(--txt3);white-space:nowrap';
-      addLbl2.textContent='追加:';
-      btnRow2.appendChild(addLbl2);
-      getDutyMaster().forEach(function(m2){
-        var ab=document.createElement('button');
-        ab.type='button';
-        ab.style.cssText='font-size:11px;padding:2px 7px;border:1px solid var(--bdr);border-radius:10px;background:var(--sur);cursor:pointer;white-space:nowrap';
-        ab.textContent=m2.icon+' '+m2.label;
-        ab.onclick=(function(slot2){return function(){
-          var ns=Object.assign({},slot2,{id:'slot_'+Date.now()});
-          D.pages[ds].customDuties=getDutyCfg(dat).concat([ns]);
-          saveD(); renderPage(ds);
-        };})(m2);
-        btnRow2.appendChild(ab);
-      });
-      editorWrap.appendChild(btnRow2);
-    }
+    /* 全ユーザー：マスタの枠を追加ボタンとして並べる */
+    var btnRow2=document.createElement('div');
+    btnRow2.style.cssText='display:flex;align-items:center;gap:4px;flex-wrap:wrap';
+    var addLbl2=document.createElement('span');
+    addLbl2.style.cssText='font-size:10px;color:var(--txt3);white-space:nowrap';
+    addLbl2.textContent='追加:';
+    btnRow2.appendChild(addLbl2);
+    getDutyMaster().forEach(function(m2){
+      var ab=document.createElement('button');
+      ab.type='button';
+      ab.style.cssText='font-size:11px;padding:2px 7px;border:1px solid var(--bdr);border-radius:10px;background:var(--sur);cursor:pointer;white-space:nowrap';
+      ab.textContent=m2.icon+' '+m2.label;
+      ab.onclick=(function(slot2){return function(){
+        var ns=Object.assign({},slot2,{id:'slot_'+Date.now()});
+        D.pages[ds].customDuties=getDutyCfg(dat).concat([ns]);
+        saveD(); renderPage(ds);
+      };})(m2);
+      btnRow2.appendChild(ab);
+    });
+    editorWrap.appendChild(btnRow2);
     g.appendChild(editorWrap);
   }
 
