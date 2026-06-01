@@ -443,7 +443,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   <div class="name-box">
     <h3>✏️ 表示名の変更</h3>
     <p>申し送りや操作ログに表示される名前を設定します。<br>変更後は次回投稿から反映されます。</p>
-    <input type="text" id="name-input" placeholder="例：松本 美紀" maxlength="20">
+    <input type="text" id="name-input" placeholder="例：狩野 英孝" maxlength="20">
     <div class="name-err" id="name-err"></div>
     <div class="name-btns">
       <button class="btn btn-g" style="flex:1" onclick="closeNameModal()">キャンセル</button>
@@ -1096,9 +1096,11 @@ function fbInit() {
             var isEditingInPage = focused &&
               (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT') &&
               mainEl && mainEl.contains(focused);
-            /* saveD()後2秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
-            var justSaved = (Date.now() - _savingTs) < 2000;
-            if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
+            /* saveD()後0.8秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
+            var justSaved = (Date.now() - _savingTs) < 800;
+            /* ops-gridが空のとき（業務カード未描画）は強制再描画 */
+            var opsEmpty = !!(curDs && D.pages[curDs] && document.getElementById('ops-grid') && document.getElementById('ops-grid').children.length === 0);
+            if (curDs && D.pages[curDs] && !isEditingInPage && (!justSaved || opsEmpty)) {
               renderPage(curDs);
             }
           }, function(err) { setSyncLbl('同期エラー'); });
@@ -1766,7 +1768,7 @@ function renderManual() {
   S += h2('表示名の設定（初回ログイン後に必ずやること）');
   S += '<div class="mn-p">申し送りに自分の名前が表示されるよう、最初に一度だけ設定します。</div>';
   S += step(1,'右上のバッジ（👤 ○○○）をクリック','ダイアログが開きます。');
-  S += step(2,'自分の氏名を入力','例：松本 美紀');
+  S += step(2,'自分の氏名を入力','例：狩野 英孝');
   S += step(3,'「保存」をクリック','次の申し送りから名前が表示されます。');
 
   // ===== 第2章 =====
@@ -1902,7 +1904,7 @@ function renderManual() {
   S += h1('第10章　表示名を設定する');
   S += '<div class="mn-p">申し送りやログに正しい名前が表示されるよう、初回ログイン後に一度だけ設定してください。未設定だとメールアドレスの@より前が表示されます。</div>';
   S += step(1,'右上のアカウントバッジをクリック','「👤 ○○○○」と表示されている部分。');
-  S += step(2,'氏名を入力する','例：松本 美紀（20文字以内）');
+  S += step(2,'氏名を入力する','例：狩野 英孝（20文字以内）');
   S += step(3,'「保存」をクリック','次の申し送り投稿から反映されます。');
   S += ok('一度設定すれば変更不要です。');
 
@@ -5320,8 +5322,12 @@ function buildOPS(ds,dat,locked) {
       +'<label class="psg-fusen-lbl" for="ops-psg-fusen'+sfx+'">付箋入力済</label>'
       +'</div>';
     c3.appendChild(psgOnRow);
-    c3.innerHTML+='<div class="ops-row"><span class="ops-lbl">外し</span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea></div>'
-      +'<div class="ops-row"><span class="ops-lbl">解析残</span><input type="number" class="ops-num" id="ops-psg-rest'+sfx+'" min="0" value="'+(ops.psg_rest||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span></div>';
+    var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
+    psgOffRow.innerHTML='<span class="ops-lbl">外し</span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea>';
+    c3.appendChild(psgOffRow);
+    var psgRestRow=document.createElement('div'); psgRestRow.className='ops-row';
+    psgRestRow.innerHTML='<span class="ops-lbl">解析残</span><input type="number" class="ops-num" id="ops-psg-rest'+sfx+'" min="0" value="'+(ops.psg_rest||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span>';
+    c3.appendChild(psgRestRow);
     g.appendChild(c3);
   }
   function buildFreeCard(uid){
