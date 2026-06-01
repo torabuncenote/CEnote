@@ -3874,8 +3874,9 @@ function renderMemos(ds, dat, locked) {
     var canDel = !locked && (isAdmin || (currentUser && currentUser.uid === m.uid));
     var isDone = !!m.done;
     h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
-    /* 済チェックボックス */
-    h += '<label class="memo-done-label" title="既読・完了">'
+    /* 済チェックボックス：削除ボタンの有無で右位置を調整 */
+    var doneRight = canDel ? '36px' : '9px';
+    h += '<label class="memo-done-label" style="right:' + doneRight + '" title="既読・完了">'
        + '<input type="checkbox" class="memo-done-cb"'
        + ' data-idx="' + i + '" data-ds="' + ds + '" data-action="doneMemo"'
        + (isDone ? ' checked' : '') + '>'
@@ -4147,6 +4148,7 @@ function renderMemoMediaPreview() {
 /* メンションをハイライト表示 */
 function highlightMention(escapedText) {
   /* @スタッフ名 を span でハイライト */
+  if (typeof D === 'undefined' || !D.stf || !D.stf.length) return escapedText;
   var names = D.stf.slice().sort(function(a,b){ return b.length-a.length; }); /* 長い順に置換 */
   var result = escapedText;
   names.forEach(function(name) {
@@ -4992,6 +4994,8 @@ function removeExtraFree(ds, idx) {
 /* ===== OPS ===== */
 function buildOPS(ds,dat,locked) {
   var g=document.getElementById('ops-grid');
+  if (!g) return; /* ops-gridがない場合は早期リターン */
+  g.innerHTML = ''; /* 毎回クリアして重複描画を防ぐ */
   var ops=dat.ops||{};
   var dis=locked?' disabled':'';
 
@@ -5598,6 +5602,7 @@ function swTab(t) {
           ap.classList.remove('hd-sp');
           mn.style.display='none';
         }
+        swSubTab('at'); /* サブタブを担当表に初期化（スマホで集計が見えない問題を解消） */
         renderAT();
       } else {
         if(isSP && sb2) sb2.classList.remove('sb-assign');
