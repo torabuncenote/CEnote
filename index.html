@@ -498,6 +498,27 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   </div>
 </div>
 
+<!-- ===== 新規ユーザー登録モーダル ===== -->
+<div id="modal-reg" class="hd">
+  <div class="name-box" style="width:380px;max-width:96vw">
+    <h3>➕ 新規ユーザー登録</h3>
+    <p>新しいスタッフのアカウントを作成します。<br>初期パスワードは本人に直接お伝えください。</p>
+    <input type="email" id="reg-email" placeholder="メールアドレス" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()">
+    <input type="password" id="reg-pass" placeholder="初期パスワード（8文字以上・英数字混合）" autocomplete="new-password" oninput="checkRegPwStrength(this.value)" onkeydown="if(event.key==='Enter')doRegister()">
+    <div class="pw-strength" id="reg-pw-bars">
+      <div class="pw-strength-bar" id="rpsb1"></div>
+      <div class="pw-strength-bar" id="rpsb2"></div>
+      <div class="pw-strength-bar" id="rpsb3"></div>
+    </div>
+    <div class="pw-strength-hint" id="reg-pw-hint"></div>
+    <div class="login-err" id="reg-err"></div>
+    <div class="name-btns">
+      <button class="btn btn-g" style="flex:1" onclick="closeRegModal()">キャンセル</button>
+      <button class="btn btn-p" style="flex:1" id="reg-btn" onclick="doRegister()">登録する</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===== LOGIN OVERLAY ===== -->
 <!-- ===== SIDE PEEK ===== -->
 <div class="sp-overlay" id="sp-overlay" onclick="closeSP()"></div>
@@ -2236,7 +2257,10 @@ function renderAdminUsers() {
         S += '</div>';
       });
     }
-    S += '<button class="btn btn-g btn-sm" style="margin-top:6px" onclick="renderAdminUsers()">🔄 更新</button>';
+    S += '<div style="display:flex;gap:6px;margin-top:8px">';
+    S += '<button class="btn btn-p btn-sm" onclick="openRegModal()">➕ 新規ユーザー登録</button>';
+    S += '<button class="btn btn-g btn-sm" onclick="renderAdminUsers()">🔄 更新</button>';
+    S += '</div>';
     el.innerHTML = S;
   }).catch(function(err) {
     var el2 = document.getElementById('adminm-users');
@@ -2259,6 +2283,80 @@ function toggleAdminPriv(uid, currentlyAdmin) {
   }).catch(function(err) {
     alert('エラーが発生しました: ' + err.message);
   });
+}
+
+/* ===== 新規ユーザー登録 ===== */
+function openRegModal() {
+  document.getElementById('reg-email').value = '';
+  document.getElementById('reg-pass').value  = '';
+  document.getElementById('reg-err').textContent = '';
+  document.getElementById('reg-pw-hint').textContent = '';
+  ['rpsb1','rpsb2','rpsb3'].forEach(function(id){
+    var b = document.getElementById(id); if(b) b.className = 'pw-strength-bar';
+  });
+  var btn = document.getElementById('reg-btn');
+  if(btn){ btn.disabled = false; btn.textContent = '登録する'; }
+  document.getElementById('modal-reg').classList.remove('hd');
+  setTimeout(function(){ document.getElementById('reg-email').focus(); }, 50);
+}
+
+function closeRegModal() {
+  document.getElementById('modal-reg').classList.add('hd');
+}
+
+function checkRegPwStrength(pw) {
+  var b1=document.getElementById('rpsb1'), b2=document.getElementById('rpsb2'), b3=document.getElementById('rpsb3');
+  var hint=document.getElementById('reg-pw-hint');
+  if(!b1||!hint) return;
+  var hasLen=pw.length>=8, hasNum=/\d/.test(pw), hasAlpha=/[a-zA-Z]/.test(pw), hasSymb=/[^a-zA-Z0-9]/.test(pw);
+  var score=(hasLen?1:0)+(hasNum&&hasAlpha?1:0)+(hasSymb?1:0);
+  var cls=score===0?'':score===1?'weak':score===2?'fair':'good';
+  var hints=['','短すぎます（8文字以上必要）','英字と数字を組み合わせると強くなります','強いパスワードです ✅'];
+  [b1,b2,b3].forEach(function(b,i){ b.className='pw-strength-bar'+(score>i&&cls?' '+cls:''); });
+  hint.textContent = pw.length ? hints[score] : '';
+}
+
+function doRegister() {
+  if(!isAdmin || !FB_ON || !fbDB) return;
+  var email = document.getElementById('reg-email').value.trim();
+  var pass  = document.getElementById('reg-pass').value;
+  var errEl = document.getElementById('reg-err');
+  var btn   = document.getElementById('reg-btn');
+  errEl.textContent = '';
+
+  if(!email){ errEl.textContent = 'メールアドレスを入力してください'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent = 'メールアドレスの形式が正しくありません'; return; }
+  if(pass.length < 8){ errEl.textContent = 'パスワードは8文字以上で入力してください'; return; }
+
+  btn.disabled = true; btn.textContent = '登録中...';
+
+  var appName   = 'reg_' + Date.now();
+  var secondApp = firebase.initializeApp(FB_CFG, appName);
+
+  secondApp.auth().createUserWithEmailAndPassword(email, pass)
+    .then(function(cred) {
+      var uid = cred.user.uid;
+      return fbDB.ref('/users/' + uid).set({
+        email: email,
+        displayName: email.split('@')[0],
+        lastLogin: null
+      }).then(function() {
+        secondApp.auth().signOut();
+        try{ secondApp.delete(); }catch(e){}
+        writeLog('新規ユーザー登録', email);
+        closeRegModal();
+        renderAdminUsers();
+      });
+    })
+    .catch(function(err) {
+      var msg = err.message;
+      if(err.code==='auth/email-already-in-use') msg='このメールアドレスはすでに登録されています';
+      else if(err.code==='auth/invalid-email')   msg='メールアドレスの形式が正しくありません';
+      else if(err.code==='auth/weak-password')   msg='パスワードが弱すぎます（6文字以上必要）';
+      errEl.textContent = msg;
+      try{ secondApp.auth().signOut(); secondApp.delete(); }catch(e){}
+      btn.disabled = false; btn.textContent = '登録する';
+    });
 }
 
 /* ===== 引き継ぎ資料（開発者向け） ===== */
