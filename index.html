@@ -129,6 +129,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pchip.oc{background:var(--oc-bg);color:var(--oc);border:1.5px solid var(--oc-bdr)}
 .pchip:hover{opacity:.75;transform:scale(.97)}
 .pchip.dragging{opacity:.4;transform:scale(.93)}
+.pchip.manual{border-style:dashed}
+.pool-mini-btn{font-size:10px;font-weight:700;border:1px solid var(--bdr);border-radius:12px;background:var(--sur);color:var(--txt2);padding:2px 7px;cursor:pointer;white-space:nowrap}
+.pool-mini-btn:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-bg)}
+.pool-chip-x{border:none;background:transparent;color:inherit;opacity:.65;cursor:pointer;font-size:12px;line-height:1;padding:0 0 0 2px}
+.pool-chip-x:hover{opacity:1;color:var(--rd)}
 .dc.drag-over{border:2px dashed var(--ac);background:var(--ac-bg);transform:translateY(-2px)}
 .pchip .cs{font-size:10px;font-weight:400;opacity:.7}
 .pool-empty{font-size:12px;color:var(--txt3)}
@@ -176,6 +181,25 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-item-del:hover{color:var(--rd)}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
 .ops-add-btn:hover{background:var(--ac);color:#fff}
+/* ===== 階層マスタ ===== */
+.tree-dept{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);margin-bottom:6px}
+.tree-dept-hd{display:flex;align-items:center;gap:5px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.tree-dept-body{padding:0 10px 8px 10px;display:flex;flex-direction:column;gap:4px}
+.tree-cat{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rs);margin-bottom:3px}
+.tree-cat-hd{display:flex;align-items:center;gap:5px;padding:5px 9px;font-size:11px;font-weight:700;color:var(--txt2);cursor:pointer}
+.tree-cat-body{padding:0 9px 6px 18px;display:flex;flex-direction:column;gap:2px}
+.tree-item{display:flex;align-items:center;gap:4px;font-size:11px;padding:2px 0}
+.tree-item span{flex:1;color:var(--txt)}
+.tree-add-row{display:flex;gap:4px;margin-top:4px}
+.tree-add-row input{flex:1;font-size:11px;border:1px solid var(--bdr);border-radius:var(--rs);padding:4px 8px;outline:none;font-family:var(--fn)}
+.tree-add-row input:focus{border-color:var(--ac)}
+.tree-add-row button{font-size:11px;padding:4px 10px;border-radius:var(--rs);border:none;background:var(--ac);color:#fff;cursor:pointer;white-space:nowrap}
+/* 階層選択セレクト */
+.ops-hier-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
+.ops-hier-row select{flex:1;min-width:100px;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;font-family:var(--fn)}
+.ops-hier-row select:focus{border-color:var(--ac)}
+.ops-hier-row input{flex:1.5;min-width:120px;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn)}
+@media(max-width:768px){.ops-hier-row select,.ops-hier-row input{flex:1 1 100%}}
 .clg{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;margin-bottom:9px;box-shadow:var(--sh)}
 .clg.lg{border-color:#f5b8b8;background:#fffcfc}
 .clt{font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px}
@@ -609,27 +633,30 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           </div>
         </div>
         <div>
-          <div class="pt">🔪 オペ 選択肢</div>
-          <div class="rl" id="ope-list"></div>
-          <div class="ar">
-            <input type="text" id="in-ope" placeholder="選択肢を追加…">
-            <button onclick="addOpe()">追加</button>
+          <div class="pt">🔪 オペ 術式マスタ（科→中カテゴリ→術式）</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">科・中カテゴリ・術式の3階層で管理。▶をタップで展開。</div>
+          <div id="ope-tree-list"></div>
+          <div class="tree-add-row" style="margin-top:6px">
+            <input type="text" id="in-ope-dept" placeholder="＋ 新しい科を追加…">
+            <button onclick="addOpeTreeDept()">科を追加</button>
           </div>
         </div>
         <div>
-          <div class="pt">🫀 カテ 選択肢</div>
-          <div class="rl" id="cath-list"></div>
-          <div class="ar">
-            <input type="text" id="in-cath" placeholder="選択肢を追加…">
-            <button onclick="addCath()">追加</button>
+          <div class="pt">🫀 カテ 種別マスタ（科→中カテゴリ→術式）</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">検査・治療種別を3階層で管理。</div>
+          <div id="cath-tree-list"></div>
+          <div class="tree-add-row" style="margin-top:6px">
+            <input type="text" id="in-cath-dept" placeholder="＋ 新しい科を追加…">
+            <button onclick="addCathTreeDept()">科を追加</button>
           </div>
         </div>
         <div>
-          <div class="pt">🧰 使用物品 選択肢</div>
-          <div class="rl" id="sup-list"></div>
-          <div class="ar">
-            <input type="text" id="in-sup" placeholder="選択肢を追加…">
-            <button onclick="addSup()">追加</button>
+          <div class="pt">🧰 使用物品マスタ（カテゴリ→種別→品名）</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">物品を3階層で管理。</div>
+          <div id="sup-tree-list"></div>
+          <div class="tree-add-row" style="margin-top:6px">
+            <input type="text" id="in-sup-dept" placeholder="＋ 新しいカテゴリを追加…">
+            <button onclick="addSupTreeDept()">カテゴリを追加</button>
           </div>
         </div>
         <div>
@@ -914,8 +941,72 @@ var DEF_OPE = ['全麻（一般）','全麻（心臓）','局麻','脊麻','硬�
 var DEF_SUP = ['清潔手袋','電気メス','超音波凝固切開装置','自動縫合器','吸引管','ドレープセット'];
 var DEF_CATH = ['CAG','PCI','EVT','アブレーション','ペースメーカー','ICD','TAVI','その他'];
 
+/* ===== 術式ツリー（科 → 中カテゴリ → 術式） ===== */
+var DEF_OPE_TREE = [
+  { dept:'一般外科', cats:[
+    { name:'腹腔鏡下', items:['胆嚢摘出術','虫垂切除術','鼠径ヘルニア修復術','大腸切除術','胃切除術'] },
+    { name:'開腹',     items:['胃全摘術','大腸切除術','ストーマ造設術','肝切除術','膵切除術'] },
+    { name:'その他',   items:['鼡径ヘルニア（開腹）','甲状腺切除術'] }
+  ]},
+  { dept:'心臓外科', cats:[
+    { name:'バイパス', items:['オフポンプCABG','オンポンプCABG'] },
+    { name:'弁',      items:['大動脈弁置換術','僧帽弁形成術','僧帽弁置換術','三尖弁形成術'] },
+    { name:'その他',   items:['弓部大動脈置換術','TAVI','心臓移植'] }
+  ]},
+  { dept:'整形外科', cats:[
+    { name:'関節',    items:['人工膝関節置換術（TKA）','人工股関節置換術（THA）','人工肩関節置換術'] },
+    { name:'脊椎',    items:['椎弓形成術','腰椎椎間板摘出術','脊椎固定術'] },
+    { name:'外傷',    items:['大腿骨骨折観血的整復術','上腕骨骨折観血的整復術'] }
+  ]},
+  { dept:'泌尿器科', cats:[
+    { name:'腹腔鏡下', items:['腎摘除術','前立腺全摘除術（ロボット）','膀胱全摘除術'] },
+    { name:'経尿道的', items:['TUR-P','TUR-Bt','URS（尿管鏡）'] }
+  ]},
+  { dept:'その他', cats:[
+    { name:'産婦人科', items:['帝王切開術','子宮全摘術','卵巣嚢腫摘出術'] },
+    { name:'耳鼻科',   items:['扁桃摘出術','内視鏡下副鼻腔手術（ESS）'] },
+    { name:'眼科',     items:['白内障手術（超音波乳化吸引術）'] }
+  ]}
+];
+
+var DEF_CATH_TREE = [
+  { dept:'冠動脈', cats:[
+    { name:'造影',   items:['左心カテ（LHC）','右心カテ（RHC）','LHC + RHC'] },
+    { name:'治療',   items:['PCI（ステント留置）','PTCA（バルーン拡張）','ロータブレーター','OCT/IVUS'] }
+  ]},
+  { dept:'不整脈', cats:[
+    { name:'アブレーション', items:['心房細動（AF）','心房粗動（AFL）','WPW症候群','VT/PVC','上室性頻拍（SVT）'] },
+    { name:'デバイス植込',   items:['ペースメーカー植込','ICD植込','CRT植込','CRT-D植込','リードレスペースメーカー'] },
+    { name:'デバイス交換',   items:['ペースメーカー交換','ICD交換','CRT交換'] }
+  ]},
+  { dept:'構造的心疾患', cats:[
+    { name:'弁',     items:['TAVI（経カテーテル大動脈弁置換）','MitraClip（経カテーテル僧帽弁修復）'] },
+    { name:'先天性', items:['ASD閉鎖術（Amplatzer）','VSD閉鎖術'] },
+    { name:'その他', items:['左心耳閉鎖術（Watchman）','腎動脈交感神経焼灼術'] }
+  ]}
+];
+
+var DEF_SUP_TREE = [
+  { dept:'電気デバイス', cats:[
+    { name:'電気メス',   items:['バイポーラ鑷子','モノポーラ電気メス','アルゴンプラズマ凝固（APC）'] },
+    { name:'超音波',     items:['ハーモニックスカルペル','CUSA（超音波外科吸引器）','LigaSure'] }
+  ]},
+  { dept:'縫合・吻合', cats:[
+    { name:'自動縫合器', items:['直線型自動縫合器（Endo TA）','円形吻合器（EEA）','Endo GIA','自動縫合器（TX/TL）'] },
+    { name:'クリップ等', items:['血管クリップ（ヘモロック）','チタンクリップ','吸収性クリップ'] }
+  ]},
+  { dept:'モニタリング', cats:[
+    { name:'脳神経',   items:['BIS（脳波）モニタ','神経刺激装置（筋弛緩）','脳酸素モニタ（NIRS）'] },
+    { name:'循環',     items:['Swan-Ganzカテーテル','FloTrac（心拍出量）','IABPバルーン'] }
+  ]},
+  { dept:'滅菌用品', cats:[
+    { name:'基本',  items:['清潔手袋（サージカル）','ドレープセット','吸引管（ヤンカー）','電極板'] },
+    { name:'特殊',  items:['3Mドレープ（透明）','Ioban（ヨードドレープ）'] }
+  ]}
+];
+
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
 var _savingTs = 0; /* saveD()後のリスナー再描画抑制タイムスタンプ */
@@ -985,6 +1076,9 @@ function loadD() {
     D.ope   = s.ope   || DEF_OPE.slice();
     D.cath  = s.cath  || DEF_CATH.slice();
     D.sup     = s.sup     || DEF_SUP.slice();
+    D.opeTree = s.opeTree && s.opeTree.length ? s.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE));
+    D.cathTree= s.cathTree&& s.cathTree.length? s.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE));
+    D.supTree = s.supTree && s.supTree.length ? s.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE));
     D.dutyCfgMaster = s.dutyCfgMaster && s.dutyCfgMaster.length ? s.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
     D.dutyCfg = s.dutyCfg ? s.dutyCfg : [];
     D.opsCfg  = s.opsCfg  ? s.opsCfg  : [];
@@ -994,7 +1088,11 @@ function loadD() {
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
     D.wd=JSON.parse(JSON.stringify(DEF_WD)); D.lk={};
-    D.ope=DEF_OPE.slice(); D.cath=DEF_CATH.slice(); D.sup=DEF_SUP.slice(); D.dutyCfgMaster=DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);}); D.dutyCfg=[]; D.opsCfg=[]; D.evts={};
+    D.ope=DEF_OPE.slice(); D.cath=DEF_CATH.slice(); D.sup=DEF_SUP.slice();
+    D.opeTree=JSON.parse(JSON.stringify(DEF_OPE_TREE));
+    D.cathTree=JSON.parse(JSON.stringify(DEF_CATH_TREE));
+    D.supTree=JSON.parse(JSON.stringify(DEF_SUP_TREE));
+    D.dutyCfgMaster=DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);}); D.dutyCfg=[]; D.opsCfg=[]; D.evts={};
   }
 }
 /* ===== FIREBASE =====
@@ -1079,6 +1177,9 @@ function fbInit() {
             D.ope   = d.ope   || DEF_OPE.slice();
             D.cath  = d.cath  || DEF_CATH.slice();
             D.sup     = d.sup     || DEF_SUP.slice();
+            D.opeTree = d.opeTree && d.opeTree.length ? d.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE));
+            D.cathTree= d.cathTree&& d.cathTree.length? d.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE));
+            D.supTree = d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE));
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
             D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
@@ -1594,7 +1695,7 @@ function renderSpec() {
   // 4. 連絡表
   S += '<div class="spec-h1">4. 連絡表の構成</div>';
   S += '<div class="spec-h2">4-1. 当日勤務者一覧（プール）</div>';
-  S += '<div class="spec-p">Excelから読み込んだCE・OCを表示。カードをドラッグ＆ドロップ（またはタップ）で担当スロットに自動入力。割り当て済みの人は消える。</div>';
+  S += '<div class="spec-p">Excelから読み込んだCE・OCに、ページ単位の当日調整（CE/OCの手動追加・除外）を重ねて表示。カードをドラッグ＆ドロップ（またはタップ）で担当スロットに自動入力。割り当て済みの人は消える。</div>';
   S += '<div class="spec-h2">4-2. 担当割り当て（カスタム枠）</div>';
   S += '<div class="spec-p">管理者が担当枠マスタ（OPE担当/OPEサブ/カテ担当/カテサブ/病棟外回り/機器管理/フリー）から必要な枠を選んで構成。ページごとに個別設定またはテンプレート適用が可能。デフォルトは0枠。</div>';
   S += '<table class="spec-tbl"><tr><th>操作</th><th>内容</th></tr>';
@@ -1610,8 +1711,8 @@ function renderSpec() {
   S += '<div class="spec-h2">4-4. 当日業務内容</div>';
   S += '<div class="spec-p">管理者がページごとに表示するカードを選択して構成。デフォルトは0枠。テンプレート保存・個別設定切り替えが可能。</div>';
   S += '<table class="spec-tbl"><tr><th>カード</th><th>詳細</th></tr>';
-  S += '<tr><td>🔪 オペ</td><td>術式プルダウン（マスタ選択 or 自由記述）＋入室時間＋備考。行を複数追加可</td></tr>';
-  S += '<tr><td>🫀 カテ</td><td>治療順番号（1〜10）＋種別プルダウン＋備考。行を複数追加可</td></tr>';
+  S += '<tr><td>🔪 オペ</td><td>科→中カテゴリ→フルネーム術式の3階層選択（自由記述可）＋入室時間＋使用物品＋備考。行を複数追加可</td></tr>';
+  S += '<tr><td>🫀 カテ</td><td>治療順番号（1〜10）＋科→中カテゴリ→種別の3階層選択＋備考。行を複数追加可</td></tr>';
   S += '<tr><td>🚶 6MW</td><td>件数＋備考</td></tr>';
   S += '<tr><td>🌙 PSG</td><td>装着（号室等）＋付箋入力済チェック＋外し＋解析残件数</td></tr>';
   S += '<tr><td>➕ フリー</td><td>自由記述。複数追加可</td></tr>';
@@ -1816,7 +1917,7 @@ function renderManual() {
     + '<tr><td>フリー</td><td>💉</td><td>役割（フリー／PSG解析／自由記述）を選択可。チェックボックスあり</td></tr>'
     + '</table>';
   S += h2('割り当て方法 ①　ドラッグ＆ドロップ（PC・スマホ両対応）');
-  S += step(1,'「当日勤務者一覧」の名前カードを確認する','Excelインポート済みならCE勤務者の名前が並んでいます。');
+  S += step(1,'「当日勤務者一覧」の名前カードを確認する','Excelインポート済みならCE勤務者の名前が並びます。勤務交代がある場合は「＋CE」「＋OC」で当日だけ追加し、名前横の「×」で当日だけ外せます。');
   S += step(2,'名前カードをドラッグ（スマホは長押しスワイプ）する','PCはマウスで、スマホは指で押したまま動かします。');
   S += step(3,'担当枠の上で離す','名前がセットされ、一覧から自動的に消えます。');
   S += h2('割り当て方法 ②　タップ');
@@ -1831,7 +1932,7 @@ function renderManual() {
 
   // ===== 第5章 =====
   S += h1('第5章　業務内容を入力する');
-  S += '<div class="mn-p">連絡表の「当日業務内容」エリアに、管理者が追加した業務カードが表示されます。</div>';
+  S += '<div class="mn-p">連絡表の「当日業務内容」エリアに、追加した業務カードが表示されます。オペ・カテは科→中カテゴリ→術式/種別の順に選択できます。</div>';
   S += tip('管理者は「🔪 オペ」「🫀 カテ」「🚶 6MW」「🌙 PSG」「➕ フリー」ボタンでカードを追加・削除できます。💾でテンプレートとして保存すると次回以降も同じ構成が使えます。');
   S += h2('🔪 オペ（手術）');
   S += step(1,'術式を選ぶ','プルダウンから選択。一覧にない場合は「自由記述...」を選んでテキスト入力。');
@@ -2080,14 +2181,15 @@ function renderDev() {
     '    memos:      [{uid, name, isAdmin, text,',
     '                  media:[{type,name,url,storagePath,data}], ts}],',
     '    ops: {',
-    '      ope_items:  [{sel, txt, time, timeTxt}],',
-    '      cath_items: [{sel, txt, order}],',
+    '      ope_items:  [{dept, cat, sel, txt, time, timeTxt, sup:[]}],',
+    '      cath_items: [{dept, cat, sel, txt, order}],',
     '      ope_note, cath_note, mw_n, mw_note,',
     '      psg_on, psg_off, psg_rest, psg_fusen',
     '    },',
-    '    ocData: {staff, note}',
+    '    ocData: {staff, note},',
+    '    staffAdj: {addCe:[], addOc:[], removeCe:{名前:true}, removeOc:{名前:true}}',
     '  }},',
-    '  stf, phs, dly, wd, lk, ope, cath,',
+    '  stf, phs, dly, wd, lk, ope, cath, sup, opeTree, cathTree, supTree,',
     "  shift: {YYYY-MM: {氏名: {1:{shift,oc}}}},",
     "  evts:  {YYYY-MM: {1:[イベント名]}},",
     "  manual: {業務名: {text, media:[]}}",'}'
@@ -2336,9 +2438,10 @@ function downloadDevMd() {
     '| saveD() | fbDB.ref(\'/data\').set(D)で保存（/data/配下のみ） |',
     '| renderPage(ds) | 連絡表全体描画 |',
     '| buildDG(ds,dat,locked) | 担当グリッド＋D&D |',
-    '| buildOPS(ds,dat,locked) | オペ/カテ/6MW/PSGカード |',
+    '| buildOPS(ds,dat,locked) | オペ/カテ/6MW/PSGカード（3階層マスタ対応） |',
     '| buildCL(ds,dat,wtl,all,locked) | チェックリスト |',
     '| poolAssign(ds,name) | タップ割り当て（DUTIES順） |',
+    '| addPoolStaffPrompt/removePoolStaff | 当日勤務者一覧の手動追加・除外（Excel原本は変更しない） |',
     '| parseShiftSheet(wb,fileName) | Excel→CE/OC/イベント抽出 |',
     '| togLk(id,v) | ロック設定（show_phsは逆ロジック） |',
     '| compressImage(file,cb) | Canvas圧縮（1280px/JPEG80%） |',
@@ -2923,13 +3026,83 @@ function addWdly() { if(!can('wm'))return; var v=document.getElementById('in-wdl
 function rmWdly(i) { if(!can('wm'))return; D.wd[selWd].splice(i,1); renderWdlyList(); saveD(); if(curDs)safeRenderPage(); }
 function mvWdly(i,d) { if(!can('wm'))return; var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return; var t=arr[i];arr[i]=arr[j];arr[j]=t; renderWdlyList(); saveD(); }
 
-/* ===== OPE/CATH/OC MASTER ===== */
-function renderOpeList() { var l=document.getElementById('ope-list');l.innerHTML='';for(var i=0;i<D.ope.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🔪 '+escH(D.ope[i])+'</span><button class="rd2" onclick="rmOpe('+i+')">×</button>';l.appendChild(el);} }
-function addOpe() { var v=document.getElementById('in-ope').value.trim();if(!v)return;D.ope.push(v);document.getElementById('in-ope').value='';renderOpeList();saveD(); }
-function rmOpe(i) { D.ope.splice(i,1);renderOpeList();saveD(); }
-function renderCathList() { var l=document.getElementById('cath-list');l.innerHTML='';for(var i=0;i<D.cath.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🫀 '+escH(D.cath[i])+'</span><button class="rd2" onclick="rmCath('+i+')">×</button>';l.appendChild(el);} }
-function addCath() { var v=document.getElementById('in-cath').value.trim();if(!v)return;D.cath.push(v);document.getElementById('in-cath').value='';renderCathList();saveD(); }
-function rmCath(i) { D.cath.splice(i,1);renderCathList();saveD(); }
+/* ===== OPE/CATH/SUP ツリーマスタ ===== */
+/* --- 汎用ツリー描画 --- */
+function renderTree(elId, tree, saveKey, icons) {
+  var l = document.getElementById(elId); if (!l) return;
+  l.innerHTML = '';
+  (tree || []).forEach(function(dept, di) {
+    var deptDiv = document.createElement('div'); deptDiv.className = 'tree-dept';
+    var deptHd = document.createElement('div'); deptHd.className = 'tree-dept-hd';
+    var arrow = document.createElement('span'); arrow.textContent = '▶'; arrow.style.cssText='font-size:10px;transition:transform .15s;display:inline-block';
+    var deptName = document.createElement('span'); deptName.style.flex='1'; deptName.textContent=(icons?icons[0]+' ':'')+dept.dept;
+    var delDeptBtn = document.createElement('button');
+    delDeptBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:12px;padding:0 2px';
+    delDeptBtn.textContent='×'; delDeptBtn.title='科を削除';
+    delDeptBtn.onclick=(function(idx){return function(e){e.stopPropagation();if(!confirm('「'+tree[idx].dept+'」と全ての術式を削除しますか？')) return;tree.splice(idx,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di);
+    deptHd.appendChild(arrow); deptHd.appendChild(deptName); deptHd.appendChild(delDeptBtn);
+
+    var body = document.createElement('div'); body.className = 'tree-dept-body'; body.style.display='none';
+    deptHd.onclick = function(){ var open=body.style.display==='none'; body.style.display=open?'':'none'; arrow.style.transform=open?'rotate(90deg)':''; };
+
+    (dept.cats||[]).forEach(function(cat, ci) {
+      var catDiv = document.createElement('div'); catDiv.className = 'tree-cat';
+      var catHd = document.createElement('div'); catHd.className = 'tree-cat-hd';
+      var catArrow = document.createElement('span'); catArrow.textContent='▶'; catArrow.style.cssText='font-size:9px;transition:transform .15s;display:inline-block';
+      var catName = document.createElement('span'); catName.style.flex='1'; catName.textContent=(icons?icons[1]+' ':'')+cat.name;
+      var delCatBtn = document.createElement('button');
+      delCatBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 2px';
+      delCatBtn.textContent='×'; delCatBtn.title='中カテゴリを削除';
+      delCatBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();if(!confirm('「'+tree[di2].cats[ci2].name+'」を削除しますか？')) return;tree[di2].cats.splice(ci2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci);
+      catHd.appendChild(catArrow); catHd.appendChild(catName); catHd.appendChild(delCatBtn);
+
+      var catBody = document.createElement('div'); catBody.className = 'tree-cat-body'; catBody.style.display='none';
+      catHd.onclick = function(){ var open=catBody.style.display==='none'; catBody.style.display=open?'':'none'; catArrow.style.transform=open?'rotate(90deg)':''; };
+
+      (cat.items||[]).forEach(function(item, ii) {
+        var itemRow = document.createElement('div'); itemRow.className = 'tree-item';
+        var itemSpan = document.createElement('span'); itemSpan.textContent=(icons?icons[2]+' ':'')+item;
+        var delItemBtn = document.createElement('button');
+        delItemBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 3px';
+        delItemBtn.textContent='×';
+        delItemBtn.onclick=(function(di2,ci2,ii2){return function(){if(!confirm('「'+tree[di2].cats[ci2].items[ii2]+'」を削除しますか？')) return;tree[di2].cats[ci2].items.splice(ii2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci,ii);
+        itemRow.appendChild(itemSpan); itemRow.appendChild(delItemBtn); catBody.appendChild(itemRow);
+      });
+
+      /* 術式追加 */
+      var addItemRow = document.createElement('div'); addItemRow.className='tree-add-row';
+      var addItemInp = document.createElement('input'); addItemInp.type='text'; addItemInp.placeholder='術式・品名を追加…';
+      var addItemBtn = document.createElement('button'); addItemBtn.textContent='追加';
+      addItemBtn.onclick=(function(di2,ci2,inp){return function(){var v=inp.value.trim();if(!v)return;tree[di2].cats[ci2].items.push(v);inp.value='';D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci,addItemInp);
+      addItemInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addItemBtn);
+      addItemRow.appendChild(addItemInp); addItemRow.appendChild(addItemBtn); catBody.appendChild(addItemRow);
+
+      catDiv.appendChild(catHd); catDiv.appendChild(catBody); body.appendChild(catDiv);
+    });
+
+    /* 中カテゴリ追加 */
+    var addCatRow = document.createElement('div'); addCatRow.className='tree-add-row';
+    var addCatInp = document.createElement('input'); addCatInp.type='text'; addCatInp.placeholder='中カテゴリを追加…';
+    var addCatBtn = document.createElement('button'); addCatBtn.textContent='追加';
+    addCatBtn.onclick=(function(di2,inp){return function(){var v=inp.value.trim();if(!v)return;tree[di2].cats.push({name:v,items:[]});inp.value='';D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,addCatInp);
+    addCatInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addCatBtn);
+    addCatRow.appendChild(addCatInp); addCatRow.appendChild(addCatBtn); body.appendChild(addCatRow);
+
+    deptDiv.appendChild(deptHd); deptDiv.appendChild(body); l.appendChild(deptDiv);
+  });
+}
+function renderOpeTree()  { renderTree('ope-tree-list',  D.opeTree,  'opeTree',  ['🔬','📂','🔪']); }
+function renderCathTree() { renderTree('cath-tree-list', D.cathTree, 'cathTree', ['🔬','📂','🫀']); }
+function renderSupTree()  { renderTree('sup-tree-list',  D.supTree,  'supTree',  ['📦','📂','🧰']); }
+
+function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById('in-ope-dept').value='';saveD();renderOpeTree(); }
+function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';saveD();renderCathTree(); }
+function addSupTreeDept()  { var v=document.getElementById('in-sup-dept').value.trim();if(!v)return;if(!D.supTree)D.supTree=[];D.supTree.push({dept:v,cats:[]});document.getElementById('in-sup-dept').value='';saveD();renderSupTree(); }
+
+/* renderOpeList / renderCathList / renderSupList は後方互換のため残す（旧フラットリスト用） */
+function renderOpeList()  { renderOpeTree(); }
+function renderCathList() { renderCathTree(); }
+function renderSupList()  { renderSupTree(); }
 function renderDutyMasterList() {
   var l = document.getElementById('duty-master-list'); if(!l) return;
   l.innerHTML = '';
@@ -2973,9 +3146,7 @@ function rmDutyMaster(idx) {
   saveD();
 }
 
-function renderSupList() { var l=document.getElementById('sup-list');if(!l)return;l.innerHTML='';if(!D.sup)D.sup=DEF_SUP.slice();for(var i=0;i<D.sup.length;i++){var el=document.createElement('div');el.className='ri';el.innerHTML='<span class="rn" style="font-size:11px">🧰 '+escH(D.sup[i])+'</span><button class="rd2" onclick="rmSup('+i+')">×</button>';l.appendChild(el);} }
-function addSup() { if(!D.sup)D.sup=DEF_SUP.slice();var v=document.getElementById('in-sup').value.trim();if(!v)return;D.sup.push(v);document.getElementById('in-sup').value='';renderSupList();saveD(); }
-function rmSup(i) { D.sup.splice(i,1);renderSupList();saveD(); }
+/* renderSupList は上の renderSupTree に統合済み */
 
 /* ===== LOCK ===== */
 function renderLockList() {
@@ -3034,7 +3205,37 @@ function getShiftForDay(ds) {
   }
   var ed = D.evts[ym];
   if (ed && ed[day]) res.evts = ed[day].slice();
+  applyStaffAdjustments(ds, res);
   return res;
+}
+
+function ensureStaffAdj(dat) {
+  if (!dat.staffAdj) dat.staffAdj = {};
+  if (!dat.staffAdj.addCe) dat.staffAdj.addCe = [];
+  if (!dat.staffAdj.addOc) dat.staffAdj.addOc = [];
+  if (!dat.staffAdj.removeCe) dat.staffAdj.removeCe = {};
+  if (!dat.staffAdj.removeOc) dat.staffAdj.removeOc = {};
+  return dat.staffAdj;
+}
+function poolHas(arr, name) {
+  for (var i=0;i<arr.length;i++) if (arr[i].name === name) return true;
+  return false;
+}
+function poolRemoveName(arr, name) {
+  for (var i=arr.length-1;i>=0;i--) if (arr[i].name === name) arr.splice(i,1);
+}
+function applyStaffAdjustments(ds, res) {
+  var dat = D.pages && D.pages[ds];
+  if (!dat || !dat.staffAdj) return;
+  var adj = ensureStaffAdj(dat);
+  res.ce = res.ce.filter(function(x){ return !adj.removeCe[x.name]; });
+  res.oc = res.oc.filter(function(x){ return !adj.removeOc[x.name]; });
+  (adj.addCe || []).forEach(function(name){
+    if (!adj.removeCe[name] && !poolHas(res.ce, name)) res.ce.push({name:name, shift:'手動', oc:false, manual:true});
+  });
+  (adj.addOc || []).forEach(function(name){
+    if (!adj.removeOc[name] && !poolHas(res.oc, name)) res.oc.push({name:name, shift:'手動', manual:true});
+  });
 }
 
 /* ===== SHIFT IMPORT ===== */
@@ -3538,6 +3739,12 @@ function renderPage(ds) {
   /* 勤務者プール */
   h+='<div class="pool-wrap">';
   h+='<div class="pool-hd"><span>👥 当日勤務者一覧</span>';
+  if(!dlk){
+    h+='<span style="display:flex;gap:4px;flex-wrap:wrap;margin-left:auto">';
+    h+='<button type="button" class="pool-mini-btn" data-action="addPoolStaff" data-ds="'+ds+'" data-type="ce">＋CE</button>';
+    h+='<button type="button" class="pool-mini-btn" data-action="addPoolStaff" data-ds="'+ds+'" data-type="oc">＋OC</button>';
+    h+='</span>';
+  }
   if(!si.ce.length&&!si.oc.length&&isAdmin) h+='<button class="btn btn-g btn-sm" onclick="openSIM()" style="font-size:10px">📋 勤務表を入力</button>';
   h+='</div><div class="pool-chips" id="pool-chips">';
   if(!si.ce.length&&!si.oc.length){
@@ -3547,8 +3754,9 @@ function renderPage(ds) {
       h+='<div class="pool-sec">🔵 CE勤務</div>';
       for(var i=0;i<si.ce.length;i++){
         var ci=si.ce[i], cid='chip-'+ci.name.replace(/[\s　]/g,'_');
-        h+='<div class="pchip ce" id="'+cid+'" draggable="true" data-name="'+ci.name+'" data-ds="'+ds+'" onclick="poolAssign(\''+ds+'\',\''+ci.name+'\')">'+ci.name+'<span class="cs">'+ci.shift+'</span>';
+        h+='<div class="pchip ce'+(ci.manual?' manual':'')+'" id="'+escH(cid)+'" draggable="true" data-action="poolAssign" data-name="'+escH(ci.name)+'" data-ds="'+ds+'">'+escH(ci.name)+'<span class="cs">'+escH(ci.shift)+'</span>';
         if(ci.oc)h+='<span style="font-size:9px;background:var(--oc-bg);color:var(--oc);padding:1px 4px;border-radius:3px;margin-left:2px">OC</span>';
+        if(!dlk)h+='<button type="button" class="pool-chip-x" data-action="removePoolStaff" data-type="ce" data-name="'+escH(ci.name)+'" data-ds="'+ds+'" title="当日勤務者一覧から外す">×</button>';
         h+='</div>';
       }
     }
@@ -3556,13 +3764,15 @@ function renderPage(ds) {
       h+='<div class="pool-sec">🟠 オンコール（OC）</div>';
       for(var i=0;i<si.oc.length;i++){
         var oi=si.oc[i], oid='chip-'+oi.name.replace(/[\s　]/g,'_');
-        h+='<div class="pchip oc" id="'+oid+'" draggable="true" data-name="'+oi.name+'" data-ds="'+ds+'" onclick="poolAssign(\''+ds+'\',\''+oi.name+'\')">'+oi.name+'<span class="cs">'+oi.shift+'</span></div>';
+        h+='<div class="pchip oc'+(oi.manual?' manual':'')+'" id="'+escH(oid)+'" draggable="true" data-action="poolAssign" data-name="'+escH(oi.name)+'" data-ds="'+ds+'">'+escH(oi.name)+'<span class="cs">'+escH(oi.shift)+'</span>';
+        if(!dlk)h+='<button type="button" class="pool-chip-x" data-action="removePoolStaff" data-type="oc" data-name="'+escH(oi.name)+'" data-ds="'+ds+'" title="当日勤務者一覧から外す">×</button>';
+        h+='</div>';
       }
     }
   }
   h+='</div></div>';
   h+='<div id="surplus-wrap" class="surplus-wrap"></div>';
-  h+='<div class="co">💡 勤務者一覧の名前をタップすると担当に自動入力されます。割り当て済みの人は消えます。「🔄 余剰人員」エリアへドラッグして管理できます。</div>';
+  h+='<div class="co">💡 勤務者一覧の名前をタップすると担当に自動入力されます。勤務交代時は「＋CE」「＋OC」で当日だけ追加、各名前の「×」で当日だけ除外できます。割り当て済みの人は消えます。</div>';
 
   /* 担当割り当て */
   h+='<div class="st">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'')+'</div>';
@@ -3694,6 +3904,25 @@ function renderPage(ds) {
         removeEvt(bds, evtName);
       } else if(action === 'addEvtPrompt'){
         addEvtPrompt(bds);
+      }
+    });
+  }
+
+  var poolArea = document.querySelector('.pool-wrap');
+  if(poolArea){
+    poolArea.addEventListener('click', function(e){
+      var btn = e.target.closest('[data-action]');
+      if(!btn) return;
+      var action = btn.getAttribute('data-action');
+      var bds = btn.getAttribute('data-ds');
+      if(action === 'poolAssign'){
+        poolAssign(bds, btn.getAttribute('data-name'));
+      } else if(action === 'removePoolStaff'){
+        e.stopPropagation();
+        removePoolStaff(bds, btn.getAttribute('data-type'), btn.getAttribute('data-name'));
+      } else if(action === 'addPoolStaff'){
+        e.stopPropagation();
+        addPoolStaffPrompt(bds, btn.getAttribute('data-type'));
       }
     });
   }
@@ -3830,6 +4059,37 @@ function refreshPool(ds) {
       if(!done){var m=document.createElement('span');m.className='pool-empty pool-done-msg';m.textContent='✅ 全員の担当割り当てが完了しました！';pc.appendChild(m);}
     }else{if(done)done.remove();}
   }
+}
+function addPoolStaffPrompt(ds, type) {
+  var dat = D.pages[ds]; if(!dat) return;
+  var label = type === 'oc' ? 'OC担当' : 'CE勤務';
+  var v = prompt(label + 'として当日勤務者一覧に追加するスタッフ名を入力してください');
+  if (!v || !v.trim()) return;
+  v = v.trim();
+  var adj = ensureStaffAdj(dat);
+  var addKey = type === 'oc' ? 'addOc' : 'addCe';
+  var removeKey = type === 'oc' ? 'removeOc' : 'removeCe';
+  var otherAddKey = type === 'oc' ? 'addCe' : 'addOc';
+  delete adj[removeKey][v];
+  adj[otherAddKey] = adj[otherAddKey].filter(function(name){ return name !== v; });
+  if (adj[addKey].indexOf(v) === -1) adj[addKey].push(v);
+  saveD();
+  renderPage(ds);
+  writeLog('当日勤務者追加', fmtJ(ds) + ' ' + label + ' → ' + v);
+}
+function removePoolStaff(ds, type, name) {
+  var dat = D.pages[ds]; if(!dat || !name) return;
+  var adj = ensureStaffAdj(dat);
+  var addKey = type === 'oc' ? 'addOc' : 'addCe';
+  var removeKey = type === 'oc' ? 'removeOc' : 'removeCe';
+  if (adj[addKey].indexOf(name) !== -1) {
+    adj[addKey] = adj[addKey].filter(function(x){ return x !== name; });
+  } else {
+    adj[removeKey][name] = true;
+  }
+  saveD();
+  renderPage(ds);
+  writeLog('当日勤務者除外', fmtJ(ds) + ' ' + (type === 'oc' ? 'OC' : 'CE') + ' → ' + name);
 }
 function poolAssign(ds,name) {
   var dat=D.pages[ds]; if(!dat)return;
@@ -5026,6 +5286,171 @@ function buildOPS(ds,dat,locked) {
 
   /* ===== 術式/種別 複数行リスト ===== */
   /* ope items: [{sel:'', txt:'', time:'', timeTxt:''}]  cath items: [{sel:'', txt:''}] */
+  /* ===== 3階層ツリー選択 buildItemListTree ===== */
+  function buildItemListTree(cardEl, key, masterTree, labelName, itemId, withTime, withOrder, withSup) {
+    var items = (ops[key] && ops[key].length) ? ops[key] : [{dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]}];
+
+    function makeDeptOpts(sel2) {
+      var h='<option value="">-- 科 / カテゴリ --</option>';
+      (masterTree||[]).forEach(function(d){ h+='<option value="'+escH(d.dept)+'"'+(sel2===d.dept?' selected':'')+'>'+escH(d.dept)+'</option>'; });
+      h+='<option value="__free__"'+(sel2==='__free__'?' selected':'')+'>自由記述...</option>';
+      return h;
+    }
+    function makeCatOpts(dept2,sel2){
+      var h='<option value="">-- 中カテゴリ --</option>';
+      var dObj=(masterTree||[]).filter(function(d){return d.dept===dept2;})[0];
+      if(dObj)(dObj.cats||[]).forEach(function(c){ h+='<option value="'+escH(c.name)+'"'+(sel2===c.name?' selected':'')+'>'+escH(c.name)+'</option>'; });
+      return h;
+    }
+    function makeItemOpts(dept2,cat2,sel2){
+      var h='<option value="">-- '+labelName+'を選択 --</option>';
+      var dObj=(masterTree||[]).filter(function(d){return d.dept===dept2;})[0];
+      if(dObj){var cObj=(dObj.cats||[]).filter(function(c){return c.name===cat2;})[0];if(cObj)(cObj.items||[]).forEach(function(it){ h+='<option value="'+escH(it)+'"'+(sel2===it?' selected':'')+'>'+escH(it)+'</option>'; });}
+      return h;
+    }
+    /* 使用物品ツリーセレクタ */
+    function makeSupTreeRow(onAdd) {
+      var wrap2=document.createElement('div'); wrap2.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px';
+      var dSel2=document.createElement('select'); dSel2.className='ops-sel'; dSel2.style.cssText='flex:1;min-width:80px;font-size:11px'; dSel2.disabled=!!locked;
+      var cSel2=document.createElement('select'); cSel2.className='ops-sel'; cSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; cSel2.disabled=!!locked;
+      var iSel2=document.createElement('select'); iSel2.className='ops-sel'; iSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; iSel2.disabled=!!locked;
+      var addBtn2=document.createElement('button'); addBtn2.type='button'; addBtn2.textContent='追加'; addBtn2.disabled=!!locked;
+      addBtn2.style.cssText='font-size:11px;padding:4px 10px;border:none;border-radius:var(--rs);background:var(--ac);color:#fff;cursor:pointer;flex-shrink:0';
+      var dOpts2='<option value="">+ 物品カテゴリ</option>';
+      (D.supTree||[]).forEach(function(d){ dOpts2+='<option value="'+escH(d.dept)+'">'+escH(d.dept)+'</option>'; });
+      dSel2.innerHTML=dOpts2;
+      if(!locked){
+        dSel2.onchange=function(){ var v=this.value; cSel2.style.display=v?'':'none'; var h2='<option value="">-- 種別 --</option>'; var dObj2=(D.supTree||[]).filter(function(d){return d.dept===v;})[0]; if(dObj2)(dObj2.cats||[]).forEach(function(c){ h2+='<option value="'+escH(c.name)+'">'+escH(c.name)+'</option>'; }); cSel2.innerHTML=h2; iSel2.style.display='none'; iSel2.innerHTML='<option value="">-- 品名 --</option>'; };
+        cSel2.onchange=function(){ var dept3=dSel2.value; var v=this.value; iSel2.style.display=v?'':'none'; var h3='<option value="">-- 品名 --</option>'; var dObj3=(D.supTree||[]).filter(function(d){return d.dept===dept3;})[0]; if(dObj3){var cObj3=(dObj3.cats||[]).filter(function(c){return c.name===v;})[0]; if(cObj3)(cObj3.items||[]).forEach(function(it){ h3+='<option value="'+escH(it)+'">'+escH(it)+'</option>'; });} iSel2.innerHTML=h3; };
+        addBtn2.onclick=function(){ var v=iSel2.value||cSel2.value||dSel2.value; if(!v)return; onAdd(v); dSel2.value=''; cSel2.innerHTML='<option value="">-- 種別 --</option>'; cSel2.style.display='none'; iSel2.style.display='none'; iSel2.innerHTML='<option value="">-- 品名 --</option>'; };
+      }
+      wrap2.appendChild(dSel2); wrap2.appendChild(cSel2); wrap2.appendChild(iSel2); wrap2.appendChild(addBtn2);
+      return wrap2;
+    }
+
+    var wrap = document.createElement('div');
+    wrap.id = 'ops-'+itemId+'-wrap';
+
+    function renderItems() {
+      wrap.innerHTML = '';
+      items.forEach(function(item, idx) {
+        var row = document.createElement('div'); row.className='ops-item-row';
+        var isLegacy = (item.sel && !item.dept && !item.cat && item.sel!=='__free__');
+        var isFree = (item.dept==='__free__');
+        var hierDiv = document.createElement('div');
+        hierDiv.style.cssText='flex:3;display:flex;flex-direction:column;gap:3px;min-width:0';
+
+        if(isLegacy){
+          /* 旧データ表示 */
+          var legRow=document.createElement('div'); legRow.style.cssText='display:flex;gap:4px;align-items:center';
+          var legSpan=document.createElement('span'); legSpan.style.cssText='flex:1;font-size:12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;color:var(--txt2)';
+          legSpan.textContent='（旧）'+item.sel;
+          var resetBtn=document.createElement('button'); resetBtn.type='button'; resetBtn.disabled=!!locked;
+          resetBtn.style.cssText='font-size:11px;padding:3px 8px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap';
+          resetBtn.textContent='再選択';
+          if(!locked) resetBtn.onclick=(function(i2){return function(){items[i2].dept='';items[i2].cat='';items[i2].sel='';saveItems();renderItems();};})(idx);
+          legRow.appendChild(legSpan); legRow.appendChild(resetBtn); hierDiv.appendChild(legRow);
+        } else if(isFree){
+          /* 自由記述モード */
+          var freeRow=document.createElement('div'); freeRow.style.cssText='display:flex;gap:4px;align-items:center';
+          var freeInp=document.createElement('input'); freeInp.type='text'; freeInp.className='ops-sel'; freeInp.style.flex='1';
+          freeInp.placeholder=labelName+'を直接入力...'; freeInp.disabled=!!locked; freeInp.value=item.sel||'';
+          var toTreeBtn=document.createElement('button'); toTreeBtn.type='button'; toTreeBtn.disabled=!!locked;
+          toTreeBtn.style.cssText='font-size:11px;padding:3px 8px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap';
+          toTreeBtn.textContent='一覧から選択';
+          if(!locked){freeInp.oninput=(function(i2){return function(){items[i2].sel=this.value;saveItems();};})(idx);toTreeBtn.onclick=(function(i2){return function(){items[i2].dept='';items[i2].sel='';saveItems();renderItems();};})(idx);}
+          freeRow.appendChild(freeInp); freeRow.appendChild(toTreeBtn); hierDiv.appendChild(freeRow);
+        } else {
+          /* 3段階カスケード選択 */
+          var deptSel=document.createElement('select'); deptSel.className='ops-sel'; deptSel.disabled=!!locked; deptSel.innerHTML=makeDeptOpts(item.dept);
+          var catSel=document.createElement('select'); catSel.className='ops-sel'; catSel.disabled=!!locked; catSel.innerHTML=makeCatOpts(item.dept,item.cat); catSel.style.display=(item.dept&&item.dept!=='__free__')?'':'none';
+          var itemSel=document.createElement('select'); itemSel.className='ops-sel'; itemSel.disabled=!!locked; itemSel.innerHTML=makeItemOpts(item.dept,item.cat,item.sel); itemSel.style.display=item.cat?'':'none';
+          hierDiv.appendChild(deptSel); hierDiv.appendChild(catSel); hierDiv.appendChild(itemSel);
+          if(!locked){
+            (function(i2,dS,cS,iS){
+              dS.onchange=function(){var v=this.value;items[i2].dept=v;items[i2].cat='';items[i2].sel='';if(v==='__free__'){saveItems();renderItems();}else{cS.innerHTML=makeCatOpts(v,'');iS.innerHTML=makeItemOpts(v,'','');cS.style.display=v?'':'none';iS.style.display='none';saveItems();}};
+              cS.onchange=function(){var v=this.value;items[i2].cat=v;items[i2].sel='';iS.innerHTML=makeItemOpts(items[i2].dept,v,'');iS.style.display=v?'':'none';saveItems();};
+              iS.onchange=function(){items[i2].sel=this.value;saveItems();};
+            })(idx,deptSel,catSel,itemSel);
+          }
+        }
+
+        /* 順番プルダウン（カテのみ） */
+        if(withOrder){
+          var orderSel=document.createElement('select'); orderSel.className='ops-sel'; orderSel.style.cssText='width:52px;flex-shrink:0;text-align:center;font-weight:700'; orderSel.disabled=!!locked;
+          var oh='<option value="">－</option>'; for(var oi=1;oi<=10;oi++) oh+='<option value="'+oi+'"'+(item.order==oi?' selected':'')+'>'+oi+'</option>';
+          orderSel.innerHTML=oh; row.insertBefore(orderSel,hierDiv);
+          if(!locked)(function(i2,oS){oS.onchange=function(){items[i2].order=this.value;saveItems();};})(idx,orderSel);
+        }
+
+        row.appendChild(hierDiv);
+
+        /* 入室時間（オペのみ） */
+        var timeSelEl2=null,timeTxtEl2=null;
+        if(withTime){
+          var timeWrap=document.createElement('div'); timeWrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:2px';
+          timeSelEl2=document.createElement('select'); timeSelEl2.className='ops-sel'; timeSelEl2.style.flex='1'; timeSelEl2.disabled=!!locked; timeSelEl2.innerHTML=makeTimeOpts(item.time||'');
+          timeTxtEl2=document.createElement('input'); timeTxtEl2.type='text'; timeTxtEl2.className='ops-txt'; timeTxtEl2.style.flex='1'; timeTxtEl2.placeholder='時間を入力...'; timeTxtEl2.disabled=!!locked; timeTxtEl2.value=item.timeTxt||''; timeTxtEl2.style.display=item.time==='__free__'?'':'none';
+          timeWrap.appendChild(timeSelEl2); timeWrap.appendChild(timeTxtEl2); hierDiv.appendChild(timeWrap);
+          if(!locked){(function(i2,tS,tT){tS.onchange=function(){items[i2].time=this.value;tT.style.display=this.value==='__free__'?'':'none';if(this.value!=='__free__')items[i2].timeTxt='';saveItems();};tT.oninput=function(){items[i2].timeTxt=this.value;saveItems();};})(idx,timeSelEl2,timeTxtEl2);}
+        }
+
+        /* 削除ボタン */
+        var delBtn=document.createElement('button'); delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除'; delBtn.type='button'; delBtn.disabled=!!locked;
+        if(!locked) delBtn.onclick=(function(i2){return function(){if(items.length<=1){items[0]={dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]};}else{items.splice(i2,1);}saveItems();renderItems();};})(idx);
+        row.appendChild(delBtn);
+        wrap.appendChild(row);
+
+        /* 使用物品行（オペのみ） */
+        if(withSup){
+          var supRow2=document.createElement('div'); supRow2.style.cssText='margin-top:4px;margin-bottom:4px;padding:8px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)';
+          var supLbl2=document.createElement('div'); supLbl2.style.cssText='font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:5px'; supLbl2.textContent='🧰 使用物品';
+          supRow2.appendChild(supLbl2);
+          /* 3段カスケード選択 */
+          var supTreeRow=makeSupTreeRow(function(v){
+            var cur=(item.sup&&item.sup.length)?item.sup.join(', '):'';
+            item.sup=(cur?cur+', '+v:v).split(',').map(function(s){return s.trim();}).filter(Boolean);
+            supInpEl.value=item.sup.join(', '); saveItems();
+          });
+          supRow2.appendChild(supTreeRow);
+          /* テキスト入力（直接入力・カンマ区切り） */
+          var supInpEl=document.createElement('input'); supInpEl.type='text'; supInpEl.className='ops-txt'; supInpEl.style.cssText='width:100%;font-size:12px';
+          supInpEl.placeholder='または直接入力（カンマ区切りで複数可）'; supInpEl.disabled=!!locked;
+          supInpEl.value=(item.sup&&item.sup.length)?item.sup.join(', '):'';
+          if(!locked){
+            supInpEl.oninput=(function(i2,el2){return function(){
+              items[i2].sup=el2.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+              saveItems();
+            };})(idx,supInpEl);
+            supInpEl.onblur=(function(i2){return function(){
+              this.value=this.value.replace(/[,\s]+$/,'');
+              items[i2].sup=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+              saveItems();
+            };})(idx);
+          }
+          supRow2.appendChild(supInpEl);
+          wrap.appendChild(supRow2);
+        }
+      });
+
+      if(!locked){
+        var addBtn3=document.createElement('button'); addBtn3.className='ops-add-btn'; addBtn3.type='button';
+        addBtn3.innerHTML='＋ '+labelName+'を追加';
+        addBtn3.onclick=function(){items.push({dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]});saveItems();renderItems();};
+        wrap.appendChild(addBtn3);
+      }
+    }
+
+    function saveItems(){
+      if(!D.pages[ds].ops) D.pages[ds].ops={};
+      D.pages[ds].ops[key]=JSON.parse(JSON.stringify(items));
+      saveD();
+    }
+
+    renderItems();
+    cardEl.appendChild(wrap);
+  }
+
   function buildItemList(cardEl, key, masterList, labelName, itemId, withTime, withOrder, withSup, showQuickBtns) {
     /* showQuickBtns: 省略またはtrueのときクイック追加ボタンを表示 */
     if (showQuickBtns === undefined) showQuickBtns = true;
@@ -5076,7 +5501,7 @@ function buildOPS(ds,dat,locked) {
         selEl.style.flex = '1';
         selEl.disabled = !!locked;
         var optHtml = '<option value="">-- '+labelName+'を選択 --</option>';
-        masterList.forEach(function(m){ optHtml+='<option value="'+m+'"'+(item.sel===m?' selected':'')+'>'+m+'</option>'; });
+        masterList.forEach(function(m){ optHtml+='<option value="'+escH(m)+'"'+(item.sel===m?' selected':'')+'>'+escH(m)+'</option>'; });
         optHtml+='<option value="__free__"'+(item.sel==='__free__'?' selected':'')+'>自由記述...</option>';
         selEl.innerHTML = optHtml;
 
@@ -5269,7 +5694,7 @@ function buildOPS(ds,dat,locked) {
 
     function saveItems(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
-      D.pages[ds].ops[key] = items.slice();
+      D.pages[ds].ops[key] = JSON.parse(JSON.stringify(items));
       saveD();
     }
 
@@ -5283,7 +5708,11 @@ function buildOPS(ds,dat,locked) {
 
   function buildOpeCard(){
     var opeCard = card('🔪 オペ');
-    buildItemList(opeCard, 'ope_items', D.ope, '術式', 'ope', true, false, true, false);
+    if (D.opeTree && D.opeTree.length) {
+      buildItemListTree(opeCard, 'ope_items', D.opeTree, '術式', 'ope', true, false, true);
+    } else {
+      buildItemList(opeCard, 'ope_items', D.ope, '術式', 'ope', true, false, true, false);
+    }
     var opeNoteRow = document.createElement('div'); opeNoteRow.className='ops-row';
     opeNoteRow.style.marginTop='6px';
     opeNoteRow.innerHTML='<span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-ope-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.ope_note||'')+'</textarea>';
@@ -5292,7 +5721,11 @@ function buildOPS(ds,dat,locked) {
   }
   function buildCathCard(){
     var cathCard = card('🫀 カテ');
-    buildItemList(cathCard, 'cath_items', D.cath, '種別', 'cath', false, true, false, false);
+    if (D.cathTree && D.cathTree.length) {
+      buildItemListTree(cathCard, 'cath_items', D.cathTree, '種別', 'cath', false, true, false);
+    } else {
+      buildItemList(cathCard, 'cath_items', D.cath, '種別', 'cath', false, true, false, false);
+    }
     var cathNoteRow = document.createElement('div'); cathNoteRow.className='ops-row';
     cathNoteRow.style.marginTop='6px';
     cathNoteRow.innerHTML='<span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-cath-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.cath_note||'')+'</textarea>';
