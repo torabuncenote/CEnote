@@ -474,6 +474,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* バッジをクリック可能に */
 .uc-name{cursor:pointer!important}
 .uc-name:hover{opacity:.8}
+/* ===== 管理者権限管理 ===== */
+.adminm-user-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);margin-bottom:5px}
+.adminm-user-info{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.adminm-user-name{font-size:13px;font-weight:700;color:var(--txt)}
+.adminm-user-email{font-size:11px;color:var(--txt3);font-family:var(--mo);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adminm-user-date{font-size:10px;color:var(--txt3)}
+.adminm-self-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);white-space:nowrap;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -788,7 +795,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <!-- 管理者設定パネル -->
     <div id="pane-adminm" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:40px">
-        <div class="pt" style="margin-bottom:12px">🔑 管理者設定マニュアル</div>
+        <div class="pt" style="margin-bottom:12px">🔑 管理者設定</div>
+        <div id="adminm-users" style="margin-bottom:18px"></div>
+        <div class="pt" style="margin-bottom:12px">📖 Firebaseセットアップマニュアル</div>
         <div id="adminm-body"></div>
       </div>
     </div>
@@ -1185,6 +1194,13 @@ function fbInit() {
         isAdmin = !!snap.val();
         currentUser = { uid: user.uid, email: user.email,
           displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin };
+
+        /* ユーザー登録（管理者権限管理画面のリスト用） */
+        fbDB.ref('/users/' + user.uid).set({
+          email: user.email,
+          displayName: currentUser.displayName,
+          lastLogin: Date.now()
+        });
 
         /* ヘッダー更新 */
         var uc = document.getElementById('uc-label');
@@ -2175,6 +2191,74 @@ function renderAdminManual() {
   S += '</table>';
 
   el.innerHTML = S;
+}
+
+/* ===== 管理者権限管理 ===== */
+function renderAdminUsers() {
+  var el = document.getElementById('adminm-users');
+  if (!el || !isAdmin || !FB_ON || !fbDB) return;
+
+  el.innerHTML = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 管理者権限の管理</div>' +
+    '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限をアプリから直接付与・取り消しできます。<br>一度もログインしていないスタッフは表示されません。</div>' +
+    '<div style="font-size:12px;color:var(--txt3);padding:8px">読み込み中...</div>';
+
+  Promise.all([
+    fbDB.ref('/users').once('value'),
+    fbDB.ref('/admins').once('value')
+  ]).then(function(results) {
+    var users  = results[0].val() || {};
+    var admins = results[1].val() || {};
+    var uids   = Object.keys(users);
+
+    var S = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 管理者権限の管理</div>';
+    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限をアプリから直接付与・取り消しできます。<br>一度もログインしていないスタッフは表示されません。</div>';
+
+    if (!uids.length) {
+      S += '<div style="font-size:12px;color:var(--txt3);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px">⚠ まだ誰もログインしていません。</div>';
+    } else {
+      uids.forEach(function(uid) {
+        var u     = users[uid];
+        var isAdm = !!admins[uid];
+        var isSelf = currentUser && currentUser.uid === uid;
+        S += '<div class="adminm-user-row">';
+        S += '<div class="adminm-user-info">';
+        S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : '👤 ') + escH(u.displayName || u.email) + '</span>';
+        S += '<span class="adminm-user-email">' + escH(u.email) + '</span>';
+        if (u.lastLogin) S += '<span class="adminm-user-date">最終ログイン: ' + fmtTS(u.lastLogin) + '</span>';
+        S += '</div>';
+        if (isSelf) {
+          S += '<span class="adminm-self-badge">自分</span>';
+        } else if (isAdm) {
+          S += '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">権限を外す</button>';
+        } else {
+          S += '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
+        }
+        S += '</div>';
+      });
+    }
+    S += '<button class="btn btn-g btn-sm" style="margin-top:6px" onclick="renderAdminUsers()">🔄 更新</button>';
+    el.innerHTML = S;
+  }).catch(function(err) {
+    var el2 = document.getElementById('adminm-users');
+    if (el2) el2.innerHTML = '<div style="font-size:12px;color:var(--rd);background:var(--rd-bg);border:1px solid #f5b8b8;border-radius:6px;padding:8px 12px">❌ 読み込みエラー: ' + escH(err.message) + '</div>';
+  });
+}
+
+function toggleAdminPriv(uid, currentlyAdmin) {
+  if (!isAdmin || !FB_ON || !fbDB) return;
+  var msg = currentlyAdmin
+    ? 'この管理者権限を取り消しますか？\n次回ログイン時から一般ユーザーになります。'
+    : 'このスタッフを管理者にしますか？\n次回ログイン時から管理者として操作できるようになります。';
+  if (!confirm(msg)) return;
+
+  var ref = fbDB.ref('/admins/' + uid);
+  var p   = currentlyAdmin ? ref.remove() : ref.set(true);
+  p.then(function() {
+    writeLog(currentlyAdmin ? '管理者権限を取り消し' : '管理者権限を付与', uid);
+    renderAdminUsers();
+  }).catch(function(err) {
+    alert('エラーが発生しました: ' + err.message);
+  });
 }
 
 /* ===== 引き継ぎ資料（開発者向け） ===== */
@@ -6629,7 +6713,7 @@ function swTab(t) {
   if(t==='guide') { renderGuide(); }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
-  if(t==='adminm') { renderAdminManual(); }
+  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); }
   if(t==='dev') { renderDev(); }
 }
 function toggleDocsMenu(){
