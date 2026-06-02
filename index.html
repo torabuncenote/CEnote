@@ -247,6 +247,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .sim-cell input[type=text]{width:32px;font-size:10px;border:1px solid var(--bdr);border-radius:3px;padding:2px 3px;text-align:center;font-family:var(--mo);background:var(--sur)}
 .sim-cell input[type=checkbox]{width:12px;height:12px;accent-color:var(--oc)}
 .sim-oc-lbl{font-size:9px;color:var(--oc);display:flex;align-items:center;gap:2px}
+/* Pool Staff Modal */
+.pool-staff-modal-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid transparent;border-radius:4px;cursor:pointer;transition:all .15s;user-select:none;margin-bottom:2px}
+.pool-staff-modal-item:hover{background:var(--sur2)}
+.pool-staff-modal-item.selected{background:var(--ac-bg);border-color:var(--ac)}
+.pool-staff-modal-item.disabled{opacity:.5;cursor:not-allowed}
+.pool-staff-modal-item.disabled:hover{background:transparent}
+.pool-staff-modal-check{font-size:14px;color:var(--ac);flex-shrink:0}
+.pool-staff-list-empty{text-align:center;padding:16px 12px;color:var(--txt3);font-size:12px}
 .atw{padding:20px 28px 60px;overflow-y:auto;flex:1;background:var(--bg)}
 .atnav{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .atnav .atml{font-size:16px;font-weight:900}
@@ -886,6 +894,19 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <div class="mdb">
       <button class="btn btn-g" onclick="closeSIM()">キャンセル</button>
       <button class="btn btn-p" id="sim-save-btn" onclick="doSaveSIM()" style="display:none">✅ この内容で保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- スタッフ選択モーダル -->
+<div class="ov hd" id="modal-pool-staff">
+  <div class="md" style="max-width:360px">
+    <h3 id="pool-staff-modal-title">スタッフを選択</h3>
+    <input type="text" id="pool-staff-search" class="fi" placeholder="スタッフ名を検索..." style="margin-bottom:8px">
+    <div id="pool-staff-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--bdr);border-radius:4px;margin-bottom:8px"></div>
+    <div class="mdb">
+      <button class="btn btn-g" onclick="closePoolStaffModal()">キャンセル</button>
+      <button class="btn btn-p" id="pool-staff-add-btn" onclick="confirmPoolStaffSelect()" style="display:none">追加する</button>
     </div>
   </div>
 </div>
@@ -2954,7 +2975,8 @@ function renderStfList() {
   for (var i = 0; i < D.stf.length; i++) {
     var el = document.createElement('div'); el.className = 'ri';
     var btns = ok ? '<button class="ru" onclick="mvStf('+i+',-1)">↑</button><button class="rdw" onclick="mvStf('+i+',1)">↓</button><button class="rd2" onclick="rmStf('+i+')">×</button>' : '';
-    el.innerHTML = '<span class="rn">👤 ' + escH(D.stf[i]) + '</span>' + btns;
+    var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none">👤 ' + escH(D.stf[i]) + '</span>';
+    el.innerHTML = nameSpan + btns;
     l.appendChild(el);
   }
   document.getElementById('stf-ar').style.display = ok ? 'flex' : 'none';
@@ -2962,6 +2984,58 @@ function renderStfList() {
 function addStf() { if(!can('sm'))return; var v=document.getElementById('in-stf').value.trim(); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function rmStf(i) { if(!can('sm'))return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function mvStf(i,d) { if(!can('sm'))return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); }
+
+function editStfItem(i) {
+  if (!can('sm')) return;
+  var nameEl = document.getElementById('stf-name-' + i);
+  if (!nameEl) return;
+  var currentValue = D.stf[i];
+  var html = '<div class="tree-edit-row" id="stf-edit-row-'+i+'" style="padding:0 8px">' +
+    '<input type="text" class="tree-edit-input" id="stf-edit-input-'+i+'" value="' + escH(currentValue) + '" style="flex:1">' +
+    '<button class="tree-edit-btn" onclick="saveStfItem('+i+')">✅</button>' +
+    '<button class="tree-edit-btn" onclick="cancelStfEdit('+i+')" style="background:var(--sur);color:var(--txt3)">❌</button>' +
+    '</div>';
+  nameEl.style.display = 'none';
+  nameEl.insertAdjacentHTML('afterend', html);
+  var input = document.getElementById('stf-edit-input-' + i);
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') saveStfItem(i);
+    if (e.key === 'Escape') cancelStfEdit(i);
+  });
+}
+
+function saveStfItem(i) {
+  if (!can('sm')) return;
+  var input = document.getElementById('stf-edit-input-' + i);
+  if (!input) return;
+  var newValue = input.value.trim();
+  if (!newValue) {
+    alert('スタッフ名は空にできません');
+    return;
+  }
+  // Check for duplicates (case-insensitive)
+  for (var j = 0; j < D.stf.length; j++) {
+    if (j !== i && D.stf[j].toLowerCase() === newValue.toLowerCase()) {
+      alert('このスタッフ名は既に登録されています');
+      return;
+    }
+  }
+  var oldValue = D.stf[i];
+  D.stf[i] = newValue;
+  saveD();
+  renderStfList();
+  if (curDs) safeRenderPage();
+  writeLog('スタッフ編集', oldValue + ' → ' + newValue);
+}
+
+function cancelStfEdit(i) {
+  var editRow = document.getElementById('stf-edit-row-' + i);
+  if (editRow) editRow.remove();
+  var nameEl = document.getElementById('stf-name-' + i);
+  if (nameEl) nameEl.style.display = '';
+}
 
 /* ===== PHS ===== */
 function renderPhsList() {
@@ -3035,7 +3109,8 @@ function renderTree(elId, tree, saveKey, icons) {
     var deptDiv = document.createElement('div'); deptDiv.className = 'tree-dept';
     var deptHd = document.createElement('div'); deptHd.className = 'tree-dept-hd';
     var arrow = document.createElement('span'); arrow.textContent = '▶'; arrow.style.cssText='font-size:10px;transition:transform .15s;display:inline-block';
-    var deptName = document.createElement('span'); deptName.style.flex='1'; deptName.textContent=(icons?icons[0]+' ':'')+dept.dept;
+    var deptName = document.createElement('span'); deptName.style.flex='1'; deptName.style.cursor='pointer'; deptName.style.userSelect='none'; deptName.textContent=(icons?icons[0]+' ':'')+dept.dept;
+    deptName.ondblclick=(function(idx){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'dept',idx,null,null,tree[idx].dept);};})(di);
     var delDeptBtn = document.createElement('button');
     delDeptBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:12px;padding:0 2px';
     delDeptBtn.textContent='×'; delDeptBtn.title='科を削除';
@@ -3049,7 +3124,8 @@ function renderTree(elId, tree, saveKey, icons) {
       var catDiv = document.createElement('div'); catDiv.className = 'tree-cat';
       var catHd = document.createElement('div'); catHd.className = 'tree-cat-hd';
       var catArrow = document.createElement('span'); catArrow.textContent='▶'; catArrow.style.cssText='font-size:9px;transition:transform .15s;display:inline-block';
-      var catName = document.createElement('span'); catName.style.flex='1'; catName.textContent=(icons?icons[1]+' ':'')+cat.name;
+      var catName = document.createElement('span'); catName.style.flex='1'; catName.style.cursor='pointer'; catName.style.userSelect='none'; catName.textContent=(icons?icons[1]+' ':'')+cat.name;
+      catName.ondblclick=(function(di2,ci2){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'cat',di2,ci2,null,tree[di2].cats[ci2].name);};})(di,ci);
       var delCatBtn = document.createElement('button');
       delCatBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 2px';
       delCatBtn.textContent='×'; delCatBtn.title='中カテゴリを削除';
@@ -3061,7 +3137,8 @@ function renderTree(elId, tree, saveKey, icons) {
 
       (cat.items||[]).forEach(function(item, ii) {
         var itemRow = document.createElement('div'); itemRow.className = 'tree-item';
-        var itemSpan = document.createElement('span'); itemSpan.textContent=(icons?icons[2]+' ':'')+item;
+        var itemSpan = document.createElement('span'); itemSpan.style.cursor='pointer'; itemSpan.style.userSelect='none'; itemSpan.textContent=(icons?icons[2]+' ':'')+item;
+        itemSpan.ondblclick=(function(di2,ci2,ii2){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'item',di2,ci2,ii2,tree[di2].cats[ci2].items[ii2]);};})(di,ci,ii);
         var delItemBtn = document.createElement('button');
         delItemBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 3px';
         delItemBtn.textContent='×';
@@ -3098,6 +3175,115 @@ function renderSupTree()  { renderTree('sup-tree-list',  D.supTree,  'supTree', 
 function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById('in-ope-dept').value='';saveD();renderOpeTree(); }
 function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';saveD();renderCathTree(); }
 function addSupTreeDept()  { var v=document.getElementById('in-sup-dept').value.trim();if(!v)return;if(!D.supTree)D.supTree=[];D.supTree.push({dept:v,cats:[]});document.getElementById('in-sup-dept').value='';saveD();renderSupTree(); }
+
+/* Tree Item Editing */
+function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValue) {
+  // Permission check based on saveKey
+  var perm = 'sm'; // default staff management
+  if (saveKey === 'opeTree') perm = 'om';
+  else if (saveKey === 'cathTree') perm = 'cm';
+  else if (saveKey === 'supTree') perm = 'sm';
+  if (!can(perm)) return;
+
+  // Find and hide the current element
+  var selector = '';
+  if (level === 'dept') {
+    selector = '#' + elId + ' .tree-dept:nth-child(' + (di + 1) + ') .tree-dept-hd span:nth-child(2)';
+  } else if (level === 'cat') {
+    selector = '#' + elId + ' .tree-dept:nth-child(' + (di + 1) + ') .tree-cat:nth-child(' + (ci + 1) + ') .tree-cat-hd span:nth-child(2)';
+  } else if (level === 'item') {
+    selector = '#' + elId + ' .tree-dept:nth-child(' + (di + 1) + ') .tree-cat:nth-child(' + (ci + 1) + ') .tree-item:nth-child(' + (ii + 1) + ') span:nth-child(1)';
+  }
+
+  var el = document.querySelector(selector);
+  if (!el) return;
+
+  el.style.display = 'none';
+
+  var html = '<div class="tree-edit-row" id="tree-edit-'+level+'-'+di+'-'+ci+'-'+ii+'" style="padding:2px 0">' +
+    '<input type="text" class="tree-edit-input" id="tree-edit-input-'+level+'-'+di+'-'+ci+'-'+ii+'" value="' + escH(currentValue.substring(2)) + '" style="flex:1;font-size:11px;padding:3px 6px">' +
+    '<button class="tree-edit-btn" onclick="saveTreeItem(\'' + elId + '\',\'' + saveKey + '\',\'' + level + '\','+di+','+(ci||'null')+','+(ii||'null')+')">✅</button>' +
+    '<button class="tree-edit-btn" onclick="cancelTreeEdit(\'' + level + '\','+di+','+(ci||'null')+','+(ii||'null')+');" style="background:var(--sur);color:var(--txt3)">❌</button>' +
+    '</div>';
+  el.insertAdjacentHTML('afterend', html);
+
+  var input = document.getElementById('tree-edit-input-' + level + '-' + di + '-' + ci + '-' + ii);
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') saveTreeItem(elId, saveKey, level, di, ci, ii);
+    if (e.key === 'Escape') cancelTreeEdit(level, di, ci, ii);
+  });
+}
+
+function saveTreeItem(elId, saveKey, level, di, ci, ii) {
+  // Permission check based on saveKey
+  var perm = 'sm'; // default staff management
+  if (saveKey === 'opeTree') perm = 'om';
+  else if (saveKey === 'cathTree') perm = 'cm';
+  else if (saveKey === 'supTree') perm = 'sm';
+  if (!can(perm)) return;
+
+  var input = document.getElementById('tree-edit-input-' + level + '-' + di + '-' + ci + '-' + ii);
+  if (!input) return;
+
+  var newValue = input.value.trim();
+  if (!newValue) {
+    alert('名前は空にできません');
+    return;
+  }
+
+  var tree = D[saveKey];
+  var oldValue = '';
+
+  // Validate uniqueness per scope
+  if (level === 'dept') {
+    oldValue = tree[di].dept;
+    for (var i = 0; i < tree.length; i++) {
+      if (i !== di && tree[i].dept.toLowerCase() === newValue.toLowerCase()) {
+        alert('この科名は既に登録されています');
+        return;
+      }
+    }
+    tree[di].dept = newValue;
+  } else if (level === 'cat') {
+    oldValue = tree[di].cats[ci].name;
+    for (var i = 0; i < tree[di].cats.length; i++) {
+      if (i !== ci && tree[di].cats[i].name.toLowerCase() === newValue.toLowerCase()) {
+        alert('このカテゴリ名は既に登録されています');
+        return;
+      }
+    }
+    tree[di].cats[ci].name = newValue;
+  } else if (level === 'item') {
+    oldValue = tree[di].cats[ci].items[ii];
+    for (var i = 0; i < tree[di].cats[ci].items.length; i++) {
+      if (i !== ii && tree[di].cats[ci].items[i].toLowerCase() === newValue.toLowerCase()) {
+        alert('この項目名は既に登録されています');
+        return;
+      }
+    }
+    tree[di].cats[ci].items[ii] = newValue;
+  }
+
+  D[saveKey] = tree;
+  saveD();
+
+  // Re-render the appropriate tree
+  if (saveKey === 'opeTree') renderOpeTree();
+  else if (saveKey === 'cathTree') renderCathTree();
+  else if (saveKey === 'supTree') renderSupTree();
+
+  writeLog('マスタ編集', oldValue + ' → ' + newValue);
+}
+
+function cancelTreeEdit(level, di, ci, ii) {
+  var editRow = document.getElementById('tree-edit-' + level + '-' + di + '-' + ci + '-' + ii);
+  if (editRow) editRow.remove();
+  var selector = 'span[ondblclick*="editTreeItem"][style*="display: none"]';
+  var els = document.querySelectorAll(selector);
+  if (els.length > 0) els[0].style.display = '';
+}
 
 /* renderOpeList / renderCathList / renderSupList は後方互換のため残す（旧フラットリスト用） */
 function renderOpeList()  { renderOpeTree(); }
@@ -3622,6 +3808,130 @@ function closeGM() { document.getElementById('modal-gm').classList.add('hd'); }
 function openNM() { if(!can('pg')){alert('🔒 管理者のみ可能です');return;} document.getElementById('modal-nm').classList.remove('hd'); }
 function closeNM() { document.getElementById('modal-nm').classList.add('hd'); }
 
+/* Pool Staff Modal */
+var poolStaffModalState = {ds: null, type: null, selected: null};
+
+function openPoolStaffModal(ds, type) {
+  var dat = D.pages[ds]; if(!dat) return;
+  poolStaffModalState.ds = ds;
+  poolStaffModalState.type = type;
+  poolStaffModalState.selected = null;
+
+  var label = type === 'oc' ? 'OC担当' : 'CE勤務';
+  document.getElementById('pool-staff-modal-title').textContent = '✅ ' + label + 'を選択';
+  document.getElementById('pool-staff-search').value = '';
+  document.getElementById('pool-staff-search').focus();
+  document.getElementById('pool-staff-add-btn').style.display = 'none';
+
+  var si = getShiftForDay(ds);
+  var assigned = {};
+  si.ce.forEach(function(c) { assigned[c.name] = true; });
+  si.oc.forEach(function(o) { assigned[o.name] = true; });
+
+  populatePoolStaffList(assigned, '');
+  document.getElementById('modal-pool-staff').classList.remove('hd');
+}
+
+function closePoolStaffModal() {
+  document.getElementById('modal-pool-staff').classList.add('hd');
+  poolStaffModalState = {ds: null, type: null, selected: null};
+}
+
+function populatePoolStaffList(assigned, query) {
+  var list = document.getElementById('pool-staff-list');
+  var html = '';
+
+  if (!D.stf || D.stf.length === 0) {
+    html = '<div class="pool-staff-list-empty">スタッフが登録されていません</div>';
+  } else {
+    var filtered = D.stf.filter(function(name) {
+      return name.toLowerCase().indexOf(query.toLowerCase()) !== -1;
+    });
+
+    if (filtered.length === 0) {
+      html = '<div class="pool-staff-list-empty">該当するスタッフはありません</div>';
+    } else {
+      filtered.forEach(function(name) {
+        var isAssigned = assigned[name];
+        var isSelected = poolStaffModalState.selected === name;
+        var classes = 'pool-staff-modal-item';
+        if (isSelected) classes += ' selected';
+        if (isAssigned) classes += ' disabled';
+
+        html += '<div class="' + classes + '" onclick="selectPoolStaffItem(\'' + escH(name) + '\', ' + isAssigned + ')">';
+        if (isAssigned || isSelected) {
+          html += '<span class="pool-staff-modal-check">✓</span>';
+        } else {
+          html += '<span class="pool-staff-modal-check" style="visibility:hidden">✓</span>';
+        }
+        html += '<span>' + escH(name) + '</span>';
+        html += '</div>';
+      });
+    }
+  }
+
+  list.innerHTML = html;
+}
+
+function selectPoolStaffItem(name, isAssigned) {
+  if (isAssigned) return; // Can't select already-assigned staff
+  poolStaffModalState.selected = name;
+  var si = getShiftForDay(poolStaffModalState.ds);
+  var assigned = {};
+  si.ce.forEach(function(c) { assigned[c.name] = true; });
+  si.oc.forEach(function(o) { assigned[o.name] = true; });
+  populatePoolStaffList(assigned, document.getElementById('pool-staff-search').value);
+  document.getElementById('pool-staff-add-btn').style.display = 'block';
+}
+
+function searchPoolStaff(query) {
+  var si = getShiftForDay(poolStaffModalState.ds);
+  var assigned = {};
+  si.ce.forEach(function(c) { assigned[c.name] = true; });
+  si.oc.forEach(function(o) { assigned[o.name] = true; });
+  populatePoolStaffList(assigned, query);
+}
+
+function confirmPoolStaffSelect() {
+  if (!poolStaffModalState.selected) {
+    alert('スタッフを選択してください');
+    return;
+  }
+
+  var ds = poolStaffModalState.ds;
+  var type = poolStaffModalState.type;
+  var name = poolStaffModalState.selected;
+
+  closePoolStaffModal();
+
+  // Use existing logic from addPoolStaffPrompt
+  var dat = D.pages[ds]; if(!dat) return;
+  var label = type === 'oc' ? 'OC担当' : 'CE勤務';
+  var adj = ensureStaffAdj(dat);
+  var addKey = type === 'oc' ? 'addOc' : 'addCe';
+  var removeKey = type === 'oc' ? 'removeOc' : 'removeCe';
+  var otherAddKey = type === 'oc' ? 'addCe' : 'addOc';
+  delete adj[removeKey][name];
+  adj[otherAddKey] = adj[otherAddKey].filter(function(n){ return n !== name; });
+  if (adj[addKey].indexOf(name) === -1) adj[addKey].push(name);
+  saveD();
+  renderPage(ds);
+  writeLog('当日勤務者追加', fmtJ(ds) + ' ' + label + ' → ' + name);
+}
+
+// Keyboard support for pool staff modal
+document.addEventListener('DOMContentLoaded', function() {
+  var searchInput = document.getElementById('pool-staff-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      searchPoolStaff(this.value);
+    });
+    searchInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closePoolStaffModal();
+    });
+  }
+});
+
 function doGenM() {
   var v = document.getElementById('gm-month').value; if(!v)return;
   var pt=v.split('-'); var y=parseInt(pt[0]); var m=parseInt(pt[1]);
@@ -3922,7 +4232,7 @@ function renderPage(ds) {
         removePoolStaff(bds, btn.getAttribute('data-type'), btn.getAttribute('data-name'));
       } else if(action === 'addPoolStaff'){
         e.stopPropagation();
-        addPoolStaffPrompt(bds, btn.getAttribute('data-type'));
+        openPoolStaffModal(bds, btn.getAttribute('data-type'));
       }
     });
   }
@@ -4737,6 +5047,27 @@ function getDutyMaster() {
     : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
 }
 
+function reorderDutyCfg(ds, dat, fromIdx, toIdx) {
+  var duties = getDutyCfg(dat);
+  if (fromIdx < 0 || fromIdx >= duties.length || toIdx < 0 || toIdx >= duties.length) return;
+
+  // Extract item from source
+  var item = duties[fromIdx];
+
+  // Remove from old position
+  duties.splice(fromIdx, 1);
+
+  // Insert at new position
+  duties.splice(toIdx, 0, item);
+
+  // Update the custom duties
+  D.pages[ds].customDuties = duties;
+
+  saveD();
+  renderPage(ds);
+  writeLog('担当枠並び替え', '位置変更');
+}
+
 function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   var sv     = (dat.duties    && dat.duties[d.id])    || '';
   var svp    = (dat.phsNums   && dat.phsNums[d.id])   || '';
@@ -4749,7 +5080,7 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   for (var j=0; j<D.stf.length; j++)
     opts += '<option value="'+D.stf[j]+'"'+(D.stf[j]===sv?' selected':'')+'>'+D.stf[j]+'</option>';
 
-  var html = '<div class="dl"><span>'+d.icon+'</span>'+d.label+'</div>';
+  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+'</div>';
 
   /* チェックボックス */
   if (d.checks && d.checks.length) {
@@ -4971,6 +5302,13 @@ function buildDG(ds, dat, locked) {
   /* 担当カードを描画 */
   for (var i=0; i<duties.length; i++) {
     buildDutyCard(ds, dat, duties[i], locked, showPhs, phsLk, g);
+    // Add draggable attributes to the last appended card
+    var lastCard = g.lastChild;
+    if (lastCard && !locked) {
+      lastCard.draggable = true;
+      lastCard.setAttribute('data-duty-idx', i);
+      lastCard.classList.add('draggable-duty-card');
+    }
   }
 
   /* ===== D&Dリスナー（PC: dragイベント / スマホ: touchイベント） ===== */
@@ -5148,6 +5486,51 @@ function buildDG(ds, dat, locked) {
         var all=dg2.querySelectorAll('.dc');
         for(var i=0;i<all.length;i++) all[i].classList.remove('drag-over');
       },{once:true});
+
+      /* Duty Card Reordering D&D */
+      var draggedCard = null;
+      var draggedIdx = null;
+      dg2.addEventListener('dragstart', function(e) {
+        var card = e.target.closest('.draggable-duty-card');
+        if (!card) return;
+        draggedCard = card;
+        draggedIdx = parseInt(card.getAttribute('data-duty-idx'));
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'duty-card');
+        card.classList.add('dragging');
+      });
+      dg2.addEventListener('dragover', function(e) {
+        if (!draggedCard) return;
+        var card = e.target.closest('.draggable-duty-card');
+        if (!card || card === draggedCard) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        card.classList.add('drag-over');
+      });
+      dg2.addEventListener('dragleave', function(e) {
+        var card = e.target.closest('.draggable-duty-card');
+        if (card && !card.contains(e.relatedTarget)) card.classList.remove('drag-over');
+      });
+      dg2.addEventListener('drop', function(e) {
+        if (!draggedCard || draggedIdx === null) return;
+        var card = e.target.closest('.draggable-duty-card');
+        if (!card || card === draggedCard) return;
+        e.preventDefault();
+        var targetIdx = parseInt(card.getAttribute('data-duty-idx'));
+        var duties = getDutyCfg(dat);
+        if (draggedIdx !== targetIdx && draggedIdx < duties.length && targetIdx < duties.length) {
+          reorderDutyCfg(ds, dat, draggedIdx, targetIdx);
+        }
+        var all = dg2.querySelectorAll('.draggable-duty-card');
+        for (var i = 0; i < all.length; i++) all[i].classList.remove('drag-over');
+      });
+      dg2.addEventListener('dragend', function(e) {
+        if (draggedCard) draggedCard.classList.remove('dragging');
+        draggedCard = null;
+        draggedIdx = null;
+        var all = dg2.querySelectorAll('.draggable-duty-card');
+        for (var i = 0; i < all.length; i++) all[i].classList.remove('drag-over');
+      });
     }
   }
 
@@ -5335,8 +5718,23 @@ function buildOPS(ds,dat,locked) {
       wrap.innerHTML = '';
       items.forEach(function(item, idx) {
         var row = document.createElement('div'); row.className='ops-item-row';
+        if (!locked) {
+          row.draggable = true;
+          row.setAttribute('data-item-idx', idx);
+          row.setAttribute('data-card-type', key.includes('cath') ? 'cath' : 'ope');
+        }
         var isLegacy = (item.sel && !item.dept && !item.cat && item.sel!=='__free__');
         var isFree = (item.dept==='__free__');
+
+        // Add drag handle if not locked
+        if (!locked) {
+          var dragHandle = document.createElement('span');
+          dragHandle.className = 'ops-item-drag-handle';
+          dragHandle.textContent = '☰';
+          dragHandle.style.cssText = 'cursor:grab;font-size:14px;user-select:none;flex-shrink:0;color:var(--txt3)';
+          row.appendChild(dragHandle);
+        }
+
         var hierDiv = document.createElement('div');
         hierDiv.style.cssText='flex:3;display:flex;flex-direction:column;gap:3px;min-width:0';
 
@@ -5449,6 +5847,62 @@ function buildOPS(ds,dat,locked) {
 
     renderItems();
     cardEl.appendChild(wrap);
+
+    // Add D&D listeners for item reordering
+    if (!locked) {
+      var draggedRow = null;
+      var draggedIdx = null;
+
+      wrap.addEventListener('dragstart', function(e) {
+        var row = e.target.closest('.ops-item-row[data-item-idx]');
+        if (!row) return;
+        draggedRow = row;
+        draggedIdx = parseInt(row.getAttribute('data-item-idx'));
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'ope-item');
+        row.classList.add('dragging');
+      });
+
+      wrap.addEventListener('dragover', function(e) {
+        if (!draggedRow) return;
+        var row = e.target.closest('.ops-item-row[data-item-idx]');
+        if (!row || row === draggedRow) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        row.classList.add('drag-over');
+      });
+
+      wrap.addEventListener('dragleave', function(e) {
+        var row = e.target.closest('.ops-item-row[data-item-idx]');
+        if (row && !row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+      });
+
+      wrap.addEventListener('drop', function(e) {
+        if (!draggedRow || draggedIdx === null) return;
+        var row = e.target.closest('.ops-item-row[data-item-idx]');
+        if (!row || row === draggedRow) return;
+        e.preventDefault();
+        var targetIdx = parseInt(row.getAttribute('data-item-idx'));
+        if (draggedIdx !== targetIdx && draggedIdx < items.length && targetIdx < items.length) {
+          // Reorder items
+          var item = items[draggedIdx];
+          items.splice(draggedIdx, 1);
+          items.splice(targetIdx, 0, item);
+          saveItems();
+          renderItems();
+        }
+        var allRows = wrap.querySelectorAll('.ops-item-row');
+        for (var i = 0; i < allRows.length; i++) allRows[i].classList.remove('drag-over');
+      });
+
+      wrap.addEventListener('dragend', function(e) {
+        if (draggedRow) draggedRow.classList.remove('dragging');
+        draggedRow = null;
+        draggedIdx = null;
+        var allRows = wrap.querySelectorAll('.ops-item-row');
+        for (var i = 0; i < allRows.length; i++) allRows[i].classList.remove('drag-over');
+      });
+    }
   }
 
   function buildItemList(cardEl, key, masterList, labelName, itemId, withTime, withOrder, withSup, showQuickBtns) {
@@ -5491,6 +5945,20 @@ function buildOPS(ds,dat,locked) {
       items.forEach(function(item, idx) {
         var row = document.createElement('div');
         row.className = 'ops-item-row';
+        if (!locked) {
+          row.draggable = true;
+          row.setAttribute('data-item-idx', idx);
+          row.setAttribute('data-card-type', key.includes('cath') ? 'cath' : 'ope');
+        }
+
+        // Add drag handle if not locked
+        if (!locked) {
+          var dragHandle = document.createElement('span');
+          dragHandle.className = 'ops-item-drag-handle';
+          dragHandle.textContent = '☰';
+          dragHandle.style.cssText = 'cursor:grab;font-size:14px;user-select:none;flex-shrink:0;color:var(--txt3);margin-right:4px';
+          row.appendChild(dragHandle);
+        }
 
         /* 術式選択（flex:3） */
         var selWrap = document.createElement('div');
@@ -5700,6 +6168,62 @@ function buildOPS(ds,dat,locked) {
 
     renderItems();
     cardEl.appendChild(wrap);
+
+    // Add D&D listeners for item reordering
+    if (!locked) {
+      var draggedRow = null;
+      var draggedIdx = null;
+
+      wrap.addEventListener('dragstart', function(e) {
+        var row = e.target.closest('.ops-item-row:not(.ops-sup-row)[data-item-idx]');
+        if (!row) return;
+        draggedRow = row;
+        draggedIdx = parseInt(row.getAttribute('data-item-idx'));
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'ope-item');
+        row.classList.add('dragging');
+      });
+
+      wrap.addEventListener('dragover', function(e) {
+        if (!draggedRow) return;
+        var row = e.target.closest('.ops-item-row:not(.ops-sup-row)[data-item-idx]');
+        if (!row || row === draggedRow) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        row.classList.add('drag-over');
+      });
+
+      wrap.addEventListener('dragleave', function(e) {
+        var row = e.target.closest('.ops-item-row:not(.ops-sup-row)[data-item-idx]');
+        if (row && !row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+      });
+
+      wrap.addEventListener('drop', function(e) {
+        if (!draggedRow || draggedIdx === null) return;
+        var row = e.target.closest('.ops-item-row:not(.ops-sup-row)[data-item-idx]');
+        if (!row || row === draggedRow) return;
+        e.preventDefault();
+        var targetIdx = parseInt(row.getAttribute('data-item-idx'));
+        if (draggedIdx !== targetIdx && draggedIdx < items.length && targetIdx < items.length) {
+          // Reorder items
+          var item = items[draggedIdx];
+          items.splice(draggedIdx, 1);
+          items.splice(targetIdx, 0, item);
+          saveItems();
+          renderItems();
+        }
+        var allRows = wrap.querySelectorAll('.ops-item-row:not(.ops-sup-row)');
+        for (var i = 0; i < allRows.length; i++) allRows[i].classList.remove('drag-over');
+      });
+
+      wrap.addEventListener('dragend', function(e) {
+        if (draggedRow) draggedRow.classList.remove('dragging');
+        draggedRow = null;
+        draggedIdx = null;
+        var allRows = wrap.querySelectorAll('.ops-item-row:not(.ops-sup-row)');
+        for (var i = 0; i < allRows.length; i++) allRows[i].classList.remove('drag-over');
+      });
+    }
   }
 
   /* ===== ops_cardsに従ってカードを描画 =====
