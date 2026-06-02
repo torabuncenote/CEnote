@@ -2918,7 +2918,11 @@ function saveD() {
     _savingTs = Date.now(); /* 保存中フラグ：リスナーからの再描画を一時抑制 */
     fbDB.ref('/data').set(D)
       .then(function(){ setSyncLbl('同期済'); })
-      .catch(function(){ setSyncLbl('同期エラー'); });
+      .catch(function(error){
+        console.error('Firebase同期エラー:', error.code, error.message);
+        setSyncLbl('同期エラー: ' + (error.message || error.code));
+        writeLog('同期エラー発生', error.code + ': ' + error.message);
+      });
   } else {
     try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
   }
