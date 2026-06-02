@@ -255,6 +255,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pool-staff-modal-item.disabled:hover{background:transparent}
 .pool-staff-modal-check{font-size:14px;color:var(--ac);flex-shrink:0}
 .pool-staff-list-empty{text-align:center;padding:16px 12px;color:var(--txt3);font-size:12px}
+/* Modal Dialog */
+.mdb{display:flex;gap:8px;justify-content:flex-end}
+.btn{padding:8px 16px;border-radius:var(--rs);border:none;font-weight:700;cursor:pointer;font-size:12px;transition:all .15s}
+.btn-p{background:var(--ac);color:#fff}
+.btn-p:hover{background:#1a4fc1}
+.btn-g{background:var(--sur2);color:var(--txt2);border:1px solid var(--bdr)}
+.btn-g:hover{background:var(--bdr)}
 .atw{padding:20px 28px 60px;overflow-y:auto;flex:1;background:var(--bg)}
 .atnav{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .atnav .atml{font-size:16px;font-weight:900}
@@ -310,12 +317,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   /* スマホではサイドバーをfixedで全画面表示 */
   .sb{position:fixed;top:var(--th);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th))!important;overflow-y:auto}
   .sb.hm{transform:translateX(-100%)}
-  /* pane-assignはサイドバー内にそのまま流れ込む（PC時のflex横並びは不要） */
-  #pane-assign{display:none;flex-direction:column;width:100%;overflow-y:auto}
+  /* スマホではpane-assignをfixedで全画面表示（sbと同様） */
+  #pane-assign{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
   #pane-assign.hd-sp{display:none!important}
-  /* スマホでpane-assignが表示のときはsb内でflexで縦に並ぶ */
-  .sb.sb-assign #pane-assign{display:flex!important}
-  .sb.sb-assign #pane-cal{display:none!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
   .tb-sub,.tb-sep,.sl{display:none}
@@ -799,9 +803,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 
   </div><!-- /sb -->
 
-  <!-- 担当表パネル（PCでは.ab直下に横並び、スマホではsb内に表示） -->
+  <!-- 担当表パネル（PCでは.ab直下に横並び、スマホではfixed全画面表示） -->
   <div id="pane-assign" style="display:none;flex:1;overflow-y:auto">
     <div class="atw">
+      <!-- スマホ用「← 戻る」ボタン -->
+      <button id="assign-back-btn" class="btn btn-g btn-sm" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
       <div class="ph" id="ph"></div>
       <div class="atnav">
         <button class="btn btn-g btn-sm" onclick="asPrevM()">&#8249;</button>
@@ -894,6 +900,19 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <div class="mdb">
       <button class="btn btn-g" onclick="closeSIM()">キャンセル</button>
       <button class="btn btn-p" id="sim-save-btn" onclick="doSaveSIM()" style="display:none">✅ この内容で保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- マスタ項目編集モーダル -->
+<div class="ov hd" id="modal-edit-item">
+  <div class="md" style="max-width:500px">
+    <h3 id="edit-item-title">項目を編集</h3>
+    <textarea id="edit-item-input" class="fi" style="min-height:100px;max-height:300px;resize:vertical;margin-bottom:8px" placeholder="編集内容を入力..."></textarea>
+    <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">💡 Enter で保存、Shift+Enter で改行、Esc で閉じる</div>
+    <div class="mdb">
+      <button class="btn btn-g" onclick="closeEditModal()">キャンセル</button>
+      <button class="btn btn-p" onclick="confirmEditModal()">保存</button>
     </div>
   </div>
 </div>
@@ -2625,7 +2644,11 @@ function clearOpsCards(ds) {
 
 function addOpsCard(ds, cid) {
   var dat = D.pages[ds]; if (!dat) return;
-  if (!dat.ops_cards) dat.ops_cards = [];
+  /* ops_cardsが未設定（テンプレ表示中）のとき、テンプレのカードを引き継いでから個別設定へ移行
+     ※ここで [] に初期化するとテンプレ由来の既存カードが全消えするバグを防ぐ */
+  if (dat.ops_cards === null || dat.ops_cards === undefined) {
+    dat.ops_cards = (D.opsCfg && D.opsCfg.length ? D.opsCfg.slice() : []);
+  }
   /* 1枠制限（freeはID一意なので複数可） */
   var isFixed = ['ope','cath','mw','psg'].indexOf(cid) !== -1;
   if (isFixed && dat.ops_cards.indexOf(cid) !== -1) return;
@@ -2633,7 +2656,11 @@ function addOpsCard(ds, cid) {
   saveD(); renderPage(ds);
 }
 function removeOpsCard(ds, cid) {
-  var dat = D.pages[ds]; if (!dat || !dat.ops_cards) return;
+  var dat = D.pages[ds]; if (!dat) return;
+  /* ops_cardsが未設定（テンプレ表示中）のとき、テンプレをコピーしてから削除 */
+  if (dat.ops_cards === null || dat.ops_cards === undefined) {
+    dat.ops_cards = (D.opsCfg && D.opsCfg.length ? D.opsCfg.slice() : []);
+  }
   var idx = dat.ops_cards.indexOf(cid);
   if (idx === -1) return;
   dat.ops_cards.splice(idx, 1);
@@ -2989,57 +3016,122 @@ function addStf() { if(!can('sm'))return; var v=document.getElementById('in-stf'
 function rmStf(i) { if(!can('sm'))return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function mvStf(i,d) { if(!can('sm'))return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); }
 
+/* モーダル編集状態 */
+var _editModalState = {type: null, index: null, level: null, di: null, ci: null, ii: null};
+
 function editStfItem(i) {
   if (!can('sm')) return;
-  var nameEl = document.getElementById('stf-name-' + i);
-  if (!nameEl) return;
   var currentValue = D.stf[i];
-  var html = '<div class="tree-edit-row" id="stf-edit-row-'+i+'" style="padding:0 8px">' +
-    '<input type="text" class="tree-edit-input" id="stf-edit-input-'+i+'" value="' + escH(currentValue) + '" style="flex:1">' +
-    '<button class="tree-edit-btn" onclick="saveStfItem('+i+')">✅</button>' +
-    '<button class="tree-edit-btn" onclick="cancelStfEdit('+i+')" style="background:var(--sur);color:var(--txt3)">❌</button>' +
-    '</div>';
-  nameEl.style.display = 'none';
-  nameEl.insertAdjacentHTML('afterend', html);
-  var input = document.getElementById('stf-edit-input-' + i);
+  _editModalState = {type: 'stf', index: i};
+  document.getElementById('edit-item-title').textContent = '👤 スタッフを編集';
+  var input = document.getElementById('edit-item-input');
+  input.value = currentValue;
   input.focus();
   input.select();
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') saveStfItem(i);
-    if (e.key === 'Escape') cancelStfEdit(i);
-  });
+  document.getElementById('modal-edit-item').classList.remove('hd');
 }
 
-function saveStfItem(i) {
-  if (!can('sm')) return;
-  var input = document.getElementById('stf-edit-input-' + i);
-  if (!input) return;
+function confirmEditModal() {
+  var state = _editModalState;
+  var input = document.getElementById('edit-item-input');
   var newValue = input.value.trim();
+
   if (!newValue) {
-    alert('スタッフ名は空にできません');
+    alert('内容は空にできません');
     return;
   }
-  // Check for duplicates (case-insensitive)
-  for (var j = 0; j < D.stf.length; j++) {
-    if (j !== i && D.stf[j].toLowerCase() === newValue.toLowerCase()) {
-      alert('このスタッフ名は既に登録されています');
-      return;
+
+  if (state.type === 'stf') {
+    // スタッフ編集
+    if (!can('sm')) return;
+    for (var j = 0; j < D.stf.length; j++) {
+      if (j !== state.index && D.stf[j].toLowerCase() === newValue.toLowerCase()) {
+        alert('このスタッフ名は既に登録されています');
+        return;
+      }
     }
+    var oldValue = D.stf[state.index];
+    D.stf[state.index] = newValue;
+    saveD();
+    renderStfList();
+    if (curDs) safeRenderPage();
+    writeLog('スタッフ編集', oldValue + ' → ' + newValue);
+  } else if (state.type === 'tree') {
+    // ツリー項目編集
+    var perm = 'sm';
+    if (state.saveKey === 'opeTree') perm = 'om';
+    else if (state.saveKey === 'cathTree') perm = 'cm';
+    else if (state.saveKey === 'supTree') perm = 'sm';
+    if (!can(perm)) return;
+
+    var tree = D[state.saveKey];
+    var oldValue = '';
+
+    if (state.level === 'dept') {
+      oldValue = tree[state.di].dept;
+      for (var i = 0; i < tree.length; i++) {
+        if (i !== state.di && tree[i].dept.toLowerCase() === newValue.toLowerCase()) {
+          alert('この科名は既に登録されています');
+          return;
+        }
+      }
+      tree[state.di].dept = newValue;
+    } else if (state.level === 'cat') {
+      oldValue = tree[state.di].cats[state.ci].name;
+      for (var i = 0; i < tree[state.di].cats.length; i++) {
+        if (i !== state.ci && tree[state.di].cats[i].name.toLowerCase() === newValue.toLowerCase()) {
+          alert('このカテゴリ名は既に登録されています');
+          return;
+        }
+      }
+      tree[state.di].cats[state.ci].name = newValue;
+    } else if (state.level === 'item') {
+      oldValue = tree[state.di].cats[state.ci].items[state.ii];
+      for (var i = 0; i < tree[state.di].cats[state.ci].items.length; i++) {
+        if (i !== state.ii && tree[state.di].cats[state.ci].items[i].toLowerCase() === newValue.toLowerCase()) {
+          alert('この項目名は既に登録されています');
+          return;
+        }
+      }
+      tree[state.di].cats[state.ci].items[state.ii] = newValue;
+    }
+
+    D[state.saveKey] = tree;
+    saveD();
+
+    if (state.saveKey === 'opeTree') renderOpeTree();
+    else if (state.saveKey === 'cathTree') renderCathTree();
+    else if (state.saveKey === 'supTree') renderSupTree();
+
+    writeLog('マスタ編集', oldValue + ' → ' + newValue);
   }
-  var oldValue = D.stf[i];
-  D.stf[i] = newValue;
-  saveD();
-  renderStfList();
-  if (curDs) safeRenderPage();
-  writeLog('スタッフ編集', oldValue + ' → ' + newValue);
+
+  closeEditModal();
 }
 
-function cancelStfEdit(i) {
-  var editRow = document.getElementById('stf-edit-row-' + i);
-  if (editRow) editRow.remove();
-  var nameEl = document.getElementById('stf-name-' + i);
-  if (nameEl) nameEl.style.display = '';
+function closeEditModal() {
+  document.getElementById('modal-edit-item').classList.add('hd');
+  _editModalState = {type: null, index: null, level: null, di: null, ci: null, ii: null, saveKey: null};
 }
+
+/* Initialize modal keyboard handling */
+(function() {
+  var editInput = document.getElementById('edit-item-input');
+  if (editInput) {
+    editInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        // Enter で保存
+        e.preventDefault();
+        confirmEditModal();
+      } else if (e.key === 'Escape') {
+        // Esc で閉じる
+        e.preventDefault();
+        closeEditModal();
+      }
+      // Shift+Enter は改行として機能（デフォルト）
+    });
+  }
+})();
 
 /* ===== PHS ===== */
 function renderPhsList() {
@@ -3180,7 +3272,7 @@ function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.
 function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';saveD();renderCathTree(); }
 function addSupTreeDept()  { var v=document.getElementById('in-sup-dept').value.trim();if(!v)return;if(!D.supTree)D.supTree=[];D.supTree.push({dept:v,cats:[]});document.getElementById('in-sup-dept').value='';saveD();renderSupTree(); }
 
-/* Tree Item Editing */
+/* Tree Item Editing (Modal) */
 function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValue) {
   // Permission check based on saveKey
   var perm = 'sm'; // default staff management
@@ -3189,104 +3281,34 @@ function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValu
   else if (saveKey === 'supTree') perm = 'sm';
   if (!can(perm)) return;
 
-  // Find and hide the current element
-  var selector = '';
-  if (level === 'dept') {
-    selector = '#' + elId + ' .tree-dept:nth-child(' + (di + 1) + ') .tree-dept-hd span:nth-child(2)';
-  } else if (level === 'cat') {
-    selector = '#' + elId + ' .tree-dept:nth-child(' + (di + 1) + ') .tree-cat:nth-child(' + (ci + 1) + ') .tree-cat-hd span:nth-child(2)';
-  } else if (level === 'item') {
-    selector = '#' + elId + ' .tree-dept:nth-child(' + (di + 1) + ') .tree-cat:nth-child(' + (ci + 1) + ') .tree-item:nth-child(' + (ii + 1) + ') span:nth-child(1)';
+  // アイコン（最初の2文字）を削除した値を取得
+  var displayValue = currentValue;
+  if (icons && currentValue.startsWith(icons[level === 'dept' ? 0 : level === 'cat' ? 1 : 2])) {
+    displayValue = currentValue.substring(2);
   }
 
-  var el = document.querySelector(selector);
-  if (!el) return;
+  // 保存に必要なメタデータを設定
+  _editModalState = {
+    type: 'tree',
+    level: level,
+    di: di,
+    ci: ci,
+    ii: ii,
+    saveKey: saveKey
+  };
 
-  el.style.display = 'none';
+  // モーダルを表示
+  var titleText = '';
+  if (level === 'dept') titleText = '🔬 科名を編集';
+  else if (level === 'cat') titleText = '📂 カテゴリを編集';
+  else if (level === 'item') titleText = '🔪 項目を編集';
 
-  var html = '<div class="tree-edit-row" id="tree-edit-'+level+'-'+di+'-'+ci+'-'+ii+'" style="padding:2px 0">' +
-    '<input type="text" class="tree-edit-input" id="tree-edit-input-'+level+'-'+di+'-'+ci+'-'+ii+'" value="' + escH(currentValue.substring(2)) + '" style="flex:1;font-size:11px;padding:3px 6px">' +
-    '<button class="tree-edit-btn" onclick="saveTreeItem(\'' + elId + '\',\'' + saveKey + '\',\'' + level + '\','+di+','+(ci||'null')+','+(ii||'null')+')">✅</button>' +
-    '<button class="tree-edit-btn" onclick="cancelTreeEdit(\'' + level + '\','+di+','+(ci||'null')+','+(ii||'null')+');" style="background:var(--sur);color:var(--txt3)">❌</button>' +
-    '</div>';
-  el.insertAdjacentHTML('afterend', html);
-
-  var input = document.getElementById('tree-edit-input-' + level + '-' + di + '-' + ci + '-' + ii);
+  document.getElementById('edit-item-title').textContent = titleText;
+  var input = document.getElementById('edit-item-input');
+  input.value = displayValue;
   input.focus();
   input.select();
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') saveTreeItem(elId, saveKey, level, di, ci, ii);
-    if (e.key === 'Escape') cancelTreeEdit(level, di, ci, ii);
-  });
-}
-
-function saveTreeItem(elId, saveKey, level, di, ci, ii) {
-  // Permission check based on saveKey
-  var perm = 'sm'; // default staff management
-  if (saveKey === 'opeTree') perm = 'om';
-  else if (saveKey === 'cathTree') perm = 'cm';
-  else if (saveKey === 'supTree') perm = 'sm';
-  if (!can(perm)) return;
-
-  var input = document.getElementById('tree-edit-input-' + level + '-' + di + '-' + ci + '-' + ii);
-  if (!input) return;
-
-  var newValue = input.value.trim();
-  if (!newValue) {
-    alert('名前は空にできません');
-    return;
-  }
-
-  var tree = D[saveKey];
-  var oldValue = '';
-
-  // Validate uniqueness per scope
-  if (level === 'dept') {
-    oldValue = tree[di].dept;
-    for (var i = 0; i < tree.length; i++) {
-      if (i !== di && tree[i].dept.toLowerCase() === newValue.toLowerCase()) {
-        alert('この科名は既に登録されています');
-        return;
-      }
-    }
-    tree[di].dept = newValue;
-  } else if (level === 'cat') {
-    oldValue = tree[di].cats[ci].name;
-    for (var i = 0; i < tree[di].cats.length; i++) {
-      if (i !== ci && tree[di].cats[i].name.toLowerCase() === newValue.toLowerCase()) {
-        alert('このカテゴリ名は既に登録されています');
-        return;
-      }
-    }
-    tree[di].cats[ci].name = newValue;
-  } else if (level === 'item') {
-    oldValue = tree[di].cats[ci].items[ii];
-    for (var i = 0; i < tree[di].cats[ci].items.length; i++) {
-      if (i !== ii && tree[di].cats[ci].items[i].toLowerCase() === newValue.toLowerCase()) {
-        alert('この項目名は既に登録されています');
-        return;
-      }
-    }
-    tree[di].cats[ci].items[ii] = newValue;
-  }
-
-  D[saveKey] = tree;
-  saveD();
-
-  // Re-render the appropriate tree
-  if (saveKey === 'opeTree') renderOpeTree();
-  else if (saveKey === 'cathTree') renderCathTree();
-  else if (saveKey === 'supTree') renderSupTree();
-
-  writeLog('マスタ編集', oldValue + ' → ' + newValue);
-}
-
-function cancelTreeEdit(level, di, ci, ii) {
-  var editRow = document.getElementById('tree-edit-' + level + '-' + di + '-' + ci + '-' + ii);
-  if (editRow) editRow.remove();
-  var selector = 'span[ondblclick*="editTreeItem"][style*="display: none"]';
-  var els = document.querySelectorAll(selector);
-  if (els.length > 0) els[0].style.display = '';
+  document.getElementById('modal-edit-item').classList.remove('hd');
 }
 
 /* renderOpeList / renderCathList / renderSupList は後方互換のため残す（旧フラットリスト用） */
@@ -3862,7 +3884,8 @@ function populatePoolStaffList(assigned, query) {
         if (isSelected) classes += ' selected';
         if (isAssigned) classes += ' disabled';
 
-        html += '<div class="' + classes + '" onclick="selectPoolStaffItem(\'' + escH(name) + '\', ' + isAssigned + ')">';
+        var safeNameJs = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html += '<div class="' + classes + '" onclick="selectPoolStaffItem(\'' + safeNameJs + '\', ' + isAssigned + ')">';
         if (isAssigned || isSelected) {
           html += '<span class="pool-staff-modal-check">✓</span>';
         } else {
@@ -3889,6 +3912,7 @@ function selectPoolStaffItem(name, isAssigned) {
 }
 
 function searchPoolStaff(query) {
+  if (!poolStaffModalState.ds) return; /* モーダルが閉じている場合は何もしない */
   var si = getShiftForDay(poolStaffModalState.ds);
   var assigned = {};
   si.ce.forEach(function(c) { assigned[c.name] = true; });
@@ -5052,7 +5076,8 @@ function getDutyMaster() {
 }
 
 function reorderDutyCfg(ds, dat, fromIdx, toIdx) {
-  var duties = getDutyCfg(dat);
+  /* getDutyCfg はグローバルテンプレートの参照を返す場合があるため必ずコピーを取る */
+  var duties = getDutyCfg(dat).slice();
   if (fromIdx < 0 || fromIdx >= duties.length || toIdx < 0 || toIdx >= duties.length) return;
 
   // Extract item from source
@@ -5471,7 +5496,8 @@ function buildDG(ds, dat, locked) {
         var from=e.dataTransfer.getData('from');
         var dropDs=e.dataTransfer.getData('ds')||ds;
         var did=card.getAttribute('data-duty-id');
-        if(!name||!did) return;
+        /* duty-card並び替えのドロップは別ハンドラで処理するためスキップ */
+        if(!name||!did||name==='duty-card') return;
         /* 余剰エリアから来た場合は余剰から削除 */
         if(from==='surplus'){
           var sur=D.pages[ds].surplus||[];
@@ -5497,8 +5523,10 @@ function buildDG(ds, dat, locked) {
       dg2.addEventListener('dragstart', function(e) {
         var card = e.target.closest('.draggable-duty-card');
         if (!card) return;
+        var idx = parseInt(card.getAttribute('data-duty-idx'));
+        if (isNaN(idx)) return; /* data-duty-idxがない/不正な場合は無視 */
         draggedCard = card;
-        draggedIdx = parseInt(card.getAttribute('data-duty-idx'));
+        draggedIdx = idx;
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', 'duty-card');
         card.classList.add('dragging');
@@ -5516,11 +5544,12 @@ function buildDG(ds, dat, locked) {
         if (card && !card.contains(e.relatedTarget)) card.classList.remove('drag-over');
       });
       dg2.addEventListener('drop', function(e) {
-        if (!draggedCard || draggedIdx === null) return;
+        if (!draggedCard || draggedIdx == null || isNaN(draggedIdx)) return;
         var card = e.target.closest('.draggable-duty-card');
         if (!card || card === draggedCard) return;
         e.preventDefault();
         var targetIdx = parseInt(card.getAttribute('data-duty-idx'));
+        if (isNaN(targetIdx)) return;
         var duties = getDutyCfg(dat);
         if (draggedIdx !== targetIdx && draggedIdx < duties.length && targetIdx < duties.length) {
           reorderDutyCfg(ds, dat, draggedIdx, targetIdx);
@@ -6556,23 +6585,31 @@ function swTab(t) {
       var sb2=document.getElementById('sb');
       var isSP=window.innerWidth<=768;
       if(t==='assign'){
+        ap.style.display='flex';
+        ap.classList.remove('hd-sp');
+        mn.style.display='none';
+        /* スマホではサイドバーを閉じる（pane-assignがfixedで全画面表示されるため）、戻るボタンを表示 */
+        var backBtn=document.getElementById('assign-back-btn');
         if(isSP){
-          if(sb2){sb2.classList.add('sb-assign');sb2.classList.remove('hm');sbOpen=true;}
-          ap.style.display='flex';
-          ap.classList.remove('hd-sp');
-          mn.style.display='none';
+          if(sb2){sb2.classList.remove('sb-assign');sb2.classList.add('hm');sbOpen=false;}
+          if(backBtn) backBtn.style.display='';
         } else {
-          ap.style.display='flex';
-          ap.classList.remove('hd-sp');
-          mn.style.display='none';
+          if(backBtn) backBtn.style.display='none';
         }
         swSubTab('at'); /* サブタブを担当表に初期化（スマホで集計が見えない問題を解消） */
         renderAT();
       } else {
-        if(isSP && sb2) sb2.classList.remove('sb-assign');
+        if(sb2) sb2.classList.remove('sb-assign');
         ap.style.display='none';
         ap.classList.add('hd-sp');
         mn.style.display='';
+        var backBtn2=document.getElementById('assign-back-btn');
+        if(backBtn2) backBtn2.style.display='none';
+        /* スマホでは担当表を閉じるときサイドバーを再表示する */
+        if(isSP && sb2 && !sbOpen){
+          sb2.classList.remove('hm');
+          sbOpen=true;
+        }
       }
     }else{
       var pn=document.getElementById('pane-'+id);
@@ -6601,19 +6638,17 @@ function togSB(){
   sbOpen=!sbOpen;
   var sb=document.getElementById('sb');
   if(sb) sb.classList.toggle('hm',!sbOpen);
-  /* サイドバーを閉じるとき、担当表表示中なら予定タブに戻す */
-  if(!sbOpen && sb && sb.classList.contains('sb-assign')){
-    sb.classList.remove('sb-assign');
+  /* ハンバーガーでサイドバーを開くとき、担当表が全画面表示中なら swTab('cal') で正規の閉じ処理 */
+  if(sbOpen){
     var ap=document.getElementById('pane-assign');
-    var mn=document.getElementById('main');
-    if(ap){ap.style.display='none';ap.classList.add('hd-sp');}
-    if(mn) mn.style.display='';
-    /* タブのハイライトを予定に戻す */
-    var tabs=['cal','assign','staff','master','lock','logs','spec','manual','adminm','dev'];
-    tabs.forEach(function(id){
-      var tb=document.getElementById('tab-'+id);
-      if(tb) tb.classList.toggle('on',id==='cal');
-    });
+    if(ap && ap.style.display==='flex'){
+      /* swTab('cal') に閉じ処理を委譲（再描画・タブハイライト・サイドバー復元も含む）
+         ただし swTab 内でサイドバー再表示が走るので hm は一旦手動で制御 */
+      sbOpen=false; /* 一時的に false に戻して swTab 内の再表示ロジックを働かせる */
+      swTab('cal');
+      sbOpen=true;  /* ハンバーガーはopen状態を維持 */
+      if(sb) sb.classList.remove('hm');
+    }
   }
 }
 
