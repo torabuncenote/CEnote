@@ -160,7 +160,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .oc-sel.set{border-color:var(--oc);background:var(--oc-bg);color:var(--oc);font-weight:700}
 .oc-txt{flex:1;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn)}
 .oc-txt:focus{border-color:var(--oc)}
-.ops-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:4px}
+.ops-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:4px;align-items:start}
 .ops-card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
 .ops-ttl{font-size:12px;font-weight:900;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px}
 .ops-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -1242,9 +1242,7 @@ function fbInit() {
               mainEl && mainEl.contains(focused);
             /* saveD()後0.8秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
             var justSaved = (Date.now() - _savingTs) < 800;
-            /* ops-gridが空のとき（業務カード未描画）は強制再描画 */
-            var opsEmpty = !!(curDs && D.pages[curDs] && document.getElementById('ops-grid') && document.getElementById('ops-grid').children.length === 0);
-            if (curDs && D.pages[curDs] && !isEditingInPage && (!justSaved || opsEmpty)) {
+            if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
               renderPage(curDs);
             }
           }, function(err) { setSyncLbl('同期エラー'); });
@@ -2653,7 +2651,7 @@ function addOpsCard(ds, cid) {
   var isFixed = ['ope','cath','mw','psg'].indexOf(cid) !== -1;
   if (isFixed && dat.ops_cards.indexOf(cid) !== -1) return;
   dat.ops_cards.push(cid);
-  saveD(); renderPage(ds);
+  renderPage(ds); saveD(); /* renderPage先行でFirebaseエコー前に正しい画面を表示 */
 }
 function removeOpsCard(ds, cid) {
   var dat = D.pages[ds]; if (!dat) return;
@@ -2664,7 +2662,7 @@ function removeOpsCard(ds, cid) {
   var idx = dat.ops_cards.indexOf(cid);
   if (idx === -1) return;
   dat.ops_cards.splice(idx, 1);
-  saveD(); renderPage(ds);
+  renderPage(ds); saveD(); /* renderPage先行でFirebaseエコー前に正しい画面を表示 */
 }
 
 /* ===== 担当表サブタブ切り替え ===== */
@@ -5750,12 +5748,14 @@ function buildOPS(ds,dat,locked) {
     function renderItems() {
       wrap.innerHTML = '';
       items.forEach(function(item, idx) {
-        var row = document.createElement('div'); row.className='ops-item-row';
+        /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
+        var itemWrap = document.createElement('div');
+        itemWrap.className = 'ops-item-wrap';
         if (!locked) {
-          row.draggable = true;
-          row.setAttribute('data-item-idx', idx);
-          row.setAttribute('data-card-type', key.includes('cath') ? 'cath' : 'ope');
+          itemWrap.draggable = true;
+          itemWrap.setAttribute('data-item-idx', idx);
         }
+        var row = document.createElement('div'); row.className='ops-item-row';
         var isLegacy = (item.sel && !item.dept && !item.cat && item.sel!=='__free__');
         var isFree = (item.dept==='__free__');
 
@@ -5810,11 +5810,13 @@ function buildOPS(ds,dat,locked) {
         if(withOrder){
           var orderSel=document.createElement('select'); orderSel.className='ops-sel'; orderSel.style.cssText='width:52px;flex-shrink:0;text-align:center;font-weight:700'; orderSel.disabled=!!locked;
           var oh='<option value="">－</option>'; for(var oi=1;oi<=10;oi++) oh+='<option value="'+oi+'"'+(item.order==oi?' selected':'')+'>'+oi+'</option>';
-          orderSel.innerHTML=oh; row.insertBefore(orderSel,hierDiv);
+          orderSel.innerHTML=oh;
+          /* hierDivはこの時点ではまだrow未追加のため、insertBeforeでなくappendChild（hierDivより先に追加） */
+          row.appendChild(orderSel);
           if(!locked)(function(i2,oS){oS.onchange=function(){items[i2].order=this.value;saveItems();};})(idx,orderSel);
         }
 
-        row.appendChild(hierDiv);
+        row.appendChild(hierDiv); /* orderSelの後に追加されるので順序: dragHandle → orderSel → hierDiv */
 
         /* 入室時間（オペのみ） */
         var timeSelEl2=null,timeTxtEl2=null;
@@ -5830,9 +5832,9 @@ function buildOPS(ds,dat,locked) {
         var delBtn=document.createElement('button'); delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除'; delBtn.type='button'; delBtn.disabled=!!locked;
         if(!locked) delBtn.onclick=(function(i2){return function(){if(items.length<=1){items[0]={dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]};}else{items.splice(i2,1);}saveItems();renderItems();};})(idx);
         row.appendChild(delBtn);
-        wrap.appendChild(row);
+        itemWrap.appendChild(row);
 
-        /* 使用物品行（オペのみ） */
+        /* 使用物品行（オペのみ）- itemWrapに追加してD&Dで一緒に動く */
         if(withSup){
           var supRow2=document.createElement('div'); supRow2.style.cssText='margin-top:4px;margin-bottom:4px;padding:8px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)';
           var supLbl2=document.createElement('div'); supLbl2.style.cssText='font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:5px'; supLbl2.textContent='🧰 使用物品';
@@ -5860,8 +5862,9 @@ function buildOPS(ds,dat,locked) {
             };})(idx);
           }
           supRow2.appendChild(supInpEl);
-          wrap.appendChild(supRow2);
+          itemWrap.appendChild(supRow2);
         }
+        wrap.appendChild(itemWrap);
       });
 
       if(!locked){
@@ -5881,59 +5884,58 @@ function buildOPS(ds,dat,locked) {
     renderItems();
     cardEl.appendChild(wrap);
 
-    // Add D&D listeners for item reordering
+    // Add D&D listeners for item reordering (ops-item-wrap単位で動かす=使用物品も一緒に移動)
     if (!locked) {
-      var draggedRow = null;
+      var draggedWrap = null;
       var draggedIdx = null;
 
       wrap.addEventListener('dragstart', function(e) {
-        var row = e.target.closest('.ops-item-row[data-item-idx]');
-        if (!row) return;
-        draggedRow = row;
-        draggedIdx = parseInt(row.getAttribute('data-item-idx'));
+        var iw = e.target.closest('.ops-item-wrap[data-item-idx]');
+        if (!iw) return;
+        draggedWrap = iw;
+        draggedIdx = parseInt(iw.getAttribute('data-item-idx'));
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', 'ope-item');
-        row.classList.add('dragging');
+        iw.style.opacity = '0.4';
       });
 
       wrap.addEventListener('dragover', function(e) {
-        if (!draggedRow) return;
-        var row = e.target.closest('.ops-item-row[data-item-idx]');
-        if (!row || row === draggedRow) return;
+        if (!draggedWrap) return;
+        var iw = e.target.closest('.ops-item-wrap[data-item-idx]');
+        if (!iw || iw === draggedWrap) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        row.classList.add('drag-over');
+        iw.style.outline = '2px solid var(--ac)';
       });
 
       wrap.addEventListener('dragleave', function(e) {
-        var row = e.target.closest('.ops-item-row[data-item-idx]');
-        if (row && !row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+        var iw = e.target.closest('.ops-item-wrap[data-item-idx]');
+        if (iw && !iw.contains(e.relatedTarget)) iw.style.outline = '';
       });
 
       wrap.addEventListener('drop', function(e) {
-        if (!draggedRow || draggedIdx === null) return;
-        var row = e.target.closest('.ops-item-row[data-item-idx]');
-        if (!row || row === draggedRow) return;
+        if (!draggedWrap || draggedIdx === null) return;
+        var iw = e.target.closest('.ops-item-wrap[data-item-idx]');
+        if (!iw || iw === draggedWrap) return;
         e.preventDefault();
-        var targetIdx = parseInt(row.getAttribute('data-item-idx'));
+        var targetIdx = parseInt(iw.getAttribute('data-item-idx'));
         if (draggedIdx !== targetIdx && draggedIdx < items.length && targetIdx < items.length) {
-          // Reorder items
-          var item = items[draggedIdx];
+          var movedItem = items[draggedIdx];
           items.splice(draggedIdx, 1);
-          items.splice(targetIdx, 0, item);
+          items.splice(targetIdx, 0, movedItem);
           saveItems();
           renderItems();
         }
-        var allRows = wrap.querySelectorAll('.ops-item-row');
-        for (var i = 0; i < allRows.length; i++) allRows[i].classList.remove('drag-over');
+        var allWraps = wrap.querySelectorAll('.ops-item-wrap');
+        for (var i = 0; i < allWraps.length; i++) allWraps[i].style.outline = '';
       });
 
       wrap.addEventListener('dragend', function(e) {
-        if (draggedRow) draggedRow.classList.remove('dragging');
-        draggedRow = null;
+        if (draggedWrap) draggedWrap.style.opacity = '';
+        draggedWrap = null;
         draggedIdx = null;
-        var allRows = wrap.querySelectorAll('.ops-item-row');
-        for (var i = 0; i < allRows.length; i++) allRows[i].classList.remove('drag-over');
+        var allWraps = wrap.querySelectorAll('.ops-item-wrap');
+        for (var i = 0; i < allWraps.length; i++) { allWraps[i].style.outline = ''; allWraps[i].style.opacity = ''; }
       });
     }
   }
@@ -5976,13 +5978,15 @@ function buildOPS(ds,dat,locked) {
     function renderItems() {
       wrap.innerHTML = '';
       items.forEach(function(item, idx) {
+        /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
+        var itemWrap = document.createElement('div');
+        itemWrap.className = 'ops-item-wrap';
+        if (!locked) {
+          itemWrap.draggable = true;
+          itemWrap.setAttribute('data-item-idx', idx);
+        }
         var row = document.createElement('div');
         row.className = 'ops-item-row';
-        if (!locked) {
-          row.draggable = true;
-          row.setAttribute('data-item-idx', idx);
-          row.setAttribute('data-card-type', key.includes('cath') ? 'cath' : 'ope');
-        }
 
         // Add drag handle if not locked
         if (!locked) {
@@ -6150,8 +6154,9 @@ function buildOPS(ds,dat,locked) {
         delBtn.type='button'; delBtn.disabled=!!locked;
         row.appendChild(delBtn);
 
-        wrap.appendChild(row);
-        if (supRow) wrap.appendChild(supRow);
+        itemWrap.appendChild(row);
+        if (supRow) itemWrap.appendChild(supRow);
+        wrap.appendChild(itemWrap);
 
         if(!locked) {
           (function(idx2, selEl2, txtEl2, timeSelEl2, timeTxtEl2, delBtn2){
@@ -6202,59 +6207,58 @@ function buildOPS(ds,dat,locked) {
     renderItems();
     cardEl.appendChild(wrap);
 
-    // Add D&D listeners for item reordering
+    // Add D&D listeners for item reordering (ops-item-wrap単位で動かす=使用物品も一緒に移動)
     if (!locked) {
-      var draggedRow = null;
-      var draggedIdx = null;
+      var draggedWrap2 = null;
+      var draggedIdx2 = null;
 
       wrap.addEventListener('dragstart', function(e) {
-        var row = e.target.closest('.ops-item-row:not(.ops-sup-row)[data-item-idx]');
-        if (!row) return;
-        draggedRow = row;
-        draggedIdx = parseInt(row.getAttribute('data-item-idx'));
+        var iw = e.target.closest('.ops-item-wrap[data-item-idx]');
+        if (!iw) return;
+        draggedWrap2 = iw;
+        draggedIdx2 = parseInt(iw.getAttribute('data-item-idx'));
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', 'ope-item');
-        row.classList.add('dragging');
+        iw.style.opacity = '0.4';
       });
 
       wrap.addEventListener('dragover', function(e) {
-        if (!draggedRow) return;
-        var row = e.target.closest('.ops-item-row:not(.ops-sup-row)[data-item-idx]');
-        if (!row || row === draggedRow) return;
+        if (!draggedWrap2) return;
+        var iw = e.target.closest('.ops-item-wrap[data-item-idx]');
+        if (!iw || iw === draggedWrap2) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        row.classList.add('drag-over');
+        iw.style.outline = '2px solid var(--ac)';
       });
 
       wrap.addEventListener('dragleave', function(e) {
-        var row = e.target.closest('.ops-item-row:not(.ops-sup-row)[data-item-idx]');
-        if (row && !row.contains(e.relatedTarget)) row.classList.remove('drag-over');
+        var iw = e.target.closest('.ops-item-wrap[data-item-idx]');
+        if (iw && !iw.contains(e.relatedTarget)) iw.style.outline = '';
       });
 
       wrap.addEventListener('drop', function(e) {
-        if (!draggedRow || draggedIdx === null) return;
-        var row = e.target.closest('.ops-item-row:not(.ops-sup-row)[data-item-idx]');
-        if (!row || row === draggedRow) return;
+        if (!draggedWrap2 || draggedIdx2 === null) return;
+        var iw = e.target.closest('.ops-item-wrap[data-item-idx]');
+        if (!iw || iw === draggedWrap2) return;
         e.preventDefault();
-        var targetIdx = parseInt(row.getAttribute('data-item-idx'));
-        if (draggedIdx !== targetIdx && draggedIdx < items.length && targetIdx < items.length) {
-          // Reorder items
-          var item = items[draggedIdx];
-          items.splice(draggedIdx, 1);
-          items.splice(targetIdx, 0, item);
+        var targetIdx = parseInt(iw.getAttribute('data-item-idx'));
+        if (draggedIdx2 !== targetIdx && draggedIdx2 < items.length && targetIdx < items.length) {
+          var movedItem = items[draggedIdx2];
+          items.splice(draggedIdx2, 1);
+          items.splice(targetIdx, 0, movedItem);
           saveItems();
           renderItems();
         }
-        var allRows = wrap.querySelectorAll('.ops-item-row:not(.ops-sup-row)');
-        for (var i = 0; i < allRows.length; i++) allRows[i].classList.remove('drag-over');
+        var allWraps = wrap.querySelectorAll('.ops-item-wrap');
+        for (var i = 0; i < allWraps.length; i++) allWraps[i].style.outline = '';
       });
 
       wrap.addEventListener('dragend', function(e) {
-        if (draggedRow) draggedRow.classList.remove('dragging');
-        draggedRow = null;
-        draggedIdx = null;
-        var allRows = wrap.querySelectorAll('.ops-item-row:not(.ops-sup-row)');
-        for (var i = 0; i < allRows.length; i++) allRows[i].classList.remove('drag-over');
+        if (draggedWrap2) draggedWrap2.style.opacity = '';
+        draggedWrap2 = null;
+        draggedIdx2 = null;
+        var allWraps = wrap.querySelectorAll('.ops-item-wrap');
+        for (var i = 0; i < allWraps.length; i++) { allWraps[i].style.outline = ''; allWraps[i].style.opacity = ''; }
       });
     }
   }
