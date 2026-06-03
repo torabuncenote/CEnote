@@ -3675,11 +3675,31 @@ function can(id) {
   return !!(currentUser && currentUser.perms && currentUser.perms[id]);
 }
 
+/* ===== 曜日別業務の繰り返しルール =====
+   各項目は「文字列（=毎週・従来互換）」または「{t:本文, wk:[週番号...]}」。
+   wk はその曜日の第N回目（第N火曜＝floor((日-1)/7)+1, 1〜5）。
+   wk が無い/空/5週すべて → 毎週扱い。隔週は第1・3・5 / 第2・4 で表現する。 */
+function wdText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
+function wdWeeks(it){
+  /* 制限ありなら週番号配列を返す。毎週（制限なし）は null */
+  if (it && typeof it === 'object' && Array.isArray(it.wk) && it.wk.length && it.wk.length < 5) return it.wk.slice();
+  return null;
+}
+function nthWk(ds){ var day = parseInt((ds||'').split('-')[2], 10) || 1; return Math.floor((day - 1) / 7) + 1; }
+function wdApplies(ds, it){ var wk = wdWeeks(it); if (!wk) return true; return wk.indexOf(nthWk(ds)) !== -1; }
+/* 指定日に表示すべき曜日別項目を「本文文字列の配列」で返す（描画は全箇所これを使う＝index整合） */
+function wdItemsForDate(ds){
+  var w = new Date(ds).getDay(), ws = WDL[w];
+  var arr = D.wd[ws] || [], out = [];
+  for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push(wdText(arr[i])); }
+  return out;
+}
+
 /* ===== CALENDAR ===== */
 function getPct(ds) {
   if (!D.pages[ds]) return 0;
-  var d = D.pages[ds], w = new Date(ds).getDay(), ws = WDL[w];
-  var all = D.dly.concat(D.wd[ws] || []);
+  var d = D.pages[ds];
+  var all = D.dly.concat(wdItemsForDate(ds));
   if (!all.length) return 0;
   var done = 0;
   for (var i = 0; i < all.length; i++) { if (d.checks && d.checks[i]) done++; }
@@ -3900,9 +3920,32 @@ function renderWdlyList() {
   if (!ts.length) { l.innerHTML = '<p class="cle">「' + selWd + '曜日」の追加業務はありません</p>'; }
   else {
     for (var i = 0; i < ts.length; i++) {
-      var el = document.createElement('div'); el.className = 'ri';
+      var it = ts[i], text = wdText(it), weeks = wdWeeks(it);
+      var summary = weeks ? ('第' + weeks.join('・') + '週') : '毎週';
+      var el = document.createElement('div');
+      el.className = 'ri';
+      el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
       var btns = ok ? '<button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>' : '';
-      el.innerHTML = '<span class="rn" style="font-size:11px">📅 ' + escH(ts[i]) + '</span>' + btns;
+      var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
+               + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
+      var freq = '';
+      if (ok) {
+        freq += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding-left:2px">';
+        freq += '<span style="font-size:10px;color:var(--txt3);margin-right:2px">頻度</span>';
+        for (var wk = 1; wk <= 5; wk++) {
+          var active = !weeks || weeks.indexOf(wk) !== -1;
+          freq += '<button onclick="togWdWeek('+i+','+wk+')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
+                + (active ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">第'+wk+'</button>';
+        }
+        freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
+        freq += '<button onclick="setWdWeeks('+i+',\'all\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">毎週</button>';
+        freq += '<button onclick="setWdWeeks('+i+',\'odd\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第1・3・5</button>';
+        freq += '<button onclick="setWdWeeks('+i+',\'even\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第2・4</button>';
+        freq += '</div>';
+      } else {
+        freq += '<div style="font-size:10px;color:var(--txt3);padding-left:2px">頻度: ' + summary + '</div>';
+      }
+      el.innerHTML = head + freq;
       l.appendChild(el);
     }
   }
@@ -3911,6 +3954,31 @@ function renderWdlyList() {
 function addWdly() { if(!can('wm'))return; var v=document.getElementById('in-wdly').value.trim(); if(!v)return; if(!D.wd[selWd])D.wd[selWd]=[]; D.wd[selWd].push(v); document.getElementById('in-wdly').value=''; renderWdlyList(); saveD(); if(curDs)safeRenderPage(); }
 function rmWdly(i) { if(!can('wm'))return; D.wd[selWd].splice(i,1); renderWdlyList(); saveD(); if(curDs)safeRenderPage(); }
 function mvWdly(i,d) { if(!can('wm'))return; var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return; var t=arr[i];arr[i]=arr[j];arr[j]=t; renderWdlyList(); saveD(); }
+/* 頻度プリセット：毎週=文字列に戻す / 第1・3・5 / 第2・4 */
+function setWdWeeks(i, mode) {
+  if(!can('wm'))return;
+  var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
+  var text = wdText(arr[i]);
+  if (mode==='all')      arr[i] = text;
+  else if (mode==='odd') arr[i] = { t:text, wk:[1,3,5] };
+  else if (mode==='even')arr[i] = { t:text, wk:[2,4] };
+  renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+}
+/* 第N週チップの個別トグル */
+function togWdWeek(i, wk) {
+  if(!can('wm'))return;
+  var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
+  var text = wdText(arr[i]);
+  var cur = wdWeeks(arr[i]);
+  var weeks = cur ? cur.slice() : [1,2,3,4,5];
+  var pos = weeks.indexOf(wk);
+  if (pos===-1) weeks.push(wk); else weeks.splice(pos,1);
+  weeks.sort(function(a,b){ return a-b; });
+  if (!weeks.length) { alert('最低1つの週を選んでください'); return; }
+  if (weeks.length>=5) arr[i] = text;       /* 全週 → 毎週（文字列）に正規化 */
+  else                 arr[i] = { t:text, wk:weeks };
+  renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+}
 
 /* ===== OPE/CATH/SUP ツリーマスタ ===== */
 /* 展開状態を科名/カテゴリ名で保持（再描画後も開いたまま維持） */
@@ -4816,7 +4884,7 @@ function renderPage(ds) {
   var dat=D.pages[ds];
   if(!dat.ops)dat.ops={}; if(!dat.ocData)dat.ocData={};
   var w=new Date(ds).getDay(), ws=WDL[w], wf=WDF[w];
-  var wtl=D.wd[ws]||[], all=D.dly.concat(wtl);
+  var wtl=wdItemsForDate(ds), all=D.dly.concat(wtl);
   var done=0; for(var i=0;i<all.length;i++){if(dat.checks&&dat.checks[i])done++;}
   var pct=all.length?Math.round(done/all.length*100):0;
   var dlk=lk('duty')&&!isAdmin, clk=lk('cl')&&!isAdmin, mlk=lk('memo')&&!isAdmin, olk=lk('ops')&&!isAdmin;
@@ -7297,8 +7365,8 @@ function mkCk(ds,idx,task,dat,locked) {
   div.appendChild(cb); div.appendChild(lb); div.appendChild(peekBtn); return div;
 }
 function updProg(ds) {
-  var pct=getPct(ds), dat=D.pages[ds], w=new Date(ds).getDay(), ws=WDL[w];
-  var all=D.dly.concat(D.wd[ws]||[]);
+  var pct=getPct(ds), dat=D.pages[ds];
+  var all=D.dly.concat(wdItemsForDate(ds));
   var done=0; for(var i=0;i<all.length;i++){if(dat.checks&&dat.checks[i])done++;}
   var f=document.getElementById('pgf'), t=document.getElementById('pgt'), p=document.getElementById('pgp'), pr=document.getElementById('prp');
   if(f)f.style.width=pct+'%';
