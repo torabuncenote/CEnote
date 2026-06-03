@@ -1331,6 +1331,8 @@ function fbInit() {
           var el = document.getElementById('tab-'+id);
           if(el) el.style.display = 'none';
         });
+        var fairBtn0 = document.getElementById('subtab-fair');
+        if (fairBtn0) fairBtn0.style.display = 'none';
         return;
       }
 
@@ -1340,12 +1342,13 @@ function fbInit() {
 
       Promise.all([
         fbDB.ref('/admins/' + user.uid).once('value'),
-        fbDB.ref('/userPerms/' + user.uid).once('value')
+        /* /userPerms読み取り失敗（ルール未設定等）でもログイン全体を止めないようフォールバック */
+        fbDB.ref('/userPerms/' + user.uid).once('value').catch(function(){ return null; })
       ]).then(function(snapResults) {
         /* ===== isAdminが確定してからUI全体を更新 ===== */
         var snap = snapResults[0];
         isAdmin = !!snap.val();
-        var perms = snapResults[1].val() || {};
+        var perms = (snapResults[1] && snapResults[1].val && snapResults[1].val()) || {};
         currentUser = { uid: user.uid, email: user.email,
           displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin, perms: perms };
 
@@ -2437,7 +2440,7 @@ function renderAdminUsers() {
 
 function togPermPanel(panelId) {
   var el = document.getElementById(panelId);
-  if (el) el.style.display = el.style.display ? '' : 'block';
+  if (el) el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
 }
 
 function saveUserPerm(uid, permId, grant) {
@@ -3835,10 +3838,14 @@ function rmWdly(i) { if(!can('wm'))return; D.wd[selWd].splice(i,1); renderWdlyLi
 function mvWdly(i,d) { if(!can('wm'))return; var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return; var t=arr[i];arr[i]=arr[j];arr[j]=t; renderWdlyList(); saveD(); }
 
 /* ===== OPE/CATH/SUP ツリーマスタ ===== */
+/* 展開状態を科名/カテゴリ名で保持（再描画後も開いたまま維持） */
+var _treeOpen = {};
+function treeOpenState(elId){ if(!_treeOpen[elId]) _treeOpen[elId]={depts:{},cats:{}}; return _treeOpen[elId]; }
 /* --- 汎用ツリー描画 --- */
 function renderTree(elId, tree, saveKey, icons) {
   var l = document.getElementById(elId); if (!l) return;
   l.innerHTML = '';
+  var openSt = treeOpenState(elId);
   (tree || []).forEach(function(dept, di) {
     var deptDiv = document.createElement('div'); deptDiv.className = 'tree-dept';
     var deptHd = document.createElement('div'); deptHd.className = 'tree-dept-hd';
@@ -3851,8 +3858,10 @@ function renderTree(elId, tree, saveKey, icons) {
     delDeptBtn.onclick=(function(idx){return function(e){e.stopPropagation();if(!confirm('「'+tree[idx].dept+'」と全ての術式を削除しますか？')) return;tree.splice(idx,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di);
     deptHd.appendChild(arrow); deptHd.appendChild(deptName); deptHd.appendChild(delDeptBtn);
 
-    var body = document.createElement('div'); body.className = 'tree-dept-body'; body.style.display='none';
-    deptHd.onclick = function(){ var open=body.style.display==='none'; body.style.display=open?'':'none'; arrow.style.transform=open?'rotate(90deg)':''; };
+    var deptOpen = !!openSt.depts[dept.dept];
+    var body = document.createElement('div'); body.className = 'tree-dept-body'; body.style.display = deptOpen ? '' : 'none';
+    if (deptOpen) arrow.style.transform='rotate(90deg)';
+    deptHd.onclick = (function(dname){return function(){ var open=body.style.display==='none'; body.style.display=open?'':'none'; arrow.style.transform=open?'rotate(90deg)':''; if(open) openSt.depts[dname]=true; else delete openSt.depts[dname]; };})(dept.dept);
 
     (dept.cats||[]).forEach(function(cat, ci) {
       var catDiv = document.createElement('div'); catDiv.className = 'tree-cat';
@@ -3866,8 +3875,11 @@ function renderTree(elId, tree, saveKey, icons) {
       delCatBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();if(!confirm('「'+tree[di2].cats[ci2].name+'」を削除しますか？')) return;tree[di2].cats.splice(ci2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci);
       catHd.appendChild(catArrow); catHd.appendChild(catName); catHd.appendChild(delCatBtn);
 
-      var catBody = document.createElement('div'); catBody.className = 'tree-cat-body'; catBody.style.display='none';
-      catHd.onclick = function(){ var open=catBody.style.display==='none'; catBody.style.display=open?'':'none'; catArrow.style.transform=open?'rotate(90deg)':''; };
+      var catKey = dept.dept + ' ' + cat.name;
+      var catOpen = !!openSt.cats[catKey];
+      var catBody = document.createElement('div'); catBody.className = 'tree-cat-body'; catBody.style.display = catOpen ? '' : 'none';
+      if (catOpen) catArrow.style.transform='rotate(90deg)';
+      catHd.onclick = (function(ck){return function(){ var open=catBody.style.display==='none'; catBody.style.display=open?'':'none'; catArrow.style.transform=open?'rotate(90deg)':''; if(open) openSt.cats[ck]=true; else delete openSt.cats[ck]; };})(catKey);
 
       (cat.items||[]).forEach(function(item, ii) {
         var itemRow = document.createElement('div'); itemRow.className = 'tree-item';
@@ -3884,7 +3896,7 @@ function renderTree(elId, tree, saveKey, icons) {
       var addItemRow = document.createElement('div'); addItemRow.className='tree-add-row';
       var addItemInp = document.createElement('input'); addItemInp.type='text'; addItemInp.placeholder='術式・品名を追加…';
       var addItemBtn = document.createElement('button'); addItemBtn.textContent='追加';
-      addItemBtn.onclick=(function(di2,ci2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats[ci2].items.push(v);inp.value='';D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);var l2=document.getElementById(eid);if(l2){var dh=l2.querySelectorAll('.tree-dept-hd');if(dh[di2]){dh[di2].click();var db=l2.querySelectorAll('.tree-dept-body');if(db[di2]){var ch=db[di2].querySelectorAll('.tree-cat-hd');if(ch[ci2])ch[ci2].click();}}}}})(di,ci,addItemInp,elId,tree,saveKey,icons);
+      addItemBtn.onclick=(function(di2,ci2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats[ci2].items.push(v);inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+tr[di2].cats[ci2].name]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);}})(di,ci,addItemInp,elId,tree,saveKey,icons);
       addItemInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addItemBtn);
       addItemRow.appendChild(addItemInp); addItemRow.appendChild(addItemBtn); catBody.appendChild(addItemRow);
 
@@ -3895,7 +3907,7 @@ function renderTree(elId, tree, saveKey, icons) {
     var addCatRow = document.createElement('div'); addCatRow.className='tree-add-row';
     var addCatInp = document.createElement('input'); addCatInp.type='text'; addCatInp.placeholder='中カテゴリを追加…';
     var addCatBtn = document.createElement('button'); addCatBtn.textContent='追加';
-    addCatBtn.onclick=(function(di2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats.push({name:v,items:[]});inp.value='';D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);var l2=document.getElementById(eid);if(l2){var dh=l2.querySelectorAll('.tree-dept-hd');if(dh[di2])dh[di2].click();}};})(di,addCatInp,elId,tree,saveKey,icons);
+    addCatBtn.onclick=(function(di2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats.push({name:v,items:[]});inp.value='';treeOpenState(eid).depts[tr[di2].dept]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);};})(di,addCatInp,elId,tree,saveKey,icons);
     addCatInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addCatBtn);
     addCatRow.appendChild(addCatInp); addCatRow.appendChild(addCatBtn); body.appendChild(addCatRow);
 
