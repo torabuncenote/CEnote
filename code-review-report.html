@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>コードレビュー結果 — CEnote (claude/claude-md-docs-FxLoC)</title>
+<style>
+:root{
+  --bg:#f4f3ef;--sur:#fff;--bdr:#e2e0db;--txt:#1e1d1a;--txt2:#6b6860;--txt3:#a8a49e;
+  --ac:#1a56db;--rd:#c0392b;--rd-bg:#fdecea;--or:#c2610a;--or-bg:#fef4e9;
+  --gr:#0e6e5e;--gr-bg:#e8f5f2;--gd:#b45309;--gd-bg:#fffbeb;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;background:var(--bg);color:var(--txt);line-height:1.7;padding:32px 20px;max-width:980px;margin:0 auto}
+h1{font-size:24px;font-weight:900;margin-bottom:6px}
+.sub{font-size:13px;color:var(--txt2);margin-bottom:4px}
+.meta{font-size:12px;color:var(--txt3);font-family:monospace;margin-bottom:24px}
+.summary{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:16px 20px;margin-bottom:28px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.summary h2{font-size:15px;margin-bottom:10px;color:var(--ac)}
+.counts{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.chip{font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px}
+.chip.c{background:var(--rd-bg);color:var(--rd);border:1px solid #f5b8b8}
+.chip.h{background:var(--or-bg);color:var(--or);border:1px solid #f0c98a}
+.chip.m{background:var(--gd-bg);color:var(--gd);border:1px solid #f0d68a}
+.chip.l{background:var(--gr-bg);color:var(--gr);border:1px solid #a7d9d0}
+.finding{background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:0;margin-bottom:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.fhd{display:flex;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--bdr)}
+.sev{font-size:11px;font-weight:900;padding:3px 9px;border-radius:5px;flex-shrink:0;letter-spacing:.03em}
+.sev.crit{background:var(--rd);color:#fff}
+.sev.high{background:var(--or);color:#fff}
+.sev.med{background:var(--gd);color:#fff}
+.sev.low{background:var(--gr);color:#fff}
+.ftitle{font-size:14px;font-weight:700;flex:1}
+.floc{font-size:11px;color:var(--txt3);font-family:monospace;white-space:nowrap}
+.fbody{padding:13px 18px}
+.fbody .lbl{font-size:11px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.fbody p{font-size:13px;margin-bottom:12px}
+.fbody p:last-child{margin-bottom:0}
+.fix{background:var(--gr-bg);border-left:3px solid var(--gr);border-radius:0 6px 6px 0;padding:8px 13px;font-size:12.5px}
+code{background:#f0efeb;padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px}
+.cat{font-size:10px;font-weight:700;color:var(--txt3);background:#f0efeb;border-radius:4px;padding:2px 7px;flex-shrink:0}
+footer{margin-top:32px;font-size:11px;color:var(--txt3);border-top:1px solid var(--bdr);padding-top:14px;line-height:1.8}
+</style>
+</head>
+<body>
+<h1>⚙️ コードレビュー結果</h1>
+<div class="sub">分院CE連絡表 (CEnote) — 管理者機能・CSV出力・法令GLパネルの追加</div>
+<div class="meta">branch: claude/claude-md-docs-FxLoC　|　base: main　|　対象: index.html (+381 / −9)</div>
+
+<div class="summary">
+  <h2>サマリー</h2>
+  <p style="font-size:13px">5コミット分の差分を7観点（行単位スキャン・削除挙動・横断トレース・再利用・簡素化・効率・抽象度）でレビューし、検証を通過した <strong>10件</strong> を重大度順に掲載します。うち<strong>2件は確認済みの重大バグ</strong>で、マージ前の修正を推奨します。</p>
+  <div class="counts">
+    <span class="chip c">🔴 重大 2</span>
+    <span class="chip h">🟠 高 3</span>
+    <span class="chip m">🟡 中 3</span>
+    <span class="chip l">🟢 低/整理 2</span>
+  </div>
+</div>
+
+<!-- 1 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev crit">重大</span>
+    <span class="ftitle">新規ユーザー登録モーダルが常に表示され、閉じられない</span>
+    <span class="floc">index.html:504</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">不具合</div>
+    <p><code>#modal-reg</code> は <code>class="hd"</code> で非表示を意図しているが、対応するCSSが存在しない。汎用の <code>.hd{display:none}</code> ルールは無く、定義されているのは <code>.ov.hd</code> / <code>#login-ov.hd</code> / <code>#modal-name.hd</code> のみ。<code>#modal-reg</code> は <code>.ov</code> クラスも持たず、<code>position:fixed;inset:0</code> も無い。</p>
+    <div class="lbl">再現</div>
+    <p>ページ読み込み時、登録モーダルがオーバーレイではなく本文フローの中にスタイル無しで常時表示される。<code>openRegModal()</code> の <code>classList.remove('hd')</code> も <code>closeRegModal()</code> の <code>add('hd')</code> も視覚的効果を持たず、ダイアログを閉じられない。</p>
+    <div class="fix">✅ 修正案：<code>&lt;div id="modal-reg" class="hd"&gt;</code> を <code>&lt;div id="modal-reg" class="ov hd"&gt;</code> に変更し（既存 <code>.ov</code> / <code>.ov.hd</code> ルールに乗せる）、<code>.name-box</code> をそのまま中身に使う。</p>
+  </div>
+</div>
+
+<!-- 2 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev crit">重大</span>
+    <span class="ftitle">freeRole 移行が描画に使われない配列を対象にしており、既存データで効果がない</span>
+    <span class="floc">index.html:1171 / 1276</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">不具合</div>
+    <p>担当カードの描画（<code>buildDutyCard</code> の <code>if (d.freeRole)</code>）は <code>getDutyCfg(dat)</code> 由来＝<code>dat.customDuties</code> または <code>D.dutyCfg</code> を参照する。しかし今回の移行処理は <code>D.dutyCfgMaster</code> のみを書き換えている。<strong>描画を駆動するデータを直していない。</strong></p>
+    <div class="lbl">再現</div>
+    <p>テンプレート適用済み（<code>D.dutyCfg</code>）または生成済みページ（<code>dat.customDuties</code>）に <code>slot_cathsub: freeRole:true</code> が残っている既存環境では、修正後もカテサブのフリー役割プルダウンが描画され続ける。新規インストールでのみ正しく見える。</p>
+    <div class="fix">✅ 修正案：正規化処理を <code>getDutyCfg</code>/<code>getDutyMaster</code> の出力時、または <code>D.dutyCfg</code> と全 <code>dat.customDuties</code> も含めて走査する単一の <code>normalizeDuties(D)</code> に集約する。</p>
+  </div>
+</div>
+
+<!-- 3 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev high">高</span>
+    <span class="ftitle">移行処理が saveD() を呼ばず、Firebase の正本データが永久に修正されない</span>
+    <span class="floc">index.html:1171 / 1276</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">不具合</div>
+    <p><code>loadD()</code> と <code>/data</code> リスナー内のどちらの移行も、<code>D.dutyCfgMaster</code> をメモリ上で書き換えるだけで <code>saveD()</code> を呼ばない。Firebase 有効時は読み込み直後にリスナーがサーバ値（<code>freeRole:true</code> のまま）で上書きし、毎セッション無駄に再走査する。</p>
+    <div class="lbl">再現</div>
+    <p>正本 <code>/data</code> は永遠に古いまま。移行コードを将来削除した瞬間、旧挙動が再発する。</p>
+    <div class="fix">✅ 修正案：移行で実際に値を変えた場合のみ一度 <code>saveD()</code> し、バージョンフラグで以後スキップする。</p>
+  </div>
+</div>
+
+<!-- 4 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev high">高</span>
+    <span class="ftitle">既存ページの dutyRoles / 役割備考が孤立データ化する</span>
+    <span class="floc">index.html:5455</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">不具合</div>
+    <p><code>freeRole</code> が false になったことで、過去に保存された <code>dat.dutyRoles['cath_sub']</code>（例:「PSG解析」）や「自由記述」の役割テキストは、表示もされず編集もできないが <code>D</code> 内には残り続ける。</p>
+    <div class="lbl">再現</div>
+    <p>カテサブを「自由記述」で運用していた過去日のカードから、その役割情報が黙って消える。担当者名は出るが役割コンテキストが失われ、履歴情報が欠落する。</p>
+    <div class="fix">✅ 修正案：移行時に旧 <code>dutyRoles</code> を備考欄へ退避するか、消える旨を一度ユーザーに通知する。</p>
+  </div>
+</div>
+
+<!-- 5 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev high">高</span>
+    <span class="ftitle">登録の部分失敗で Auth アカウントが孤立し、モーダルが「登録中...」で固まる</span>
+    <span class="floc">index.html:doRegister</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">不具合</div>
+    <p><code>createUserWithEmailAndPassword</code> は成功したが <code>fbDB.ref('/users/'+uid).set()</code> が拒否された場合（RTDBルール等）、Auth にはアカウントが作られたのに <code>/users</code> レコードが無い状態になる。<code>.then</code> 連鎖が走らず <code>signOut</code>/<code>delete</code>/<code>closeRegModal</code> も発火しない。</p>
+    <div class="lbl">再現</div>
+    <p>新ユーザーは管理パネルに現れず管理不能。モーダルは「登録中...」のまま、第2アプリインスタンスがセッション内にリークする。</p>
+    <div class="fix">✅ 修正案：<code>/users</code> 書き込み失敗時に作成済み Auth ユーザーを <code>cred.user.delete()</code> でロールバックし、catch でボタン状態を必ず復帰する。</p>
+  </div>
+</div>
+
+<!-- 6 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev med">中</span>
+    <span class="ftitle">signOut() を await せず delete() するため孤立セッションが残りうる</span>
+    <span class="floc">index.html:doRegister</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">不具合</div>
+    <p>第2アプリは既定で LOCAL 永続化。<code>signOut()</code> は Promise を返すが、解決前に <code>secondApp.delete()</code> を同期的に呼ぶとサインアウトが中断され、新規ユーザーの認証情報が IndexedDB に残る可能性がある。同一 <code>FB_CFG</code> ゆえ永続化キーが主アプリと衝突しうる。</p>
+    <div class="lbl">再現</div>
+    <p>低速回線での登録後、残存セッションが非決定的に復元され、誤った <code>currentUser</code> やログイン不整合（要キャッシュ削除）として表面化することがある。</p>
+    <div class="fix">✅ 修正案：<code>signOut().then(()=&gt;secondApp.delete())</code> と連結する。可能なら登録専用に <code>setPersistence(NONE)</code> を使う。</p>
+  </div>
+</div>
+
+<!-- 7 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev med">中</span>
+    <span class="ftitle">権限変更がクライアント isAdmin のみに依存し、RTDBルール次第で昇格可能</span>
+    <span class="floc">index.html:toggleAdminPriv</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">不具合</div>
+    <p><code>toggleAdminPriv</code> と <code>/users</code> 書き込みはクライアント側 <code>isAdmin</code> でしかガードしていない。<code>isAdmin</code> は <code>/admins</code> の読み取り由来で、コンソールや <code>?preview=1</code> から容易に書き換えられる。実効的な強制は RTDB セキュリティルールに依存する。</p>
+    <div class="lbl">再現</div>
+    <p><code>/admins</code> の書き込みルールが管理者限定でない場合、一般職員が devtools で <code>isAdmin=true</code> にして自己昇格できる。</p>
+    <div class="fix">✅ 修正案：<code>/admins</code> への書き込みを <code>root.child('admins').child(auth.uid).val()===true</code> に制限するルールを必須化し、設定手順に明記する。</p>
+  </div>
+</div>
+
+<!-- 8 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev med">中</span>
+    <span class="ftitle">renderAdminUsers の二重 once 読み込みが競合し、古い結果で上書きされうる</span>
+    <span class="floc">index.html:renderAdminUsers</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">不具合</div>
+    <p>タブを開くたび／「🔄更新」／各操作後に <code>/users</code> と <code>/admins</code> の <code>once</code> を <code>Promise.all</code> で読み、in-flight ガード無しで <code>innerHTML</code> を書き換える。</p>
+    <div class="lbl">再現</div>
+    <p>タブ表示直後に更新を連打すると、遅延した古いスナップショットの <code>.then</code> が後勝ちし、直前に外したはずの管理者が再び管理者表示されるなど、古いリストが残る。</p>
+    <div class="fix">✅ 修正案：リクエスト世代カウンタを持ち、最新の応答のみ描画を反映する。</p>
+  </div>
+</div>
+
+<!-- 9 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev low">整理</span>
+    <span class="cat">REUSE</span>
+    <span class="ftitle">checkRegPwStrength が checkPwStrength のほぼ完全コピー（色ヒント脱落）</span>
+    <span class="floc">index.html:checkRegPwStrength</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">コスト</div>
+    <p>スコア算定・閾値・ヒント配列・バー更新ループが <code>checkPwStrength</code> と同一で、要素IDだけが異なる。新コピーは元にあった <code>hint.style.color</code> 行を落としており、登録モーダルだけ色付きヒントが出ない＝既にドリフトが発生。スコア基準変更時に二重保守が必要。</p>
+    <div class="fix">✅ 修正案：元関数を ID プレフィックス引数で一般化し、両フォームから呼ぶ。</p>
+  </div>
+</div>
+
+<!-- 10 -->
+<div class="finding">
+  <div class="fhd">
+    <span class="sev low">整理</span>
+    <span class="cat">REUSE</span>
+    <span class="ftitle">exportAtCsv が renderAT のセル組み立てロジックを再実装</span>
+    <span class="floc">index.html:exportAtCsv</span>
+  </div>
+  <div class="fbody">
+    <div class="lbl">コスト</div>
+    <p>担当ラベル／<code>extra_free</code>「フリー」／<code>ocData</code>「OC」／<code>surplus</code> の組み立てが <code>renderAT</code> と重複。担当ソースを追加すると両方を直す必要があり、画面とCSVが静かに乖離しうる。</p>
+    <div class="fix">✅ 修正案：<code>getStaffDutyLabels(dat, name, pageDuties)</code> を共通化し、HTMLチップとCSVセルの両方で使う。</p>
+  </div>
+</div>
+
+<footer>
+本レポートは <code>git diff main...HEAD</code> を対象に、行単位スキャン・削除挙動監査・横断トレース・再利用/簡素化/効率/抽象度の各観点で候補を抽出し、検証を通過した項目を掲載しています。重大度は実害の大きさと再現性で順位付けしました。<br>
+重大2件（モーダルCSS・freeRole移行対象）はコードベース直接確認により裏付け済みです。
+</footer>
+</body>
+</html>
