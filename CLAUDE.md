@@ -176,7 +176,16 @@ A sidebar tab (`tab-sched` / `pane-sched`) that builds a per-day timetable for `
 
 ### PHI Detection
 
-`detectPHI(text)` (line ~4787) scans memo text for patient health information patterns before posting. Returns a severity level and shows a warning UI if detected.
+`detectPHI(text)` scans text for patient health information patterns. Returns `{ red:[...], yellow:[...] }`. `phiHasBlock(result)` is true when a hard block (8-digit ID or full name) is present.
+
+`showPHIPopup(opts)` is the unified warning **popup modal** (`#modal-phi`): it lists detected items and a 是正方法 (fix guidance). Buttons: 修正する (close + refocus) always; 確認済み・このまま送信/保存 only when not block-level. `opts = { result, mode:'memo'|'field', onProceed, onFix }`.
+
+- **Memos:** `postMemo(ds)` runs `detectPHI` on send; if anything is detected it opens the popup (block-level PHI cannot be sent; soft warnings can be confirmed).
+- **All other free-text fields:** `initPHIGuard()` (called in `init()`) attaches one delegated `focusout` listener on `#main` covering every `textarea`/`input[type=text]` (except `#memo-new`). On blur with detected PHI it opens the same popup. New free-text fields added under `#main` are covered automatically — no per-field wiring needed.
+
+### Fairness Check (⚖️ 公平性)
+
+`renderFairness()` is the 4th subtab of the assignment pane (`subtab-fair` / `subpane-fair`). For the `asY/asM` month it counts duty assignments per staff per slot label (via `getDutyCfg(pg)` so per-page `customDuties` are honored), shows a staff×duty matrix with per-column max(red)/min(blue) highlighting, a total bar with worked-day count, and an imbalance warning when any column's max−min ≥ `FAIR_GAP_WARN` (default 3).
 
 ## Firebase Database Structure
 

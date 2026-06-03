@@ -404,6 +404,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* ⚠️ 黄ボックス（連合会認可形式） */
 .memo-phi-yellow{font-size:12px;color:#78350f;background:#fffbeb;border:1.5px solid #f59e0b;border-radius:6px;padding:9px 12px;line-height:1.7}
 .memo-phi-yellow strong{display:block;margin-bottom:3px;font-size:13px;color:#b45309}
+/* 患者情報検知ポップアップ */
+.phi-sev{font-size:15px;font-weight:800;margin-bottom:10px;padding:9px 13px;border-radius:8px;text-align:center}
+.phi-sev-red{background:#fef2f2;color:#c0392b;border:1.5px solid #ef4444}
+.phi-sev-yellow{background:#fffbeb;color:#b45309;border:1.5px solid #f59e0b}
+.phi-desc{font-size:12px;color:var(--txt2);margin-bottom:8px;line-height:1.7}
+.phi-list{margin:0 0 10px;padding:8px 12px 8px 28px;font-size:12px;color:var(--txt);background:var(--sur2);border:1px solid var(--bdr);border-radius:6px;line-height:1.7}
+.phi-list li{margin-bottom:2px}
+.phi-fix{background:var(--ac-bg);border:1px solid var(--ac);border-radius:6px;padding:8px 11px;font-size:12px;color:var(--txt);line-height:1.7}
 .memo-media-preview{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px}
 .memo-media-prev-item{position:relative;border-radius:5px;overflow:hidden;border:1px solid var(--bdr)}
 .memo-media-prev-item img{width:72px;height:56px;object-fit:cover;display:block}
@@ -919,6 +927,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <button id="subtab-at" class="btn btn-g btn-sm" onclick="swSubTab('at')" style="border-radius:6px 6px 0 0;border-bottom:2px solid var(--ac);font-weight:700">📊 担当表</button>
         <button id="subtab-oc" class="btn btn-g btn-sm" onclick="swSubTab('oc')" style="border-radius:6px 6px 0 0">📞 OC集計</button>
         <button id="subtab-ops" class="btn btn-g btn-sm" onclick="swSubTab('ops')" style="border-radius:6px 6px 0 0">📈 業務集計</button>
+        <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0">⚖️ 公平性</button>
       </div>
       <!-- 担当表 -->
       <div id="subpane-at">
@@ -941,6 +950,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <!-- 業務集計シート -->
       <div id="subpane-ops" style="display:none">
         <div id="ops-sum-body"></div>
+      </div>
+      <!-- 公平性チェック -->
+      <div id="subpane-fair" style="display:none">
+        <div id="fair-body"></div>
       </div>
     </div>
   </div>
@@ -978,6 +991,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <button class="btn btn-d" onclick="doDelM()">🗑 この月を全削除</button>
       <button class="btn btn-p" onclick="doGenM()">生成する</button>
     </div>
+  </div>
+</div>
+
+<!-- 患者情報検知ポップアップ -->
+<div class="ov hd" id="modal-phi">
+  <div class="md" style="max-width:420px">
+    <div id="phi-body"></div>
+    <div class="mdb" id="phi-actions" style="margin-top:16px"></div>
   </div>
 </div>
 
@@ -1200,6 +1221,7 @@ function init() {
   renderDlyList(); renderWdlyList();
   renderOpeList(); renderCathList();
   renderLockList();
+  initPHIGuard();
   document.getElementById('in-stf').addEventListener('keydown', function(e){ if(e.key==='Enter') addStf(); });
   document.getElementById('in-phs').addEventListener('keydown', function(e){ if(e.key==='Enter') addPhs(); });
   document.getElementById('in-dly').addEventListener('keydown', function(e){ if(e.key==='Enter') addDly(); });
@@ -3070,18 +3092,18 @@ function removeOpsCard(ds, cid) {
 
 /* ===== 担当表サブタブ切り替え ===== */
 function swSubTab(id) {
-  document.getElementById('subpane-at').style.display  = id==='at'  ? '' : 'none';
-  document.getElementById('subpane-oc').style.display  = id==='oc'  ? '' : 'none';
-  document.getElementById('subpane-ops').style.display = id==='ops' ? '' : 'none';
-  var ids = ['at','oc','ops'];
+  var ids = ['at','oc','ops','fair'];
   ids.forEach(function(sid){
+    var pane = document.getElementById('subpane-'+sid);
+    if (pane) pane.style.display = sid===id ? '' : 'none';
     var btn = document.getElementById('subtab-'+sid);
     if (!btn) return;
     btn.style.borderBottom = sid===id ? '2px solid var(--ac)' : 'none';
     btn.style.fontWeight   = sid===id ? '700' : '';
   });
-  if (id==='oc')  renderOCSummary();
-  if (id==='ops') renderOpsSummary();
+  if (id==='oc')   renderOCSummary();
+  if (id==='ops')  renderOpsSummary();
+  if (id==='fair') renderFairness();
 }
 
 /* ===== OC集計シート ===== */
@@ -3218,6 +3240,109 @@ function renderOpsSummary() {
   h += '</tr>';
   h += '</tbody></table></div>';
   h += '<div style="font-size:11px;color:var(--txt3);margin-top:8px">※ 行をクリックすると連絡表を開きます。オペ・カテは入力した術式/種別の行数、6MWは入力した件数、PSGは装着欄に入力があれば1件と集計しています。</div>';
+  el.innerHTML = h;
+}
+
+/* ===== 公平性チェック（担当回数の偏り） ===== */
+var FAIR_GAP_WARN = 3; /* 最多-最少 がこの値以上で「偏りあり」警告 */
+function renderFairness() {
+  var el = document.getElementById('fair-body');
+  if (!el) return;
+  var days = new Date(asY, asM+1, 0).getDate();
+  var counts = {};            /* name -> { label:n, _total:n } */
+  var labelsOrder = [], labelSeen = {};
+  var workedDays = {};        /* name -> 勤務日数（プール出現） */
+
+  for (var d=1; d<=days; d++) {
+    var ds = asY+'-'+pad(asM+1)+'-'+pad(d);
+    var pg = D.pages[ds];
+    if (!pg) continue;
+    /* 勤務日数（当日勤務者一覧） */
+    var si = getShiftForDay(ds);
+    si.ce.forEach(function(c){ workedDays[c.name] = (workedDays[c.name]||0)+1; });
+    /* 担当割り当て */
+    if (!pg.duties) continue;
+    var cfg = getDutyCfg(pg);
+    cfg.forEach(function(slot){
+      var name = pg.duties[slot.id];
+      if (!name) return;
+      if (!labelSeen[slot.label]) { labelSeen[slot.label]=1; labelsOrder.push(slot.label); }
+      if (!counts[name]) counts[name] = {_total:0};
+      counts[name][slot.label] = (counts[name][slot.label]||0)+1;
+      counts[name]._total++;
+    });
+  }
+
+  var names = Object.keys(counts);
+  if (!names.length) {
+    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">この月に担当の割り当てがありません</div>';
+    return;
+  }
+  names.sort(function(a,b){ return counts[b]._total - counts[a]._total; });
+
+  /* 列ごとの統計（割当のある人＝出勤者ベースで偏りを評価） */
+  var stats = {};
+  labelsOrder.forEach(function(lb){
+    var vals = names.map(function(n){ return counts[n][lb]||0; });
+    var max = Math.max.apply(null, vals), min = Math.min.apply(null, vals);
+    var sum = vals.reduce(function(a,b){ return a+b; }, 0);
+    stats[lb] = { max:max, min:min, sum:sum, gap:max-min };
+  });
+  var totalAll = names.reduce(function(a,n){ return a+counts[n]._total; }, 0);
+  var maxTotal = Math.max.apply(null, names.map(function(n){ return counts[n]._total; }));
+
+  var h = '';
+  /* サマリー */
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
+  h += '<span style="font-size:13px;font-weight:700">'+asY+'年'+(asM+1)+'月　担当の公平性</span>';
+  h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">対象スタッフ: '+names.length+'人</span>';
+  h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">総割当: '+totalAll+'件</span>';
+  h += '</div>';
+
+  /* 偏り警告 */
+  var warnLabels = labelsOrder.filter(function(lb){ return stats[lb].gap >= FAIR_GAP_WARN; });
+  if (warnLabels.length) {
+    h += '<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:12px;color:#78350f;line-height:1.7;margin-bottom:12px">';
+    h += '<strong>⚠️ 偏りの可能性があります（最多−最少 ≥ '+FAIR_GAP_WARN+'回）</strong><br>';
+    h += warnLabels.map(function(lb){ return lb+'（差 '+stats[lb].gap+'回）'; }).join('、');
+    h += '</div>';
+  } else {
+    h += '<div style="background:var(--gr-bg);border:1.5px solid var(--gr);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--gr);line-height:1.7;margin-bottom:12px">✅ 大きな偏りは検出されませんでした。</div>';
+  }
+
+  /* テーブル */
+  h += '<div style="overflow-x:auto"><table class="spec-tbl" style="min-width:480px">';
+  h += '<thead><tr><th style="width:90px;text-align:left">スタッフ</th>';
+  labelsOrder.forEach(function(lb){
+    var warn = stats[lb].gap >= FAIR_GAP_WARN;
+    h += '<th style="width:64px;text-align:center'+(warn?';background:#b45309':'')+'">'+escH(lb)+(warn?' ⚠️':'')+'</th>';
+  });
+  h += '<th style="width:120px;text-align:center">合計（出勤'+'日比）</th></tr></thead><tbody>';
+
+  names.forEach(function(n){
+    h += '<tr>';
+    h += '<td style="text-align:left;font-weight:700">'+escH(n)+'</td>';
+    labelsOrder.forEach(function(lb){
+      var v = counts[n][lb]||0;
+      var isMax = v>0 && v===stats[lb].max && stats[lb].gap>0;
+      var isMin = v===stats[lb].min && stats[lb].gap>0;
+      var bg = isMax ? 'background:#fef2f2;color:#c0392b;font-weight:700' : (isMin ? 'background:#eef7ff;color:var(--ac)' : '');
+      h += '<td style="text-align:center;'+bg+'">'+(v||'<span style="color:var(--txt3)">—</span>')+'</td>';
+    });
+    /* 合計＋出勤日数バー */
+    var tot = counts[n]._total;
+    var wd  = workedDays[n]||0;
+    var barW = maxTotal ? Math.round(tot/maxTotal*100) : 0;
+    h += '<td style="text-align:center">';
+    h += '<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;background:var(--bdr);border-radius:4px;height:10px;overflow:hidden"><div style="width:'+barW+'%;background:var(--ac);height:100%"></div></div>';
+    h += '<span style="font-weight:700;min-width:38px;text-align:right">'+tot+(wd?' /'+wd+'日':'')+'</span></div>';
+    h += '</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '<div style="font-size:11px;color:var(--txt3);margin-top:8px;line-height:1.7">'
+     + '※ <span style="color:#c0392b;font-weight:700">赤</span>＝その担当で最多の人、<span style="color:var(--ac);font-weight:700">青</span>＝最少の人。「合計 /◯日」は割当合計と当月の出勤日数です。<br>'
+     + '※ 出勤日数に対して割当が多い／少ない人を見て、翌月のシフト調整の参考にしてください。</div>';
   el.innerHTML = h;
 }
 
@@ -5329,94 +5454,96 @@ function detectPHI(text) {
   return { red:red, yellow:yellow };
 }
 
-function checkMemoForPHI(text, ds) {
-  var result = detectPHI(text);
-  var warnEl = document.getElementById('memo-phi-warn');
-  if (!warnEl) return true;
+/* ブロックレベルの患者情報（8桁ID・フルネーム）が含まれるか */
+function phiHasBlock(result) {
+  return result.red.some(function(r){ return r.indexOf('8桁') !== -1 || r.indexOf('氏名') !== -1; });
+}
 
-  /* 問題なし */
-  if (!result.red.length && !result.yellow.length) {
-    warnEl.style.display = 'none';
-    warnEl.innerHTML = '';
-    return true;
-  }
+/* ===== 患者情報検知ポップアップ（共通） =====
+   opts: { result, mode:'memo'|'field', onProceed(関数 or null), onFix(関数) } */
+var _phiCtx = null;
+function showPHIPopup(opts) {
+  var result  = opts.result;
+  var blocked = phiHasBlock(result);
 
-  /* 赤の中でブロックするもの（8桁ID・フルネーム）とそれ以外を分類 */
-  var blockRed = [];   /* 送信ブロック */
-  var warnRed  = [];   /* 警告のみ（確認して送信可） */
-  result.red.forEach(function(r) {
-    if (r.indexOf('8桁') !== -1 || r.indexOf('氏名') !== -1) {
-      blockRed.push(r);
-    } else {
-      warnRed.push(r);
-    }
+  var blockRed = [], warnRed = [];
+  result.red.forEach(function(r){
+    (r.indexOf('8桁')!==-1 || r.indexOf('氏名')!==-1 ? blockRed : warnRed).push(r);
   });
 
-  /* 警告ボックスを構築 */
-  var html = '';
+  var h = '';
+  if (blocked) {
+    h += '<div class="phi-sev phi-sev-red">🚨 患者個人情報が含まれています</div>';
+    h += '<p class="phi-desc">この内容は'+(opts.mode==='memo'?'送信':'保存')+'できません。下記を修正してください。</p>';
+  } else if (warnRed.length) {
+    h += '<div class="phi-sev phi-sev-red">🚨 患者情報の可能性があります</div>';
+  } else {
+    h += '<div class="phi-sev phi-sev-yellow">⚠️ 患者情報と思われる記載があります</div>';
+  }
 
-  if (blockRed.length) {
-    /* 🚨 赤ブロック（8桁ID・フルネーム） */
-    var redNotes = [];
-    blockRed.forEach(function(r) {
-      if (r.indexOf('8桁') !== -1) redNotes.push('患者ID → 下4桁（例：ID:5678）に変えてください');
-      if (r.indexOf('氏名') !== -1) redNotes.push('氏名 → 姓＋イニシャル（例：田中K）に変えてください');
+  /* 検知内容リスト */
+  h += '<ul class="phi-list">';
+  blockRed.concat(warnRed).forEach(function(r){ h += '<li>'+escH(r)+'</li>'; });
+  result.yellow.forEach(function(r){ h += '<li>'+escH(r)+'</li>'; });
+  h += '</ul>';
+
+  /* 是正ガイド */
+  var notes = [];
+  if (blockRed.some(function(r){ return r.indexOf('8桁')!==-1; })) notes.push('患者ID → 下4桁（例：ID:5678）に変える');
+  if (blockRed.some(function(r){ return r.indexOf('氏名')!==-1; })) notes.push('氏名 → 姓＋イニシャル（例：田中K）に変える');
+  if (notes.length) {
+    h += '<div class="phi-fix">【是正方法】'+notes.join(' / ')+'</div>';
+  } else {
+    h += '<div class="phi-fix">職員・メーカー担当者名であればそのまま記載できます。<br>患者名・患者を特定できる情報の場合は削除してください。</div>';
+  }
+  document.getElementById('phi-body').innerHTML = h;
+
+  /* ボタン */
+  var a = '<button class="btn btn-p" onclick="phiPopupFix()">修正する</button>';
+  if (!blocked && opts.onProceed) {
+    a += '<button class="btn btn-g" onclick="phiPopupProceed()">確認済み・このまま'+(opts.mode==='memo'?'送信':'保存')+'</button>';
+  }
+  document.getElementById('phi-actions').innerHTML = a;
+
+  _phiCtx = opts;
+  document.getElementById('modal-phi').classList.remove('hd');
+}
+function phiPopupFix() {
+  document.getElementById('modal-phi').classList.add('hd');
+  var c = _phiCtx; _phiCtx = null;
+  if (c && c.onFix) c.onFix();
+}
+function phiPopupProceed() {
+  document.getElementById('modal-phi').classList.add('hd');
+  var c = _phiCtx; _phiCtx = null;
+  if (c && c.onProceed) c.onProceed();
+}
+
+/* 全フリーテキスト欄の患者情報ガード（#main 内の input/textarea を委譲監視） */
+function initPHIGuard() {
+  var main = document.getElementById('main');
+  if (!main) return;
+  main.addEventListener('focusout', function(e) {
+    var el = e.target;
+    if (!el || !el.tagName) return;
+    var tag = el.tagName;
+    var isText = tag==='TEXTAREA' || (tag==='INPUT' && /^(text|search|)$/i.test(el.type));
+    if (!isText) return;
+    if (el.id === 'memo-new') return;      /* 申し送りは送信時にチェック */
+    if (el.disabled || el.readOnly) return;
+    var text = (el.value||'').trim();
+    if (!text) return;
+    var result = detectPHI(text);
+    if (!result.red.length && !result.yellow.length) return;
+    showPHIPopup({
+      result: result,
+      mode: 'field',
+      onFix: function(){ try { el.focus(); if (el.select) el.select(); } catch(_){} },
+      onProceed: phiHasBlock(result) ? null : function(){
+        writeLog('PHI警告を確認して保存', '検知内容: ' + result.red.concat(result.yellow).join(', '));
+      }
     });
-    html += '<div class="memo-phi-red">'
-      + '<strong>🚨 送信できません — 患者個人情報が含まれています</strong>'
-      + '検知内容：' + blockRed.join('、') + '<br>'
-      + '【是正方法】' + redNotes.join(' / ') + '<br>'
-      + '内容を修正してから送信してください。'
-      + '</div>';
-  }
-
-  if (warnRed.length) {
-    /* 🚨 赤（確認→送信可） */
-    html += '<div class="memo-phi-red">'
-      + '<strong>🚨 患者情報が含まれている可能性があります</strong>'
-      + '検知内容：' + warnRed.join('、') + '<br>'
-      + '内容を確認してから送信してください。'
-      + '</div>';
-  }
-
-  if (result.yellow.length) {
-    /* ⚠️ 黄ボックス */
-    html += '<div class="memo-phi-yellow">'
-      + '<strong>⚠️ 患者情報と思われる記載があります</strong>'
-      + '検知内容：' + result.yellow.join('、') + '<br>'
-      + '職員・メーカー担当者名の場合はそのまま送信できます。患者名の場合は修正してください。'
-      + '</div>';
-  }
-
-  warnEl.innerHTML = html;
-  warnEl.style.display = '';
-
-  /* ブロック対象（8桁ID・フルネーム）があれば送信ブロック */
-  if (blockRed.length) {
-    return false;
-  }
-
-  /* ブロック対象以外（warnRed・yellow）→ 確認ボタンで送信可 */
-  var allNonBlock = warnRed.concat(result.yellow);
-  if (allNonBlock.length) {
-    var confirmBtn = document.createElement('button');
-    confirmBtn.className = 'btn btn-sm';
-    confirmBtn.style.cssText = 'margin-top:6px;font-size:11px;background:'
-      + (warnRed.length ? '#e53e3e' : '#f59e0b')
-      + ';color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer';
-    confirmBtn.textContent = '確認済み・このまま送信する';
-    confirmBtn.type = 'button';
-    confirmBtn.onclick = function() {
-      warnEl.style.display = 'none';
-      warnEl.innerHTML = '';
-      writeLog('PHI警告を確認して送信', '検知内容: ' + allNonBlock.join(', '));
-      _doPostMemo(ds);
-    };
-    warnEl.appendChild(confirmBtn);
-    return false;
-  }
-
-  return true;
+  });
 }
 
 function postMemo(ds) {
@@ -5426,7 +5553,21 @@ function postMemo(ds) {
   if (!text && !_memoMediaBuf.length) return;
 
   /* 患者情報チェック（テキストがある場合のみ） */
-  if (text && !checkMemoForPHI(text, ds)) return; /* 警告表示・送信ブロック */
+  if (text) {
+    var result = detectPHI(text);
+    if (result.red.length || result.yellow.length) {
+      showPHIPopup({
+        result: result,
+        mode: 'memo',
+        onFix: function(){ var t=document.getElementById('memo-new'); if(t) t.focus(); },
+        onProceed: phiHasBlock(result) ? null : function(){
+          writeLog('PHI警告を確認して送信', '検知内容: ' + result.red.concat(result.yellow).join(', '));
+          _doPostMemo(ds);
+        }
+      });
+      return; /* ポップアップで判断 */
+    }
+  }
 
   _doPostMemo(ds);
 }
