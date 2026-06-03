@@ -330,6 +330,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .tb-btns .btn{font-size:11px;padding:5px 8px}
   .btn-nm-text{display:none}
   .btn-gm-text{display:none}
+  .btn-at-text{display:none}
+  .at-hint{display:none}
   .uc-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 @media(max-width:480px){
@@ -843,9 +845,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <button class="btn btn-g btn-sm" onclick="asPrevM()">&#8249;</button>
         <span class="atml" id="atml"></span>
         <button class="btn btn-g btn-sm" onclick="asNextM()">&#8250;</button>
-        <span style="font-size:11px;color:var(--txt3)">担当設定済みの日のみ表示</span>
-        <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openGM()">📅 1ヶ月生成</button>
-        <button class="btn btn-g btn-sm" onclick="printAt()">🖨️ 印刷</button>
+        <span class="at-hint" style="font-size:11px;color:var(--txt3)">担当設定済みの日のみ表示</span>
+        <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
+        <button class="btn btn-g btn-sm" onclick="exportAtCsv()">📥<span class="btn-at-text"> CSV</span></button>
+        <button class="btn btn-g btn-sm" onclick="printAt()">🖨️<span class="btn-at-text"> 印刷</span></button>
       </div>
       <!-- サブタブ -->
       <div style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
@@ -968,7 +971,7 @@ var DUTIES = [
   {id:'cath',    icon:'🫀', label:'カテ担当',  cls:'dc-c'},
   {id:'ward',    icon:'🏥', label:'病棟外回り', cls:'dc-w',  checks:['HDプライミング','PSG取り外し']},
   {id:'device',  icon:'⚙️', label:'機器管理',  cls:'dc-dv', checks:['HDプライミング','PSG取り外し']},
-  {id:'cath_sub',icon:'💉', label:'フリー',    cls:'dc-cs', freeRole:true, checks:['HDプライミング','PSG取り外し']}
+  {id:'cath_sub',icon:'💉', label:'フリー',    cls:'dc-cs', freeRole:false, checks:['HDプライミング','PSG取り外し']}
 ];
 /* cath_subのフリー役割選択肢 */
 var CATH_SUB_ROLES = ['フリー','PSG解析','自由記述'];
@@ -980,7 +983,7 @@ var DEF_DUTY_MASTER = [
   {id:'slot_ope',    icon:'🔪', label:'OPE担当',   checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_sub',    icon:'🩺', label:'OPEサブ',   checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_cath',   icon:'🫀', label:'カテ担当',  checks:['HDプライミング','PSG取り外し'], freeRole:false},
-  {id:'slot_cathsub',icon:'🫀', label:'カテサブ',  checks:['HDプライミング','PSG取り外し'], freeRole:true},
+  {id:'slot_cathsub',icon:'🫀', label:'カテサブ',  checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_ward',   icon:'🏥', label:'病棟外回り', checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_device', icon:'⚙', label:'機器管理',   checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_free',   icon:'💉', label:'フリー',     checks:['HDプライミング','PSG取り外し'], freeRole:true}
@@ -1155,6 +1158,8 @@ function loadD() {
     D.shift  = s.shift  || {};
     D.evts   = s.evts   || {};
     D.manual = s.manual || {};
+    /* slot_cathsub の freeRole を false に統一（旧データ移行） */
+    D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
     D.wd=JSON.parse(JSON.stringify(DEF_WD)); D.lk={};
@@ -1258,6 +1263,8 @@ function fbInit() {
             D.cathTree= d.cathTree&& d.cathTree.length? d.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE));
             D.supTree = d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE));
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
+            /* slot_cathsub の freeRole を false に統一（旧データ移行） */
+            D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
             D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
             D.shift = d.shift || {};
@@ -6758,6 +6765,38 @@ function renderAT() {
 }
 function openFromAT(ds){swTab('cal');var pt=ds.split('-');calY=parseInt(pt[0]);calM=parseInt(pt[1])-1;openPage(ds);}
 function printAt(){document.getElementById('ph').textContent='分院CE連絡表　担当一覧　'+asY+'年'+(asM+1)+'月';renderAT();setTimeout(function(){window.print();},150);}
+
+function exportAtCsv() {
+  var days=new Date(asY,asM+1,0).getDate(), adates=[];
+  for(var d=1;d<=days;d++){var ds=asY+'-'+pad(asM+1)+'-'+pad(d);if(D.pages[ds])adates.push(ds);}
+  if(!adates.length){alert('この月の連絡表がありません');return;}
+  var allS=D.stf.slice();
+  var rows=[['日付','曜日'].concat(allS).concat(['余剰'])];
+  for(var di=0;di<adates.length;di++){
+    var ds=adates[di], w=new Date(ds).getDay(), dn=parseInt(ds.split('-')[2]);
+    var dat=D.pages[ds], pageDuties=getDutyCfg(dat);
+    var row=[asY+'/'+(asM+1)+'/'+dn, WDL[w]];
+    for(var si=0;si<allS.length;si++){
+      var name=allS[si], cells=[];
+      if(dat&&dat.duties){for(var ki=0;ki<pageDuties.length;ki++){var dobj=pageDuties[ki];if(dat.duties[dobj.id]===name)cells.push(dobj.label);}}
+      if(dat&&dat.extra_free){for(var ef=0;ef<dat.extra_free.length;ef++){if(dat.extra_free[ef].name===name)cells.push('フリー');}}
+      if(dat&&dat.ocData&&dat.ocData.staff===name)cells.push('OC');
+      row.push(cells.join('/'));
+    }
+    row.push(((dat&&dat.surplus)||[]).join('/'));
+    rows.push(row);
+  }
+  var csv='﻿';
+  rows.forEach(function(row){
+    csv+=row.map(function(c){var s=String(c);return(s.indexOf(',')!==-1||s.indexOf('\n')!==-1||s.indexOf('"')!==-1)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')+'\r\n';
+  });
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='分院CE担当表_'+asY+'年'+(asM+1)+'月.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
