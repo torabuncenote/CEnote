@@ -7530,6 +7530,23 @@ function renderSched(){
   si.ce.forEach(function(c){ staff.push({name:c.name,oc:false}); });
   si.oc.forEach(function(o){ if(!staff.some(function(s){return s.name===o.name;})) staff.push({name:o.name,oc:true}); });
 
+  /* シフト表未取込のとき、担当カードの割当スタッフを列として補完する。
+     すでにシフト由来で列がある人は重複しない。 */
+  if(dat.duties){
+    var cfg=getDutyCfg(dat);
+    for(var di=0;di<cfg.length;di++){
+      var dname=dat.duties[cfg[di].id];
+      if(dname && !staff.some(function(s){return s.name===dname;})) staff.push({name:dname,oc:false});
+    }
+  }
+  /* プール（未割当スタッフ）も列に含める */
+  if(dat.pool && Array.isArray(dat.pool)){
+    dat.pool.forEach(function(p){
+      var pname=typeof p==='string'?p:(p&&p.name?p.name:'');
+      if(pname && !staff.some(function(s){return s.name===pname;})) staff.push({name:pname,oc:false});
+    });
+  }
+
   if(!staff.length){
     body.innerHTML='<div class="sched-empty">👥 当日勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
     return;
