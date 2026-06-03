@@ -647,8 +647,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <div class="stabs">
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
-      <div class="stab"     id="tab-guide"  onclick="swTab('guide')">📘 使い方</div>
       <div class="stab"     id="tab-sched"  onclick="swTab('sched')">⏰ スケジュール</div>
+      <div class="stab"     id="tab-guide"  onclick="swTab('guide')">📘 使い方</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
@@ -1213,7 +1213,8 @@ function init() {
       uid: 'preview',
       email: 'preview@demo',
       displayName: previewAsAdmin ? 'プレビュー(管理者)' : 'プレビュー(一般)',
-      isAdmin: previewAsAdmin
+      isAdmin: previewAsAdmin,
+      perms: {}
     };
     var uc = document.getElementById('uc-label');
     uc.textContent = previewAsAdmin ? '👁 管理者プレビュー' : '👁 一般ユーザープレビュー';
@@ -1337,11 +1338,16 @@ function fbInit() {
       document.getElementById('login-ov').classList.add('hd');
       document.getElementById('li-err').textContent = '';
 
-      fbDB.ref('/admins/' + user.uid).once('value', function(snap) {
+      Promise.all([
+        fbDB.ref('/admins/' + user.uid).once('value'),
+        fbDB.ref('/userPerms/' + user.uid).once('value')
+      ]).then(function(snapResults) {
         /* ===== isAdminが確定してからUI全体を更新 ===== */
+        var snap = snapResults[0];
         isAdmin = !!snap.val();
+        var perms = snapResults[1].val() || {};
         currentUser = { uid: user.uid, email: user.email,
-          displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin };
+          displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin, perms: perms };
 
         /* ユーザー登録（管理者権限管理画面のリスト用） */
         fbDB.ref('/users/' + user.uid).set({
@@ -2358,23 +2364,30 @@ function renderAdminUsers() {
 
   Promise.all([
     fbDB.ref('/users').once('value'),
-    fbDB.ref('/admins').once('value')
+    fbDB.ref('/admins').once('value'),
+    fbDB.ref('/userPerms').once('value')
   ]).then(function(results) {
-    var users  = results[0].val() || {};
-    var admins = results[1].val() || {};
-    var uids   = Object.keys(users);
+    var users    = results[0].val() || {};
+    var admins   = results[1].val() || {};
+    var allPerms = results[2].val() || {};
+    var uids     = Object.keys(users);
 
-    var S = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 管理者権限の管理</div>';
-    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限をアプリから直接付与・取り消しできます。<br>一度もログインしていないスタッフは表示されません。</div>';
+    var S = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 ユーザー管理</div>';
+    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限と編集権限をここから管理できます。<br>新規ユーザー登録も下のボタンから行えます。一度もログインしていないスタッフは表示されません。</div>';
 
     if (!uids.length) {
       S += '<div style="font-size:12px;color:var(--txt3);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px">⚠ まだ誰もログインしていません。</div>';
     } else {
       uids.forEach(function(uid) {
-        var u     = users[uid];
-        var isAdm = !!admins[uid];
+        var u      = users[uid];
+        var isAdm  = !!admins[uid];
         var isSelf = currentUser && currentUser.uid === uid;
-        S += '<div class="adminm-user-row">';
+        var userPerms = allPerms[uid] || {};
+        var panelId = 'pp-' + uid.replace(/[^a-zA-Z0-9]/g,'_');
+
+        S += '<div class="adminm-user-row" style="flex-direction:column;align-items:stretch">';
+        /* --- 上段：名前・メール・管理者ボタン --- */
+        S += '<div style="display:flex;align-items:center;gap:10px">';
         S += '<div class="adminm-user-info">';
         S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : '👤 ') + escH(u.displayName || u.email) + '</span>';
         S += '<span class="adminm-user-email">' + escH(u.email) + '</span>';
@@ -2383,14 +2396,35 @@ function renderAdminUsers() {
         if (isSelf) {
           S += '<span class="adminm-self-badge">自分</span>';
         } else if (isAdm) {
-          S += '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">権限を外す</button>';
+          S += '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">管理者を外す</button>';
         } else {
           S += '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
         }
         S += '</div>';
+        /* --- 下段：編集権限（管理者・自分以外のみ） --- */
+        if (!isAdm && !isSelf) {
+          var grantCount = Object.keys(userPerms).filter(function(k){ return userPerms[k]; }).length;
+          S += '<div style="margin-top:5px">';
+          S += '<button class="btn btn-g btn-sm" style="font-size:11px" onclick="togPermPanel(\'' + panelId + '\')">';
+          S += '🔑 編集権限' + (grantCount ? ' (' + grantCount + '件付与中)' : '') + ' ▾</button>';
+          S += '<div id="' + panelId + '" style="display:none;margin-top:6px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)">';
+          S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:6px">🔒 がロックされている機能でも、権限を付与したユーザーは編集できます。</div>';
+          S += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+          LOCK_DEFS.forEach(function(def) {
+            if (def.id === 'show_phs') return;
+            var granted = !!userPerms[def.id];
+            S += '<button class="btn ' + (granted ? 'btn-p' : 'btn-g') + ' btn-sm"';
+            S += ' style="font-size:11px' + (granted ? '' : ';opacity:0.6') + '"';
+            S += ' onclick="saveUserPerm(\'' + escH(uid) + '\',\'' + def.id + '\',' + !granted + ')">';
+            S += def.icon + ' ' + def.label + (granted ? ' ✓' : '');
+            S += '</button>';
+          });
+          S += '</div></div></div>';
+        }
+        S += '</div>';
       });
     }
-    S += '<div style="display:flex;gap:6px;margin-top:8px">';
+    S += '<div style="display:flex;gap:6px;margin-top:10px">';
     S += '<button class="btn btn-p btn-sm" onclick="openRegModal()">➕ 新規ユーザー登録</button>';
     S += '<button class="btn btn-g btn-sm" onclick="renderAdminUsers()">🔄 更新</button>';
     S += '</div>';
@@ -2399,6 +2433,20 @@ function renderAdminUsers() {
     var el2 = document.getElementById('adminm-users');
     if (el2) el2.innerHTML = '<div style="font-size:12px;color:var(--rd);background:var(--rd-bg);border:1px solid #f5b8b8;border-radius:6px;padding:8px 12px">❌ 読み込みエラー: ' + escH(err.message) + '</div>';
   });
+}
+
+function togPermPanel(panelId) {
+  var el = document.getElementById(panelId);
+  if (el) el.style.display = el.style.display ? '' : 'block';
+}
+
+function saveUserPerm(uid, permId, grant) {
+  if (!isAdmin || !FB_ON || !fbDB) return;
+  var ref = fbDB.ref('/userPerms/' + uid + '/' + permId);
+  (grant ? ref.set(true) : ref.remove()).then(function() {
+    writeLog((grant ? '編集権限付与' : '編集権限取り消し'), uid + ' : ' + permId);
+    renderAdminUsers();
+  }).catch(function(err) { alert('エラー: ' + err.message); });
 }
 
 function toggleAdminPriv(uid, currentlyAdmin) {
@@ -3543,7 +3591,11 @@ function saveD() {
 
 /* ===== LOCK ===== */
 function lk(id) { return !!(D.lk && D.lk[id]); }
-function can(id) { return isAdmin || !lk(id); }
+function can(id) {
+  if (isAdmin) return true;
+  if (!lk(id)) return true;
+  return !!(currentUser && currentUser.perms && currentUser.perms[id]);
+}
 
 /* ===== CALENDAR ===== */
 function getPct(ds) {
@@ -3832,7 +3884,7 @@ function renderTree(elId, tree, saveKey, icons) {
       var addItemRow = document.createElement('div'); addItemRow.className='tree-add-row';
       var addItemInp = document.createElement('input'); addItemInp.type='text'; addItemInp.placeholder='術式・品名を追加…';
       var addItemBtn = document.createElement('button'); addItemBtn.textContent='追加';
-      addItemBtn.onclick=(function(di2,ci2,inp){return function(){var v=inp.value.trim();if(!v)return;tree[di2].cats[ci2].items.push(v);inp.value='';D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci,addItemInp);
+      addItemBtn.onclick=(function(di2,ci2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats[ci2].items.push(v);inp.value='';D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);var l2=document.getElementById(eid);if(l2){var dh=l2.querySelectorAll('.tree-dept-hd');if(dh[di2]){dh[di2].click();var db=l2.querySelectorAll('.tree-dept-body');if(db[di2]){var ch=db[di2].querySelectorAll('.tree-cat-hd');if(ch[ci2])ch[ci2].click();}}}}})(di,ci,addItemInp,elId,tree,saveKey,icons);
       addItemInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addItemBtn);
       addItemRow.appendChild(addItemInp); addItemRow.appendChild(addItemBtn); catBody.appendChild(addItemRow);
 
@@ -3843,7 +3895,7 @@ function renderTree(elId, tree, saveKey, icons) {
     var addCatRow = document.createElement('div'); addCatRow.className='tree-add-row';
     var addCatInp = document.createElement('input'); addCatInp.type='text'; addCatInp.placeholder='中カテゴリを追加…';
     var addCatBtn = document.createElement('button'); addCatBtn.textContent='追加';
-    addCatBtn.onclick=(function(di2,inp){return function(){var v=inp.value.trim();if(!v)return;tree[di2].cats.push({name:v,items:[]});inp.value='';D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,addCatInp);
+    addCatBtn.onclick=(function(di2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats.push({name:v,items:[]});inp.value='';D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);var l2=document.getElementById(eid);if(l2){var dh=l2.querySelectorAll('.tree-dept-hd');if(dh[di2])dh[di2].click();}};})(di,addCatInp,elId,tree,saveKey,icons);
     addCatInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addCatBtn);
     addCatRow.appendChild(addCatInp); addCatRow.appendChild(addCatBtn); body.appendChild(addCatRow);
 
@@ -7528,7 +7580,7 @@ var _schedDragPreset=null;
 
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
-  var tabs=['cal','assign','guide','sched','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
+  var tabs=['cal','assign','sched','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
   var docsTabs=['spec','manual','adminm','dev','regs'];
   for(var i=0;i<tabs.length;i++){
     var id=tabs[i];
