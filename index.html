@@ -501,7 +501,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 </div>
 
 <!-- ===== 新規ユーザー登録モーダル ===== -->
-<div id="modal-reg" class="hd">
+<div id="modal-reg" class="ov hd">
   <div class="name-box" style="width:380px;max-width:96vw">
     <h3>➕ 新規ユーザー登録</h3>
     <p>新しいスタッフのアカウントを作成します。<br>初期パスワードは本人に直接お伝えください。</p>
@@ -1169,6 +1169,8 @@ function loadD() {
     D.manual = s.manual || {};
     /* slot_cathsub の freeRole を false に統一（旧データ移行） */
     D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+    if(D.dutyCfg) D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+    Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
     D.wd=JSON.parse(JSON.stringify(DEF_WD)); D.lk={};
@@ -1275,6 +1277,8 @@ function fbInit() {
             /* slot_cathsub の freeRole を false に統一（旧データ移行） */
             D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
+            D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+            Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
             D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
             D.shift = d.shift || {};
             D.evts  = d.evts  || {};
