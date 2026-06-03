@@ -319,9 +319,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .sb.hm{transform:translateX(-100%)}
   /* スマホではpane-assignをfixedで全画面表示（sbと同様） */
   #pane-assign{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
-  #pane-schedule{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;display:none}
-  /* スマホでは資料系パネルもfixedで全画面表示 */
-  #pane-guide,#pane-spec,#pane-manual,#pane-adminm,#pane-dev{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
   #pane-assign.hd-sp{display:none!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
@@ -333,6 +330,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .tb-btns .btn{font-size:11px;padding:5px 8px}
   .btn-nm-text{display:none}
   .btn-gm-text{display:none}
+  .btn-at-text{display:none}
+  .at-hint{display:none}
   .uc-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 @media(max-width:480px){
@@ -409,20 +408,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-post-media video{max-width:200px;max-height:120px;border-radius:5px;border:1px solid var(--bdr)}
 /* ===== LOGS ===== */
 .log-list{font-size:11px;color:var(--txt2)}
-.log-item{padding:8px 10px;border-bottom:1px solid var(--bdr);display:grid;grid-template-columns:130px auto 1fr;gap:6px 10px;align-items:start}
-.log-item .li-time{color:var(--txt3);white-space:nowrap;font-size:10px;padding-top:1px}
-.log-item .li-user{font-weight:700;color:var(--ac);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--ac-bg);border:1px solid var(--ac);border-radius:10px;padding:1px 8px;font-size:10px;width:fit-content}
-.log-item .li-action{font-weight:700;color:var(--txt);font-size:11px}
-.log-item .li-detail{font-size:11px;color:var(--txt3);grid-column:2/-1}
+.log-item{padding:6px 10px;border-bottom:1px solid var(--bdr);display:flex;gap:8px;align-items:flex-start}
+.log-item .li-time{color:var(--txt3);white-space:nowrap;min-width:130px}
+.log-item .li-user{font-weight:700;color:var(--ac);min-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-item .li-msg{flex:1}
 .log-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.log-filter-bar{display:flex;gap:8px;margin-bottom:10px;align-items:center}
-.log-action-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;white-space:nowrap}
-.lab-check{background:#d1fae5;color:#065f46}
-.lab-assign{background:#dbeafe;color:#1d4ed8}
-.lab-import{background:#fef3c7;color:#92400e}
-.lab-edit{background:#ede9fe;color:#5b21b6}
-.lab-other{background:var(--sur2);color:var(--txt2);border:1px solid var(--bdr)}
 
 /* ===== PSG付箋 ===== */
 .psg-fusen-wrap{display:flex;align-items:center;gap:7px;flex:1}
@@ -449,9 +439,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .sp-media-item{position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--bdr)}
 .sp-media-item img{width:120px;height:90px;object-fit:cover;display:block;cursor:pointer}
 .sp-media-item video{width:180px;height:100px;object-fit:cover;display:block}
-.sp-pdf-thumb{width:120px;height:90px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--sur2);cursor:pointer;gap:4px}
-.sp-pdf-thumb .pdf-icon{font-size:32px;line-height:1}
-.sp-pdf-thumb .pdf-name{font-size:10px;color:var(--txt2);text-align:center;padding:0 4px;word-break:break-all;line-height:1.3;max-height:30px;overflow:hidden}
 .sp-media-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
 .sp-media-add{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:6px 12px;cursor:pointer;width:fit-content}
 .sp-media-add:hover{background:var(--ac);color:#fff}
@@ -489,38 +476,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* バッジをクリック可能に */
 .uc-name{cursor:pointer!important}
 .uc-name:hover{opacity:.8}
-/* ===== SCHEDULE / TIMETABLE ===== */
-.sch-pool{width:140px;flex-shrink:0;border-right:1px solid var(--bdr);overflow-y:auto;padding:8px;background:var(--sur2);display:flex;flex-direction:column;gap:4px}
-.sch-pool-title{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
-.sch-pool-chip{padding:5px 8px;border-radius:var(--rs);border:1.5px solid var(--bdr2);background:var(--sur);font-size:11px;font-weight:700;cursor:grab;user-select:none;display:flex;align-items:center;gap:4px;position:relative}
-.sch-pool-chip:hover{border-color:var(--ac);background:var(--ac-bg)}
-.sch-pool-chip.dragging{opacity:.4}
-.sch-pool-chip .sch-chip-del{position:absolute;top:2px;right:3px;background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;line-height:1;padding:0;display:none}
-.sch-pool-chip:hover .sch-chip-del{display:block}
-.sch-col-header{display:flex;position:sticky;top:0;z-index:20;background:var(--sur);border-bottom:2px solid var(--bdr2)}
-.sch-col-header-cell{flex-shrink:0;font-size:11px;font-weight:700;text-align:center;padding:5px 4px;border-right:1px solid var(--bdr);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--ac-bg);color:var(--ac)}
-.sch-time-lbl{width:50px;font-size:10px;color:var(--txt3);flex-shrink:0}
-.sch-time-col{width:50px;flex-shrink:0;position:relative;pointer-events:none}
-.sch-time-cell{position:absolute;right:4px;font-size:10px;color:var(--txt3);line-height:1;transform:translateY(-50%)}
-.sch-grid{position:relative;flex:1}
-.sch-slot{position:absolute;left:0;right:0;border-top:1px dashed rgba(0,0,0,.06);pointer-events:none}
-.sch-slot.hour{border-top:1px solid var(--bdr2)}
-.sch-col-divider{position:absolute;top:0;bottom:0;border-left:1px solid var(--bdr);pointer-events:none}
-.sch-block{position:absolute;border-radius:5px;border:1.5px solid rgba(0,0,0,.15);cursor:grab;box-shadow:0 1px 4px rgba(0,0,0,.12);overflow:hidden;z-index:5;min-height:22px;box-sizing:border-box;transition:box-shadow .1s}
-.sch-block:hover{box-shadow:0 3px 10px rgba(0,0,0,.2);z-index:6}
-.sch-block.dragging-block{opacity:.5;cursor:grabbing;z-index:10}
-.sch-block-inner{padding:2px 6px 14px;height:100%;overflow:hidden}
-.sch-block-label{font-size:10px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.3)}
-.sch-block-time{font-size:9px;color:rgba(255,255,255,.85);white-space:nowrap}
-.sch-block-resize{position:absolute;bottom:0;left:0;right:0;height:10px;cursor:s-resize;background:rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center}
-.sch-block-resize::after{content:'';width:20px;height:2px;background:rgba(255,255,255,.6);border-radius:1px}
-.sch-block-del{position:absolute;top:1px;right:2px;background:rgba(0,0,0,.25);border:none;color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;padding:0}
-.sch-block:hover .sch-block-del{display:flex}
-.sch-block-edit{position:absolute;top:1px;right:18px;background:rgba(0,0,0,.18);border:none;color:#fff;border-radius:3px;padding:1px 4px;font-size:9px;cursor:pointer;display:none}
-.sch-block:hover .sch-block-edit{display:block}
-.sch-drop-hint{position:absolute;border:2px dashed var(--ac);background:rgba(59,130,246,.12);border-radius:4px;pointer-events:none;z-index:7;transition:top .05s,height .05s}
-.sch-now-line{position:absolute;left:0;right:0;height:2px;background:#ef4444;z-index:8;pointer-events:none}
-.sch-now-line::before{content:'';position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:#ef4444}
+/* ===== 管理者権限管理 ===== */
+.adminm-user-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);margin-bottom:5px}
+.adminm-user-info{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.adminm-user-name{font-size:13px;font-weight:700;color:var(--txt)}
+.adminm-user-email{font-size:11px;color:var(--txt3);font-family:var(--mo);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.adminm-user-date{font-size:10px;color:var(--txt3)}
+.adminm-self-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);white-space:nowrap;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -534,6 +496,27 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <div class="name-btns">
       <button class="btn btn-g" style="flex:1" onclick="closeNameModal()">キャンセル</button>
       <button class="btn btn-p" style="flex:1" onclick="saveDisplayName()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 新規ユーザー登録モーダル ===== -->
+<div id="modal-reg" class="ov hd">
+  <div class="name-box" style="width:380px;max-width:96vw">
+    <h3>➕ 新規ユーザー登録</h3>
+    <p>新しいスタッフのアカウントを作成します。<br>初期パスワードは本人に直接お伝えください。</p>
+    <input type="email" id="reg-email" placeholder="メールアドレス" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()">
+    <input type="password" id="reg-pass" placeholder="初期パスワード（8文字以上・英数字混合）" autocomplete="new-password" oninput="checkRegPwStrength(this.value)" onkeydown="if(event.key==='Enter')doRegister()">
+    <div class="pw-strength" id="reg-pw-bars">
+      <div class="pw-strength-bar" id="rpsb1"></div>
+      <div class="pw-strength-bar" id="rpsb2"></div>
+      <div class="pw-strength-bar" id="rpsb3"></div>
+    </div>
+    <div class="pw-strength-hint" id="reg-pw-hint"></div>
+    <div class="login-err" id="reg-err"></div>
+    <div class="name-btns">
+      <button class="btn btn-g" style="flex:1" onclick="closeRegModal()">キャンセル</button>
+      <button class="btn btn-p" style="flex:1" id="reg-btn" onclick="doRegister()">登録する</button>
     </div>
   </div>
 </div>
@@ -558,11 +541,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <textarea class="sp-manual-ta" id="sp-manual-ta" placeholder="この業務のマニュアルや手順をここに記入…" style="display:none"></textarea>
     <!-- 画像・動画エリア -->
     <div class="sp-media-area" id="sp-media-area">
-      <div class="sp-media-title">📎 ファイル（画像・動画・PDF）</div>
+      <div class="sp-media-title">📎 画像・動画</div>
       <div class="sp-media-grid" id="sp-media-grid"></div>
       <label class="sp-media-add" id="sp-media-add-btn">
-        ＋ ファイルを追加
-        <input type="file" id="sp-media-input" accept="image/*,video/*,application/pdf,.pdf" multiple style="display:none" onchange="onSPMediaAdd(this)">
+        ＋ 画像/動画を追加
+        <input type="file" id="sp-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onSPMediaAdd(this)">
       </label>
     </div>
   </div>
@@ -611,7 +594,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <div class="stabs">
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
-      <div class="stab"     id="tab-schedule" onclick="swTab('schedule')">🗓 スケジュール</div>
       <div class="stab"     id="tab-guide"  onclick="swTab('guide')">📘 使い方</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
@@ -625,6 +607,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <button class="btn btn-g btn-sm" onclick="swTab('manual')">📘 マニュアル</button>
       <button class="btn btn-g btn-sm" onclick="swTab('adminm')">🔑 管理者設定</button>
       <button class="btn btn-g btn-sm" onclick="swTab('dev')">🔧 引き継ぎ</button>
+      <button class="btn btn-g btn-sm" onclick="swTab('regs')">⚖️ 法令・GL</button>
     </div>
 
     <!-- 予定タブ -->
@@ -802,18 +785,60 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           <div class="pt">📋 操作ログ（最新100件）</div>
           <button class="btn btn-g btn-sm" onclick="loadLogs()">🔄 更新</button>
         </div>
-        <div class="log-filter-bar" id="log-filter-bar">
-          <input type="text" id="log-search" placeholder="🔍 キーワード検索…" oninput="filterLogs()" style="flex:1;min-width:0;font-size:12px;padding:5px 10px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt);font-family:var(--fn)">
-          <select id="log-sort" onchange="filterLogs()" style="font-size:12px;padding:5px 8px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt);font-family:var(--fn)">
-            <option value="time-desc">新しい順</option>
-            <option value="time-asc">古い順</option>
-            <option value="user-asc">ユーザー順</option>
-            <option value="action-asc">操作種別順</option>
-          </select>
-        </div>
         <div id="log-list" class="log-list">
           <div class="pool-empty">ログタブを開くと読み込まれます</div>
         </div>
+      </div>
+    </div>
+
+    <!-- 仕様書パネル -->
+    <div id="pane-spec" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div class="pt" style="margin-bottom:12px">📖 システム仕様書</div>
+        <div id="spec-body"></div>
+      </div>
+    </div>
+
+    <!-- マニュアルパネル -->
+    <!-- 使い方パネル（全ユーザー対象） -->
+    <div id="pane-guide" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div class="pt" style="margin-bottom:12px">📘 使い方ガイド</div>
+        <div id="guide-body"></div>
+      </div>
+    </div>
+
+    <!-- 操作マニュアルパネル（管理者向け詳細版） -->
+    <div id="pane-manual" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div class="pt" style="margin-bottom:12px">📘 操作マニュアル</div>
+        <div id="manual-body"></div>
+      </div>
+    </div>
+
+    <!-- 管理者設定パネル -->
+    <div id="pane-adminm" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div class="pt" style="margin-bottom:12px">🔑 管理者設定</div>
+        <div id="adminm-users" style="margin-bottom:18px"></div>
+        <div class="pt" style="margin-bottom:12px">📖 Firebaseセットアップマニュアル</div>
+        <div id="adminm-body"></div>
+      </div>
+    </div>
+
+    <!-- 引き継ぎ資料パネル -->
+    <div id="pane-dev" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div class="pt" style="margin-bottom:12px">🔧 引き継ぎ資料（開発者向け）</div>
+        <div id="dev-body"></div>
+      </div>
+    </div>
+
+    <!-- 法令・ガイドライン -->
+    <div id="pane-regs" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div class="pt" style="margin-bottom:12px">⚖️ 法令・ガイドライン</div>
+        <div id="regs-body"></div>
       </div>
     </div>
 
@@ -829,10 +854,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <button class="btn btn-g btn-sm" onclick="asPrevM()">&#8249;</button>
         <span class="atml" id="atml"></span>
         <button class="btn btn-g btn-sm" onclick="asNextM()">&#8250;</button>
-        <span style="font-size:11px;color:var(--txt3)">担当設定済みの日のみ表示</span>
-        <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openGM()">📅 1ヶ月生成</button>
-        <button class="btn btn-g btn-sm" onclick="exportAtExcel()">📥 Excel出力</button>
-        <button class="btn btn-g btn-sm" onclick="printAt()">🖨️ 印刷</button>
+        <span class="at-hint" style="font-size:11px;color:var(--txt3)">担当設定済みの日のみ表示</span>
+        <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
+        <button class="btn btn-g btn-sm" onclick="exportAtCsv()">📥<span class="btn-at-text"> CSV</span></button>
+        <button class="btn btn-g btn-sm" onclick="printAt()">🖨️<span class="btn-at-text"> 印刷</span></button>
       </div>
       <!-- サブタブ -->
       <div style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
@@ -862,90 +887,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <div id="subpane-ops" style="display:none">
         <div id="ops-sum-body"></div>
       </div>
-    </div>
-  </div>
-
-  <!-- スケジュールパネル（pane-assign と同じ構造でメインエリアを占有） -->
-  <div id="pane-schedule" style="display:none;flex:1;overflow:hidden;flex-direction:column">
-    <div id="sch-topbar" style="padding:10px 16px 8px;border-bottom:1px solid var(--bdr);flex-shrink:0;background:var(--sur)">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <!-- スマホ用戻るボタン -->
-        <button id="sch-back-btn" class="btn btn-g btn-sm" onclick="swTab('cal')" style="display:none">← 戻る</button>
-        <span style="font-weight:900;font-size:15px">🗓 日次スケジュール</span>
-        <button id="sch-prev-btn" class="btn btn-g btn-sm" onclick="goPageRel(-1)" title="前の連絡表">‹</button>
-        <span id="sch-page-label" style="font-size:13px;color:var(--ac);font-weight:700;background:var(--ac-bg);padding:2px 10px;border-radius:10px"></span>
-        <button id="sch-next-btn" class="btn btn-g btn-sm" onclick="goPageRel(1)" title="次の連絡表">›</button>
-        <!-- 共有バッジ -->
-        <span id="sch-share-badge" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:2px 10px;border-radius:10px;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7">
-          🔗 リアルタイム共有中
-        </span>
-        <span id="sch-updated-by" style="font-size:10px;color:var(--txt3)"></span>
-        <span style="flex:1"></span>
-        <button class="btn btn-g btn-sm" onclick="initSchFromDuties()">⚡ 担当から生成</button>
-        <button class="btn btn-g btn-sm" onclick="openSchPresetModal()">＋ ブロック追加</button>
-        <button class="btn btn-g btn-sm" onclick="clearSchConfirm()" title="全ブロックを削除">🗑 クリア</button>
-      </div>
-    </div>
-    <div id="sch-no-page" style="flex:1;align-items:center;justify-content:center;color:var(--txt3);font-size:13px;display:none">
-      📅 連絡表ページを選択してからスケジュールタブを開いてください
-    </div>
-    <div id="sch-main" style="display:flex;flex:1;overflow:hidden;min-height:0">
-      <!-- 左: 未配置プール -->
-      <div id="sch-pool" class="sch-pool">
-        <div class="sch-pool-title">📦 未配置</div>
-        <div id="sch-unscheduled"></div>
-      </div>
-      <!-- 右: タイムテーブル -->
-      <div id="sch-timetable-wrap" style="flex:1;overflow:auto;min-width:0;position:relative">
-        <div id="sch-timetable" style="position:relative;display:inline-block;min-width:100%">
-          <div id="sch-col-header" class="sch-col-header">
-            <div class="sch-time-lbl sch-col-header-cell" style="width:50px;background:var(--sur);border-right:2px solid var(--bdr2);color:var(--txt3)">時刻</div>
-          </div>
-          <div id="sch-grid-body" style="display:flex;position:relative">
-            <div id="sch-time-col" class="sch-time-col"></div>
-            <div id="sch-grid" class="sch-grid" ondragover="schGridDragOver(event)" ondragleave="schGridDragLeave(event)" ondrop="schGridDrop(event)">
-              <div id="sch-drop-hint" class="sch-drop-hint" style="display:none"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 資料系パネル（.ab直下でメインエリアを占有。PCはサイドバー併存、スマホはfixed全画面） -->
-  <div id="pane-spec" style="display:none;flex-direction:column;flex:1;overflow-y:auto">
-    <div class="sp" style="padding:14px 16px 60px">
-      <button class="btn btn-g btn-sm doc-back-btn" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
-      <div class="pt" style="margin-bottom:12px">📖 システム仕様書</div>
-      <div id="spec-body"></div>
-    </div>
-  </div>
-  <div id="pane-guide" style="display:none;flex-direction:column;flex:1;overflow-y:auto">
-    <div class="sp" style="padding:14px 16px 60px">
-      <button class="btn btn-g btn-sm doc-back-btn" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
-      <div class="pt" style="margin-bottom:12px">📘 使い方ガイド</div>
-      <div id="guide-body"></div>
-    </div>
-  </div>
-  <div id="pane-manual" style="display:none;flex-direction:column;flex:1;overflow-y:auto">
-    <div class="sp" style="padding:14px 16px 60px">
-      <button class="btn btn-g btn-sm doc-back-btn" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
-      <div class="pt" style="margin-bottom:12px">📘 操作マニュアル</div>
-      <div id="manual-body"></div>
-    </div>
-  </div>
-  <div id="pane-adminm" style="display:none;flex-direction:column;flex:1;overflow-y:auto">
-    <div class="sp" style="padding:14px 16px 60px">
-      <button class="btn btn-g btn-sm doc-back-btn" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
-      <div class="pt" style="margin-bottom:12px">🔑 管理者設定マニュアル</div>
-      <div id="adminm-body"></div>
-    </div>
-  </div>
-  <div id="pane-dev" style="display:none;flex-direction:column;flex:1;overflow-y:auto">
-    <div class="sp" style="padding:14px 16px 60px">
-      <button class="btn btn-g btn-sm doc-back-btn" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
-      <div class="pt" style="margin-bottom:12px">🔧 引き継ぎ資料（開発者向け）</div>
-      <div id="dev-body"></div>
     </div>
   </div>
 
@@ -1031,33 +972,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   </div>
 </div>
 
-<!-- スケジュール ブロック追加プリセット選択 -->
-<div class="ov hd" id="modal-sch-preset">
-  <div class="md" style="max-width:420px">
-    <h3 style="display:flex;align-items:center;gap:8px">＋ ブロックを追加
-      <button class="btn btn-g btn-sm" style="margin-left:auto;font-size:11px" onclick="toggleSchPresetEdit()" id="sch-preset-edit-btn">✎ プリセット編集</button>
-    </h3>
-    <div id="sch-preset-master-wrap" style="margin-bottom:10px">
-      <div style="font-size:11px;color:var(--txt3);font-weight:700;margin-bottom:4px">担当マスタ</div>
-      <div id="sch-preset-master" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-    </div>
-    <div style="margin-bottom:10px">
-      <div style="font-size:11px;color:var(--txt3);font-weight:700;margin-bottom:4px">定番・カスタム</div>
-      <div id="sch-preset-custom" style="display:flex;flex-wrap:wrap;gap:6px"></div>
-    </div>
-    <div id="sch-preset-editrow" style="display:none;margin-bottom:10px;padding-top:8px;border-top:1px dashed var(--bdr)">
-      <div style="display:flex;gap:6px">
-        <input type="text" id="sch-preset-new" class="fi" placeholder="新しいプリセット名…" style="flex:1" onkeydown="if(event.key==='Enter')schPresetCustomAdd()">
-        <button class="btn btn-p btn-sm" onclick="schPresetCustomAdd()">追加</button>
-      </div>
-    </div>
-    <div class="mdb">
-      <button class="btn btn-g" onclick="closeSchPresetModal()">閉じる</button>
-      <button class="btn btn-p" onclick="addSchUnscheduled();closeSchPresetModal()">✏️ 自由入力で追加</button>
-    </div>
-  </div>
-</div>
-
 <script>
 /* ===== DATA ===== */
 var DUTIES = [
@@ -1066,7 +980,7 @@ var DUTIES = [
   {id:'cath',    icon:'🫀', label:'カテ担当',  cls:'dc-c'},
   {id:'ward',    icon:'🏥', label:'病棟外回り', cls:'dc-w',  checks:['HDプライミング','PSG取り外し']},
   {id:'device',  icon:'⚙️', label:'機器管理',  cls:'dc-dv', checks:['HDプライミング','PSG取り外し']},
-  {id:'cath_sub',icon:'💉', label:'フリー',    cls:'dc-cs', freeRole:true, checks:['HDプライミング','PSG取り外し']}
+  {id:'cath_sub',icon:'💉', label:'フリー',    cls:'dc-cs', freeRole:false, checks:['HDプライミング','PSG取り外し']}
 ];
 /* cath_subのフリー役割選択肢 */
 var CATH_SUB_ROLES = ['フリー','PSG解析','自由記述'];
@@ -1078,13 +992,11 @@ var DEF_DUTY_MASTER = [
   {id:'slot_ope',    icon:'🔪', label:'OPE担当',   checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_sub',    icon:'🩺', label:'OPEサブ',   checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_cath',   icon:'🫀', label:'カテ担当',  checks:['HDプライミング','PSG取り外し'], freeRole:false},
-  {id:'slot_cathsub',icon:'🫀', label:'カテサブ',  checks:['HDプライミング','PSG取り外し'], freeRole:true},
+  {id:'slot_cathsub',icon:'🫀', label:'カテサブ',  checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_ward',   icon:'🏥', label:'病棟外回り', checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_device', icon:'⚙', label:'機器管理',   checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_free',   icon:'💉', label:'フリー',     checks:['HDプライミング','PSG取り外し'], freeRole:true}
 ];
-/* スケジュール「＋ブロック追加」の定番プリセット（編集可能・共有保存） */
-var DEF_SCH_PRESETS = ['休憩','昼休憩','会議','研修','物品整理','記録','委員会','勉強会'];
 var LOCK_DEFS = [
   {id:'duty',    icon:'🎯', label:'担当割り当て'},
   {id:'phs',     icon:'📞', label:'PHS番号の変更'},
@@ -1176,7 +1088,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},schPresets:[]};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
 var _savingTs = 0; /* saveD()後のリスナー再描画抑制タイムスタンプ */
@@ -1225,9 +1137,9 @@ function init() {
   document.getElementById('in-phs').addEventListener('keydown', function(e){ if(e.key==='Enter') addPhs(); });
   document.getElementById('in-dly').addEventListener('keydown', function(e){ if(e.key==='Enter') addDly(); });
   document.getElementById('in-wdly').addEventListener('keydown', function(e){ if(e.key==='Enter') addWdly(); });
-  var _inOpeDept=document.getElementById('in-ope-dept'); if(_inOpeDept) _inOpeDept.addEventListener('keydown', function(e){ if(e.key==='Enter') addOpeTreeDept(); });
-  var _inCathDept=document.getElementById('in-cath-dept'); if(_inCathDept) _inCathDept.addEventListener('keydown', function(e){ if(e.key==='Enter') addCathTreeDept(); });
-  var _inSupDept=document.getElementById('in-sup-dept'); if(_inSupDept) _inSupDept.addEventListener('keydown', function(e){ if(e.key==='Enter') addSupTreeDept(); });
+  document.getElementById('in-ope').addEventListener('keydown', function(e){ if(e.key==='Enter') addOpe(); });
+  document.getElementById('in-cath').addEventListener('keydown', function(e){ if(e.key==='Enter') addCath(); });
+  document.getElementById('in-sup').addEventListener('keydown', function(e){ if(e.key==='Enter') addSup(); });
   document.getElementById('in-duty-name').addEventListener('keydown', function(e){ if(e.key==='Enter') addDutyMaster(); });
   renderSupList();
   renderDutyMasterList();
@@ -1255,7 +1167,10 @@ function loadD() {
     D.shift  = s.shift  || {};
     D.evts   = s.evts   || {};
     D.manual = s.manual || {};
-    D.schPresets = (s.schPresets && s.schPresets.length) ? s.schPresets : DEF_SCH_PRESETS.slice();
+    /* slot_cathsub の freeRole を false に統一（旧データ移行） */
+    D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+    if(D.dutyCfg) D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+    Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
     D.wd=JSON.parse(JSON.stringify(DEF_WD)); D.lk={};
@@ -1317,6 +1232,13 @@ function fbInit() {
         currentUser = { uid: user.uid, email: user.email,
           displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin };
 
+        /* ユーザー登録（管理者権限管理画面のリスト用） */
+        fbDB.ref('/users/' + user.uid).set({
+          email: user.email,
+          displayName: currentUser.displayName,
+          lastLogin: Date.now()
+        });
+
         /* ヘッダー更新 */
         var uc = document.getElementById('uc-label');
         uc.textContent = (isAdmin ? '👑 ' : '👤 ') + currentUser.displayName;
@@ -1352,12 +1274,15 @@ function fbInit() {
             D.cathTree= d.cathTree&& d.cathTree.length? d.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE));
             D.supTree = d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE));
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
+            /* slot_cathsub の freeRole を false に統一（旧データ移行） */
+            D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
+            D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+            Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
             D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
             D.shift = d.shift || {};
             D.evts  = d.evts  || {};
             D.manual= d.manual|| {};
-            D.schPresets = (d.schPresets && d.schPresets.length) ? d.schPresets : DEF_SCH_PRESETS.slice();
             setSyncLbl('同期済');
             updateMonthSize();
             checkAutoDelTiming();
@@ -1376,11 +1301,6 @@ function fbInit() {
             var justSaved = (Date.now() - _savingTs) < 800;
             if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
               renderPage(curDs);
-            }
-            /* スケジュールタブを開いている場合はタイムテーブルも再描画（リアルタイム共有） */
-            var _schPane = document.getElementById('pane-schedule');
-            if (_schPane && _schPane.style.display !== 'none' && typeof _schDs !== 'undefined' && _schDs && D.pages[_schDs] && !justSaved) {
-              buildSchedule(_schDs);
             }
           }, function(err) { setSyncLbl('同期エラー'); });
         } else {
@@ -1549,11 +1469,6 @@ function renderSPMedia(mediaArr) {
       img.src = mSrc; img.alt = m.name;
       img.onclick = (function(s){ return function(){ openLightbox(s); }; })(mSrc);
       item.appendChild(img);
-    } else if (m.type === 'pdf') {
-      var thumb = document.createElement('div'); thumb.className='sp-pdf-thumb';
-      thumb.innerHTML = '<span class="pdf-icon">📄</span><span class="pdf-name">'+escH(m.name||'PDF')+'</span>';
-      thumb.onclick = (function(src, nm){ return function(){ openPDFViewer(src, nm); }; })(mSrc, m.name||'PDF');
-      item.appendChild(thumb);
     } else {
       var vid = document.createElement('video');
       vid.src = mSrc; vid.controls = true; vid.preload = 'metadata';
@@ -1561,31 +1476,10 @@ function renderSPMedia(mediaArr) {
     }
     var del = document.createElement('button');
     del.className='sp-media-del'; del.textContent='×'; del.title='削除';
-    del.onclick = (function(i2){ return function(e){ e.stopPropagation(); delSPMedia(i2); }; })(idx);
+    del.onclick = function(e){ e.stopPropagation(); delSPMedia(idx); };
     item.appendChild(del);
     grid.appendChild(item);
   });
-}
-
-function openPDFViewer(src, name) {
-  var lb = document.createElement('div'); lb.className='sp-lightbox'; lb.style.flexDirection='column'; lb.style.padding='20px';
-  lb.style.cursor='default';
-  var hd = document.createElement('div'); hd.style.cssText='display:flex;justify-content:space-between;align-items:center;width:100%;max-width:90vw;margin-bottom:8px';
-  var title = document.createElement('span'); title.style.cssText='color:#fff;font-size:13px;font-weight:700'; title.textContent=name;
-  var btns = document.createElement('div'); btns.style.cssText='display:flex;gap:8px';
-  var dlBtn = document.createElement('a'); dlBtn.href=src; dlBtn.download=name;
-  dlBtn.style.cssText='color:#fff;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 12px;font-size:12px;text-decoration:none;cursor:pointer';
-  dlBtn.textContent='⬇ ダウンロード'; dlBtn.onclick=function(e){e.stopPropagation();};
-  var closeBtn = document.createElement('button');
-  closeBtn.style.cssText='color:#fff;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer';
-  closeBtn.textContent='✕ 閉じる'; closeBtn.onclick=function(e){e.stopPropagation();if(lb.parentNode)lb.parentNode.removeChild(lb);};
-  btns.appendChild(dlBtn); btns.appendChild(closeBtn); hd.appendChild(title); hd.appendChild(btns); lb.appendChild(hd);
-  var iframe = document.createElement('iframe');
-  iframe.src = src; iframe.style.cssText='width:90vw;height:85vh;border:none;border-radius:6px;background:#fff;';
-  iframe.onclick = function(e){e.stopPropagation();};
-  lb.appendChild(iframe);
-  lb.onclick = function(){ if(lb.parentNode) lb.parentNode.removeChild(lb); };
-  document.body.appendChild(lb);
 }
 
 function openLightbox(src) {
@@ -1600,27 +1494,20 @@ function onSPMediaAdd(input) {
   var files = Array.prototype.slice.call(input.files);
   if (!files.length) return;
   var VIDEO_MAX = 50 * 1024 * 1024;
-  var PDF_MAX = 30 * 1024 * 1024;
   var entry = getSPEntry();
   var pending = files.length;
   files.forEach(function(file) {
     var isVideo = file.type.startsWith('video/');
-    var isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     if (isVideo && file.size > VIDEO_MAX) {
       alert(file.name + ' は50MBを超えています。動画は50MB以下にしてください。');
       pending--; if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); } return;
     }
-    if (isPDF && file.size > PDF_MAX) {
-      alert(file.name + ' は30MBを超えています。PDFは30MB以下にしてください。');
-      pending--; if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); } return;
-    }
     var processFile = function(dataUrl, blob) {
-      var uploadData = blob || dataUrl;
+      var uploadData = blob || dataUrl; /* blobがあればblobを優先 */
       var path = 'manual/' + encodeURIComponent(_spTask) + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       uploadToStorage(path, uploadData, function(url, fallback) {
-        var fileType = isPDF ? 'pdf' : (isVideo ? 'video' : 'image');
         entry.media.push({
-          type: fileType,
+          type: isVideo ? 'video' : 'image',
           name: file.name,
           url:  url || fallback,
           storagePath: url ? path : null,
@@ -1630,7 +1517,7 @@ function onSPMediaAdd(input) {
         if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); }
       });
     };
-    if (isVideo || isPDF) {
+    if (isVideo) {
       var reader = new FileReader();
       reader.onload = function(ev) { processFile(ev.target.result); };
       reader.readAsDataURL(file);
@@ -1934,16 +1821,6 @@ function renderSpec() {
   S += '<div class="spec-p"><strong>患者情報検知機能</strong>：送信ボタン押下時に本文を自動スキャン。フルネーム・8桁患者IDを検知すると送信ブロック（是正案を提示）。カルテ番号・生年月日・病室番号・病名文脈・姓＋敬称・下4桁ID・姓＋イニシャルは警告表示後に確認送信可。</div>';
   S += '<div class="spec-box">⚠️ 入力欄上部の注意書き「患者氏名・病室番号・診断名・カルテ番号は入力しないでください」は常時表示。</div>';
 
-  S += '<div class="spec-h2">4-7. 日次スケジュール（タイムテーブル）</div>';
-  S += '<div class="spec-p">「🗓 スケジュール」タブでページごとに時間割を作成。8:00〜21:00を15分刻み（<code>SCH_SLOT_MIN=15</code>）、スタッフ別の列に予定ブロックをドラッグ＆ドロップで配置・リサイズ。担当表と同様にメインエリアを全幅占有。</div>';
-  S += '<table class="spec-tbl"><tr><th>機能</th><th>詳細</th></tr>';
-  S += '<tr><td>⚡ 担当から生成</td><td>担当割り当てからブロックを自動生成。オペは入室時間に配置、それ以外は未配置プールへ。再実行しても重複しない（dutyId基底キーで判定）</td></tr>';
-  S += '<tr><td>＋ ブロック追加</td><td>プリセット選択モーダル：担当マスタ由来＋定番/カスタム（<code>D.schPresets</code>）。「✎プリセット編集」で追加・削除可</td></tr>';
-  S += '<tr><td>◀ ▶ 前後移動</td><td>既存連絡表ページを日付順に前後移動（連絡表・スケジュール共通 <code>goPageRel()</code>）</td></tr>';
-  S += '<tr><td>リアルタイム共有</td><td>Firebase /data リスナーでスケジュール表示中は自動再描画。最終更新者・時刻を <code>schUpdatedBy/At</code> に記録</td></tr>';
-  S += '</table>';
-  S += '<div class="spec-box">ブロック構造：<code>{id,label,staffName,color,startMin,durationMin,note,dutyId}</code>（<code>D.pages[ds].schedule</code> 配列）。</div>';
-
   // 5. Excelインポート
   S += '<div class="spec-h1">5. Excelから勤務表インポート</div>';
   S += '<div class="spec-h2">対応ファイル形式</div>';
@@ -1961,21 +1838,17 @@ function renderSpec() {
   S += '<tr><td>イベント</td><td>イベント行の日付対応列に文字列がある場合（数字のみは除外）</td></tr>';
   S += '</table>';
   S += '<div class="spec-box">保存時：OCがある人のocData.staffに自動セット（既入力分は上書きしない）。</div>';
-  S += '<div class="spec-h2">上書き保護（割当済み日の維持）</div>';
-  S += '<div class="spec-p">保存時、対象月のうち <code>D.pages[ds].duties</code> に1件以上の割り当てがある日を「保護対象」として検出。保護対象日の列は旧 <code>D.shift[ym]</code> の値を維持し、未保護日のみ新データで更新（<code>_mergeShiftPreserve()</code>）。保護日はOC自動入力もスキップ。保存後に維持した日付を通知。</div>';
 
   // 6. データ管理
   S += '<div class="spec-h1">6. データ管理・容量</div>';
   S += '<div class="spec-h2">データ構造（Firebase /data/）</div>';
   S += '<table class="spec-tbl"><tr><th>キー</th><th>内容</th></tr>';
-  [['pages','連絡表データ {YYYY-MM-DD: {duties,phsNums,dutyNotes,dutyRoles,dutyChecks,customDuties,ops_cards,checks,memos,ops,ocData,surplus,schedule,schUpdatedBy,schUpdatedAt}}'],
+  [['pages','連絡表データ {YYYY-MM-DD: {duties,phsNums,dutyNotes,dutyRoles,dutyChecks,customDuties,ops_cards,checks,memos,ops,ocData,surplus}}'],
    ['stf','スタッフ名配列'],['phs','PHS番号配列'],['dly','共通業務配列'],
    ['wd','曜日別業務 {月:[], 火:[], ...}'],['ope','オペ術式配列'],['cath','カテ種別配列'],
-   ['opeTree / cathTree / supTree','3階層マスタ（科→中カテゴリ→項目）。マスタタブでダブルクリック編集可'],
    ['dutyCfgMaster','担当枠マスタ定義配列'],['dutyCfg','担当枠テンプレート配列'],
    ['opsCfg','業務カードテンプレート配列（デフォルト[]）'],
-   ['schPresets','スケジュール「＋ブロック追加」の定番/カスタムプリセット文字列配列（編集可・共有）'],
-   ['shift','勤務表データ {YYYY-MM: {名前: {日: {shift,oc}}}}（インポート時に割当済み日を維持）'],
+   ['shift','勤務表データ {YYYY-MM: {名前: {日: {shift,oc}}}}'],
    ['evts','イベントデータ {YYYY-MM: {日: [イベント名]}}'],
    ['manual','業務マニュアル {業務名: {text, media:[]}}'],['lk','ロック設定オブジェクト'],
   ].forEach(function(r){S+='<tr><td><code>'+r[0]+'</code></td><td>'+r[1]+'</td></tr>';});
@@ -2216,36 +2089,23 @@ function renderManual() {
   S += step(4,'読み込み結果を確認','CE勤務者・OC・イベントの件数と最初の7日分のプレビューが表示されます。');
   S += step(5,'「この内容で保存する」をクリック','各日の連絡表にCE勤務者が表示されます。');
   S += warn('対象月のシートを開いた状態でExcelを保存してからアップロードしてください。別の月のシートが開いたままだと正しく読み込まれません。');
-  S += h2('担当割当済みの日を守る（上書き保護）');
-  S += '<div class="mn-p">すでに担当を割り当てた日は、再インポートしても<strong>勤務者一覧が維持されます</strong>。担当が1人でも入っている日は「保護対象」となり、Excelの内容で上書きされません（未割当の日だけ更新）。</div>';
-  S += ok('保存後に「🛡 担当割当済みの N 日は勤務者一覧を維持しました：…」と維持した日付が表示されます。月の途中でExcelを取り込み直しても、完成済みの日は崩れません。');
 
   // ===== 第9章 =====
-  S += h1('第9章　担当表を見る・出力する');
-  S += '<div class="mn-p">「📊 担当表」タブで月ごとの担当一覧（縦:日付・横:スタッフ）を、画面いっぱいの幅で確認できます。</div>';
+  S += h1('第9章　担当表を見る・印刷する');
+  S += '<div class="mn-p">「📊 担当表」タブで月ごとの担当一覧（縦:日付・横:スタッフ）を確認できます。</div>';
   S += step(1,'「📊 担当表」タブをクリック','「‹」「›」ボタンで月を切り替えられます。');
-  S += step(2,'「📥 Excel出力」で担当表を書き出す','担当表・OC集計・担当枠集計の3シートに整理されたExcelをダウンロードできます。');
-  S += step(3,'印刷する場合は「🖨️ 印刷」ボタンをクリック','A4・横向き（ランドスケープ）を推奨します。');
+  S += step(2,'印刷する場合は「🖨️ 印刷」ボタンをクリック','A4・横向き（ランドスケープ）を推奨します。');
 
   // ===== 第10章 =====
-  S += h1('第10章　日次スケジュール（タイムテーブル）');
-  S += '<div class="mn-p">「🗓 スケジュール」タブで、その日の時間割（8:00〜21:00／15分刻み・スタッフ別の列）を作成できます。担当表と同じく画面いっぱいに表示されます。</div>';
-  S += step(1,'連絡表ページを選んでから「🗓 スケジュール」タブを開く','上部の「‹ / ›」で前後の連絡表へ移動できます。');
-  S += step(2,'「⚡ 担当から生成」','オペは入室時間に自動配置、それ以外の担当は左の「📦 未配置」へ。重複生成しても二重には増えません。');
-  S += step(3,'「＋ ブロック追加」','プリセット（担当マスタの項目＋休憩・会議・研修などの定番）から選ぶか、自由入力で追加。');
-  S += step(4,'ブロックをドラッグで配置・下端で長さ調整','');
-  S += tip('「✎ プリセット編集」で定番プリセットを自由に追加・削除できます（全員に共有保存）。「🔗 リアルタイム共有中」表示時は他スタッフの編集も自動反映されます。');
-
-  // ===== 第11章 =====
-  S += h1('第11章　表示名を設定する');
+  S += h1('第10章　表示名を設定する');
   S += '<div class="mn-p">申し送りやログに正しい名前が表示されるよう、初回ログイン後に一度だけ設定してください。未設定だとメールアドレスの@より前が表示されます。</div>';
   S += step(1,'右上のアカウントバッジをクリック','「👤 ○○○○」と表示されている部分。');
   S += step(2,'氏名を入力する','例：狩野 英孝（20文字以内）');
   S += step(3,'「保存」をクリック','次の申し送り投稿から反映されます。');
   S += ok('一度設定すれば変更不要です。');
 
-  // ===== 第12章 =====
-  S += h1('第12章　よくある質問');
+  // ===== 第11章 =====
+  S += h1('第11章　よくある質問');
   S += '<table class="mn-tbl"><tr><th>質問</th><th>回答</th></tr>';
   [['ログインできない','入力内容（大文字/小文字）を確認。何度も失敗するとロックされるので管理者に連絡。'],
    ['「ローカル保存」と表示される','インターネット接続を確認。解決しない場合は管理者に連絡。'],
@@ -2257,9 +2117,6 @@ function renderManual() {
    ['画像が添付できない','対応形式（jpg・png・mp4など）か確認。動画は50MB以下が必要です。'],
    ['月が変わったら何をすればいい','管理者が「1ヶ月生成」→「勤務表インポート」を実施します。'],
    ['スマホで使いにくい','☰でサイドバーを開閉。担当割り当てはタップで操作できます。'],
-   ['Excelを取り込むと完成済みの担当が消える？','消えません。担当を割り当て済みの日は勤務者一覧が自動で維持されます（第8章）。'],
-   ['スケジュールのブロック名を毎回入力したくない','「＋ブロック追加」のプリセットから選べます。「✎プリセット編集」で項目を増やせます（第10章）。'],
-   ['前後の日にすばやく移動したい','連絡表・スケジュール上部の「‹ 前の連絡表 / 次の連絡表 ›」ボタンを使ってください。'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';});
   S += '</table>';
   S += '<div class="mn-p" style="text-align:center;color:var(--txt3);margin-top:16px;padding-top:12px;border-top:1px solid var(--bdr)">不明な点は管理者にお気軽にご相談ください 🙂</div>';
@@ -2362,16 +2219,8 @@ function renderAdminManual() {
   S += '<div class="a-step"><div class="a-num">画像</div><div>Firebase Console → Storage → 「使用状況」タブ。3GB超えたら古いファイルを整理。</div></div>';
   S += '<div class="a-warn">⚠ 無料枠：DB 1GB / Storage 5GB。画像1枚は圧縮後約200KB、動画は最大50MB/本。</div>';
 
-  // 第10章: 運用機能（勤務表保護・スケジュール）
-  S += '<div class="a-h1">10. 運用機能のポイント</div>';
-  S += '<div class="a-h2">勤務表の上書き保護</div>';
-  S += '<div class="a-p">Excel勤務表を再インポートしても、<strong>担当を割り当て済みの日は勤務者一覧が自動で維持</strong>されます（未割当の日のみ更新）。月の途中で取り込み直しても完成済みの担当表は崩れません。保存後に「🛡 維持した日付」が表示されます。</div>';
-  S += '<div class="a-warn">⚠ ある日の担当を作り直したい場合は、その日の担当割り当てを一旦すべて外してからインポートすると、その日も新しい勤務表で更新されます。</div>';
-  S += '<div class="a-h2">日次スケジュールのプリセット管理</div>';
-  S += '<div class="a-p">「🗓 スケジュール」→「＋ブロック追加」→「✎プリセット編集」で、休憩・会議などの定番ブロックを追加・削除できます。プリセットは全スタッフで共有保存されます（担当マスタの項目は自動表示）。</div>';
-
-  // 第11章: トラブルシューティング
-  S += '<div class="a-h1">11. よくあるトラブルと対処法</div>';
+  // 第10章: トラブルシューティング
+  S += '<div class="a-h1">10. よくあるトラブルと対処法</div>';
   S += '<table class="a-tbl"><tr><th>症状</th><th>対処法</th></tr>';
   [['ログインできない','メールアドレス・パスワードを確認。Authentication画面でパスワードリセット。'],
    ['「ローカル保存」のまま','index.htmlのFB_CFG設定（YOUR_が残っていないか）を確認。GitHubに最新版をアップロードしたか確認。'],
@@ -2379,10 +2228,285 @@ function renderAdminManual() {
    ['Excelが正しく読み込まれない','「勤務」シートを開いた状態で保存してアップロード。CE・OC列の形式を確認。'],
    ['画像が表示されない','Firebase ConsoleでStorageのセキュリティルールが正しく設定されているか確認。'],
    ['データが消えた','ロック → ログタブで「自動削除実行」の記録を確認。'],
-   ['Excel取り込みで一部の日が更新されない','その日の担当が割り当て済み（保護対象）のため。割り当てを外してから再インポート。'],
-   ['スケジュールが他の人の編集で更新されない','「🔗リアルタイム共有中」表示を確認。表示が無い場合はFirebaseのDB接続を確認。'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';});
   S += '</table>';
+
+  el.innerHTML = S;
+}
+
+/* ===== 管理者権限管理 ===== */
+function renderAdminUsers() {
+  var el = document.getElementById('adminm-users');
+  if (!el || !isAdmin || !FB_ON || !fbDB) return;
+
+  el.innerHTML = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 管理者権限の管理</div>' +
+    '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限をアプリから直接付与・取り消しできます。<br>一度もログインしていないスタッフは表示されません。</div>' +
+    '<div style="font-size:12px;color:var(--txt3);padding:8px">読み込み中...</div>';
+
+  Promise.all([
+    fbDB.ref('/users').once('value'),
+    fbDB.ref('/admins').once('value')
+  ]).then(function(results) {
+    var users  = results[0].val() || {};
+    var admins = results[1].val() || {};
+    var uids   = Object.keys(users);
+
+    var S = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 管理者権限の管理</div>';
+    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限をアプリから直接付与・取り消しできます。<br>一度もログインしていないスタッフは表示されません。</div>';
+
+    if (!uids.length) {
+      S += '<div style="font-size:12px;color:var(--txt3);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px">⚠ まだ誰もログインしていません。</div>';
+    } else {
+      uids.forEach(function(uid) {
+        var u     = users[uid];
+        var isAdm = !!admins[uid];
+        var isSelf = currentUser && currentUser.uid === uid;
+        S += '<div class="adminm-user-row">';
+        S += '<div class="adminm-user-info">';
+        S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : '👤 ') + escH(u.displayName || u.email) + '</span>';
+        S += '<span class="adminm-user-email">' + escH(u.email) + '</span>';
+        if (u.lastLogin) S += '<span class="adminm-user-date">最終ログイン: ' + fmtTS(u.lastLogin) + '</span>';
+        S += '</div>';
+        if (isSelf) {
+          S += '<span class="adminm-self-badge">自分</span>';
+        } else if (isAdm) {
+          S += '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">権限を外す</button>';
+        } else {
+          S += '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
+        }
+        S += '</div>';
+      });
+    }
+    S += '<div style="display:flex;gap:6px;margin-top:8px">';
+    S += '<button class="btn btn-p btn-sm" onclick="openRegModal()">➕ 新規ユーザー登録</button>';
+    S += '<button class="btn btn-g btn-sm" onclick="renderAdminUsers()">🔄 更新</button>';
+    S += '</div>';
+    el.innerHTML = S;
+  }).catch(function(err) {
+    var el2 = document.getElementById('adminm-users');
+    if (el2) el2.innerHTML = '<div style="font-size:12px;color:var(--rd);background:var(--rd-bg);border:1px solid #f5b8b8;border-radius:6px;padding:8px 12px">❌ 読み込みエラー: ' + escH(err.message) + '</div>';
+  });
+}
+
+function toggleAdminPriv(uid, currentlyAdmin) {
+  if (!isAdmin || !FB_ON || !fbDB) return;
+  var msg = currentlyAdmin
+    ? 'この管理者権限を取り消しますか？\n次回ログイン時から一般ユーザーになります。'
+    : 'このスタッフを管理者にしますか？\n次回ログイン時から管理者として操作できるようになります。';
+  if (!confirm(msg)) return;
+
+  var ref = fbDB.ref('/admins/' + uid);
+  var p   = currentlyAdmin ? ref.remove() : ref.set(true);
+  p.then(function() {
+    writeLog(currentlyAdmin ? '管理者権限を取り消し' : '管理者権限を付与', uid);
+    renderAdminUsers();
+  }).catch(function(err) {
+    alert('エラーが発生しました: ' + err.message);
+  });
+}
+
+/* ===== 新規ユーザー登録 ===== */
+function openRegModal() {
+  document.getElementById('reg-email').value = '';
+  document.getElementById('reg-pass').value  = '';
+  document.getElementById('reg-err').textContent = '';
+  document.getElementById('reg-pw-hint').textContent = '';
+  ['rpsb1','rpsb2','rpsb3'].forEach(function(id){
+    var b = document.getElementById(id); if(b) b.className = 'pw-strength-bar';
+  });
+  var btn = document.getElementById('reg-btn');
+  if(btn){ btn.disabled = false; btn.textContent = '登録する'; }
+  document.getElementById('modal-reg').classList.remove('hd');
+  setTimeout(function(){ document.getElementById('reg-email').focus(); }, 50);
+}
+
+function closeRegModal() {
+  document.getElementById('modal-reg').classList.add('hd');
+}
+
+function checkRegPwStrength(pw) {
+  var b1=document.getElementById('rpsb1'), b2=document.getElementById('rpsb2'), b3=document.getElementById('rpsb3');
+  var hint=document.getElementById('reg-pw-hint');
+  if(!b1||!hint) return;
+  var hasLen=pw.length>=8, hasNum=/\d/.test(pw), hasAlpha=/[a-zA-Z]/.test(pw), hasSymb=/[^a-zA-Z0-9]/.test(pw);
+  var score=(hasLen?1:0)+(hasNum&&hasAlpha?1:0)+(hasSymb?1:0);
+  var cls=score===0?'':score===1?'weak':score===2?'fair':'good';
+  var hints=['','短すぎます（8文字以上必要）','英字と数字を組み合わせると強くなります','強いパスワードです ✅'];
+  [b1,b2,b3].forEach(function(b,i){ b.className='pw-strength-bar'+(score>i&&cls?' '+cls:''); });
+  hint.textContent = pw.length ? hints[score] : '';
+}
+
+function doRegister() {
+  if(!isAdmin || !FB_ON || !fbDB) return;
+  var email = document.getElementById('reg-email').value.trim();
+  var pass  = document.getElementById('reg-pass').value;
+  var errEl = document.getElementById('reg-err');
+  var btn   = document.getElementById('reg-btn');
+  errEl.textContent = '';
+
+  if(!email){ errEl.textContent = 'メールアドレスを入力してください'; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent = 'メールアドレスの形式が正しくありません'; return; }
+  if(pass.length < 8){ errEl.textContent = 'パスワードは8文字以上で入力してください'; return; }
+
+  btn.disabled = true; btn.textContent = '登録中...';
+
+  var appName   = 'reg_' + Date.now();
+  var secondApp = firebase.initializeApp(FB_CFG, appName);
+
+  secondApp.auth().createUserWithEmailAndPassword(email, pass)
+    .then(function(cred) {
+      var uid = cred.user.uid;
+      return fbDB.ref('/users/' + uid).set({
+        email: email,
+        displayName: email.split('@')[0],
+        lastLogin: null
+      }).then(function() {
+        secondApp.auth().signOut();
+        try{ secondApp.delete(); }catch(e){}
+        writeLog('新規ユーザー登録', email);
+        closeRegModal();
+        renderAdminUsers();
+      });
+    })
+    .catch(function(err) {
+      var msg = err.message;
+      if(err.code==='auth/email-already-in-use') msg='このメールアドレスはすでに登録されています';
+      else if(err.code==='auth/invalid-email')   msg='メールアドレスの形式が正しくありません';
+      else if(err.code==='auth/weak-password')   msg='パスワードが弱すぎます（6文字以上必要）';
+      errEl.textContent = msg;
+      try{ secondApp.auth().signOut(); secondApp.delete(); }catch(e){}
+      btn.disabled = false; btn.textContent = '登録する';
+    });
+}
+
+/* ===== 法令・ガイドライン ===== */
+function renderRegs() {
+  var el = document.getElementById('regs-body');
+  if (!el || el.innerHTML) return;
+  var SS = '<style>'
+    + '.rg-h1{font-size:16px;font-weight:900;color:#0e6e5e;border-bottom:3px solid #0e6e5e;padding-bottom:5px;margin:18px 0 10px}'
+    + '.rg-h2{font-size:13px;font-weight:800;margin:12px 0 5px;padding:3px 0 3px 9px;border-left:4px solid #0e6e5e;color:var(--txt)}'
+    + '.rg-p{font-size:12px;color:var(--txt);line-height:1.9;margin:0 0 6px}'
+    + '.rg-src{font-size:11px;color:var(--txt3);background:var(--sur2);border:1px solid var(--bdr);border-radius:5px;padding:5px 10px;margin:4px 0 10px;word-break:break-all}'
+    + '.rg-src a{color:var(--ac);text-decoration:none}'
+    + '.rg-src a:hover{text-decoration:underline}'
+    + '.rg-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}'
+    + '.rg-tbl th{background:#0e6e5e;color:#fff;padding:5px 8px;text-align:left}'
+    + '.rg-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}'
+    + '.rg-tbl tr:nth-child(even) td{background:var(--sur2)}'
+    + '.rg-ok{background:#e8f5f2;border:1px solid #0e6e5e;border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
+    + '.rg-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
+    + '.rg-alert{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
+    + '.rg-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700}'
+    + '.rg-mhlw{background:#e8f5f2;color:#0e6e5e;border:1px solid #0e6e5e}'
+    + '.rg-ppc{background:#eef2fc;color:var(--ac);border:1px solid var(--ac)}'
+    + '.rg-meti{background:var(--or-bg);color:var(--or);border:1px solid var(--or)}'
+    + '</style>';
+  var S = SS;
+
+  S += '<div class="rg-warn">⚠️ このページは公開情報を基に作成した参考資料です。法的判断が必要な場合は必ず原典・専門家に確認してください。</div>';
+
+  /* ===== 概要 ===== */
+  S += '<div class="rg-h1">患者情報漏洩防止に関する省庁ガイドライン</div>';
+  S += '<div class="rg-p">医療機関における患者情報の取り扱いは、主に以下の「3省2ガイドライン」と個人情報保護法ガイダンスによって規律されています。</div>';
+  S += '<table class="rg-tbl"><tr><th>通称</th><th>発行省庁</th><th>最新版</th><th>対象</th></tr>';
+  [
+    ['医療情報システム安全管理GL','厚生労働省','第6.0版（2023年5月）','医療機関'],
+    ['医療情報事業者向け安全管理GL','総務省・経済産業省','第2.0版（2025年3月）','ITベンダー等'],
+    ['医療・介護ガイダンス','個情委・厚生労働省','2024年改正対応版','医療・介護事業者'],
+  ].forEach(function(r){
+    S += '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>';
+  });
+  S += '</table>';
+
+  /* ===== ガイドライン1 ===== */
+  S += '<div class="rg-h1">① 厚生労働省「医療情報システムの安全管理に関するガイドライン 第6.0版」</div>';
+  S += '<div class="rg-src">発行：<span class="rg-badge rg-mhlw">厚生労働省</span>　令和5年（2023年）5月<br>'
+    + '原典：<a href="https://www.mhlw.go.jp/stf/shingi/0000516275_00006.html" target="_blank">https://www.mhlw.go.jp/stf/shingi/0000516275_00006.html</a></div>';
+
+  S += '<div class="rg-h2">構成（4編に再編）</div>';
+  S += '<table class="rg-tbl"><tr><th>編</th><th>対象読者</th><th>主な内容</th></tr>';
+  [
+    ['概説編','全職員','目的・用語定義・ガイドライン全体像'],
+    ['経営管理編','経営層・管理職','リスク管理体制の整備・責任体制の明確化'],
+    ['企画管理編','情報システム担当者','安全管理措置の企画・設計・外部委託管理'],
+    ['システム運用編','IT運用担当者','具体的なシステム設定・アクセス管理・インシデント対応'],
+  ].forEach(function(r){ S += '<tr><td><strong>'+r[0]+'</strong></td><td>'+r[1]+'</td><td>'+r[2]+'</td></tr>'; });
+  S += '</table>';
+
+  S += '<div class="rg-h2">第6.0版の主要改定ポイント</div>';
+  [
+    ['ゼロトラストへの転換','院内ネットワークも「安全」とみなさず、すべてのアクセスを検証する考え方を採用。'],
+    ['クラウド利用時の安全管理','クラウドサービス利用時の責任分界・リスク評価・契約上の確認事項を明記。'],
+    ['オンライン資格確認対応','マイナンバーカードを用いたオンライン資格確認の導入義務化（2023年4月～）に伴うネットワーク機器等の安全管理を追加。'],
+    ['サイバー攻撃対策の強化','ランサムウェア等のサイバー攻撃を想定した対策・BCP（事業継続計画）の策定を要求。'],
+    ['非常時対応計画','インシデント発生時の連絡体制・復旧手順の事前整備を義務付け。'],
+  ].forEach(function(r){
+    S += '<div class="rg-ok"><strong>▶ '+r[0]+'</strong><br><span style="font-size:11px">'+r[1]+'</span></div>';
+  });
+
+  /* ===== ガイドライン2 ===== */
+  S += '<div class="rg-h1">② 個人情報保護委員会・厚生労働省「医療・介護関係事業者における個人情報の適切な取扱いのためのガイダンス」</div>';
+  S += '<div class="rg-src">発行：<span class="rg-badge rg-ppc">個人情報保護委員会</span><span class="rg-badge rg-mhlw" style="margin-left:4px">厚生労働省</span>　2024年改正対応版<br>'
+    + '原典：<a href="https://www.ppc.go.jp/personalinfo/legal/iryoukaigo_guidance/" target="_blank">https://www.ppc.go.jp/personalinfo/legal/iryoukaigo_guidance/</a></div>';
+
+  S += '<div class="rg-h2">患者情報 = 要配慮個人情報</div>';
+  S += '<div class="rg-p">病歴・診療情報・処方情報・健康診断結果などは「<strong>要配慮個人情報</strong>」に該当し、通常の個人情報より厳格な取り扱いが義務付けられます。本人の同意なしに取得・第三者提供することは原則禁止です。</div>';
+
+  S += '<div class="rg-h2">漏洩発生時の報告・通知義務（2022年4月～）</div>';
+  S += '<table class="rg-tbl"><tr><th>報告先</th><th>義務が発生するケース</th><th>期限</th></tr>';
+  [
+    ['個人情報保護委員会','要配慮個人情報が含まれる漏洩','速報：3〜5日以内 / 確報：30日以内'],
+    ['個人情報保護委員会','漏洩した個人データの本人数が1,000人超','同上'],
+    ['本人（患者）','上記に該当する場合','速やかに'],
+  ].forEach(function(r){ S += '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td></tr>'; });
+  S += '</table>';
+  S += '<div class="rg-alert">🚨 患者情報の漏洩が発生した場合、院内だけで処理することは不可。個人情報保護委員会への報告は法的義務です。</div>';
+
+  /* ===== ガイドライン3 ===== */
+  S += '<div class="rg-h1">③ 総務省・経済産業省「医療情報を取り扱う情報システム・サービスの提供事業者における安全管理ガイドライン 第2.0版」</div>';
+  S += '<div class="rg-src">発行：<span class="rg-badge rg-meti">総務省</span><span class="rg-badge rg-meti" style="margin-left:4px">経済産業省</span>　令和7年（2025年）3月改定<br>'
+    + '原典（経産省）：<a href="https://www.meti.go.jp/policy/mono_info_service/healthcare/teikyoujigyousyagl.html" target="_blank">https://www.meti.go.jp/policy/mono_info_service/healthcare/teikyoujigyousyagl.html</a><br>'
+    + '原典（総務省）：<a href="https://www.soumu.go.jp/menu_news/s-news/01ryutsu06_02000427.html" target="_blank">https://www.soumu.go.jp/menu_news/s-news/01ryutsu06_02000427.html</a></div>';
+  S += '<div class="rg-p">主にクラウドサービスなど医療情報システムを提供する<strong>ITベンダー・事業者向け</strong>のガイドラインです。医療機関は、このガイドラインに準拠したサービスを選定・契約することが求められます。</div>';
+  S += '<div class="rg-h2">医療機関側のポイント</div>';
+  [
+    'クラウドサービス選定時は本ガイドライン準拠を確認する',
+    'ベンダーとのSLA（サービスレベル合意書）を締結し責任分界を明確にする',
+    '医療情報の保存場所・アクセス権限・バックアップ方法を契約書で確認する',
+  ].forEach(function(t){ S += '<div class="rg-ok">✅ '+t+'</div>'; });
+
+  /* ===== 罰則・リスク ===== */
+  S += '<div class="rg-h1">④ 違反した場合のリスク</div>';
+  S += '<table class="rg-tbl"><tr><th>種別</th><th>内容</th></tr>';
+  [
+    ['刑事罰（個人情報保護法）','不正な利益目的での情報持ち出し：1年以下の懲役または50万円以下の罰金。元従業員も対象。'],
+    ['行政処分','個人情報保護委員会からの勧告・命令。命令違反は1年以下の懲役または100万円以下の罰金。'],
+    ['民事賠償','患者・遺族からの損害賠償請求。精神的苦痛に対する慰謝料請求も認められる場合あり。'],
+    ['刑法上の守秘義務違反','医師・看護師等の「正当な理由のない秘密漏示」は刑法134条違反（6ヶ月以下の懲役または10万円以下の罰金）。'],
+    ['信用・風評被害','報道・SNS拡散による患者離れ・職員採用への悪影響。'],
+  ].forEach(function(r){ S += '<tr><td><strong>'+r[0]+'</strong></td><td>'+r[1]+'</td></tr>'; });
+  S += '</table>';
+
+  /* ===== このアプリとの関係 ===== */
+  S += '<div class="rg-h1">⑤ このアプリ（CEnote）における対応</div>';
+  S += '<div class="rg-p">CEnoteは院内業務連絡ツールとして患者情報を直接管理するシステムではありませんが、申し送り欄に患者情報が記載されるリスクがあります。以下の機能で対応しています。</div>';
+  S += '<table class="rg-tbl"><tr><th>リスク</th><th>CEnoteでの対応</th></tr>';
+  [
+    ['申し送りへの患者情報記載','PHI検知機能：患者氏名・ID・病状等のパターンを検知し投稿前に警告を表示'],
+    ['権限のないユーザーによるアクセス','Firebase Email/Password認証＋ロック機能による機能制限'],
+    ['退職者のアカウント残存','管理者設定パネルからアカウント削除・管理者権限の取り消しが可能'],
+    ['操作の証跡','操作ログをFirebase /logs/ に記録（管理者のみ閲覧可）'],
+  ].forEach(function(r){ S += '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>'; });
+  S += '</table>';
+  S += '<div class="rg-warn">⚠️ 申し送り欄には患者氏名・ID・生年月日・病名・投薬内容など個人が特定できる情報を記載しないでください。</div>';
+
+  S += '<div style="font-size:10px;color:var(--txt3);margin-top:16px;line-height:1.7">'
+    + '本資料は以下の公開情報を基に作成しました（最終確認：2025年）<br>'
+    + '・厚生労働省「医療情報システムの安全管理に関するガイドライン 第6.0版」（2023年5月）<br>'
+    + '・個人情報保護委員会・厚生労働省「医療・介護関係事業者における個人情報の適切な取扱いのためのガイダンス」<br>'
+    + '・総務省・経済産業省「医療情報を取り扱う情報システム・サービスの提供事業者における安全管理ガイドライン 第2.0版」（2025年3月）<br>'
+    + '・個人情報保護法（令和4年4月施行改正版）</div>';
 
   el.innerHTML = S;
 }
@@ -2461,18 +2585,7 @@ function renderDev() {
    ['buildCL(ds,dat,wtl,all,locked)','チェックリスト構築'],
    ['mkCk(ds,idx,task,dat,locked)','チェック1行（サイドピーク「···」ボタン付き）'],
    ['parseShiftSheet(wb,fileName)','Excel→CE/OC/イベント抽出（sheet_to_json非使用）'],
-   ['doSaveSIM()','勤務表保存＋OC自動セット。割当済み日を保護してマージ'],
-   ['_pageHasDuties(dat) / _mergeShiftPreserve(old,new,protectedDays)','上書き保護：担当割当済み日を検出し旧勤務表の該当列を維持'],
-   ['exportAtExcel()','担当表をExcel3シート（担当表/OC集計/担当枠集計）で出力'],
-   ['buildSchedule(ds)','日次スケジュール構築（列決定→ヘッダ/時間軸/グリッド/ブロック描画）'],
-   ['initSchFromDuties()','担当からブロック自動生成（オペは入室時間配置・dutyId基底キーで重複防止）'],
-   ['getSchData(ds) / saveSchData(ds,data)','schedule配列の取得/保存（schUpdatedBy/At記録＋共有バッジ更新）'],
-   ['openSchPresetModal() / addSchPresetMaster(i) / addSchPresetCustom(j)','ブロック追加プリセット（担当マスタ＋D.schPresets）'],
-   ['schPresetCustomAdd() / schPresetCustomDel(idx)','プリセットの追加・削除（共有保存）'],
-   ['goPageRel(dir) / _adjPageDs(ds,dir)','前後の既存連絡表ページへ移動（連絡表・スケジュール共通）'],
-   ['openPoolStaffModal(ds,type) / addPoolStaff(ds,type,name)','当日勤務者一覧へのスタッフ追加（モーダル選択＋共通処理）'],
-   ['editTreeItem(...) / saveTreeItem(...)','3階層マスタのダブルクリック編集'],
-   ['reorderDutyCfg(...) / reorderOpsItems(...)','担当カード・オペ/カテ項目のD&D並び替え'],
+   ['doSaveSIM()','勤務表保存＋OC自動セット'],
    ['togLk(id,v)','ロック設定変更（show_phsは逆ロジック）'],
    ['openSP(task)','サイドピーク（業務マニュアル）を開く'],
    ['compressImage(file,cb)','Canvas圧縮（1280px/JPEG80%）'],
@@ -2509,9 +2622,6 @@ function renderDev() {
    ['申し送り旧フィールド','memoフィールド（文字列）から memos配列に移行済み。後方互換のため混在する場合あり。'],
    ['Storage未接続時','uploadToStorage失敗→base64フォールバック（LocalStorageに保存）。容量に注意。'],
    ['renderPage未閉じ疑惑','波括弧の誤カウントはHTML文字列内のCSS変数カッコが原因。実際は正常に閉じている。'],
-   ['メイン領域占有パネル','担当表/スケジュール/資料系(guide,spec,manual,adminm,dev)は.ab直下に配置。swTab()が#mainを中央集約で表示/非表示。スマホはfixed全画面＋戻るボタン。'],
-   ['スケジュール共有の再描画','/dataリスナーでpane-schedule表示中はbuildSchedule(_schDs)を呼ぶ。saveSchData直後は_savingTs(800ms)で再描画抑制。'],
-   ['schPresets永続化','D直下のキー。saveDはD全体をsetするため自動保存。loadD/リスナー両方でDEF_SCH_PRESETSフォールバックを設定。'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';});
   S += '</table>';
 
@@ -3120,20 +3230,6 @@ function renderGuide() {
   S += '<div class="gd-p">各投稿の右上に「済 □」チェックボックスがあります。確認した申し送りにチェックを入れると投稿がグレーアウトして確認済みと分かります。</div>';
   S += warn('患者氏名・病室番号・診断名・カルテ番号は入力しないでください。クラウドに保存されます。');
 
-  S += h1('🗓 日次スケジュール（タイムテーブル）');
-  S += '<div class="gd-p">サイドバーの「🗓 スケジュール」タブから、その日のタイムテーブルを作成できます。8:00〜21:00を15分刻みで、スタッフごとの列に予定ブロックを配置します。</div>';
-  S += step(1,'連絡表ページを選んでから「🗓 スケジュール」タブを開く','選んだ日のスケジュールが画面いっぱいに表示されます。');
-  S += step(2,'「⚡ 担当から生成」','割り当て済みの担当をもとにブロックを自動作成。オペは入室時間に配置、それ以外は左の「未配置」へ入ります。');
-  S += step(3,'「＋ ブロック追加」でプリセットから選ぶ','休憩・会議・研修などの定番や担当マスタの項目をワンタップで追加。「✎ プリセット編集」で項目を自由に追加・削除できます。');
-  S += step(4,'ブロックをドラッグして時間帯に配置・下端を引っぱって長さ調整','');
-  S += ok('「🔗 リアルタイム共有中」バッジが出ていれば、他のスタッフの編集も自動で反映されます。');
-
-  S += h1('◀▶ 日付を前後に移動');
-  S += '<div class="gd-p">連絡表・スケジュールのどちらの画面でも、上部の「‹ 前の連絡表 / 次の連絡表 ›」ボタンで、カレンダーに戻らずに前後の日へ素早く移動できます。</div>';
-
-  S += h1('📊 担当表・📘 資料を広い画面で見る');
-  S += '<div class="gd-p">「📊 担当表」や「📘 使い方／仕様書／マニュアル」などのタブは、画面いっぱいの幅で表示されます。スマホでは全画面表示になり、「← 戻る」または☰メニューで連絡表に戻れます。</div>';
-
   S += h1('❓ こんなときは');
   S += '<table class="gd-tbl"><tr><th>困ったこと</th><th>対処法</th></tr>'
     + '<tr><td>ログインできない</td><td>管理者にパスワードリセットを依頼</td></tr>'
@@ -3147,69 +3243,31 @@ function renderGuide() {
   el.innerHTML = S;
 }
 
-var _allLogs = [];
-
 function loadLogs() {
   if (!FB_ON || !fbDB) return;
   var el = document.getElementById('log-list');
   if (!el) return;
   el.innerHTML = '<div class="pool-empty">読み込み中...</div>';
-  fbDB.ref('/logs').orderByChild('ts').limitToLast(200).once('value', function(snap) {
-    _allLogs = [];
-    snap.forEach(function(c) { _allLogs.push(c.val()); });
-    _allLogs.reverse();
-    if (!_allLogs.length) { el.innerHTML = '<div class="pool-empty">ログはありません</div>'; return; }
-    filterLogs();
+  fbDB.ref('/logs').orderByChild('ts').limitToLast(100).once('value', function(snap) {
+    var logs = [];
+    snap.forEach(function(c) { logs.push(c.val()); });
+    logs.reverse();
+    if (!logs.length) { el.innerHTML = '<div class="pool-empty">ログはありません</div>'; return; }
+    var h = '';
+    logs.forEach(function(l) {
+      var dt = l.ts ? new Date(l.ts) : new Date();
+      var ts = dt.getFullYear()+'/'+(dt.getMonth()+1).toString().padStart(2,'0')+'/'+
+               dt.getDate().toString().padStart(2,'0')+' '+
+               dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0');
+      h += '<div class="log-item">';
+      h += '<span class="li-time">'+ts+'</span>';
+      h += '<span class="li-user">'+escH(l.name||'')+'</span>';
+      h += '<span class="li-msg">'+escH(l.action);
+      if (l.detail) h += '：<span style="color:var(--txt3)">'+escH(l.detail)+'</span>';
+      h += '</span></div>';
+    });
+    el.innerHTML = h;
   });
-}
-
-function _logActionBadge(action) {
-  var a = action || '';
-  if (a.indexOf('チェック') >= 0) return '<span class="log-action-badge lab-check">'+escH(a)+'</span>';
-  if (a.indexOf('担当') >= 0 || a.indexOf('割り当て') >= 0 || a.indexOf('追加') >= 0 || a.indexOf('除外') >= 0) return '<span class="log-action-badge lab-assign">'+escH(a)+'</span>';
-  if (a.indexOf('インポート') >= 0 || a.indexOf('出力') >= 0 || a.indexOf('生成') >= 0 || a.indexOf('削除') >= 0) return '<span class="log-action-badge lab-import">'+escH(a)+'</span>';
-  if (a.indexOf('編集') >= 0 || a.indexOf('変更') >= 0 || a.indexOf('保存') >= 0 || a.indexOf('投稿') >= 0) return '<span class="log-action-badge lab-edit">'+escH(a)+'</span>';
-  return '<span class="log-action-badge lab-other">'+escH(a)+'</span>';
-}
-
-function filterLogs() {
-  var el = document.getElementById('log-list');
-  if (!el) return;
-  var keyword = (document.getElementById('log-search')||{}).value || '';
-  var sort = (document.getElementById('log-sort')||{}).value || 'time-desc';
-  var kw = keyword.trim().toLowerCase();
-
-  var filtered = _allLogs.filter(function(l) {
-    if (!kw) return true;
-    return (l.name||'').toLowerCase().indexOf(kw) >= 0 ||
-           (l.action||'').toLowerCase().indexOf(kw) >= 0 ||
-           (l.detail||'').toLowerCase().indexOf(kw) >= 0;
-  });
-
-  if (sort === 'time-asc') filtered = filtered.slice().reverse();
-  else if (sort === 'user-asc') filtered = filtered.slice().sort(function(a,b){ return (a.name||'').localeCompare(b.name||'','ja'); });
-  else if (sort === 'action-asc') filtered = filtered.slice().sort(function(a,b){ return (a.action||'').localeCompare(b.action||'','ja'); });
-
-  if (!filtered.length) { el.innerHTML = '<div class="pool-empty">'+(kw?'該当するログがありません':'ログはありません')+'</div>'; return; }
-
-  var h = '';
-  filtered.forEach(function(l) {
-    var dt = l.ts ? new Date(l.ts) : new Date();
-    var ts = dt.getFullYear()+'/'+(dt.getMonth()+1).toString().padStart(2,'0')+'/'+
-             dt.getDate().toString().padStart(2,'0')+' '+
-             dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0')+':'+dt.getSeconds().toString().padStart(2,'0');
-    h += '<div class="log-item">';
-    h += '<span class="li-time">'+ts+'</span>';
-    h += '<span class="li-user">👤 '+escH(l.name||'不明')+'</span>';
-    h += _logActionBadge(l.action);
-    if (l.detail) h += '<span class="li-detail">'+escH(l.detail)+'</span>';
-    h += '</div>';
-  });
-  el.innerHTML = h;
-  /* フィルター件数表示 */
-  if (kw && filtered.length < _allLogs.length) {
-    el.insertAdjacentHTML('afterbegin', '<div style="font-size:10px;color:var(--txt3);padding:4px 10px;border-bottom:1px solid var(--bdr)">'+filtered.length+' / '+_allLogs.length+' 件表示</div>');
-  }
 }
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -3555,8 +3613,11 @@ function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValu
   else if (saveKey === 'supTree') perm = 'sm';
   if (!can(perm)) return;
 
-  // currentValue は常にアイコンを含まない生の名称が渡されるため、そのまま使用
+  // アイコン（最初の2文字）を削除した値を取得
   var displayValue = currentValue;
+  if (icons && currentValue.startsWith(icons[level === 'dept' ? 0 : level === 'cat' ? 1 : 2])) {
+    displayValue = currentValue.substring(2);
+  }
 
   // 保存に必要なメタデータを設定
   _editModalState = {
@@ -4062,53 +4123,20 @@ function parseShiftSheet(wb, fileName) {
   parsedShiftData = {ym: ym, data: result, evts: evts};
   saveBtn.style.display = '';
 }
-/* ページにスタッフが配置済みか（担当割り当て or 余剰人員）＝上書き保護対象 */
-function _pageHasDuties(dat){
-  if(!dat) return false;
-  if(dat.duties){ for(var k in dat.duties){ if(dat.duties[k] && String(dat.duties[k]).trim()!=='') return true; } }
-  if(dat.surplus && dat.surplus.length) return true; /* 余剰人員に振り分け済みの日も保護 */
-  return false;
-}
-/* 旧勤務表に、保護対象日（担当割当済み）の列だけ残してマージ */
-function _mergeShiftPreserve(oldShift, newData, protectedDays){
-  if(!oldShift) return newData;
-  var names={}, n;
-  for(n in newData) names[n]=1;
-  for(n in oldShift) names[n]=1;
-  var merged={};
-  for(var nm in names){
-    merged[nm]={};
-    var nd=newData[nm], od=oldShift[nm], d;
-    if(nd){ for(d in nd){ if(!protectedDays[d]) merged[nm][d]=nd[d]; } }   /* 未保護日は新データ */
-    if(od){ for(d in od){ if(protectedDays[d])  merged[nm][d]=od[d]; } }   /* 保護日は旧データ維持 */
-  }
-  return merged;
-}
 function doSaveSIM() {
   if (!parsedShiftData) { alert('先にExcelファイルを読み込んでください。'); return; }
   var ym   = parsedShiftData.ym;
   var data = parsedShiftData.data;
-  var ymParts   = ym.split('-');
-  var totalDays = new Date(parseInt(ymParts[0]), parseInt(ymParts[1]), 0).getDate();
-
-  /* ===== 上書き保護：担当割当済みの日を検出 ===== */
-  var protectedDays={}, protectedList=[];
-  for (var pdN = 1; pdN <= totalDays; pdN++) {
-    var pds = ym + '-' + pad(pdN);
-    if (D.pages[pds] && _pageHasDuties(D.pages[pds])) { protectedDays[pdN]=true; protectedList.push(pdN); }
-  }
-  /* 保護日があれば旧勤務表の該当列を維持してマージ、それ以外は全置換 */
-  var oldShift = D.shift[ym];
-  D.shift[ym] = (protectedList.length && oldShift)
-    ? _mergeShiftPreserve(oldShift, data, protectedDays)
-    : data;
+  D.shift[ym] = data;
   if (parsedShiftData.evts) D.evts[ym] = parsedShiftData.evts;
 
   /* ===== OC自動入力 =====
      各日のOC担当者をocData.staffに自動セット
-     既に手動入力済みは上書きしない／保護日はスキップ */
+     CEと兼任の場合はOCに入れ、CE勤務者一覧にはCEのみ表示（getShiftForDayで制御済み）
+     既に手動入力されている場合は上書きしない */
+  var ymParts   = ym.split('-');
+  var totalDays = new Date(parseInt(ymParts[0]), parseInt(ymParts[1]), 0).getDate();
   for (var day = 1; day <= totalDays; day++) {
-    if (protectedDays[day]) continue; /* 担当割当済みの日は触らない */
     var ds = ym + '-' + pad(day);
     /* OCフラグを持つ人を収集 */
     var ocNames = [];
@@ -4126,16 +4154,10 @@ function doSaveSIM() {
   }
 
   saveD();
-  writeLog('勤務表インポート', ym + (protectedList.length ? '（保護'+protectedList.length+'日）' : ''));
+  writeLog('勤務表インポート', ym);
   closeSIM();
   if (curDs && D.pages[curDs]) safeRenderPage();
-  var mon = parseInt(ymParts[1]);
-  var msg = '\u2705 ' + ym + ' \u306e\u52e4\u52d9\u8868\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f\uff01';
-  if (protectedList.length) {
-    msg += '\n\n\ud83d\udee1 \u62c5\u5f53\u5272\u5f53\u6e08\u307f\u306e ' + protectedList.length + ' \u65e5\u306f\u52e4\u52d9\u8005\u4e00\u89a7\u3092\u7dad\u6301\u3057\u307e\u3057\u305f\uff1a\n'
-         + protectedList.map(function(d){ return mon + '/' + d; }).join('\u3001');
-  }
-  alert(msg);
+  alert('\u2705 ' + ym + ' \u306e\u52e4\u52d9\u8868\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f\uff01');
 }
 
 /* ===== GENERATE / ADD / DELETE ===== */
@@ -4241,13 +4263,9 @@ function confirmPoolStaffSelect() {
   var name = poolStaffModalState.selected;
 
   closePoolStaffModal();
-  addPoolStaff(ds, type, name);
-}
 
-/* 当日勤務者一覧へスタッフを追加する共通処理（モーダル確定／プロンプト両用） */
-function addPoolStaff(ds, type, name) {
-  var dat = D.pages[ds]; if(!dat || !name) return;
-  name = String(name).trim(); if(!name) return;
+  // Use existing logic from addPoolStaffPrompt
+  var dat = D.pages[ds]; if(!dat) return;
   var label = type === 'oc' ? 'OC担当' : 'CE勤務';
   var adj = ensureStaffAdj(dat);
   var addKey = type === 'oc' ? 'addOc' : 'addCe';
@@ -4334,27 +4352,6 @@ function safeRenderPage() {
   if (!isEditing) renderPage(curDs);
 }
 
-/* 指定ページの前後（dir=-1/+1）にある既存連絡表ページの日付を返す（無ければnull） */
-function _adjPageDs(ds, dir){
-  var keys = Object.keys(D.pages).sort();
-  if(!keys.length) return null;
-  var idx = keys.indexOf(ds);
-  if(idx < 0) return dir > 0 ? keys[0] : keys[keys.length-1];
-  var ni = idx + dir;
-  return (ni >= 0 && ni < keys.length) ? keys[ni] : null;
-}
-/* 前後の連絡表ページへ移動（連絡表・スケジュール共通） */
-function goPageRel(dir){
-  var base = curDs || _schDs;
-  if(!base){
-    var keys = Object.keys(D.pages).sort();
-    if(keys.length) openPage(dir > 0 ? keys[0] : keys[keys.length-1]);
-    return;
-  }
-  var target = _adjPageDs(base, dir);
-  if(target) openPage(target);
-}
-
 function openPage(ds) {
   var prev = curDs;
   curDs = ds;
@@ -4363,9 +4360,6 @@ function openPage(ds) {
   if (prev !== ds || !document.getElementById('main').querySelector('.pt2')) {
     renderPage(ds);
   }
-  /* スケジュールタブが開いていたら更新 */
-  var schPane = document.getElementById('pane-schedule');
-  if(schPane && schPane.style.display !== 'none') buildSchedule(ds);
   /* スマホでは日付選択後にサイドバーを閉じて連絡表を見せる */
   if(window.innerWidth<768 && sbOpen){
     sbOpen=false;
@@ -4386,12 +4380,7 @@ function renderPage(ds) {
   var si=getShiftForDay(ds);
 
   var h='<div class="pi">⚙️</div>';
-  var _pPrev=_adjPageDs(ds,-1), _pNext=_adjPageDs(ds,1);
-  h+='<div class="page-daynav" style="display:flex;align-items:center;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:4px">';
-  h+='<button class="btn btn-g btn-sm" onclick="goPageRel(-1)" '+(_pPrev?'title="'+fmtJ(_pPrev)+'"':'disabled')+'>‹ 前の連絡表</button>';
-  h+='<div class="pt2" style="margin:0">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
-  h+='<button class="btn btn-g btn-sm" onclick="goPageRel(1)" '+(_pNext?'title="'+fmtJ(_pNext)+'"':'disabled')+'>次の連絡表 ›</button>';
-  h+='</div>';
+  h+='<div class="pt2">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
   /* イベント表示エリア */
   var allEvts = si.evts || [];
   var pageEvts = (dat.events || []);
@@ -4742,11 +4731,21 @@ function refreshPool(ds) {
   }
 }
 function addPoolStaffPrompt(ds, type) {
-  if(!D.pages[ds]) return;
+  var dat = D.pages[ds]; if(!dat) return;
   var label = type === 'oc' ? 'OC担当' : 'CE勤務';
   var v = prompt(label + 'として当日勤務者一覧に追加するスタッフ名を入力してください');
   if (!v || !v.trim()) return;
-  addPoolStaff(ds, type, v.trim());
+  v = v.trim();
+  var adj = ensureStaffAdj(dat);
+  var addKey = type === 'oc' ? 'addOc' : 'addCe';
+  var removeKey = type === 'oc' ? 'removeOc' : 'removeCe';
+  var otherAddKey = type === 'oc' ? 'addCe' : 'addOc';
+  delete adj[removeKey][v];
+  adj[otherAddKey] = adj[otherAddKey].filter(function(name){ return name !== v; });
+  if (adj[addKey].indexOf(v) === -1) adj[addKey].push(v);
+  saveD();
+  renderPage(ds);
+  writeLog('当日勤務者追加', fmtJ(ds) + ' ' + label + ' → ' + v);
 }
 function removePoolStaff(ds, type, name) {
   var dat = D.pages[ds]; if(!dat || !name) return;
@@ -5419,8 +5418,8 @@ function reorderDutyCfg(ds, dat, fromIdx, toIdx) {
   // Remove from old position
   duties.splice(fromIdx, 1);
 
-  // Insert at new position（下方向ドラッグ時は削除で1つ詰まるため補正）
-  duties.splice(fromIdx < toIdx ? toIdx - 1 : toIdx, 0, item);
+  // Insert at new position
+  duties.splice(toIdx, 0, item);
 
   // Update the custom duties
   D.pages[ds].customDuties = duties;
@@ -6257,7 +6256,7 @@ function buildOPS(ds,dat,locked) {
         if (draggedIdx !== targetIdx && draggedIdx < items.length && targetIdx < items.length) {
           var movedItem = items[draggedIdx];
           items.splice(draggedIdx, 1);
-          items.splice(draggedIdx < targetIdx ? targetIdx - 1 : targetIdx, 0, movedItem);
+          items.splice(targetIdx, 0, movedItem);
           saveItems();
           renderItems();
         }
@@ -6580,7 +6579,7 @@ function buildOPS(ds,dat,locked) {
         if (draggedIdx2 !== targetIdx && draggedIdx2 < items.length && targetIdx < items.length) {
           var movedItem = items[draggedIdx2];
           items.splice(draggedIdx2, 1);
-          items.splice(draggedIdx2 < targetIdx ? targetIdx - 1 : targetIdx, 0, movedItem);
+          items.splice(targetIdx, 0, movedItem);
           saveItems();
           renderItems();
         }
@@ -6853,661 +6852,6 @@ function updProg(ds) {
 /* ===== ASSIGN TABLE ===== */
 function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}}
 function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}}
-/* ================================================================
-   SCHEDULE / TIMETABLE
-   D.pages[ds].schedule = [{id,label,staffName,color,startMin,durationMin,note}]
-   startMin / durationMin : minutes from midnight
-   SCH_TIME_START=480(8:00)  SCH_TIME_END=1260(21:00)  SCH_SLOT_MIN=15
-================================================================ */
-var SCH_SLOT_H    = 22;    /* px per 15-min slot */
-var SCH_COL_W     = 126;   /* px per staff column */
-var SCH_LABEL_W   = 50;    /* px for time-label column */
-var SCH_TIME_START= 480;   /* 8:00 */
-var SCH_TIME_END  = 1260;  /* 21:00 */
-var SCH_SLOT_MIN  = 15;
-var SCH_COLORS    = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16','#f97316','#6366f1'];
-var SCH_DUTY_COLORS = {ope:'#ef4444',cath:'#8b5cf6',mw:'#10b981',psg:'#06b6d4'};
-var _schDs = null;           /* currently displayed ds */
-var _schStaff = [];          /* ordered staff list for current view */
-var _schColorIdx = 0;        /* auto-color counter */
-/* drag states */
-var _schPoolDrag = null;     /* chip being dragged from pool */
-var _schBlockDrag = null;    /* {id, startMin, staffName, offsetY, offsetX} */
-var _schResizeDrag = null;   /* {id, origDuration, startY} */
-
-function schMinToHM(min){
-  var h=Math.floor(min/60), m=min%60;
-  return h+':'+(m<10?'0':'')+m;
-}
-function schSlots(){ return (SCH_TIME_END-SCH_TIME_START)/SCH_SLOT_MIN; }
-function schGridH(){ return schSlots()*SCH_SLOT_H; }
-function schMinToY(min){ return (min-SCH_TIME_START)/SCH_SLOT_MIN*SCH_SLOT_H; }
-function schYToMin(y){ return SCH_TIME_START + Math.floor(y/SCH_SLOT_H)*SCH_SLOT_MIN; }
-function schClampMin(m){ return Math.max(SCH_TIME_START, Math.min(SCH_TIME_END-SCH_SLOT_MIN, m)); }
-function schNextColor(){ var c=SCH_COLORS[_schColorIdx%SCH_COLORS.length]; _schColorIdx++; return c; }
-function schNewId(){ return 'sch_'+Date.now()+'_'+Math.floor(Math.random()*1000); }
-
-function getSchData(ds){
-  if(!D.pages[ds]) return [];
-  return (D.pages[ds].schedule||[]).slice();
-}
-function saveSchData(ds,data){
-  if(!D.pages[ds]) return;
-  D.pages[ds].schedule = data;
-  /* 最終更新者・時刻を記録 */
-  if(currentUser){
-    D.pages[ds].schUpdatedBy  = currentUser.displayName || currentUser.email || '不明';
-    D.pages[ds].schUpdatedAt  = Date.now();
-  }
-  saveD();
-  _schUpdateShareBadge(ds);
-}
-function _schUpdateShareBadge(ds){
-  var badge = document.getElementById('sch-share-badge');
-  var byEl  = document.getElementById('sch-updated-by');
-  if(badge) badge.style.display = FB_ON ? '' : 'none';
-  if(byEl && ds && D.pages[ds] && D.pages[ds].schUpdatedAt){
-    var dt = new Date(D.pages[ds].schUpdatedAt);
-    var diffMin = Math.round((Date.now()-D.pages[ds].schUpdatedAt)/60000);
-    var diffStr = diffMin < 1 ? 'たった今' : diffMin < 60 ? diffMin+'分前' : Math.floor(diffMin/60)+'時間前';
-    byEl.textContent = '最終更新: '+diffStr+' by '+(D.pages[ds].schUpdatedBy||'不明');
-  } else if(byEl){
-    byEl.textContent = '';
-  }
-}
-
-/* ── Build / render ── */
-function buildSchedule(ds){
-  var noPage = document.getElementById('sch-no-page');
-  var schMain = document.getElementById('sch-main');
-  if(!ds || !D.pages[ds]){
-    if(noPage) noPage.style.display='flex';
-    if(schMain) schMain.style.display='none';
-    return;
-  }
-  _schDs = ds;
-  if(noPage) noPage.style.display='none';
-  if(schMain) schMain.style.display='flex';
-
-  var lbl = document.getElementById('sch-page-label');
-  if(lbl) lbl.textContent = fmtJ(ds);
-  /* 前後ボタンの有効/無効と移動先ツールチップ */
-  var _sPrev=_adjPageDs(ds,-1), _sNext=_adjPageDs(ds,1);
-  var pBtn=document.getElementById('sch-prev-btn'), nBtn=document.getElementById('sch-next-btn');
-  if(pBtn){ pBtn.disabled=!_sPrev; pBtn.title=_sPrev?fmtJ(_sPrev):'これより前のページはありません'; }
-  if(nBtn){ nBtn.disabled=!_sNext; nBtn.title=_sNext?fmtJ(_sNext):'これより後のページはありません'; }
-  _schUpdateShareBadge(ds);
-
-  /* スタッフ列の決定: 当日の担当割り当て済みスタッフ + その他全員 */
-  var dat = D.pages[ds];
-  var assigned = [], seen = {};
-  var duties = getDutyCfg(dat);
-  for(var i=0;i<duties.length;i++){
-    var nm = dat.duties && dat.duties[duties[i].id];
-    if(nm && !seen[nm]){ assigned.push(nm); seen[nm]=true; }
-  }
-  if(dat.extra_free){ for(var i=0;i<dat.extra_free.length;i++){ var nm=dat.extra_free[i].name; if(nm&&!seen[nm]){assigned.push(nm);seen[nm]=true;} } }
-  /* scheduleに既に入っているスタッフも列を確保 */
-  var sched = getSchData(ds);
-  for(var i=0;i<sched.length;i++){ var nm=sched[i].staffName; if(nm&&!seen[nm]){assigned.push(nm);seen[nm]=true;} }
-  /* プールスタッフも追加 */
-  var si = getShiftForDay(ds);
-  var poolAll = si.ce.concat(si.oc);
-  for(var i=0;i<poolAll.length;i++){ var nm=poolAll[i].name; if(nm&&!seen[nm]){assigned.push(nm);seen[nm]=true;} }
-  _schStaff = assigned;
-
-  _schRenderHeader();
-  _schRenderTimeCol();
-  _schRenderGridBg();
-  _schRenderBlocks();
-  _schRenderUnscheduled();
-  _schSetupNowLine();
-}
-
-function _schRenderHeader(){
-  var hdr = document.getElementById('sch-col-header');
-  if(!hdr) return;
-  /* 時刻ラベル列（文字列を一括組み立ててから一度だけ代入） */
-  var h = '<div class="sch-time-lbl sch-col-header-cell" style="width:'+SCH_LABEL_W+'px;background:var(--sur);border-right:2px solid var(--bdr2);color:var(--txt3)">時刻</div>';
-  for(var i=0;i<_schStaff.length;i++){
-    h += '<div class="sch-col-header-cell" style="width:'+SCH_COL_W+'px" title="'+escH(_schStaff[i])+'">'+escH(_schStaff[i])+'</div>';
-  }
-  /* スタッフ列が0の場合はプレースホルダー */
-  if(!_schStaff.length){
-    h += '<div class="sch-col-header-cell" style="width:200px;color:var(--txt3);font-weight:400">スタッフがいません（担当割り当て後に再表示）</div>';
-  }
-  hdr.innerHTML = h;
-}
-
-function _schRenderTimeCol(){
-  var col = document.getElementById('sch-time-col');
-  if(!col) return;
-  col.style.height = schGridH()+'px';
-  col.style.width  = SCH_LABEL_W+'px';
-  var h='';
-  var slots = schSlots();
-  for(var s=0;s<=slots;s++){
-    var min = SCH_TIME_START + s*SCH_SLOT_MIN;
-    var y = s*SCH_SLOT_H;
-    if(min%60===0){
-      h+='<div class="sch-time-cell" style="top:'+y+'px">'+schMinToHM(min)+'</div>';
-    }
-  }
-  col.innerHTML = h;
-}
-
-function _schRenderGridBg(){
-  var grid = document.getElementById('sch-grid');
-  if(!grid) return;
-  var slots = schSlots();
-  var colCount = Math.max(_schStaff.length, 1);
-  var gridW = colCount * SCH_COL_W;
-  grid.style.width  = gridW+'px';
-  grid.style.height = schGridH()+'px';
-
-  /* slot lines (as background) */
-  var h='<div id="sch-drop-hint" class="sch-drop-hint" style="display:none"></div>';
-  for(var s=0;s<slots;s++){
-    var min = SCH_TIME_START + s*SCH_SLOT_MIN;
-    var cls = (min%60===0)? 'sch-slot hour':'sch-slot';
-    h+='<div class="'+cls+'" style="top:'+(s*SCH_SLOT_H)+'px;height:'+SCH_SLOT_H+'px"></div>';
-  }
-  /* column dividers */
-  for(var c=1;c<colCount;c++){
-    h+='<div class="sch-col-divider" style="left:'+(c*SCH_COL_W)+'px"></div>';
-  }
-  /* blocks will be appended by _schRenderBlocks */
-  grid.innerHTML = h;
-}
-
-function _schRenderBlocks(){
-  /* remove old blocks */
-  var grid = document.getElementById('sch-grid');
-  if(!grid) return;
-  var old = grid.querySelectorAll('.sch-block');
-  for(var i=0;i<old.length;i++) old[i].parentNode.removeChild(old[i]);
-
-  var sched = getSchData(_schDs);
-  for(var i=0;i<sched.length;i++){
-    var item = sched[i];
-    if(!item.staffName) continue; /* unscheduled → pool */
-    var colIdx = _schStaff.indexOf(item.staffName);
-    if(colIdx < 0) continue;
-    var el = _schMakeBlock(item, colIdx);
-    grid.appendChild(el);
-  }
-}
-
-function _schMakeBlock(item, colIdx){
-  var el = document.createElement('div');
-  el.className = 'sch-block';
-  el.setAttribute('data-sch-id', item.id);
-  var top = schMinToY(item.startMin);
-  var h2  = Math.max(item.durationMin/SCH_SLOT_MIN*SCH_SLOT_H, SCH_SLOT_H);
-  var left = colIdx * SCH_COL_W + 2;
-  el.style.cssText = 'top:'+top+'px;height:'+h2+'px;left:'+left+'px;width:'+(SCH_COL_W-6)+'px;background:'+item.color+';';
-  var endMin = item.startMin + item.durationMin;
-  el.innerHTML =
-    '<div class="sch-block-inner">'+
-    '<div class="sch-block-label" title="'+escH(item.label)+'">'+escH(item.label)+'</div>'+
-    '<div class="sch-block-time">'+schMinToHM(item.startMin)+' – '+schMinToHM(endMin)+'</div>'+
-    (item.note?'<div style="font-size:9px;color:rgba(255,255,255,.8);overflow:hidden;max-height:22px">'+escH(item.note)+'</div>':'')+
-    '</div>'+
-    '<button class="sch-block-edit" onclick="editSchBlock(\''+item.id+'\',event)" title="編集">✏</button>'+
-    '<button class="sch-block-del"  onclick="delSchBlock(\''+item.id+'\',event)" title="削除">×</button>'+
-    '<div class="sch-block-resize" data-sch-resize="'+item.id+'"></div>';
-
-  /* move drag (mouse + touch) */
-  var _schStartMove = function(clientX, clientY, el2){
-    var id = el2.getAttribute('data-sch-id');
-    var grid2 = document.getElementById('sch-grid');
-    if(!grid2) return;
-    var rect = grid2.getBoundingClientRect();
-    var itemData = _schFindItem(id);
-    if(!itemData) return;
-    _schBlockDrag = { id:id, startMin:itemData.startMin, staffName:itemData.staffName,
-      offsetY: clientY - (rect.top + schMinToY(itemData.startMin)),
-      offsetX: clientX - (rect.left + _schStaff.indexOf(itemData.staffName)*SCH_COL_W) };
-    el2.classList.add('dragging-block');
-  };
-  el.addEventListener('mousedown', function(e){
-    if(e.target.closest('.sch-block-resize')||e.target.closest('.sch-block-del')||e.target.closest('.sch-block-edit')) return;
-    e.preventDefault();
-    _schStartMove(e.clientX, e.clientY, this);
-    document.addEventListener('mousemove', _schBlockMouseMove);
-    document.addEventListener('mouseup', _schBlockMouseUp);
-  });
-  el.addEventListener('touchstart', function(e){
-    if(e.target.closest('.sch-block-resize')||e.target.closest('.sch-block-del')||e.target.closest('.sch-block-edit')) return;
-    var t=e.touches[0];
-    _schStartMove(t.clientX, t.clientY, this);
-    document.addEventListener('touchmove', _schBlockTouchMove, {passive:false});
-    document.addEventListener('touchend', _schBlockTouchEnd);
-  }, {passive:true});
-  /* resize drag */
-  el.querySelector('.sch-block-resize').addEventListener('mousedown', function(e){
-    e.preventDefault(); e.stopPropagation();
-    var id = this.getAttribute('data-sch-resize');
-    var itemData = _schFindItem(id);
-    if(!itemData) return;
-    _schResizeDrag = { id:id, origDuration:itemData.durationMin, startY:e.clientY };
-    document.body.style.cursor = 's-resize';
-    document.addEventListener('mousemove', _schResizeMouseMove);
-    document.addEventListener('mouseup', _schResizeMouseUp);
-  });
-  return el;
-}
-
-function _schFindItem(id){
-  var sched = getSchData(_schDs);
-  for(var i=0;i<sched.length;i++) if(sched[i].id===id) return sched[i];
-  return null;
-}
-
-/* block move */
-function _schBlockMouseMove(e){
-  if(!_schBlockDrag) return;
-  var grid = document.getElementById('sch-grid');
-  if(!grid) return;
-  var rect = grid.getBoundingClientRect();
-  var y = e.clientY - rect.top - _schBlockDrag.offsetY;
-  var x = e.clientX - rect.left;
-  var newMin = schClampMin(schYToMin(y));
-  var colIdx = Math.max(0, Math.min(_schStaff.length-1, Math.floor(x/SCH_COL_W)));
-  /* update hint */
-  var hint = document.getElementById('sch-drop-hint');
-  if(hint){
-    var item = _schFindItem(_schBlockDrag.id);
-    var h = item ? Math.max(item.durationMin/SCH_SLOT_MIN*SCH_SLOT_H, SCH_SLOT_H) : SCH_SLOT_H;
-    hint.style.cssText = 'display:block;top:'+schMinToY(newMin)+'px;height:'+h+'px;left:'+(colIdx*SCH_COL_W+2)+'px;width:'+(SCH_COL_W-6)+'px';
-  }
-}
-function _schBlockMouseUp(e){
-  if(!_schBlockDrag) return;
-  var grid = document.getElementById('sch-grid');
-  document.removeEventListener('mousemove', _schBlockMouseMove);
-  document.removeEventListener('mouseup', _schBlockMouseUp);
-  if(grid){
-    var rect = grid.getBoundingClientRect();
-    var y = e.clientY - rect.top - _schBlockDrag.offsetY;
-    var x = e.clientX - rect.left;
-    var newMin = schClampMin(schYToMin(y));
-    var colIdx = Math.max(0, Math.min(_schStaff.length-1, Math.floor(x/SCH_COL_W)));
-    var sched = getSchData(_schDs);
-    for(var i=0;i<sched.length;i++){
-      if(sched[i].id===_schBlockDrag.id){ sched[i].startMin=newMin; sched[i].staffName=_schStaff[colIdx]; break; }
-    }
-    saveSchData(_schDs, sched);
-  }
-  var blk = document.querySelector('.sch-block.dragging-block');
-  if(blk) blk.classList.remove('dragging-block');
-  var hint = document.getElementById('sch-drop-hint');
-  if(hint) hint.style.display='none';
-  _schBlockDrag = null;
-  _schRenderBlocks();
-}
-
-function _schBlockTouchMove(e){
-  if(!_schBlockDrag) return;
-  e.preventDefault();
-  _schBlockMouseMove(e.touches[0]);
-}
-function _schBlockTouchEnd(e){
-  document.removeEventListener('touchmove', _schBlockTouchMove);
-  document.removeEventListener('touchend', _schBlockTouchEnd);
-  _schBlockMouseUp(e.changedTouches ? e.changedTouches[0] : e);
-}
-
-/* resize */
-function _schResizeMouseMove(e){
-  if(!_schResizeDrag) return;
-  var dy = e.clientY - _schResizeDrag.startY;
-  var deltMin = Math.round(dy/SCH_SLOT_H)*SCH_SLOT_MIN;
-  var newDur = Math.max(SCH_SLOT_MIN, _schResizeDrag.origDuration + deltMin);
-  /* update block height visually */
-  var blk = document.querySelector('.sch-block[data-sch-id="'+_schResizeDrag.id+'"]');
-  if(blk){
-    var item = _schFindItem(_schResizeDrag.id);
-    var maxDur = SCH_TIME_END - (item?item.startMin:SCH_TIME_START);
-    newDur = Math.min(newDur, maxDur);
-    blk.style.height = Math.max(newDur/SCH_SLOT_MIN*SCH_SLOT_H, SCH_SLOT_H)+'px';
-    var timeEl = blk.querySelector('.sch-block-time');
-    if(timeEl && item) timeEl.textContent = schMinToHM(item.startMin)+' – '+schMinToHM(item.startMin+newDur);
-  }
-}
-function _schResizeMouseUp(e){
-  if(!_schResizeDrag) return;
-  document.removeEventListener('mousemove', _schResizeMouseMove);
-  document.removeEventListener('mouseup', _schResizeMouseUp);
-  document.body.style.cursor='';
-  var dy = e.clientY - _schResizeDrag.startY;
-  var deltMin = Math.round(dy/SCH_SLOT_H)*SCH_SLOT_MIN;
-  var newDur = Math.max(SCH_SLOT_MIN, _schResizeDrag.origDuration+deltMin);
-  var sched = getSchData(_schDs);
-  for(var i=0;i<sched.length;i++){
-    if(sched[i].id===_schResizeDrag.id){
-      var maxDur = SCH_TIME_END - sched[i].startMin;
-      sched[i].durationMin = Math.min(newDur, maxDur);
-      break;
-    }
-  }
-  saveSchData(_schDs, sched);
-  _schResizeDrag = null;
-  _schRenderBlocks();
-}
-
-/* ── Unscheduled pool ── */
-function _schRenderUnscheduled(){
-  var wrap = document.getElementById('sch-unscheduled');
-  if(!wrap) return;
-  var sched = getSchData(_schDs);
-  var unsch = sched.filter(function(x){ return !x.staffName; });
-  var h='';
-  for(var i=0;i<unsch.length;i++){
-    var it=unsch[i];
-    h+='<div class="sch-pool-chip" draggable="true" data-sch-pool-id="'+it.id+'" style="border-color:'+it.color+';border-left:4px solid '+it.color+'">';
-    h+=escH(it.label);
-    h+='<button class="sch-chip-del" onclick="delSchBlock(\''+it.id+'\',event)" title="削除">×</button>';
-    h+='</div>';
-  }
-  wrap.innerHTML = h || '<div style="font-size:10px;color:var(--txt3);padding:4px">なし</div>';
-  /* attach drag listeners */
-  var chips = wrap.querySelectorAll('.sch-pool-chip[data-sch-pool-id]');
-  for(var i=0;i<chips.length;i++){
-    (function(chip){
-      chip.addEventListener('dragstart', function(e){
-        _schPoolDrag = chip.getAttribute('data-sch-pool-id');
-        chip.classList.add('dragging');
-        e.dataTransfer.effectAllowed='move';
-        e.dataTransfer.setData('text/plain','sch-pool');
-      });
-      chip.addEventListener('dragend', function(){
-        chip.classList.remove('dragging');
-        _schPoolDrag=null;
-        var hint=document.getElementById('sch-drop-hint');
-        if(hint) hint.style.display='none';
-      });
-    })(chips[i]);
-  }
-}
-
-/* Grid drop handlers */
-function schGridDragOver(e){
-  if(!_schPoolDrag) return;
-  e.preventDefault(); e.dataTransfer.dropEffect='move';
-  var grid = document.getElementById('sch-grid');
-  if(!grid) return;
-  var rect = grid.getBoundingClientRect();
-  var y = e.clientY - rect.top;
-  var x = e.clientX - rect.left;
-  var snappedMin = schClampMin(schYToMin(y));
-  var colIdx = Math.max(0, Math.min(_schStaff.length-1, Math.floor(x/SCH_COL_W)));
-  var item = _schFindItem(_schPoolDrag);
-  var dur = item ? item.durationMin : 60;
-  var hint = document.getElementById('sch-drop-hint');
-  if(hint){
-    hint.style.display='block';
-    hint.style.top = schMinToY(snappedMin)+'px';
-    hint.style.height = Math.max(dur/SCH_SLOT_MIN*SCH_SLOT_H, SCH_SLOT_H)+'px';
-    hint.style.left = (colIdx*SCH_COL_W+2)+'px';
-    hint.style.width = (SCH_COL_W-6)+'px';
-  }
-}
-function schGridDragLeave(e){
-  if(e.target.id==='sch-grid'||e.target.id==='sch-drop-hint'){
-    var hint=document.getElementById('sch-drop-hint');
-    if(hint) hint.style.display='none';
-  }
-}
-function schGridDrop(e){
-  if(!_schPoolDrag) return;
-  e.preventDefault();
-  var grid = document.getElementById('sch-grid');
-  if(!grid||!_schStaff.length) return;
-  var rect = grid.getBoundingClientRect();
-  var y = e.clientY - rect.top;
-  var x = e.clientX - rect.left;
-  var snappedMin = schClampMin(schYToMin(y));
-  var colIdx = Math.max(0, Math.min(_schStaff.length-1, Math.floor(x/SCH_COL_W)));
-  var sched = getSchData(_schDs);
-  for(var i=0;i<sched.length;i++){
-    if(sched[i].id===_schPoolDrag){
-      sched[i].staffName = _schStaff[colIdx];
-      sched[i].startMin  = snappedMin;
-      break;
-    }
-  }
-  saveSchData(_schDs, sched);
-  _schPoolDrag = null;
-  var hint=document.getElementById('sch-drop-hint'); if(hint) hint.style.display='none';
-  _schRenderBlocks();
-  _schRenderUnscheduled();
-  writeLog('スケジュール配置', fmtJ(_schDs));
-}
-
-/* ── Now-line ── */
-function _schSetupNowLine(){
-  var grid = document.getElementById('sch-grid');
-  if(!grid) return;
-  var old = grid.querySelector('.sch-now-line');
-  if(old) old.parentNode.removeChild(old);
-  if(!_schDs || toDS(new Date())!==_schDs) return;
-  var now = new Date();
-  var nowMin = now.getHours()*60+now.getMinutes();
-  if(nowMin<SCH_TIME_START||nowMin>SCH_TIME_END) return;
-  var line = document.createElement('div');
-  line.className='sch-now-line';
-  line.style.top = schMinToY(nowMin)+'px';
-  grid.appendChild(line);
-}
-
-/* ── Auto-populate from duties ── */
-/* OPE: ope_itemsの入室時間を使ってグリッドに配置
-   それ以外の担当枠: 未配置プールに追加 */
-function _schParseTime(timeStr){
-  /* "9:00" → 540, "10:30" → 630, AMOC/PMOC/空/free → null */
-  if(!timeStr || timeStr==='__free__' || timeStr==='AMOC' || timeStr==='PMOC') return null;
-  var p = timeStr.split(':');
-  if(p.length < 2) return null;
-  var h=parseInt(p[0]), m=parseInt(p[1]);
-  if(isNaN(h)||isNaN(m)) return null;
-  var min = h*60+m;
-  if(min < SCH_TIME_START || min >= SCH_TIME_END) return null;
-  return min;
-}
-
-function initSchFromDuties(){
-  if(!_schDs) return;
-  var dat = D.pages[_schDs];
-  if(!dat) return;
-  var duties = getDutyCfg(dat);
-  var sched = getSchData(_schDs);
-  /* dutyId別に既存ブロックがあればスキップ */
-  var existIds = {};
-  for(var i=0;i<sched.length;i++){
-    var did = sched[i].dutyId;
-    if(!did) continue;
-    existIds[did]=true;
-    /* 'ope_0','ope_1'… は基底キー 'ope' でも既存とみなす（再生成時の重複防止） */
-    if(/^ope_\d+$/.test(did)) existIds['ope']=true;
-  }
-  var added = 0;
-  var ops = dat.ops || {};
-
-  for(var i=0;i<duties.length;i++){
-    var duty = duties[i];
-    if(existIds[duty.id]) continue;
-    var staffNm = (dat.duties && dat.duties[duty.id]) || '';
-    var col = SCH_DUTY_COLORS[duty.id] || schNextColor();
-
-    if(duty.id === 'ope'){
-      /* OPE: ope_itemsごとに1ブロック、入室時間があればグリッドに、なければ未配置 */
-      var opeItems = ops.ope_items || [];
-      var opeAdded = false;
-      for(var j=0;j<opeItems.length;j++){
-        var it = opeItems[j];
-        var label2 = it.sel || it.txt || 'OPE';
-        if(!label2.trim()) continue;
-        var startMin2 = _schParseTime(it.time);
-        var timeTxt = it.time==='AMOC'?'AMOC':it.time==='PMOC'?'PMOC':(it.timeTxt||'');
-        var note2 = timeTxt ? timeTxt : '';
-        var blockId = schNewId();
-        sched.push({ id:blockId, label:label2, staffName:startMin2 ? staffNm : '',
-          color:col, startMin:startMin2||SCH_TIME_START, durationMin:120,
-          note:note2, dutyId:'ope_'+j });
-        added++; opeAdded = true;
-      }
-      /* ope_itemsが空なら担当枠単体で未配置に */
-      if(!opeAdded){
-        sched.push({ id:schNewId(), label:duty.label||'OPE', staffName:'',
-          color:col, startMin:SCH_TIME_START, durationMin:120, note:'', dutyId:duty.id });
-        added++;
-      }
-      existIds[duty.id] = true;
-    } else {
-      /* OPE以外: すべて未配置プールへ（staffName=''） */
-      sched.push({ id:schNewId(), label:duty.label||duty.id, staffName:'',
-        color:col, startMin:SCH_TIME_START, durationMin:60, note:'', dutyId:duty.id });
-      added++;
-    }
-  }
-  if(!added){ alert('すでに担当枠のブロックが生成されています。'); return; }
-  saveSchData(_schDs, sched);
-  buildSchedule(_schDs);
-  writeLog('スケジュール自動生成', fmtJ(_schDs)+' '+added+'件');
-}
-
-/* ── Add custom unscheduled block ── */
-function addSchUnscheduled(label){
-  if(!_schDs){ alert('連絡表ページを選択してください。'); return; }
-  /* 引数なし＝自由入力（プロンプト） */
-  if(label===undefined || label===null){
-    label = prompt('ブロック名を入力してください', 'カスタム業務');
-  }
-  if(!label||!String(label).trim()) return;
-  var color = schNextColor();
-  var sched = getSchData(_schDs);
-  sched.push({ id:schNewId(), label:String(label).trim(), staffName:'', color:color,
-    startMin:SCH_TIME_START, durationMin:60, note:'', dutyId:null });
-  saveSchData(_schDs, sched);
-  _schRenderUnscheduled();
-}
-
-/* ── ブロック追加プリセット ── */
-var _schPresetEdit = false;
-function openSchPresetModal(){
-  if(!_schDs){ alert('連絡表ページを選択してください。'); return; }
-  _schPresetEdit = false;
-  _renderSchPresetModal();
-  document.getElementById('modal-sch-preset').classList.remove('hd');
-}
-function closeSchPresetModal(){ document.getElementById('modal-sch-preset').classList.add('hd'); }
-function toggleSchPresetEdit(){
-  _schPresetEdit = !_schPresetEdit;
-  var btn=document.getElementById('sch-preset-edit-btn');
-  if(btn) btn.textContent = _schPresetEdit ? '✓ 編集を終了' : '✎ プリセット編集';
-  document.getElementById('sch-preset-editrow').style.display = _schPresetEdit ? '' : 'none';
-  _renderSchPresetModal();
-}
-function _renderSchPresetModal(){
-  /* 担当マスタ由来 */
-  var mEl = document.getElementById('sch-preset-master');
-  var master = (D.dutyCfgMaster && D.dutyCfgMaster.length) ? D.dutyCfgMaster : DEF_DUTY_MASTER;
-  var mh = '';
-  for(var i=0;i<master.length;i++){
-    var lbl = master[i].label || master[i].id;
-    mh += '<button class="btn btn-g btn-sm" onclick="addSchPresetMaster('+i+')">'+
-          (master[i].icon?escH(master[i].icon)+' ':'')+escH(lbl)+'</button>';
-  }
-  mEl.innerHTML = mh || '<span style="font-size:11px;color:var(--txt3)">担当マスタがありません</span>';
-  /* 定番・カスタム */
-  if(!D.schPresets || !D.schPresets.length) D.schPresets = DEF_SCH_PRESETS.slice();
-  var cEl = document.getElementById('sch-preset-custom');
-  var ch = '';
-  for(var j=0;j<D.schPresets.length;j++){
-    var p = D.schPresets[j];
-    if(_schPresetEdit){
-      ch += '<span style="display:inline-flex;align-items:center;gap:2px;border:1px solid var(--bdr);border-radius:6px;padding:2px 4px 2px 8px;font-size:12px">'+
-            escH(p)+'<button class="btn btn-g btn-sm" style="padding:0 6px;color:var(--rd)" title="削除" onclick="schPresetCustomDel('+j+')">×</button></span>';
-    } else {
-      ch += '<button class="btn btn-g btn-sm" onclick="addSchPresetCustom('+j+')">'+escH(p)+'</button>';
-    }
-  }
-  cEl.innerHTML = ch || '<span style="font-size:11px;color:var(--txt3)">プリセットがありません</span>';
-}
-function addSchPresetMaster(i){
-  var m=(D.dutyCfgMaster&&D.dutyCfgMaster.length)?D.dutyCfgMaster:DEF_DUTY_MASTER;
-  if(m[i]){ addSchUnscheduled(m[i].label||m[i].id); closeSchPresetModal(); }
-}
-function addSchPresetCustom(j){
-  if(D.schPresets && D.schPresets[j]!=null){ addSchUnscheduled(D.schPresets[j]); closeSchPresetModal(); }
-}
-function schPresetCustomAdd(){
-  var inp = document.getElementById('sch-preset-new');
-  var v = inp.value.trim();
-  if(!v) return;
-  if(!D.schPresets) D.schPresets = DEF_SCH_PRESETS.slice();
-  if(D.schPresets.indexOf(v) === -1){ D.schPresets.push(v); saveD(); writeLog('スケジュールプリセット追加', v); }
-  inp.value='';
-  _renderSchPresetModal();
-}
-function schPresetCustomDel(idx){
-  if(!D.schPresets || idx<0 || idx>=D.schPresets.length) return;
-  var removed = D.schPresets.splice(idx,1);
-  saveD(); writeLog('スケジュールプリセット削除', removed[0]||'');
-  _renderSchPresetModal();
-}
-
-/* ── Edit block ── */
-function editSchBlock(id, e){
-  if(e){ e.preventDefault(); e.stopPropagation(); }
-  var sched = getSchData(_schDs);
-  var item = null;
-  for(var i=0;i<sched.length;i++) if(sched[i].id===id){ item=sched[i]; break; }
-  if(!item) return;
-  var newLabel = prompt('ラベル', item.label);
-  if(newLabel===null) return;
-  var newNote  = prompt('メモ（空白でOK）', item.note||'');
-  if(newNote===null) return;
-  var newStart = prompt('開始時刻 (例: 9:00)', schMinToHM(item.startMin));
-  if(newStart===null) return;
-  var newEnd   = prompt('終了時刻 (例: 10:30)', schMinToHM(item.startMin+item.durationMin));
-  if(newEnd===null) return;
-  /* parse */
-  function parseHM(s){ var p=s.trim().split(':'); if(p.length<2) return null; var h=parseInt(p[0]),m=parseInt(p[1]); if(isNaN(h)||isNaN(m)) return null; return h*60+m; }
-  var sm=parseHM(newStart), em=parseHM(newEnd);
-  if(!sm||!em||em<=sm){ alert('時刻の形式が正しくないか、終了が開始より前です。'); return; }
-  item.label = newLabel.trim()||item.label;
-  item.note  = newNote;
-  item.startMin = schClampMin(sm);
-  item.durationMin = Math.max(SCH_SLOT_MIN, Math.min(em-sm, SCH_TIME_END-sm));
-  saveSchData(_schDs, sched);
-  _schRenderBlocks();
-  _schRenderUnscheduled();
-}
-
-/* ── Delete block ── */
-function delSchBlock(id, e){
-  if(e){ e.preventDefault(); e.stopPropagation(); }
-  var sched = getSchData(_schDs).filter(function(x){ return x.id!==id; });
-  saveSchData(_schDs, sched);
-  _schRenderBlocks();
-  _schRenderUnscheduled();
-}
-
-/* ── Clear all ── */
-function clearSchConfirm(){
-  if(!_schDs) return;
-  if(!confirm('このページのスケジュールを全て削除しますか？')) return;
-  saveSchData(_schDs, []);
-  _schColorIdx = 0;
-  buildSchedule(_schDs);
-  writeLog('スケジュールクリア', fmtJ(_schDs));
-}
-
-/* ================================================================
-   担当表 ASSIGN
-================================================================ */
 function renderAT() {
   document.getElementById('atml').textContent=asY+'年'+(asM+1)+'月';
   var wrap=document.getElementById('at-body');
@@ -7567,119 +6911,42 @@ function renderAT() {
 function openFromAT(ds){swTab('cal');var pt=ds.split('-');calY=parseInt(pt[0]);calM=parseInt(pt[1])-1;openPage(ds);}
 function printAt(){document.getElementById('ph').textContent='分院CE連絡表　担当一覧　'+asY+'年'+(asM+1)+'月';renderAT();setTimeout(function(){window.print();},150);}
 
-/* ===== 担当表 Excel出力 ===== */
-function exportAtExcel() {
-  var days = new Date(asY, asM+1, 0).getDate(), adates = [];
-  for (var d = 1; d <= days; d++) { var ds = asY+'-'+pad(asM+1)+'-'+pad(d); if (D.pages[ds]) adates.push(ds); }
-  if (!adates.length) { alert('この月の連絡表がありません'); return; }
-  var allS = D.stf.slice();
-  var WDJ = ['日','月','火','水','木','金','土'];
-
-  /* ヘッダー行 */
-  var headers = ['日付','曜日'];
-  for (var si = 0; si < allS.length; si++) headers.push(allS[si]);
-  headers.push('余剰人員');
-
-  var rows = [headers];
-
-  /* データ行 */
-  for (var di = 0; di < adates.length; di++) {
-    var ds = adates[di], dn = parseInt(ds.split('-')[2]);
-    var w = new Date(ds).getDay();
-    var dat = D.pages[ds];
-    var pageDuties = getDutyCfg(dat);
-    var row = [dn+'日', WDJ[w]];
-
-    for (var si2 = 0; si2 < allS.length; si2++) {
-      var name = allS[si2], labels = [];
-      if (dat && dat.duties) {
-        for (var ki = 0; ki < pageDuties.length; ki++) {
-          if (dat.duties[pageDuties[ki].id] === name) labels.push(pageDuties[ki].label);
-        }
-      }
-      if (dat && dat.extra_free) {
-        for (var ef = 0; ef < dat.extra_free.length; ef++) {
-          if (dat.extra_free[ef].name === name) labels.push('フリー');
-        }
-      }
-      if (dat && dat.ocData && dat.ocData.staff === name) labels.push('OC');
-      row.push(labels.join(' / ') || '');
+function exportAtCsv() {
+  var days=new Date(asY,asM+1,0).getDate(), adates=[];
+  for(var d=1;d<=days;d++){var ds=asY+'-'+pad(asM+1)+'-'+pad(d);if(D.pages[ds])adates.push(ds);}
+  if(!adates.length){alert('この月の連絡表がありません');return;}
+  var allS=D.stf.slice();
+  var rows=[['日付','曜日'].concat(allS).concat(['余剰'])];
+  for(var di=0;di<adates.length;di++){
+    var ds=adates[di], w=new Date(ds).getDay(), dn=parseInt(ds.split('-')[2]);
+    var dat=D.pages[ds], pageDuties=getDutyCfg(dat);
+    var row=[asY+'/'+(asM+1)+'/'+dn, WDL[w]];
+    for(var si=0;si<allS.length;si++){
+      var name=allS[si], cells=[];
+      if(dat&&dat.duties){for(var ki=0;ki<pageDuties.length;ki++){var dobj=pageDuties[ki];if(dat.duties[dobj.id]===name)cells.push(dobj.label);}}
+      if(dat&&dat.extra_free){for(var ef=0;ef<dat.extra_free.length;ef++){if(dat.extra_free[ef].name===name)cells.push('フリー');}}
+      if(dat&&dat.ocData&&dat.ocData.staff===name)cells.push('OC');
+      row.push(cells.join('/'));
     }
-
-    var surNames = (dat && dat.surplus) || [];
-    row.push(surNames.join(', '));
+    row.push(((dat&&dat.surplus)||[]).join('/'));
     rows.push(row);
   }
-
-  /* SheetJS でワークブック作成 */
-  var wb = XLSX.utils.book_new();
-  var ws = XLSX.utils.aoa_to_sheet(rows);
-
-  /* 列幅設定 */
-  var wscols = [{wch:8},{wch:5}];
-  for (var i = 0; i < allS.length; i++) wscols.push({wch:Math.max(allS[i].length*2+2, 12)});
-  wscols.push({wch:20});
-  ws['!cols'] = wscols;
-
-  XLSX.utils.book_append_sheet(wb, ws, '担当表');
-
-  /* OC集計シートも追加 */
-  var ocMap = {};
-  for (var di2 = 0; di2 < adates.length; di2++) {
-    var dat2 = D.pages[adates[di2]];
-    if (dat2 && dat2.ocData && dat2.ocData.staff) {
-      var nm = dat2.ocData.staff;
-      ocMap[nm] = (ocMap[nm]||0) + 1;
-    }
-  }
-  var ocData = [];
-  for (var k in ocMap) ocData.push([k, ocMap[k]]);
-  ocData.sort(function(a,b){ return b[1]-a[1]; });
-  var ocRows = [['スタッフ名','OC回数']].concat(ocData);
-  var wsOC = XLSX.utils.aoa_to_sheet(ocRows);
-  wsOC['!cols'] = [{wch:14},{wch:8}];
-  XLSX.utils.book_append_sheet(wb, wsOC, 'OC集計');
-
-  /* 担当数集計シート */
-  var dutyCountMap = {};
-  for (var di3 = 0; di3 < adates.length; di3++) {
-    var dat3 = D.pages[adates[di3]], pd = getDutyCfg(D.pages[adates[di3]]);
-    if (!dat3 || !dat3.duties) continue;
-    for (var ki2 = 0; ki2 < pd.length; ki2++) {
-      var nm2 = dat3.duties[pd[ki2].id];
-      if (!nm2) continue;
-      if (!dutyCountMap[nm2]) dutyCountMap[nm2] = {};
-      dutyCountMap[nm2][pd[ki2].label] = (dutyCountMap[nm2][pd[ki2].label]||0)+1;
-    }
-  }
-  /* 担当枠ラベル一覧を収集 */
-  var allLabels = [];
-  for (var nm3 in dutyCountMap) { for (var lb in dutyCountMap[nm3]) { if (allLabels.indexOf(lb)<0) allLabels.push(lb); } }
-  allLabels.sort();
-  var dutyHdr = ['スタッフ名'].concat(allLabels).concat(['合計']);
-  var dutyData = [];
-  for (var nm4 in dutyCountMap) {
-    var dr = [nm4];
-    var tot = 0;
-    for (var li = 0; li < allLabels.length; li++) { var v = dutyCountMap[nm4][allLabels[li]]||0; dr.push(v); tot+=v; }
-    dr.push(tot);
-    dutyData.push(dr);
-  }
-  dutyData.sort(function(a,b){ return (b[b.length-1]||0)-(a[a.length-1]||0); });
-  var dutyRows = [dutyHdr].concat(dutyData);
-  var wsD = XLSX.utils.aoa_to_sheet(dutyRows);
-  wsD['!cols'] = [{wch:14}].concat(allLabels.map(function(l){return {wch:Math.max(l.length*2,6)};})).concat([{wch:6}]);
-  XLSX.utils.book_append_sheet(wb, wsD, '担当枠集計');
-
-  var fname = '担当表_'+asY+'年'+(asM+1)+'月.xlsx';
-  XLSX.writeFile(wb, fname);
-  writeLog('担当表Excel出力', asY+'年'+(asM+1)+'月');
+  var csv='﻿';
+  rows.forEach(function(row){
+    csv+=row.map(function(c){var s=String(c);return(s.indexOf(',')!==-1||s.indexOf('\n')!==-1||s.indexOf('"')!==-1)?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')+'\r\n';
+  });
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download='分院CE担当表_'+asY+'年'+(asM+1)+'月.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
-  var tabs=['cal','assign','schedule','guide','staff','master','lock','logs','spec','manual','adminm','dev'];
-  var docsTabs=['spec','manual','adminm','dev'];
+  var tabs=['cal','assign','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
+  var docsTabs=['spec','manual','adminm','dev','regs'];
   for(var i=0;i<tabs.length;i++){
     var id=tabs[i];
     var tb=document.getElementById('tab-'+id); if(tb) tb.classList.toggle('on',id===t);
@@ -7705,8 +6972,7 @@ function swTab(t) {
         if(sb2) sb2.classList.remove('sb-assign');
         ap.style.display='none';
         ap.classList.add('hd-sp');
-        /* schedule もメインを占有するため、そちらが有効なら main は隠したまま */
-        mn.style.display=(t==='schedule')?'none':'';
+        mn.style.display='';
         var backBtn2=document.getElementById('assign-back-btn');
         if(backBtn2) backBtn2.style.display='none';
         /* スマホでは担当表を閉じるときサイドバーを再表示する */
@@ -7715,61 +6981,23 @@ function swTab(t) {
           sbOpen=true;
         }
       }
-    }else if(id==='schedule'){
-      var sp=document.getElementById('pane-schedule'), mn2=document.getElementById('main');
-      var sb3=document.getElementById('sb'), isSP2=window.innerWidth<=768;
-      if(t==='schedule'){
-        sp.style.display='flex';
-        if(mn2) mn2.style.display='none';
-        var backBtn3=document.getElementById('sch-back-btn');
-        if(isSP2){
-          if(sb3){sb3.classList.add('hm');sbOpen=false;}
-          if(backBtn3) backBtn3.style.display='';
-        } else {
-          if(backBtn3) backBtn3.style.display='none';
-        }
-      } else {
-        sp.style.display='none';
-        var backBtn4=document.getElementById('sch-back-btn');
-        if(backBtn4) backBtn4.style.display='none';
-        /* assign もメインを占有するため、そちらが有効なら main は隠したまま */
-        if(mn2) mn2.style.display=(t==='assign')?'none':'';
-        if(isSP2 && sb3 && !sbOpen){ sb3.classList.remove('hm'); sbOpen=true; }
-      }
     }else{
       var pn=document.getElementById('pane-'+id);
       if(pn) pn.style.display=id===t?'flex':'none';
     }
   }
-  /* 資料系タブ（使い方/仕様書/マニュアル/管理者設定/引き継ぎ）はメイン領域を占有 */
-  var docFull=['guide','spec','manual','adminm','dev'];
-  if(docFull.indexOf(t)>=0){
-    var dMain=document.getElementById('main');
-    if(dMain) dMain.style.display='none';
-    var dSP=window.innerWidth<=768, dSb=document.getElementById('sb');
-    /* 戻るボタンはスマホのみ表示（アクティブなパネル内のもの） */
-    var dPane=document.getElementById('pane-'+t);
-    if(dPane){ var bb=dPane.querySelector('.doc-back-btn'); if(bb) bb.style.display=dSP?'':'none'; }
-    if(dSP){ if(dSb) dSb.classList.add('hm'); sbOpen=false; }
-  } else if(t!=='assign' && t!=='schedule'){
-    /* メイン占有でないタブ（cal/staff/master/lock/logs）は main を表示 */
-    var dMain2=document.getElementById('main');
-    if(dMain2) dMain2.style.display='';
-    /* スマホ: フル画面パネルから戻ったらサイドバーを復帰 */
-    if(window.innerWidth<=768){ var rSb=document.getElementById('sb'); if(rSb && !sbOpen){ rSb.classList.remove('hm'); sbOpen=true; } }
-  }
   var docsTab=document.getElementById('tab-docs');
   if(docsTab) docsTab.classList.toggle('on', docsTabs.indexOf(t)!==-1);
 
   if(t==='master'){renderWdlyList();renderDlyList();renderOpeList();renderCathList();renderSupList();renderDutyMasterList();}
-  if(t==='schedule'){buildSchedule(curDs);}
   if(t==='logs'){loadLogs();}
   if(t==='lock') { renderLockList(); loadAutoDelSettings(); }
   if(t==='guide') { renderGuide(); }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
-  if(t==='adminm') { renderAdminManual(); }
+  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); }
   if(t==='dev') { renderDev(); }
+  if(t==='regs') { renderRegs(); }
 }
 function toggleDocsMenu(){
   var menu=document.getElementById('docs-submenu');
@@ -7781,16 +7009,8 @@ function togSB(){
   sbOpen=!sbOpen;
   var sb=document.getElementById('sb');
   if(sb) sb.classList.toggle('hm',!sbOpen);
-  /* ハンバーガーでサイドバーを開くとき、担当表/スケジュールが全画面表示中なら swTab('cal') で正規の閉じ処理 */
+  /* ハンバーガーでサイドバーを開くとき、担当表が全画面表示中なら swTab('cal') で正規の閉じ処理 */
   if(sbOpen){
-    /* 資料系パネルが全画面表示中ならcalに戻す */
-    var _docIds=['guide','spec','manual','adminm','dev'];
-    for(var _di=0;_di<_docIds.length;_di++){
-      var _dp=document.getElementById('pane-'+_docIds[_di]);
-      if(_dp && _dp.style.display==='flex'){ sbOpen=false; swTab('cal'); sbOpen=true; if(sb) sb.classList.remove('hm'); return; }
-    }
-    var sp2=document.getElementById('pane-schedule');
-    if(sp2 && sp2.style.display==='flex'){ sbOpen=false; swTab('cal'); sbOpen=true; if(sb) sb.classList.remove('hm'); return; }
     var ap=document.getElementById('pane-assign');
     if(ap && ap.style.display==='flex'){
       /* swTab('cal') に閉じ処理を委譲（再描画・タブハイライト・サイドバー復元も含む）
