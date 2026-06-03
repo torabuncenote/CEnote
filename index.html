@@ -430,6 +430,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .log-item .li-user{font-weight:700;color:var(--ac);min-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-item .li-msg{flex:1}
 .log-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.log-ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.log-filter{flex:1;min-width:140px;font-size:12px;padding:6px 10px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt)}
+.log-filter:focus{outline:none;border-color:var(--ac)}
+.log-sort{font-size:12px;padding:6px 8px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt);cursor:pointer}
+.log-sort:focus{outline:none;border-color:var(--ac)}
+.log-count{font-size:11px;color:var(--txt3);margin-bottom:6px}
 
 /* ===== PSG付箋 ===== */
 .psg-fusen-wrap{display:flex;align-items:center;gap:7px;flex:1}
@@ -833,6 +839,18 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           <div class="pt">📋 操作ログ（最新100件）</div>
           <button class="btn btn-g btn-sm" onclick="loadLogs()">🔄 更新</button>
         </div>
+        <div class="log-ctrl">
+          <input type="text" id="log-filter" class="log-filter" placeholder="🔍 絞り込み（ユーザー・操作・内容）" oninput="renderLogList()">
+          <select id="log-sort" class="log-sort" onchange="renderLogList()">
+            <option value="ts-desc">🕒 時刻（新しい順）</option>
+            <option value="ts-asc">🕒 時刻（古い順）</option>
+            <option value="name-asc">👤 ユーザー（昇順）</option>
+            <option value="name-desc">👤 ユーザー（降順）</option>
+            <option value="action-asc">📝 操作（昇順）</option>
+            <option value="action-desc">📝 操作（降順）</option>
+          </select>
+        </div>
+        <div id="log-count" class="log-count"></div>
         <div id="log-list" class="log-list">
           <div class="pool-empty">ログタブを開くと読み込まれます</div>
         </div>
@@ -3441,6 +3459,8 @@ function renderGuide() {
   el.innerHTML = S;
 }
 
+var _logsData = null; /* 読み込んだログを保持（ソート・絞り込み用） */
+
 function loadLogs() {
   if (!FB_ON || !fbDB) return;
   var el = document.getElementById('log-list');
@@ -3449,23 +3469,59 @@ function loadLogs() {
   fbDB.ref('/logs').orderByChild('ts').limitToLast(100).once('value', function(snap) {
     var logs = [];
     snap.forEach(function(c) { logs.push(c.val()); });
-    logs.reverse();
-    if (!logs.length) { el.innerHTML = '<div class="pool-empty">ログはありません</div>'; return; }
-    var h = '';
-    logs.forEach(function(l) {
-      var dt = l.ts ? new Date(l.ts) : new Date();
-      var ts = dt.getFullYear()+'/'+(dt.getMonth()+1).toString().padStart(2,'0')+'/'+
-               dt.getDate().toString().padStart(2,'0')+' '+
-               dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0');
-      h += '<div class="log-item">';
-      h += '<span class="li-time">'+ts+'</span>';
-      h += '<span class="li-user">'+escH(l.name||'')+'</span>';
-      h += '<span class="li-msg">'+escH(l.action);
-      if (l.detail) h += '：<span style="color:var(--txt3)">'+escH(l.detail)+'</span>';
-      h += '</span></div>';
-    });
-    el.innerHTML = h;
+    _logsData = logs;
+    renderLogList();
   });
+}
+
+function renderLogList() {
+  var el = document.getElementById('log-list');
+  if (!el) return;
+  if (!_logsData) { el.innerHTML = '<div class="pool-empty">ログタブを開くと読み込まれます</div>'; return; }
+  if (!_logsData.length) {
+    el.innerHTML = '<div class="pool-empty">ログはありません</div>';
+    var c0 = document.getElementById('log-count'); if (c0) c0.textContent = '';
+    return;
+  }
+
+  /* 絞り込み */
+  var fEl = document.getElementById('log-filter');
+  var q = fEl ? fEl.value.trim().toLowerCase() : '';
+  var rows = _logsData.filter(function(l) {
+    if (!q) return true;
+    return ((l.name||'') + ' ' + (l.action||'') + ' ' + (l.detail||'')).toLowerCase().indexOf(q) !== -1;
+  });
+
+  /* ソート */
+  var sEl = document.getElementById('log-sort');
+  var sortVal = sEl ? sEl.value : 'ts-desc';
+  var parts = sortVal.split('-'), key = parts[0], dir = parts[1] === 'asc' ? 1 : -1;
+  rows = rows.slice().sort(function(a, b) {
+    var av, bv;
+    if (key === 'ts') { av = a.ts||0; bv = b.ts||0; return (av - bv) * dir; }
+    av = (a[key]||'').toString(); bv = (b[key]||'').toString();
+    return av.localeCompare(bv, 'ja') * dir;
+  });
+
+  var cEl = document.getElementById('log-count');
+  if (cEl) cEl.textContent = q ? (rows.length + ' / ' + _logsData.length + ' 件') : (_logsData.length + ' 件');
+
+  if (!rows.length) { el.innerHTML = '<div class="pool-empty">該当するログはありません</div>'; return; }
+
+  var h = '';
+  rows.forEach(function(l) {
+    var dt = l.ts ? new Date(l.ts) : new Date();
+    var ts = dt.getFullYear()+'/'+(dt.getMonth()+1).toString().padStart(2,'0')+'/'+
+             dt.getDate().toString().padStart(2,'0')+' '+
+             dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0');
+    h += '<div class="log-item">';
+    h += '<span class="li-time">'+ts+'</span>';
+    h += '<span class="li-user">'+escH(l.name||'')+'</span>';
+    h += '<span class="li-msg">'+escH(l.action);
+    if (l.detail) h += '：<span style="color:var(--txt3)">'+escH(l.detail)+'</span>';
+    h += '</span></div>';
+  });
+  el.innerHTML = h;
 }
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
