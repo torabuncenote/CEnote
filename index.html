@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>分院CE連絡表</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CE連絡表">
+<link rel="apple-touch-icon" href="icon-192.svg">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -853,6 +861,21 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <div class="sp" style="padding-bottom:40px">
         <div class="pt" style="margin-bottom:12px">🔑 管理者設定</div>
         <div id="adminm-users" style="margin-bottom:18px"></div>
+        <div class="pt" style="margin-bottom:12px">💾 データバックアップ</div>
+        <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
+          <div style="font-size:12px;color:var(--txt2);margin-bottom:12px;line-height:1.7">
+            全データ（連絡表・スタッフ・設定）をJSONファイルとして保存します。<br>
+            Firebase障害・誤操作時の復元に使用できます。定期的な取得を推奨します。
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button class="btn btn-p btn-sm" onclick="exportBackup()">📥 バックアップをダウンロード</button>
+            <label class="btn btn-g btn-sm" style="cursor:pointer">
+              📤 バックアップから復元
+              <input type="file" accept=".json" style="display:none" onchange="importBackup(this.files[0]);this.value=''">
+            </label>
+          </div>
+          <div id="backup-status" style="margin-top:8px;font-size:11px;color:var(--txt3)"></div>
+        </div>
         <div class="pt" style="margin-bottom:12px">📖 Firebaseセットアップマニュアル</div>
         <div id="adminm-body"></div>
       </div>
@@ -7397,6 +7420,62 @@ document.addEventListener('click',function(e){
     if(s&&h&&!s.contains(e.target)&&!h.contains(e.target)){sbOpen=false;s.classList.add('hm');}
   }
 });
+
+/* ===== バックアップ（エクスポート / インポート） ===== */
+function exportBackup() {
+  var now = new Date();
+  var ts = now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes());
+  var json = JSON.stringify(D, null, 2);
+  var blob = new Blob([json], {type:'application/json;charset=utf-8'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'CEnote_backup_'+ts+'.json';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  if(FB_ON) writeLog('バックアップエクスポート', a.download);
+  var el=document.getElementById('backup-status');
+  if(el) el.textContent='✅ ダウンロードしました: '+a.download;
+}
+
+function importBackup(file) {
+  if (!file) return;
+  var el = document.getElementById('backup-status');
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var data = JSON.parse(ev.target.result);
+      if (!data.pages || !Array.isArray(data.stf)) {
+        alert('有効なCEnoteバックアップファイルではありません。');
+        return;
+      }
+      var pageCount = Object.keys(data.pages||{}).length;
+      if (!confirm('バックアップから復元しますか？\n\n'
+                 + 'ファイル: ' + file.name + '\n'
+                 + '連絡表ページ数: ' + pageCount + '\n\n'
+                 + '⚠️ 現在のすべてのデータが上書きされます。')) return;
+      /* D の各フィールドを上書き（未知キーは保持） */
+      ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
+       'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+       'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+        if (data[k] !== undefined) D[k] = data[k];
+      });
+      saveD();
+      if(FB_ON) writeLog('バックアップインポート', file.name);
+      renderCal(); safeRenderPage();
+      if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';
+    } catch(err) {
+      alert('読み込みエラー: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+/* ===== PWA: Service Worker 登録 ===== */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').catch(function(){});
+  });
+}
 
 init();
 </script>
