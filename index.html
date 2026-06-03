@@ -1283,6 +1283,8 @@ function loadD() {
     D.shift  = s.shift  || {};
     D.evts   = s.evts   || {};
     D.manual = s.manual || {};
+    D.oc          = s.oc          || [];
+    D.schedPresets= (s.schedPresets && s.schedPresets.length) ? s.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
     /* slot_cathsub の freeRole を false に統一（旧データ移行） */
     D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
     if(D.dutyCfg) D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1294,7 +1296,7 @@ function loadD() {
     D.opeTree=JSON.parse(JSON.stringify(DEF_OPE_TREE));
     D.cathTree=JSON.parse(JSON.stringify(DEF_CATH_TREE));
     D.supTree=JSON.parse(JSON.stringify(DEF_SUP_TREE));
-    D.dutyCfgMaster=DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);}); D.dutyCfg=[]; D.opsCfg=[]; D.evts={};
+    D.dutyCfgMaster=DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);}); D.dutyCfg=[]; D.opsCfg=[]; D.evts={}; D.oc=[]; D.schedPresets=JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
   }
 }
 /* ===== FIREBASE =====
@@ -1328,6 +1330,11 @@ function fbInit() {
       if (!user) {
         /* 未ログイン → ログイン画面を表示 */
         currentUser = null; isAdmin = false;
+        curDs = null;
+        D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
+        D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
+        D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
+        showEmpty();
         document.getElementById('login-ov').classList.remove('hd');
         document.getElementById('uc-label').style.display = 'none';
         document.getElementById('btn-logout').style.display = 'none';
@@ -1409,6 +1416,8 @@ function fbInit() {
             D.shift = d.shift || {};
             D.evts  = d.evts  || {};
             D.manual= d.manual|| {};
+            D.oc          = d.oc          || [];
+            D.schedPresets= (d.schedPresets && d.schedPresets.length) ? d.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
             setSyncLbl('同期済');
             updateMonthSize();
             checkAutoDelTiming();
@@ -1679,6 +1688,7 @@ function saveSPEntry(entry) {
   if (!D.manual) D.manual = {};
   D.manual[_spTask] = entry;
   saveD();
+  if(curDs&&D.pages[curDs]) safeRenderPage();
 }
 
 function closeSP() {
@@ -1703,8 +1713,8 @@ function toggleSPEdit() {
   var viewEl  = document.getElementById('sp-manual-view');
   var editBtn = document.getElementById('sp-edit-btn');
   var saveBtn2= document.getElementById('sp-save-btn');
-  var manual  = (D.manual && D.manual[_spTask]) ? D.manual[_spTask] : '';
-  taEl.value  = manual;
+  var entry = (D.manual && D.manual[_spTask]);
+  taEl.value  = (entry && typeof entry === 'object') ? (entry.text || '') : (entry || '');
   viewEl.parentElement.style.display = 'none';
   taEl.style.display = '';
   editBtn.style.display = 'none';
@@ -2524,6 +2534,11 @@ function saveUserPerm(uid, permId, grant) {
   (grant ? ref.set(true) : ref.remove()).then(function() {
     writeLog((grant ? '編集権限付与' : '編集権限取り消し'), uid + ' : ' + permId);
     renderAdminUsers();
+    if(currentUser && currentUser.uid === uid) {
+      if(!currentUser.perms) currentUser.perms = {};
+      if(grant) currentUser.perms[permId] = true;
+      else delete currentUser.perms[permId];
+    }
   }).catch(function(err) { alert('エラー: ' + err.message); });
 }
 
@@ -3145,7 +3160,7 @@ function removeDutySlot(ds, slotId) {
 function renderSurplusArea(ds, dat, locked) {
   var wrap = document.getElementById('surplus-wrap'); if (!wrap) return;
   var surplus = dat.surplus || [];
-  var dlk = lk('duty') && !isAdmin;
+  var dlk = !can('duty');
 
   var html = '<div class="surplus-ttl">🔄 余剰人員</div>';
   html += '<div id="surplus-chips" class="surplus-chips"'+(dlk?'':' ondragover="event.preventDefault()" ondrop="dropToSurplus(event,\''+ds+'\')"')+'>';
@@ -3172,7 +3187,7 @@ function dropToSurplus(e, ds) {
     var duties = D.pages[ds].duties || {};
     for (var k in duties) { if (duties[k] === name) duties[k] = ''; }
   }
-  saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], lk('duty')&&!isAdmin);
+  saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], !can('duty'));
 }
 
 function removeFromSurplus(ds, name) {
@@ -3180,7 +3195,7 @@ function removeFromSurplus(ds, name) {
   var i = sur.indexOf(name); if (i === -1) return;
   sur.splice(i, 1);
   D.pages[ds].surplus = sur;
-  saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], lk('duty')&&!isAdmin);
+  saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], !can('duty'));
 }
 
 /* ===== 業務カード追加・削除 ===== */
@@ -3750,7 +3765,7 @@ function renderStfList() {
 }
 function addStf() { if(!can('sm'))return; var v=document.getElementById('in-stf').value.trim(); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function rmStf(i) { if(!can('sm'))return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
-function mvStf(i,d) { if(!can('sm'))return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); }
+function mvStf(i,d) { if(!can('sm'))return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 
 /* モーダル編集状態 */
 var _editModalState = {type: null, index: null, level: null, di: null, ci: null, ii: null};
@@ -4186,6 +4201,7 @@ function togLk(id, v) {
   }
   saveD(); renderLockList(); renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
   if(curDs&&D.pages[curDs])safeRenderPage();
+  var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
 }
 
 /* ===== SHIFT DATA ===== */
@@ -4247,6 +4263,7 @@ function applyStaffAdjustments(ds, res) {
 
 /* ===== EVENT FUNCTIONS ===== */
 function addEvtPrompt(ds) {
+  if(!can('pg')) return;
   var v = prompt('イベント名を入力してください');
   if (!v || !v.trim()) return;
   v = v.trim();
@@ -4256,6 +4273,7 @@ function addEvtPrompt(ds) {
   renderPage(ds);
 }
 function removeEvt(ds, evtName) {
+  if(!can('pg')) return;
   var dat = D.pages[ds]; if (!dat) return;
   /* ページ独自イベントから削除 */
   if (dat.events) {
@@ -4589,6 +4607,7 @@ function dayHasDutyAssigned(ds){
   var dat=D.pages&&D.pages[ds];
   if(!dat||!dat.duties) return false;
   for(var k in dat.duties){ if(dat.duties[k]) return true; }
+  if(dat.schedule && dat.schedule.length) return true;
   return false;
 }
 
@@ -4887,7 +4906,7 @@ function renderPage(ds) {
   var wtl=wdItemsForDate(ds), all=D.dly.concat(wtl);
   var done=0; for(var i=0;i<all.length;i++){if(dat.checks&&dat.checks[i])done++;}
   var pct=all.length?Math.round(done/all.length*100):0;
-  var dlk=lk('duty')&&!isAdmin, clk=lk('cl')&&!isAdmin, mlk=lk('memo')&&!isAdmin, olk=lk('ops')&&!isAdmin;
+  var dlk=!can('duty'), clk=!can('cl'), mlk=!can('memo'), olk=!can('ops');
   var si=getShiftForDay(ds);
 
   var h='<div class="pi">⚙️</div>';
@@ -5283,7 +5302,7 @@ function poolAssign(ds,name) {
     /* extra_freeの空きも探す */
     if(dat.extra_free){
       for(var ef=0;ef<dat.extra_free.length;ef++){
-        if(!dat.extra_free[ef].name){dat.extra_free[ef].name=name;saveD();refreshPool(ds);renderExtraFrees(ds,dat,dat.extra_free,lk('duty')&&!isAdmin,!(D.lk&&D.lk.show_phs===true),lk('phs')&&!isAdmin);return;}
+        if(!dat.extra_free[ef].name){dat.extra_free[ef].name=name;saveD();refreshPool(ds);renderExtraFrees(ds,dat,dat.extra_free,!can('duty'),!(D.lk&&D.lk.show_phs===true),lk('phs')&&!isAdmin);return;}
       }
     }
     if(dat.ocData&&!dat.ocData.staff){
@@ -5845,7 +5864,10 @@ function _doPostMemo(ds) {
   var text = ta.value.trim();
   if (!text && !_memoMediaBuf.length) return;
   if (!currentUser) { alert('ログインが必要です'); return; }
-  if (!D.pages[ds]) D.pages[ds] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
+  if (!D.pages[ds]) {
+    if (!can('pg')) { alert('🔒 このページはまだ作成されていません。管理者に連絡してください。'); return; }
+    D.pages[ds] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
+  }
   if (!D.pages[ds].memos) D.pages[ds].memos = [];
 
   var sendBtn = document.getElementById('memo-send-btn');
@@ -6522,7 +6544,7 @@ function removeExtraFree(ds, idx) {
   D.pages[ds].extra_free.splice(idx, 1);
   saveD();
   renderExtraFrees(ds, D.pages[ds], D.pages[ds].extra_free,
-    lk('duty')&&!isAdmin, !(D.lk&&D.lk.show_phs===true), lk('phs')&&!isAdmin);
+    !can('duty'), !(D.lk&&D.lk.show_phs===true), lk('phs')&&!isAdmin);
 }
 
 /* ===== OPS ===== */
@@ -7377,8 +7399,8 @@ function updProg(ds) {
 }
 
 /* ===== ASSIGN TABLE ===== */
-function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}}
-function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}}
+function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
+function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
 function renderAT() {
   document.getElementById('atml').textContent=asY+'年'+(asM+1)+'月';
   var wrap=document.getElementById('at-body');
@@ -7514,7 +7536,7 @@ function renderSched(){
     return;
   }
   var dat=D.pages[ds];
-  var locked=lk('duty')&&!isAdmin;
+  var locked=!can('duty');
   title.textContent='⏰ '+fmtJ(ds)+' のスケジュール';
   /* ツールバー */
   var th='';
@@ -7530,6 +7552,15 @@ function renderSched(){
   si.ce.forEach(function(c){ staff.push({name:c.name,oc:false}); });
   si.oc.forEach(function(o){ if(!staff.some(function(s){return s.name===o.name;})) staff.push({name:o.name,oc:true}); });
 
+  /* シフト表未取込のとき、担当カードの割当スタッフを列として補完する。
+     すでにシフト由来で列がある人は重複しない。 */
+  if(dat.duties){
+    var cfg=getDutyCfg(dat);
+    for(var di=0;di<cfg.length;di++){
+      var dname=dat.duties[cfg[di].id];
+      if(dname && !staff.some(function(s){return s.name===dname;})) staff.push({name:dname,oc:false});
+    }
+  }
   if(!staff.length){
     body.innerHTML='<div class="sched-empty">👥 当日勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
     return;
@@ -7608,7 +7639,7 @@ function schedAddBlock(ds,staff,presetIdx,startMin){
 
 function schedImportDuties(){
   var ds=curDs, dat=D.pages[ds]; if(!dat) return;
-  if(lk('duty')&&!isAdmin){ alert('🔒 管理者のみ可能です'); return; }
+  if(!can('duty')){ alert('🔒 担当割り当ての編集権限がありません'); return; }
   if(!dat.duties){ alert('業務割当がありません。'); return; }
   if(!dat.schedule) dat.schedule=[];
   var cfg=getDutyCfg(dat);
@@ -7872,6 +7903,9 @@ function importBackup(file) {
       saveD();
       if(FB_ON) writeLog('バックアップインポート', file.name);
       renderCal(); safeRenderPage();
+      renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
+      renderOpeList(); renderCathList(); renderLockList(); renderAT();
+      var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
       if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';
     } catch(err) {
       alert('読み込みエラー: ' + err.message);
