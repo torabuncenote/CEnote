@@ -49,11 +49,12 @@ var D = {
   oc: [],           // on-call config
   shift: {},        // shift data
   evts: {},         // events per date
-  manual: {}        // task manuals { taskName: { text, media: [...] } }
+  manual: {},       // task manuals { taskName: { text, media: [...] } }
+  schedPresets: []  // schedule timetable presets [{ label, color, dur(min), custom? }]
 };
 ```
 
-Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: duty assignments, checklist state, memos, pool staff, OPE/cath records, etc.
+Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: duty assignments (`duties`), checklist state, memos, pool staff, OPE/cath records, per-day timetable (`schedule: [{ id, staff, label, start, end, color }]`, times in minutes-from-midnight), etc.
 
 ### Persistence
 
@@ -153,6 +154,7 @@ All class names are abbreviated. Key patterns:
 | `buildCL(ds, dat, wtl, all, locked)` | Builds the checklist section |
 | `buildOPS(ds, dat, locked)` | Builds the OPE/cath/operations record section |
 | `renderMemos(ds, dat, locked)` | Renders the memo/comment thread |
+| `renderSched()` | Renders the per-day timetable (⏰ スケジュール tab) for `curDs` |
 | `writeLog(action, detail)` | Appends an entry to Firebase `/logs` |
 | `can(id)` / `lk(id)` | Access control helpers |
 
@@ -162,9 +164,15 @@ All class names are abbreviated. Key patterns:
 
 Each day's `D.pages[ds]` stores duty assignments as `{ ope: "name", cath: "name", ... }` alongside a "pool" of unassigned staff that can be drag-and-dropped into slots.
 
+### Schedule Timetable (⏰ スケジュール)
+
+A sidebar tab (`tab-sched` / `pane-sched`) that builds a per-day timetable for `curDs`: vertical time axis 8:00–21:00 in 15-min steps, one column per on-duty staff member. Blocks are stored in `D.pages[ds].schedule` and rendered absolutely-positioned. Editing is pointer-based (drag body to move/change staff column, drag bottom handle to resize). Preset blocks (`D.schedPresets`, defaults in `DEF_SCHED_PRESETS`) are added by tap-to-select + tap-column or HTML5 drag-and-drop. `schedImportDuties()` seeds blocks from `dat.duties`. Like `pane-assign`, this pane hides `.main` and fills the area; on mobile it is `position:fixed` full-screen with a 戻る button. Available to all users (read-only when `duty` is locked for non-admins).
+
 ### Shift Import
 
 `parseShiftSheet(wb, fileName)` (line ~3512) parses an Excel file (via xlsx.js) to populate `D.shift`. The SIM modal (`openSIM()`) lets admins upload shift spreadsheets.
+
+**Overwrite protection:** `doSaveSIM()` detects days that already have duty assignments (`dayHasDutyAssigned(ds)` — any non-empty value in `D.pages[ds].duties`). If any exist it confirms with the admin, then preserves the old `D.shift`/`D.evts` columns for those "protected" days while importing the rest, so a re-import never clobbers a day whose assignments are already built.
 
 ### PHI Detection
 

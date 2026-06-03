@@ -317,9 +317,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   /* スマホではサイドバーをfixedで全画面表示 */
   .sb{position:fixed;top:var(--th);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th))!important;overflow-y:auto}
   .sb.hm{transform:translateX(-100%)}
-  /* スマホではpane-assignをfixedで全画面表示（sbと同様） */
-  #pane-assign{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
-  #pane-assign.hd-sp{display:none!important}
+  /* スマホではpane-assign/pane-schedをfixedで全画面表示（sbと同様） */
+  #pane-assign,#pane-sched{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
+  #pane-assign.hd-sp,#pane-sched.hd-sp{display:none!important}
+  .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
   .tb-sub,.tb-sep,.sl{display:none}
@@ -483,6 +484,36 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .adminm-user-email{font-size:11px;color:var(--txt3);font-family:var(--mo);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .adminm-user-date{font-size:10px;color:var(--txt3)}
 .adminm-self-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);white-space:nowrap;flex-shrink:0}
+
+/* ===== スケジュール（タイムテーブル） ===== */
+.sched-wrap{padding:14px 12px 60px}
+.sched-head{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.sched-title{font-size:16px;font-weight:800;color:var(--txt)}
+.sched-tools{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.sched-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;padding:8px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)}
+.sched-presets-lbl{font-size:11px;font-weight:700;color:var(--txt2);width:100%;margin-bottom:2px}
+.sched-preset{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:5px 11px;border-radius:16px;border:1.5px solid var(--bdr2);background:var(--sur);color:var(--txt);cursor:pointer;user-select:none;-webkit-user-select:none}
+.sched-preset:hover{border-color:var(--ac)}
+.sched-preset.sel{outline:2px solid var(--ac);border-color:var(--ac);background:var(--ac-bg)}
+.sched-preset .pd{font-size:10px;color:var(--txt3);font-weight:600}
+.sched-hint{font-size:11px;color:var(--txt3);margin:2px 0 8px}
+.sched-grid{display:flex;border:1px solid var(--bdr);border-radius:var(--rs);overflow-x:auto;background:var(--sur);-webkit-overflow-scrolling:touch}
+.sched-timecol{flex:0 0 50px;position:relative;border-right:1px solid var(--bdr);background:var(--sur2)}
+.sched-timecol .tl{position:absolute;right:4px;font-size:10px;color:var(--txt3);transform:translateY(-50%);font-family:var(--mo)}
+.sched-cols{display:flex;flex:1}
+.sched-staffcol{flex:1 0 120px;min-width:120px;position:relative;border-right:1px solid var(--bdr)}
+.sched-staffcol:last-child{border-right:none}
+.sched-colhd{position:sticky;top:0;z-index:5;height:34px;display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;font-weight:700;background:var(--ac-bg);color:var(--ac);border-bottom:1px solid var(--bdr);padding:0 4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sched-colhd.oc{background:var(--oc-bg);color:var(--oc)}
+.sched-track{position:relative}
+.sched-block{position:absolute;left:2px;right:2px;border-radius:5px;padding:2px 4px;font-size:11px;font-weight:700;color:#fff;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.18);box-sizing:border-box;touch-action:none}
+.sched-block:active{cursor:grabbing}
+.sched-block .bt{font-size:9px;font-weight:600;opacity:.9;font-family:var(--mo)}
+.sched-block .bx{position:absolute;top:1px;right:2px;cursor:pointer;font-size:12px;line-height:1;opacity:.85;background:none;border:none;color:#fff;padding:0}
+.sched-block .bh{position:absolute;left:0;right:0;bottom:0;height:9px;cursor:ns-resize;border-radius:0 0 5px 5px}
+.sched-block .bh::after{content:'';position:absolute;left:50%;bottom:2px;width:18px;height:2px;background:rgba(255,255,255,.7);border-radius:2px;transform:translateX(-50%)}
+.sb-o{background:var(--or)}.sb-c{background:#0891b2}.sb-g{background:var(--gr)}.sb-pu{background:var(--pu)}.sb-ac{background:var(--ac)}.sb-gd{background:var(--gd)}.sb-gray{background:#64748b}.sb-rd{background:var(--rd)}
+.sched-empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px}
 </style>
 </head>
 <body>
@@ -595,6 +626,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
       <div class="stab"     id="tab-guide"  onclick="swTab('guide')">📘 使い方</div>
+      <div class="stab"     id="tab-sched"  onclick="swTab('sched')">⏰ スケジュール</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
@@ -887,6 +919,18 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <div id="subpane-ops" style="display:none">
         <div id="ops-sum-body"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- スケジュール（タイムテーブル）パネル -->
+  <div id="pane-sched" style="display:none;flex:1;overflow-y:auto">
+    <div class="sched-wrap">
+      <button id="sched-back-btn" class="btn btn-g btn-sm" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
+      <div class="sched-head">
+        <div class="sched-title" id="sched-title">⏰ スケジュール</div>
+        <div class="sched-tools" id="sched-tools"></div>
+      </div>
+      <div id="sched-body"></div>
     </div>
   </div>
 
@@ -4123,20 +4167,66 @@ function parseShiftSheet(wb, fileName) {
   parsedShiftData = {ym: ym, data: result, evts: evts};
   saveBtn.style.display = '';
 }
+/* その日の連絡表に担当が割り当てられているか（duties に非空の値があるか） */
+function dayHasDutyAssigned(ds){
+  var dat=D.pages&&D.pages[ds];
+  if(!dat||!dat.duties) return false;
+  for(var k in dat.duties){ if(dat.duties[k]) return true; }
+  return false;
+}
+
 function doSaveSIM() {
   if (!parsedShiftData) { alert('先にExcelファイルを読み込んでください。'); return; }
   var ym   = parsedShiftData.ym;
   var data = parsedShiftData.data;
+  var ymParts   = ym.split('-');
+  var totalDays = new Date(parseInt(ymParts[0]), parseInt(ymParts[1]), 0).getDate();
+
+  /* ===== 上書き防止 =====
+     すでに担当を割り当てた日を検出。割当済みの日は勤務者データを保護（変更しない）して取り込む。 */
+  var protectedDays = [];
+  for (var pd = 1; pd <= totalDays; pd++) {
+    if (dayHasDutyAssigned(ym + '-' + pad(pd))) protectedDays.push(pd);
+  }
+  if (protectedDays.length) {
+    var msg = '⚠️ 次の日はすでに担当が割り当てられています：\n'
+            + protectedDays.map(function(d){return d+'日';}).join('、') + '\n\n'
+            + '【OK】これらの日の勤務者データを保護（変更せず）して、その他の日だけ取り込みます。\n'
+            + '【キャンセル】取り込みを中止します。';
+    if (!confirm(msg)) { return; }
+    /* 保護日の勤務者列を旧データで維持（D.shift は 名前→{日→info} 構造のため日列を旧値で上書き） */
+    var oldData = D.shift[ym] || {};
+    protectedDays.forEach(function(d){
+      var names = {};
+      Object.keys(data).forEach(function(n){ names[n]=1; });
+      Object.keys(oldData).forEach(function(n){ names[n]=1; });
+      Object.keys(names).forEach(function(n){
+        if (!data[n]) data[n] = {};
+        if (oldData[n] && oldData[n][d]) data[n][d] = oldData[n][d];
+        else if (data[n][d]) delete data[n][d];
+      });
+    });
+  }
+
   D.shift[ym] = data;
-  if (parsedShiftData.evts) D.evts[ym] = parsedShiftData.evts;
+  /* イベントも保護日は旧データを維持 */
+  if (parsedShiftData.evts) {
+    var newEvts = parsedShiftData.evts;
+    if (protectedDays.length && D.evts[ym]) {
+      protectedDays.forEach(function(d){
+        if (D.evts[ym][d]) newEvts[d] = D.evts[ym][d];
+        else if (newEvts[d]) delete newEvts[d];
+      });
+    }
+    D.evts[ym] = newEvts;
+  }
 
   /* ===== OC自動入力 =====
      各日のOC担当者をocData.staffに自動セット
      CEと兼任の場合はOCに入れ、CE勤務者一覧にはCEのみ表示（getShiftForDayで制御済み）
-     既に手動入力されている場合は上書きしない */
-  var ymParts   = ym.split('-');
-  var totalDays = new Date(parseInt(ymParts[0]), parseInt(ymParts[1]), 0).getDate();
+     既に手動入力されている場合・保護日は上書きしない */
   for (var day = 1; day <= totalDays; day++) {
+    if (protectedDays.indexOf(day) !== -1) continue; /* 保護日は触らない */
     var ds = ym + '-' + pad(day);
     /* OCフラグを持つ人を収集 */
     var ocNames = [];
@@ -4154,10 +4244,11 @@ function doSaveSIM() {
   }
 
   saveD();
-  writeLog('勤務表インポート', ym);
+  writeLog('勤務表インポート', ym + (protectedDays.length ? '（保護: '+protectedDays.length+'日）' : ''));
   closeSIM();
   if (curDs && D.pages[curDs]) safeRenderPage();
-  alert('\u2705 ' + ym + ' \u306e\u52e4\u52d9\u8868\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f\uff01');
+  alert('\u2705 ' + ym + ' \u306e\u52e4\u52d9\u8868\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f\uff01'
+        + (protectedDays.length ? '\n\uff08\u5272\u5f53\u6e08\u307f ' + protectedDays.length + ' \u65e5\u5206\u306f\u4fdd\u8b77\u3057\u307e\u3057\u305f\uff09' : ''));
 }
 
 /* ===== GENERATE / ADD / DELETE ===== */
@@ -4360,6 +4451,9 @@ function openPage(ds) {
   if (prev !== ds || !document.getElementById('main').querySelector('.pt2')) {
     renderPage(ds);
   }
+  /* スケジュールタブが開いている場合は選択日のタイムテーブルを更新 */
+  var ps=document.getElementById('pane-sched');
+  if(ps && ps.style.display!=='none') renderSched();
   /* スマホでは日付選択後にサイドバーを閉じて連絡表を見せる */
   if(window.innerWidth<768 && sbOpen){
     sbOpen=false;
@@ -6943,40 +7037,308 @@ function exportAtCsv() {
   URL.revokeObjectURL(url);
 }
 
+/* ===== スケジュール（タイムテーブル） ===== */
+var SCHED_START=480, SCHED_END=1260, SCHED_SLOT=15, SCHED_PXMIN=1.2; /* 8:00〜21:00 / 15分刻み / 1分=1.2px */
+var DEF_SCHED_PRESETS=[
+  {label:'OPE立会い',  color:'o',   dur:120},
+  {label:'カテ立会い', color:'c',   dur:90},
+  {label:'透析',       color:'g',   dur:240},
+  {label:'機器点検',   color:'pu',  dur:60},
+  {label:'病棟ラウンド',color:'ac', dur:60},
+  {label:'会議・カンファ',color:'gd',dur:60},
+  {label:'休憩',       color:'gray',dur:60},
+  {label:'その他…',    color:'rd',  dur:60, custom:true}
+];
+var _schedSelPreset=null; /* タップで選択中のプリセット */
+
+function getSchedPresets(){ if(!D.schedPresets||!D.schedPresets.length) D.schedPresets=JSON.parse(JSON.stringify(DEF_SCHED_PRESETS)); return D.schedPresets; }
+function schedMinToHM(m){ return pad(Math.floor(m/60))+':'+pad(m%60); }
+function schedSnap(m){ m=Math.round(m/SCHED_SLOT)*SCHED_SLOT; return Math.max(SCHED_START,Math.min(SCHED_END,m)); }
+function schedColorOf(c){ return 'sb-'+(c||'ac'); }
+
+/* 連絡表ページの duties から既定ブロックを生成（時間未定なので既定枠を置く） */
+function schedDefForDuty(label){
+  var l=label||'';
+  if(/OPE.*サブ|サブ.*OPE/.test(l)) return {color:'o',  start:9*60,  dur:120};
+  if(/OPE/.test(l))                 return {color:'o',  start:9*60,  dur:180};
+  if(/カテ.*サブ|サブ.*カテ/.test(l))return {color:'c', start:9*60,  dur:90};
+  if(/カテ/.test(l))                return {color:'c',  start:9*60,  dur:120};
+  if(/病棟|ward/i.test(l))          return {color:'ac', start:8*60+30,dur:120};
+  if(/機器|device|点検|ME/i.test(l))return {color:'pu', start:13*60, dur:120};
+  return {color:'gd', start:9*60, dur:60};
+}
+
+function renderSched(){
+  var tools=document.getElementById('sched-tools');
+  var body=document.getElementById('sched-body');
+  var title=document.getElementById('sched-title');
+  if(!body) return;
+  var ds=curDs;
+  if(!ds || !D.pages[ds]){
+    title.textContent='⏰ スケジュール';
+    tools.innerHTML='';
+    body.innerHTML='<div class="sched-empty">📅 左のカレンダーから日付を選ぶと<br>その日のタイムテーブルを編集できます。</div>';
+    return;
+  }
+  var dat=D.pages[ds];
+  var locked=lk('duty')&&!isAdmin;
+  title.textContent='⏰ '+fmtJ(ds)+' のスケジュール';
+  /* ツールバー */
+  var th='';
+  if(!locked){
+    th+='<button class="btn btn-g btn-sm" onclick="schedImportDuties()">🔄 業務割当から取込</button>';
+    th+='<button class="btn btn-g btn-sm" onclick="schedClear()">🗑 全消去</button>';
+  }
+  tools.innerHTML=th;
+
+  if(!dat.schedule) dat.schedule=[];
+  var si=getShiftForDay(ds);
+  var staff=[];
+  si.ce.forEach(function(c){ staff.push({name:c.name,oc:false}); });
+  si.oc.forEach(function(o){ if(!staff.some(function(s){return s.name===o.name;})) staff.push({name:o.name,oc:true}); });
+
+  if(!staff.length){
+    body.innerHTML='<div class="sched-empty">👥 当日勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
+    return;
+  }
+
+  var h='';
+  if(!locked){
+    h+='<div class="sched-presets" id="sched-presets"><span class="sched-presets-lbl">業務プリセット（タップして選択 → 列をタップで配置／ドラッグでも配置可）</span>';
+    var ps=getSchedPresets();
+    for(var i=0;i<ps.length;i++){
+      var p=ps[i];
+      h+='<span class="sched-preset'+(_schedSelPreset===i?' sel':'')+'" data-pi="'+i+'" draggable="true" onclick="schedSelectPreset('+i+')">'
+        +'<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--'+(p.color==='o'?'or':p.color==='c'?'oc':p.color==='g'?'gr':p.color==='gray'?'txt3':p.color)+')"></span>'
+        +escH(p.label)+(p.custom?'':'<span class="pd">'+p.dur+'分</span>')+'</span>';
+    }
+    h+='</div>';
+    h+='<div class="sched-hint">ブロックは本体ドラッグで移動、下端で時間延長。右上の×で削除。</div>';
+  }
+
+  /* グリッド */
+  var totalH=(SCHED_END-SCHED_START)*SCHED_PXMIN;
+  h+='<div class="sched-grid" id="sched-grid">';
+  /* 時間軸 */
+  h+='<div class="sched-timecol" style="height:'+(totalH+34)+'px">';
+  for(var m=SCHED_START;m<=SCHED_END;m+=60){
+    var top=34+(m-SCHED_START)*SCHED_PXMIN;
+    h+='<div class="tl" style="top:'+top+'px">'+schedMinToHM(m)+'</div>';
+  }
+  h+='</div>';
+  /* スタッフ列 */
+  h+='<div class="sched-cols">';
+  for(var s=0;s<staff.length;s++){
+    var st=staff[s];
+    h+='<div class="sched-staffcol" data-staff="'+escH(st.name)+'">';
+    h+='<div class="sched-colhd'+(st.oc?' oc':'')+'">'+escH(st.name)+(st.oc?' 🟠':'')+'</div>';
+    h+='<div class="sched-track" data-staff="'+escH(st.name)+'" style="height:'+totalH+'px;background:repeating-linear-gradient(to bottom,transparent,transparent '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN)+'px)">';
+    /* ブロック */
+    for(var b=0;b<dat.schedule.length;b++){
+      var bl=dat.schedule[b];
+      if(bl.staff!==st.name) continue;
+      var top2=(bl.start-SCHED_START)*SCHED_PXMIN;
+      var hgt=(bl.end-bl.start)*SCHED_PXMIN;
+      h+='<div class="sched-block '+schedColorOf(bl.color)+'" data-id="'+bl.id+'" style="top:'+top2+'px;height:'+hgt+'px">';
+      h+=(locked?'':'<button class="bx" data-del="'+bl.id+'">×</button>');
+      h+='<div>'+escH(bl.label)+'</div><div class="bt">'+schedMinToHM(bl.start)+'–'+schedMinToHM(bl.end)+'</div>';
+      if(!locked) h+='<div class="bh"></div>';
+      h+='</div>';
+    }
+    h+='</div></div>';
+  }
+  h+='</div></div>';
+  body.innerHTML=h;
+  if(!locked) schedBindInteractions(ds);
+}
+
+function schedSelectPreset(i){
+  _schedSelPreset=(_schedSelPreset===i?null:i);
+  var chips=document.querySelectorAll('.sched-preset');
+  for(var k=0;k<chips.length;k++) chips[k].classList.toggle('sel', parseInt(chips[k].getAttribute('data-pi'))===_schedSelPreset);
+}
+
+function schedAddBlock(ds,staff,presetIdx,startMin){
+  var dat=D.pages[ds]; if(!dat) return;
+  if(!dat.schedule) dat.schedule=[];
+  var p=getSchedPresets()[presetIdx]; if(!p) return;
+  var label=p.label;
+  if(p.custom){ label=prompt('業務名を入力してください'); if(!label||!label.trim()) return; label=label.trim(); }
+  var start=schedSnap(startMin);
+  var end=Math.min(SCHED_END,start+(p.dur||60));
+  if(end<=start) end=Math.min(SCHED_END,start+SCHED_SLOT);
+  dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
+  saveD();
+  writeLog('スケジュール追加',fmtJ(ds)+' '+staff+' '+label+' '+schedMinToHM(start));
+  renderSched();
+}
+
+function schedImportDuties(){
+  var ds=curDs, dat=D.pages[ds]; if(!dat) return;
+  if(lk('duty')&&!isAdmin){ alert('🔒 管理者のみ可能です'); return; }
+  if(!dat.duties){ alert('業務割当がありません。'); return; }
+  if(!dat.schedule) dat.schedule=[];
+  var cfg=getDutyCfg(dat);
+  var added=0;
+  for(var i=0;i<cfg.length;i++){
+    var slot=cfg[i];
+    var name=dat.duties[slot.id];
+    if(!name) continue;
+    /* 同一スタッフ・同一ラベルの既存ブロックがあればスキップ */
+    var exists=dat.schedule.some(function(b){ return b.staff===name && b.label===slot.label; });
+    if(exists) continue;
+    var def=schedDefForDuty(slot.label);
+    var start=schedSnap(def.start), end=Math.min(SCHED_END,start+def.dur);
+    dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*10000)+i,staff:name,label:slot.label,start:start,end:end,color:def.color});
+    added++;
+  }
+  saveD();
+  writeLog('スケジュール業務取込',fmtJ(ds)+' '+added+'件');
+  renderSched();
+  if(!added) alert('追加する新しい業務割当はありませんでした。');
+}
+
+function schedClear(){
+  var ds=curDs, dat=D.pages[ds]; if(!dat) return;
+  if(!dat.schedule||!dat.schedule.length) return;
+  if(!confirm(fmtJ(ds)+' のスケジュールをすべて消去しますか？')) return;
+  dat.schedule=[];
+  saveD();
+  writeLog('スケジュール全消去',fmtJ(ds));
+  renderSched();
+}
+
+/* ブロックの移動・リサイズ・追加のポインタ操作 */
+function schedBindInteractions(ds){
+  var grid=document.getElementById('sched-grid'); if(!grid) return;
+  var dat=D.pages[ds];
+
+  /* 削除ボタン */
+  grid.querySelectorAll('.bx').forEach(function(x){
+    x.addEventListener('click',function(e){
+      e.stopPropagation();
+      var id=x.getAttribute('data-del');
+      dat.schedule=dat.schedule.filter(function(b){return b.id!==id;});
+      saveD(); writeLog('スケジュール削除',fmtJ(ds)); renderSched();
+    });
+  });
+
+  /* トラックへのクリック配置（プリセット選択時）＋ドラッグ&ドロップ配置 */
+  grid.querySelectorAll('.sched-track').forEach(function(tr){
+    var staff=tr.getAttribute('data-staff');
+    tr.addEventListener('click',function(e){
+      if(_schedSelPreset===null) return;
+      if(e.target.closest('.sched-block')) return; /* ブロック上は無視 */
+      var rect=tr.getBoundingClientRect();
+      var min=SCHED_START+(e.clientY-rect.top)/SCHED_PXMIN;
+      schedAddBlock(ds,staff,_schedSelPreset,min);
+    });
+    tr.addEventListener('dragover',function(e){ if(_schedDragPreset!==null){ e.preventDefault(); } });
+    tr.addEventListener('drop',function(e){
+      if(_schedDragPreset===null) return;
+      e.preventDefault();
+      var rect=tr.getBoundingClientRect();
+      var min=SCHED_START+(e.clientY-rect.top)/SCHED_PXMIN;
+      var pi=_schedDragPreset; _schedDragPreset=null;
+      schedAddBlock(ds,staff,pi,min);
+    });
+  });
+
+  /* プリセットのHTML5ドラッグ開始 */
+  grid.ownerDocument.querySelectorAll('.sched-preset').forEach(function(ch){
+    ch.addEventListener('dragstart',function(){ _schedDragPreset=parseInt(ch.getAttribute('data-pi')); });
+    ch.addEventListener('dragend',function(){ setTimeout(function(){_schedDragPreset=null;},50); });
+  });
+
+  /* ブロックの移動・リサイズ（pointerイベント：マウス・タッチ両対応） */
+  var cols=[].slice.call(grid.querySelectorAll('.sched-track'));
+  grid.querySelectorAll('.sched-block').forEach(function(el){
+    var id=el.getAttribute('data-id');
+    var handle=el.querySelector('.bh');
+    function startDrag(e,mode){
+      e.preventDefault(); e.stopPropagation();
+      var bl=dat.schedule.filter(function(b){return b.id===id;})[0]; if(!bl) return;
+      var startY=e.clientY, origStart=bl.start, origEnd=bl.end, dur=origEnd-origStart, moved=false;
+      el.setPointerCapture&&el.setPointerCapture(e.pointerId);
+      function onMove(ev){
+        moved=true;
+        var dyMin=(ev.clientY-startY)/SCHED_PXMIN;
+        if(mode==='move'){
+          var ns=schedSnap(origStart+dyMin);
+          if(ns+dur>SCHED_END) ns=SCHED_END-dur;
+          bl.start=ns; bl.end=ns+dur;
+          /* 横移動でスタッフ列を変更 */
+          for(var c=0;c<cols.length;c++){
+            var r=cols[c].getBoundingClientRect();
+            if(ev.clientX>=r.left&&ev.clientX<=r.right){ bl.staff=cols[c].getAttribute('data-staff'); break; }
+          }
+        } else {
+          /* リサイズ：下端をポインタに追従（開始時刻は固定） */
+          var ne=schedSnap(origEnd+dyMin);
+          if(ne<bl.start+SCHED_SLOT) ne=bl.start+SCHED_SLOT;
+          if(ne>SCHED_END) ne=SCHED_END;
+          bl.end=ne;
+        }
+        el.style.top=((bl.start-SCHED_START)*SCHED_PXMIN)+'px';
+        el.style.height=((bl.end-bl.start)*SCHED_PXMIN)+'px';
+        var bt=el.querySelector('.bt'); if(bt) bt.textContent=schedMinToHM(bl.start)+'–'+schedMinToHM(bl.end);
+      }
+      function onUp(ev){
+        document.removeEventListener('pointermove',onMove);
+        document.removeEventListener('pointerup',onUp);
+        if(moved){ saveD(); renderSched(); }
+      }
+      document.addEventListener('pointermove',onMove);
+      document.addEventListener('pointerup',onUp);
+    }
+    el.addEventListener('pointerdown',function(e){
+      if(e.target.classList.contains('bx')) return;
+      if(e.target.classList.contains('bh')){ startDrag(e,'resize'); }
+      else { startDrag(e,'move'); }
+    });
+  });
+}
+var _schedDragPreset=null;
+
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
-  var tabs=['cal','assign','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
+  var tabs=['cal','assign','guide','sched','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
   var docsTabs=['spec','manual','adminm','dev','regs'];
   for(var i=0;i<tabs.length;i++){
     var id=tabs[i];
     var tb=document.getElementById('tab-'+id); if(tb) tb.classList.toggle('on',id===t);
-    if(id==='assign'){
-      var ap=document.getElementById('pane-assign'), mn=document.getElementById('main');
+    if(id==='assign'||id==='sched'){
+      /* assign / sched は main を隠して全エリアに表示する全画面パネル */
+      var paneId=id==='assign'?'pane-assign':'pane-sched';
+      var backId=id==='assign'?'assign-back-btn':'sched-back-btn';
+      var ap=document.getElementById(paneId), mn=document.getElementById('main');
       var sb2=document.getElementById('sb');
       var isSP=window.innerWidth<=768;
-      if(t==='assign'){
+      if(t===id){
         ap.style.display='flex';
         ap.classList.remove('hd-sp');
         mn.style.display='none';
-        /* スマホではサイドバーを閉じる（pane-assignがfixedで全画面表示されるため）、戻るボタンを表示 */
-        var backBtn=document.getElementById('assign-back-btn');
+        /* スマホではサイドバーを閉じる（パネルがfixedで全画面表示されるため）、戻るボタンを表示 */
+        var backBtn=document.getElementById(backId);
         if(isSP){
           if(sb2){sb2.classList.remove('sb-assign');sb2.classList.add('hm');sbOpen=false;}
           if(backBtn) backBtn.style.display='';
         } else {
           if(backBtn) backBtn.style.display='none';
         }
-        swSubTab('at'); /* サブタブを担当表に初期化（スマホで集計が見えない問題を解消） */
-        renderAT();
+        if(id==='assign'){ swSubTab('at'); renderAT(); }
+        else { renderSched(); }
       } else {
         if(sb2) sb2.classList.remove('sb-assign');
         ap.style.display='none';
         ap.classList.add('hd-sp');
-        mn.style.display='';
-        var backBtn2=document.getElementById('assign-back-btn');
+        /* どちらのパネルも非アクティブなときだけ main を戻す */
+        var otherActive=(t==='assign'||t==='sched');
+        if(!otherActive) mn.style.display='';
+        var backBtn2=document.getElementById(backId);
         if(backBtn2) backBtn2.style.display='none';
-        /* スマホでは担当表を閉じるときサイドバーを再表示する */
-        if(isSP && sb2 && !sbOpen){
+        /* スマホでパネルを閉じるときサイドバーを再表示する */
+        if(isSP && sb2 && !sbOpen && !otherActive){
           sb2.classList.remove('hm');
           sbOpen=true;
         }
