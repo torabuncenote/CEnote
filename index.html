@@ -902,6 +902,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           </div>
           <div id="backup-status" style="margin-top:8px;font-size:11px;color:var(--txt3)"></div>
         </div>
+        <div class="pt" style="margin-bottom:12px">📊 ストレージ使用状況</div>
+        <div id="storage-usage" style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
+          <div style="font-size:12px;color:var(--txt3)">読み込み中...</div>
+        </div>
         <div class="pt" style="margin-bottom:12px">📖 Firebaseセットアップマニュアル</div>
         <div id="adminm-body"></div>
       </div>
@@ -1836,6 +1840,77 @@ function updateMonthSize() {
   if (D.evts  && D.evts[ym])  total += calcBytes(D.evts[ym]);
   el.textContent = '📊 ' + ym + ': ' + fmtBytes(total);
   el.style.display = '';
+}
+
+/* ===== ストレージ使用状況（管理者設定パネル） ===== */
+/* クラウド(Firebase Realtime Database)の概算使用量を表示する。
+   /data はクライアント側で保持している D の実バイト数から算出、
+   /logs は別パスのため別途読み取る。請求画面の数値とは多少ずれる目安。 */
+var RTDB_FREE_LIMIT = 1073741824; /* 無料枠 1GB */
+function renderStorageUsage() {
+  var el = document.getElementById('storage-usage');
+  if (!el || !isAdmin) return;
+
+  /* /data 合計と内訳（D のトップレベルキー別） */
+  var dataBytes = calcBytes(D);
+  var parts = [];
+  for (var k in D) {
+    if (!Object.prototype.hasOwnProperty.call(D, k)) continue;
+    var sz = calcBytes(D[k]);
+    if (sz > 0) parts.push({ k: k, sz: sz });
+  }
+  parts.sort(function(a, b){ return b.sz - a.sz; });
+
+  var labels = {
+    pages:'📅 日次ページ', manual:'📘 マニュアル(画像/動画)', shift:'🗓 シフト',
+    evts:'📌 予定', schedPresets:'⏰ プリセット', stf:'👥 スタッフ',
+    phs:'☎ 内線', opeTree:'🏥 OPEマスタ', cathTree:'💉 カテマスタ',
+    supTree:'📦 物品マスタ', dutyCfg:'📋 担当設定', dutyCfgMaster:'📋 担当マスタ',
+    dly:'✅ 毎日チェック', wd:'✅ 曜日別チェック', opsCfg:'⚙ 運用設定', oc:'📞 オンコール'
+  };
+
+  var pct = Math.min(100, dataBytes / RTDB_FREE_LIMIT * 100);
+  var barColor = pct < 60 ? 'var(--gr)' : pct < 85 ? 'var(--or)' : 'var(--rd)';
+
+  var S = '';
+  S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:12px;line-height:1.6">クラウド(Firebase Realtime Database)の概算使用量です。無料枠は <b>1GB</b>。<br><span style="color:var(--txt3)">※ブラウザ側で算出した目安です。Firebaseの請求画面の数値とは多少ずれます。</span></div>';
+
+  /* メインバー：/data 合計 */
+  S += '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px"><span>📊 /data 合計</span><span>' + fmtBytes(dataBytes) + ' / 1GB（' + pct.toFixed(2) + '%）</span></div>';
+  S += '<div style="height:14px;background:var(--bg);border:1px solid var(--bdr);border-radius:7px;overflow:hidden;margin-bottom:14px"><div style="height:100%;width:' + pct.toFixed(2) + '%;background:' + barColor + '"></div></div>';
+
+  /* 内訳（上位8件） */
+  S += '<div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">内訳</div>';
+  parts.slice(0, 8).forEach(function(p) {
+    var ipct = dataBytes ? (p.sz / dataBytes * 100) : 0;
+    var name = labels[p.k] || p.k;
+    S += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+    S += '<span style="font-size:11px;width:150px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escH(name) + '</span>';
+    S += '<div style="flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:' + ipct.toFixed(1) + '%;background:var(--ac)"></div></div>';
+    S += '<span style="font-size:11px;color:var(--txt3);width:78px;text-align:right;flex-shrink:0">' + fmtBytes(p.sz) + '</span>';
+    S += '</div>';
+  });
+
+  /* ログ（別パス /logs）は非同期で後埋め */
+  S += '<div id="storage-logs" style="font-size:11px;color:var(--txt3);margin-top:12px;padding-top:10px;border-top:1px solid var(--bdr)">📋 ログ容量を確認中...</div>';
+  S += '<button class="btn btn-g btn-sm" style="margin-top:12px" onclick="renderStorageUsage()">🔄 再計算</button>';
+
+  el.innerHTML = S;
+
+  /* /logs は /data と別枠。件数と容量を読んで後から差し込む */
+  var le = function(){ return document.getElementById('storage-logs'); };
+  if (FB_ON && fbDB) {
+    fbDB.ref('/logs').once('value').then(function(snap) {
+      var v = snap.val() || {};
+      var cnt = Object.keys(v).length;
+      var t = le();
+      if (t) t.innerHTML = '📋 ログ: ' + fmtBytes(calcBytes(v)) + '（' + cnt + '件・/logs に別途保存）';
+    }).catch(function() {
+      var t = le(); if (t) t.textContent = '📋 ログ容量: 取得できませんでした';
+    });
+  } else {
+    var t = le(); if (t) t.textContent = '📋 ログ: ローカルモードでは未使用';
+  }
 }
 
 function setSyncLbl(text) {
@@ -7647,7 +7722,7 @@ function swTab(t) {
   if(t==='guide') { renderGuide(); }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
-  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); }
+  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); }
   if(t==='dev') { renderDev(); }
   if(t==='regs') { renderRegs(); }
 }
