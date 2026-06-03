@@ -607,6 +607,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <button class="btn btn-g btn-sm" onclick="swTab('manual')">📘 マニュアル</button>
       <button class="btn btn-g btn-sm" onclick="swTab('adminm')">🔑 管理者設定</button>
       <button class="btn btn-g btn-sm" onclick="swTab('dev')">🔧 引き継ぎ</button>
+      <button class="btn btn-g btn-sm" onclick="swTab('regs')">⚖️ 法令・GL</button>
     </div>
 
     <!-- 予定タブ -->
@@ -830,6 +831,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <div class="sp" style="padding-bottom:40px">
         <div class="pt" style="margin-bottom:12px">🔧 引き継ぎ資料（開発者向け）</div>
         <div id="dev-body"></div>
+      </div>
+    </div>
+
+    <!-- 法令・ガイドライン -->
+    <div id="pane-regs" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div class="pt" style="margin-bottom:12px">⚖️ 法令・ガイドライン</div>
+        <div id="regs-body"></div>
       </div>
     </div>
 
@@ -2364,6 +2373,138 @@ function doRegister() {
       try{ secondApp.auth().signOut(); secondApp.delete(); }catch(e){}
       btn.disabled = false; btn.textContent = '登録する';
     });
+}
+
+/* ===== 法令・ガイドライン ===== */
+function renderRegs() {
+  var el = document.getElementById('regs-body');
+  if (!el || el.innerHTML) return;
+  var SS = '<style>'
+    + '.rg-h1{font-size:16px;font-weight:900;color:#0e6e5e;border-bottom:3px solid #0e6e5e;padding-bottom:5px;margin:18px 0 10px}'
+    + '.rg-h2{font-size:13px;font-weight:800;margin:12px 0 5px;padding:3px 0 3px 9px;border-left:4px solid #0e6e5e;color:var(--txt)}'
+    + '.rg-p{font-size:12px;color:var(--txt);line-height:1.9;margin:0 0 6px}'
+    + '.rg-src{font-size:11px;color:var(--txt3);background:var(--sur2);border:1px solid var(--bdr);border-radius:5px;padding:5px 10px;margin:4px 0 10px;word-break:break-all}'
+    + '.rg-src a{color:var(--ac);text-decoration:none}'
+    + '.rg-src a:hover{text-decoration:underline}'
+    + '.rg-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}'
+    + '.rg-tbl th{background:#0e6e5e;color:#fff;padding:5px 8px;text-align:left}'
+    + '.rg-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}'
+    + '.rg-tbl tr:nth-child(even) td{background:var(--sur2)}'
+    + '.rg-ok{background:#e8f5f2;border:1px solid #0e6e5e;border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
+    + '.rg-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
+    + '.rg-alert{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
+    + '.rg-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700}'
+    + '.rg-mhlw{background:#e8f5f2;color:#0e6e5e;border:1px solid #0e6e5e}'
+    + '.rg-ppc{background:#eef2fc;color:var(--ac);border:1px solid var(--ac)}'
+    + '.rg-meti{background:var(--or-bg);color:var(--or);border:1px solid var(--or)}'
+    + '</style>';
+  var S = SS;
+
+  S += '<div class="rg-warn">⚠️ このページは公開情報を基に作成した参考資料です。法的判断が必要な場合は必ず原典・専門家に確認してください。</div>';
+
+  /* ===== 概要 ===== */
+  S += '<div class="rg-h1">患者情報漏洩防止に関する省庁ガイドライン</div>';
+  S += '<div class="rg-p">医療機関における患者情報の取り扱いは、主に以下の「3省2ガイドライン」と個人情報保護法ガイダンスによって規律されています。</div>';
+  S += '<table class="rg-tbl"><tr><th>通称</th><th>発行省庁</th><th>最新版</th><th>対象</th></tr>';
+  [
+    ['医療情報システム安全管理GL','厚生労働省','第6.0版（2023年5月）','医療機関'],
+    ['医療情報事業者向け安全管理GL','総務省・経済産業省','第2.0版（2025年3月）','ITベンダー等'],
+    ['医療・介護ガイダンス','個情委・厚生労働省','2024年改正対応版','医療・介護事業者'],
+  ].forEach(function(r){
+    S += '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>';
+  });
+  S += '</table>';
+
+  /* ===== ガイドライン1 ===== */
+  S += '<div class="rg-h1">① 厚生労働省「医療情報システムの安全管理に関するガイドライン 第6.0版」</div>';
+  S += '<div class="rg-src">発行：<span class="rg-badge rg-mhlw">厚生労働省</span>　令和5年（2023年）5月<br>'
+    + '原典：<a href="https://www.mhlw.go.jp/stf/shingi/0000516275_00006.html" target="_blank">https://www.mhlw.go.jp/stf/shingi/0000516275_00006.html</a></div>';
+
+  S += '<div class="rg-h2">構成（4編に再編）</div>';
+  S += '<table class="rg-tbl"><tr><th>編</th><th>対象読者</th><th>主な内容</th></tr>';
+  [
+    ['概説編','全職員','目的・用語定義・ガイドライン全体像'],
+    ['経営管理編','経営層・管理職','リスク管理体制の整備・責任体制の明確化'],
+    ['企画管理編','情報システム担当者','安全管理措置の企画・設計・外部委託管理'],
+    ['システム運用編','IT運用担当者','具体的なシステム設定・アクセス管理・インシデント対応'],
+  ].forEach(function(r){ S += '<tr><td><strong>'+r[0]+'</strong></td><td>'+r[1]+'</td><td>'+r[2]+'</td></tr>'; });
+  S += '</table>';
+
+  S += '<div class="rg-h2">第6.0版の主要改定ポイント</div>';
+  [
+    ['ゼロトラストへの転換','院内ネットワークも「安全」とみなさず、すべてのアクセスを検証する考え方を採用。'],
+    ['クラウド利用時の安全管理','クラウドサービス利用時の責任分界・リスク評価・契約上の確認事項を明記。'],
+    ['オンライン資格確認対応','マイナンバーカードを用いたオンライン資格確認の導入義務化（2023年4月～）に伴うネットワーク機器等の安全管理を追加。'],
+    ['サイバー攻撃対策の強化','ランサムウェア等のサイバー攻撃を想定した対策・BCP（事業継続計画）の策定を要求。'],
+    ['非常時対応計画','インシデント発生時の連絡体制・復旧手順の事前整備を義務付け。'],
+  ].forEach(function(r){
+    S += '<div class="rg-ok"><strong>▶ '+r[0]+'</strong><br><span style="font-size:11px">'+r[1]+'</span></div>';
+  });
+
+  /* ===== ガイドライン2 ===== */
+  S += '<div class="rg-h1">② 個人情報保護委員会・厚生労働省「医療・介護関係事業者における個人情報の適切な取扱いのためのガイダンス」</div>';
+  S += '<div class="rg-src">発行：<span class="rg-badge rg-ppc">個人情報保護委員会</span><span class="rg-badge rg-mhlw" style="margin-left:4px">厚生労働省</span>　2024年改正対応版<br>'
+    + '原典：<a href="https://www.ppc.go.jp/personalinfo/legal/iryoukaigo_guidance/" target="_blank">https://www.ppc.go.jp/personalinfo/legal/iryoukaigo_guidance/</a></div>';
+
+  S += '<div class="rg-h2">患者情報 = 要配慮個人情報</div>';
+  S += '<div class="rg-p">病歴・診療情報・処方情報・健康診断結果などは「<strong>要配慮個人情報</strong>」に該当し、通常の個人情報より厳格な取り扱いが義務付けられます。本人の同意なしに取得・第三者提供することは原則禁止です。</div>';
+
+  S += '<div class="rg-h2">漏洩発生時の報告・通知義務（2022年4月～）</div>';
+  S += '<table class="rg-tbl"><tr><th>報告先</th><th>義務が発生するケース</th><th>期限</th></tr>';
+  [
+    ['個人情報保護委員会','要配慮個人情報が含まれる漏洩','速報：3〜5日以内 / 確報：30日以内'],
+    ['個人情報保護委員会','漏洩した個人データの本人数が1,000人超','同上'],
+    ['本人（患者）','上記に該当する場合','速やかに'],
+  ].forEach(function(r){ S += '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td></tr>'; });
+  S += '</table>';
+  S += '<div class="rg-alert">🚨 患者情報の漏洩が発生した場合、院内だけで処理することは不可。個人情報保護委員会への報告は法的義務です。</div>';
+
+  /* ===== ガイドライン3 ===== */
+  S += '<div class="rg-h1">③ 総務省・経済産業省「医療情報を取り扱う情報システム・サービスの提供事業者における安全管理ガイドライン 第2.0版」</div>';
+  S += '<div class="rg-src">発行：<span class="rg-badge rg-meti">総務省</span><span class="rg-badge rg-meti" style="margin-left:4px">経済産業省</span>　令和7年（2025年）3月改定<br>'
+    + '原典（経産省）：<a href="https://www.meti.go.jp/policy/mono_info_service/healthcare/teikyoujigyousyagl.html" target="_blank">https://www.meti.go.jp/policy/mono_info_service/healthcare/teikyoujigyousyagl.html</a><br>'
+    + '原典（総務省）：<a href="https://www.soumu.go.jp/menu_news/s-news/01ryutsu06_02000427.html" target="_blank">https://www.soumu.go.jp/menu_news/s-news/01ryutsu06_02000427.html</a></div>';
+  S += '<div class="rg-p">主にクラウドサービスなど医療情報システムを提供する<strong>ITベンダー・事業者向け</strong>のガイドラインです。医療機関は、このガイドラインに準拠したサービスを選定・契約することが求められます。</div>';
+  S += '<div class="rg-h2">医療機関側のポイント</div>';
+  [
+    'クラウドサービス選定時は本ガイドライン準拠を確認する',
+    'ベンダーとのSLA（サービスレベル合意書）を締結し責任分界を明確にする',
+    '医療情報の保存場所・アクセス権限・バックアップ方法を契約書で確認する',
+  ].forEach(function(t){ S += '<div class="rg-ok">✅ '+t+'</div>'; });
+
+  /* ===== 罰則・リスク ===== */
+  S += '<div class="rg-h1">④ 違反した場合のリスク</div>';
+  S += '<table class="rg-tbl"><tr><th>種別</th><th>内容</th></tr>';
+  [
+    ['刑事罰（個人情報保護法）','不正な利益目的での情報持ち出し：1年以下の懲役または50万円以下の罰金。元従業員も対象。'],
+    ['行政処分','個人情報保護委員会からの勧告・命令。命令違反は1年以下の懲役または100万円以下の罰金。'],
+    ['民事賠償','患者・遺族からの損害賠償請求。精神的苦痛に対する慰謝料請求も認められる場合あり。'],
+    ['刑法上の守秘義務違反','医師・看護師等の「正当な理由のない秘密漏示」は刑法134条違反（6ヶ月以下の懲役または10万円以下の罰金）。'],
+    ['信用・風評被害','報道・SNS拡散による患者離れ・職員採用への悪影響。'],
+  ].forEach(function(r){ S += '<tr><td><strong>'+r[0]+'</strong></td><td>'+r[1]+'</td></tr>'; });
+  S += '</table>';
+
+  /* ===== このアプリとの関係 ===== */
+  S += '<div class="rg-h1">⑤ このアプリ（CEnote）における対応</div>';
+  S += '<div class="rg-p">CEnoteは院内業務連絡ツールとして患者情報を直接管理するシステムではありませんが、申し送り欄に患者情報が記載されるリスクがあります。以下の機能で対応しています。</div>';
+  S += '<table class="rg-tbl"><tr><th>リスク</th><th>CEnoteでの対応</th></tr>';
+  [
+    ['申し送りへの患者情報記載','PHI検知機能：患者氏名・ID・病状等のパターンを検知し投稿前に警告を表示'],
+    ['権限のないユーザーによるアクセス','Firebase Email/Password認証＋ロック機能による機能制限'],
+    ['退職者のアカウント残存','管理者設定パネルからアカウント削除・管理者権限の取り消しが可能'],
+    ['操作の証跡','操作ログをFirebase /logs/ に記録（管理者のみ閲覧可）'],
+  ].forEach(function(r){ S += '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>'; });
+  S += '</table>';
+  S += '<div class="rg-warn">⚠️ 申し送り欄には患者氏名・ID・生年月日・病名・投薬内容など個人が特定できる情報を記載しないでください。</div>';
+
+  S += '<div style="font-size:10px;color:var(--txt3);margin-top:16px;line-height:1.7">'
+    + '本資料は以下の公開情報を基に作成しました（最終確認：2025年）<br>'
+    + '・厚生労働省「医療情報システムの安全管理に関するガイドライン 第6.0版」（2023年5月）<br>'
+    + '・個人情報保護委員会・厚生労働省「医療・介護関係事業者における個人情報の適切な取扱いのためのガイダンス」<br>'
+    + '・総務省・経済産業省「医療情報を取り扱う情報システム・サービスの提供事業者における安全管理ガイドライン 第2.0版」（2025年3月）<br>'
+    + '・個人情報保護法（令和4年4月施行改正版）</div>';
+
+  el.innerHTML = S;
 }
 
 /* ===== 引き継ぎ資料（開発者向け） ===== */
@@ -6800,8 +6941,8 @@ function exportAtCsv() {
 
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
-  var tabs=['cal','assign','guide','staff','master','lock','logs','spec','manual','adminm','dev'];
-  var docsTabs=['spec','manual','adminm','dev'];
+  var tabs=['cal','assign','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
+  var docsTabs=['spec','manual','adminm','dev','regs'];
   for(var i=0;i<tabs.length;i++){
     var id=tabs[i];
     var tb=document.getElementById('tab-'+id); if(tb) tb.classList.toggle('on',id===t);
@@ -6852,6 +6993,7 @@ function swTab(t) {
   if(t==='manual') { renderManual(); }
   if(t==='adminm') { renderAdminManual(); renderAdminUsers(); }
   if(t==='dev') { renderDev(); }
+  if(t==='regs') { renderRegs(); }
 }
 function toggleDocsMenu(){
   var menu=document.getElementById('docs-submenu');
