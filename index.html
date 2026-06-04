@@ -318,12 +318,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 @media print{
   body{background:#fff!important;font-size:10px}
   .tb,.atnav .btn,.ov{display:none!important}
-  .ab{display:block!important;margin-top:0!important;height:auto!important}
-  .main{display:none!important}
-  /* pane-assignはsb内に移動したため、sbは残しつつ担当表paneのみ表示 */
-  .sb{display:block!important;position:static!important;width:auto!important;min-width:0!important;height:auto!important;border:none!important;overflow:visible!important;transform:none!important}
-  .sb>*{display:none!important}
-  #pane-assign{display:block!important;flex:none!important;overflow:visible!important}
+  /* 担当表の印刷（🖨️ボタン）時のみレイアウトを切替。通常のCtrl+Pでは既定のまま。
+     pane-assignはsb内に移動したため、sbは残しつつ担当表paneのみ表示する。
+     position:static で上書きしないとスマホ(position:fixed)では1画面分しか印刷されない */
+  body.printing-at .ab{display:block!important;margin-top:0!important;height:auto!important}
+  body.printing-at .main{display:none!important}
+  body.printing-at .sb{display:block!important;position:static!important;width:auto!important;min-width:0!important;height:auto!important;border:none!important;overflow:visible!important;transform:none!important}
+  body.printing-at .sb>*{display:none!important}
+  body.printing-at #pane-assign{display:block!important;position:static!important;top:auto!important;bottom:auto!important;height:auto!important;flex:none!important;overflow:visible!important}
   .atw{display:block!important;padding:0!important;overflow:visible!important}
   .ato{overflow:visible!important;box-shadow:none!important;border:1px solid #ccc!important;border-radius:0!important}
   .at{font-size:8px!important}
@@ -348,7 +350,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .sb.hm{transform:translateX(-100%)}
   /* スマホではpane-assign/pane-schedをfixedで全画面表示（sbと同様） */
   #pane-assign,#pane-sched{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
-  #pane-assign.hd-sp,#pane-sched.hd-sp{display:none!important}
   .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
@@ -5152,10 +5153,19 @@ function openPage(ds) {
   var ps=document.getElementById('pane-sched');
   if(ps && ps.style.display!=='none') renderSched();
   /* スマホでは日付選択後にサイドバーを閉じて連絡表を見せる */
-  if(window.innerWidth<768 && sbOpen){
-    sbOpen=false;
-    var sb=document.getElementById('sb');
-    if(sb) sb.classList.add('hm');
+  if(window.innerWidth<=768){
+    /* 担当表/スケジュールの全画面paneが表示中なら、まず正規に閉じてmainを表示する。
+       これらはsb内のfixed要素なので、直接.hmを付けるとtransformで巻き込まれ画面が真っ白になる */
+    var ap=document.getElementById('pane-assign');
+    var sp=document.getElementById('pane-sched');
+    if((ap&&ap.style.display==='flex')||(sp&&sp.style.display==='flex')){
+      swTab('cal'); /* paneを隠し#mainを表示・タブもcalに */
+    }
+    if(sbOpen){
+      sbOpen=false;
+      var sb=document.getElementById('sb');
+      if(sb) sb.classList.add('hm');
+    }
   }
 }
 
@@ -7719,7 +7729,17 @@ function renderAT() {
   for(var i=0;i<rows.length;i++){(function(row){var ds=row.getAttribute('data-ds');row.onclick=function(){openFromAT(ds);};})(rows[i]);}
 }
 function openFromAT(ds){swTab('cal');var pt=ds.split('-');calY=parseInt(pt[0]);calM=parseInt(pt[1])-1;openPage(ds);}
-function printAt(){document.getElementById('ph').textContent='分院CE連絡表　担当一覧　'+asY+'年'+(asM+1)+'月';renderAT();setTimeout(function(){window.print();},150);}
+function printAt(){
+  document.getElementById('ph').textContent='分院CE連絡表　担当一覧　'+asY+'年'+(asM+1)+'月';
+  swSubTab('at'); /* 印刷対象は担当表サブタブに固定（他サブタブ表示中でも正しく印刷） */
+  renderAT();
+  document.body.classList.add('printing-at');
+  setTimeout(function(){
+    window.print();
+    document.body.classList.remove('printing-at');
+  },150);
+}
+window.addEventListener('afterprint',function(){ document.body.classList.remove('printing-at'); });
 
 function exportAtCsv() {
   var days=new Date(asY,asM+1,0).getDate(), adates=[];
@@ -8086,7 +8106,7 @@ function swTab(t) {
     var id=tabs[i];
     var tb=document.getElementById('tab-'+id); if(tb) tb.classList.toggle('on',id===t);
     var pn=document.getElementById('pane-'+id);
-    if(pn){ pn.style.display=id===t?'flex':'none'; pn.classList.remove('hd-sp'); }
+    if(pn){ pn.style.display=id===t?'flex':'none'; }
   }
   /* 担当表・スケジュールのスマホ用「← 戻る」ボタン（スマホで該当タブ表示中のみ） */
   ['assign','sched'].forEach(function(id){
@@ -8102,10 +8122,13 @@ function swTab(t) {
   /* スマホ：担当表・スケジュールはfixed全画面paneがサイドバーを覆う。
      paneはsb内にあるため.hmのtransformで巻き込まれないようhmは付けない（覆うだけ）。
      それ以外のタブはサイドバーを再表示 */
-  if(isSP && (t==='assign'||t==='sched')){
+  if(!isSP){
+    /* PCでは.hm（width:0!important）が残っていると全幅コンテンツpaneが消えるため必ず解除 */
+    if(sb2) sb2.classList.remove('hm');
+  } else if(t==='assign'||t==='sched'){
     if(sb2){ sb2.classList.remove('hm'); }
     sbOpen=true;
-  } else if(isSP && sb2 && !sbOpen){
+  } else if(sb2 && !sbOpen){
     sb2.classList.remove('hm');
     sbOpen=true;
   }
@@ -8153,7 +8176,7 @@ function pad(n){return n<10?'0'+n:''+n;}
 function fmtJ(ds){var p=ds.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日';}
 
 document.addEventListener('click',function(e){
-  if(window.innerWidth<768&&sbOpen){
+  if(window.innerWidth<=768&&sbOpen){
     /* 担当表/スケジュールが全画面表示中はサイドバーを.hmで隠さない
        （paneはsb内のfixed要素なので、.hmのtransformで一緒に消えてしまうため） */
     var ap=document.getElementById('pane-assign');
