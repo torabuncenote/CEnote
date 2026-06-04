@@ -919,6 +919,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
               📤 バックアップから復元
               <input type="file" accept=".json" style="display:none" onchange="importBackup(this.files[0]);this.value=''">
             </label>
+            <button class="btn btn-g btn-sm" onclick="restoreFromLocalStorage()">🔁 ローカルデータをFirebaseへ再同期</button>
           </div>
           <div id="backup-status" style="margin-top:8px;font-size:11px;color:var(--txt3)"></div>
         </div>
@@ -7974,6 +7975,34 @@ document.addEventListener('click',function(e){
 });
 
 /* ===== バックアップ（エクスポート / インポート） ===== */
+function restoreFromLocalStorage() {
+  try {
+    var raw = localStorage.getItem('ce2');
+    if (!raw) { alert('localStorageにデータが見つかりません。'); return; }
+    var data = JSON.parse(raw);
+    if (!data.pages || !Array.isArray(data.stf)) { alert('有効なCEnoteデータではありません。'); return; }
+    var pageCount = Object.keys(data.pages).length;
+    if (!confirm('ローカルストレージのデータをFirebaseへ再同期しますか？\n\n'
+               + '連絡表: ' + pageCount + 'ページ\nスタッフ: ' + data.stf.length + '名\n\n'
+               + '⚠️ Firebaseの現在のデータが上書きされます。')) return;
+    autoSaveSnapshot('Firebase再同期前');
+    ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
+     'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+     'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+      if (data[k] !== undefined) D[k] = data[k];
+    });
+    saveD();
+    if(FB_ON) writeLog('localStorageからFirebaseへ再同期', pageCount+'ページ');
+    renderCal(); safeRenderPage();
+    renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
+    renderOpeList(); renderCathList(); renderLockList(); renderAT();
+    var el = document.getElementById('backup-status');
+    if (el) el.textContent = '✅ 再同期しました（' + pageCount + 'ページ・スタッフ' + data.stf.length + '名）';
+  } catch(e) {
+    alert('エラー: ' + e.message);
+  }
+}
+
 function autoSaveSnapshot(label) {
   if (window.innerWidth <= 768) return; /* スマホはストレージ節約のためスキップ */
   try {
