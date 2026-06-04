@@ -8323,6 +8323,9 @@ document.addEventListener('click',function(e){
     /* renderTree等でクリック中にDOMが再構築されるとe.targetがdetachされる。
        その場合はサイドバーの外クリックとみなさない */
     if(!document.contains(e.target)) return;
+    /* モーダルオーバーレイ内のクリック（保存・キャンセル等）でサイドバーが閉じないようにする。
+       .ov は sidebar外のグローバル要素なので contains チェックでは拾えない */
+    var el=e.target; while(el){if(el.classList&&el.classList.contains('ov'))return; el=el.parentElement;}
     var s=document.getElementById('sb'),h=document.getElementById('hbg');
     if(s&&h&&!s.contains(e.target)&&!h.contains(e.target)){sbOpen=false;s.classList.add('hm');}
   }
