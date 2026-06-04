@@ -1441,6 +1441,26 @@ function fbInit() {
     fbST = firebase.storage();
     setSyncLbl('接続中...');
 
+    /* ===== 接続状態モニタ ===== */
+    fbDB.ref('.info/connected').on('value', function(snap) {
+      var wasConn = _fbConnected;
+      _fbConnected = !!snap.val();
+      if (_fbConnected) {
+        if (!_fbEverConn) { _fbEverConn = true; return; } /* 初回接続はAuth側のラベルに委ねる */
+        if (!wasConn) {
+          /* 切断から復帰 */
+          setSyncLbl(_savePending || _saveWriting ? '保存中...' : '同期済');
+          if (_saveQueued && !_saveWriting) {
+            var qd = _saveQueued; _saveQueued = null;
+            _doFbWrite(qd, 0);
+          }
+        }
+      } else if (_fbEverConn) {
+        /* 確立済みの接続が切れた */
+        setSyncLbl('オフライン（ローカル保存中）');
+      }
+    });
+
     /* ===== Auth状態監視 ===== */
     var dataListenerOn = false; /* /dataリスナーは一度だけ設定 */
 
@@ -1551,8 +1571,8 @@ function fbInit() {
             var isEditingInPage = focused &&
               (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT') &&
               mainEl && mainEl.contains(focused);
-            /* saveD()後0.8秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
-            var justSaved = (Date.now() - _savingTs) < 800;
+            /* saveD()後2秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
+            var justSaved = (Date.now() - _savingTs) < 2000;
             if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
               renderPage(curDs);
             }
@@ -2054,10 +2074,12 @@ function setSyncLbl(text) {
   var dot = document.getElementById('sync-dot');
   if (el)  el.textContent = text;
   if (!dot) return;
-  if (text === '同期済')     dot.style.background = '#22c55e';
-  else if (text === '接続中...') dot.style.background = '#f59e0b';
-  else if (text.includes('エラー')) dot.style.background = '#c0392b';
-  else                               dot.style.background = '#a8a49e';
+  if (text === '同期済')                   dot.style.background = '#22c55e';
+  else if (text === '接続中...')            dot.style.background = '#f59e0b';
+  else if (text.startsWith('再試行中'))     dot.style.background = '#f59e0b';
+  else if (text.startsWith('オフライン'))   dot.style.background = '#f59e0b';
+  else if (text.includes('エラー'))         dot.style.background = '#c0392b';
+  else                                      dot.style.background = '#a8a49e';
 }
 
 /* ===== 操作ログ ===== */
@@ -3908,34 +3930,63 @@ function sanitizeManualKeys() {
 }
 
 var _savePending = false; /* 未保存変更フラグ（beforeunload用） */
+var _saveWriting = false; /* Firebase write in-flight */
+var _saveQueued  = null;  /* 直近のDスナップショット（write完了後に送る） */
+var _fbConnected = false; /* .info/connected 状態 */
+var _fbEverConn  = false; /* 初回接続済みフラグ */
 
 function saveD() {
   /* D.manualのキーにFirebase禁止文字があると全体が失敗するため事前に修正 */
   sanitizeManualKeys();
   /* localStorage には常に書く（Firebase失敗時のフォールバック兼オフライン対応） */
   try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
-  if (FB_ON && fbDB) {
-    _savePending = true;
-    setSyncLbl('保存中...');
-    _savingTs = Date.now(); /* 保存中フラグ：リスナーからの再描画を一時抑制 */
-    fbDB.ref('/data').set(D)
-      .then(function(){ _savePending = false; setSyncLbl('同期済'); })
-      .catch(function(error){
-        _savePending = false;
-        console.error('Firebase同期エラー:', error.code, error.message);
-        /* エラー内容をわかりやすく日本語化 */
-        var msg = error.code === 'PERMISSION_DENIED' ? 'セキュリティルール拒否'
-                : error.code === 'NETWORK_ERROR'     ? 'ネットワーク切断'
-                : (error.message || error.code);
-        setSyncLbl('同期エラー: ' + msg + '（ローカル保存済）');
-        writeLog('同期エラー発生', error.code + ': ' + error.message);
-      });
+  if (!FB_ON || !fbDB) return;
+  _savePending = true;
+  var snap = JSON.parse(JSON.stringify(D)); /* 現時点のスナップショット */
+  if (_saveWriting) {
+    _saveQueued = snap; /* 書き込み中は最新データをキューに積む（コアレス） */
+    return;
   }
+  _doFbWrite(snap, 0);
+}
+
+/* リトライ付きFirebase書き込み（最大4回: 2s/4s/8s/16s） */
+function _doFbWrite(data, attempt) {
+  _saveWriting = true;
+  setSyncLbl(attempt > 0 ? '再試行中... (' + attempt + '/4)' : '保存中...');
+  _savingTs = Date.now();
+  fbDB.ref('/data').set(data)
+    .then(function() {
+      _saveWriting = false;
+      _savePending = false;
+      setSyncLbl('同期済');
+      _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長 */
+      if (_saveQueued) {
+        var nxt = _saveQueued; _saveQueued = null;
+        _doFbWrite(nxt, 0);
+      }
+    })
+    .catch(function(err) {
+      var canRetry = err.code !== 'PERMISSION_DENIED' && attempt < 4;
+      if (canRetry) {
+        var delay = [2000, 4000, 8000, 16000][attempt];
+        setTimeout(function() { _doFbWrite(data, attempt + 1); }, delay);
+      } else {
+        _saveWriting = false;
+        _savePending = false;
+        console.error('saveD失敗:', err.code, err.message);
+        var msg = err.code === 'PERMISSION_DENIED' ? 'セキュリティルール拒否'
+                : (err.message || err.code || '不明');
+        setSyncLbl('同期エラー: ' + msg + '（ローカル保存済）');
+        writeLog('同期エラー発生', (err.code || '') + ': ' + (err.message || ''));
+        _saveQueued = null;
+      }
+    });
 }
 
 /* 未保存変更がある状態でタブを閉じようとしたとき警告 */
 window.addEventListener('beforeunload', function(e) {
-  if (_savePending) { e.preventDefault(); e.returnValue = ''; }
+  if (_savePending || _saveWriting) { e.preventDefault(); e.returnValue = ''; }
 });
 
 /* ===== LOCK ===== */
