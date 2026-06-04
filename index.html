@@ -317,9 +317,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ph{display:none}
 @media print{
   body{background:#fff!important;font-size:10px}
-  .tb,.sb,.atnav .btn,.ov{display:none!important}
-  .ab{display:block!important;margin-top:0!important;height:auto!important}
-  .main{display:none!important}
+  .tb,.atnav .btn,.ov{display:none!important}
+  /* 担当表の印刷（🖨️ボタン）時のみレイアウトを切替。通常のCtrl+Pでは既定のまま。
+     pane-assignはsb内に移動したため、sbは残しつつ担当表paneのみ表示する。
+     position:static で上書きしないとスマホ(position:fixed)では1画面分しか印刷されない */
+  body.printing-at .ab{display:block!important;margin-top:0!important;height:auto!important}
+  body.printing-at .main{display:none!important}
+  body.printing-at .sb{display:block!important;position:static!important;width:auto!important;min-width:0!important;height:auto!important;border:none!important;overflow:visible!important;transform:none!important}
+  body.printing-at .sb>*{display:none!important}
+  body.printing-at #pane-assign{display:block!important;position:static!important;top:auto!important;bottom:auto!important;height:auto!important;flex:none!important;overflow:visible!important}
   .atw{display:block!important;padding:0!important;overflow:visible!important}
   .ato{overflow:visible!important;box-shadow:none!important;border:1px solid #ccc!important;border-radius:0!important}
   .at{font-size:8px!important}
@@ -344,7 +350,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .sb.hm{transform:translateX(-100%)}
   /* スマホではpane-assign/pane-schedをfixedで全画面表示（sbと同様） */
   #pane-assign,#pane-sched{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
-  #pane-assign.hd-sp,#pane-sched.hd-sp{display:none!important}
   .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
@@ -937,11 +942,19 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <div class="sp" style="padding-bottom:40px">
         <div class="pt" style="margin-bottom:12px">🔑 管理者設定</div>
         <div id="adminm-users" style="margin-bottom:18px"></div>
-        <div class="pt" style="margin-bottom:12px">💾 データバックアップ</div>
+        <div class="pt" style="margin-bottom:12px">💾 バックアップ（3つの安全網）</div>
+        <div style="background:var(--ac-bg);border:1px solid var(--ac);border-radius:var(--rs);padding:12px 16px;margin-bottom:12px;font-size:12px;color:var(--txt2);line-height:1.8">
+          バックアップは目的別に3層あります。<br>
+          ① <strong>☁️ クラウド（自動）</strong>…毎日Firebaseへ。どの端末からでも復元可（直近7日）<br>
+          ② <strong>🔄 PCローカル（自動）</strong>…この端末に自動保存。Firebase障害時の保険（直近5件）<br>
+          ③ <strong>💾 手動JSON</strong>…PCにファイル保存。<strong>長期保管（1年分など）の正本</strong>はこれ<br>
+          <span style="color:var(--txt3)">💡 1年分残したい場合は、毎月1回 手動JSONをダウンロードしてPC/共有ドライブに保管してください。クラウド・PCローカルは直近のみの短期保険です（容量上限のため長期保持はできません）。</span>
+        </div>
+        <div class="pt" style="margin-bottom:12px">💾 手動バックアップ（長期保管用）</div>
         <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
           <div style="font-size:12px;color:var(--txt2);margin-bottom:12px;line-height:1.7">
             全データ（連絡表・スタッフ・設定）をJSONファイルとして保存します。<br>
-            Firebase障害・誤操作時の復元に使用できます。定期的な取得を推奨します。
+            月1回ダウンロードしてPC等に保管すれば、1年分以上の長期アーカイブになります。
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:8px">
             <button class="btn btn-p btn-sm" onclick="exportBackup()">📥 バックアップをダウンロード</button>
@@ -949,24 +962,23 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
               📤 バックアップから復元
               <input type="file" accept=".json" style="display:none" onchange="importBackup(this.files[0]);this.value=''">
             </label>
-            <button class="btn btn-g btn-sm" onclick="restoreFromLocalStorage()">🔁 ローカルデータをFirebaseへ再同期</button>
           </div>
           <div id="backup-status" style="margin-top:8px;font-size:11px;color:var(--txt3)"></div>
         </div>
-        <div class="pt" style="margin-bottom:12px">🔄 自動バックアップ（ローカル保存・直近5件）</div>
+        <div class="pt" style="margin-bottom:12px">🔄 PCローカル自動バックアップ（直近5件）</div>
         <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
           <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">
-            起動時・30分ごと・削除・シフト取込・手動復元の直前に自動保存されます。<br>
-            端末のローカルストレージに保存されるため、Firebase障害時も復元できます。
+            起動時・30分ごと・削除・シフト取込・復元の直前に、この端末へ自動保存されます（短期の保険）。<br>
+            この端末のブラウザにのみ保存されるため、Firebase障害時もこのPCから復元できます。
           </div>
           <div id="auto-backup-list" style="margin-bottom:8px"></div>
           <div id="auto-backup-status" style="font-size:11px;color:var(--txt3)"></div>
         </div>
-        <div class="pt" style="margin-bottom:12px">☁️ Firebaseスナップショット（直近7日）</div>
+        <div class="pt" style="margin-bottom:12px">☁️ Firebaseスナップショット（クラウド・直近7日）</div>
         <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
           <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">
             毎日1回Firebaseへ自動保存。直近7日分を保持します。<br>
-            端末・ブラウザを問わずどこからでも復元できます。
+            端末・ブラウザを問わずどこからでも復元できる、日常の主な安全網です。
           </div>
           <div id="fb-snap-list" style="margin-bottom:8px"></div>
           <div id="fb-snap-status" style="font-size:11px;color:var(--txt3)"></div>
@@ -996,9 +1008,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       </div>
     </div>
 
-  </div><!-- /sb -->
-
-  <!-- 担当表パネル（PCでは.ab直下に横並び、スマホではfixed全画面表示） -->
+  <!-- 担当表パネル（PC: サイドバー全幅拡張でメインエリア表示 / スマホ: fixed全画面表示） -->
   <div id="pane-assign" style="display:none;flex:1;overflow-y:auto">
     <div class="atw">
       <!-- スマホ用「← 戻る」ボタン -->
@@ -1060,6 +1070,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <div id="sched-body"></div>
     </div>
   </div>
+
+  </div><!-- /sb -->
 
   <!-- メイン -->
   <div class="main" id="main">
@@ -1192,6 +1204,35 @@ var WDL = ['日','月','火','水','木','金','土'];
 var WDF = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
 var AUTO_BK_KEY = 'ce2_autobk';
 var AUTO_BK_MAX = 5;
+/* 各資料で共有する最新のFirebase Realtime Databaseセキュリティルール（掲示板・バックアップ・ユーザー管理対応） */
+var LATEST_DB_RULES = [
+'{',
+'  "rules": {',
+'    "data":        { ".read": "auth != null", ".write": "auth != null" },',
+'    "board": {',
+'      ".read": "auth != null",',
+'      "$postId": {',
+'        ".write": "auth != null && (!data.exists() || data.child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)",',
+'        "replies": {',
+'          "$replyId": { ".write": "auth != null && (!data.exists() || data.child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)" }',
+'        }',
+'      }',
+'    },',
+'    "backups":     { ".read": "root.child(\'admins\').child(auth.uid).val() === true", "$date": { ".write": "auth != null" } },',
+'    "backup_meta": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", "$date": { ".write": "auth != null" } },',
+'    "logs": {',
+'      ".read": "auth != null",',
+'      "$logId": { ".write": "auth != null && (!data.exists() || root.child(\'admins\').child(auth.uid).val() === true)" }',
+'    },',
+'    "admins": { ".read": "auth != null", "$uid": { ".write": "root.child(\'admins\').child(auth.uid).val() === true" } },',
+'    "users":  { ".read": "auth != null", "$uid": { ".write": "auth.uid === $uid || root.child(\'admins\').child(auth.uid).val() === true" } },',
+'    "userPerms": {',
+'      ".read": "root.child(\'admins\').child(auth.uid).val() === true",',
+'      "$uid": { ".read": "auth.uid === $uid", ".write": "root.child(\'admins\').child(auth.uid).val() === true" }',
+'    }',
+'  }',
+'}'
+].join('\n');
 /* ===== EVENTS ===== */
 // D.evts = { 'YYYY-MM': { 1:['イベント名',...], ... } }
 // ページ個別イベントは D.pages[ds].events = ['...'] で保持
@@ -2040,7 +2081,7 @@ function renderSpec() {
   var S = '<style>.spec-h1{font-size:17px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:6px;margin:20px 0 10px}.spec-h2{font-size:14px;font-weight:800;color:var(--txt);margin:16px 0 6px;padding:4px 0 4px 10px;border-left:4px solid var(--ac)}.spec-h3{font-size:12px;font-weight:700;color:var(--txt2);margin:10px 0 4px}.spec-p{font-size:12px;color:var(--txt);line-height:1.8;margin:0 0 6px}.spec-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.spec-tbl th{background:var(--ac);color:#fff;padding:5px 8px;text-align:left}.spec-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}.spec-tbl tr:nth-child(even) td{background:var(--sur2)}.spec-badge{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700}.spec-admin{background:var(--gd-bg);color:var(--gd);border:1px solid var(--gd-bdr)}.spec-user{background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac)}.spec-box{background:var(--sur2);border:1px solid var(--bdr);border-radius:6px;padding:8px 12px;margin:6px 0;font-size:12px}.spec-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px;margin:6px 0;font-size:12px}</style>';
 
   S += '<div class="spec-h1">分院CE連絡表　システム仕様書</div>';
-  S += '<div class="spec-p">バージョン：2026年5月　作成：CE部門内製</div>';
+  S += '<div class="spec-p">バージョン：2026年6月　作成：CE部門内製</div>';
 
   // 1. システム概要
   S += '<div class="spec-h1">1. システム概要</div>';
@@ -2059,24 +2100,44 @@ function renderSpec() {
   S += '<table class="spec-tbl"><tr><th>機能</th><th><span class="spec-badge spec-admin">👑 管理者</span></th><th><span class="spec-badge spec-user">👤 一般</span></th></tr>';
   [['連絡表の閲覧・担当割り当て','✅','✅'],['チェックリスト操作','✅','✅（ロック時不可）'],
    ['申し送り投稿','✅','✅（ロック時不可）'],['申し送り削除','✅ 全員分','✅ 自分のみ'],
+   ['掲示板の投稿・返信','✅','✅'],['掲示板の削除','✅ 全員分','✅ 自分のみ'],
+   ['スケジュール（タイムテーブル）','✅','✅（duty非ロック時）'],
    ['連絡表の生成・削除','✅','❌'],['スタッフ・業務マスタ編集','✅','❌'],
    ['ロック設定変更','✅','❌'],['操作ログ閲覧','✅','❌'],
    ['自動削除設定','✅','❌'],['Excelから勤務表インポート','✅','✅'],
+   ['ユーザー管理・権限付与（アプリ内）','✅','❌'],['データバックアップ・復元','✅','❌'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td style="text-align:center">'+r[1]+'</td><td style="text-align:center">'+r[2]+'</td></tr>';});
   S += '</table>';
-  S += '<div class="spec-box">管理者の設定：Firebase Console → Realtime Database → /admins/{uid}: true を追加</div>';
+  S += '<div class="spec-box">管理者の設定：Firebase Console → Realtime Database → /admins/{uid}: true を追加。または既存管理者が「🔑 管理者設定」タブの「管理者にする」ボタンでアプリ内から付与可能。</div>';
 
   // 3. サイドバータブ
   S += '<div class="spec-h1">3. サイドバー機能</div>';
   S += '<table class="spec-tbl"><tr><th>タブ</th><th>権限</th><th>機能</th></tr>';
   [['📅 予定','全員','カレンダー表示。日付クリックで連絡表を開く/作成。🔴未完了・🔵完了ドット'],
-   ['📊 担当表','全員','縦:日付/横:スタッフ の担当マトリックス表。印刷ボタン付き'],
+   ['📊 担当表','全員','縦:日付/横:スタッフ の担当マトリックス表。サブタブで OC集計・業務集計・公平性チェックも表示。CSV出力・印刷ボタン付き'],
+   ['⏰ スケジュール','全員','当日の勤務者ごとのタイムテーブル（8:00–21:00）。プリセットブロックをドラッグ配置（duty非ロック時のみ編集可）'],
+   ['📢 掲示板','全員','部門内のお知らせ・連絡板。全員が投稿・返信可、自分の投稿は自分で削除（管理者は全員分）。未読バッジ表示'],
+   ['📘 使い方','全員','スタッフ向けクイックガイド'],
    ['👥 スタッフ','管理者','スタッフ一覧・PHS番号の追加/削除/並び替え、勤務表Excelインポート'],
-   ['📋 業務','管理者','共通業務・曜日別業務・オペ/カテ術式の選択肢マスタ管理'],
+   ['📋 業務','管理者','共通業務・曜日別業務・オペ/カテ術式・担当枠・スケジュールプリセットのマスタ管理'],
    ['🔒 ロック','管理者','項目ごとにロック設定、PHS表示ON/OFF、自動削除設定'],
    ['📋 ログ','管理者','操作ログ最新100件を表示'],
-   ['📖 仕様書','管理者','本ドキュメント'],
+   ['📚 資料','管理者','仕様書・マニュアル・管理者設定・引き継ぎ・法令GL（サブメニュー）'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td><span class="spec-badge '+(r[1]==='全員'?'spec-user':'spec-admin')+'">'+r[1]+'</span></td><td>'+r[2]+'</td></tr>';});
+  S += '</table>';
+  S += '<div class="spec-box">💻 PCでは、サイドバーのタブを選ぶと内容がメインエリア全幅に広がって表示されます（担当表・スケジュール・掲示板・各資料を含む）。スマホでは全画面表示＋「← 戻る」。</div>';
+
+  // 3-2. 追加機能（掲示板・スケジュール・集計）
+  S += '<div class="spec-h1">3-2. 追加機能の詳細</div>';
+  S += '<div class="spec-h2">📢 掲示板</div>';
+  S += '<div class="spec-p">連絡表とは独立した部門内の掲示板。Firebase <code>/board</code> に保存（連絡表データ <code>/data</code> とは別系統）。全員が投稿・返信でき、自分の投稿は自分で削除、管理者は全員分を削除・ピン留め可。未読の投稿数はタブに赤バッジで表示され、開くと既読になります（既読時刻は端末の localStorage <code>ce2_boardread</code> に保持）。</div>';
+  S += '<div class="spec-h2">⏰ スケジュール（タイムテーブル）</div>';
+  S += '<div class="spec-p">日付ごとに、勤務者を列にした縦型タイムテーブル（8:00〜21:00／15分刻み）。プリセットブロック（業務マスタで編集可）をタップ選択→列タップ、またはドラッグ＆ドロップで配置。ブロックはドラッグで移動／下端ハンドルでリサイズ。<code>D.pages[ds].schedule</code> に保存。担当割り当てから一括取り込みも可能。duty がロックされている場合、一般ユーザーは閲覧のみ。</div>';
+  S += '<div class="spec-h2">📞 OC集計 / 📈 業務集計 / ⚖️ 公平性（担当表のサブタブ）</div>';
+  S += '<table class="spec-tbl"><tr><th>サブタブ</th><th>内容</th></tr>';
+  S += '<tr><td>OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>';
+  S += '<tr><td>業務集計</td><td>オペ・カテ等の件数を集計</td></tr>';
+  S += '<tr><td>公平性</td><td>スタッフ×担当枠の割当回数マトリックス。列ごとに最多（赤）/最少（青）を強調し、最大−最小が一定（既定3）以上で偏り警告</td></tr>';
   S += '</table>';
 
   // 4. 連絡表
@@ -2143,8 +2204,17 @@ function renderSpec() {
    ['shift','勤務表データ {YYYY-MM: {名前: {日: {shift,oc}}}}'],
    ['evts','イベントデータ {YYYY-MM: {日: [イベント名]}}'],
    ['manual','業務マニュアル {業務名: {text, media:[]}}'],['lk','ロック設定オブジェクト'],
+   ['schedPresets','スケジュールのプリセットブロック [{label,color,dur,custom?}]'],
   ].forEach(function(r){S+='<tr><td><code>'+r[0]+'</code></td><td>'+r[1]+'</td></tr>';});
   S += '</table>';
+  S += '<div class="spec-box">連絡表本体は <code>/data</code>。掲示板は <code>/board</code>、日次スナップショットは <code>/backups</code>・<code>/backup_meta</code>、ユーザー情報は <code>/users</code>・<code>/userPerms</code>、管理者は <code>/admins</code>、操作ログは <code>/logs</code> と、用途ごとに別パスに保存されます。</div>';
+  S += '<div class="spec-h2">バックアップ（3層構成）</div>';
+  S += '<table class="spec-tbl"><tr><th>種別</th><th>保存先</th><th>保持</th><th>用途</th></tr>';
+  S += '<tr><td>☁️ Firebaseスナップショット（自動）</td><td>Firebase <code>/backups/YYYY-MM-DD</code></td><td>直近7日</td><td>日常の主な安全網。どの端末からでも復元可</td></tr>';
+  S += '<tr><td>🔄 PCローカル自動</td><td>localStorage <code>ce2_autobk</code></td><td>直近5件</td><td>Firebase障害時の保険。その端末（PC）でのみ復元可</td></tr>';
+  S += '<tr><td>💾 手動JSON</td><td>PC等のファイル</td><td>無制限（手動管理）</td><td>長期アーカイブの正本。月1回のダウンロードを推奨</td></tr>';
+  S += '</table>';
+  S += '<div class="spec-box">📌 1年分など長期保管が必要な場合は「💾 手動JSON」を定期的にダウンロードして保管してください。クラウド・PCローカルは容量上限のため短期保持のみです。バックアップ機能は「📚 資料 → 🔑 管理者設定」タブから利用します。</div>';
   S += '<div class="spec-h2">ログ（Firebase /logs/）</div>';
   S += '<div class="spec-p">担当割り当て・チェック操作・申し送り・勤務表インポート・連絡表生成/削除を記録。uid・表示名・操作種別・詳細・タイムスタンプを保存。</div>';
   S += '<div class="spec-h2">自動削除</div>';
@@ -2172,7 +2242,8 @@ function renderSpec() {
   S += '<div class="spec-p">index.html 内の FB_CFG の7項目を書き換えるだけで本番同期が有効になります。</div>';
   S += '<div class="spec-box" style="font-family:monospace;white-space:pre">var FB_CFG = {\n  apiKey:            "実際の値",\n  authDomain:        "...",\n  databaseURL:       "...",\n  projectId:         "...",\n  storageBucket:     "...",\n  messagingSenderId: "...",\n  appId:             "..."\n};</div>';
   S += '<div class="spec-h2">Firebase セキュリティルール（Realtime Database）</div>';
-  S += '<div class="spec-box" style="font-family:monospace;white-space:pre">{\n  "rules": {\n    ".read": "auth != null",\n    ".write": "auth != null"\n  }\n}</div>';
+  S += '<div class="spec-p">掲示板・バックアップ・ユーザー管理を含む最新の推奨ルールです。Firebase Console → Realtime Database → ルール に貼り付けて「公開」してください。</div>';
+  S += '<div class="spec-box" style="font-family:monospace;white-space:pre;font-size:10px;overflow-x:auto">' + escH(LATEST_DB_RULES) + '</div>';
   S += '<div class="spec-h2">Firebase Storage セキュリティルール</div>';
   S += '<div class="spec-box" style="font-family:monospace;white-space:pre">rules_version = &#39;2&#39;;\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /{allPaths=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}</div>';
 
@@ -2384,20 +2455,44 @@ function renderManual() {
 
   // ===== 第9章 =====
   S += h1('第9章　担当表を見る・印刷する');
-  S += '<div class="mn-p">「📊 担当表」タブで月ごとの担当一覧（縦:日付・横:スタッフ）を確認できます。</div>';
+  S += '<div class="mn-p">「📊 担当表」タブで月ごとの担当一覧（縦:日付・横:スタッフ）を確認できます。上部のサブタブで集計や公平性チェックも見られます。</div>';
   S += step(1,'「📊 担当表」タブをクリック','「‹」「›」ボタンで月を切り替えられます。');
-  S += step(2,'印刷する場合は「🖨️ 印刷」ボタンをクリック','A4・横向き（ランドスケープ）を推奨します。');
+  S += step(2,'サブタブを切り替える','📊 担当表／📞 OC集計／📈 業務集計／⚖️ 公平性 を切り替えられます。');
+  S += step(3,'CSV出力・印刷','「📥 CSV」で表計算ソフト用に出力、「🖨️ 印刷」でA4横向き印刷（推奨）。');
+  S += '<table class="mn-tbl"><tr><th>サブタブ</th><th>内容</th></tr>'
+    + '<tr><td>📞 OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>'
+    + '<tr><td>📈 業務集計</td><td>オペ・カテなどの件数を集計</td></tr>'
+    + '<tr><td>⚖️ 公平性</td><td>誰がどの担当を何回受け持ったかを一覧化。偏りが大きいと警告が出ます</td></tr>'
+    + '</table>';
 
-  // ===== 第10章 =====
-  S += h1('第10章　表示名を設定する');
+  // ===== 第10章　スケジュール =====
+  S += h1('第10章　スケジュール（タイムテーブル）');
+  S += '<div class="mn-p">「⏰ スケジュール」タブで、その日の勤務者ごとの時間割（8:00〜21:00）を作れます。</div>';
+  S += step(1,'「⏰ スケジュール」タブをクリック','勤務者が縦の列、時間が縦軸で表示されます。');
+  S += step(2,'予定ブロックを置く','上のプリセット（業務名）をタップ → 置きたい人の列をタップ。パソコンではドラッグ＆ドロップもできます。');
+  S += step(3,'時間や担当を調整','ブロックをドラッグで移動、下端をドラッグで長さ（時間）を変更できます。');
+  S += tip('「担当から取り込み」を使うと、その日の担当割り当てから自動で予定ブロックを作れます。');
+  S += warn('担当割り当てがロックされている場合、一般スタッフは閲覧のみになります。');
+
+  // ===== 第11章　掲示板 =====
+  S += h1('第11章　掲示板');
+  S += '<div class="mn-p">「📢 掲示板」タブは、連絡表とは別の部門内お知らせ板です。日付に関係ない連絡（勉強会・物品・全体周知など）に使います。</div>';
+  S += step(1,'「📢 掲示板」タブをクリック','未読があるとタブに赤い数字が出ます。開くと既読になります。');
+  S += step(2,'投稿する','下の入力欄に書いて「投稿」をクリック。全員に表示されます。');
+  S += step(3,'返信する','各投稿の「返信」から短いコメントを付けられます。');
+  S += '<div class="mn-p">自分の投稿は自分で削除できます。他の人の投稿の削除や、重要な投稿のピン留め（上部固定）は管理者が行えます。</div>';
+  S += warn('掲示板もクラウドに保存されます。患者氏名・病室番号・診断名・カルテ番号は書かないでください。');
+
+  // ===== 第12章 =====
+  S += h1('第12章　表示名を設定する');
   S += '<div class="mn-p">申し送りやログに正しい名前が表示されるよう、初回ログイン後に一度だけ設定してください。未設定だとメールアドレスの@より前が表示されます。</div>';
   S += step(1,'右上のアカウントバッジをクリック','「👤 ○○○○」と表示されている部分。');
   S += step(2,'氏名を入力する','例：狩野 英孝（20文字以内）');
   S += step(3,'「保存」をクリック','次の申し送り投稿から反映されます。');
   S += ok('一度設定すれば変更不要です。');
 
-  // ===== 第11章 =====
-  S += h1('第11章　よくある質問');
+  // ===== 第13章 =====
+  S += h1('第13章　よくある質問');
   S += '<table class="mn-tbl"><tr><th>質問</th><th>回答</th></tr>';
   [['ログインできない','入力内容（大文字/小文字）を確認。何度も失敗するとロックされるので管理者に連絡。'],
    ['「ローカル保存」と表示される','インターネット接続を確認。解決しない場合は管理者に連絡。'],
@@ -2440,8 +2535,9 @@ function renderAdminManual() {
   S += '<div class="a-h1">2. Firebaseセキュリティルール設定（初回必須）</div>';
   S += '<div class="a-h2">Realtime Database のルール</div>';
   S += '<div class="a-step"><div class="a-num">1</div><div>Firebase Console → Realtime Database → 「ルール」タブ</div></div>';
-  S += '<div class="a-step"><div class="a-num">2</div><div>以下に書き換えて「公開」をクリック</div></div>';
-  S += '<div class="a-code">{\n  "rules": {\n    ".read": "auth != null",\n    ".write": "auth != null"\n  }\n}</div>';
+  S += '<div class="a-step"><div class="a-num">2</div><div>以下（最新版・掲示板/バックアップ/ユーザー管理対応）に書き換えて「公開」をクリック</div></div>';
+  S += '<div class="a-code" style="font-size:10px;overflow-x:auto">' + escH(LATEST_DB_RULES) + '</div>';
+  S += '<div class="a-warn">⚠ 旧バージョン（<code>".read"/".write"</code> のみのシンプルなルール）のままだと、掲示板・バックアップ・ユーザー管理（管理者設定タブ）で「permission_denied」エラーが出ます。必ず上記の最新ルールに更新してください。</div>';
   S += '<div class="a-h2">Storage のルール</div>';
   S += '<div class="a-step"><div class="a-num">1</div><div>Firebase Console → Storage → 「ルール」タブ</div></div>';
   S += '<div class="a-step"><div class="a-num">2</div><div>以下に書き換えて「公開」をクリック</div></div>';
@@ -2511,15 +2607,40 @@ function renderAdminManual() {
   S += '<div class="a-step"><div class="a-num">画像</div><div>Firebase Console → Storage → 「使用状況」タブ。3GB超えたら古いファイルを整理。</div></div>';
   S += '<div class="a-warn">⚠ 無料枠：DB 1GB / Storage 5GB。画像1枚は圧縮後約200KB、動画は最大50MB/本。</div>';
 
-  // 第10章: トラブルシューティング
-  S += '<div class="a-h1">10. よくあるトラブルと対処法</div>';
+  // 第10章: アプリ内ユーザー管理
+  S += '<div class="a-h1">10. アプリ内ユーザー管理（管理者設定タブ）</div>';
+  S += '<div class="a-p">Firebase Console を開かなくても、「📚 資料 → 🔑 管理者設定」タブの<strong>「👑 ユーザー管理」</strong>から、ログイン済みスタッフの管理ができます。</div>';
+  S += '<table class="a-tbl"><tr><th>操作</th><th>方法</th></tr>';
+  [['新規ユーザー登録','「➕ 新規ユーザー登録」ボタン → メールアドレス・初期パスワードを入力。登録後、本人にログインしてもらい表示名を設定。'],
+   ['管理者にする / 外す','各ユーザーの「管理者にする」「管理者を外す」ボタン。次回ログイン時から反映。'],
+   ['編集権限の個別付与','一般ユーザーの「🔑 編集権限」を開き、機能ごとに付与。🔒ロック中の機能でも、権限を与えたユーザーだけ編集可能になります。'],
+  ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';});
+  S += '</table>';
+  S += '<div class="a-warn">⚠ 一度もログインしていないスタッフは一覧に表示されません。退職者の完全削除・パスワード変更は引き続き Firebase Console（Authentication）で行います。</div>';
+
+  // 第11章: バックアップ運用
+  S += '<div class="a-h1">11. バックアップ運用</div>';
+  S += '<div class="a-p">「🔑 管理者設定」タブにバックアップ機能があります。目的別に3層あります。</div>';
+  S += '<table class="a-tbl"><tr><th>種別</th><th>保存先 / 保持</th><th>用途</th></tr>';
+  [['☁️ Firebaseスナップショット（自動）','クラウド / 直近7日','日常の主な安全網。どの端末からでも復元可。毎日自動取得'],
+   ['🔄 PCローカル自動','その端末 / 直近5件','Firebase障害時の保険。起動・30分毎・破壊的操作前に自動保存（PCのみ）'],
+   ['💾 手動JSONダウンロード','PC等のファイル / 手動管理','長期保管の正本。月1回ダウンロードを推奨'],
+  ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td></tr>';});
+  S += '</table>';
+  S += '<div class="a-ok">✅ 1年分など長期に残したい場合：毎月1回「📥 バックアップをダウンロード」でJSONを取得し、PCや共有ドライブに保管してください。クラウド・PCローカルは容量上限のため短期保持のみです。</div>';
+  S += '<div class="a-p">復元は各リストの「復元」ボタン、または「📤 バックアップから復元」でJSONを読み込みます。いずれも復元前に自動で現在の状態を退避します。</div>';
+
+  // 第12章: トラブルシューティング
+  S += '<div class="a-h1">12. よくあるトラブルと対処法</div>';
   S += '<table class="a-tbl"><tr><th>症状</th><th>対処法</th></tr>';
   [['ログインできない','メールアドレス・パスワードを確認。Authentication画面でパスワードリセット。'],
    ['「ローカル保存」のまま','index.htmlのFB_CFG設定（YOUR_が残っていないか）を確認。GitHubに最新版をアップロードしたか確認。'],
    ['管理者バッジが出ない','Realtime Database → admins → UIDが正しく登録されているか確認。ページを再読み込み。'],
    ['Excelが正しく読み込まれない','「勤務」シートを開いた状態で保存してアップロード。CE・OC列の形式を確認。'],
    ['画像が表示されない','Firebase ConsoleでStorageのセキュリティルールが正しく設定されているか確認。'],
-   ['データが消えた','ロック → ログタブで「自動削除実行」の記録を確認。'],
+   ['データが消えた','管理者設定タブの☁️/🔄バックアップから復元。ロック → ログタブで「自動削除実行」の記録も確認。'],
+   ['permission_denied / 読み込みエラー','第2章の最新セキュリティルールに更新されているか確認（掲示板・バックアップ・ユーザー管理には新ルールが必要）。'],
+   ['掲示板・ユーザー管理が使えない','同上。Realtime Databaseのルールを最新版に更新してください。'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';});
   S += '</table>';
 
@@ -2869,11 +2990,12 @@ function renderDev() {
   S += '<div class="d-p">臨床工学技士（CE）部門向けの日次連絡表Webアプリ。単一HTMLファイル完結。</div>';
   S += '<table class="d-tbl"><tr><th>項目</th><th>内容</th></tr>';
   [['ホスティング','GitHub Pages（無料）'],
-   ['DB','Firebase Realtime Database（/data/パス）・無料枠1GB'],
+   ['DB','Firebase Realtime Database・無料枠1GB'],
+   ['DBパス','/data（本体）/board /backups /backup_meta /logs /admins /users /userPerms'],
    ['ストレージ','Firebase Storage（画像・動画）・無料枠5GB'],
    ['認証','Firebase Authentication（メール+パスワード）'],
-   ['管理者判定','Firebase /admins/{uid}: true'],
-   ['ローカル保存','localStorage key: ce2（Firebase未接続時のフォールバック）'],
+   ['管理者判定','Firebase /admins/{uid}: true（アプリ内 管理者設定タブからも付与可）'],
+   ['localStorageキー','ce2（本体FB未接続フォールバック）/ ce2_autobk（PC自動BK・5件）/ ce2_boardread（掲示板既読時刻）/ ce2_lastfbsnap（最終FBスナップ日）'],
    ['プレビューモード','?preview=1 → 管理者 / ?preview=2 → 一般ユーザーでローカル動作確認'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td><span class="d-code">'+r[1]+'</span></td></tr>';});
   S += '</table>';
@@ -2915,8 +3037,16 @@ function renderDev() {
   S += '<div class="d-h1">主要関数一覧</div>';
   S += '<table class="d-tbl"><tr><th>関数</th><th>役割</th></tr>';
   [['init()','初期化・loadD・fbInit呼び出し'],
-   ['fbInit()','Firebase Auth監視→ログイン時にDB同期開始'],
+   ['fbInit()','Firebase Auth監視→ログイン時に /data・/board リスナー開始'],
    ['saveD()','Firebase(/data) or localStorage(ce2)に保存'],
+   ['swTab(t)','サイドバータブ切替。contentPanes はPCで .sb-expanded によりメインエリア全幅表示（担当表・スケジュール・掲示板・各資料を含む）'],
+   ['renderSched()','スケジュール（タイムテーブル）描画。schedImportDuties()で担当から取込'],
+   ['renderBoard()/postBoard()/postBoardReply()/deleteBoard()/pinBoard()','掲示板（/board）。updateBoardBadge()で未読バッジ'],
+   ['renderFairness()','担当表サブタブ：公平性マトリックス（FAIR_GAP_WARN）'],
+   ['exportBackup()/importBackup()','手動JSONバックアップ（保存/復元）'],
+   ['autoSaveSnapshot()/renderAutoBackups()/restoreAutoBackup()','PCローカル自動BK（ce2_autobk・PCのみ・5件）'],
+   ['saveFirebaseSnapshot()/renderFirebaseSnapshots()/restoreFirebaseSnapshot()/cleanOldSnapshots()','Firebase日次スナップ（/backups・7日保持）'],
+   ['renderAdminUsers()/toggleAdminPriv()/saveUserPerm()/doRegister()','アプリ内ユーザー管理（/users・/admins・/userPerms）'],
    ['renderPage(ds)','連絡表ページ全体描画（innerHTML後にbuildDG/OPS/CL）'],
    ['buildDG(ds,dat,locked)','担当グリッド構築＋D&Dリスナー'],
    ['buildOPS(ds,dat,locked)','オペ/カテ/6MW/PSGカード構築'],
@@ -2944,8 +3074,9 @@ function renderDev() {
   // Firebase設定
   S += '<div class="d-h1">Firebase設定</div>';
   S += '<div class="d-pre">var FB_CFG = {\n  apiKey:            "YOUR_API_KEY",\n  authDomain:        "YOUR.firebaseapp.com",\n  databaseURL:       "https://YOUR-rtdb.firebaseio.com",\n  projectId:         "YOUR_ID",\n  storageBucket:     "YOUR.appspot.com",\n  messagingSenderId: "YOUR_ID",\n  appId:             "YOUR_APP_ID"\n};\n// FB_ON = !apiKey.includes("YOUR_") が true → Firebase有効\n// DB: /data/  ログ: /logs/  管理者: /admins/{uid}:true</div>';
-  S += '<div class="d-h2">セキュリティルール（DB）</div>';
-  S += '<div class="d-pre">{ "rules": { ".read": "auth != null", ".write": "auth != null" } }</div>';
+  S += '<div class="d-h2">セキュリティルール（DB・最新版）</div>';
+  S += '<div class="d-p" style="font-size:11px">掲示板/バックアップ/ユーザー管理に対応。旧版（read/writeのみ）だとpermission_deniedになる。</div>';
+  S += '<div class="d-pre" style="font-size:10px">' + escH(LATEST_DB_RULES) + '</div>';
   S += '<div class="d-h2">セキュリティルール（Storage）</div>';
   S += '<div class="d-pre">rules_version = &#39;2&#39;;\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /{allPaths=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}</div>';
 
@@ -2994,11 +3125,12 @@ function downloadDevMd() {
     '| 項目 | 内容 |',
     '|---|---|',
     '| ホスティング | GitHub Pages（無料） |',
-    '| DB | Firebase Realtime Database（/data/パス）|',
+    '| DB | Firebase Realtime Database |',
+    '| DBパス | /data（本体）/board /backups /backup_meta /logs /admins /users /userPerms |',
     '| ストレージ | Firebase Storage（画像・動画）|',
     '| 認証 | Firebase Authentication（メール+パスワード）|',
-    '| 管理者判定 | Firebase /admins/{uid}: true |',
-    '| ローカル保存 | localStorage key: ce2（Firebase未接続時）|',
+    '| 管理者判定 | Firebase /admins/{uid}: true（アプリ内 管理者設定タブからも付与可）|',
+    '| localStorageキー | ce2（本体）/ ce2_autobk（PC自動BK5件）/ ce2_boardread（掲示板既読）/ ce2_lastfbsnap（最終FBスナップ日）|',
     '| プレビューモード | ?preview=1 → 管理者 / ?preview=2 → 一般ユーザーでローカル動作確認 |',
     '',
     '---',
@@ -3122,9 +3254,9 @@ function downloadDevMd() {
     '// 管理者:   fbDB.ref(\'/admins/{uid}\'): true',
     '```',
     '',
-    '## セキュリティルール（DB）',
+    '## セキュリティルール（DB・最新版／掲示板・バックアップ・ユーザー管理対応）',
     '```',
-    '{ "rules": { ".read": "auth != null", ".write": "auth != null" } }',
+    LATEST_DB_RULES,
     '```',
     '',
     '## セキュリティルール（Storage）',
@@ -3672,6 +3804,18 @@ function renderGuide() {
   S += '<div class="gd-p">各投稿の右上に「済 □」チェックボックスがあります。確認した申し送りにチェックを入れると投稿がグレーアウトして確認済みと分かります。</div>';
   S += warn('患者氏名・病室番号・診断名・カルテ番号は入力しないでください。クラウドに保存されます。');
 
+  S += h1('⏰ スケジュール');
+  S += '<div class="gd-p">「⏰ スケジュール」タブで、その日の勤務者ごとの時間割を作れます。</div>';
+  S += step(1,'上のプリセット（業務名）をタップ','置きたい予定を選びます。');
+  S += step(2,'予定を置きたい人の列をタップ','PCではドラッグ＆ドロップでも置けます。');
+  S += step(3,'ブロックをドラッグで移動・伸縮','下端を引っぱると時間（長さ）を変えられます。');
+
+  S += h1('📢 掲示板');
+  S += '<div class="gd-p">「📢 掲示板」タブは、日付に関係ない部門内のお知らせ板です。未読があるとタブに赤い数字が出ます。</div>';
+  S += step(1,'下の入力欄に書いて「投稿」','全員に表示されます。返信もできます。');
+  S += step(2,'自分の投稿は自分で削除できます','他の人の投稿の削除・ピン留めは管理者のみ。');
+  S += warn('掲示板もクラウドに保存されます。患者氏名・病室番号・診断名・カルテ番号は書かないでください。');
+
   S += h1('❓ こんなときは');
   S += '<table class="gd-tbl"><tr><th>困ったこと</th><th>対処法</th></tr>'
     + '<tr><td>ログインできない</td><td>管理者にパスワードリセットを依頼</td></tr>'
@@ -3679,6 +3823,7 @@ function renderGuide() {
     + '<tr><td>申し送りが送れない</td><td>同上。またはロック解除を依頼</td></tr>'
     + '<tr><td>名前が申し送りに出ない</td><td>右上の名前をクリックして表示名を設定</td></tr>'
     + '<tr><td>PSGのアラートが出た</td><td>装着欄に入力後、「付箋入力済」チェックを入れてください</td></tr>'
+    + '<tr><td>掲示板/スケジュールが見られない</td><td>ページを再読み込み。それでも不可なら管理者に連絡</td></tr>'
     + '</table>';
 
   S += '</div>';
@@ -5008,10 +5153,19 @@ function openPage(ds) {
   var ps=document.getElementById('pane-sched');
   if(ps && ps.style.display!=='none') renderSched();
   /* スマホでは日付選択後にサイドバーを閉じて連絡表を見せる */
-  if(window.innerWidth<768 && sbOpen){
-    sbOpen=false;
-    var sb=document.getElementById('sb');
-    if(sb) sb.classList.add('hm');
+  if(window.innerWidth<=768){
+    /* 担当表/スケジュールの全画面paneが表示中なら、まず正規に閉じてmainを表示する。
+       これらはsb内のfixed要素なので、直接.hmを付けるとtransformで巻き込まれ画面が真っ白になる */
+    var ap=document.getElementById('pane-assign');
+    var sp=document.getElementById('pane-sched');
+    if((ap&&ap.style.display==='flex')||(sp&&sp.style.display==='flex')){
+      swTab('cal'); /* paneを隠し#mainを表示・タブもcalに */
+    }
+    if(sbOpen){
+      sbOpen=false;
+      var sb=document.getElementById('sb');
+      if(sb) sb.classList.add('hm');
+    }
   }
 }
 
@@ -7575,7 +7729,17 @@ function renderAT() {
   for(var i=0;i<rows.length;i++){(function(row){var ds=row.getAttribute('data-ds');row.onclick=function(){openFromAT(ds);};})(rows[i]);}
 }
 function openFromAT(ds){swTab('cal');var pt=ds.split('-');calY=parseInt(pt[0]);calM=parseInt(pt[1])-1;openPage(ds);}
-function printAt(){document.getElementById('ph').textContent='分院CE連絡表　担当一覧　'+asY+'年'+(asM+1)+'月';renderAT();setTimeout(function(){window.print();},150);}
+function printAt(){
+  document.getElementById('ph').textContent='分院CE連絡表　担当一覧　'+asY+'年'+(asM+1)+'月';
+  swSubTab('at'); /* 印刷対象は担当表サブタブに固定（他サブタブ表示中でも正しく印刷） */
+  renderAT();
+  document.body.classList.add('printing-at');
+  setTimeout(function(){
+    window.print();
+    document.body.classList.remove('printing-at');
+  },150);
+}
+window.addEventListener('afterprint',function(){ document.body.classList.remove('printing-at'); });
 
 function exportAtCsv() {
   var days=new Date(asY,asM+1,0).getDate(), adates=[];
@@ -7933,58 +8097,46 @@ var _schedDragPreset=null;
 function swTab(t) {
   var tabs=['cal','assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
   var docsTabs=['spec','manual','adminm','dev','regs'];
-  /* PCではメインエリアに全面表示するパネル群（assign/schedは元から.main兄弟なので除く） */
-  var contentPanes=['board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
+  /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群（担当表・スケジュールも含む） */
+  var contentPanes=['assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
   for(var i=0;i<tabs.length;i++){
     var id=tabs[i];
     var tb=document.getElementById('tab-'+id); if(tb) tb.classList.toggle('on',id===t);
-    if(id==='assign'||id==='sched'){
-      /* assign / sched は main を隠して全エリアに表示する全画面パネル */
-      var paneId=id==='assign'?'pane-assign':'pane-sched';
-      var backId=id==='assign'?'assign-back-btn':'sched-back-btn';
-      var ap=document.getElementById(paneId);
-      if(t===id){
-        ap.style.display='flex';
-        ap.classList.remove('hd-sp');
-        /* スマホではサイドバーを閉じる（パネルがfixedで全画面表示されるため）、戻るボタンを表示 */
-        var backBtn=document.getElementById(backId);
-        if(isSP){
-          if(sb2){sb2.classList.remove('sb-assign');sb2.classList.add('hm');sbOpen=false;}
-          if(backBtn) backBtn.style.display='';
-        } else {
-          if(backBtn) backBtn.style.display='none';
-        }
-        if(id==='assign'){ swSubTab('at'); renderAT(); }
-        else { renderSched(); }
-      } else {
-        if(sb2) sb2.classList.remove('sb-assign');
-        ap.style.display='none';
-        ap.classList.add('hd-sp');
-        var backBtn2=document.getElementById(backId);
-        if(backBtn2) backBtn2.style.display='none';
-      }
-    }else{
-      var pn=document.getElementById('pane-'+id);
-      if(pn) pn.style.display=id===t?'flex':'none';
-    }
+    var pn=document.getElementById('pane-'+id);
+    if(pn){ pn.style.display=id===t?'flex':'none'; }
   }
-  /* メインエリア（連絡表詳細）の表示制御 */
+  /* 担当表・スケジュールのスマホ用「← 戻る」ボタン（スマホで該当タブ表示中のみ） */
+  ['assign','sched'].forEach(function(id){
+    var bb=document.getElementById(id+'-back-btn');
+    if(bb) bb.style.display=(isSP && t===id)?'':'none';
+  });
+  /* メインエリア（連絡表詳細）の表示制御：コンテンツタブ選択時は非表示 */
   var hideMain = (t==='assign'||t==='sched') || (!isSP && contentPanes.indexOf(t)!==-1);
   mn.style.display = hideMain ? 'none' : '';
   /* PCではコンテンツタブ選択時にサイドバーを全幅に拡張 */
   var ab = document.getElementById('ab');
   if(ab) ab.classList.toggle('sb-expanded', !isSP && contentPanes.indexOf(t)!==-1);
-  /* スマホで全画面パネル以外に戻ったらサイドバーを再表示 */
-  if(isSP && t!=='assign' && t!=='sched' && sb2 && !sbOpen){
+  /* スマホ：担当表・スケジュールはfixed全画面paneがサイドバーを覆う。
+     paneはsb内にあるため.hmのtransformで巻き込まれないようhmは付けない（覆うだけ）。
+     それ以外のタブはサイドバーを再表示 */
+  if(!isSP){
+    /* PCでは.hm（width:0!important）が残っていると全幅コンテンツpaneが消えるため必ず解除 */
+    if(sb2) sb2.classList.remove('hm');
+  } else if(t==='assign'||t==='sched'){
+    if(sb2){ sb2.classList.remove('hm'); }
+    sbOpen=true;
+  } else if(sb2 && !sbOpen){
     sb2.classList.remove('hm');
     sbOpen=true;
   }
   var docsTab=document.getElementById('tab-docs');
   if(docsTab) docsTab.classList.toggle('on', docsTabs.indexOf(t)!==-1);
 
+  if(t==='assign'){ swSubTab('at'); renderAT(); }
+  if(t==='sched'){ renderSched(); }
   if(t==='board'){renderBoard();markBoardRead();}
   if(t==='master'){renderWdlyList();renderDlyList();renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
   if(t==='logs'){loadLogs();}
@@ -8003,22 +8155,18 @@ function toggleDocsMenu(){
   menu.style.display = isOpen ? 'none' : 'flex';
 }
 function togSB(){
-  sbOpen=!sbOpen;
   var sb=document.getElementById('sb');
-  if(sb) sb.classList.toggle('hm',!sbOpen);
-  /* ハンバーガーでサイドバーを開くとき、担当表/スケジュールが全画面表示中なら swTab('cal') で正規の閉じ処理 */
-  if(sbOpen){
-    var ap=document.getElementById('pane-assign');
-    var sp=document.getElementById('pane-sched');
-    if((ap && ap.style.display==='flex') || (sp && sp.style.display==='flex')){
-      /* swTab('cal') に閉じ処理を委譲（再描画・タブハイライト・サイドバー復元も含む）
-         ただし swTab 内でサイドバー再表示が走るので hm は一旦手動で制御 */
-      sbOpen=false; /* 一時的に false に戻して swTab 内の再表示ロジックを働かせる */
-      swTab('cal');
-      sbOpen=true;  /* ハンバーガーはopen状態を維持 */
-      if(sb) sb.classList.remove('hm');
-    }
+  /* 担当表/スケジュールが全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
+     これらのpaneはsb内のfixed要素なので、.hmのtransformで巻き込まれないよう必ずcal経由で戻す */
+  var ap=document.getElementById('pane-assign');
+  var sp=document.getElementById('pane-sched');
+  if((ap && ap.style.display==='flex') || (sp && sp.style.display==='flex')){
+    sbOpen=false; /* swTab内のサイドバー再表示ロジックを働かせる */
+    swTab('cal');
+    return;
   }
+  sbOpen=!sbOpen;
+  if(sb) sb.classList.toggle('hm',!sbOpen);
 }
 
 /* ===== UTILS ===== */
@@ -8028,7 +8176,12 @@ function pad(n){return n<10?'0'+n:''+n;}
 function fmtJ(ds){var p=ds.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日';}
 
 document.addEventListener('click',function(e){
-  if(window.innerWidth<768&&sbOpen){
+  if(window.innerWidth<=768&&sbOpen){
+    /* 担当表/スケジュールが全画面表示中はサイドバーを.hmで隠さない
+       （paneはsb内のfixed要素なので、.hmのtransformで一緒に消えてしまうため） */
+    var ap=document.getElementById('pane-assign');
+    var sp=document.getElementById('pane-sched');
+    if((ap&&ap.style.display==='flex')||(sp&&sp.style.display==='flex')) return;
     var s=document.getElementById('sb'),h=document.getElementById('hbg');
     if(s&&h&&!s.contains(e.target)&&!h.contains(e.target)){sbOpen=false;s.classList.add('hm');}
   }
@@ -8216,34 +8369,6 @@ function pinBoard(id, pin) {
     fbDB.ref('/board/' + id + '/pin').set(pin).catch(function(e){ alert('エラー: '+e.message); });
   } else {
     if (_boardData[id]) { _boardData[id].pin = pin; renderBoard(); }
-  }
-}
-
-function restoreFromLocalStorage() {
-  try {
-    var raw = localStorage.getItem('ce2');
-    if (!raw) { alert('localStorageにデータが見つかりません。'); return; }
-    var data = JSON.parse(raw);
-    if (!data.pages || !Array.isArray(data.stf)) { alert('有効なCEnoteデータではありません。'); return; }
-    var pageCount = Object.keys(data.pages).length;
-    if (!confirm('ローカルストレージのデータをFirebaseへ再同期しますか？\n\n'
-               + '連絡表: ' + pageCount + 'ページ\nスタッフ: ' + data.stf.length + '名\n\n'
-               + '⚠️ Firebaseの現在のデータが上書きされます。')) return;
-    autoSaveSnapshot('Firebase再同期前');
-    ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
-     'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
-     'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
-      if (data[k] !== undefined) D[k] = data[k];
-    });
-    saveD();
-    if(FB_ON) writeLog('localStorageからFirebaseへ再同期', pageCount+'ページ');
-    renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
-    renderOpeList(); renderCathList(); renderLockList(); renderAT();
-    var el = document.getElementById('backup-status');
-    if (el) el.textContent = '✅ 再同期しました（' + pageCount + 'ページ・スタッフ' + data.stf.length + '名）';
-  } catch(e) {
-    alert('エラー: ' + e.message);
   }
 }
 
