@@ -922,6 +922,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           </div>
           <div id="backup-status" style="margin-top:8px;font-size:11px;color:var(--txt3)"></div>
         </div>
+        <div class="pt" style="margin-bottom:12px">🔄 自動バックアップ（ローカル保存・直近5件）</div>
+        <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
+          <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">
+            起動時・30分ごと・削除・シフト取込・手動復元の直前に自動保存されます。<br>
+            端末のローカルストレージに保存されるため、Firebase障害時も復元できます。
+          </div>
+          <div id="auto-backup-list" style="margin-bottom:8px"></div>
+          <div id="auto-backup-status" style="font-size:11px;color:var(--txt3)"></div>
+        </div>
         <div class="pt" style="margin-bottom:12px">📊 ストレージ使用状況</div>
         <div id="storage-usage" style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
           <div style="font-size:12px;color:var(--txt3)">読み込み中...</div>
@@ -1141,6 +1150,8 @@ var LOCK_DEFS = [
 ];
 var WDL = ['日','月','火','水','木','金','土'];
 var WDF = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
+var AUTO_BK_KEY = 'ce2_autobk';
+var AUTO_BK_MAX = 5;
 /* ===== EVENTS ===== */
 // D.evts = { 'YYYY-MM': { 1:['イベント名',...], ... } }
 // ページ個別イベントは D.pages[ds].events = ['...'] で保持
@@ -1260,6 +1271,8 @@ function init() {
   document.getElementById('gm-month').value = toMS(now);
   document.getElementById('nm-date').value = toDS(now);
   loadD();
+  autoSaveSnapshot('起動時');
+  setInterval(function(){ autoSaveSnapshot('定期（30分）'); }, 30*60*1000);
   if (!isPreview) fbInit();
   renderCal();
   renderStfList(); renderPhsList();
@@ -4690,6 +4703,7 @@ function doSaveSIM() {
     });
   }
 
+  autoSaveSnapshot('シフト取込前: '+ym);
   D.shift[ym] = data;
   /* イベントも保護日は旧データを維持 */
   if (parsedShiftData.evts) {
@@ -4889,6 +4903,7 @@ function doAddPage() {
 function delPage(ds) {
   if(!can('pg')){alert('🔒 管理者のみ可能です');return;}
   if(!confirm(fmtJ(ds)+' の連絡表を削除しますか？'))return;
+  autoSaveSnapshot('削除前: '+fmtJ(ds));
   writeLog('連絡表削除', fmtJ(ds));
   delete D.pages[ds]; saveD();
   if(curDs===ds){curDs=null;showEmpty();} renderCal();
@@ -4902,6 +4917,7 @@ function doDelM() {
   var targets = Object.keys(D.pages).filter(function(ds){ return ds.indexOf(ym+'-')===0; });
   if(targets.length===0){ alert(y+'年'+m+'月の連絡表はありません。'); return; }
   if(!confirm(y+'年'+m+'月の連絡表 '+targets.length+'枚を全て削除しますか？\nこの操作は元に戻せません。'))return;
+  autoSaveSnapshot('一括削除前: '+ym);
   targets.forEach(function(ds){ delete D.pages[ds]; });
   writeLog('連絡表一括削除', ym+' '+targets.length+'枚');
   saveD(); closeGM();
@@ -7915,7 +7931,7 @@ function swTab(t) {
   if(t==='guide') { renderGuide(); }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
-  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); }
+  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); }
   if(t==='dev') { renderDev(); }
   if(t==='regs') { renderRegs(); }
 }
@@ -7958,6 +7974,73 @@ document.addEventListener('click',function(e){
 });
 
 /* ===== バックアップ（エクスポート / インポート） ===== */
+function autoSaveSnapshot(label) {
+  try {
+    var snaps = JSON.parse(localStorage.getItem(AUTO_BK_KEY) || '[]');
+    snaps.unshift({ ts: Date.now(), label: label || '自動', data: JSON.stringify(D) });
+    if (snaps.length > AUTO_BK_MAX) snaps = snaps.slice(0, AUTO_BK_MAX);
+    localStorage.setItem(AUTO_BK_KEY, JSON.stringify(snaps));
+  } catch(e) {}
+}
+
+function renderAutoBackups() {
+  var el = document.getElementById('auto-backup-list');
+  if (!el) return;
+  try {
+    var snaps = JSON.parse(localStorage.getItem(AUTO_BK_KEY) || '[]');
+    if (!snaps.length) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--txt3)">まだありません。アプリ起動・30分ごと・削除・シフト取込前に自動保存されます。</div>';
+      return;
+    }
+    var html = '';
+    snaps.forEach(function(s, i) {
+      var d = new Date(s.ts);
+      var dt = d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+      var pages = 0;
+      try { pages = Object.keys(JSON.parse(s.data).pages || {}).length; } catch(e){}
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">'
+            + '<div style="flex:1;font-size:12px"><span style="color:var(--txt2)">'+dt+'</span>'
+            + ' <span style="color:var(--txt3);font-size:11px">（'+s.label+'・'+pages+'ページ）</span></div>'
+            + '<button class="btn btn-g btn-sm" onclick="restoreAutoBackup('+i+')" style="font-size:11px;padding:3px 8px">復元</button>'
+            + '</div>';
+    });
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--rd)">読み込みエラー</div>';
+  }
+}
+
+function restoreAutoBackup(i) {
+  try {
+    var snaps = JSON.parse(localStorage.getItem(AUTO_BK_KEY) || '[]');
+    if (!snaps[i]) return;
+    var s = snaps[i];
+    var d = new Date(s.ts);
+    var dt = d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+    var data = JSON.parse(s.data);
+    if (!data.pages) { alert('バックアップデータが無効です。'); return; }
+    var pageCount = Object.keys(data.pages).length;
+    if (!confirm('自動バックアップ（'+dt+' / '+s.label+'）から復元しますか？\n\n連絡表 '+pageCount+' ページ\n\n⚠️ 現在のデータが上書きされます。')) return;
+    autoSaveSnapshot('自動復元前');
+    ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
+     'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+     'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+      if (data[k] !== undefined) D[k] = data[k];
+    });
+    saveD();
+    if(FB_ON) writeLog('自動バックアップから復元', dt+' '+s.label);
+    renderCal(); safeRenderPage();
+    renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
+    renderOpeList(); renderCathList(); renderLockList(); renderAT();
+    var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
+    renderAutoBackups();
+    var stEl = document.getElementById('auto-backup-status');
+    if (stEl) stEl.textContent = '✅ 復元しました（'+dt+'）';
+  } catch(e) {
+    alert('復元エラー: ' + e.message);
+  }
+}
+
 function exportBackup() {
   var now = new Date();
   var ts = now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes());
@@ -7989,6 +8072,7 @@ function importBackup(file) {
                  + 'ファイル: ' + file.name + '\n'
                  + '連絡表ページ数: ' + pageCount + '\n\n'
                  + '⚠️ 現在のすべてのデータが上書きされます。')) return;
+      autoSaveSnapshot('ファイル復元前');
       /* D の各フィールドを上書き（未知キーは保持） */
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
