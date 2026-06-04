@@ -317,9 +317,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ph{display:none}
 @media print{
   body{background:#fff!important;font-size:10px}
-  .tb,.sb,.atnav .btn,.ov{display:none!important}
+  .tb,.atnav .btn,.ov{display:none!important}
   .ab{display:block!important;margin-top:0!important;height:auto!important}
   .main{display:none!important}
+  /* pane-assignはsb内に移動したため、sbは残しつつ担当表paneのみ表示 */
+  .sb{display:block!important;position:static!important;width:auto!important;min-width:0!important;height:auto!important;border:none!important;overflow:visible!important;transform:none!important}
+  .sb>*{display:none!important}
+  #pane-assign{display:block!important;flex:none!important;overflow:visible!important}
   .atw{display:block!important;padding:0!important;overflow:visible!important}
   .ato{overflow:visible!important;box-shadow:none!important;border:1px solid #ccc!important;border-radius:0!important}
   .at{font-size:8px!important}
@@ -996,9 +1000,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       </div>
     </div>
 
-  </div><!-- /sb -->
-
-  <!-- 担当表パネル（PCでは.ab直下に横並び、スマホではfixed全画面表示） -->
+  <!-- 担当表パネル（PC: サイドバー全幅拡張でメインエリア表示 / スマホ: fixed全画面表示） -->
   <div id="pane-assign" style="display:none;flex:1;overflow-y:auto">
     <div class="atw">
       <!-- スマホ用「← 戻る」ボタン -->
@@ -1060,6 +1062,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <div id="sched-body"></div>
     </div>
   </div>
+
+  </div><!-- /sb -->
 
   <!-- メイン -->
   <div class="main" id="main">
@@ -7933,58 +7937,43 @@ var _schedDragPreset=null;
 function swTab(t) {
   var tabs=['cal','assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
   var docsTabs=['spec','manual','adminm','dev','regs'];
-  /* PCではメインエリアに全面表示するパネル群（assign/schedは元から.main兄弟なので除く） */
-  var contentPanes=['board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
+  /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群（担当表・スケジュールも含む） */
+  var contentPanes=['assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
   for(var i=0;i<tabs.length;i++){
     var id=tabs[i];
     var tb=document.getElementById('tab-'+id); if(tb) tb.classList.toggle('on',id===t);
-    if(id==='assign'||id==='sched'){
-      /* assign / sched は main を隠して全エリアに表示する全画面パネル */
-      var paneId=id==='assign'?'pane-assign':'pane-sched';
-      var backId=id==='assign'?'assign-back-btn':'sched-back-btn';
-      var ap=document.getElementById(paneId);
-      if(t===id){
-        ap.style.display='flex';
-        ap.classList.remove('hd-sp');
-        /* スマホではサイドバーを閉じる（パネルがfixedで全画面表示されるため）、戻るボタンを表示 */
-        var backBtn=document.getElementById(backId);
-        if(isSP){
-          if(sb2){sb2.classList.remove('sb-assign');sb2.classList.add('hm');sbOpen=false;}
-          if(backBtn) backBtn.style.display='';
-        } else {
-          if(backBtn) backBtn.style.display='none';
-        }
-        if(id==='assign'){ swSubTab('at'); renderAT(); }
-        else { renderSched(); }
-      } else {
-        if(sb2) sb2.classList.remove('sb-assign');
-        ap.style.display='none';
-        ap.classList.add('hd-sp');
-        var backBtn2=document.getElementById(backId);
-        if(backBtn2) backBtn2.style.display='none';
-      }
-    }else{
-      var pn=document.getElementById('pane-'+id);
-      if(pn) pn.style.display=id===t?'flex':'none';
-    }
+    var pn=document.getElementById('pane-'+id);
+    if(pn){ pn.style.display=id===t?'flex':'none'; pn.classList.remove('hd-sp'); }
   }
-  /* メインエリア（連絡表詳細）の表示制御 */
+  /* 担当表・スケジュールのスマホ用「← 戻る」ボタン（スマホで該当タブ表示中のみ） */
+  ['assign','sched'].forEach(function(id){
+    var bb=document.getElementById(id+'-back-btn');
+    if(bb) bb.style.display=(isSP && t===id)?'':'none';
+  });
+  /* メインエリア（連絡表詳細）の表示制御：コンテンツタブ選択時は非表示 */
   var hideMain = (t==='assign'||t==='sched') || (!isSP && contentPanes.indexOf(t)!==-1);
   mn.style.display = hideMain ? 'none' : '';
   /* PCではコンテンツタブ選択時にサイドバーを全幅に拡張 */
   var ab = document.getElementById('ab');
   if(ab) ab.classList.toggle('sb-expanded', !isSP && contentPanes.indexOf(t)!==-1);
-  /* スマホで全画面パネル以外に戻ったらサイドバーを再表示 */
-  if(isSP && t!=='assign' && t!=='sched' && sb2 && !sbOpen){
+  /* スマホ：担当表・スケジュールはfixed全画面paneがサイドバーを覆う。
+     paneはsb内にあるため.hmのtransformで巻き込まれないようhmは付けない（覆うだけ）。
+     それ以外のタブはサイドバーを再表示 */
+  if(isSP && (t==='assign'||t==='sched')){
+    if(sb2){ sb2.classList.remove('hm'); }
+    sbOpen=true;
+  } else if(isSP && sb2 && !sbOpen){
     sb2.classList.remove('hm');
     sbOpen=true;
   }
   var docsTab=document.getElementById('tab-docs');
   if(docsTab) docsTab.classList.toggle('on', docsTabs.indexOf(t)!==-1);
 
+  if(t==='assign'){ swSubTab('at'); renderAT(); }
+  if(t==='sched'){ renderSched(); }
   if(t==='board'){renderBoard();markBoardRead();}
   if(t==='master'){renderWdlyList();renderDlyList();renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
   if(t==='logs'){loadLogs();}
@@ -8003,22 +7992,18 @@ function toggleDocsMenu(){
   menu.style.display = isOpen ? 'none' : 'flex';
 }
 function togSB(){
-  sbOpen=!sbOpen;
   var sb=document.getElementById('sb');
-  if(sb) sb.classList.toggle('hm',!sbOpen);
-  /* ハンバーガーでサイドバーを開くとき、担当表/スケジュールが全画面表示中なら swTab('cal') で正規の閉じ処理 */
-  if(sbOpen){
-    var ap=document.getElementById('pane-assign');
-    var sp=document.getElementById('pane-sched');
-    if((ap && ap.style.display==='flex') || (sp && sp.style.display==='flex')){
-      /* swTab('cal') に閉じ処理を委譲（再描画・タブハイライト・サイドバー復元も含む）
-         ただし swTab 内でサイドバー再表示が走るので hm は一旦手動で制御 */
-      sbOpen=false; /* 一時的に false に戻して swTab 内の再表示ロジックを働かせる */
-      swTab('cal');
-      sbOpen=true;  /* ハンバーガーはopen状態を維持 */
-      if(sb) sb.classList.remove('hm');
-    }
+  /* 担当表/スケジュールが全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
+     これらのpaneはsb内のfixed要素なので、.hmのtransformで巻き込まれないよう必ずcal経由で戻す */
+  var ap=document.getElementById('pane-assign');
+  var sp=document.getElementById('pane-sched');
+  if((ap && ap.style.display==='flex') || (sp && sp.style.display==='flex')){
+    sbOpen=false; /* swTab内のサイドバー再表示ロジックを働かせる */
+    swTab('cal');
+    return;
   }
+  sbOpen=!sbOpen;
+  if(sb) sb.classList.toggle('hm',!sbOpen);
 }
 
 /* ===== UTILS ===== */
@@ -8029,6 +8014,11 @@ function fmtJ(ds){var p=ds.split('-');return p[0]+'年'+parseInt(p[1])+'月'+par
 
 document.addEventListener('click',function(e){
   if(window.innerWidth<768&&sbOpen){
+    /* 担当表/スケジュールが全画面表示中はサイドバーを.hmで隠さない
+       （paneはsb内のfixed要素なので、.hmのtransformで一緒に消えてしまうため） */
+    var ap=document.getElementById('pane-assign');
+    var sp=document.getElementById('pane-sched');
+    if((ap&&ap.style.display==='flex')||(sp&&sp.style.display==='flex')) return;
     var s=document.getElementById('sb'),h=document.getElementById('hbg');
     if(s&&h&&!s.contains(e.target)&&!h.contains(e.target)){sbOpen=false;s.classList.add('hm');}
   }
