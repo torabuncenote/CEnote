@@ -120,6 +120,10 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .main{flex:1;overflow-y:auto;padding:28px 44px 80px}
 .main::-webkit-scrollbar{width:6px}
 .main::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px}
+/* PC: サイドバー内のパネルをメインエリア（サイドバー右側）に全面表示する */
+@media (min-width:769px){
+  .pane-main{position:fixed!important;top:var(--th);left:var(--sw);right:0;bottom:0;z-index:30;background:var(--sur);border-left:1px solid var(--bdr)}
+}
 .es{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--txt3);text-align:center}
 .es-ic{font-size:48px}
 .es-t{font-size:15px;font-weight:700;color:var(--txt2)}
@@ -7929,6 +7933,11 @@ var _schedDragPreset=null;
 function swTab(t) {
   var tabs=['cal','assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
   var docsTabs=['spec','manual','adminm','dev','regs'];
+  /* PCではメインエリアに全面表示するパネル群（assign/schedは元から.main兄弟なので除く） */
+  var contentPanes=['board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
+  var isSP=window.innerWidth<=768;
+  var mn=document.getElementById('main');
+  var sb2=document.getElementById('sb');
   for(var i=0;i<tabs.length;i++){
     var id=tabs[i];
     var tb=document.getElementById('tab-'+id); if(tb) tb.classList.toggle('on',id===t);
@@ -7936,13 +7945,10 @@ function swTab(t) {
       /* assign / sched は main を隠して全エリアに表示する全画面パネル */
       var paneId=id==='assign'?'pane-assign':'pane-sched';
       var backId=id==='assign'?'assign-back-btn':'sched-back-btn';
-      var ap=document.getElementById(paneId), mn=document.getElementById('main');
-      var sb2=document.getElementById('sb');
-      var isSP=window.innerWidth<=768;
+      var ap=document.getElementById(paneId);
       if(t===id){
         ap.style.display='flex';
         ap.classList.remove('hd-sp');
-        mn.style.display='none';
         /* スマホではサイドバーを閉じる（パネルがfixedで全画面表示されるため）、戻るボタンを表示 */
         var backBtn=document.getElementById(backId);
         if(isSP){
@@ -7957,21 +7963,30 @@ function swTab(t) {
         if(sb2) sb2.classList.remove('sb-assign');
         ap.style.display='none';
         ap.classList.add('hd-sp');
-        /* どちらのパネルも非アクティブなときだけ main を戻す */
-        var otherActive=(t==='assign'||t==='sched');
-        if(!otherActive) mn.style.display='';
         var backBtn2=document.getElementById(backId);
         if(backBtn2) backBtn2.style.display='none';
-        /* スマホでパネルを閉じるときサイドバーを再表示する */
-        if(isSP && sb2 && !sbOpen && !otherActive){
-          sb2.classList.remove('hm');
-          sbOpen=true;
-        }
       }
     }else{
       var pn=document.getElementById('pane-'+id);
-      if(pn) pn.style.display=id===t?'flex':'none';
+      if(pn){
+        var active=(id===t);
+        pn.style.display=active?'flex':'none';
+        /* PCではコンテンツパネルをメインエリアに全面表示（.pane-mainでfixed配置） */
+        if(!isSP && contentPanes.indexOf(id)!==-1){
+          pn.classList.toggle('pane-main',active);
+        } else {
+          pn.classList.remove('pane-main');
+        }
+      }
     }
+  }
+  /* メインエリア（連絡表詳細）の表示制御：全画面パネルが開いているとき隠す */
+  var hideMain = (t==='assign'||t==='sched') || (!isSP && contentPanes.indexOf(t)!==-1);
+  mn.style.display = hideMain ? 'none' : '';
+  /* スマホで全画面パネル以外に戻ったらサイドバーを再表示 */
+  if(isSP && t!=='assign' && t!=='sched' && sb2 && !sbOpen){
+    sb2.classList.remove('hm');
+    sbOpen=true;
   }
   var docsTab=document.getElementById('tab-docs');
   if(docsTab) docsTab.classList.toggle('on', docsTabs.indexOf(t)!==-1);
