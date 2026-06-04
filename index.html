@@ -958,6 +958,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           <div id="auto-backup-list" style="margin-bottom:8px"></div>
           <div id="auto-backup-status" style="font-size:11px;color:var(--txt3)"></div>
         </div>
+        <div class="pt" style="margin-bottom:12px">☁️ Firebaseスナップショット（直近7日）</div>
+        <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
+          <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">
+            毎日1回Firebaseへ自動保存。直近7日分を保持します。<br>
+            端末・ブラウザを問わずどこからでも復元できます。
+          </div>
+          <div id="fb-snap-list" style="margin-bottom:8px"></div>
+          <div id="fb-snap-status" style="font-size:11px;color:var(--txt3)"></div>
+        </div>
         <div class="pt" style="margin-bottom:12px">📊 ストレージ使用状況</div>
         <div id="storage-usage" style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
           <div style="font-size:12px;color:var(--txt3)">読み込み中...</div>
@@ -1261,6 +1270,9 @@ var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = 
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
 var _savingTs = 0; /* saveD()後のリスナー再描画抑制タイムスタンプ */
 var _boardData = {}; /* Firebase /board のキャッシュ */
+var FB_SNAP_KEY = 'ce2_lastfbsnap'; /* 最後にFirebaseスナップショットを取った日付 */
+var FB_SNAP_DAYS = 7; /* 保持日数 */
+var _fbSnapDone = false; /* 初回ロード時のスナップショット実行済みフラグ */
 
 /* ===== INIT ===== */
 function init() {
@@ -1480,6 +1492,7 @@ function fbInit() {
             D.oc          = d.oc          || [];
             D.schedPresets= (d.schedPresets && d.schedPresets.length) ? d.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
             setSyncLbl('同期済');
+            if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動'); }
             updateMonthSize();
             checkAutoDelTiming();
             renderCal();
@@ -4739,6 +4752,7 @@ function doSaveSIM() {
   }
 
   autoSaveSnapshot('シフト取込前: '+ym);
+  saveFirebaseSnapshot('シフト取込前: '+ym);
   D.shift[ym] = data;
   /* イベントも保護日は旧データを維持 */
   if (parsedShiftData.evts) {
@@ -4939,6 +4953,7 @@ function delPage(ds) {
   if(!can('pg')){alert('🔒 管理者のみ可能です');return;}
   if(!confirm(fmtJ(ds)+' の連絡表を削除しますか？'))return;
   autoSaveSnapshot('削除前: '+fmtJ(ds));
+  saveFirebaseSnapshot('削除前: '+fmtJ(ds));
   writeLog('連絡表削除', fmtJ(ds));
   delete D.pages[ds]; saveD();
   if(curDs===ds){curDs=null;showEmpty();} renderCal();
@@ -4953,6 +4968,7 @@ function doDelM() {
   if(targets.length===0){ alert(y+'年'+m+'月の連絡表はありません。'); return; }
   if(!confirm(y+'年'+m+'月の連絡表 '+targets.length+'枚を全て削除しますか？\nこの操作は元に戻せません。'))return;
   autoSaveSnapshot('一括削除前: '+ym);
+  saveFirebaseSnapshot('一括削除前: '+ym);
   targets.forEach(function(ds){ delete D.pages[ds]; });
   writeLog('連絡表一括削除', ym+' '+targets.length+'枚');
   saveD(); closeGM();
@@ -7967,7 +7983,7 @@ function swTab(t) {
   if(t==='guide') { renderGuide(); }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
-  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); }
+  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); renderFirebaseSnapshots(); }
   if(t==='dev') { renderDev(); }
   if(t==='regs') { renderRegs(); }
 }
@@ -8222,6 +8238,97 @@ function restoreFromLocalStorage() {
   }
 }
 
+/* ===== Firebase 日次スナップショット ===== */
+function shouldTakeDailySnapshot() {
+  if (!FB_ON) return false;
+  return localStorage.getItem(FB_SNAP_KEY) !== toDS(new Date());
+}
+
+function saveFirebaseSnapshot(label) {
+  if (!FB_ON || !fbDB) return;
+  var today = toDS(new Date());
+  var copy = JSON.parse(JSON.stringify(D));
+  /* manual キーのサニタイズ（Firebase不可文字） */
+  if (copy.manual) {
+    Object.keys(copy.manual).filter(function(k){ return /[.#$\[\]/]/.test(k); }).forEach(function(k){
+      var safe = k.replace(/[.#$\[\]/]/g,'_');
+      if (!copy.manual[safe]) copy.manual[safe] = copy.manual[k];
+      delete copy.manual[k];
+    });
+  }
+  var meta = { ts: Date.now(), label: label||'自動', pages: Object.keys(D.pages||{}).length, stf: (D.stf||[]).length };
+  fbDB.ref('/backups/'+today).set(copy)
+    .then(function(){
+      fbDB.ref('/backup_meta/'+today).set(meta);
+      localStorage.setItem(FB_SNAP_KEY, today);
+      cleanOldSnapshots();
+    })
+    .catch(function(){});
+}
+
+function cleanOldSnapshots() {
+  if (!FB_ON || !fbDB) return;
+  var d = new Date(); d.setDate(d.getDate() - FB_SNAP_DAYS);
+  var old = toDS(d);
+  fbDB.ref('/backups/'+old).remove();
+  fbDB.ref('/backup_meta/'+old).remove();
+}
+
+function renderFirebaseSnapshots() {
+  var el = document.getElementById('fb-snap-list');
+  if (!el) return;
+  if (!FB_ON || !fbDB) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--txt3)">Firebase未接続時は利用できません</div>';
+    return;
+  }
+  el.innerHTML = '<div style="font-size:12px;color:var(--txt3)">読み込み中...</div>';
+  fbDB.ref('/backup_meta').orderByKey().limitToLast(7).once('value', function(snap) {
+    var meta = snap.val() || {};
+    var dates = Object.keys(meta).sort().reverse();
+    if (!dates.length) {
+      el.innerHTML = '<div style="font-size:12px;color:var(--txt3)">スナップショットはまだありません。明日以降、毎日自動保存されます。</div>';
+      return;
+    }
+    var html = '';
+    dates.forEach(function(d) {
+      var m = meta[d];
+      html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">'
+            + '<div style="flex:1;font-size:12px"><span style="color:var(--txt2)">'+d+'</span>'
+            + ' <span style="color:var(--txt3);font-size:11px">（'+m.label+'・'+m.pages+'ページ・スタッフ'+m.stf+'名）</span></div>'
+            + '<button class="btn btn-g btn-sm" onclick="restoreFirebaseSnapshot(\''+d+'\')" style="font-size:11px;padding:3px 8px">復元</button>'
+            + '</div>';
+    });
+    el.innerHTML = html;
+  }, function() {
+    el.innerHTML = '<div style="font-size:12px;color:var(--rd)">読み込みエラー（ルール要確認）</div>';
+  });
+}
+
+function restoreFirebaseSnapshot(dateStr) {
+  if (!confirm('Firebaseスナップショット（'+dateStr+'）から復元しますか？\n\n⚠️ 現在のデータが上書きされます。')) return;
+  if (!FB_ON || !fbDB) return;
+  autoSaveSnapshot('Firebase復元前');
+  fbDB.ref('/backups/'+dateStr).once('value', function(snap) {
+    var data = snap.val();
+    if (!data || !data.pages) { alert('スナップショットデータが見つかりません。'); return; }
+    var pageCount = Object.keys(data.pages).length;
+    ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
+     'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+     'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+      if (data[k] !== undefined) D[k] = data[k];
+    });
+    saveD();
+    writeLog('Firebaseスナップショットから復元', dateStr);
+    renderCal(); safeRenderPage();
+    renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
+    renderOpeList(); renderCathList(); renderLockList(); renderAT();
+    var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
+    renderFirebaseSnapshots();
+    var stEl=document.getElementById('fb-snap-status');
+    if(stEl) stEl.textContent='✅ 復元しました（'+dateStr+'・'+pageCount+'ページ）';
+  }, function(e){ alert('復元エラー: '+e.message); });
+}
+
 function autoSaveSnapshot(label) {
   if (window.innerWidth <= 768) return; /* スマホはストレージ節約のためスキップ */
   try {
@@ -8322,6 +8429,7 @@ function importBackup(file) {
                  + '連絡表ページ数: ' + pageCount + '\n\n'
                  + '⚠️ 現在のすべてのデータが上書きされます。')) return;
       autoSaveSnapshot('ファイル復元前');
+      saveFirebaseSnapshot('ファイル復元前');
       /* D の各フィールドを上書き（未知キーは保持） */
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
