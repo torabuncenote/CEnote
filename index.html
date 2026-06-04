@@ -1450,7 +1450,8 @@ function fbInit() {
         if (!wasConn) {
           /* 切断から復帰 */
           setSyncLbl(_savePending || _saveWriting ? '保存中...' : '同期済');
-          if (_saveQueued && !_saveWriting) {
+          if (_saveQueued && !_saveWriting && currentUser) {
+            /* currentUserチェック: 認証未確立のまま書き込むとPERMISSION_DENIEDでキューが失われるのを防ぐ */
             var qd = _saveQueued; _saveQueued = null;
             _doFbWrite(qd, 0);
           }
@@ -3945,6 +3946,7 @@ function saveD() {
   var snap = JSON.parse(JSON.stringify(D)); /* 現時点のスナップショット */
   if (_saveWriting) {
     _saveQueued = snap; /* 書き込み中は最新データをキューに積む（コアレス） */
+    _savingTs = Date.now(); /* エコー抑制ウィンドウをこの保存時点に更新 */
     return;
   }
   _doFbWrite(snap, 0);
@@ -3979,7 +3981,13 @@ function _doFbWrite(data, attempt) {
                 : (err.message || err.code || '不明');
         setSyncLbl('同期エラー: ' + msg + '（ローカル保存済）');
         writeLog('同期エラー発生', (err.code || '') + ': ' + (err.message || ''));
-        _saveQueued = null;
+        /* PERMISSION_DENIED以外の一時的エラーで新しいキューがあれば5秒後に再試行 */
+        if (_saveQueued && err.code !== 'PERMISSION_DENIED' && currentUser) {
+          var nxt = _saveQueued; _saveQueued = null;
+          setTimeout(function() { if (FB_ON && fbDB && currentUser) { _savePending = true; _doFbWrite(nxt, 0); } }, 5000);
+        } else {
+          _saveQueued = null;
+        }
       }
     });
 }
