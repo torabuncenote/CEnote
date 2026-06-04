@@ -93,7 +93,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .rl{display:flex;flex-direction:column;gap:4px}
 .ri{display:flex;align-items:center;gap:5px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:7px 10px;font-size:12px;font-weight:500}
 .ri .rn{flex:1;line-height:1.4}
-.rd2,.ru,.rdw{background:none;border:1px solid var(--bdr);border-radius:3px;cursor:pointer;font-size:11px;padding:2px 5px;color:var(--txt2);flex-shrink:0}
+.rd2,.ru,.rdw,.re2{background:none;border:1px solid var(--bdr);border-radius:3px;cursor:pointer;font-size:11px;padding:2px 5px;color:var(--txt2);flex-shrink:0}
 .rd2:hover{color:var(--rd);background:var(--rd-bg)}
 .ru:hover,.rdw:hover{background:var(--bg)}
 .ar{display:flex;gap:5px;margin-top:4px}
@@ -4170,6 +4170,22 @@ function confirmEditModal() {
     else if (state.saveKey === 'supTree') renderSupTree();
 
     writeLog('マスタ編集', oldValue + ' → ' + newValue);
+  } else if (state.type === 'dly') {
+    if(!can('dm'))return;
+    D.dly[state.index]=newValue; renderDlyList(); saveD(); if(curDs)safeRenderPage();
+  } else if (state.type === 'wdly') {
+    if(!can('wm'))return;
+    var arr=D.wd[selWd]||[]; var item=arr[state.index];
+    arr[state.index]=typeof item==='string'?newValue:Object.assign({},item,{t:newValue});
+    D.wd[selWd]=arr; renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+  } else if (state.type === 'dutyMaster') {
+    if(!can('dm'))return;
+    if(!D.dutyCfgMaster) D.dutyCfgMaster=getDutyMaster();
+    D.dutyCfgMaster[state.index].label=newValue; renderDutyMasterList(); saveD();
+  } else if (state.type === 'schedPreset') {
+    if(!can('dm'))return;
+    getSchedPresets()[state.index].label=newValue; renderSchedPresetList(); saveD();
+    if(curDs) renderSched();
   }
 
   closeEditModal();
@@ -4220,7 +4236,7 @@ function renderDlyList() {
   var ok = can('dm');
   for (var i = 0; i < D.dly.length; i++) {
     var el = document.createElement('div'); el.className = 'ri';
-    var btns = ok ? '<button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
+    var btns = ok ? '<button class="re2" onclick="editDly('+i+')">✏️</button><button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
     el.innerHTML = '<span class="rn" style="font-size:11px">📌 ' + escH(D.dly[i]) + '</span>' + btns;
     l.appendChild(el);
   }
@@ -4229,6 +4245,13 @@ function renderDlyList() {
 function addDly() { if(!can('dm'))return; var v=document.getElementById('in-dly').value.trim(); if(!v)return; D.dly.push(v); document.getElementById('in-dly').value=''; renderDlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-dly').focus(); }
 function rmDly(i) { if(!can('dm'))return; D.dly.splice(i,1); renderDlyList(); saveD(); if(curDs)safeRenderPage(); }
 function mvDly(i,d) { if(!can('dm'))return; var j=i+d; if(j<0||j>=D.dly.length)return; var t=D.dly[i];D.dly[i]=D.dly[j];D.dly[j]=t; renderDlyList(); saveD(); }
+function editDly(i) {
+  if(!can('dm'))return;
+  _editModalState={type:'dly',index:i};
+  document.getElementById('edit-item-title').textContent='📌 毎日業務を編集';
+  var inp=document.getElementById('edit-item-input'); inp.value=D.dly[i]; inp.style.minHeight='40px';
+  document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
+}
 
 /* ===== WEEKDAY MASTER ===== */
 function renderWdTabs() {
@@ -4255,7 +4278,7 @@ function renderWdlyList() {
       var el = document.createElement('div');
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
-      var btns = ok ? '<button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>' : '';
+      var btns = ok ? '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>' : '';
       var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
                + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
       var freq = '';
@@ -4284,6 +4307,15 @@ function renderWdlyList() {
 function addWdly() { if(!can('wm'))return; var v=document.getElementById('in-wdly').value.trim(); if(!v)return; if(!D.wd[selWd])D.wd[selWd]=[]; D.wd[selWd].push(v); document.getElementById('in-wdly').value=''; renderWdlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-wdly').focus(); }
 function rmWdly(i) { if(!can('wm'))return; D.wd[selWd].splice(i,1); renderWdlyList(); saveD(); if(curDs)safeRenderPage(); }
 function mvWdly(i,d) { if(!can('wm'))return; var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return; var t=arr[i];arr[i]=arr[j];arr[j]=t; renderWdlyList(); saveD(); }
+function editWdly(i) {
+  if(!can('wm'))return;
+  var arr=D.wd[selWd]||[]; var item=arr[i];
+  var txt=typeof item==='string'?item:(item.t||'');
+  _editModalState={type:'wdly',index:i};
+  document.getElementById('edit-item-title').textContent='📅 曜日業務を編集';
+  var inp=document.getElementById('edit-item-input'); inp.value=txt; inp.style.minHeight='40px';
+  document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
+}
 /* 頻度プリセット：毎週=文字列に戻す / 第1・3・5 / 第2・4 */
 function setWdWeeks(i, mode) {
   if(!can('wm'))return;
@@ -4325,11 +4357,15 @@ function renderTree(elId, tree, saveKey, icons) {
     var arrow = document.createElement('span'); arrow.textContent = '▶'; arrow.style.cssText='font-size:10px;transition:transform .15s;display:inline-block';
     var deptName = document.createElement('span'); deptName.style.flex='1'; deptName.style.cursor='pointer'; deptName.style.userSelect='none'; deptName.textContent=(icons?icons[0]+' ':'')+dept.dept;
     deptName.ondblclick=(function(idx){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'dept',idx,null,null,tree[idx].dept);};})(di);
+    var editDeptBtn = document.createElement('button');
+    editDeptBtn.style.cssText='background:none;border:none;color:var(--ac);cursor:pointer;font-size:12px;padding:0 2px';
+    editDeptBtn.textContent='✏️'; editDeptBtn.title='科名を編集';
+    editDeptBtn.onclick=(function(idx){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'dept',idx,null,null,tree[idx].dept);};})(di);
     var delDeptBtn = document.createElement('button');
     delDeptBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:12px;padding:0 2px';
     delDeptBtn.textContent='×'; delDeptBtn.title='科を削除';
     delDeptBtn.onclick=(function(idx){return function(e){e.stopPropagation();if(!confirm('「'+tree[idx].dept+'」と全ての術式を削除しますか？')) return;tree.splice(idx,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di);
-    deptHd.appendChild(arrow); deptHd.appendChild(deptName); deptHd.appendChild(delDeptBtn);
+    deptHd.appendChild(arrow); deptHd.appendChild(deptName); deptHd.appendChild(editDeptBtn); deptHd.appendChild(delDeptBtn);
 
     var deptOpen = !!openSt.depts[dept.dept];
     var body = document.createElement('div'); body.className = 'tree-dept-body'; body.style.display = deptOpen ? '' : 'none';
@@ -4342,11 +4378,15 @@ function renderTree(elId, tree, saveKey, icons) {
       var catArrow = document.createElement('span'); catArrow.textContent='▶'; catArrow.style.cssText='font-size:9px;transition:transform .15s;display:inline-block';
       var catName = document.createElement('span'); catName.style.flex='1'; catName.style.cursor='pointer'; catName.style.userSelect='none'; catName.textContent=(icons?icons[1]+' ':'')+cat.name;
       catName.ondblclick=(function(di2,ci2){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'cat',di2,ci2,null,tree[di2].cats[ci2].name);};})(di,ci);
+      var editCatBtn = document.createElement('button');
+      editCatBtn.style.cssText='background:none;border:none;color:var(--ac);cursor:pointer;font-size:11px;padding:0 2px';
+      editCatBtn.textContent='✏️'; editCatBtn.title='カテゴリ名を編集';
+      editCatBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'cat',di2,ci2,null,tree[di2].cats[ci2].name);};})(di,ci);
       var delCatBtn = document.createElement('button');
       delCatBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 2px';
       delCatBtn.textContent='×'; delCatBtn.title='中カテゴリを削除';
       delCatBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();if(!confirm('「'+tree[di2].cats[ci2].name+'」を削除しますか？')) return;tree[di2].cats.splice(ci2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci);
-      catHd.appendChild(catArrow); catHd.appendChild(catName); catHd.appendChild(delCatBtn);
+      catHd.appendChild(catArrow); catHd.appendChild(catName); catHd.appendChild(editCatBtn); catHd.appendChild(delCatBtn);
 
       var catKey = dept.dept + ' ' + cat.name;
       var catOpen = !!openSt.cats[catKey];
@@ -4358,11 +4398,15 @@ function renderTree(elId, tree, saveKey, icons) {
         var itemRow = document.createElement('div'); itemRow.className = 'tree-item';
         var itemSpan = document.createElement('span'); itemSpan.style.cursor='pointer'; itemSpan.style.userSelect='none'; itemSpan.textContent=(icons?icons[2]+' ':'')+item;
         itemSpan.ondblclick=(function(di2,ci2,ii2){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'item',di2,ci2,ii2,tree[di2].cats[ci2].items[ii2]);};})(di,ci,ii);
+        var editItemBtn = document.createElement('button');
+        editItemBtn.style.cssText='background:none;border:none;color:var(--ac);cursor:pointer;font-size:11px;padding:0 2px';
+        editItemBtn.textContent='✏️'; editItemBtn.title='術式名を編集';
+        editItemBtn.onclick=(function(di2,ci2,ii2){return function(e){e.stopPropagation();editTreeItem(elId,tree,saveKey,icons,'item',di2,ci2,ii2,tree[di2].cats[ci2].items[ii2]);};})(di,ci,ii);
         var delItemBtn = document.createElement('button');
         delItemBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 3px';
         delItemBtn.textContent='×';
         delItemBtn.onclick=(function(di2,ci2,ii2){return function(){if(!confirm('「'+tree[di2].cats[ci2].items[ii2]+'」を削除しますか？')) return;tree[di2].cats[ci2].items.splice(ii2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci,ii);
-        itemRow.appendChild(itemSpan); itemRow.appendChild(delItemBtn); catBody.appendChild(itemRow);
+        itemRow.appendChild(itemSpan); itemRow.appendChild(editItemBtn); itemRow.appendChild(delItemBtn); catBody.appendChild(itemRow);
       });
 
       /* 術式追加 */
@@ -4465,6 +4509,7 @@ function renderDutyMasterList() {
       if (m.checks && m.checks.length) tags.push('チェック欄あり');
       if (m.freeRole) tags.push('役割選択あり');
       el.innerHTML = '<span class="rn" style="font-size:11px">'+m.icon+' '+m.label+(tags.length?' <span style="color:var(--txt3);font-size:10px">('+tags.join('・')+')</span>':'')+'</span>'
+        + '<button class="re2" onclick="editDutyMaster('+idx+')">✏️</button>'
         + '<button class="rd2" onclick="rmDutyMaster('+idx+')">×</button>';
       l.appendChild(el);
     })(i, master[i]);
@@ -4496,6 +4541,14 @@ function rmDutyMaster(idx) {
   D.dutyCfgMaster.splice(idx, 1);
   renderDutyMasterList();
   saveD();
+}
+function editDutyMaster(idx) {
+  if(!can('dm'))return;
+  var master=getDutyMaster(); var m=master[idx];
+  _editModalState={type:'dutyMaster',index:idx};
+  document.getElementById('edit-item-title').textContent=m.icon+' 担当スロット名を編集';
+  var inp=document.getElementById('edit-item-input'); inp.value=m.label; inp.style.minHeight='40px';
+  document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
 }
 
 /* renderSupList は上の renderSupTree に統合済み */
@@ -7877,7 +7930,7 @@ function renderSchedPresetList(){
     var colorVar='--'+(p.color==='o'?'or':p.color==='c'?'oc':p.color==='g'?'gr':p.color==='gray'?'txt3':p.color);
     var dot='<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var('+colorVar+');flex-shrink:0"></span>';
     var div=document.createElement('div'); div.className='ri';
-    var btns=ok?'<button class="ru" onclick="mvSchedPreset('+i+',-1)">↑</button><button class="rdw" onclick="mvSchedPreset('+i+',1)">↓</button><button class="rd2" onclick="rmSchedPreset('+i+')">×</button>':'';
+    var btns=ok?'<button class="re2" onclick="editSchedPreset('+i+')">✏️</button><button class="ru" onclick="mvSchedPreset('+i+',-1)">↑</button><button class="rdw" onclick="mvSchedPreset('+i+',1)">↓</button><button class="rd2" onclick="rmSchedPreset('+i+')">×</button>':'';
     var info=dot+' <span class="rn" style="font-size:11px;flex:1">'+escH(p.label)+(p.custom?'':' <span style="font-size:10px;color:var(--txt3)">'+p.dur+'分</span>')+'</span>';
     div.innerHTML='<div style="display:flex;align-items:center;gap:6px;width:100%">'+info+btns+'</div>';
     el.appendChild(div);
@@ -7911,6 +7964,14 @@ function mvSchedPreset(i,d){
   var t=ps[i];ps[i]=ps[j];ps[j]=t; _schedSelPreset=null;
   renderSchedPresetList(); saveD();
   if(curDs) renderSched();
+}
+function editSchedPreset(i){
+  if(!can('dm'))return;
+  var ps=getSchedPresets(); var p=ps[i];
+  _editModalState={type:'schedPreset',index:i};
+  document.getElementById('edit-item-title').textContent='⏰ プリセット名を編集';
+  var inp=document.getElementById('edit-item-input'); inp.value=p.label; inp.style.minHeight='40px';
+  document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
 }
 
 function schedMinToHM(m){ return pad(Math.floor(m/60))+':'+pad(m%60); }
@@ -8259,6 +8320,9 @@ document.addEventListener('click',function(e){
     var ap=document.getElementById('pane-assign');
     var sp=document.getElementById('pane-sched');
     if((ap&&ap.style.display==='flex')||(sp&&sp.style.display==='flex')) return;
+    /* renderTree等でクリック中にDOMが再構築されるとe.targetがdetachされる。
+       その場合はサイドバーの外クリックとみなさない */
+    if(!document.contains(e.target)) return;
     var s=document.getElementById('sb'),h=document.getElementById('hbg');
     if(s&&h&&!s.contains(e.target)&&!h.contains(e.target)){sbOpen=false;s.classList.add('hm');}
   }
