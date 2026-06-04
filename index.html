@@ -276,9 +276,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ato{width:100%;overflow-x:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr)}
 .at{border-collapse:collapse;min-width:100%;font-size:11px;background:var(--sur)}
 .at th{background:#f0efeb;font-weight:700;color:var(--txt2);padding:6px 8px;border:1px solid var(--bdr);white-space:nowrap;text-align:center}
-.at th.sh{background:#e8e6e1;min-width:72px;text-align:left}
+.at th.sh{background:#e8e6e1;min-width:72px;text-align:left;position:sticky;left:0;z-index:3}
 .at td{padding:5px 6px;border:1px solid var(--bdr);text-align:center;vertical-align:middle}
-.at td.sc{background:var(--sur2);font-weight:700;font-size:11px;text-align:left;border-right:2px solid var(--bdr2);white-space:nowrap}
+.at td.sc{background:var(--sur2);font-weight:700;font-size:11px;text-align:left;border-right:2px solid var(--bdr2);white-space:nowrap;position:sticky;left:0;z-index:2}
 .at td.sc.hpc{border-left:4px solid var(--rd)}
 .at td.sc.dpc{border-left:4px solid var(--ac)}
 .atr{cursor:pointer}
@@ -776,6 +776,26 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
               <input type="checkbox" id="in-duty-freerole"> 役割選択
             </label>
             <button onclick="addDutyMaster()">追加</button>
+          </div>
+        </div>
+        <div>
+          <div class="pt">⏰ スケジュールプリセット</div>
+          <div class="pn" style="margin-bottom:8px">スケジュール画面で使う業務ブロックのプリセットを管理します。</div>
+          <div class="rl" id="sched-preset-list"></div>
+          <div class="ar" id="sched-preset-ar" style="flex-wrap:wrap;gap:6px">
+            <input type="text" id="in-sp-label" placeholder="プリセット名…" style="flex:1;min-width:100px">
+            <select id="in-sp-color" style="border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;font-size:12px">
+              <option value="o">🟠 OPE</option>
+              <option value="c">🔵 カテ</option>
+              <option value="g">🟢 透析</option>
+              <option value="ac">🩵 病棟</option>
+              <option value="pu">🟣 機器</option>
+              <option value="gd">🟡 会議</option>
+              <option value="gray">⚪ その他</option>
+              <option value="rd">🔴 注意</option>
+            </select>
+            <input type="number" id="in-sp-dur" placeholder="分" min="15" step="15" value="60" style="width:68px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;font-size:12px">
+            <button onclick="addSchedPreset()">追加</button>
           </div>
         </div>
         <div class="pn">変更はすぐに全連絡表に反映されます。</div>
@@ -3666,21 +3686,47 @@ function renderLogList() {
 }
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+/* Firebase RTDBキーに使えない文字を除去（. # $ [ ] /） */
+function sanitizeManualKeys() {
+  if (!D.manual) return;
+  var dirty = Object.keys(D.manual).filter(function(k){ return /[.#$\[\]/]/.test(k); });
+  dirty.forEach(function(k) {
+    var safe = k.replace(/[.#$\[\]/]/g, '_');
+    if (!D.manual[safe]) D.manual[safe] = D.manual[k];
+    delete D.manual[k];
+  });
+}
+
+var _savePending = false; /* 未保存変更フラグ（beforeunload用） */
+
 function saveD() {
+  /* D.manualのキーにFirebase禁止文字があると全体が失敗するため事前に修正 */
+  sanitizeManualKeys();
+  /* localStorage には常に書く（Firebase失敗時のフォールバック兼オフライン対応） */
+  try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
   if (FB_ON && fbDB) {
+    _savePending = true;
     setSyncLbl('保存中...');
     _savingTs = Date.now(); /* 保存中フラグ：リスナーからの再描画を一時抑制 */
     fbDB.ref('/data').set(D)
-      .then(function(){ setSyncLbl('同期済'); })
+      .then(function(){ _savePending = false; setSyncLbl('同期済'); })
       .catch(function(error){
+        _savePending = false;
         console.error('Firebase同期エラー:', error.code, error.message);
-        setSyncLbl('同期エラー: ' + (error.message || error.code));
+        /* エラー内容をわかりやすく日本語化 */
+        var msg = error.code === 'PERMISSION_DENIED' ? 'セキュリティルール拒否'
+                : error.code === 'NETWORK_ERROR'     ? 'ネットワーク切断'
+                : (error.message || error.code);
+        setSyncLbl('同期エラー: ' + msg + '（ローカル保存済）');
         writeLog('同期エラー発生', error.code + ': ' + error.message);
       });
-  } else {
-    try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
   }
 }
+
+/* 未保存変更がある状態でタブを閉じようとしたとき警告 */
+window.addEventListener('beforeunload', function(e) {
+  if (_savePending) { e.preventDefault(); e.returnValue = ''; }
+});
 
 /* ===== LOCK ===== */
 function lk(id) { return !!(D.lk && D.lk[id]); }
@@ -7507,6 +7553,54 @@ var DEF_SCHED_PRESETS=[
 var _schedSelPreset=null; /* タップで選択中のプリセット */
 
 function getSchedPresets(){ if(!D.schedPresets||!D.schedPresets.length) D.schedPresets=JSON.parse(JSON.stringify(DEF_SCHED_PRESETS)); return D.schedPresets; }
+
+/* ===== スケジュールプリセットマスタ編集 ===== */
+var SP_COLOR_LABELS={o:'OPE',c:'カテ',g:'透析',ac:'病棟',pu:'機器',gd:'会議',gray:'その他',rd:'注意'};
+function renderSchedPresetList(){
+  var el=document.getElementById('sched-preset-list'); if(!el) return;
+  var ok=can('dm'); /* 業務マスタ権限で管理 */
+  var ps=getSchedPresets(); el.innerHTML='';
+  if(!ps.length){el.innerHTML='<p class="cle">プリセットがありません</p>';return;}
+  for(var i=0;i<ps.length;i++){
+    var p=ps[i];
+    var colorVar='--'+(p.color==='o'?'or':p.color==='c'?'oc':p.color==='g'?'gr':p.color==='gray'?'txt3':p.color);
+    var dot='<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var('+colorVar+');flex-shrink:0"></span>';
+    var div=document.createElement('div'); div.className='ri';
+    var btns=ok?'<button class="ru" onclick="mvSchedPreset('+i+',-1)">↑</button><button class="rdw" onclick="mvSchedPreset('+i+',1)">↓</button><button class="rd2" onclick="rmSchedPreset('+i+')">×</button>':'';
+    var info=dot+' <span class="rn" style="font-size:11px;flex:1">'+escH(p.label)+(p.custom?'':' <span style="font-size:10px;color:var(--txt3)">'+p.dur+'分</span>')+'</span>';
+    div.innerHTML='<div style="display:flex;align-items:center;gap:6px;width:100%">'+info+btns+'</div>';
+    el.appendChild(div);
+  }
+  var ar=document.getElementById('sched-preset-ar'); if(ar) ar.style.display=ok?'flex':'none';
+}
+function addSchedPreset(){
+  if(!can('dm'))return;
+  var label=document.getElementById('in-sp-label').value.trim();
+  if(!label){alert('プリセット名を入力してください');return;}
+  var color=document.getElementById('in-sp-color').value;
+  var dur=parseInt(document.getElementById('in-sp-dur').value)||60;
+  getSchedPresets().push({label:label,color:color,dur:dur});
+  document.getElementById('in-sp-label').value='';
+  renderSchedPresetList(); saveD();
+  if(curDs) renderSched();
+}
+function rmSchedPreset(i){
+  if(!can('dm'))return;
+  var ps=getSchedPresets();
+  if(!confirm('「'+ps[i].label+'」を削除しますか？'))return;
+  ps.splice(i,1); _schedSelPreset=null;
+  renderSchedPresetList(); saveD();
+  if(curDs) renderSched();
+}
+function mvSchedPreset(i,d){
+  if(!can('dm'))return;
+  var ps=getSchedPresets(); var j=i+d;
+  if(j<0||j>=ps.length)return;
+  var t=ps[i];ps[i]=ps[j];ps[j]=t; _schedSelPreset=null;
+  renderSchedPresetList(); saveD();
+  if(curDs) renderSched();
+}
+
 function schedMinToHM(m){ return pad(Math.floor(m/60))+':'+pad(m%60); }
 function schedSnap(m){ m=Math.round(m/SCHED_SLOT)*SCHED_SLOT; return Math.max(SCHED_START,Math.min(SCHED_END,m)); }
 function schedColorOf(c){ return 'sb-'+(c||'ac'); }
@@ -7815,7 +7909,7 @@ function swTab(t) {
   var docsTab=document.getElementById('tab-docs');
   if(docsTab) docsTab.classList.toggle('on', docsTabs.indexOf(t)!==-1);
 
-  if(t==='master'){renderWdlyList();renderDlyList();renderOpeList();renderCathList();renderSupList();renderDutyMasterList();}
+  if(t==='master'){renderWdlyList();renderDlyList();renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
   if(t==='logs'){loadLogs();}
   if(t==='lock') { renderLockList(); loadAutoDelSettings(); }
   if(t==='guide') { renderGuide(); }
@@ -7835,10 +7929,11 @@ function togSB(){
   sbOpen=!sbOpen;
   var sb=document.getElementById('sb');
   if(sb) sb.classList.toggle('hm',!sbOpen);
-  /* ハンバーガーでサイドバーを開くとき、担当表が全画面表示中なら swTab('cal') で正規の閉じ処理 */
+  /* ハンバーガーでサイドバーを開くとき、担当表/スケジュールが全画面表示中なら swTab('cal') で正規の閉じ処理 */
   if(sbOpen){
     var ap=document.getElementById('pane-assign');
-    if(ap && ap.style.display==='flex'){
+    var sp=document.getElementById('pane-sched');
+    if((ap && ap.style.display==='flex') || (sp && sp.style.display==='flex')){
       /* swTab('cal') に閉じ処理を委譲（再描画・タブハイライト・サイドバー復元も含む）
          ただし swTab 内でサイドバー再表示が走るので hm は一旦手動で制御 */
       sbOpen=false; /* 一時的に false に戻して swTab 内の再表示ロジックを働かせる */
