@@ -4218,7 +4218,7 @@ function renderDlyList() {
   }
   document.getElementById('dly-ar').style.display = ok ? 'flex' : 'none';
 }
-function addDly() { if(!can('dm'))return; var v=document.getElementById('in-dly').value.trim(); if(!v)return; D.dly.push(v); document.getElementById('in-dly').value=''; renderDlyList(); saveD(); if(curDs)safeRenderPage(); }
+function addDly() { if(!can('dm'))return; var v=document.getElementById('in-dly').value.trim(); if(!v)return; D.dly.push(v); document.getElementById('in-dly').value=''; renderDlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-dly').focus(); }
 function rmDly(i) { if(!can('dm'))return; D.dly.splice(i,1); renderDlyList(); saveD(); if(curDs)safeRenderPage(); }
 function mvDly(i,d) { if(!can('dm'))return; var j=i+d; if(j<0||j>=D.dly.length)return; var t=D.dly[i];D.dly[i]=D.dly[j];D.dly[j]=t; renderDlyList(); saveD(); }
 
@@ -4273,7 +4273,7 @@ function renderWdlyList() {
   }
   document.getElementById('wdly-ar').style.display = ok ? 'flex' : 'none';
 }
-function addWdly() { if(!can('wm'))return; var v=document.getElementById('in-wdly').value.trim(); if(!v)return; if(!D.wd[selWd])D.wd[selWd]=[]; D.wd[selWd].push(v); document.getElementById('in-wdly').value=''; renderWdlyList(); saveD(); if(curDs)safeRenderPage(); }
+function addWdly() { if(!can('wm'))return; var v=document.getElementById('in-wdly').value.trim(); if(!v)return; if(!D.wd[selWd])D.wd[selWd]=[]; D.wd[selWd].push(v); document.getElementById('in-wdly').value=''; renderWdlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-wdly').focus(); }
 function rmWdly(i) { if(!can('wm'))return; D.wd[selWd].splice(i,1); renderWdlyList(); saveD(); if(curDs)safeRenderPage(); }
 function mvWdly(i,d) { if(!can('wm'))return; var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return; var t=arr[i];arr[i]=arr[j];arr[j]=t; renderWdlyList(); saveD(); }
 /* 頻度プリセット：毎週=文字列に戻す / 第1・3・5 / 第2・4 */
@@ -4361,7 +4361,7 @@ function renderTree(elId, tree, saveKey, icons) {
       var addItemRow = document.createElement('div'); addItemRow.className='tree-add-row';
       var addItemInp = document.createElement('input'); addItemInp.type='text'; addItemInp.placeholder='術式・品名を追加…';
       var addItemBtn = document.createElement('button'); addItemBtn.textContent='追加';
-      addItemBtn.onclick=(function(di2,ci2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats[ci2].items.push(v);inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+tr[di2].cats[ci2].name]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);}})(di,ci,addItemInp,elId,tree,saveKey,icons);
+      addItemBtn.onclick=(function(di2,ci2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats[ci2].items.push(v);inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+tr[di2].cats[ci2].name]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);_focusTreeInput(eid,di2,ci2,'item');}})(di,ci,addItemInp,elId,tree,saveKey,icons);
       addItemInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addItemBtn);
       addItemRow.appendChild(addItemInp); addItemRow.appendChild(addItemBtn); catBody.appendChild(addItemRow);
 
@@ -4372,7 +4372,7 @@ function renderTree(elId, tree, saveKey, icons) {
     var addCatRow = document.createElement('div'); addCatRow.className='tree-add-row';
     var addCatInp = document.createElement('input'); addCatInp.type='text'; addCatInp.placeholder='中カテゴリを追加…';
     var addCatBtn = document.createElement('button'); addCatBtn.textContent='追加';
-    addCatBtn.onclick=(function(di2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats.push({name:v,items:[]});inp.value='';treeOpenState(eid).depts[tr[di2].dept]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);};})(di,addCatInp,elId,tree,saveKey,icons);
+    addCatBtn.onclick=(function(di2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;tr[di2].cats.push({name:v,items:[]});inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+v]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);_focusTreeInput(eid,di2,tr[di2].cats.length-1,'item');};})(di,addCatInp,elId,tree,saveKey,icons);
     addCatInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addCatBtn);
     addCatRow.appendChild(addCatInp); addCatRow.appendChild(addCatBtn); body.appendChild(addCatRow);
 
@@ -4383,9 +4383,25 @@ function renderOpeTree()  { renderTree('ope-tree-list',  D.opeTree,  'opeTree', 
 function renderCathTree() { renderTree('cath-tree-list', D.cathTree, 'cathTree', ['🔬','📂','🫀']); }
 function renderSupTree()  { renderTree('sup-tree-list',  D.supTree,  'supTree',  ['📦','📂','🧰']); }
 
-function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById('in-ope-dept').value='';saveD();renderOpeTree(); }
-function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';saveD();renderCathTree(); }
-function addSupTreeDept()  { var v=document.getElementById('in-sup-dept').value.trim();if(!v)return;if(!D.supTree)D.supTree=[];D.supTree.push({dept:v,cats:[]});document.getElementById('in-sup-dept').value='';saveD();renderSupTree(); }
+function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById('in-ope-dept').value='';treeOpenState('ope-tree-list').depts[v]=true;saveD();renderOpeTree();_focusTreeInput('ope-tree-list',D.opeTree.length-1,null,'cat'); }
+function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';treeOpenState('cath-tree-list').depts[v]=true;saveD();renderCathTree();_focusTreeInput('cath-tree-list',D.cathTree.length-1,null,'cat'); }
+function addSupTreeDept()  { var v=document.getElementById('in-sup-dept').value.trim();if(!v)return;if(!D.supTree)D.supTree=[];D.supTree.push({dept:v,cats:[]});document.getElementById('in-sup-dept').value='';treeOpenState('sup-tree-list').depts[v]=true;saveD();renderSupTree();_focusTreeInput('sup-tree-list',D.supTree.length-1,null,'cat'); }
+
+/* ツリー内の入力欄にフォーカスするヘルパー（renderTree再描画後に呼ぶ） */
+function _focusTreeInput(elId, di, ci, type) {
+  var l = document.getElementById(elId); if (!l) return;
+  var depts = l.querySelectorAll(':scope > .tree-dept');
+  var deptEl = depts[di]; if (!deptEl) return;
+  var inp;
+  if (type === 'item') {
+    var cats = deptEl.querySelectorAll('.tree-cat');
+    var catEl = cats[ci]; if (!catEl) return;
+    inp = catEl.querySelector('.tree-cat-body > .tree-add-row > input');
+  } else { /* cat */
+    inp = deptEl.querySelector('.tree-dept-body > .tree-add-row > input');
+  }
+  if (inp) { inp.focus(); inp.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+}
 
 /* Tree Item Editing (Modal) */
 function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValue) {
@@ -4465,6 +4481,7 @@ function addDutyMaster() {
   document.getElementById('in-duty-freerole').checked = false;
   renderDutyMasterList();
   saveD();
+  document.getElementById('in-duty-name').focus();
 }
 function rmDutyMaster(idx) {
   if (!D.dutyCfgMaster) D.dutyCfgMaster = getDutyMaster();
@@ -7869,6 +7886,7 @@ function addSchedPreset(){
   document.getElementById('in-sp-label').value='';
   renderSchedPresetList(); saveD();
   if(curDs) renderSched();
+  document.getElementById('in-sp-label').focus();
 }
 function rmSchedPreset(i){
   if(!can('dm'))return;
