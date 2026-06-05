@@ -1312,6 +1312,7 @@ var DEF_SUP_TREE = [
 /* ===== STATE ===== */
 var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
+var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
 var _savingTs = 0; /* saveD()後のリスナー再描画抑制タイムスタンプ */
 var _boardData = {}; /* Firebase /board のキャッシュ */
@@ -8233,6 +8234,7 @@ var _schedDragPreset=null;
 
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
+  curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
   var tabs=['cal','assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
   var docsTabs=['spec','manual','adminm','dev','regs'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群（担当表・スケジュールも含む） */
@@ -8315,14 +8317,13 @@ function fmtJ(ds){var p=ds.split('-');return p[0]+'年'+parseInt(p[1])+'月'+par
 
 document.addEventListener('click',function(e){
   if(window.innerWidth<=768&&sbOpen){
-    /* 担当表/スケジュールが全画面表示中はサイドバーを.hmで隠さない
-       （paneはsb内のfixed要素なので、.hmのtransformで一緒に消えてしまうため） */
-    var ap=document.getElementById('pane-assign');
-    var sp=document.getElementById('pane-sched');
-    if((ap&&ap.style.display==='flex')||(sp&&sp.style.display==='flex')) return;
-    /* スマホではメイン領域（連絡表詳細）をタップした時だけサイドバーを閉じる。
-       「サイドバー外クリックで閉じる」という逆検知はdetach/ghost click/モーダル等で
-       誤作動するため、正検知（.mainへのタップ）に切り替えた。 */
+    /* この「外側タップでサイドバーを閉じる」機能は本来カレンダー専用の挙動
+       （日付タップ→サイドバーが閉じてその日の連絡表を表示）。
+       マスタ・スタッフ・ロック等のコンテンツタブ編集中は、入力欄や追加ボタンの
+       タップ／DOM再構築／モーダル操作で誤作動してサイドバーが閉じてしまうため、
+       カレンダータブ表示中以外は一切自動クローズしない。 */
+    if(curTab!=='cal') return;
+    /* メイン領域（連絡表詳細）をタップした時だけ閉じる（正検知） */
     var main=document.getElementById('main');
     if(main&&main.contains(e.target)){
       sbOpen=false;
