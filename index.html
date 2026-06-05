@@ -4181,7 +4181,7 @@ function confirmEditModal() {
     D.wd[selWd]=arr; renderWdlyList(); saveD(); if(curDs)safeRenderPage();
   } else if (state.type === 'dutyMaster') {
     if(!can('dm'))return;
-    if(!D.dutyCfgMaster) D.dutyCfgMaster=getDutyMaster();
+    if(!D.dutyCfgMaster||!D.dutyCfgMaster.length) D.dutyCfgMaster=getDutyMaster();
     D.dutyCfgMaster[state.index].label=newValue; renderDutyMasterList(); saveD();
   } else if (state.type === 'schedPreset') {
     if(!can('dm'))return;
@@ -7931,7 +7931,7 @@ function renderSchedPresetList(){
     var colorVar='--'+(p.color==='o'?'or':p.color==='c'?'oc':p.color==='g'?'gr':p.color==='gray'?'txt3':p.color);
     var dot='<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:var('+colorVar+');flex-shrink:0"></span>';
     var div=document.createElement('div'); div.className='ri';
-    var btns=ok?'<button class="re2" onclick="editSchedPreset('+i+')">✏️</button><button class="ru" onclick="mvSchedPreset('+i+',-1)">↑</button><button class="rdw" onclick="mvSchedPreset('+i+',1)">↓</button><button class="rd2" onclick="rmSchedPreset('+i+')">×</button>':'';
+    var btns=ok?((!p.custom?'<button class="re2" onclick="editSchedPreset('+i+')">✏️</button>':'')+'<button class="ru" onclick="mvSchedPreset('+i+',-1)">↑</button><button class="rdw" onclick="mvSchedPreset('+i+',1)">↓</button><button class="rd2" onclick="rmSchedPreset('+i+')">×</button>'):'';
     var info=dot+' <span class="rn" style="font-size:11px;flex:1">'+escH(p.label)+(p.custom?'':' <span style="font-size:10px;color:var(--txt3)">'+p.dur+'分</span>')+'</span>';
     div.innerHTML='<div style="display:flex;align-items:center;gap:6px;width:100%">'+info+btns+'</div>';
     el.appendChild(div);
