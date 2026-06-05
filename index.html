@@ -1362,6 +1362,11 @@ function init() {
   loadD();
   autoSaveSnapshot('起動時');
   setInterval(function(){ autoSaveSnapshot('定期（30分）'); }, 30*60*1000);
+  /* 1時間ごとにFirebaseスナップショットも取る（日次だけでは粒度が粗すぎるため） */
+  setInterval(function(){
+    if (FB_ON && fbDB && currentUser && Object.keys(D.pages||{}).length > 0)
+      saveFirebaseSnapshot('定期（1時間）');
+  }, 60*60*1000);
   if (!isPreview) fbInit();
   renderCal();
   renderStfList(); renderPhsList();
@@ -1550,10 +1555,24 @@ function fbInit() {
             var justSaved = (Date.now() - _savingTs) < 2000;
             if (!fromSelf && !justSaved && _localSavedAt > 0 &&
                 incomingSavedAt < _localSavedAt - 8000) {
-              var now = Date.now();
-              if (now - _staleTs > 10000) {
-                _staleTs = now;
-                setSyncLbl('⚠️ 古いデータを検出、修正中...');
+              var now2 = Date.now();
+              if (now2 - _staleTs > 10000) {
+                _staleTs = now2;
+                setSyncLbl('⚠️ 競合検出・修正中...');
+                /* 画面上部に目立つバナーを表示 */
+                (function(){
+                  var bid = 'stale-banner';
+                  var existing = document.getElementById(bid);
+                  if (!existing) {
+                    var b = document.createElement('div');
+                    b.id = bid;
+                    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#e53e3e;color:#fff;font-size:13px;font-weight:700;padding:8px 14px;text-align:center;cursor:pointer';
+                    b.innerHTML = '⚠️ 別のセッションが古いデータを書き込もうとしました。自動で修正しています。このバナーをタップして閉じる';
+                    b.onclick = function(){ b.remove(); };
+                    document.body.appendChild(b);
+                    setTimeout(function(){ if(b.parentNode) b.remove(); }, 15000);
+                  }
+                })();
                 writeLog('古いセッション上書き検出',
                   '受信 ' + new Date(incomingSavedAt).toLocaleTimeString() +
                   ' / 自 ' + new Date(_localSavedAt).toLocaleTimeString() +
@@ -3972,6 +3991,14 @@ function saveD() {
   /* localStorage には常に書く（Firebase失敗時のフォールバック兼オフライン対応） */
   try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
   if (!FB_ON || !fbDB) return;
+  /* 未認証時は書かない（ログアウト直後にデバウンス保存が空Dを上書きするのを防ぐ） */
+  if (!currentUser) return;
+  /* ページが空なのに過去に保存実績がある場合は書かない（D消去バグ対策） */
+  if (_localSavedAt > 0 && Object.keys(D.pages || {}).length === 0 && (D.stf || []).length === 0) {
+    console.warn('[saveD] D が空のため Firebase 書き込みをスキップ（データ保護）');
+    writeLog && writeLog('saveD空スキップ', 'pages=0, stf=0, localSavedAt=' + _localSavedAt);
+    return;
+  }
   _savePending = true;
   var snap = JSON.parse(JSON.stringify(D)); /* 現時点のスナップショット */
   if (_saveWriting) {
@@ -3996,6 +4023,12 @@ function _doFbWrite(data, attempt) {
       setSyncLbl('同期済');
       _localSavedAt = data._savedAt; /* 確定した書き込み時刻を記録 */
       _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長 */
+      /* ACK確定のたびに /recent_backup へ最新スナップを保存（データ消去時の復元用） */
+      if (Object.keys(data.pages || {}).length > 0) {
+        fbDB.ref('/recent_backup').set(
+          Object.assign({}, data, { _backupAt: Date.now() })
+        ).catch(function(){});
+      }
       if (_saveQueued) {
         var nxt = _saveQueued; _saveQueued = null;
         _doFbWrite(nxt, 0);
@@ -8572,7 +8605,11 @@ function shouldTakeDailySnapshot() {
 
 function saveFirebaseSnapshot(label) {
   if (!FB_ON || !fbDB) return;
-  var today = toDS(new Date());
+  var now = new Date();
+  var today = toDS(now);
+  /* 時刻付きキーで保存（同日内の上書きを防ぎ、1時間粒度でバックアップを残す） */
+  var hh = ('0'+now.getHours()).slice(-2);
+  var snapKey = today + '_' + hh;
   var copy = JSON.parse(JSON.stringify(D));
   /* manual キーのサニタイズ（Firebase不可文字） */
   if (copy.manual) {
@@ -8583,9 +8620,9 @@ function saveFirebaseSnapshot(label) {
     });
   }
   var meta = { ts: Date.now(), label: label||'自動', pages: Object.keys(D.pages||{}).length, stf: (D.stf||[]).length };
-  fbDB.ref('/backups/'+today).set(copy)
+  fbDB.ref('/backups/'+snapKey).set(copy)
     .then(function(){
-      fbDB.ref('/backup_meta/'+today).set(meta);
+      fbDB.ref('/backup_meta/'+snapKey).set(meta);
       localStorage.setItem(FB_SNAP_KEY, today);
       cleanOldSnapshots();
     })
@@ -8594,10 +8631,17 @@ function saveFirebaseSnapshot(label) {
 
 function cleanOldSnapshots() {
   if (!FB_ON || !fbDB) return;
+  /* 7日以上前のスナップショットを全時間帯分削除 */
   var d = new Date(); d.setDate(d.getDate() - FB_SNAP_DAYS);
-  var old = toDS(d);
-  fbDB.ref('/backups/'+old).remove();
-  fbDB.ref('/backup_meta/'+old).remove();
+  var oldDate = toDS(d);
+  for (var h = 0; h < 24; h++) {
+    var hh = ('0'+h).slice(-2);
+    fbDB.ref('/backups/'+oldDate+'_'+hh).remove();
+    fbDB.ref('/backup_meta/'+oldDate+'_'+hh).remove();
+  }
+  /* 旧形式キー（YYYY-MM-DD）も念のため削除 */
+  fbDB.ref('/backups/'+oldDate).remove();
+  fbDB.ref('/backup_meta/'+oldDate).remove();
 }
 
 function renderFirebaseSnapshots() {
