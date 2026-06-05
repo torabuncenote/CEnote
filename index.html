@@ -5207,6 +5207,18 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 
+function _autoSetOcForDay(ds) {
+  var pg = D.pages[ds]; if (!pg) return;
+  if (pg.ocData && pg.ocData.staff) return;
+  var pt = ds.split('-'); var ym = pt[0]+'-'+pt[1]; var day = parseInt(pt[2]);
+  var md = D.shift[ym]; if (!md) return;
+  var ocNames = [];
+  for (var nm in md) { if (md[nm][day] && md[nm][day].oc) ocNames.push(nm); }
+  if (!ocNames.length) return;
+  if (!pg.ocData) pg.ocData = {};
+  pg.ocData.staff = ocNames[0];
+}
+
 function doGenM() {
   var v = document.getElementById('gm-month').value; if(!v)return;
   var pt=v.split('-'); var y=parseInt(pt[0]); var m=parseInt(pt[1]);
@@ -5214,6 +5226,7 @@ function doGenM() {
   for (var d=1; d<=days; d++) {
     var ds=y+'-'+pad(m)+'-'+pad(d);
     if (!D.pages[ds]) { D.pages[ds]={duties:{},phsNums:{},checks:{},memo:'',ops:{},ocData:{}}; cnt++; }
+    _autoSetOcForDay(ds);
   }
   calY=y; calM=m-1; asY=y; asM=m-1;
   saveD(); renderCal();
@@ -5224,6 +5237,7 @@ function doGenM() {
 function doAddPage() {
   var ds=document.getElementById('nm-date').value; if(!ds)return;
   if(!D.pages[ds]) D.pages[ds]={duties:{},phsNums:{},checks:{},memo:'',ops:{},ocData:{}};
+  _autoSetOcForDay(ds);
   saveD(); closeNM();
   var pt=ds.split('-'); calY=parseInt(pt[0]); calM=parseInt(pt[1])-1;
   renderCal(); openPage(ds);
