@@ -2282,10 +2282,11 @@ function renderSpec() {
    ['schedPresets','スケジュールのプリセットブロック [{label,color,dur,custom?}]'],
   ].forEach(function(r){S+='<tr><td><code>'+r[0]+'</code></td><td>'+r[1]+'</td></tr>';});
   S += '</table>';
-  S += '<div class="spec-box">連絡表本体は <code>/data</code>。掲示板は <code>/board</code>、日次スナップショットは <code>/backups</code>・<code>/backup_meta</code>、ユーザー情報は <code>/users</code>・<code>/userPerms</code>、管理者は <code>/admins</code>、操作ログは <code>/logs</code> と、用途ごとに別パスに保存されます。</div>';
+  S += '<div class="spec-box">連絡表本体は <code>/data</code>。掲示板は <code>/board</code>、時間別スナップショットは <code>/backups</code>・<code>/backup_meta</code>・<code>/recent_backup</code>、ユーザー情報は <code>/users</code>・<code>/userPerms</code>、管理者は <code>/admins</code>、操作ログは <code>/logs</code> と、用途ごとに別パスに保存されます。</div>';
   S += '<div class="spec-h2">バックアップ（3層構成）</div>';
   S += '<table class="spec-tbl"><tr><th>種別</th><th>保存先</th><th>保持</th><th>用途</th></tr>';
-  S += '<tr><td>☁️ Firebaseスナップショット（自動）</td><td>Firebase <code>/backups/YYYY-MM-DD</code></td><td>直近7日</td><td>日常の主な安全網。どの端末からでも復元可</td></tr>';
+  S += '<tr><td>☁️ Firebaseスナップショット（1時間ごと自動）</td><td>Firebase <code>/backups/YYYY-MM-DD_HH</code>（時間別）</td><td>直近7日×24時間</td><td>日常の主な安全網。どの端末からでも復元可</td></tr>';
+  S += '<tr><td>⚡ 直近バックアップ（保存ごと自動）</td><td>Firebase <code>/recent_backup</code>（最新1件）</td><td>常に最新1件</td><td>スナップ間のデータ保全。認証ユーザーが書き込むたびに更新</td></tr>';
   S += '<tr><td>🔄 PCローカル自動</td><td>localStorage <code>ce2_autobk</code></td><td>直近5件</td><td>Firebase障害時の保険。その端末（PC）でのみ復元可</td></tr>';
   S += '<tr><td>💾 手動JSON</td><td>PC等のファイル</td><td>無制限（手動管理）</td><td>長期アーカイブの正本。月1回のダウンロードを推奨</td></tr>';
   S += '</table>';
@@ -3066,7 +3067,7 @@ function renderDev() {
   S += '<table class="d-tbl"><tr><th>項目</th><th>内容</th></tr>';
   [['ホスティング','GitHub Pages（無料）'],
    ['DB','Firebase Realtime Database・無料枠1GB'],
-   ['DBパス','/data（本体）/board /backups /backup_meta /logs /admins /users /userPerms'],
+   ['DBパス','/data（本体）/board /backups /backup_meta /recent_backup /logs /admins /users /userPerms'],
    ['ストレージ','Firebase Storage（画像・動画）・無料枠5GB'],
    ['認証','Firebase Authentication（メール+パスワード）'],
    ['管理者判定','Firebase /admins/{uid}: true（アプリ内 管理者設定タブからも付与可）'],
@@ -3120,7 +3121,7 @@ function renderDev() {
    ['renderFairness()','担当表サブタブ：公平性マトリックス（FAIR_GAP_WARN）'],
    ['exportBackup()/importBackup()','手動JSONバックアップ（保存/復元）'],
    ['autoSaveSnapshot()/renderAutoBackups()/restoreAutoBackup()','PCローカル自動BK（ce2_autobk・PCのみ・5件）'],
-   ['saveFirebaseSnapshot()/renderFirebaseSnapshots()/restoreFirebaseSnapshot()/cleanOldSnapshots()','Firebase日次スナップ（/backups・7日保持）'],
+   ['saveFirebaseSnapshot()/renderFirebaseSnapshots()/restoreFirebaseSnapshot()/cleanOldSnapshots()','Firebase時間別スナップ（/backups/YYYY-MM-DD_HH・7日×24h保持）。保存ごとに /recent_backup も更新'],
    ['renderAdminUsers()/toggleAdminPriv()/saveUserPerm()/doRegister()','アプリ内ユーザー管理（/users・/admins・/userPerms）'],
    ['renderPage(ds)','連絡表ページ全体描画（innerHTML後にbuildDG/OPS/CL）'],
    ['buildDG(ds,dat,locked)','担当グリッド構築＋D&Dリスナー'],
@@ -3201,7 +3202,7 @@ function downloadDevMd() {
     '|---|---|',
     '| ホスティング | GitHub Pages（無料） |',
     '| DB | Firebase Realtime Database |',
-    '| DBパス | /data（本体）/board /backups /backup_meta /logs /admins /users /userPerms |',
+    '| DBパス | /data（本体）/board /backups /backup_meta /recent_backup /logs /admins /users /userPerms |',
     '| ストレージ | Firebase Storage（画像・動画）|',
     '| 認証 | Firebase Authentication（メール+パスワード）|',
     '| 管理者判定 | Firebase /admins/{uid}: true（アプリ内 管理者設定タブからも付与可）|',
