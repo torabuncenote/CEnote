@@ -1403,9 +1403,9 @@ function loadD() {
     D.ope   = s.ope   || DEF_OPE.slice();
     D.cath  = s.cath  || DEF_CATH.slice();
     D.sup     = s.sup     || DEF_SUP.slice();
-    D.opeTree = s.opeTree && s.opeTree.length ? s.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE));
-    D.cathTree= s.cathTree&& s.cathTree.length? s.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE));
-    D.supTree = s.supTree && s.supTree.length ? s.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE));
+    D.opeTree = normTree(s.opeTree && s.opeTree.length ? s.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE)));
+    D.cathTree= normTree(s.cathTree&& s.cathTree.length? s.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE)));
+    D.supTree = normTree(s.supTree && s.supTree.length ? s.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
     D.dutyCfgMaster = s.dutyCfgMaster && s.dutyCfgMaster.length ? s.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
     D.dutyCfg = s.dutyCfg ? s.dutyCfg : [];
     D.opsCfg  = s.opsCfg  ? s.opsCfg  : [];
@@ -1594,9 +1594,9 @@ function fbInit() {
             D.ope   = d.ope   || DEF_OPE.slice();
             D.cath  = d.cath  || DEF_CATH.slice();
             D.sup     = d.sup     || DEF_SUP.slice();
-            D.opeTree = d.opeTree && d.opeTree.length ? d.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE));
-            D.cathTree= d.cathTree&& d.cathTree.length? d.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE));
-            D.supTree = d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE));
+            D.opeTree = normTree(d.opeTree && d.opeTree.length ? d.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE)));
+            D.cathTree= normTree(d.cathTree&& d.cathTree.length? d.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE)));
+            D.supTree = normTree(d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
             /* slot_cathsub の freeRole を false に統一（旧データ移行） */
             D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -4416,6 +4416,21 @@ function togWdWeek(i, wk) {
 /* 展開状態を科名/カテゴリ名で保持（再描画後も開いたまま維持） */
 var _treeOpen = {};
 function treeOpenState(elId){ if(!_treeOpen[elId]) _treeOpen[elId]={depts:{},cats:{}}; return _treeOpen[elId]; }
+/* ツリー正規化：Firebaseは空配列[]を保存時に削除するため、ロード後に
+   cats/items が undefined になりうる。全ノードで配列を保証し、
+   編集・削除・追加の各ハンドラが安全に参照できるようにする（根本対策）。 */
+function normTree(tree){
+  if(!Array.isArray(tree)) return [];
+  tree.forEach(function(dept){
+    if(!dept) return;
+    if(!Array.isArray(dept.cats)) dept.cats=[];
+    dept.cats.forEach(function(cat){
+      if(!cat) return;
+      if(!Array.isArray(cat.items)) cat.items=[];
+    });
+  });
+  return tree;
+}
 /* --- 汎用ツリー描画 --- */
 function renderTree(elId, tree, saveKey, icons) {
   var l = document.getElementById(elId); if (!l) return;
@@ -8630,9 +8645,13 @@ function saveFirebaseSnapshot(label) {
   var meta = { ts: Date.now(), label: label||'自動', pages: Object.keys(D.pages||{}).length, stf: (D.stf||[]).length };
   fbDB.ref('/backups/'+snapKey).set(copy)
     .then(function(){
-      fbDB.ref('/backup_meta/'+snapKey).set(meta);
-      localStorage.setItem(FB_SNAP_KEY, today);
-      cleanOldSnapshots();
+      /* メタ書き込み失敗時はスナップ本体を孤立させないよう削除する */
+      return fbDB.ref('/backup_meta/'+snapKey).set(meta)
+        .then(function(){
+          localStorage.setItem(FB_SNAP_KEY, today);
+          cleanOldSnapshots();
+        })
+        .catch(function(){ fbDB.ref('/backups/'+snapKey).remove().catch(function(){}); });
     })
     .catch(function(){});
 }
@@ -8643,17 +8662,21 @@ function cleanOldSnapshots() {
   var today = toDS(new Date());
   if (_lastCleanupDate === today) return;
   _lastCleanupDate = today;
-  /* 7日以上前のスナップショットを全時間帯分削除 */
+  /* カットオフ（today - 保持日数）より古いキーを全て削除。
+     実在キーだけを走査するため、アプリ未起動で複数日分溜まっても確実に消え、
+     存在しないキーへの無駄なremoveも発生しない。新旧キー（_HH有無）両対応。 */
   var d = new Date(); d.setDate(d.getDate() - FB_SNAP_DAYS);
-  var oldDate = toDS(d);
-  for (var h = 0; h < 24; h++) {
-    var hh = ('0'+h).slice(-2);
-    fbDB.ref('/backups/'+oldDate+'_'+hh).remove();
-    fbDB.ref('/backup_meta/'+oldDate+'_'+hh).remove();
-  }
-  /* 旧形式キー（YYYY-MM-DD）も念のため削除 */
-  fbDB.ref('/backups/'+oldDate).remove();
-  fbDB.ref('/backup_meta/'+oldDate).remove();
+  var cutoff = toDS(d);
+  fbDB.ref('/backup_meta').once('value', function(snap){
+    var meta = snap.val() || {};
+    Object.keys(meta).forEach(function(key){
+      var datePart = key.slice(0, 10); /* "YYYY-MM-DD" 部分で比較 */
+      if (datePart < cutoff) {
+        fbDB.ref('/backups/'+key).remove().catch(function(){});
+        fbDB.ref('/backup_meta/'+key).remove().catch(function(){});
+      }
+    });
+  }, function(){});
 }
 
 function renderFirebaseSnapshots() {
@@ -8696,11 +8719,16 @@ function restoreFirebaseSnapshot(dateStr) {
     var data = snap.val();
     if (!data || !data.pages) { alert('スナップショットデータが見つかりません。'); return; }
     var pageCount = Object.keys(data.pages).length;
+    /* 空ページのスナップは saveD() の空ガードで書き込みスキップされるため明示的に拒否 */
+    if (pageCount === 0 && (!data.stf || !data.stf.length)) {
+      alert('このスナップショットは空のため復元できません。'); return;
+    }
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
+    normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
     saveD();
     writeLog('Firebaseスナップショットから復元', dateStr);
     renderCal(); safeRenderPage();
