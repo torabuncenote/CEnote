@@ -558,6 +558,26 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .sched-block .bh::after{content:'';position:absolute;left:50%;bottom:2px;width:18px;height:2px;background:rgba(255,255,255,.7);border-radius:2px;transform:translateX(-50%)}
 .sb-o{background:var(--or)}.sb-c{background:#0891b2}.sb-g{background:var(--gr)}.sb-pu{background:var(--pu)}.sb-ac{background:var(--ac)}.sb-gd{background:var(--gd)}.sb-gray{background:#64748b}.sb-rd{background:var(--rd)}
 .sched-empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px}
+/* ===== 検索モーダル ===== */
+.srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
+.srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
+.srch-item{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:6px;cursor:pointer;border-bottom:1px solid var(--bdr)}
+.srch-item:hover{background:var(--ac-bg)}
+.srch-date{font-size:12px;font-weight:700;color:var(--ac)}
+.srch-snip{font-size:12px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srch-empty{padding:20px;text-align:center;color:var(--txt3);font-size:13px}
+/* ===== 印刷スタイル ===== */
+@media print{
+  .tb,.sb,.hbg,.pi,.pool-wrap,.surplus-wrap,.co,.ln,.oc-card .oc-row:last-child,.btn,.btn-p,.btn-g,.btn-d,.btn-logout,.pool-mini-btn,
+  .pool-chip-x,.dg .dc-del,.dg .dc-drag,.dg .dc-edit,.oc-sel,.oc-txt,
+  #evt-area button,#aa-trigger,.print-btn,.srch-btn,.stale-banner{display:none!important}
+  .ab{display:block!important}
+  .main{margin:0!important;padding:0 8px!important;box-shadow:none!important;max-width:100%!important}
+  .pt2{font-size:16px;font-weight:700;margin-bottom:8px}
+  .pp,.dg,.oc-card,.clg,.mo{page-break-inside:avoid}
+  .dg{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
+  .dc{min-width:140px;font-size:11px!important}
+}
 </style>
 </head>
 <body>
@@ -653,6 +673,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   <span class="tb-sep">|</span>
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
+    <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
   </div>
@@ -1151,6 +1172,30 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 </div>
 
 <!-- スタッフ選択モーダル -->
+<!-- ===== 横断検索モーダル ===== -->
+<div class="ov hd" id="modal-search">
+  <div class="md" style="max-width:560px">
+    <h3>🔍 横断検索</h3>
+    <input type="text" class="srch-inp" id="srch-inp" placeholder="スタッフ名・申し送り・担当などを検索..." autocomplete="off">
+    <div id="srch-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 2px">キーワードを入力してください（全日付のメモ・担当・術式を検索）</div>
+    <div class="srch-res" id="srch-res"></div>
+    <div class="mdb" style="margin-top:10px">
+      <button class="btn btn-g" onclick="closeSearch()">閉じる</button>
+    </div>
+  </div>
+</div>
+<!-- ===== 自動割り当てプレビューモーダル ===== -->
+<div class="ov hd" id="modal-auto-assign">
+  <div class="md" style="max-width:420px">
+    <h3>🎲 自動割り当て</h3>
+    <div style="font-size:12px;color:var(--txt3);margin-bottom:10px">今月の担当回数が少ない順に割り当てます。確認して「割り当てる」を押してください。</div>
+    <div id="aa-preview" style="border:1px solid var(--bdr);border-radius:6px;overflow:hidden;margin-bottom:8px"></div>
+    <div class="mdb">
+      <button class="btn btn-g" onclick="closeAAModal()">キャンセル</button>
+      <button class="btn btn-p" onclick="doAutoAssign()">✅ 割り当てる</button>
+    </div>
+  </div>
+</div>
 <div class="ov hd" id="modal-pool-staff">
   <div class="md" style="max-width:360px">
     <h3 id="pool-staff-modal-title">スタッフを選択</h3>
@@ -5408,8 +5453,11 @@ function renderPage(ds) {
   var dlk=!can('duty'), clk=!can('cl'), mlk=!can('memo'), olk=!can('ops');
   var si=getShiftForDay(ds);
 
-  var h='<div class="pi">⚙️</div>';
-  h+='<div class="pt2">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
+  var h='<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
+  h+='<div class="pi">⚙️</div>';
+  h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
+  h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️ 印刷</button>';
+  h+='</div>';
   /* イベント表示エリア */
   var allEvts = si.evts || [];
   var pageEvts = (dat.events || []);
@@ -5474,7 +5522,9 @@ function renderPage(ds) {
   h+='<div class="co">💡 勤務者一覧の名前をタップすると担当に自動入力されます。勤務交代時は「＋CE」「＋OC」で当日だけ追加、各名前の「×」で当日だけ除外できます。割り当て済みの人は消えます。</div>';
 
   /* 担当割り当て */
-  h+='<div class="st">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'')+'</div>';
+  h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
+  if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="margin-left:auto;font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">🎲 自動割り当て</button>';
+  h+='</div>';
   if(dlk)h+='<div class="ln">🔒 担当割り当ては管理者によってロックされています</div>';
   h+='<div class="dg" id="dg"></div>';
 
@@ -8624,6 +8674,176 @@ function pinBoard(id, pin) {
 function shouldTakeDailySnapshot() {
   if (!FB_ON) return false;
   return localStorage.getItem(FB_SNAP_KEY) !== toDS(new Date());
+}
+
+/* ===== 横断検索 ===== */
+function openSearch() {
+  var m = document.getElementById('modal-search'); if (!m) return;
+  m.classList.remove('hd');
+  var inp = document.getElementById('srch-inp');
+  inp.value = ''; inp.focus();
+  document.getElementById('srch-res').innerHTML = '';
+  document.getElementById('srch-hint').style.display = '';
+}
+function closeSearch() {
+  document.getElementById('modal-search').classList.add('hd');
+}
+(function(){
+  document.addEventListener('keydown', function(e){
+    if ((e.ctrlKey||e.metaKey) && e.key==='k') { e.preventDefault(); openSearch(); }
+    if (e.key==='Escape') {
+      var m=document.getElementById('modal-search');
+      if (m && !m.classList.contains('hd')) closeSearch();
+    }
+  });
+})();
+
+function _doSearch(q) {
+  q = q.trim().toLowerCase();
+  var el = document.getElementById('srch-res');
+  var hint = document.getElementById('srch-hint');
+  if (!q) { el.innerHTML = ''; hint.style.display = ''; return; }
+  hint.style.display = 'none';
+  var results = [];
+  Object.keys(D.pages).sort().reverse().forEach(function(ds) {
+    var pg = D.pages[ds]; if (!pg) return;
+    var snippets = [];
+    /* 申し送り */
+    if (Array.isArray(pg.memos)) {
+      pg.memos.forEach(function(m) {
+        if (m && m.text && m.text.toLowerCase().indexOf(q) !== -1)
+          snippets.push('申し送り: ' + m.text.slice(0, 60));
+      });
+    }
+    if (pg.memo && pg.memo.toLowerCase().indexOf(q) !== -1)
+      snippets.push('メモ: ' + pg.memo.slice(0, 60));
+    /* 担当 */
+    if (pg.duties) {
+      var cfg = getDutyCfg(pg);
+      cfg.forEach(function(slot) {
+        var name = pg.duties[slot.id];
+        if (name && name.toLowerCase().indexOf(q) !== -1)
+          snippets.push(slot.label + ': ' + name);
+      });
+    }
+    /* OPE/カテ術式 */
+    ['ope_items','cath_items'].forEach(function(key) {
+      var arr = pg.ops && pg.ops[key];
+      if (!Array.isArray(arr)) return;
+      arr.forEach(function(item) {
+        var t = typeof item === 'string' ? item : (item.name||'');
+        if (t && t.toLowerCase().indexOf(q) !== -1)
+          snippets.push('術式: ' + t.slice(0, 50));
+      });
+    });
+    /* OC担当 */
+    if (pg.ocData && pg.ocData.staff && pg.ocData.staff.toLowerCase().indexOf(q) !== -1)
+      snippets.push('OC担当: ' + pg.ocData.staff);
+    if (snippets.length) results.push({ds: ds, snippets: snippets});
+  });
+  if (!results.length) {
+    el.innerHTML = '<div class="srch-empty">「'+escH(q)+'」に一致する記録が見つかりませんでした</div>';
+    return;
+  }
+  el.innerHTML = results.slice(0, 100).map(function(r) {
+    return '<div class="srch-item" onclick="closeSearch();openPage(\''+escH(r.ds)+'\')">'
+      + '<span class="srch-date">'+escH(fmtJ(r.ds))+'</span>'
+      + r.snippets.slice(0, 3).map(function(s){ return '<span class="srch-snip">'+escH(s)+'</span>'; }).join('')
+      + '</div>';
+  }).join('');
+}
+(function(){
+  document.addEventListener('input', function(e){
+    if (e.target && e.target.id === 'srch-inp') _doSearch(e.target.value);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.target && e.target.id === 'srch-inp' && e.key === 'Enter') {
+      var first = document.querySelector('#srch-res .srch-item');
+      if (first) first.click();
+    }
+  });
+})();
+
+/* ===== 自動割り当て ===== */
+function autoAssignDuties(ds) {
+  var dat = D.pages[ds]; if (!dat) return;
+  if (!can('duty')) return;
+  var cfg = getDutyCfg(dat);
+  if (!cfg.length) { alert('担当枠が設定されていません'); return; }
+  var si = getShiftForDay(ds);
+  var available = si.ce.map(function(c){ return c.name; });
+  if (!available.length) { alert('勤務表データがありません'); return; }
+
+  /* 今月の担当回数をカウント */
+  var pt = ds.split('-'); var y = parseInt(pt[0]); var m = parseInt(pt[1]);
+  var days = new Date(y, m, 0).getDate();
+  var counts = {}; /* name -> { label: n, _total: n } */
+  for (var d = 1; d <= days; d++) {
+    var dds = y+'-'+pad(m)+'-'+pad(d);
+    var pg = D.pages[dds]; if (!pg || !pg.duties) continue;
+    getDutyCfg(pg).forEach(function(slot) {
+      var name = pg.duties[slot.id]; if (!name) return;
+      if (!counts[name]) counts[name] = {_total:0};
+      counts[name][slot.label] = (counts[name][slot.label]||0)+1;
+      counts[name]._total++;
+    });
+  }
+
+  /* 今日割り当て済みの人を除外しながら各枠に割り当て */
+  var assignedToday = {};
+  if (dat.duties) { cfg.forEach(function(s){ if (dat.duties[s.id]) assignedToday[dat.duties[s.id]]=true; }); }
+  /* OC担当者もCEカードは使えるが担当枠から優先除外しない（ユーザー要望通り） */
+
+  var proposals = []; /* {slot, name} */
+  cfg.forEach(function(slot) {
+    if (dat.duties && dat.duties[slot.id]) return; /* 既に割当済み */
+    var eligible = available.filter(function(n){ return !assignedToday[n]; });
+    if (!eligible.length) return;
+    eligible.sort(function(a, b) {
+      var ca = (counts[a] && counts[a][slot.label]) || 0;
+      var cb = (counts[b] && counts[b][slot.label]) || 0;
+      if (ca !== cb) return ca - cb;
+      var ta = (counts[a] && counts[a]._total) || 0;
+      var tb = (counts[b] && counts[b]._total) || 0;
+      return ta - tb;
+    });
+    var chosen = eligible[0];
+    proposals.push({slot: slot, name: chosen});
+    assignedToday[chosen] = true;
+  });
+
+  /* プレビューモーダルを表示 */
+  var el = document.getElementById('modal-auto-assign'); if (!el) return;
+  var prev = document.getElementById('aa-preview');
+  if (!proposals.length) {
+    prev.innerHTML = '<div style="padding:12px;color:var(--txt3);font-size:13px">割り当て可能なスタッフがいません（勤務者不足、または全枠割当済み）</div>';
+  } else {
+    prev.innerHTML = proposals.map(function(p) {
+      var thisCnt = (counts[p.name] && counts[p.name][p.slot.label]) || 0;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bdr)">'
+        + '<span style="min-width:90px;font-size:12px;color:var(--txt3)">'+escH(p.slot.label)+'</span>'
+        + '<span style="font-weight:700;flex:1">'+escH(p.name)+'</span>'
+        + '<span style="font-size:10px;color:var(--txt3)">今月'+thisCnt+'回</span>'
+        + '</div>';
+    }).join('');
+  }
+  el._pending = {ds: ds, proposals: proposals};
+  el.classList.remove('hd');
+}
+function closeAAModal() {
+  var el = document.getElementById('modal-auto-assign'); if (el) el.classList.add('hd');
+}
+function doAutoAssign() {
+  var el = document.getElementById('modal-auto-assign');
+  if (!el || !el._pending || !el._pending.proposals.length) { closeAAModal(); return; }
+  var ds = el._pending.ds, proposals = el._pending.proposals;
+  var dat = D.pages[ds]; if (!dat) { closeAAModal(); return; }
+  if (!dat.duties) dat.duties = {};
+  proposals.forEach(function(p){ dat.duties[p.slot.id] = p.name; });
+  renderPage(ds);
+  saveD();
+  closeAAModal();
+  writeLog('自動割り当て', fmtJ(ds)+' '+proposals.map(function(p){ return p.slot.label+'→'+p.name; }).join(', '));
 }
 
 function saveFirebaseSnapshot(label) {
