@@ -5725,16 +5725,20 @@ function refreshPool(ds) {
   var dat=D.pages[ds]; if(!dat)return;
   var assigned={};
   if(dat.duties){for(var k in dat.duties){if(dat.duties[k])assigned[dat.duties[k]]=true;}}
-  if(dat.ocData&&dat.ocData.staff) assigned[dat.ocData.staff]=true;
   /* 余剰人員も「割り当て済み」として扱いプールから隠す */
   if(dat.surplus){for(var si2=0;si2<dat.surplus.length;si2++) assigned[dat.surplus[si2]]=true;}
   /* extra_freeの担当も考慮 */
   if(dat.extra_free){for(var ef=0;ef<dat.extra_free.length;ef++){if(dat.extra_free[ef].name) assigned[dat.extra_free[ef].name]=true;}}
+  /* OC担当はOCチップのみ隠す。CE兼任者はCEカードを当日勤務者一覧に残し、CEの割り振りにも使えるようにする */
+  var ocAssigned={};
+  if(dat.ocData&&dat.ocData.staff) ocAssigned[dat.ocData.staff]=true;
   var chips=document.querySelectorAll('.pchip');
   var vis=0;
   for(var i=0;i<chips.length;i++){
     var nm=chips[i].getAttribute('data-name')||(chips[i].id.replace('chip-','').replace(/_/g,' '));
-    if(assigned[nm]){chips[i].style.display='none';}else{chips[i].style.display='';vis++;}
+    var isOcChip=chips[i].classList.contains('oc');
+    var hide=assigned[nm]||(isOcChip&&ocAssigned[nm]);
+    if(hide){chips[i].style.display='none';}else{chips[i].style.display='';vis++;}
   }
   var pc=document.getElementById('pool-chips');
   if(pc){
