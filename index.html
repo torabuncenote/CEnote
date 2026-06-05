@@ -1314,7 +1314,10 @@ var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
-var _savingTs = 0; /* saveD()後のリスナー再描画抑制タイムスタンプ */
+var _savingTs = 0;     /* saveD()後のリスナー再描画抑制タイムスタンプ */
+var _localSavedAt = 0; /* 自セッションの最終Firebase書き込み確定時刻 */
+var _staleTs = 0;      /* 古いデータ検出による再保存レート制限（10秒） */
+var _sessionId = Math.random().toString(36).slice(2, 9); /* セッション識別子 */
 var _boardData = {}; /* Firebase /board のキャッシュ */
 var FB_SNAP_KEY = 'ce2_lastfbsnap'; /* 最後にFirebaseスナップショットを取った日付 */
 var FB_SNAP_DAYS = 7; /* 保持日数 */
@@ -1534,6 +1537,32 @@ function fbInit() {
           dataListenerOn = true;
           fbDB.ref('/data').on('value', function(snap2) {
             var d = snap2.val() || {};
+
+            /* ===== 古いセッションによる上書き検出 =====
+               自分が確定保存済みの時刻より古いデータが届いた場合、
+               別セッションが古い状態でsaveD()したと判断し、自分のDを再保存する。
+               ・_localSavedAt: 自セッションの最終ACK確定時刻
+               ・_savedAt: Firebaseに書かれたデータの時刻
+               ・許容差: 8秒（時計ズレ・遅延を考慮）
+               ・再保存レート制限: 10秒に1回まで（再保存ループ防止） */
+            var incomingSavedAt = d._savedAt || 0;
+            var fromSelf = (d._sessionId === _sessionId);
+            var justSaved = (Date.now() - _savingTs) < 2000;
+            if (!fromSelf && !justSaved && _localSavedAt > 0 &&
+                incomingSavedAt < _localSavedAt - 8000) {
+              var now = Date.now();
+              if (now - _staleTs > 10000) {
+                _staleTs = now;
+                setSyncLbl('⚠️ 古いデータを検出、修正中...');
+                writeLog('古いセッション上書き検出',
+                  '受信 ' + new Date(incomingSavedAt).toLocaleTimeString() +
+                  ' / 自 ' + new Date(_localSavedAt).toLocaleTimeString() +
+                  ' / セッション:' + (d._sessionId || '不明'));
+                saveD(); /* 自分の最新Dで上書き修正 */
+              }
+              return; /* このリスナー更新でDを書き換えない */
+            }
+
             D.pages = d.pages || {};
             D.stf   = d.stf   || DEF_STF.slice();
             D.phs   = d.phs   || DEF_PHS.slice();
@@ -3958,11 +3987,14 @@ function _doFbWrite(data, attempt) {
   _saveWriting = true;
   setSyncLbl(attempt > 0 ? '再試行中... (' + attempt + '/4)' : '保存中...');
   _savingTs = Date.now();
+  data._savedAt = _savingTs;        /* 書き込み時刻を埋め込む */
+  data._sessionId = _sessionId;     /* 書き込みセッションを埋め込む */
   fbDB.ref('/data').set(data)
     .then(function() {
       _saveWriting = false;
       _savePending = false;
       setSyncLbl('同期済');
+      _localSavedAt = data._savedAt; /* 確定した書き込み時刻を記録 */
       _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長 */
       if (_saveQueued) {
         var nxt = _saveQueued; _saveQueued = null;
