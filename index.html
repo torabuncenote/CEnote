@@ -8320,14 +8320,15 @@ document.addEventListener('click',function(e){
     var ap=document.getElementById('pane-assign');
     var sp=document.getElementById('pane-sched');
     if((ap&&ap.style.display==='flex')||(sp&&sp.style.display==='flex')) return;
-    /* renderTree等でクリック中にDOMが再構築されるとe.targetがdetachされる。
-       その場合はサイドバーの外クリックとみなさない */
-    if(!document.contains(e.target)) return;
-    /* モーダルオーバーレイ内のクリック（保存・キャンセル等）でサイドバーが閉じないようにする。
-       .ov は sidebar外のグローバル要素なので contains チェックでは拾えない */
-    var el=e.target; while(el){if(el.classList&&el.classList.contains('ov'))return; el=el.parentElement;}
-    var s=document.getElementById('sb'),h=document.getElementById('hbg');
-    if(s&&h&&!s.contains(e.target)&&!h.contains(e.target)){sbOpen=false;s.classList.add('hm');}
+    /* スマホではメイン領域（連絡表詳細）をタップした時だけサイドバーを閉じる。
+       「サイドバー外クリックで閉じる」という逆検知はdetach/ghost click/モーダル等で
+       誤作動するため、正検知（.mainへのタップ）に切り替えた。 */
+    var main=document.getElementById('main');
+    if(main&&main.contains(e.target)){
+      sbOpen=false;
+      var s=document.getElementById('sb');
+      if(s) s.classList.add('hm');
+    }
   }
 });
 
