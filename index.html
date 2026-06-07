@@ -1484,6 +1484,7 @@ function init() {
   })();
   renderSupList();
   renderDutyMasterList();
+  if (isPreview) openDefaultPage();
 }
 
 /* ローカルフォールバック用 */
@@ -1765,7 +1766,9 @@ function fbInit() {
               mainEl && mainEl.contains(focused);
             /* saveD()後2秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
             var justSaved = (Date.now() - _savingTs) < 2000;
-            if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
+            if (wasFirstLoad && !curDs) {
+              openDefaultPage();
+            } else if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
               renderPage(curDs);
             }
           }, function(err) { setSyncLbl('同期エラー'); });
@@ -5633,6 +5636,13 @@ function safeRenderPage() {
     (focused.tagName==='INPUT'||focused.tagName==='TEXTAREA'||focused.tagName==='SELECT') &&
     mainEl && mainEl.contains(focused);
   if (!isEditing) renderPage(curDs);
+}
+
+function openDefaultPage() {
+  if (curDs && D.pages[curDs]) { renderPage(curDs); return; }
+  var today = toDS(new Date());
+  if (D.pages[today]) openPage(today);
+  else showEmpty();
 }
 
 function openPage(ds) {
