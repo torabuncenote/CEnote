@@ -1459,7 +1459,6 @@ function init() {
   document.getElementById('gm-month').value = toMS(now);
   document.getElementById('nm-date').value = toDS(now);
   loadD();
-  autoSaveSnapshot('起動時');
   setInterval(function(){ autoSaveSnapshot('定期（30分）'); }, 30*60*1000);
   /* 1時間ごとにFirebaseスナップショットも取る（日次だけでは粒度が粗すぎるため） */
   setInterval(function(){
@@ -1511,10 +1510,12 @@ function loadD() {
     D.manual = s.manual || {};
     D.oc          = s.oc          || [];
     D.schedPresets= (s.schedPresets && s.schedPresets.length) ? s.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
-    /* slot_cathsub の freeRole を false に統一（旧データ移行） */
-    D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
-    if(D.dutyCfg) D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
-    Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
+    /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
+    if (!D._migVer || D._migVer < 1) {
+      D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+      if(D.dutyCfg) D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+      Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
+    }
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
     D.wd=JSON.parse(JSON.stringify(DEF_WD)); D.lk={};
@@ -1580,8 +1581,10 @@ function fbInit() {
         _localSavedAt = 0; /* ログアウト後にスタレーガードが空Dで誤発動しないようリセット */
         _fbDataLoaded = false; /* 次のログインでFirebaseデータ受信まで書き込みをブロック */
         _fbLastPageCount = -1;
-        if (fbDB) { fbDB.ref('/data').off(); } /* /dataリスナーを解除して再ログイン時に再設定できるようにする */
+        if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
+        _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
+        _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
         curDs = null;
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
@@ -1693,6 +1696,9 @@ function fbInit() {
                ページ数が既知値から大幅に減った場合は、書き込みアカウントの
                情報を含む警告をログに記録し、管理者バナーを表示する。 */
             var incomingPages = Object.keys(d.pages || {}).length;
+            var wasFirstLoad = !_fbDataLoaded;
+            _fbDataLoaded = true;
+            if (incomingPages > 0) _fbLastPageCount = incomingPages;
             if (_fbLastPageCount > 5 && incomingPages === 0 && !fromSelf) {
               var writerInfo = d._lastWriter
                 ? ('UID:' + d._lastWriter.uid + ' / ' + (d._lastWriter.name||d._lastWriter.email||'不明') + ' / ' + new Date(d._lastWriter.ts||0).toLocaleString())
@@ -1710,9 +1716,8 @@ function fbInit() {
                   setTimeout(function(){ if(b.parentNode) b.remove(); }, 30000);
                 }
               })();
+              return; /* Dを空オブジェクトで上書きしない */
             }
-            _fbDataLoaded = true;
-            if (incomingPages > 0) _fbLastPageCount = incomingPages;
             D.pages = d.pages || {};
             D.stf   = d.stf   || DEF_STF.slice();
             D.phs   = d.phs   || DEF_PHS.slice();
@@ -1726,11 +1731,15 @@ function fbInit() {
             D.cathTree= normTree(d.cathTree&& d.cathTree.length? d.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE)));
             D.supTree = normTree(d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
-            /* slot_cathsub の freeRole を false に統一（旧データ移行） */
-            D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
-            D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
-            Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
+            /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
+            if (!D._migVer || D._migVer < 1) {
+              D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+              D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
+              Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
+              D._migVer = 1;
+              saveD();
+            }
             D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
             D.shift = d.shift || {};
             D.evts  = d.evts  || {};
@@ -1738,6 +1747,7 @@ function fbInit() {
             D.oc          = d.oc          || [];
             D.schedPresets= (d.schedPresets && d.schedPresets.length) ? d.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
             setSyncLbl('同期済');
+            if (wasFirstLoad) autoSaveSnapshot('起動時'); /* Firebase最新データ受信後にローカルBKを取る */
             if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動'); }
             updateMonthSize();
             checkAutoDelTiming();
@@ -2897,9 +2907,11 @@ function renderAdminManual() {
 }
 
 /* ===== 管理者権限管理 ===== */
+var _adminUsersGen = 0;
 function renderAdminUsers() {
   var el = document.getElementById('adminm-users');
   if (!el || !isAdmin || !FB_ON || !fbDB) return;
+  var gen = ++_adminUsersGen;
 
   el.innerHTML = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 管理者権限の管理</div>' +
     '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限をアプリから直接付与・取り消しできます。<br>一度もログインしていないスタッフは表示されません。</div>' +
@@ -2910,6 +2922,7 @@ function renderAdminUsers() {
     fbDB.ref('/admins').once('value'),
     fbDB.ref('/userPerms').once('value')
   ]).then(function(results) {
+    if (gen !== _adminUsersGen) return; /* より新しいリクエストが来ていれば破棄 */
     var users    = results[0].val() || {};
     var admins   = results[1].val() || {};
     var allPerms = results[2].val() || {};
@@ -6695,7 +6708,7 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   _memoMediaBuf = [];
   renderMemoMediaPreview();
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '送信'; }
-  renderMemos(ds, D.pages[ds], lk('memo')&&!isAdmin);
+  renderMemos(ds, D.pages[ds], !can('memo'));
   updatePendingBadge();
   if (entry.media && entry.media.some(function(m){return m.pending;}))
     alert('画像/動画は管理者の承認後に表示されます。');
@@ -6709,7 +6722,7 @@ function approveMemoMedia(ds, i, mi) {
   m.media[mi].pending = false;
   saveD();
   writeLog('メディア承認', fmtJ(ds) + ' ' + (m.media[mi].name || ''));
-  renderMemos(ds, D.pages[ds], lk('memo')&&!isAdmin);
+  renderMemos(ds, D.pages[ds], !can('memo'));
   updatePendingBadge();
 }
 function rejectMemoMedia(ds, i, mi) {
@@ -6722,7 +6735,7 @@ function rejectMemoMedia(ds, i, mi) {
   m.media.splice(mi, 1);
   saveD();
   writeLog('メディア却下', fmtJ(ds) + ' ' + (med.name || ''));
-  renderMemos(ds, D.pages[ds], lk('memo')&&!isAdmin);
+  renderMemos(ds, D.pages[ds], !can('memo'));
   updatePendingBadge();
 }
 function approveSPMedia(idx, task) {
@@ -6770,12 +6783,16 @@ function listPendingMedia() {
   });
   return out;
 }
+var _badgeDebounce = null;
 function updatePendingBadge() {
-  var b = document.getElementById('pend-badge'); if (!b) return;
-  if (!isAdmin) { b.classList.remove('show'); return; }
-  var n = listPendingMedia().length;
-  if (n > 0) { b.classList.add('show'); b.innerHTML = '🕓 承認待ち ' + n; }
-  else b.classList.remove('show');
+  clearTimeout(_badgeDebounce);
+  _badgeDebounce = setTimeout(function() {
+    var b = document.getElementById('pend-badge'); if (!b) return;
+    if (!isAdmin) { b.classList.remove('show'); return; }
+    var n = listPendingMedia().length;
+    if (n > 0) { b.classList.add('show'); b.innerHTML = '🕓 承認待ち ' + n; }
+    else b.classList.remove('show');
+  }, 200);
 }
 function openPendingModal() {
   if (!isAdmin) return;
@@ -6834,7 +6851,7 @@ function delMemo(ds, idx) {
   D.pages[ds].memos.splice(idx, 1);
   saveD();
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
-  renderMemos(ds, D.pages[ds], lk('memo')&&!isAdmin);
+  renderMemos(ds, D.pages[ds], !can('memo'));
 }
 
 function fmtTS(ts) {
@@ -8953,11 +8970,7 @@ function toggleBoardReply(id) {
   if (!shown) { var ti = document.getElementById('brd-ri-' + id); if(ti) ti.focus(); }
 }
 
-function postBoard() {
-  var inp = document.getElementById('board-input');
-  if (!inp) return;
-  var text = inp.value.trim();
-  if (!text) return;
+function _doPostBoard(text) {
   if (!currentUser) { alert('ログインが必要です'); return; }
   var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false };
   if (FB_ON && fbDB) {
@@ -8967,15 +8980,27 @@ function postBoard() {
     _boardData[id] = post;
     renderBoard(); updateBoardBadge();
   }
-  inp.value = '';
+  var inp = document.getElementById('board-input');
+  if (inp) inp.value = '';
   if(FB_ON) writeLog('掲示板投稿', text.substring(0,30));
 }
-
-function postBoardReply(postId) {
-  var inp = document.getElementById('brd-ri-' + postId);
+function postBoard() {
+  var inp = document.getElementById('board-input');
   if (!inp) return;
   var text = inp.value.trim();
   if (!text) return;
+  var phiRes = detectPHI(text);
+  if (phiRes.red.length || phiRes.yellow.length) {
+    showPHIPopup({ result: phiRes, mode: 'memo',
+      onProceed: function() { _doPostBoard(text); },
+      onFix: function() { if(inp) inp.focus(); }
+    });
+    return;
+  }
+  _doPostBoard(text);
+}
+
+function _doPostBoardReply(postId, text) {
   if (!currentUser) { alert('ログインが必要です'); return; }
   var reply = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text };
   if (FB_ON && fbDB) {
@@ -8985,10 +9010,26 @@ function postBoardReply(postId) {
     _boardData[postId].replies['local_'+Date.now()] = reply;
     renderBoard(); updateBoardBadge();
   }
-  inp.value = '';
+  var inp = document.getElementById('brd-ri-' + postId);
+  if (inp) inp.value = '';
   var f = document.getElementById('brd-reply-form-' + postId);
   if (f) f.style.display = 'none';
   if(FB_ON) writeLog('掲示板返信', text.substring(0,30));
+}
+function postBoardReply(postId) {
+  var inp = document.getElementById('brd-ri-' + postId);
+  if (!inp) return;
+  var text = inp.value.trim();
+  if (!text) return;
+  var phiRes = detectPHI(text);
+  if (phiRes.red.length || phiRes.yellow.length) {
+    showPHIPopup({ result: phiRes, mode: 'memo',
+      onProceed: function() { _doPostBoardReply(postId, text); },
+      onFix: function() { if(inp) inp.focus(); }
+    });
+    return;
+  }
+  _doPostBoardReply(postId, text);
 }
 
 function deleteBoard(id) {
