@@ -387,6 +387,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pw-strength-bar.fair{background:#f59e0b}
 .pw-strength-bar.good{background:#22c55e}
 .pw-strength-hint{font-size:11px;color:var(--txt3);margin:-6px 0 8px;min-height:14px}
+/* パスワード表示トグル */
+.pw-wrap{position:relative;margin-bottom:10px}
+.pw-wrap input{margin-bottom:0!important}
+.pw-eye{position:absolute;top:50%;right:8px;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;padding:2px 4px;line-height:1;opacity:.7}
+.pw-eye:hover{opacity:1}
+.login-link{display:inline-block;font-size:12px;color:var(--ac);cursor:pointer;margin:2px 0 12px;text-decoration:underline;background:none;border:none;padding:0}
+.login-link:hover{opacity:.8}
 /* 自動ログアウト警告 */
 #idle-warn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e1e1e;color:#fff;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;z-index:9998;display:none;gap:14px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 #idle-warn.show{display:flex}
@@ -558,6 +565,30 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .sched-block .bh::after{content:'';position:absolute;left:50%;bottom:2px;width:18px;height:2px;background:rgba(255,255,255,.7);border-radius:2px;transform:translateX(-50%)}
 .sb-o{background:var(--or)}.sb-c{background:#0891b2}.sb-g{background:var(--gr)}.sb-pu{background:var(--pu)}.sb-ac{background:var(--ac)}.sb-gd{background:var(--gd)}.sb-gray{background:#64748b}.sb-rd{background:var(--rd)}
 .sched-empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px}
+/* ===== メディア承認 ===== */
+.media-cell{position:relative;display:inline-block}
+.media-pending{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:120px;min-height:80px;padding:10px;border:1.5px dashed var(--or);border-radius:8px;background:var(--or-bg);color:var(--or);font-size:12px;font-weight:700}
+.media-pend-badge{position:absolute;top:4px;left:4px;background:var(--or);color:#fff;font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px}
+.media-actions{position:absolute;bottom:4px;left:4px;right:4px;display:flex;gap:4px;justify-content:center}
+.media-appr,.media-rej{border:none;border-radius:5px;font-size:11px;font-weight:700;padding:3px 7px;cursor:pointer;color:#fff}
+.media-appr{background:var(--gr)}.media-rej{background:var(--rd)}
+.sp-media-item .media-appr,.sp-media-item .media-rej{position:static;font-size:13px;padding:2px 5px;margin:0}
+.pend-badge{display:none;align-items:center;gap:3px;background:var(--or);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;margin-right:4px}
+.pend-badge.show{display:inline-flex}
+.pend-list{max-height:60vh;overflow-y:auto}
+.pend-row{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--bdr);font-size:12px}
+.pend-row .pr-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ===== 変更履歴 ===== */
+.cl-h1{font-size:17px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:6px;margin:20px 0 10px}
+.cl-h2{font-size:13px;font-weight:800;margin:16px 0 6px;padding:4px 0 4px 10px;border-left:4px solid var(--ac);color:var(--txt)}
+.cl-ver{font-size:13px;font-weight:800;color:var(--ac);margin-top:4px}
+.cl-date{font-size:11px;color:var(--txt3);font-weight:600}
+.cl-entry{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 14px;margin:8px 0}
+.cl-entry ul{margin:6px 0 0;padding-left:18px}
+.cl-entry li{font-size:12px;color:var(--txt);line-height:1.7;margin:2px 0}
+.cl-future{background:var(--ac-bg);border:1px solid var(--ac)}
+.cl-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:6px}
+.cl-tag-fix{background:var(--rd);color:#fff}.cl-tag-new{background:var(--gr);color:#fff}.cl-tag-imp{background:var(--ac);color:#fff}
 /* ===== 検索モーダル ===== */
 .srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
 .srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
@@ -650,14 +681,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   <div class="login-box">
     <h2>⚙️ 分院CE連絡表</h2>
     <p>ログインしてください</p>
-    <input type="email" id="li-email" placeholder="メールアドレス" autocomplete="username">
-    <input type="password" id="li-pass" placeholder="パスワード（8文字以上・英数字混合）" autocomplete="current-password" oninput="checkPwStrength(this.value)">
-    <div class="pw-strength" id="pw-strength-bars">
-      <div class="pw-strength-bar" id="psb1"></div>
-      <div class="pw-strength-bar" id="psb2"></div>
-      <div class="pw-strength-bar" id="psb3"></div>
+    <input type="email" id="li-email" placeholder="メールアドレス" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('li-pass').focus()">
+    <div class="pw-wrap">
+      <input type="password" id="li-pass" placeholder="パスワード" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+      <button type="button" class="pw-eye" id="li-pass-eye" onclick="togglePwVisible('li-pass','li-pass-eye')" title="パスワードを表示" aria-label="パスワードを表示">👁️</button>
     </div>
-    <div class="pw-strength-hint" id="pw-strength-hint"></div>
+    <button type="button" class="login-link" onclick="doForgotPassword()">パスワードを忘れた方はこちら</button>
     <div class="login-err" id="li-err"></div>
     <button class="btn btn-p" style="width:100%;margin-bottom:0" onclick="doLogin()">ログイン</button>
   </div>
@@ -673,6 +702,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   <span class="tb-sep">|</span>
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
+    <button class="pend-badge" id="pend-badge" onclick="openPendingModal()" title="承認待ちメディア"></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -706,6 +736,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <button class="btn btn-g btn-sm" onclick="swTab('adminm')">🔑 管理者設定</button>
       <button class="btn btn-g btn-sm" onclick="swTab('dev')">🔧 引き継ぎ</button>
       <button class="btn btn-g btn-sm" onclick="swTab('regs')">⚖️ 法令・GL</button>
+      <button class="btn btn-g btn-sm" onclick="swTab('changelog')">📝 変更履歴</button>
     </div>
 
     <!-- 予定タブ -->
@@ -1029,6 +1060,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       </div>
     </div>
 
+    <!-- 変更履歴 -->
+    <div id="pane-changelog" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div class="pt" style="margin-bottom:12px">📝 変更履歴</div>
+        <div id="changelog-body"></div>
+      </div>
+    </div>
+
   <!-- 担当表パネル（PC: サイドバー全幅拡張でメインエリア表示 / スマホ: fixed全画面表示） -->
   <div id="pane-assign" style="display:none;flex:1;overflow-y:auto">
     <div class="atw">
@@ -1172,6 +1211,17 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 </div>
 
 <!-- スタッフ選択モーダル -->
+<!-- ===== 承認待ちメディアモーダル ===== -->
+<div class="ov hd" id="modal-pending">
+  <div class="md" style="max-width:520px">
+    <h3>🕓 承認待ちメディア</h3>
+    <div style="font-size:12px;color:var(--txt3);margin-bottom:8px">一般ユーザーがアップロードした画像/動画です。承認すると連絡表・マニュアルに表示されます。</div>
+    <div class="pend-list" id="pend-list"></div>
+    <div class="mdb" style="margin-top:10px">
+      <button class="btn btn-g" onclick="closePendingModal()">閉じる</button>
+    </div>
+  </div>
+</div>
 <!-- ===== 横断検索モーダル ===== -->
 <div class="ov hd" id="modal-search">
   <div class="md" style="max-width:560px">
@@ -1584,6 +1634,7 @@ function fbInit() {
         });
         var fairBtn = document.getElementById('subtab-fair');
         if (fairBtn) fairBtn.style.display = isAdmin ? '' : 'none';
+        updatePendingBadge();
 
         /* 自動ログアウトタイマー開始 */
         resetIdleTimer();
@@ -1693,6 +1744,7 @@ function fbInit() {
             renderDlyList(); renderWdlyList();
             renderOpeList(); renderCathList();
             renderLockList();
+            updatePendingBadge();
             /* 入力フォーカス中はページを再描画しない（入力内容が消えるのを防ぐ） */
             var focused = document.activeElement;
             var mainEl  = document.getElementById('main');
@@ -1723,29 +1775,12 @@ function fbInit() {
   } catch(e) { setSyncLbl('初期化エラー'); }
 }
 
-/* ===== パスワード強度チェック ===== */
-function checkPwStrength(pw) {
-  var b1=document.getElementById('psb1'),b2=document.getElementById('psb2'),b3=document.getElementById('psb3');
-  var hint=document.getElementById('pw-strength-hint');
-  if(!b1||!b2||!b3) return;
-  var hasLen  = pw.length >= 8;
-  var hasNum  = /\d/.test(pw);
-  var hasAlpha= /[a-zA-Z]/.test(pw);
-  var hasSymb = /[^a-zA-Z0-9]/.test(pw);
-  var score = (hasLen?1:0) + (hasNum&&hasAlpha?1:0) + (hasSymb?1:0);
-  var cls = score===0?'':score===1?'weak':score===2?'fair':'good';
-  var hints = ['', '短すぎます（8文字以上必要）', '英字と数字を組み合わせると強くなります', '強いパスワードです ✅'];
-  [b1,b2,b3].forEach(function(b,i){ b.className='pw-strength-bar'+(score>i&&cls?' '+cls:''); });
-  hint.textContent = pw.length===0?'':hints[score];
-  hint.style.color = cls==='weak'?'#ef4444':cls==='fair'?'#f59e0b':cls==='good'?'#22c55e':'var(--txt3)';
-}
-
 function doLogin() {
   var email = document.getElementById('li-email').value.trim();
   var pass  = document.getElementById('li-pass').value;
   var errEl = document.getElementById('li-err');
   var btn   = document.querySelector('#login-ov .btn-p');
-  errEl.textContent = '';
+  errEl.textContent = ''; errEl.style.color = '';
   if (!email || !pass) { errEl.textContent = 'メールアドレスとパスワードを入力してください'; return; }
   if (!FB_ON) {
     errEl.textContent = 'Firebaseが設定されていません。管理者に連絡してください。';
@@ -1765,6 +1800,43 @@ function doLogin() {
     })
     .finally(function() {
       if (btn) { btn.disabled = false; btn.textContent = 'ログイン'; }
+    });
+}
+
+/* パスワードの表示／非表示を切り替える（目アイコン） */
+function togglePwVisible(inputId, btnId) {
+  var inp = document.getElementById(inputId); if (!inp) return;
+  var willShow = inp.type === 'password';
+  inp.type = willShow ? 'text' : 'password';
+  var btn = document.getElementById(btnId);
+  if (btn) {
+    btn.textContent = willShow ? '🙈' : '👁️';
+    btn.title = willShow ? 'パスワードを隠す' : 'パスワードを表示';
+  }
+}
+
+/* パスワード再設定メールを送信 */
+function doForgotPassword() {
+  var email = document.getElementById('li-email').value.trim();
+  var errEl = document.getElementById('li-err');
+  errEl.style.color = '';
+  if (!FB_ON) { errEl.textContent = 'Firebaseが設定されていません。管理者に連絡してください。'; return; }
+  if (!email) { errEl.textContent = 'メールアドレスを入力してから押してください'; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errEl.textContent = 'メールアドレスの形式が正しくありません'; return; }
+  errEl.textContent = '送信中...';
+  firebase.auth().sendPasswordResetEmail(email)
+    .then(function() {
+      errEl.style.color = '#22c55e';
+      errEl.textContent = '✅ パスワード再設定メールを送信しました。受信箱（迷惑メールも）をご確認ください。';
+    })
+    .catch(function(err) {
+      errEl.style.color = '';
+      var msg = '送信に失敗しました';
+      if (err.code === 'auth/user-not-found') msg = 'このメールアドレスは登録されていません';
+      else if (err.code === 'auth/invalid-email') msg = 'メールアドレスの形式が正しくありません';
+      else if (err.code === 'auth/too-many-requests') msg = '試行が多すぎます。しばらく待ってから再度お試しください';
+      else if (err.code === 'auth/network-request-failed') msg = 'ネットワークエラーです。接続を確認してください';
+      errEl.textContent = msg;
     });
 }
 
@@ -1871,6 +1943,14 @@ function renderSPMedia(mediaArr) {
   if (!grid) return;
   grid.innerHTML = '';
   (mediaArr||[]).forEach(function(m, idx) {
+    /* 承認待ち：一般ユーザーには非表示でプレースホルダーのみ */
+    if (m.pending && !isAdmin) {
+      var ph = document.createElement('div');
+      ph.className = 'sp-media-item media-pending';
+      ph.innerHTML = '🕓 承認待ち';
+      grid.appendChild(ph);
+      return;
+    }
     var item = document.createElement('div'); item.className='sp-media-item';
     var mSrc = m.url || m.data || '';
     if (m.type === 'image') {
@@ -1882,6 +1962,20 @@ function renderSPMedia(mediaArr) {
       var vid = document.createElement('video');
       vid.src = mSrc; vid.controls = true; vid.preload = 'metadata';
       item.appendChild(vid);
+    }
+    if (m.pending) {
+      var badge = document.createElement('span');
+      badge.className = 'media-pend-badge'; badge.textContent = '承認待ち';
+      item.appendChild(badge);
+      if (isAdmin) {
+        var actions = document.createElement('div'); actions.className = 'media-actions';
+        var ap = document.createElement('button'); ap.className='media-appr'; ap.textContent='✅'; ap.title='承認';
+        ap.onclick = function(e){ e.stopPropagation(); approveSPMedia(idx); };
+        var rj = document.createElement('button'); rj.className='media-rej'; rj.textContent='🗑'; rj.title='却下';
+        rj.onclick = function(e){ e.stopPropagation(); rejectSPMedia(idx); };
+        actions.appendChild(ap); actions.appendChild(rj);
+        item.appendChild(actions);
+      }
     }
     var del = document.createElement('button');
     del.className='sp-media-del'; del.textContent='×'; del.title='削除';
@@ -1920,7 +2014,8 @@ function onSPMediaAdd(input) {
           name: file.name,
           url:  url || fallback,
           storagePath: url ? path : null,
-          data: url ? null : fallback
+          data: url ? null : fallback,
+          pending: !isAdmin            /* 非管理者の投稿は管理者承認待ち */
         });
         pending--;
         if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); }
@@ -1963,6 +2058,7 @@ function saveSPEntry(entry) {
   D.manual[_spTask] = entry;
   saveD();
   if(curDs&&D.pages[curDs]) safeRenderPage();
+  updatePendingBadge();
 }
 
 function closeSP() {
@@ -2988,6 +3084,66 @@ function doRegister() {
       try{ secondApp.auth().signOut(); secondApp.delete(); }catch(e){}
       btn.disabled = false; btn.textContent = '登録する';
     });
+}
+
+/* ===== 変更履歴（バージョン履歴） ===== */
+var APP_VERSION = '2026.06';
+var APP_CHANGELOG = [
+  { ver:'2026.06f', date:'2026-06-07', title:'セキュリティ・利便性アップデート', items:[
+    {t:'new', d:'ログイン画面にパスワード表示（👁️）ボタンを追加'},
+    {t:'new', d:'「パスワードを忘れた方」からメールで再設定できるように'},
+    {t:'imp', d:'ログイン画面のパスワード強度バーを削除（新規登録時のみ表示）'},
+    {t:'new', d:'画像・動画は管理者承認後に連絡表へ表示（ツールバーに承認待ち一覧）'},
+    {t:'new', d:'この「変更履歴」ページを追加'}
+  ]},
+  { ver:'2026.06e', date:'2026-06-07', title:'データ保護の強化', items:[
+    {t:'fix', d:'別端末で初回ログインした際にデータが消える不具合を修正（最重要）'},
+    {t:'new', d:'データ全消去を検知し、書き込んだアカウントをログに記録＋管理者へ警告表示'}
+  ]},
+  { ver:'2026.06d', date:'2026-06-07', title:'新機能3点', items:[
+    {t:'new', d:'🔍 横断検索（Ctrl/Cmd+K）：全日付のメモ・担当・術式を検索'},
+    {t:'new', d:'🖨️ 連絡表の印刷／PDF出力'},
+    {t:'new', d:'🎲 担当の自動割り当て（公平性ベース）'}
+  ]},
+  { ver:'2026.06c', date:'2026-06-06', title:'Firebase・バックアップの堅牢化', items:[
+    {t:'fix', d:'マスタの中カテゴリ追加直後にボタンが反応しない不具合を修正'},
+    {t:'fix', d:'空配列が原因のツリー編集クラッシュを根本修正（読込時に正規化）'},
+    {t:'imp', d:'バックアップを1時間ごとの時間別スナップに変更（7日×24h保持）'},
+    {t:'imp', d:'保存のたびに /recent_backup を更新し、データ消失時の復元性を向上'},
+    {t:'fix', d:'古いスナップショットの削除漏れ・孤立バックアップを修正'}
+  ]},
+  { ver:'2026.06b', date:'2026-06-05', title:'勤務表・担当まわり', items:[
+    {t:'fix', d:'CE兼OCの人を当日勤務者一覧に残しつつOCを自動振り分け'},
+    {t:'fix', d:'勤務表読み込み時のOC対応者の自動反映を修正'},
+    {t:'imp', d:'古いセッションによるデータ巻き戻りを検出・自動修正'}
+  ]}
+];
+var APP_ROADMAP = [
+  '🔔 終業時のチェック未完了リマインダー',
+  '📊 月次集計（担当回数・チェック実施率）のCSV/Excel出力',
+  '👥 オンライン状況の可視化（同時編集の事故防止）'
+];
+function renderChangelog() {
+  var el = document.getElementById('changelog-body');
+  if (!el || el.innerHTML) return;
+  var tagLabel = { fix:'修正', 'new':'新機能', imp:'改善' };
+  var tagCls   = { fix:'cl-tag-fix', 'new':'cl-tag-new', imp:'cl-tag-imp' };
+  var S = '';
+  S += '<div class="cl-h1">📝 変更履歴</div>';
+  S += '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">現在のバージョン：<b>v' + escH(APP_VERSION) + '</b></div>';
+  S += '<div class="cl-h2">🚀 今後の予定（予定は変更される場合があります）</div>';
+  S += '<div class="cl-entry cl-future"><ul>' + APP_ROADMAP.map(function(r){ return '<li>' + escH(r) + '</li>'; }).join('') + '</ul></div>';
+  S += '<div class="cl-h2">📜 これまでの更新</div>';
+  APP_CHANGELOG.forEach(function(rel) {
+    S += '<div class="cl-entry">';
+    S += '<div class="cl-ver">' + escH(rel.title) + ' <span class="cl-date">(' + escH(rel.date) + ' / v' + escH(rel.ver) + ')</span></div>';
+    S += '<ul>';
+    rel.items.forEach(function(it) {
+      S += '<li><span class="cl-tag ' + (tagCls[it.t] || 'cl-tag-imp') + '">' + (tagLabel[it.t] || '') + '</span> ' + escH(it.d) + '</li>';
+    });
+    S += '</ul></div>';
+  });
+  el.innerHTML = S;
 }
 
 /* ===== 法令・ガイドライン ===== */
@@ -5956,11 +6112,27 @@ function renderMemos(ds, dat, locked) {
       for (var mi = 0; mi < m.media.length; mi++) {
         var med = m.media[mi];
         var mediaSrc = escH(med.url || med.data || '');
+        /* 承認待ち：一般ユーザーには非表示でプレースホルダーのみ */
+        if (med.pending && !isAdmin) {
+          h += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + escH(med.name||'') + '</span></div>';
+          continue;
+        }
+        h += '<div class="media-cell">';
         if (med.type === 'image') {
           h += '<img src="' + mediaSrc + '" alt="' + escH(med.name) + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
         } else {
           h += '<video src="' + mediaSrc + '" controls preload="metadata" onerror="this.insertAdjacentHTML(\'afterend\',\'<span style=\"font-size:11px;color:var(--rd)\">動画を読み込めませんでした</span>\')"></video>';
         }
+        if (med.pending) {
+          h += '<span class="media-pend-badge">承認待ち</span>';
+          if (isAdmin) {
+            h += '<div class="media-actions">'
+               + '<button class="media-appr" onclick="approveMemoMedia(\'' + ds + '\',' + i + ',' + mi + ')">✅承認</button>'
+               + '<button class="media-rej" onclick="rejectMemoMedia(\'' + ds + '\',' + i + ',' + mi + ')">🗑却下</button>'
+               + '</div>';
+          }
+        }
+        h += '</div>';
       }
       h += '</div>';
     }
@@ -6503,7 +6675,8 @@ function _doPostMemo(ds) {
         name:        m.name,
         url:         url || fallback,     /* StorageURL or base64 */
         storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
-        data:        url ? null : fallback /* base64フォールバック時 */
+        data:        url ? null : fallback, /* base64フォールバック時 */
+        pending:     !isAdmin             /* 非管理者の投稿は管理者承認待ち */
       });
       pending--;
       if (pending === 0) _finishPostMemo(ds, entry, text, sendBtn);
@@ -6521,6 +6694,128 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   renderMemoMediaPreview();
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '送信'; }
   renderMemos(ds, D.pages[ds], lk('memo')&&!isAdmin);
+  updatePendingBadge();
+  if (entry.media && entry.media.some(function(m){return m.pending;}))
+    alert('画像/動画は管理者の承認後に表示されます。');
+}
+
+/* ===== メディア承認（管理者のみ） ===== */
+function approveMemoMedia(ds, i, mi) {
+  if (!isAdmin) return;
+  var m = D.pages[ds] && D.pages[ds].memos && D.pages[ds].memos[i];
+  if (!m || !m.media || !m.media[mi]) return;
+  m.media[mi].pending = false;
+  saveD();
+  writeLog('メディア承認', fmtJ(ds) + ' ' + (m.media[mi].name || ''));
+  renderMemos(ds, D.pages[ds], lk('memo')&&!isAdmin);
+  updatePendingBadge();
+}
+function rejectMemoMedia(ds, i, mi) {
+  if (!isAdmin) return;
+  var m = D.pages[ds] && D.pages[ds].memos && D.pages[ds].memos[i];
+  if (!m || !m.media || !m.media[mi]) return;
+  if (!confirm('このメディアを却下（削除）しますか？')) return;
+  var med = m.media[mi];
+  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
+  m.media.splice(mi, 1);
+  saveD();
+  writeLog('メディア却下', fmtJ(ds) + ' ' + (med.name || ''));
+  renderMemos(ds, D.pages[ds], lk('memo')&&!isAdmin);
+  updatePendingBadge();
+}
+function approveSPMedia(idx, task) {
+  if (!isAdmin) return;
+  task = task || _spTask;
+  var e = D.manual && D.manual[task];
+  if (!e || !e.media || !e.media[idx]) return;
+  e.media[idx].pending = false;
+  saveD();
+  writeLog('メディア承認', '業務マニュアル: ' + task + ' / ' + (e.media[idx].name || ''));
+  if (_spTask === task) renderSPMedia(e.media);
+  updatePendingBadge();
+}
+function rejectSPMedia(idx, task) {
+  if (!isAdmin) return;
+  task = task || _spTask;
+  var e = D.manual && D.manual[task];
+  if (!e || !e.media || !e.media[idx]) return;
+  if (!confirm('このメディアを却下（削除）しますか？')) return;
+  var med = e.media[idx];
+  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
+  e.media.splice(idx, 1);
+  saveD();
+  writeLog('メディア却下', '業務マニュアル: ' + task + ' / ' + (med.name || ''));
+  if (_spTask === task) renderSPMedia(e.media);
+  updatePendingBadge();
+}
+
+/* 承認待ちメディアを全て収集 */
+function listPendingMedia() {
+  var out = [];
+  Object.keys(D.pages || {}).forEach(function(ds) {
+    var pg = D.pages[ds]; if (!pg || !pg.memos) return;
+    pg.memos.forEach(function(m, i) {
+      (m.media || []).forEach(function(med, mi) {
+        if (med.pending) out.push({ kind:'memo', ds:ds, i:i, mi:mi, name:med.name||'', type:med.type, by:m.name||'' });
+      });
+    });
+  });
+  Object.keys(D.manual || {}).forEach(function(task) {
+    var e = D.manual[task]; if (!e || !e.media) return;
+    e.media.forEach(function(med, idx) {
+      if (med.pending) out.push({ kind:'manual', task:task, idx:idx, name:med.name||'', type:med.type });
+    });
+  });
+  return out;
+}
+function updatePendingBadge() {
+  var b = document.getElementById('pend-badge'); if (!b) return;
+  if (!isAdmin) { b.classList.remove('show'); return; }
+  var n = listPendingMedia().length;
+  if (n > 0) { b.classList.add('show'); b.innerHTML = '🕓 承認待ち ' + n; }
+  else b.classList.remove('show');
+}
+function openPendingModal() {
+  if (!isAdmin) return;
+  var m = document.getElementById('modal-pending'); if (!m) return;
+  m.classList.remove('hd');
+  renderPendingList();
+}
+function closePendingModal() {
+  var m = document.getElementById('modal-pending'); if (m) m.classList.add('hd');
+}
+function renderPendingList() {
+  var el = document.getElementById('pend-list'); if (!el) return;
+  var items = listPendingMedia();
+  if (!items.length) {
+    el.innerHTML = '<div class="srch-empty">承認待ちのメディアはありません</div>';
+    updatePendingBadge();
+    return;
+  }
+  el.innerHTML = items.map(function(it, k) {
+    var loc = it.kind === 'memo'
+      ? (escH(fmtJ(it.ds)) + ' の申し送り' + (it.by ? '（' + escH(it.by) + '）' : ''))
+      : ('業務マニュアル: ' + escH(it.task));
+    var icon = it.type === 'video' ? '🎬' : '🖼️';
+    return '<div class="pend-row">'
+      + '<span>' + icon + '</span>'
+      + '<span class="pr-name">' + escH(it.name || '(名称なし)') + '<br><span style="font-size:10px;color:var(--txt3)">' + loc + '</span></span>'
+      + '<button class="media-appr" onclick="pendApprove(' + k + ')">✅承認</button>'
+      + '<button class="media-rej" onclick="pendReject(' + k + ')">🗑却下</button>'
+      + '</div>';
+  }).join('');
+}
+function pendApprove(k) {
+  var it = listPendingMedia()[k]; if (!it) return;
+  if (it.kind === 'memo') approveMemoMedia(it.ds, it.i, it.mi);
+  else approveSPMedia(it.idx, it.task);
+  renderPendingList();
+}
+function pendReject(k) {
+  var it = listPendingMedia()[k]; if (!it) return;
+  if (it.kind === 'memo') rejectMemoMedia(it.ds, it.i, it.mi);
+  else rejectSPMedia(it.idx, it.task);
+  renderPendingList();
 }
 
 function delMemo(ds, idx) {
@@ -8437,10 +8732,10 @@ var _schedDragPreset=null;
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
-  var docsTabs=['spec','manual','adminm','dev','regs'];
+  var tabs=['cal','assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群（担当表・スケジュールも含む） */
-  var contentPanes=['assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs'];
+  var contentPanes=['assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -8489,6 +8784,7 @@ function swTab(t) {
   if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); renderFirebaseSnapshots(); }
   if(t==='dev') { renderDev(); }
   if(t==='regs') { renderRegs(); }
+  if(t==='changelog') { renderChangelog(); }
 }
 function toggleDocsMenu(){
   var menu=document.getElementById('docs-submenu');
