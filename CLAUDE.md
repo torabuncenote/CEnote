@@ -8,11 +8,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Structure
 
-This is a **single-file web app**: all HTML, CSS, and JavaScript lives in `index.html` (~370KB). There is no build system, no bundler, no package manager, and no test framework.
+This is a **single-file web app**: all HTML, CSS, and JavaScript lives in `index.html` (~380KB). There is no build system, no bundler, no package manager, and no test framework.
+
+Additional files:
+- `manifest.json` / `sw.js` — PWA support (offline caching)
+- `icon-192.svg` / `icon-512.svg` — PWA icons
+- `.github/scripts/validate.mjs` — lightweight syntax checker (run after every change)
+
+## Validation
+
+```sh
+node .github/scripts/validate.mjs
+```
+
+Checks: merge conflict markers, inline JS syntax (`new Function()`), manifest.json validity, sw.js syntax. **Run this before every commit.**
 
 ## Running Locally
-
-Open `index.html` directly in a browser, or serve it with any static file server:
 
 ```sh
 python3 -m http.server 8080
@@ -27,7 +38,7 @@ python3 -m http.server 8080
 
 ### Global State Object `D`
 
-All application data lives in a single global variable `D` (line ~1049):
+All application data lives in a single global variable `D`:
 
 ```js
 var D = {
@@ -37,72 +48,95 @@ var D = {
   dly: [],          // daily checklist items (every day)
   wd: {},           // weekday-specific checklist items { 月: [...], 火: [...], ... }
   lk: {},           // lock flags { duty: true, sm: true, ... }
-  ope: [],          // OPE procedure types
-  cath: [],         // catheter procedure types
-  sup: [],          // surgical supplies list
-  opeTree: [],      // hierarchical OPE procedure master
-  cathTree: [],     // hierarchical catheter procedure master
-  supTree: [],      // hierarchical supply master
-  dutyCfgMaster: [],// duty slot master definitions
-  dutyCfg: [],      // duty slot config per template
-  opsCfg: [],       // operations config
-  oc: [],           // on-call config
-  shift: {},        // shift data
-  evts: {},         // events per date
-  manual: {},       // task manuals { taskName: { text, media: [...] } }
-  schedPresets: []  // schedule timetable presets [{ label, color, dur(min), custom? }]
+  ope: [], cath: [], sup: [],          // procedure/supply type lists
+  opeTree: [], cathTree: [], supTree: [], // hierarchical masters
+  dutyCfgMaster: [], dutyCfg: [],     // duty slot definitions
+  opsCfg: [], oc: [],                 // ops config, on-call config
+  shift: {}, evts: {},                // shift/event data
+  manual: {},       // task manuals { taskName: { text, media: [{url, name, type, pending?}] } }
+  schedPresets: [], // schedule timetable presets
+  _migVer: 1        // data migration version flag (increment when running one-time migrations)
 };
 ```
 
-Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: duty assignments (`duties`), checklist state, memos, pool staff, OPE/cath records, per-day timetable (`schedule: [{ id, staff, label, start, end, color }]`, times in minutes-from-midnight), etc.
+Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, etc.
 
 ### Persistence
 
 - **Firebase ON**: `saveD()` writes the entire `D` object to `fbDB.ref('/data').set(D)`
 - **Firebase OFF / fallback**: writes to `localStorage` key `'ce2'`
-- **Logs**: written via `writeLog()` to Firebase `/logs` (never to localStorage)
-- **Media**: uploaded to Firebase Storage at path `manual/{taskName}/{timestamp}_{filename}`
+- **Logs**: written via `writeLog()` to Firebase `/logs`
+- **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}`
+- **Board**: stored at Firebase `/board` (independent of `/data`)
 
-`saveD()` always writes the **full** `D` object — there is no partial/field update. This is important: after mutating any property of `D`, call `saveD()`.
+`saveD()` always writes the **full** `D` object. After mutating any property of `D`, call `saveD()`.
 
-### Firebase Setup (line ~1140)
+**Critical guard**: `_fbDataLoaded` must be `true` before `saveD()` writes to Firebase. It is set when the `/data` listener first fires. This prevents empty-D overwrites on login. **Do not bypass this guard.**
+
+After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state.
+
+### Firebase Setup
 
 ```js
-var FB_CFG = {
-  apiKey: "...",
-  authDomain: "...",
-  databaseURL: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "..."
-};
+var FB_CFG = { apiKey: "...", ... };
 var FB_ON = !FB_CFG.apiKey.includes("YOUR_");
 ```
 
-`FB_ON` is `true` when a real API key is configured. When `false`, the app runs offline using only localStorage.
+`FB_ON` is `true` when a real API key is configured.
 
-### Authentication
+### Authentication & Access Control
 
 - Firebase Email/Password auth
-- Admin status: checked via `fbDB.ref('/admins/' + user.uid).once('value')` — returns `true` if admin
-- Global `isAdmin` boolean and `currentUser = { uid, email, displayName, isAdmin }`
+- Admin status: `/admins/{uid}` = `true` in Firebase
+- Per-user granular permissions: `/userPerms/{uid}` = `{ duty: true, memo: true, ... }`
+- Global: `isAdmin` boolean, `currentUser = { uid, email, displayName, isAdmin, perms: {} }`
 - Idle auto-logout: 30 minutes with 5-minute countdown warning
 
-### Access Control
-
 ```js
-function lk(id)  { return !!(D.lk && D.lk[id]); }   // is section locked?
-function can(id) { return isAdmin || !lk(id); }       // can current user act?
+function lk(id)  { return !!(D.lk && D.lk[id]); }  // is section globally locked?
+function can(id) {
+  if (isAdmin) return true;
+  if (!lk(id)) return true;
+  return !!(currentUser && currentUser.perms && currentUser.perms[id]); // per-user override
+}
 ```
 
-Lock IDs are defined in `LOCK_DEFS` (line ~958): `duty`, `sm` (staff mgmt), `phs` (phones), `dm` (daily master), `wm` (weekday master), `pg` (page generation), `memo`, `ops`, `oc`.
+Lock IDs (`LOCK_DEFS`): `duty`, `sm` (staff mgmt), `phs` (phones), `dm` (daily master), `wm` (weekday master), `pg` (page generation), `memo`, `ops`, `oc`.
 
-### Firebase Listener Deduplication
+**Always use `can(id)` for permission checks — not `lk(id)&&!isAdmin`.** The latter ignores per-user grants.
 
-The `/data` listener is set only once per session using a `dataListenerOn` flag (inside `fbInit()`). Firebase auth token refreshes (~every hour) re-trigger `onAuthStateChanged` — the flag prevents duplicate listeners from accumulating.
+### Firebase Listener Lifecycle
 
-After `saveD()`, a `_savingTs` timestamp suppresses listener-triggered re-renders for 800ms to prevent the Firebase echo from overwriting in-progress UI state.
+Both `/data` and `/board` listeners are set inside a single `if (!dataListenerOn)` block in `fbInit()`. On logout, **both** must be detached:
+```js
+fbDB.ref('/data').off(); fbDB.ref('/board').off();
+dataListenerOn = false;
+```
+On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverConn`, `_fbConnected`, `_fbDataLoaded`, `_fbLastPageCount`.
+
+### Firebase Database Structure
+
+```
+/data/                      — full D object (saveD())
+/board/                     — 掲示板 posts (independent of /data)
+/logs/                      — activity log (append-only via push())
+/admins/{uid}               — true for admin users
+/users/{uid}                — { email, displayName, lastLogin }
+/userPerms/{uid}            — { lockId: true, ... } per-user permission grants
+/backups/YYYY-MM-DD_HH      — hourly Firebase snapshots (7-day retention)
+/backup_meta/YYYY-MM-DD_HH  — snapshot metadata { ts, label, pages, stf }
+/recent_backup              — latest successful write snapshot (always 1 entry)
+```
+
+### Backup System (3 layers)
+
+| Layer | Where | Retention | Trigger |
+|---|---|---|---|
+| ☁️ Firebase hourly snapshot | `/backups/YYYY-MM-DD_HH` | 7 days × 24h | `saveFirebaseSnapshot()` — daily auto + 1h interval |
+| ⚡ Recent backup | `/recent_backup` | Latest 1 | Every successful `saveD()` write |
+| 🔄 PC local auto-backup | `localStorage ce2_autobk` | Latest 5 | Firebase first-load, 30-min interval, before destructive ops |
+
+`autoSaveSnapshot(label)` adds to the local ring buffer. It is called **after Firebase first load** (not at `init()` time) to ensure fresh data is saved.
 
 ### UI Layout
 
@@ -112,95 +146,98 @@ After `saveD()`, a `_savingTs` timestamp suppresses listener-triggered re-render
   .sb     — sidebar (left, collapsible)
     .stabs — tab strip
     pane-cal    — calendar with month navigation
-    pane-assign — assignment table (月次担当一覧)
+    pane-assign — assignment table (月次担当一覧) + 公平性 subtab
+    pane-sched  — daily timetable (⏰ スケジュール)
+    pane-board  — 掲示板 (department bulletin board)
     pane-guide  — user guide
-    pane-staff  — staff management (admin only)
-    pane-master — duty/checklist master (admin only)
-    pane-lock   — lock management (admin only)
-    pane-logs   — activity log (admin only)
-    pane-spec / pane-manual / pane-adminm / pane-dev — docs sub-tabs (admin only)
+    pane-staff / pane-master / pane-lock / pane-logs — admin-only
+    pane-spec / pane-manual / pane-adminm / pane-dev / pane-regs / pane-changelog — docs sub-tabs
   .main   — day detail view (right, scrollable)
+  .es     — empty-state placeholder (shown when no page is selected)
 ```
 
-Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg` hamburger button.
+Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`.
+
+`openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
 ### CSS Conventions
 
-All class names are abbreviated. Key patterns:
-- `.tb` toolbar, `.sb` sidebar, `.ab` app body, `.cw` calendar widget, `.cg` calendar grid, `.cd` calendar day
-- `.dg` duty grid, `.dc` duty card, `.dl` duty label, `.ds2` duty select
-- `.pp` patient/page properties panel, `.pr` property row, `.pl` property label, `.pv` property value
-- `.co` comment/note box, `.ln` warning/lock notice
-- `.mo` memo textarea, `.clg` checklist group, `.cli` checklist item
-- `.btn-p` primary button (blue), `.btn-g` ghost/secondary button, `.btn-d` danger button
-- `.ov` overlay backdrop, `.md` modal dialog
-- `.sp-panel` side peek panel (task manual viewer/editor)
-- CSS custom properties in `:root`: `--ac` accent blue, `--rd` red, `--gr` green, `--or` orange, `--pu` purple, `--gd` gold, `--oc` light blue (on-call)
+All class names are abbreviated:
+- `.tb` toolbar, `.sb` sidebar, `.ab` app body, `.cw` calendar, `.cg` calendar grid, `.cd` calendar day
+- `.dg` duty grid, `.dc` duty card, `.ds2` duty select
+- `.btn-p` primary (blue), `.btn-g` ghost/secondary, `.btn-d` danger
+- `.ov` overlay backdrop, `.md` modal dialog, `.sp-panel` side peek panel
+- `.brd-*` board post/reply elements
+- CSS custom properties: `--ac` accent blue, `--rd` red, `--gr` green, `--or` orange, `--pu` purple, `--gd` gold, `--oc` light blue (on-call)
 
 ### Key Functions
 
 | Function | Purpose |
 |---|---|
-| `init()` | App bootstrap — loads data, inits Firebase, renders calendar |
-| `loadD()` | Hydrates `D` from localStorage (called before Firebase connects) |
-| `fbInit()` | Sets up Firebase auth listener and `/data` realtime listener |
-| `saveD()` | Persists `D` to Firebase `/data` or localStorage |
-| `openPage(ds)` | Opens a day's detail view in `.main` |
-| `renderPage(ds)` | Re-renders the currently open day page |
-| `safeRenderPage()` | Calls `renderPage(curDs)` only if a page is open |
-| `renderCal()` | Renders the calendar sidebar widget |
-| `renderAT()` | Renders the monthly assignment table |
-| `buildDG(ds, dat, locked)` | Builds the duty card grid for a day |
-| `buildCL(ds, dat, wtl, all, locked)` | Builds the checklist section |
-| `buildOPS(ds, dat, locked)` | Builds the OPE/cath/operations record section |
-| `renderMemos(ds, dat, locked)` | Renders the memo/comment thread |
-| `renderSched()` | Renders the per-day timetable (⏰ スケジュール tab) for `curDs` |
-| `writeLog(action, detail)` | Appends an entry to Firebase `/logs` |
+| `init()` | Bootstrap — `loadD()`, start intervals, `fbInit()`, render UI |
+| `loadD()` | Hydrate `D` from localStorage |
+| `fbInit()` | Firebase auth listener → login → `/data` + `/board` listeners |
+| `saveD()` | Persist `D` to Firebase or localStorage |
+| `openDefaultPage()` | Open today's page on startup (if exists) |
+| `openPage(ds)` | Open a day's detail view in `.main` |
+| `renderPage(ds)` | Re-render the open day page |
+| `safeRenderPage()` | `renderPage(curDs)` only if page is open |
+| `renderCal()` | Render calendar sidebar |
+| `renderAT()` / `renderFairness()` | Monthly assignment table / fairness matrix |
+| `buildDG(ds, dat, locked)` | Duty card grid |
+| `buildCL(ds, dat, wtl, all, locked)` | Checklist section |
+| `buildOPS(ds, dat, locked)` | OPE/cath/ops record section |
+| `renderMemos(ds, dat, locked)` | Memo/comment thread |
+| `renderSched()` | Per-day timetable for `curDs` |
+| `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board |
+| `updatePendingBadge()` | Media approval badge (debounced 200ms) |
+| `writeLog(action, detail)` | Append to Firebase `/logs` |
+| `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
+| `saveFirebaseSnapshot(label)` | Write to `/backups/YYYY-MM-DD_HH` |
+| `renderAdminUsers()` | User management UI (generation counter guards race) |
 | `can(id)` / `lk(id)` | Access control helpers |
 
 ### Duty/Assignment System
 
-`DUTIES` (line ~935) defines the fixed duty slot types (`ope`, `ope_sub`, `cath`, `cath_sub`, `ward`, `device`). `DEF_DUTY_MASTER` (line ~949) is the editable master that admins can customize.
+`DUTIES` defines fixed slot types. `DEF_DUTY_MASTER` is the admin-editable master. Each day stores assignments as `{ ope: "name", cath: "name", ... }` plus a pool of unassigned staff for drag-and-drop.
 
-Each day's `D.pages[ds]` stores duty assignments as `{ ope: "name", cath: "name", ... }` alongside a "pool" of unassigned staff that can be drag-and-dropped into slots.
+### Schedule Timetable
 
-### Schedule Timetable (⏰ スケジュール)
+Vertical time axis 8:00–21:00 in 15-min steps, one column per on-duty staff. Blocks stored in `D.pages[ds].schedule` as `{ id, staff, label, start, end, color }` (times in minutes-from-midnight). Drag body to move, drag bottom handle to resize.
 
-A sidebar tab (`tab-sched` / `pane-sched`) that builds a per-day timetable for `curDs`: vertical time axis 8:00–21:00 in 15-min steps, one column per on-duty staff member. Blocks are stored in `D.pages[ds].schedule` and rendered absolutely-positioned. Editing is pointer-based (drag body to move/change staff column, drag bottom handle to resize). Preset blocks (`D.schedPresets`, defaults in `DEF_SCHED_PRESETS`) are added by tap-to-select + tap-column or HTML5 drag-and-drop. `schedImportDuties()` seeds blocks from `dat.duties`. Like `pane-assign`, this pane hides `.main` and fills the area; on mobile it is `position:fixed` full-screen with a 戻る button. Available to all users (read-only when `duty` is locked for non-admins).
+### Checklist Items & Week-of-Month Filtering
+
+`wdItemsForDate(ds)` returns the weekday items applicable to the given date, filtered by `wdApplies(ds, it)` (week-of-month). `dat.checks[]` is indexed positionally against `D.dly.concat(wdItemsForDate(ds))`. **If week-of-month filters are added to existing items, saved check indices for older days may skew — requires a migration.**
 
 ### Shift Import
 
-`parseShiftSheet(wb, fileName)` (line ~3512) parses an Excel file (via xlsx.js) to populate `D.shift`. The SIM modal (`openSIM()`) lets admins upload shift spreadsheets.
-
-**Overwrite protection:** `doSaveSIM()` detects days that already have duty assignments (`dayHasDutyAssigned(ds)` — any non-empty value in `D.pages[ds].duties`). If any exist it confirms with the admin, then preserves the old `D.shift`/`D.evts` columns for those "protected" days while importing the rest, so a re-import never clobbers a day whose assignments are already built.
+`parseShiftSheet(wb, fileName)` parses Excel → `D.shift`. `doSaveSIM()` protects days with existing duty assignments from being overwritten.
 
 ### PHI Detection
 
-`detectPHI(text)` scans text for patient health information patterns. Returns `{ red:[...], yellow:[...] }`. `phiHasBlock(result)` is true when a hard block (8-digit ID or full name) is present.
+`detectPHI(text)` → `{ red: [...], yellow: [...] }`. `showPHIPopup(opts)` is the unified warning modal.
 
-`showPHIPopup(opts)` is the unified warning **popup modal** (`#modal-phi`): it lists detected items and a 是正方法 (fix guidance). Buttons: 修正する (close + refocus) always; 確認済み・このまま送信/保存 only when not block-level. `opts = { result, mode:'memo'|'field', onProceed, onFix }`.
+- **Memos**: `postMemo(ds)` calls `detectPHI` explicitly.
+- **`#main` free-text fields**: `initPHIGuard()` attaches a delegated `focusout` listener on `#main` — covers all `textarea`/`input[type=text]` added under `#main` automatically.
+- **Board (`#pane-board`)**: Outside `#main` — `postBoard()` and `postBoardReply()` call `detectPHI` explicitly. Any new board input fields must do the same.
 
-- **Memos:** `postMemo(ds)` runs `detectPHI` on send; if anything is detected it opens the popup (block-level PHI cannot be sent; soft warnings can be confirmed).
-- **All other free-text fields:** `initPHIGuard()` (called in `init()`) attaches one delegated `focusout` listener on `#main` covering every `textarea`/`input[type=text]` (except `#memo-new`). On blur with detected PHI it opens the same popup. New free-text fields added under `#main` are covered automatically — no per-field wiring needed.
+### Media Approval
 
-### Fairness Check (⚖️ 公平性)
+Uploads by non-admins get `pending: true`. In `renderMemos`, non-admins see a placeholder; admins see approve/reject buttons. `approveMemoMedia()` / `rejectMemoMedia()` flip the flag. `listPendingMedia()` scans all pages+manual; called via debounced `updatePendingBadge()`.
 
-`renderFairness()` is the 4th subtab of the assignment pane (`subtab-fair` / `subpane-fair`). For the `asY/asM` month it counts duty assignments per staff per slot label (via `getDutyCfg(pg)` so per-page `customDuties` are honored), shows a staff×duty matrix with per-column max(red)/min(blue) highlighting, a total bar with worked-day count, and an imbalance warning when any column's max−min ≥ `FAIR_GAP_WARN` (default 3).
+### Fairness Check
 
-## Firebase Database Structure
-
-```
-/data/          — full D object (written by saveD())
-/logs/          — activity log entries (append-only via push())
-/admins/{uid}   — set to true for admin users
-```
+`renderFairness()` — 4th subtab of the assignment pane. Counts duty assignments per staff×slot for `asY/asM`, shows a matrix with max(red)/min(blue) highlighting. Warns when any column's max−min ≥ `FAIR_GAP_WARN` (default 3).
 
 ## Making Changes
 
-Since everything is in one file, locate the relevant section by searching for the function name or CSS class. The file is organized as:
+Since everything is in one file, search for function names or CSS classes to locate sections. File organization:
+1. `<head>` — CDN scripts, CSS
+2. HTML structure (modals, toolbar, sidebar panes, main area)
+3. `<script>` — all JS starting at line ~933
 
-1. `<head>` — external CDN scripts, CSS styles
-2. HTML structure (modals, login overlay, toolbar, sidebar panes, main area)
-3. `<script>` — all JavaScript starting at line ~933
-
-When modifying behavior, always call `saveD()` after mutating `D`. When modifying rendering, prefer calling the targeted render function (e.g., `renderStfList()`) rather than `renderPage()` to avoid full re-renders. In some cases `renderPage()` must be called **before** `saveD()` to avoid the Firebase echo overwriting the new UI state before the save completes.
+**Key rules:**
+- After mutating `D`, call `saveD()`.
+- For rendering, call the targeted function (e.g., `renderStfList()`) rather than `renderPage()` to avoid full re-renders.
+- `renderPage()` must sometimes be called **before** `saveD()` to avoid the Firebase echo overwriting the new UI state.
+- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`.
