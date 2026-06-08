@@ -625,6 +625,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
 @keyframes notifSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
 .notif-time-row{display:flex;align-items:center;gap:6px;padding-left:2px;margin-top:2px;flex-wrap:wrap}
+.oc-alert-banner{background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;overflow:hidden}
 </style>
 </head>
 <body>
@@ -5840,6 +5841,7 @@ function renderPage(ds) {
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
   h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p" id="prp">'+done+' / '+all.length+' 完了</span></div>';
   h+='</div>';
+  if(isAdmin&&dat.ocAlert){var al=dat.ocAlert;h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
   /* 勤務者プール */
   h+='<div class="pool-wrap">';
@@ -5901,7 +5903,13 @@ function renderPage(ds) {
   h+='対応</label></div>';
   /* 対応時間・年休（チェック時に展開） */
   h+='<div id="oc-done-detail" style="'+(ocDone?'':'display:none;')+'margin-top:4px;display:'+(ocDone?'flex':'none')+';flex-direction:column;gap:6px">';
-  h+='<div class="oc-row"><span class="oc-lbl">対応時間</span><textarea class="oc-txt" id="oc-time" placeholder="例：23:00〜01:30" rows="2"'+(dlk?' disabled':'')+'>'+(dat.ocData.time||'')+'</textarea></div>';
+  h+='<div class="oc-row"><span class="oc-lbl">対応時間</span>';
+  h+='<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+  h+='<label style="font-size:12px;color:var(--txt3)">開始</label>';
+  h+='<input type="time" id="oc-start-time" value="'+(dat.ocData.startTime||'')+'"'+(dlk?' disabled':'')+' style="font-size:13px;padding:2px 6px;border:1px solid var(--bdr);border-radius:6px;background:var(--sur)">';
+  h+='<label style="font-size:12px;color:var(--txt3)">退勤</label>';
+  h+='<input type="time" id="oc-end-time" value="'+(dat.ocData.endTime||'')+'"'+(dlk?' disabled':'')+' style="font-size:13px;padding:2px 6px;border:1px solid var(--bdr);border-radius:6px;background:var(--sur)">';
+  h+='</span></div>';
   h+='<div class="oc-row"><label style="display:flex;align-items:center;gap:6px;cursor:pointer">';
   h+='<input type="checkbox" id="oc-nenkyu"'+(dat.ocData.nenkyu?' checked':'')+(dlk?' disabled':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:var(--oc)">';
   h+='<span style="font-size:13px">年休取得</span></label></div>';
@@ -6050,19 +6058,23 @@ function renderPage(ds) {
     /* OC対応チェック・時間・年休 */
     var ocDoneCb=document.getElementById('oc-done');
     var ocDetail=document.getElementById('oc-done-detail');
-    var ocTime=document.getElementById('oc-time');
+    var ocStartTime=document.getElementById('oc-start-time');
+    var ocEndTime=document.getElementById('oc-end-time');
     var ocNenkyu=document.getElementById('oc-nenkyu');
     if(ocDoneCb){
       ocDoneCb.onchange=function(){
         D.pages[ds].ocData.done=this.checked;
-        if(!this.checked){D.pages[ds].ocData.time='';D.pages[ds].ocData.nenkyu=false;}
+        if(!this.checked){D.pages[ds].ocData.startTime='';D.pages[ds].ocData.endTime='';D.pages[ds].ocData.nenkyu=false;}
         saveD();
         if(ocDetail) ocDetail.style.display=this.checked?'flex':'none';
-        if(ocTime&&!this.checked) ocTime.value='';
+        if(ocStartTime&&!this.checked) ocStartTime.value='';
+        if(ocEndTime&&!this.checked) ocEndTime.value='';
         if(ocNenkyu&&!this.checked) ocNenkyu.checked=false;
+        notifyOcRule(ds);
       };
     }
-    if(ocTime){var t2;ocTime.oninput=function(){var v=this.value;clearTimeout(t2);t2=setTimeout(function(){D.pages[ds].ocData.time=v;saveD();},600);};}
+    if(ocStartTime){ocStartTime.onchange=function(){D.pages[ds].ocData.startTime=this.value;saveD();};}
+    if(ocEndTime){ocEndTime.onchange=function(){D.pages[ds].ocData.endTime=this.value;saveD();notifyOcRule(ds);};}
     if(ocNenkyu){ocNenkyu.onchange=function(){D.pages[ds].ocData.nenkyu=this.checked;saveD();};}
   })(ds);
 
@@ -6225,6 +6237,8 @@ function poolAssign(ds,name) {
   }
   if(!dat.duties)dat.duties={};
   dat.duties[target]=name; saveD();
+  var _pcfg=getDutyCfg(dat).find(function(x){return x.id===target;});
+  if(_pcfg&&_pcfg.label&&_pcfg.label.indexOf('遅出')!==-1){showNotifToast('🔔 遅出担当割り当て',_pcfg.label+'：'+name+' さんが割り当てられました');}
   var sel=document.getElementById('sel-'+target);if(sel){sel.value=name;sel.classList.add('set');}
   refreshPool(ds);
 }
@@ -7387,6 +7401,8 @@ function buildDG(ds, dat, locked) {
             if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
             D.pages[_dragDs].duties[did] = _dragName;
             saveD(); refreshPool(_dragDs);
+            var _tcfg=getDutyCfg(D.pages[_dragDs]).find(function(x){return x.id===did;});
+            if(_tcfg&&_tcfg.label&&_tcfg.label.indexOf('遅出')!==-1){showNotifToast('🔔 遅出担当割り当て',_tcfg.label+'：'+_dragName+' さんが割り当てられました');}
             writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
           }
           _dragName=''; return;
@@ -7445,6 +7461,8 @@ function buildDG(ds, dat, locked) {
           if(!D.pages[dropDs].duties)D.pages[dropDs].duties={};
           D.pages[dropDs].duties[did]=name;
           saveD(); refreshPool(dropDs);
+          var _dcfg=getDutyCfg(D.pages[dropDs]).find(function(x){return x.id===did;});
+          if(_dcfg&&_dcfg.label&&_dcfg.label.indexOf('遅出')!==-1){showNotifToast('🔔 遅出担当割り当て',_dcfg.label+'：'+name+' さんが割り当てられました');}
         }
       });
       document.addEventListener('dragend', function() {
@@ -8403,6 +8421,40 @@ function showNotifToast(title, body) {
   document.body.appendChild(el);
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(function(){ if(el.parentNode) el.remove(); }, 6000);
+}
+
+/* ===== OC出勤ルール計算 ===== */
+function calcOcNextDayRule(endTimeStr) {
+  if (!endTimeStr) return null;
+  var p = endTimeStr.split(':');
+  var h = parseInt(p[0],10), mn = parseInt(p[1]||0,10);
+  if (h < 6) return { type:'off', label:'翌日休み取得可（深夜0時以降退勤）' };
+  if (h >= 21) {
+    var sh = h + 11, sm = mn;
+    if (sh >= 24) sh -= 24;
+    return { type:'late', label:'遅出出勤（' + pad(sh) + ':' + pad(sm) + '〜）' };
+  }
+  return { type:'normal', label:'通常出勤' };
+}
+function getNextDs(ds) {
+  var d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate()+1); return toDS(d);
+}
+function notifyOcRule(ds) {
+  var dat = D.pages[ds]; if (!dat || !dat.ocData) return;
+  var od = dat.ocData;
+  if (!od.done || !od.endTime) return;
+  var rule = calcOcNextDayRule(od.endTime);
+  if (!rule || rule.type === 'normal') return;
+  showNotifToast('🌙 OC翌出勤ルール', (od.staff||'担当者') + '：' + rule.label);
+  var nextDs = getNextDs(ds);
+  if (!D.pages[nextDs]) return;
+  D.pages[nextDs].ocAlert = { staff: od.staff||'', rule: rule, endTime: od.endTime, sourceDs: ds };
+  saveD();
+}
+function dismissOcAlert(ds) {
+  if (!D.pages[ds]) return;
+  delete D.pages[ds].ocAlert;
+  saveD(); safeRenderPage();
 }
 
 var _notifFired = {}; /* 当日発火済みの通知をキャッシュ（key="ds:text"） */
