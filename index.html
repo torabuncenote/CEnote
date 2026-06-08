@@ -1306,8 +1306,28 @@ var DEF_DUTY_MASTER = [
   {id:'slot_cathsub',icon:'🫀', label:'カテサブ',  checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_ward',   icon:'🏥', label:'病棟外回り', checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_device', icon:'⚙', label:'機器管理',   checks:['HDプライミング','PSG取り外し'], freeRole:false},
-  {id:'slot_free',   icon:'💉', label:'フリー',     checks:['HDプライミング','PSG取り外し'], freeRole:true}
+  {id:'slot_free',   icon:'💉', label:'フリー',     checks:['HDプライミング','PSG取り外し'], freeRole:true},
+  {id:'slot_late_ope',  icon:'🌙', label:'遅出OPE',  checks:[], freeRole:false},
+  {id:'slot_late_cath', icon:'🌙', label:'遅出カテ', checks:[], freeRole:false},
+  {id:'slot_late_free', icon:'🌙', label:'遅出フリー', checks:[], freeRole:true}
 ];
+/* 遅出担当枠（既存環境にも一度きりのマイグレーションで追加。id/labelで重複チェックし冪等） */
+var LATE_DUTY_SLOTS = [
+  {id:'slot_late_ope',  icon:'🌙', label:'遅出OPE',  checks:[], freeRole:false},
+  {id:'slot_late_cath', icon:'🌙', label:'遅出カテ', checks:[], freeRole:false},
+  {id:'slot_late_free', icon:'🌙', label:'遅出フリー', checks:[], freeRole:true}
+];
+function ensureLateDutySlots() {
+  function addMissing(arr){
+    if(!Array.isArray(arr)) return;
+    LATE_DUTY_SLOTS.forEach(function(s){
+      var exists = arr.some(function(x){ return x && (x.id===s.id || x.label===s.label); });
+      if(!exists) arr.push(Object.assign({}, s));
+    });
+  }
+  addMissing(D.dutyCfgMaster);                 /* 追加メニューに常に出す */
+  if (D.dutyCfg && D.dutyCfg.length) addMissing(D.dutyCfg); /* テンプレ運用の全ページに常時表示 */
+}
 var LOCK_DEFS = [
   {id:'duty',    icon:'🎯', label:'担当割り当て'},
   {id:'phs',     icon:'📞', label:'PHS番号の変更'},
@@ -1543,6 +1563,7 @@ function loadD() {
       if(D.dutyCfg) D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
       Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
     }
+    ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
     D.wd=JSON.parse(JSON.stringify(DEF_WD)); D.lk={};
@@ -1767,6 +1788,12 @@ function fbInit() {
               D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
               Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
               D._migVer = 1;
+              saveD();
+            }
+            /* v2: 遅出担当枠を追加 */
+            if (!D._migVer || D._migVer < 2) {
+              ensureLateDutySlots();
+              D._migVer = 2;
               saveD();
             }
             D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
@@ -3138,7 +3165,7 @@ var APP_VERSION = '2026.06g';
 var APP_CHANGELOG = [
   { ver:'2026.06g', date:'2026-06-08', title:'通知機能の追加', items:[
     {t:'new', d:'🌙 OC対応の退勤時刻から翌日の出勤ルール（遅出/休み）を自動判定。確定時にトースト表示＋翌日の連絡表に警告バナーを表示'},
-    {t:'new', d:'🔔 「遅出」を含む担当枠（遅出OPE・遅出カテ・遅出フリーなど）に割り当てた時にトースト通知'},
+    {t:'new', d:'🌙 担当枠に「遅出OPE・遅出カテ・遅出フリー」を標準追加。割り当てた時にトースト通知'},
     {t:'new', d:'⏰ 業務マスタの各チェック項目に通知時刻を設定できるリマインダー機能を追加'},
     {t:'new', d:'🌙 PSG付箋の通知時刻を業務マスタから変更できるように（既定10:00）'},
     {t:'new', d:'📅 曜日別業務に「最終週」（その曜日の最終回のみ）の指定を追加'},
