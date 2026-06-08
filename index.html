@@ -890,6 +890,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
             <button onclick="addSchedPreset()">追加</button>
           </div>
         </div>
+        <div>
+          <div class="pt">🌙 PSG付箋通知設定</div>
+          <div class="pn" style="margin-bottom:8px">PSG装着者がいる日に付箋未入力の場合、指定時刻にトーストで通知します。</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="font-size:13px;font-weight:600">通知時刻</label>
+            <input type="time" id="psg-alert-time" onchange="savePsgAlertTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
+          </div>
+        </div>
         <div class="pn">変更はすぐに全連絡表に反映されます。</div>
       </div>
     </div>
@@ -4619,6 +4627,8 @@ function rmPhs(i) { if(!can('phs'))return; D.phs.splice(i,1); renderPhsList(); s
 function renderDlyList() {
   var l = document.getElementById('dly-list'); l.innerHTML = '';
   var ok = can('dm');
+  var _psgEl = document.getElementById('psg-alert-time');
+  if (_psgEl) _psgEl.value = D.psgAlertTime || '10:00';
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
     var el = document.createElement('div'); el.className = 'ri';
@@ -8387,7 +8397,9 @@ function buildOPS(ds,dat,locked) {
     if(!onEl || !cbEl) return;
     var hasOn = onEl.value.trim() !== '';
     var now = new Date();
-    var after10 = (now.getHours() >= 10);
+    var _psgT = (D.psgAlertTime || '10:00').split(':');
+    var _psgMin = parseInt(_psgT[0],10)*60 + parseInt(_psgT[1]||0,10);
+    var after10 = (now.getHours()*60 + now.getMinutes() >= _psgMin);
     var notChecked = !cbEl.checked;
     if(hasOn && after10 && notChecked) {
       onEl.classList.add('psg-fusen-alert');
@@ -8421,6 +8433,13 @@ function showNotifToast(title, body) {
   document.body.appendChild(el);
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(function(){ if(el.parentNode) el.remove(); }, 6000);
+}
+
+function savePsgAlertTime() {
+  var v = document.getElementById('psg-alert-time');
+  if (!v) return;
+  D.psgAlertTime = v.value || '10:00';
+  saveD();
 }
 
 /* ===== OC出勤ルール計算 ===== */
