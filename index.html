@@ -332,6 +332,18 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .at th,.at td{padding:2px 3px!important;border:1px solid #ccc!important}
   .dch{font-size:7px!important;padding:1px 3px!important}
   .ph{display:block!important;font-size:12px;font-weight:700;margin-bottom:4px}
+  body.printing-sub .ab{display:block!important;margin-top:0!important;height:auto!important}
+  body.printing-sub .main{display:none!important}
+  body.printing-sub .sb{display:block!important;position:static!important;width:auto!important;min-width:0!important;height:auto!important;border:none!important;overflow:visible!important;transform:none!important}
+  body.printing-sub .stabs{display:none!important}
+  body.printing-sub .atnav{display:none!important}
+  body.printing-sub .sb>:not(#pane-assign){display:none!important}
+  body.printing-sub #pane-assign{display:block!important;position:static!important;top:auto!important;bottom:auto!important;height:auto!important;flex:none!important;overflow:visible!important}
+  body.printing-sub [id^="subpane-"]{display:none!important}
+  body[data-print-sub="at"] #subpane-at{display:block!important}
+  body[data-print-sub="oc"] #subpane-oc{display:block!important}
+  body[data-print-sub="ops"] #subpane-ops{display:block!important}
+  body[data-print-sub="fair"] #subpane-fair{display:block!important}
   @page{margin:10mm;size:A4 landscape}
 }
 @media(max-width:768px){
@@ -609,6 +621,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .dg{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
   .dc{min-width:140px;font-size:11px!important}
 }
+/* ===== 通知トースト ===== */
+.notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
+@keyframes notifSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+.notif-time-row{display:flex;align-items:center;gap:6px;padding-left:2px;margin-top:2px;flex-wrap:wrap}
 </style>
 </head>
 <body>
@@ -1080,8 +1096,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <button class="btn btn-g btn-sm" onclick="asNextM()">&#8250;</button>
         <span class="at-hint" style="font-size:11px;color:var(--txt3)">担当設定済みの日のみ表示</span>
         <button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
-        <button class="btn btn-g btn-sm" onclick="exportAtCsv()">📥<span class="btn-at-text"> CSV</span></button>
-        <button class="btn btn-g btn-sm" onclick="printAt()">🖨️<span class="btn-at-text"> 印刷</span></button>
+        <button id="btn-sub-csv" class="btn btn-g btn-sm" onclick="exportSubCsv()">📥<span class="btn-at-text"> CSV</span></button>
+        <button id="btn-sub-print" class="btn btn-g btn-sm" onclick="printSubTab()">🖨️<span class="btn-at-text"> 印刷</span></button>
       </div>
       <!-- サブタブ -->
       <div style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
@@ -1460,6 +1476,7 @@ function init() {
   document.getElementById('nm-date').value = toDS(now);
   loadD();
   setInterval(function(){ autoSaveSnapshot('定期（30分）'); }, 30*60*1000);
+  setInterval(checkTimeNotifs, 60*1000); /* 1分毎に通知チェック */
   /* 1時間ごとにFirebaseスナップショットも取る（日次だけでは粒度が粗すぎるため） */
   setInterval(function(){
     if (FB_ON && fbDB && currentUser && Object.keys(D.pages||{}).length > 0)
@@ -1636,13 +1653,8 @@ function fbInit() {
         uc.style.display = '';
         document.getElementById('btn-logout').style.display = '';
 
-        /* 管理者専用タブの表示切り替え */
-        ['staff','master','lock','logs','docs'].forEach(function(id){
-          var el = document.getElementById('tab-'+id);
-          if(el) el.style.display = isAdmin ? '' : 'none';
-        });
-        var fairBtn = document.getElementById('subtab-fair');
-        if (fairBtn) fairBtn.style.display = isAdmin ? '' : 'none';
+        /* タブ表示切り替え（個別権限も考慮） */
+        updateTabVisibility();
         /* 前セッションで開いていた資料ペインを閉じてカレンダービューに戻す */
         swTab('cal');
         var docsMenu = document.getElementById('docs-submenu');
@@ -1764,6 +1776,7 @@ function fbInit() {
             renderDlyList(); renderWdlyList();
             renderOpeList(); renderCathList();
             renderLockList();
+            updateTabVisibility();
             updatePendingBadge();
             /* 入力フォーカス中はページを再描画しない（入力内容が消えるのを防ぐ） */
             var focused = document.activeElement;
@@ -3803,7 +3816,9 @@ function removeOpsCard(ds, cid) {
 }
 
 /* ===== 担当表サブタブ切り替え ===== */
+var _curSubTab = 'at';
 function swSubTab(id) {
+  _curSubTab = id;
   var ids = ['at','oc','ops','fair'];
   ids.forEach(function(sid){
     var pane = document.getElementById('subpane-'+sid);
@@ -3813,6 +3828,11 @@ function swSubTab(id) {
     btn.style.borderBottom = sid===id ? '2px solid var(--ac)' : 'none';
     btn.style.fontWeight   = sid===id ? '700' : '';
   });
+  /* CSV/印刷ボタンの有無をサブタブに合わせて切り替え */
+  var csvBtn   = document.getElementById('btn-sub-csv');
+  var printBtn = document.getElementById('btn-sub-print');
+  if (csvBtn)   csvBtn.style.display   = (id==='fair') ? 'none' : '';
+  if (printBtn) printBtn.style.display = '';
   if (id==='oc')   renderOCSummary();
   if (id==='ops')  renderOpsSummary();
   if (id==='fair') renderFairness();
@@ -4356,13 +4376,29 @@ function can(id) {
    wk はその曜日の第N回目（第N火曜＝floor((日-1)/7)+1, 1〜5）。
    wk が無い/空/5週すべて → 毎週扱い。隔週は第1・3・5 / 第2・4 で表現する。 */
 function wdText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
+function dlyText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
+function dlyNotif(it){ return (it && typeof it === 'object' && it.notif) ? it.notif : null; }
 function wdWeeks(it){
-  /* 制限ありなら週番号配列を返す。毎週（制限なし）は null */
-  if (it && typeof it === 'object' && Array.isArray(it.wk) && it.wk.length && it.wk.length < 5) return it.wk.slice();
+  /* 制限ありなら週番号配列を返す。毎週（制限なし）は null。0=最終週、1〜5=第N週 */
+  if (it && typeof it === 'object' && Array.isArray(it.wk) && it.wk.length && it.wk.length < 6) return it.wk.slice();
   return null;
 }
 function nthWk(ds){ var day = parseInt((ds||'').split('-')[2], 10) || 1; return Math.floor((day - 1) / 7) + 1; }
-function wdApplies(ds, it){ var wk = wdWeeks(it); if (!wk) return true; return wk.indexOf(nthWk(ds)) !== -1; }
+function isLastWeek(ds){
+  var pt=ds.split('-'); var y=+pt[0],m=+pt[1]-1,d=+pt[2];
+  var lastDay=new Date(y,m+1,0).getDate();
+  return lastDay - d < 7;
+}
+function wdApplies(ds, it){
+  var wk = wdWeeks(it);
+  if (!wk) return true;
+  var nth = nthWk(ds);
+  for (var i = 0; i < wk.length; i++) {
+    if (wk[i] === 0) { if (isLastWeek(ds)) return true; }
+    else if (wk[i] === nth) return true;
+  }
+  return false;
+}
 /* 指定日に表示すべき曜日別項目を「本文文字列の配列」で返す（描画は全箇所これを使う＝index整合） */
 function wdItemsForDate(ds){
   var w = new Date(ds).getDay(), ws = WDL[w];
@@ -4518,7 +4554,9 @@ function confirmEditModal() {
     writeLog('マスタ編集', oldValue + ' → ' + newValue);
   } else if (state.type === 'dly') {
     if(!can('dm'))return;
-    D.dly[state.index]=newValue; renderDlyList(); saveD(); if(curDs)safeRenderPage();
+    var _oldDly = D.dly[state.index], _dlyNotif = dlyNotif(_oldDly);
+    D.dly[state.index] = _dlyNotif ? { t: newValue, notif: _dlyNotif } : newValue;
+    renderDlyList(); saveD(); if(curDs)safeRenderPage();
   } else if (state.type === 'wdly') {
     if(!can('wm'))return;
     var arr=D.wd[selWd]||[]; var item=arr[state.index];
@@ -4581,9 +4619,23 @@ function renderDlyList() {
   var l = document.getElementById('dly-list'); l.innerHTML = '';
   var ok = can('dm');
   for (var i = 0; i < D.dly.length; i++) {
+    var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
     var el = document.createElement('div'); el.className = 'ri';
+    el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '4px';
     var btns = ok ? '<button class="re2" onclick="editDly('+i+')">✏️</button><button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
-    el.innerHTML = '<span class="rn" style="font-size:11px">📌 ' + escH(D.dly[i]) + '</span>' + btns;
+    var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + btns + '</div>';
+    var notifRow = '';
+    if (ok) {
+      var nEnabled = notif && notif.enabled;
+      var nTime = (notif && notif.time) || '';
+      notifRow = '<div class="notif-time-row">'
+        + '<span style="font-size:10px;color:var(--txt3)">🔔 通知</span>'
+        + '<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer">'
+        + '<input type="checkbox" onchange="togDlyNotif('+i+',this.checked)" '+(nEnabled?'checked':'')+'> 有効</label>'
+        + '<input type="time" value="'+escH(nTime)+'" onchange="setDlyNotif('+i+',this.value)" style="font-size:10px;border:1px solid var(--bdr);border-radius:4px;padding:1px 4px;background:var(--sur2)">'
+        + '</div>';
+    }
+    el.innerHTML = head + notifRow;
     l.appendChild(el);
   }
   document.getElementById('dly-ar').style.display = ok ? 'flex' : 'none';
@@ -4595,8 +4647,20 @@ function editDly(i) {
   if(!can('dm'))return;
   _editModalState={type:'dly',index:i};
   document.getElementById('edit-item-title').textContent='📌 毎日業務を編集';
-  var inp=document.getElementById('edit-item-input'); inp.value=D.dly[i]; inp.style.minHeight='40px';
+  var inp=document.getElementById('edit-item-input'); inp.value=dlyText(D.dly[i]); inp.style.minHeight='40px';
   document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
+}
+function setDlyNotif(i, time) {
+  if(!can('dm'))return;
+  var it = D.dly[i], text = dlyText(it), oldNotif = dlyNotif(it) || {};
+  D.dly[i] = { t: text, notif: Object.assign({}, oldNotif, { time: time }) };
+  saveD();
+}
+function togDlyNotif(i, enabled) {
+  if(!can('dm'))return;
+  var it = D.dly[i], text = dlyText(it), oldNotif = dlyNotif(it) || {};
+  D.dly[i] = { t: text, notif: Object.assign({}, oldNotif, { enabled: enabled }) };
+  saveD();
 }
 
 /* ===== WEEKDAY MASTER ===== */
@@ -4620,7 +4684,8 @@ function renderWdlyList() {
   else {
     for (var i = 0; i < ts.length; i++) {
       var it = ts[i], text = wdText(it), weeks = wdWeeks(it);
-      var summary = weeks ? ('第' + weeks.join('・') + '週') : '毎週';
+      var wkLabels = weeks ? weeks.map(function(w){ return w===0?'最終':'第'+w; }) : null;
+      var summary = wkLabels ? wkLabels.join('・')+'週' : '毎週';
       var el = document.createElement('div');
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
@@ -4637,20 +4702,51 @@ function renderWdlyList() {
                 + (active ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">第'+wk+'</button>';
         }
         freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
+        var activeLast = !weeks || weeks.indexOf(0) !== -1;
+        freq += '<button onclick="togWdWeek('+i+',0)" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
+              + (activeLast ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">最終</button>';
+        freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
         freq += '<button onclick="setWdWeeks('+i+',\'all\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">毎週</button>';
         freq += '<button onclick="setWdWeeks('+i+',\'odd\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第1・3・5</button>';
         freq += '<button onclick="setWdWeeks('+i+',\'even\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第2・4</button>';
+        freq += '<button onclick="setWdWeeks('+i+',\'last\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">最終のみ</button>';
         freq += '</div>';
       } else {
         freq += '<div style="font-size:10px;color:var(--txt3);padding-left:2px">頻度: ' + summary + '</div>';
       }
-      el.innerHTML = head + freq;
+      var wdNotif = (it && typeof it === 'object' && it.notif) ? it.notif : null;
+      var notifRow2 = '';
+      if (ok) {
+        var wdNEnabled = wdNotif && wdNotif.enabled;
+        var wdNTime = (wdNotif && wdNotif.time) || '';
+        notifRow2 = '<div class="notif-time-row">'
+          + '<span style="font-size:10px;color:var(--txt3)">🔔 通知</span>'
+          + '<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer">'
+          + '<input type="checkbox" onchange="togWdNotif('+i+',this.checked)" '+(wdNEnabled?'checked':'')+'> 有効</label>'
+          + '<input type="time" value="'+escH(wdNTime)+'" onchange="setWdNotif('+i+',this.value)" style="font-size:10px;border:1px solid var(--bdr);border-radius:4px;padding:1px 4px;background:var(--sur2)">'
+          + '</div>';
+      }
+      el.innerHTML = head + freq + notifRow2;
       l.appendChild(el);
     }
   }
   document.getElementById('wdly-ar').style.display = ok ? 'flex' : 'none';
 }
 function addWdly() { if(!can('wm'))return; var v=document.getElementById('in-wdly').value.trim(); if(!v)return; if(!D.wd[selWd])D.wd[selWd]=[]; D.wd[selWd].push(v); document.getElementById('in-wdly').value=''; renderWdlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-wdly').focus(); }
+function setWdNotif(i, time) {
+  if(!can('wm'))return;
+  var arr=D.wd[selWd]||[]; var it=arr[i]; if(it===undefined)return;
+  var text=wdText(it); var weeks=wdWeeks(it); var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
+  arr[i]=Object.assign({t:text},weeks?{wk:weeks}:{},{notif:Object.assign({},oldN,{time:time})});
+  D.wd[selWd]=arr; saveD();
+}
+function togWdNotif(i, enabled) {
+  if(!can('wm'))return;
+  var arr=D.wd[selWd]||[]; var it=arr[i]; if(it===undefined)return;
+  var text=wdText(it); var weeks=wdWeeks(it); var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
+  arr[i]=Object.assign({t:text},weeks?{wk:weeks}:{},{notif:Object.assign({},oldN,{enabled:enabled})});
+  D.wd[selWd]=arr; saveD();
+}
 function rmWdly(i) { if(!can('wm'))return; D.wd[selWd].splice(i,1); renderWdlyList(); saveD(); if(curDs)safeRenderPage(); }
 function mvWdly(i,d) { if(!can('wm'))return; var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return; var t=arr[i];arr[i]=arr[j];arr[j]=t; renderWdlyList(); saveD(); }
 function editWdly(i) {
@@ -4667,9 +4763,10 @@ function setWdWeeks(i, mode) {
   if(!can('wm'))return;
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
   var text = wdText(arr[i]);
-  if (mode==='all')      arr[i] = text;
-  else if (mode==='odd') arr[i] = { t:text, wk:[1,3,5] };
-  else if (mode==='even')arr[i] = { t:text, wk:[2,4] };
+  if (mode==='all')       arr[i] = text;
+  else if (mode==='odd')  arr[i] = { t:text, wk:[1,3,5] };
+  else if (mode==='even') arr[i] = { t:text, wk:[2,4] };
+  else if (mode==='last') arr[i] = { t:text, wk:[0] };
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
 }
 /* 第N週チップの個別トグル */
@@ -4678,12 +4775,12 @@ function togWdWeek(i, wk) {
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
   var text = wdText(arr[i]);
   var cur = wdWeeks(arr[i]);
-  var weeks = cur ? cur.slice() : [1,2,3,4,5];
+  var weeks = cur ? cur.slice() : [0,1,2,3,4,5]; /* null=毎週 → 全6オプションに展開 */
   var pos = weeks.indexOf(wk);
   if (pos===-1) weeks.push(wk); else weeks.splice(pos,1);
   weeks.sort(function(a,b){ return a-b; });
   if (!weeks.length) { alert('最低1つの週を選んでください'); return; }
-  if (weeks.length>=5) arr[i] = text;       /* 全週 → 毎週（文字列）に正規化 */
+  if (weeks.length>=6) arr[i] = text;       /* 全6オプション選択 → 毎週（文字列）に正規化 */
   else                 arr[i] = { t:text, wk:weeks };
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
 }
@@ -4915,6 +5012,21 @@ function editDutyMaster(idx) {
 /* renderSupList は上の renderSupTree に統合済み */
 
 /* ===== LOCK ===== */
+function updateTabVisibility() {
+  var show = {
+    'staff': isAdmin || can('sm'),
+    'master': isAdmin || can('dm') || can('wm'),
+    'lock':  isAdmin,
+    'logs':  isAdmin,
+    'docs':  isAdmin,
+  };
+  Object.keys(show).forEach(function(id) {
+    var el = document.getElementById('tab-' + id);
+    if (el) el.style.display = show[id] ? '' : 'none';
+  });
+  var fairBtn = document.getElementById('subtab-fair');
+  if (fairBtn) fairBtn.style.display = isAdmin ? '' : 'none';
+}
 function renderLockList() {
   var w = document.getElementById('lock-list'); w.innerHTML = '';
   for (var i = 0; i < LOCK_DEFS.length; i++) {
@@ -8254,12 +8366,11 @@ function buildOPS(ds,dat,locked) {
     if(hasOn && after10 && notChecked) {
       onEl.classList.add('psg-fusen-alert');
       cbEl.parentElement.style.color='var(--rd)';
-      /* アラートは初回のみ（ページ描画後1秒後に表示） */
       if(!window._psgAlerted) {
         window._psgAlerted = true;
         setTimeout(function(){
           if(!document.getElementById('ops-psg-fusen').checked) {
-            alert('🌙 PSG：付箋入力が完了していません（10時を過ぎています）');
+            showNotifToast('🌙 PSG', '付箋入力が完了していません（10時を過ぎています）');
           }
         }, 800);
       }
@@ -8272,9 +8383,58 @@ function buildOPS(ds,dat,locked) {
   setTimeout(function(){ checkPsgFusen(ds); }, 1000);
 }
 
+/* ===== 通知トースト ===== */
+var _toastTimer = null;
+function showNotifToast(title, body) {
+  var existing = document.getElementById('notif-toast');
+  if (existing) existing.remove();
+  var el = document.createElement('div');
+  el.id = 'notif-toast'; el.className = 'notif-toast';
+  el.innerHTML = '<strong>' + escH(title) + '</strong>' + (body ? '<br><span style="font-size:11px;opacity:.85">' + escH(body) + '</span>' : '');
+  el.onclick = function(){ el.remove(); };
+  document.body.appendChild(el);
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ if(el.parentNode) el.remove(); }, 6000);
+}
+
+var _notifFired = {}; /* 当日発火済みの通知をキャッシュ（key="ds:text"） */
+function checkTimeNotifs() {
+  if (!currentUser) return;
+  var now = new Date();
+  var ds = toDS(now);
+  var hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  /* 毎日業務 */
+  for (var i = 0; i < D.dly.length; i++) {
+    var it = D.dly[i], n = dlyNotif(it);
+    if (!n || !n.enabled || !n.time) continue;
+    if (n.time !== hhmm) continue;
+    var key = ds + ':dly:' + i;
+    if (_notifFired[key]) continue;
+    _notifFired[key] = true;
+    showNotifToast('📌 ' + dlyText(it), '通知時刻になりました（' + n.time + '）');
+  }
+  /* 曜日別業務 */
+  var w = new Date(ds).getDay(), ws = WDL[w];
+  var wdArr = D.wd[ws] || [];
+  for (var j = 0; j < wdArr.length; j++) {
+    var wit = wdArr[j];
+    if (!wdApplies(ds, wit)) continue;
+    var wn = (wit && typeof wit === 'object' && wit.notif) ? wit.notif : null;
+    if (!wn || !wn.enabled || !wn.time) continue;
+    if (wn.time !== hhmm) continue;
+    var wkey = ds + ':wd:' + ws + ':' + j;
+    if (_notifFired[wkey]) continue;
+    _notifFired[wkey] = true;
+    showNotifToast('📅 ' + wdText(wit), '通知時刻になりました（' + wn.time + '）');
+  }
+  /* 翌日分に移ったらキャッシュをリセット */
+  if (_notifFired._ds && _notifFired._ds !== ds) _notifFired = {};
+  _notifFired._ds = ds;
+}
+
 /* ===== CHECKLIST ===== */
 function buildCL(ds,dat,wtl,all,locked) {
-  for(var i=0;i<D.dly.length;i++) document.getElementById('dcl').appendChild(mkCk(ds,i,D.dly[i],dat,locked));
+  for(var i=0;i<D.dly.length;i++) document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked));
   var we=document.getElementById('wcl');
   if(!wtl.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
   for(var j=0;j<wtl.length;j++) we.appendChild(mkCk(ds,D.dly.length+j,wtl[j],dat,locked));
@@ -8402,7 +8562,74 @@ function printAt(){
     document.body.classList.remove('printing-at');
   },150);
 }
-window.addEventListener('afterprint',function(){ document.body.classList.remove('printing-at'); });
+window.addEventListener('afterprint',function(){
+  document.body.classList.remove('printing-at');
+  document.body.classList.remove('printing-sub');
+  document.body.removeAttribute('data-print-sub');
+});
+
+/* サブタブ対応 CSV エクスポート（現在のサブタブで分岐） */
+function exportSubCsv() {
+  if (_curSubTab === 'at')   { exportAtCsv(); return; }
+  if (_curSubTab === 'oc')   { exportOcCsv(); return; }
+  if (_curSubTab === 'ops')  { exportOpsCsv(); return; }
+}
+function downloadCsv(filename, rows) {
+  var csv = '﻿';
+  rows.forEach(function(row){
+    csv += row.map(function(c){
+      var s = String(c==null?'':c);
+      return (s.indexOf(',')!==-1||s.indexOf('\n')!==-1||s.indexOf('"')!==-1) ? '"'+s.replace(/"/g,'""')+'"' : s;
+    }).join(',') + '\r\n';
+  });
+  var blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function exportOcCsv() {
+  var days = new Date(asY,asM+1,0).getDate(), rows = [['日付','曜日','担当者','備考','対応','対応時間','年休']];
+  for (var d=1; d<=days; d++) {
+    var ds = asY+'-'+pad(asM+1)+'-'+pad(d), pg = D.pages[ds];
+    if (!pg||!pg.ocData||!pg.ocData.staff) continue;
+    var oc = pg.ocData, w = new Date(ds).getDay();
+    rows.push([asY+'/'+(asM+1)+'/'+d, WDL[w], oc.staff||'', oc.note||'', oc.done?'✔':'', oc.time||'', oc.nenkyu?'✔':'']);
+  }
+  if (rows.length===1){alert('この月にOC担当の記録がありません');return;}
+  downloadCsv('分院CE_OC集計_'+asY+'年'+(asM+1)+'月.csv', rows);
+}
+function exportOpsCsv() {
+  var days = new Date(asY,asM+1,0).getDate(), rows = [['日付','曜日','オペ','カテ','6MW','PSG','フリー']];
+  for (var d=1; d<=days; d++) {
+    var ds = asY+'-'+pad(asM+1)+'-'+pad(d), pg = D.pages[ds];
+    if (!pg) continue;
+    var ops = pg.ops||{};
+    var opeN=0,cathN=0,mwN=0,psgN=0,freeN=0;
+    if(ops.ope_items)  ops.ope_items.forEach(function(it){if(it.sel||it.txt)opeN++;});
+    if(ops.cath_items) ops.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
+    if(ops.mw_n) mwN=parseInt(ops.mw_n)||0;
+    if(ops.psg_on) psgN=1;
+    Object.keys(ops).forEach(function(k){if(k.indexOf('free_')===0&&ops[k])freeN++;});
+    if(!opeN&&!cathN&&!mwN&&!psgN&&!freeN) continue;
+    rows.push([asY+'/'+(asM+1)+'/'+d, WDL[new Date(ds).getDay()], opeN||'', cathN||'', mwN||'', psgN||'', freeN||'']);
+  }
+  if (rows.length===1){alert('この月に業務記録がありません');return;}
+  downloadCsv('分院CE_業務集計_'+asY+'年'+(asM+1)+'月.csv', rows);
+}
+/* サブタブ対応 印刷（現在のサブタブを印刷） */
+function printSubTab() {
+  if (_curSubTab === 'at') { printAt(); return; }
+  document.getElementById('ph').textContent = '分院CE連絡表　' + asY+'年'+(asM+1)+'月';
+  document.body.setAttribute('data-print-sub', _curSubTab);
+  document.body.classList.add('printing-sub');
+  setTimeout(function(){
+    window.print();
+    document.body.classList.remove('printing-sub');
+    document.body.removeAttribute('data-print-sub');
+  }, 150);
+}
 
 function exportAtCsv() {
   var days=new Date(asY,asM+1,0).getDate(), adates=[];
