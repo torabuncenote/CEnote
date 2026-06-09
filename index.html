@@ -8716,14 +8716,16 @@ function renderEmailjsCfg() {
   var cfg = D.emailjsCfg || {};
   var ok = isAdmin;
   var dis = ok ? '' : ' disabled';
+  var configured = cfg.publicKey && cfg.serviceId && cfg.templateId;
+  var badge = configured ? '<span style="font-size:11px;color:var(--gr);font-weight:700;margin-left:8px">✅ 設定済み</span>' : '';
   el.innerHTML = '<div style="display:grid;gap:6px">'
     + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">公開キー (Public Key)</label>'
-    + '<input type="text" id="ejs-pk" value="' + escH(cfg.publicKey || '') + '" placeholder="user_xxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
+    + '<input type="text" id="ejs-pk" value="' + escH(cfg.publicKey || '') + '" placeholder="user_xxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">' + (cfg.publicKey ? badge : '') + '</div>'
     + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">サービスID</label>'
     + '<input type="text" id="ejs-sid" value="' + escH(cfg.serviceId || '') + '" placeholder="service_xxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
     + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">テンプレートID</label>'
     + '<input type="text" id="ejs-tid" value="' + escH(cfg.templateId || '') + '" placeholder="template_xxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
-    + (ok ? '<div><button class="btn btn-p" onclick="saveEmailjsCfg()" style="font-size:12px">保存</button></div>' : '')
+    + (ok ? '<div style="display:flex;align-items:center;gap:10px"><button class="btn btn-p" id="ejs-save-btn" onclick="saveEmailjsCfg()" style="font-size:12px">保存</button>' + (configured ? '<span style="font-size:11px;color:var(--gr)">✅ 3項目すべて設定済み — メール通知が有効です</span>' : '<span style="font-size:11px;color:var(--txt3)">3項目すべて入力して保存してください</span>') + '</div>' : '')
     + '</div>';
 }
 function saveEmailjsCfg() {
@@ -8733,6 +8735,7 @@ function saveEmailjsCfg() {
   var tid = (document.getElementById('ejs-tid') || {}).value || '';
   D.emailjsCfg = { publicKey: pk.trim(), serviceId: sid.trim(), templateId: tid.trim() };
   saveD();
+  renderEmailjsCfg();
   showNotifToast('✅ メール通知設定を保存しました', '');
 }
 
