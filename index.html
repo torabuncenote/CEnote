@@ -900,12 +900,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
             <input type="time" id="psg-alert-time" onchange="savePsgAlertTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
           </div>
         </div>
-        <div>
+        <div id="emailjs-cfg-section">
           <div class="pt">📧 メール通知設定（EmailJS）</div>
           <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
           <div id="emailjs-cfg-form"></div>
         </div>
-        <div>
+        <div id="fcm-cfg-section">
           <div class="pt">🔔 Web Push設定（FCM）</div>
           <div class="pn" style="margin-bottom:8px">Firebase Cloud Messaging でアプリを閉じていても担当割り当て通知をプッシュ配信できます。Firebase コンソール → プロジェクト設定 → Cloud Messaging から VAPIDキー（公開鍵）とサーバーキーを取得してください。</div>
           <div id="fcm-cfg-form"></div>
@@ -8643,21 +8643,28 @@ function getUidByName(name, cb) {
 function sendNotification(targetName, title, body, type) {
   if (!FB_ON || !fbDB) return;
   getUidByName(targetName, function(uid) {
-    if (!uid) return;
+    if (!uid) { console.warn('[通知] UID未解決 — スタッフ名簿に紐付けてください:', targetName); return; }
     fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
     sendFCMPush(uid, title, body);
     var cfg = D.emailjsCfg;
     if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
       fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
         var email = s.val();
-        if (!email) return;
+        if (!email) { console.warn('[通知] メールアドレス未登録 uid:', uid); return; }
+        console.log('[通知] EmailJS送信開始 →', email);
         try {
           emailjs.init(cfg.publicKey);
           emailjs.send(cfg.serviceId, cfg.templateId, {
             to_email: email, to_name: targetName, subject: title, message: body
-          }).catch(function(){});
-        } catch(e) {}
+          }).then(function(res) {
+            console.log('[通知] EmailJS送信成功:', res.status, res.text);
+          }).catch(function(err) {
+            console.error('[通知] EmailJS送信失敗:', err);
+          });
+        } catch(e) { console.error('[通知] EmailJS例外:', e); }
       });
+    } else {
+      console.warn('[通知] EmailJS未設定 — マスタタブで設定してください');
     }
     if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
@@ -8713,11 +8720,13 @@ function dismissNotifPopup() {
   }
 }
 function renderEmailjsCfg() {
+  var sec = document.getElementById('emailjs-cfg-section');
+  if (sec) sec.style.display = isAdmin ? '' : 'none';
   var el = document.getElementById('emailjs-cfg-form');
-  if (!el) return;
+  if (!el || !isAdmin) return;
   var cfg = D.emailjsCfg || {};
-  var ok = isAdmin;
-  var dis = ok ? '' : ' disabled';
+  var ok = true;
+  var dis = '';
   var configured = cfg.publicKey && cfg.serviceId && cfg.templateId;
   var badge = configured ? '<span style="font-size:11px;color:var(--gr);font-weight:700;margin-left:8px">✅ 設定済み</span>' : '';
   el.innerHTML = '<div style="display:grid;gap:6px">'
@@ -8777,11 +8786,13 @@ function sendFCMPush(targetUid, title, body) {
 }
 
 function renderFCMCfg() {
+  var sec = document.getElementById('fcm-cfg-section');
+  if (sec) sec.style.display = isAdmin ? '' : 'none';
   var el = document.getElementById('fcm-cfg-form');
-  if (!el) return;
+  if (!el || !isAdmin) return;
   var cfg = D.fcmCfg || {};
-  var ok = isAdmin;
-  var dis = ok ? '' : ' disabled';
+  var ok = true;
+  var dis = '';
   el.innerHTML = '<div style="display:grid;gap:6px">'
     + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:120px">VAPIDキー（公開鍵）</label>'
     + '<input type="text" id="fcm-vapid" value="' + escH(cfg.vapidKey || '') + '" placeholder="BNxxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
