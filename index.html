@@ -17,6 +17,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -898,6 +900,16 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
             <input type="time" id="psg-alert-time" onchange="savePsgAlertTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
           </div>
         </div>
+        <div>
+          <div class="pt">📧 メール通知設定（EmailJS）</div>
+          <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
+          <div id="emailjs-cfg-form"></div>
+        </div>
+        <div>
+          <div class="pt">🔔 Web Push設定（FCM）</div>
+          <div class="pn" style="margin-bottom:8px">Firebase Cloud Messaging でアプリを閉じていても担当割り当て通知をプッシュ配信できます。Firebase コンソール → プロジェクト設定 → Cloud Messaging から VAPIDキー（公開鍵）とサーバーキーを取得してください。</div>
+          <div id="fcm-cfg-form"></div>
+        </div>
         <div class="pn">変更はすぐに全連絡表に反映されます。</div>
       </div>
     </div>
@@ -1451,7 +1463,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1466,6 +1478,10 @@ var _boardData = {}; /* Firebase /board のキャッシュ */
 var FB_SNAP_KEY = 'ce2_lastfbsnap'; /* 最後にFirebaseスナップショットを取った日付 */
 var FB_SNAP_DAYS = 7; /* 保持日数 */
 var _fbSnapDone = false; /* 初回ロード時のスナップショット実行済みフラグ */
+var _notifListenerRef = null; /* Firebase /notifications リスナー参照 */
+var _pendingNotifKeys = []; /* 現在ポップアップ表示中の通知キー（確認後に既読化） */
+var _fcmToken = null; /* FCM登録トークン */
+var _messaging = null; /* Firebase Messaging インスタンス */
 
 /* ===== INIT ===== */
 function init() {
@@ -1629,6 +1645,7 @@ function fbInit() {
         _localSavedAt = 0; /* ログアウト後にスタレーガードが空Dで誤発動しないようリセット */
         _fbDataLoaded = false; /* 次のログインでFirebaseデータ受信まで書き込みをブロック */
         _fbLastPageCount = -1;
+        if (_notifListenerRef) { _notifListenerRef.off(); _notifListenerRef = null; }
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
@@ -1637,6 +1654,8 @@ function fbInit() {
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
+        D.emailjsCfg=undefined; D.psgAlertTime=undefined; D.stfLinks={}; D.fcmCfg={};
+        _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         showEmpty();
         document.getElementById('login-ov').classList.remove('hd');
         document.getElementById('li-email').value = '';
@@ -1694,6 +1713,10 @@ function fbInit() {
         /* 自動ログアウトタイマー開始 */
         resetIdleTimer();
         updateMonthSize();
+        /* ブラウザ通知権限リクエスト */
+        if ('Notification' in window && Notification.permission === 'default') { Notification.requestPermission(); }
+        /* 未読通知リスナー */
+        startNotifListener();
 
         /* /dataリスナーは最初の一回だけ設定（トークン更新時は再設定しない） */
         if (!dataListenerOn) {
@@ -4498,10 +4521,15 @@ function renderStfList() {
   var l = document.getElementById('stf-list'); l.innerHTML = '';
   var ok = can('sm');
   for (var i = 0; i < D.stf.length; i++) {
+    var name = D.stf[i];
     var el = document.createElement('div'); el.className = 'ri';
+    var linkedUid = D.stfLinks && D.stfLinks[name];
+    var linkBtn = isAdmin ? (linkedUid
+      ? '<span style="font-size:10px;color:var(--ac);margin:0 3px">🔗</span><button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showLinkStfModal('+i+')">変更</button><button class="btn btn-d" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="unlinkStf('+i+')">解除</button>'
+      : '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showLinkStfModal('+i+')">🔗 紐付け</button>') : '';
     var btns = ok ? '<button class="ru" onclick="mvStf('+i+',-1)">↑</button><button class="rdw" onclick="mvStf('+i+',1)">↓</button><button class="rd2" onclick="rmStf('+i+')">×</button>' : '';
-    var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none">👤 ' + escH(D.stf[i]) + '</span>';
-    el.innerHTML = nameSpan + btns;
+    var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none">👤 ' + escH(name) + '</span>';
+    el.innerHTML = nameSpan + linkBtn + btns;
     l.appendChild(el);
   }
   document.getElementById('stf-ar').style.display = ok ? 'flex' : 'none';
@@ -4666,6 +4694,7 @@ function renderDlyList() {
   var ok = can('dm');
   var _psgEl = document.getElementById('psg-alert-time');
   if (_psgEl) { _psgEl.value = D.psgAlertTime || '10:00'; _psgEl.disabled = !ok; }
+  renderEmailjsCfg(); renderFCMCfg();
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
     var el = document.createElement('div'); el.className = 'ri';
@@ -5814,6 +5843,7 @@ function safeRenderPage() {
 }
 
 function openDefaultPage() {
+  initFCMMessaging();
   if (curDs && D.pages[curDs]) { renderPage(curDs); return; }
   var today = toDS(new Date());
   if (D.pages[today]) openPage(today);
@@ -7071,6 +7101,8 @@ function maybeLateToast(dat, did, name, oldName) {
   var cfg = getDutyCfg(dat).find(function(x){ return x.id === did; });
   if (cfg && cfg.label && cfg.label.indexOf('遅出') !== -1) {
     showNotifToast('🔔 遅出担当割り当て', cfg.label + '：' + name + ' さんが割り当てられました');
+    var body = (curDs ? fmtJ(curDs) + '　' : '') + cfg.label + 'の担当に割り当てられました';
+    sendNotification(name, '🔔 遅出担当の割り当て', body, 'duty');
   }
 }
 function getDutyMaster() {
@@ -7163,10 +7195,12 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
     (function(did, hasFreeRole){
       var el = document.getElementById('sel-'+did);
       if (el) el.onchange = function(){
+        var _oldDuty=(D.pages[ds].duties||{})[did];
         this.classList.toggle('set',!!this.value);
         if(!D.pages[ds].duties) D.pages[ds].duties={};
         var _old=D.pages[ds].duties[did];
         D.pages[ds].duties[did]=this.value;
+        maybeLateToast(D.pages[ds],did,this.value,_oldDuty);
         saveD(); refreshPool(ds);
         maybeLateToast(D.pages[ds], did, this.value, _old);
         writeLog(this.value?'担当割り当て':'担当クリア', fmtJ(ds)+' '+did+(this.value?' → '+this.value:''));
@@ -7455,9 +7489,11 @@ function buildDG(ds, dat, locked) {
           var sel = document.getElementById('sel-' + did);
           if (sel) {
             sel.value = _dragName; sel.classList.toggle('set', !!_dragName);
+            var _oldDuty=(D.pages[_dragDs].duties||{})[did];
             if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
             var _oldT=D.pages[_dragDs].duties[did];
             D.pages[_dragDs].duties[did] = _dragName;
+            maybeLateToast(D.pages[_dragDs],did,_dragName,_oldDuty);
             saveD(); refreshPool(_dragDs);
             maybeLateToast(D.pages[_dragDs], did, _dragName, _oldT);
             writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
@@ -7515,9 +7551,11 @@ function buildDG(ds, dat, locked) {
         var sel=document.getElementById('sel-'+did);
         if(sel){
           sel.value=name; sel.classList.toggle('set',!!name);
+          var _oldDuty=(D.pages[dropDs].duties||{})[did];
           if(!D.pages[dropDs].duties)D.pages[dropDs].duties={};
           var _oldD=D.pages[dropDs].duties[did];
           D.pages[dropDs].duties[did]=name;
+          maybeLateToast(D.pages[dropDs],did,name,_oldDuty);
           saveD(); refreshPool(dropDs);
           maybeLateToast(D.pages[dropDs], did, name, _oldD);
         }
@@ -8470,20 +8508,6 @@ function runPsgFusenCheck() {
   }
 }
 
-/* ===== 通知トースト ===== */
-var _toastTimer = null;
-function showNotifToast(title, body) {
-  var existing = document.getElementById('notif-toast');
-  if (existing) existing.remove();
-  var el = document.createElement('div');
-  el.id = 'notif-toast'; el.className = 'notif-toast';
-  el.innerHTML = '<strong>' + escH(title) + '</strong>' + (body ? '<br><span style="font-size:11px;opacity:.85">' + escH(body) + '</span>' : '');
-  el.onclick = function(){ el.remove(); };
-  document.body.appendChild(el);
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(function(){ if(el.parentNode) el.remove(); }, 6000);
-}
-
 function savePsgAlertTime() {
   if (!can('dm')) return;
   var v = document.getElementById('psg-alert-time');
@@ -8575,6 +8599,239 @@ function checkTimeNotifs() {
   /* 翌日分に移ったらキャッシュをリセット */
   if (_notifFired._ds && _notifFired._ds !== ds) _notifFired = {};
   _notifFired._ds = ds;
+}
+
+/* ===== 通知トースト ===== */
+var _toastTimer = null;
+function showNotifToast(title, body) {
+  var existing = document.getElementById('notif-toast');
+  if (existing) existing.remove();
+  var el = document.createElement('div');
+  el.id = 'notif-toast'; el.className = 'notif-toast';
+  el.innerHTML = '<strong>' + escH(title) + '</strong>' + (body ? '<br><span style="font-size:11px;opacity:.85">' + escH(body) + '</span>' : '');
+  el.onclick = function(){ el.remove(); };
+  document.body.appendChild(el);
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function(){ if(el.parentNode) el.remove(); }, 6000);
+}
+
+/* ===== メール・プッシュ通知 ===== */
+function getUidByName(name, cb) {
+  if (!FB_ON || !fbDB) return cb(null);
+  var linked = D.stfLinks && D.stfLinks[name];
+  if (linked) return cb(linked);
+  fbDB.ref('/users').orderByChild('displayName').equalTo(name).once('value', function(snap) {
+    var uid = null;
+    snap.forEach(function(c) { uid = c.key; return true; });
+    cb(uid);
+  });
+}
+function sendNotification(targetName, title, body, type) {
+  if (!FB_ON || !fbDB) return;
+  getUidByName(targetName, function(uid) {
+    if (!uid) return;
+    fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
+    sendFCMPush(uid, title, body);
+    var cfg = D.emailjsCfg;
+    if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
+      fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
+        var email = s.val();
+        if (!email) return;
+        try {
+          emailjs.init(cfg.publicKey);
+          emailjs.send(cfg.serviceId, cfg.templateId, {
+            to_email: email, to_name: targetName, subject: title, message: body
+          }).catch(function(){});
+        } catch(e) {}
+      });
+    }
+    if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
+    }
+  });
+}
+function startNotifListener() {
+  if (!FB_ON || !fbDB || !currentUser) return;
+  if (_notifListenerRef) { _notifListenerRef.off(); }
+  _notifListenerRef = fbDB.ref('/notifications/' + currentUser.uid).orderByChild('read').equalTo(false);
+  _notifListenerRef.on('value', function(snap) {
+    var items = [];
+    snap.forEach(function(c) { items.push(Object.assign({ key: c.key }, c.val())); });
+    if (items.length > 0) {
+      var hasNew = !document.getElementById('notif-popup-ov') ||
+                   items.some(function(it) { return _pendingNotifKeys.indexOf(it.key) === -1; });
+      if (hasNew) showNotifPopup(items);
+    }
+  });
+}
+function showNotifPopup(items) {
+  var existing = document.getElementById('notif-popup-ov');
+  if (existing) existing.remove();
+  _pendingNotifKeys = items.map(function(it) { return it.key; });
+  var ov = document.createElement('div');
+  ov.id = 'notif-popup-ov'; ov.className = 'ov';
+  var md = document.createElement('div'); md.className = 'md';
+  md.style.maxWidth = '420px';
+  var h = '<div class="md-ttl">📬 お知らせ（' + items.length + '件）</div>';
+  items.forEach(function(it) {
+    h += '<div style="padding:10px 0;border-bottom:1px solid var(--bdr)">'
+       + '<div style="font-weight:700;font-size:13px">' + escH(it.title) + '</div>'
+       + '<div style="font-size:12px;color:var(--txt3);margin-top:2px">' + escH(it.body) + '</div>'
+       + '<div style="font-size:11px;color:var(--txt3);margin-top:2px">' + fmtTS(it.ts) + '</div>'
+       + '</div>';
+  });
+  h += '<div style="margin-top:14px;display:flex;justify-content:flex-end">'
+     + '<button class="btn btn-p" onclick="dismissNotifPopup()">確認しました</button></div>';
+  md.innerHTML = h;
+  ov.appendChild(md); document.body.appendChild(ov);
+}
+function dismissNotifPopup() {
+  var el = document.getElementById('notif-popup-ov');
+  if (el) el.remove();
+  if (FB_ON && fbDB && currentUser && _pendingNotifKeys.length) {
+    _pendingNotifKeys.forEach(function(key) {
+      fbDB.ref('/notifications/' + currentUser.uid + '/' + key).update({ read: true });
+    });
+    _pendingNotifKeys = [];
+  }
+}
+function renderEmailjsCfg() {
+  var el = document.getElementById('emailjs-cfg-form');
+  if (!el) return;
+  var cfg = D.emailjsCfg || {};
+  var ok = isAdmin;
+  var dis = ok ? '' : ' disabled';
+  el.innerHTML = '<div style="display:grid;gap:6px">'
+    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">公開キー (Public Key)</label>'
+    + '<input type="text" id="ejs-pk" value="' + escH(cfg.publicKey || '') + '" placeholder="user_xxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
+    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">サービスID</label>'
+    + '<input type="text" id="ejs-sid" value="' + escH(cfg.serviceId || '') + '" placeholder="service_xxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
+    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">テンプレートID</label>'
+    + '<input type="text" id="ejs-tid" value="' + escH(cfg.templateId || '') + '" placeholder="template_xxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
+    + (ok ? '<div><button class="btn btn-p" onclick="saveEmailjsCfg()" style="font-size:12px">保存</button></div>' : '')
+    + '</div>';
+}
+function saveEmailjsCfg() {
+  if (!isAdmin) return;
+  var pk = (document.getElementById('ejs-pk') || {}).value || '';
+  var sid = (document.getElementById('ejs-sid') || {}).value || '';
+  var tid = (document.getElementById('ejs-tid') || {}).value || '';
+  D.emailjsCfg = { publicKey: pk.trim(), serviceId: sid.trim(), templateId: tid.trim() };
+  saveD();
+  showNotifToast('✅ メール通知設定を保存しました', '');
+}
+
+/* ===== FCM Web Push ===== */
+function initFCMMessaging() {
+  var vapidKey = D.fcmCfg && D.fcmCfg.vapidKey;
+  if (!FB_ON || !vapidKey || !vapidKey.trim()) return;
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (typeof firebase.messaging !== 'function') return;
+  try {
+    if (!_messaging) _messaging = firebase.messaging();
+    navigator.serviceWorker.ready.then(function(reg) {
+      _messaging.useServiceWorker(reg);
+      return _messaging.getToken({ vapidKey: vapidKey.trim() });
+    }).then(function(token) {
+      if (token && currentUser) {
+        _fcmToken = token;
+        fbDB.ref('/fcmTokens/' + currentUser.uid).set({ token: token, ts: Date.now() });
+      }
+    }).catch(function(e) { console.warn('[FCM] getToken:', e); });
+  } catch(e) { console.warn('[FCM] init:', e); }
+}
+
+function sendFCMPush(targetUid, title, body) {
+  var serverKey = D.fcmCfg && D.fcmCfg.serverKey;
+  if (!serverKey || !serverKey.trim()) return;
+  fbDB.ref('/fcmTokens/' + targetUid + '/token').once('value', function(snap) {
+    var token = snap.val();
+    if (!token) return;
+    fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: { 'Authorization': 'key=' + serverKey.trim(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: token, notification: { title: title, body: body }, data: { type: 'duty', ts: String(Date.now()) } })
+    }).catch(function() {});
+  });
+}
+
+function renderFCMCfg() {
+  var el = document.getElementById('fcm-cfg-form');
+  if (!el) return;
+  var cfg = D.fcmCfg || {};
+  var ok = isAdmin;
+  var dis = ok ? '' : ' disabled';
+  el.innerHTML = '<div style="display:grid;gap:6px">'
+    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:120px">VAPIDキー（公開鍵）</label>'
+    + '<input type="text" id="fcm-vapid" value="' + escH(cfg.vapidKey || '') + '" placeholder="BNxxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
+    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:120px">サーバーキー</label>'
+    + '<input type="password" id="fcm-skey" value="' + escH(cfg.serverKey || '') + '" placeholder="AAAAxxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
+    + (ok ? '<div><button class="btn btn-p" onclick="saveFCMCfg()" style="font-size:12px">保存</button></div>' : '')
+    + '</div>';
+}
+
+function saveFCMCfg() {
+  if (!isAdmin) return;
+  var vapid = (document.getElementById('fcm-vapid') || {}).value || '';
+  var skey = (document.getElementById('fcm-skey') || {}).value || '';
+  if (!D.fcmCfg) D.fcmCfg = {};
+  D.fcmCfg.vapidKey = vapid.trim();
+  D.fcmCfg.serverKey = skey.trim();
+  saveD();
+  showNotifToast('✅ Web Push設定を保存しました', '');
+}
+
+/* ===== スタッフ Firebase 紐付け ===== */
+function showLinkStfModal(idx) {
+  if (!isAdmin) return;
+  var name = D.stf[idx];
+  if (!name) return;
+  var ov = document.createElement('div'); ov.id = 'link-stf-ov'; ov.className = 'ov';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '400px';
+  md.innerHTML = '<div class="md-ttl">🔗 Firebase紐付け</div>'
+    + '<div style="font-size:13px;margin-bottom:12px">「<b>' + escH(name) + '</b>」に紐付けるユーザーを選択してください</div>'
+    + '<div id="link-stf-users" style="max-height:300px;overflow-y:auto"><div style="font-size:13px;color:var(--txt3)">読み込み中...</div></div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="btn btn-g" onclick="document.getElementById(\'link-stf-ov\').remove()">閉じる</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  fbDB.ref('/users').once('value', function(snap) {
+    var list = document.getElementById('link-stf-users');
+    if (!list) return;
+    var html = '';
+    var currentLink = D.stfLinks && D.stfLinks[name];
+    snap.forEach(function(c) {
+      var u = c.val() || {};
+      var uid = c.key;
+      var isLinked = uid === currentLink;
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr)">'
+        + '<div><div style="font-size:13px;font-weight:' + (isLinked ? '700' : '400') + '">' + escH(u.displayName || uid) + (isLinked ? ' <span style="color:var(--ac)">（現在）</span>' : '') + '</div>'
+        + '<div style="font-size:11px;color:var(--txt3)">' + escH(u.email || '') + '</div></div>'
+        + '<button class="btn btn-p" style="font-size:11px;padding:3px 8px" onclick="linkStf(' + idx + ',\'' + uid + '\',\'' + escH(u.displayName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">紐付け</button>'
+        + '</div>';
+    });
+    list.innerHTML = html || '<div style="font-size:13px;color:var(--txt3)">ユーザーが見つかりません</div>';
+  });
+}
+
+function linkStf(idx, uid, displayName) {
+  if (!isAdmin) return;
+  var name = D.stf[idx];
+  if (!name) return;
+  if (!D.stfLinks) D.stfLinks = {};
+  D.stfLinks[name] = uid;
+  saveD();
+  var ov = document.getElementById('link-stf-ov');
+  if (ov) ov.remove();
+  showNotifToast('🔗 紐付け完了', name + ' → ' + (displayName || uid));
+  renderStfList();
+}
+
+function unlinkStf(idx) {
+  if (!isAdmin) return;
+  var name = D.stf[idx];
+  if (!name || !D.stfLinks) return;
+  delete D.stfLinks[name];
+  saveD();
+  renderStfList();
 }
 
 /* ===== CHECKLIST ===== */
