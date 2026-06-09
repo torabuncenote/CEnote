@@ -900,12 +900,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
             <input type="time" id="psg-alert-time" onchange="savePsgAlertTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
           </div>
         </div>
-        <div>
+        <div id="emailjs-cfg-section">
           <div class="pt">📧 メール通知設定（EmailJS）</div>
           <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
           <div id="emailjs-cfg-form"></div>
         </div>
-        <div>
+        <div id="fcm-cfg-section">
           <div class="pt">🔔 Web Push設定（FCM）</div>
           <div class="pn" style="margin-bottom:8px">Firebase Cloud Messaging でアプリを閉じていても担当割り当て通知をプッシュ配信できます。Firebase コンソール → プロジェクト設定 → Cloud Messaging から VAPIDキー（公開鍵）とサーバーキーを取得してください。</div>
           <div id="fcm-cfg-form"></div>
@@ -1191,6 +1191,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <button class="btn btn-d" onclick="doDelM()">🗑 この月を全削除</button>
       <button class="btn btn-p" onclick="doGenM()">生成する</button>
     </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:8px">生成後、シフトインポート済みであれば空き担当枠を一括自動割り当てできます</div>
+      <button class="btn btn-p btn-fw" onclick="closeGM();autoAssignMonth()">🎲 1ヶ月分 自動割り当て（空欄のみ）</button>
+    </div>
   </div>
 </div>
 
@@ -1463,7 +1467,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1573,6 +1577,8 @@ function loadD() {
     D.manual = s.manual || {};
     D.oc          = s.oc          || [];
     D.schedPresets= (s.schedPresets && s.schedPresets.length) ? s.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
+    D._migVer = s._migVer || 0;
+    D.stfEdu  = s.stfEdu  || {};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1654,8 +1660,9 @@ function fbInit() {
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
-        D.emailjsCfg=undefined; D.psgAlertTime=undefined; D.stfLinks={}; D.fcmCfg={};
+        D.emailjsCfg={}; D.psgAlertTime='10:00'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={};
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
+        clearTimeout(_toastTimer);
         showEmpty();
         document.getElementById('login-ov').classList.remove('hd');
         document.getElementById('li-email').value = '';
@@ -1805,6 +1812,19 @@ function fbInit() {
             D.supTree = normTree(d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
+            /* 全フィールドをマイグレーション前に復元（マイグレーション内のsaveD()で未復元フィールドが上書きされるのを防ぐ） */
+            D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
+            D.shift = d.shift || {};
+            D.evts  = d.evts  || {};
+            D.manual= d.manual|| {};
+            D.oc          = d.oc          || [];
+            D.schedPresets= (d.schedPresets && d.schedPresets.length) ? d.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
+            D.emailjsCfg  = d.emailjsCfg  || {};
+            D.fcmCfg      = d.fcmCfg      || {};
+            D.stfLinks    = d.stfLinks     || {};
+            D.stfEdu      = d.stfEdu       || {};
+            D.psgAlertTime= d.psgAlertTime || '10:00';
+            D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
               D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1819,12 +1839,6 @@ function fbInit() {
               D._migVer = 2;
               saveD();
             }
-            D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
-            D.shift = d.shift || {};
-            D.evts  = d.evts  || {};
-            D.manual= d.manual|| {};
-            D.oc          = d.oc          || [];
-            D.schedPresets= (d.schedPresets && d.schedPresets.length) ? d.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
             setSyncLbl('同期済');
             if (wasFirstLoad) autoSaveSnapshot('起動時'); /* Firebase最新データ受信後にローカルBKを取る */
             if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動'); }
@@ -3184,8 +3198,23 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06g';
+var APP_VERSION = '2026.06j';
 var APP_CHANGELOG = [
+  { ver:'2026.06j', date:'2026-06-09', title:'データ保護: アップデート時のシフトデータ消失を修正', items:[
+    {t:'fix', d:'🔧 重要バグ修正: アプリ更新時にインポート済みシフトデータ・勤務者情報が消えてしまう問題を修正。Firebase水和処理でマイグレーション前にシフト等の全フィールドを復元するよう変更'}
+  ]},
+  { ver:'2026.06i', date:'2026-06-09', title:'月次自動割り当て・教育設定', items:[
+    {t:'new', d:'🎲 1ヶ月分一括自動割り当て：「1ヶ月生成」モーダルからシフトデータをもとに月全体の空き担当枠を一括割り当て。プレビュー確認後に適用'},
+    {t:'new', d:'🎓 スタッフ教育設定：名簿で各メンバーに「優先スロット」を設定。自動割り当て時に指定スロットへ優先的に配置（教育・スキルアップ目的）'},
+    {t:'imp', d:'自動割り当てアルゴリズムに教育重み付けを追加。教育設定スタッフは対象スロットで優先的に選ばれる'}
+  ]},
+  { ver:'2026.06h', date:'2026-06-09', title:'メール通知・名簿UID紐付け', items:[
+    {t:'new', d:'📧 メール通知（EmailJS）：遅出担当の割り当て・OC翌出勤ルール確定時に担当者へメールを自動送信（無料200通/月）。業務マスタタブで設定'},
+    {t:'new', d:'📬 初回起動ポップアップ：担当変更後に初めてアプリを開いたときにお知らせをモーダル表示'},
+    {t:'new', d:'🔗 名簿の各メンバーに Firebase アカウントを紐付け可能に（管理者のみ）。名前→UID変換が確実になりメール通知が正確に届く'},
+    {t:'fix', d:'通知ポップアップが表示直後に既読化されていた問題を修正。「確認しました」を押した時点で既読化されるように変更'},
+    {t:'fix', d:'通知・EmailJS 設定値がリロード後に消える問題を修正'}
+  ]},
   { ver:'2026.06g', date:'2026-06-08', title:'通知機能の追加', items:[
     {t:'new', d:'🌙 OC対応の退勤時刻から翌日の出勤ルール（遅出/休み）を自動判定。確定時にトースト表示＋翌日の連絡表に警告バナーを表示'},
     {t:'new', d:'🌙 担当枠に「遅出OPE・遅出カテ・遅出フリー」を標準追加。割り当てた時にトースト通知'},
@@ -4524,12 +4553,14 @@ function renderStfList() {
     var name = D.stf[i];
     var el = document.createElement('div'); el.className = 'ri';
     var linkedUid = D.stfLinks && D.stfLinks[name];
+    var eduSlots = D.stfEdu && D.stfEdu[name];
     var linkBtn = isAdmin ? (linkedUid
       ? '<span style="font-size:10px;color:var(--ac);margin:0 3px">🔗</span><button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showLinkStfModal('+i+')">変更</button><button class="btn btn-d" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="unlinkStf('+i+')">解除</button>'
       : '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showLinkStfModal('+i+')">🔗 紐付け</button>') : '';
+    var eduBtn = isAdmin ? '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showStfEduModal('+i+')" title="教育スロット設定">'+(eduSlots && eduSlots.length ? '🎓' : '🎓 設定')+'</button>' : (eduSlots && eduSlots.length ? '<span style="font-size:10px;color:var(--or);margin-right:3px">🎓</span>' : '');
     var btns = ok ? '<button class="ru" onclick="mvStf('+i+',-1)">↑</button><button class="rdw" onclick="mvStf('+i+',1)">↓</button><button class="rd2" onclick="rmStf('+i+')">×</button>' : '';
     var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none">👤 ' + escH(name) + '</span>';
-    el.innerHTML = nameSpan + linkBtn + btns;
+    el.innerHTML = nameSpan + linkBtn + eduBtn + btns;
     l.appendChild(el);
   }
   document.getElementById('stf-ar').style.display = ok ? 'flex' : 'none';
@@ -8629,21 +8660,28 @@ function getUidByName(name, cb) {
 function sendNotification(targetName, title, body, type) {
   if (!FB_ON || !fbDB) return;
   getUidByName(targetName, function(uid) {
-    if (!uid) return;
+    if (!uid) { console.warn('[通知] UID未解決 — スタッフ名簿に紐付けてください:', targetName); return; }
     fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
     sendFCMPush(uid, title, body);
     var cfg = D.emailjsCfg;
     if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
       fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
         var email = s.val();
-        if (!email) return;
+        if (!email) { console.warn('[通知] メールアドレス未登録 uid:', uid); return; }
+        console.log('[通知] EmailJS送信開始 →', email);
         try {
           emailjs.init(cfg.publicKey);
           emailjs.send(cfg.serviceId, cfg.templateId, {
             to_email: email, to_name: targetName, subject: title, message: body
-          }).catch(function(){});
-        } catch(e) {}
+          }).then(function(res) {
+            console.log('[通知] EmailJS送信成功:', res.status, res.text);
+          }).catch(function(err) {
+            console.error('[通知] EmailJS送信失敗:', err);
+          });
+        } catch(e) { console.error('[通知] EmailJS例外:', e); }
       });
+    } else {
+      console.warn('[通知] EmailJS未設定 — マスタタブで設定してください');
     }
     if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
@@ -8655,6 +8693,7 @@ function startNotifListener() {
   if (_notifListenerRef) { _notifListenerRef.off(); }
   _notifListenerRef = fbDB.ref('/notifications/' + currentUser.uid).orderByChild('read').equalTo(false);
   _notifListenerRef.on('value', function(snap) {
+    if (!currentUser) return; /* ログアウト直後にコールバックが発火した場合のガード */
     var items = [];
     snap.forEach(function(c) { items.push(Object.assign({ key: c.key }, c.val())); });
     if (items.length > 0) {
@@ -8689,26 +8728,32 @@ function dismissNotifPopup() {
   var el = document.getElementById('notif-popup-ov');
   if (el) el.remove();
   if (FB_ON && fbDB && currentUser && _pendingNotifKeys.length) {
-    _pendingNotifKeys.forEach(function(key) {
+    /* 先にキー配列をクリアしてから既読化（更新中にリスナーが再発火しても再表示しない） */
+    var keysToMark = _pendingNotifKeys.slice();
+    _pendingNotifKeys = [];
+    keysToMark.forEach(function(key) {
       fbDB.ref('/notifications/' + currentUser.uid + '/' + key).update({ read: true });
     });
-    _pendingNotifKeys = [];
   }
 }
 function renderEmailjsCfg() {
+  var sec = document.getElementById('emailjs-cfg-section');
+  if (sec) sec.style.display = isAdmin ? '' : 'none';
   var el = document.getElementById('emailjs-cfg-form');
-  if (!el) return;
+  if (!el || !isAdmin) return;
   var cfg = D.emailjsCfg || {};
-  var ok = isAdmin;
-  var dis = ok ? '' : ' disabled';
+  var ok = true;
+  var dis = '';
+  var configured = cfg.publicKey && cfg.serviceId && cfg.templateId;
+  var badge = configured ? '<span style="font-size:11px;color:var(--gr);font-weight:700;margin-left:8px">✅ 設定済み</span>' : '';
   el.innerHTML = '<div style="display:grid;gap:6px">'
     + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">公開キー (Public Key)</label>'
-    + '<input type="text" id="ejs-pk" value="' + escH(cfg.publicKey || '') + '" placeholder="user_xxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
+    + '<input type="text" id="ejs-pk" value="' + escH(cfg.publicKey || '') + '" placeholder="user_xxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">' + (cfg.publicKey ? badge : '') + '</div>'
     + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">サービスID</label>'
     + '<input type="text" id="ejs-sid" value="' + escH(cfg.serviceId || '') + '" placeholder="service_xxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
     + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">テンプレートID</label>'
     + '<input type="text" id="ejs-tid" value="' + escH(cfg.templateId || '') + '" placeholder="template_xxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
-    + (ok ? '<div><button class="btn btn-p" onclick="saveEmailjsCfg()" style="font-size:12px">保存</button></div>' : '')
+    + (ok ? '<div style="display:flex;align-items:center;gap:10px"><button class="btn btn-p" id="ejs-save-btn" onclick="saveEmailjsCfg()" style="font-size:12px">保存</button>' + (configured ? '<span style="font-size:11px;color:var(--gr)">✅ 3項目すべて設定済み — メール通知が有効です</span>' : '<span style="font-size:11px;color:var(--txt3)">3項目すべて入力して保存してください</span>') + '</div>' : '')
     + '</div>';
 }
 function saveEmailjsCfg() {
@@ -8718,13 +8763,14 @@ function saveEmailjsCfg() {
   var tid = (document.getElementById('ejs-tid') || {}).value || '';
   D.emailjsCfg = { publicKey: pk.trim(), serviceId: sid.trim(), templateId: tid.trim() };
   saveD();
+  renderEmailjsCfg();
   showNotifToast('✅ メール通知設定を保存しました', '');
 }
 
 /* ===== FCM Web Push ===== */
 function initFCMMessaging() {
   var vapidKey = D.fcmCfg && D.fcmCfg.vapidKey;
-  if (!FB_ON || !vapidKey || !vapidKey.trim()) return;
+  if (!FB_ON || !fbDB || !vapidKey || !vapidKey.trim()) return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   if (typeof firebase.messaging !== 'function') return;
   try {
@@ -8742,6 +8788,7 @@ function initFCMMessaging() {
 }
 
 function sendFCMPush(targetUid, title, body) {
+  if (!FB_ON || !fbDB) return;
   var serverKey = D.fcmCfg && D.fcmCfg.serverKey;
   if (!serverKey || !serverKey.trim()) return;
   fbDB.ref('/fcmTokens/' + targetUid + '/token').once('value', function(snap) {
@@ -8751,16 +8798,18 @@ function sendFCMPush(targetUid, title, body) {
       method: 'POST',
       headers: { 'Authorization': 'key=' + serverKey.trim(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ to: token, notification: { title: title, body: body }, data: { type: 'duty', ts: String(Date.now()) } })
-    }).catch(function() {});
+    }).catch(function(e) { console.warn('[FCM] send failed:', e); });
   });
 }
 
 function renderFCMCfg() {
+  var sec = document.getElementById('fcm-cfg-section');
+  if (sec) sec.style.display = isAdmin ? '' : 'none';
   var el = document.getElementById('fcm-cfg-form');
-  if (!el) return;
+  if (!el || !isAdmin) return;
   var cfg = D.fcmCfg || {};
-  var ok = isAdmin;
-  var dis = ok ? '' : ' disabled';
+  var ok = true;
+  var dis = '';
   el.innerHTML = '<div style="display:grid;gap:6px">'
     + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:120px">VAPIDキー（公開鍵）</label>'
     + '<input type="text" id="fcm-vapid" value="' + escH(cfg.vapidKey || '') + '" placeholder="BNxxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
@@ -8784,32 +8833,63 @@ function saveFCMCfg() {
 /* ===== スタッフ Firebase 紐付け ===== */
 function showLinkStfModal(idx) {
   if (!isAdmin) return;
+  if (!FB_ON || !fbDB) { alert('Firebaseが利用できないため紐付けできません'); return; }
   var name = D.stf[idx];
   if (!name) return;
   var ov = document.createElement('div'); ov.id = 'link-stf-ov'; ov.className = 'ov';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '400px';
   md.innerHTML = '<div class="md-ttl">🔗 Firebase紐付け</div>'
     + '<div style="font-size:13px;margin-bottom:12px">「<b>' + escH(name) + '</b>」に紐付けるユーザーを選択してください</div>'
-    + '<div id="link-stf-users" style="max-height:300px;overflow-y:auto"><div style="font-size:13px;color:var(--txt3)">読み込み中...</div></div>'
-    + '<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="btn btn-g" onclick="document.getElementById(\'link-stf-ov\').remove()">閉じる</button></div>';
+    + '<div id="link-stf-users" style="max-height:260px;overflow-y:auto"><div style="font-size:13px;color:var(--txt3)">読み込み中...</div></div>'
+    + '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--bdr)">'
+    + '<div style="font-size:12px;color:var(--txt3);margin-bottom:6px">一覧に出ない場合は Firebase UID を直接入力</div>'
+    + '<div style="display:flex;gap:8px">'
+    + '<input type="text" id="link-stf-uid-input" placeholder="UID（Firebase Console → Authentication）" style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">'
+    + '<button class="btn btn-p" id="link-stf-uid-btn" style="font-size:12px;white-space:nowrap">紐付け</button>'
+    + '</div></div>'
+    + '<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-g" onclick="document.getElementById(\'link-stf-ov\').remove()">閉じる</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
   fbDB.ref('/users').once('value', function(snap) {
     var list = document.getElementById('link-stf-users');
     if (!list) return;
-    var html = '';
     var currentLink = D.stfLinks && D.stfLinks[name];
+    var users = [];
     snap.forEach(function(c) {
       var u = c.val() || {};
-      var uid = c.key;
-      var isLinked = uid === currentLink;
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr)">'
-        + '<div><div style="font-size:13px;font-weight:' + (isLinked ? '700' : '400') + '">' + escH(u.displayName || uid) + (isLinked ? ' <span style="color:var(--ac)">（現在）</span>' : '') + '</div>'
-        + '<div style="font-size:11px;color:var(--txt3)">' + escH(u.email || '') + '</div></div>'
-        + '<button class="btn btn-p" style="font-size:11px;padding:3px 8px" onclick="linkStf(' + idx + ',\'' + uid + '\',\'' + escH(u.displayName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">紐付け</button>'
-        + '</div>';
+      users.push({ uid: c.key, displayName: u.displayName || '', email: u.email || '' });
     });
-    list.innerHTML = html || '<div style="font-size:13px;color:var(--txt3)">ユーザーが見つかりません</div>';
+    if (!users.length) { list.innerHTML = '<div style="font-size:13px;color:var(--txt3)">ユーザーが見つかりません</div>'; return; }
+    /* data属性のみ使用し、ユーザー入力値をonclick文字列に埋め込まない（XSS防止） */
+    list.innerHTML = users.map(function(u) {
+      var isLinked = u.uid === currentLink;
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr)">'
+        + '<div><div style="font-size:13px;font-weight:' + (isLinked ? '700' : '400') + '">' + escH(u.displayName || u.uid) + (isLinked ? ' <span style="color:var(--ac)">（現在）</span>' : '') + '</div>'
+        + '<div style="font-size:11px;color:var(--txt3)">' + escH(u.email) + '</div></div>'
+        + '<button class="btn btn-p lnk-btn" data-uid="' + escH(u.uid) + '" style="font-size:11px;padding:3px 8px">紐付け</button>'
+        + '</div>';
+    }).join('');
+    /* イベント委譲で紐付けボタンを処理 */
+    list.querySelectorAll('button.lnk-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var uid = btn.getAttribute('data-uid');
+        var u = users.filter(function(x){ return x.uid === uid; })[0];
+        linkStf(idx, uid, u ? u.displayName : '');
+      });
+    });
+  }, function(err) {
+    var list = document.getElementById('link-stf-users');
+    if (list) list.innerHTML = '<div style="font-size:13px;color:var(--rd)">読み込みに失敗しました。通信環境を確認してください。</div>';
   });
+  /* UID直接入力ボタン */
+  var uidBtn = document.getElementById('link-stf-uid-btn');
+  if (uidBtn) {
+    uidBtn.addEventListener('click', function() {
+      var input = document.getElementById('link-stf-uid-input');
+      var uid = input ? input.value.trim() : '';
+      if (!uid) { alert('UIDを入力してください'); return; }
+      linkStf(idx, uid, uid);
+    });
+  }
 }
 
 function linkStf(idx, uid, displayName) {
@@ -9800,6 +9880,59 @@ function _doSearch(q) {
 })();
 
 /* ===== 自動割り当て ===== */
+var EDU_BOOST = 3; /* 教育設定スタッフのスロット別カウントをこの値分マイナス扱いにして優先的に選ぶ */
+
+/* 対象月のスロット別割り当て回数を返す */
+function buildMonthCounts(ym) {
+  var pt = ym.split('-'); var y = parseInt(pt[0]); var m = parseInt(pt[1]);
+  var days = new Date(y, m, 0).getDate();
+  var counts = {}; /* name -> { slotLabel: n, _total: n, slotId: n } */
+  for (var d = 1; d <= days; d++) {
+    var dds = y+'-'+pad(m)+'-'+pad(d);
+    var pg = D.pages[dds]; if (!pg || !pg.duties) continue;
+    getDutyCfg(pg).forEach(function(slot) {
+      var name = pg.duties[slot.id]; if (!name) return;
+      if (!counts[name]) counts[name] = {_total:0};
+      counts[name][slot.label] = (counts[name][slot.label]||0)+1;
+      counts[name]['_id_'+slot.id] = (counts[name]['_id_'+slot.id]||0)+1;
+      counts[name]._total++;
+    });
+  }
+  return counts;
+}
+
+/* 1日分の割り当て案を生成（適用はしない）。countsは呼び元が渡す（月次一括用） */
+function buildAutoProposals(ds, dat, available, counts) {
+  var cfg = getDutyCfg(dat);
+  var assignedToday = {};
+  if (dat.duties) { cfg.forEach(function(s){ if (dat.duties[s.id]) assignedToday[dat.duties[s.id]]=true; }); }
+  var proposals = [];
+  cfg.forEach(function(slot) {
+    if (dat.duties && dat.duties[slot.id]) return;
+    var eligible = available.filter(function(n){ return !assignedToday[n]; });
+    if (!eligible.length) return;
+    eligible.sort(function(a, b) {
+      /* 教育設定があるスタッフはそのスロットのカウントをEDU_BOOST分マイナス扱い */
+      var eduA = D.stfEdu && D.stfEdu[a] && D.stfEdu[a].indexOf(slot.id) !== -1;
+      var eduB = D.stfEdu && D.stfEdu[b] && D.stfEdu[b].indexOf(slot.id) !== -1;
+      var ca = ((counts[a] && counts[a][slot.label]) || 0) - (eduA ? EDU_BOOST : 0);
+      var cb = ((counts[b] && counts[b][slot.label]) || 0) - (eduB ? EDU_BOOST : 0);
+      if (ca !== cb) return ca - cb;
+      var ta = (counts[a] && counts[a]._total) || 0;
+      var tb = (counts[b] && counts[b]._total) || 0;
+      return ta - tb;
+    });
+    var chosen = eligible[0];
+    proposals.push({slot: slot, name: chosen, isEdu: !!(D.stfEdu && D.stfEdu[chosen] && D.stfEdu[chosen].indexOf(slot.id) !== -1)});
+    assignedToday[chosen] = true;
+    /* 仮想的にカウントを更新して同日内の以降スロットにも反映 */
+    if (!counts[chosen]) counts[chosen] = {_total:0};
+    counts[chosen][slot.label] = (counts[chosen][slot.label]||0)+1;
+    counts[chosen]._total++;
+  });
+  return proposals;
+}
+
 function autoAssignDuties(ds) {
   var dat = D.pages[ds]; if (!dat) return;
   if (!can('duty')) return;
@@ -9809,43 +9942,9 @@ function autoAssignDuties(ds) {
   var available = si.ce.map(function(c){ return c.name; });
   if (!available.length) { alert('勤務表データがありません'); return; }
 
-  /* 今月の担当回数をカウント */
-  var pt = ds.split('-'); var y = parseInt(pt[0]); var m = parseInt(pt[1]);
-  var days = new Date(y, m, 0).getDate();
-  var counts = {}; /* name -> { label: n, _total: n } */
-  for (var d = 1; d <= days; d++) {
-    var dds = y+'-'+pad(m)+'-'+pad(d);
-    var pg = D.pages[dds]; if (!pg || !pg.duties) continue;
-    getDutyCfg(pg).forEach(function(slot) {
-      var name = pg.duties[slot.id]; if (!name) return;
-      if (!counts[name]) counts[name] = {_total:0};
-      counts[name][slot.label] = (counts[name][slot.label]||0)+1;
-      counts[name]._total++;
-    });
-  }
-
-  /* 今日割り当て済みの人を除外しながら各枠に割り当て */
-  var assignedToday = {};
-  if (dat.duties) { cfg.forEach(function(s){ if (dat.duties[s.id]) assignedToday[dat.duties[s.id]]=true; }); }
-  /* OC担当者もCEカードは使えるが担当枠から優先除外しない（ユーザー要望通り） */
-
-  var proposals = []; /* {slot, name} */
-  cfg.forEach(function(slot) {
-    if (dat.duties && dat.duties[slot.id]) return; /* 既に割当済み */
-    var eligible = available.filter(function(n){ return !assignedToday[n]; });
-    if (!eligible.length) return;
-    eligible.sort(function(a, b) {
-      var ca = (counts[a] && counts[a][slot.label]) || 0;
-      var cb = (counts[b] && counts[b][slot.label]) || 0;
-      if (ca !== cb) return ca - cb;
-      var ta = (counts[a] && counts[a]._total) || 0;
-      var tb = (counts[b] && counts[b]._total) || 0;
-      return ta - tb;
-    });
-    var chosen = eligible[0];
-    proposals.push({slot: slot, name: chosen});
-    assignedToday[chosen] = true;
-  });
+  var ym = ds.slice(0,7);
+  var counts = buildMonthCounts(ym);
+  var proposals = buildAutoProposals(ds, dat, available, counts);
 
   /* プレビューモーダルを表示 */
   var el = document.getElementById('modal-auto-assign'); if (!el) return;
@@ -9853,11 +9952,12 @@ function autoAssignDuties(ds) {
   if (!proposals.length) {
     prev.innerHTML = '<div style="padding:12px;color:var(--txt3);font-size:13px">割り当て可能なスタッフがいません（勤務者不足、または全枠割当済み）</div>';
   } else {
+    var savedCounts = buildMonthCounts(ym); /* 表示用：変更前のカウント */
     prev.innerHTML = proposals.map(function(p) {
-      var thisCnt = (counts[p.name] && counts[p.name][p.slot.label]) || 0;
+      var thisCnt = (savedCounts[p.name] && savedCounts[p.name][p.slot.label]) || 0;
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bdr)">'
         + '<span style="min-width:90px;font-size:12px;color:var(--txt3)">'+escH(p.slot.label)+'</span>'
-        + '<span style="font-weight:700;flex:1">'+escH(p.name)+'</span>'
+        + '<span style="font-weight:700;flex:1">'+escH(p.name)+(p.isEdu?' 🎓':'')+'</span>'
         + '<span style="font-size:10px;color:var(--txt3)">今月'+thisCnt+'回</span>'
         + '</div>';
     }).join('');
@@ -9879,6 +9979,121 @@ function doAutoAssign() {
   saveD();
   closeAAModal();
   writeLog('自動割り当て', fmtJ(ds)+' '+proposals.map(function(p){ return p.slot.label+'→'+p.name; }).join(', '));
+}
+
+/* ===== 月次一括自動割り当て ===== */
+function autoAssignMonth() {
+  if (!can('duty')) { alert('🔒 担当割り当て権限がありません'); return; }
+  var v = document.getElementById('gm-month').value; if (!v) { alert('対象月を選択してください'); return; }
+  var pt = v.split('-'); var y = parseInt(pt[0]); var m = parseInt(pt[1]);
+  var ym = y+'-'+pad(m);
+  var days = new Date(y, m, 0).getDate();
+  var counts = buildMonthCounts(ym); /* 現時点の月カウント（累積更新していく） */
+  var allProposals = [];
+
+  for (var d = 1; d <= days; d++) {
+    var ds = y+'-'+pad(m)+'-'+pad(d);
+    var dat = D.pages[ds]; if (!dat) continue;
+    var si = getShiftForDay(ds);
+    var available = si.ce.map(function(c){ return c.name; });
+    if (!available.length) continue;
+    var cfg = getDutyCfg(dat);
+    /* 空きスロットがあるか確認 */
+    var hasEmpty = cfg.some(function(s){ return !dat.duties || !dat.duties[s.id]; });
+    if (!hasEmpty) continue;
+    var dayProps = buildAutoProposals(ds, dat, available, counts);
+    if (dayProps.length) allProposals.push({ds: ds, slots: dayProps});
+  }
+
+  if (!allProposals.length) { alert('割り当て可能な空きがありません（全枠割当済み、または勤務表データなし）'); return; }
+  showMonthAutoAssignPreview(y, m, allProposals);
+}
+
+function showMonthAutoAssignPreview(y, m, allProposals) {
+  var ov = document.createElement('div'); ov.id = 'month-aa-ov'; ov.className = 'ov';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '500px';
+  var WD = ['日','月','火','水','木','金','土'];
+  var dayCount = allProposals.length;
+  var slotCount = allProposals.reduce(function(s,d){ return s+d.slots.length; }, 0);
+
+  var rows = allProposals.map(function(day) {
+    var dt = new Date(day.ds); var wd = WD[dt.getDay()];
+    var wdColor = dt.getDay()===0?'color:var(--rd)':dt.getDay()===6?'color:var(--ac)':'';
+    var slotRows = day.slots.map(function(p) {
+      return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0 3px 12px;font-size:12px">'
+        + '<span style="min-width:80px;color:var(--txt3)">'+escH(p.slot.label)+'</span>'
+        + '<span style="font-weight:600">'+escH(p.name)+(p.isEdu?' 🎓':'')+'</span>'
+        + '</div>';
+    }).join('');
+    return '<div style="padding:6px 0;border-bottom:1px solid var(--bdr)">'
+      + '<div style="font-size:12px;font-weight:700;'+wdColor+'">'+fmtJ(day.ds)+'（'+wd+'）</div>'
+      + slotRows + '</div>';
+  }).join('');
+
+  md.innerHTML = '<div class="md-ttl">🎲 月次自動割り当てプレビュー</div>'
+    + '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">'+y+'年'+m+'月 ／ '+dayCount+'日分 ／ '+slotCount+'件</div>'
+    + '<div style="max-height:400px;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--rs);padding:4px 8px;margin-bottom:14px">'+rows+'</div>'
+    + '<div style="font-size:11px;color:var(--txt3);margin-bottom:12px">🎓 = 教育設定で優先割り当て。既に割り当て済みのスロットはスキップしています。</div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'month-aa-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" id="month-aa-apply">✅ まとめて適用</button>'
+    + '</div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('month-aa-apply').addEventListener('click', function() {
+    doApplyMonthAutoAssign(allProposals);
+    ov.remove();
+  });
+}
+
+function doApplyMonthAutoAssign(allProposals) {
+  var total = 0;
+  allProposals.forEach(function(day) {
+    var dat = D.pages[day.ds]; if (!dat) return;
+    if (!dat.duties) dat.duties = {};
+    day.slots.forEach(function(p){ dat.duties[p.slot.id] = p.name; total++; });
+  });
+  saveD();
+  renderCal();
+  if (curDs && D.pages[curDs]) safeRenderPage();
+  writeLog('月次自動割り当て', allProposals[0].ds.slice(0,7)+' '+total+'件');
+  showNotifToast('✅ 月次自動割り当て完了', total+'件を割り当てました');
+}
+
+/* ===== スタッフ教育スロット設定 ===== */
+function showStfEduModal(idx) {
+  if (!isAdmin) return;
+  var name = D.stf[idx]; if (!name) return;
+  var current = (D.stfEdu && D.stfEdu[name]) || [];
+  var master = getDutyMaster();
+  var ov = document.createElement('div'); ov.id = 'stf-edu-ov'; ov.className = 'ov';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '380px';
+  var checks = master.map(function(s) {
+    var checked = current.indexOf(s.id) !== -1 ? ' checked' : '';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13px;cursor:pointer">'
+      + '<input type="checkbox" value="'+escH(s.id)+'"'+checked+' style="width:16px;height:16px">'
+      + escH(s.icon||'')+'　'+escH(s.label)
+      + '</label>';
+  }).join('');
+  md.innerHTML = '<div class="md-ttl">🎓 教育スロット設定</div>'
+    + '<div style="font-size:13px;margin-bottom:12px">「<b>'+escH(name)+'</b>」を優先的に割り当てるスロットを選択してください</div>'
+    + '<div style="font-size:11px;color:var(--txt3);margin-bottom:10px">自動割り当て時に選択したスロットに優先的に配置されます（教育・スキルアップ目的）</div>'
+    + '<div id="edu-slot-checks">'+checks+'</div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'stf-edu-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" id="edu-save-btn">保存</button>'
+    + '</div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('edu-save-btn').addEventListener('click', function() {
+    var selected = [];
+    ov.querySelectorAll('#edu-slot-checks input[type=checkbox]:checked').forEach(function(cb){ selected.push(cb.value); });
+    if (!D.stfEdu) D.stfEdu = {};
+    if (selected.length) D.stfEdu[name] = selected;
+    else delete D.stfEdu[name];
+    saveD();
+    renderStfList();
+    ov.remove();
+    showNotifToast('🎓 教育設定を保存しました', name + (selected.length ? '：'+selected.length+'スロット' : '：設定なし'));
+  });
 }
 
 function saveFirebaseSnapshot(label) {
