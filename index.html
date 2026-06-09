@@ -1654,8 +1654,9 @@ function fbInit() {
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
-        D.emailjsCfg=undefined; D.psgAlertTime=undefined; D.stfLinks={}; D.fcmCfg={};
+        D.emailjsCfg={}; D.psgAlertTime='10:00'; D.stfLinks={}; D.fcmCfg={};
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
+        clearTimeout(_toastTimer);
         showEmpty();
         document.getElementById('login-ov').classList.remove('hd');
         document.getElementById('li-email').value = '';
@@ -8665,6 +8666,7 @@ function startNotifListener() {
   if (_notifListenerRef) { _notifListenerRef.off(); }
   _notifListenerRef = fbDB.ref('/notifications/' + currentUser.uid).orderByChild('read').equalTo(false);
   _notifListenerRef.on('value', function(snap) {
+    if (!currentUser) return; /* ログアウト直後にコールバックが発火した場合のガード */
     var items = [];
     snap.forEach(function(c) { items.push(Object.assign({ key: c.key }, c.val())); });
     if (items.length > 0) {
@@ -8699,10 +8701,12 @@ function dismissNotifPopup() {
   var el = document.getElementById('notif-popup-ov');
   if (el) el.remove();
   if (FB_ON && fbDB && currentUser && _pendingNotifKeys.length) {
-    _pendingNotifKeys.forEach(function(key) {
+    /* 先にキー配列をクリアしてから既読化（更新中にリスナーが再発火しても再表示しない） */
+    var keysToMark = _pendingNotifKeys.slice();
+    _pendingNotifKeys = [];
+    keysToMark.forEach(function(key) {
       fbDB.ref('/notifications/' + currentUser.uid + '/' + key).update({ read: true });
     });
-    _pendingNotifKeys = [];
   }
 }
 function renderEmailjsCfg() {
@@ -8734,7 +8738,7 @@ function saveEmailjsCfg() {
 /* ===== FCM Web Push ===== */
 function initFCMMessaging() {
   var vapidKey = D.fcmCfg && D.fcmCfg.vapidKey;
-  if (!FB_ON || !vapidKey || !vapidKey.trim()) return;
+  if (!FB_ON || !fbDB || !vapidKey || !vapidKey.trim()) return;
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   if (typeof firebase.messaging !== 'function') return;
   try {
@@ -8752,6 +8756,7 @@ function initFCMMessaging() {
 }
 
 function sendFCMPush(targetUid, title, body) {
+  if (!FB_ON || !fbDB) return;
   var serverKey = D.fcmCfg && D.fcmCfg.serverKey;
   if (!serverKey || !serverKey.trim()) return;
   fbDB.ref('/fcmTokens/' + targetUid + '/token').once('value', function(snap) {
@@ -8761,7 +8766,7 @@ function sendFCMPush(targetUid, title, body) {
       method: 'POST',
       headers: { 'Authorization': 'key=' + serverKey.trim(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ to: token, notification: { title: title, body: body }, data: { type: 'duty', ts: String(Date.now()) } })
-    }).catch(function() {});
+    }).catch(function(e) { console.warn('[FCM] send failed:', e); });
   });
 }
 
@@ -8794,6 +8799,7 @@ function saveFCMCfg() {
 /* ===== スタッフ Firebase 紐付け ===== */
 function showLinkStfModal(idx) {
   if (!isAdmin) return;
+  if (!FB_ON || !fbDB) { alert('Firebaseが利用できないため紐付けできません'); return; }
   var name = D.stf[idx];
   if (!name) return;
   var ov = document.createElement('div'); ov.id = 'link-stf-ov'; ov.className = 'ov';
@@ -8806,19 +8812,33 @@ function showLinkStfModal(idx) {
   fbDB.ref('/users').once('value', function(snap) {
     var list = document.getElementById('link-stf-users');
     if (!list) return;
-    var html = '';
     var currentLink = D.stfLinks && D.stfLinks[name];
+    var users = [];
     snap.forEach(function(c) {
       var u = c.val() || {};
-      var uid = c.key;
-      var isLinked = uid === currentLink;
-      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr)">'
-        + '<div><div style="font-size:13px;font-weight:' + (isLinked ? '700' : '400') + '">' + escH(u.displayName || uid) + (isLinked ? ' <span style="color:var(--ac)">（現在）</span>' : '') + '</div>'
-        + '<div style="font-size:11px;color:var(--txt3)">' + escH(u.email || '') + '</div></div>'
-        + '<button class="btn btn-p" style="font-size:11px;padding:3px 8px" onclick="linkStf(' + idx + ',\'' + uid + '\',\'' + escH(u.displayName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'") + '\')">紐付け</button>'
-        + '</div>';
+      users.push({ uid: c.key, displayName: u.displayName || '', email: u.email || '' });
     });
-    list.innerHTML = html || '<div style="font-size:13px;color:var(--txt3)">ユーザーが見つかりません</div>';
+    if (!users.length) { list.innerHTML = '<div style="font-size:13px;color:var(--txt3)">ユーザーが見つかりません</div>'; return; }
+    /* data属性のみ使用し、ユーザー入力値をonclick文字列に埋め込まない（XSS防止） */
+    list.innerHTML = users.map(function(u) {
+      var isLinked = u.uid === currentLink;
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr)">'
+        + '<div><div style="font-size:13px;font-weight:' + (isLinked ? '700' : '400') + '">' + escH(u.displayName || u.uid) + (isLinked ? ' <span style="color:var(--ac)">（現在）</span>' : '') + '</div>'
+        + '<div style="font-size:11px;color:var(--txt3)">' + escH(u.email) + '</div></div>'
+        + '<button class="btn btn-p lnk-btn" data-uid="' + escH(u.uid) + '" style="font-size:11px;padding:3px 8px">紐付け</button>'
+        + '</div>';
+    }).join('');
+    /* イベント委譲で紐付けボタンを処理 */
+    list.querySelectorAll('button.lnk-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var uid = btn.getAttribute('data-uid');
+        var u = users.filter(function(x){ return x.uid === uid; })[0];
+        linkStf(idx, uid, u ? u.displayName : '');
+      });
+    });
+  }, function(err) {
+    var list = document.getElementById('link-stf-users');
+    if (list) list.innerHTML = '<div style="font-size:13px;color:var(--rd)">読み込みに失敗しました。通信環境を確認してください。</div>';
   });
 }
 
