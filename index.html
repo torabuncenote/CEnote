@@ -8643,21 +8643,28 @@ function getUidByName(name, cb) {
 function sendNotification(targetName, title, body, type) {
   if (!FB_ON || !fbDB) return;
   getUidByName(targetName, function(uid) {
-    if (!uid) return;
+    if (!uid) { console.warn('[通知] UID未解決 — スタッフ名簿に紐付けてください:', targetName); return; }
     fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
     sendFCMPush(uid, title, body);
     var cfg = D.emailjsCfg;
     if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
       fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
         var email = s.val();
-        if (!email) return;
+        if (!email) { console.warn('[通知] メールアドレス未登録 uid:', uid); return; }
+        console.log('[通知] EmailJS送信開始 →', email);
         try {
           emailjs.init(cfg.publicKey);
           emailjs.send(cfg.serviceId, cfg.templateId, {
             to_email: email, to_name: targetName, subject: title, message: body
-          }).catch(function(){});
-        } catch(e) {}
+          }).then(function(res) {
+            console.log('[通知] EmailJS送信成功:', res.status, res.text);
+          }).catch(function(err) {
+            console.error('[通知] EmailJS送信失敗:', err);
+          });
+        } catch(e) { console.error('[通知] EmailJS例外:', e); }
       });
+    } else {
+      console.warn('[通知] EmailJS未設定 — マスタタブで設定してください');
     }
     if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
