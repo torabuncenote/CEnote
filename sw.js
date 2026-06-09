@@ -1,5 +1,5 @@
 /* Service Worker — CEnote PWA */
-var CACHE = 'cenote-v2';
+var CACHE = 'cenote-v3';
 var SHELL = [
   './index.html',
   './manifest.json',
