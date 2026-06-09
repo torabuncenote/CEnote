@@ -1812,6 +1812,18 @@ function fbInit() {
             D.supTree = normTree(d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
+            /* 全フィールドをマイグレーション前に復元（マイグレーション内のsaveD()で未復元フィールドが上書きされるのを防ぐ） */
+            D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
+            D.shift = d.shift || {};
+            D.evts  = d.evts  || {};
+            D.manual= d.manual|| {};
+            D.oc          = d.oc          || [];
+            D.schedPresets= (d.schedPresets && d.schedPresets.length) ? d.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
+            D.emailjsCfg  = d.emailjsCfg  || {};
+            D.fcmCfg      = d.fcmCfg      || {};
+            D.stfLinks    = d.stfLinks     || {};
+            D.stfEdu      = d.stfEdu       || {};
+            D.psgAlertTime= d.psgAlertTime || '10:00';
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -1827,17 +1839,6 @@ function fbInit() {
               D._migVer = 2;
               saveD();
             }
-            D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
-            D.shift = d.shift || {};
-            D.evts  = d.evts  || {};
-            D.manual= d.manual|| {};
-            D.oc          = d.oc          || [];
-            D.schedPresets= (d.schedPresets && d.schedPresets.length) ? d.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
-            D.emailjsCfg  = d.emailjsCfg  || {};
-            D.fcmCfg      = d.fcmCfg      || {};
-            D.stfLinks    = d.stfLinks     || {};
-            D.stfEdu      = d.stfEdu       || {};
-            D.psgAlertTime= d.psgAlertTime || '10:00';
             setSyncLbl('同期済');
             if (wasFirstLoad) autoSaveSnapshot('起動時'); /* Firebase最新データ受信後にローカルBKを取る */
             if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動'); }
@@ -3197,8 +3198,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06i';
+var APP_VERSION = '2026.06j';
 var APP_CHANGELOG = [
+  { ver:'2026.06j', date:'2026-06-09', title:'データ保護: アップデート時のシフトデータ消失を修正', items:[
+    {t:'fix', d:'🔧 重要バグ修正: アプリ更新時にインポート済みシフトデータ・勤務者情報が消えてしまう問題を修正。Firebase水和処理でマイグレーション前にシフト等の全フィールドを復元するよう変更'}
+  ]},
   { ver:'2026.06i', date:'2026-06-09', title:'月次自動割り当て・教育設定', items:[
     {t:'new', d:'🎲 1ヶ月分一括自動割り当て：「1ヶ月生成」モーダルからシフトデータをもとに月全体の空き担当枠を一括割り当て。プレビュー確認後に適用'},
     {t:'new', d:'🎓 スタッフ教育設定：名簿で各メンバーに「優先スロット」を設定。自動割り当て時に指定スロットへ優先的に配置（教育・スキルアップ目的）'},
