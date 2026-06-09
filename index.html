@@ -1573,6 +1573,7 @@ function loadD() {
     D.manual = s.manual || {};
     D.oc          = s.oc          || [];
     D.schedPresets= (s.schedPresets && s.schedPresets.length) ? s.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
+    D._migVer = s._migVer || 0;
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1806,6 +1807,7 @@ function fbInit() {
             D.supTree = normTree(d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
+            D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
               D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
