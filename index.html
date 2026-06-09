@@ -1192,8 +1192,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <button class="btn btn-p" onclick="doGenM()">生成する</button>
     </div>
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
-      <div style="font-size:12px;color:var(--txt3);margin-bottom:8px">生成後、シフトインポート済みであれば空き担当枠を一括自動割り当てできます</div>
-      <button class="btn btn-p btn-fw" onclick="closeGM();autoAssignMonth()">🎲 1ヶ月分 自動割り当て（空欄のみ）</button>
+      <div style="font-size:12px;color:var(--txt3);margin-bottom:8px">シフトインポート済みなら曜日ルール（月木=5名/火水金=4名/土=1名）で担当カードを自動生成。日曜・祝日はスキップ。適用後に手動修正できます</div>
+      <button class="btn btn-p btn-fw" onclick="closeGM();autoAssignMonth()">🎲 1ヶ月分 自動割り当て（曜日ルール）</button>
     </div>
   </div>
 </div>
@@ -1948,9 +1948,9 @@ function doForgotPassword() {
     });
 }
 
-/* ===== 自動ログアウト（30分無操作） ===== */
-var IDLE_TIMEOUT  = 30 * 60 * 1000; /* 30分 */
-var IDLE_WARN     =  5 * 60 * 1000; /* 残り5分で警告 */
+/* ===== 自動ログアウト（5分無操作） ===== */
+var IDLE_TIMEOUT  =  5 * 60 * 1000; /* 5分 */
+var IDLE_WARN     =  1 * 60 * 1000; /* 残り1分で警告 */
 var _idleTimer    = null;
 var _idleWarnTimer= null;
 
@@ -3198,8 +3198,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06j';
+var APP_VERSION = '2026.06k';
 var APP_CHANGELOG = [
+  { ver:'2026.06k', date:'2026-06-09', title:'月次自動割り当ての曜日ルール化・無操作タイムアウト短縮', items:[
+    {t:'imp', d:'🎲 月次自動割り当てを曜日ルールベースに変更。月・木=5名体制（カテ/病棟外回り/OPE/OPEサブ/機器管理）、火水金=4名体制（病棟外回り/OPE/OPEサブ/機器管理）、土=1名体制（病棟外回り）で自動的に担当カードを生成。日曜・祝日（勤務者なし）はスキップ。適用後に管理者が修正する運用を想定'},
+    {t:'imp', d:'🔒 PC操作時の無操作自動ログアウトを30分→5分に短縮（残り1分で警告表示）'}
+  ]},
   { ver:'2026.06j', date:'2026-06-09', title:'データ保護: アップデート時のシフトデータ消失を修正', items:[
     {t:'fix', d:'🔧 重要バグ修正: アプリ更新時にインポート済みシフトデータ・勤務者情報が消えてしまう問題を修正。Firebase水和処理でマイグレーション前にシフト等の全フィールドを復元するよう変更'}
   ]},
@@ -9882,6 +9886,22 @@ function _doSearch(q) {
 /* ===== 自動割り当て ===== */
 var EDU_BOOST = 3; /* 教育設定スタッフのスロット別カウントをこの値分マイナス扱いにして優先的に選ぶ */
 
+/* 曜日ルールに基づくその日の担当スロット構成を返す（月次自動割り当て用）
+   月・木=5名体制（カテ/病棟外回り/OPE/OPEサブ/機器管理）
+   火・水・金=4名体制（病棟外回り/OPE/OPEサブ/機器管理）
+   土=1名体制（病棟外回り）／ 日=スキップ */
+function getWeekdayDutySlots(ds) {
+  var w = new Date(ds).getDay(); /* 0=日,1=月,...,6=土 */
+  var master = getDutyMaster();
+  function find(id){ return master.filter(function(m){ return m.id===id; })[0]; }
+  var ids;
+  if (w === 1 || w === 4)  ids = ['slot_cath','slot_ward','slot_ope','slot_sub','slot_device'];
+  else if (w === 6)        ids = ['slot_ward'];
+  else if (w === 0)        return [];
+  else                     ids = ['slot_ward','slot_ope','slot_sub','slot_device'];
+  return ids.map(find).filter(Boolean);
+}
+
 /* 対象月のスロット別割り当て回数を返す */
 function buildMonthCounts(ym) {
   var pt = ym.split('-'); var y = parseInt(pt[0]); var m = parseInt(pt[1]);
@@ -9901,9 +9921,10 @@ function buildMonthCounts(ym) {
   return counts;
 }
 
-/* 1日分の割り当て案を生成（適用はしない）。countsは呼び元が渡す（月次一括用） */
-function buildAutoProposals(ds, dat, available, counts) {
-  var cfg = getDutyCfg(dat);
+/* 1日分の割り当て案を生成（適用はしない）。countsは呼び元が渡す（月次一括用）
+   slots を渡すと曜日ルール等の任意スロット構成で割り当て可能（省略時はページ設定を使用） */
+function buildAutoProposals(ds, dat, available, counts, slots) {
+  var cfg = slots || getDutyCfg(dat);
   var assignedToday = {};
   if (dat.duties) { cfg.forEach(function(s){ if (dat.duties[s.id]) assignedToday[dat.duties[s.id]]=true; }); }
   var proposals = [];
@@ -9996,13 +10017,16 @@ function autoAssignMonth() {
     var dat = D.pages[ds]; if (!dat) continue;
     var si = getShiftForDay(ds);
     var available = si.ce.map(function(c){ return c.name; });
-    if (!available.length) continue;
-    var cfg = getDutyCfg(dat);
-    /* 空きスロットがあるか確認 */
-    var hasEmpty = cfg.some(function(s){ return !dat.duties || !dat.duties[s.id]; });
-    if (!hasEmpty) continue;
-    var dayProps = buildAutoProposals(ds, dat, available, counts);
-    if (dayProps.length) allProposals.push({ds: ds, slots: dayProps});
+    if (!available.length) continue; /* 勤務者なし（日曜・祝日含む）はスキップ */
+    /* 曜日ルールでその日の担当スロット構成を決定（日曜は空配列） */
+    var wdSlots = getWeekdayDutySlots(ds);
+    if (!wdSlots.length) continue;
+    var existing = dat.duties || {};
+    /* 既に埋まっているスロットは除外（手動設定を尊重） */
+    var slotsToAssign = wdSlots.filter(function(s){ return !existing[s.id]; });
+    if (!slotsToAssign.length) continue;
+    var dayProps = buildAutoProposals(ds, dat, available, counts, slotsToAssign);
+    if (dayProps.length) allProposals.push({ds: ds, slots: dayProps, wdSlots: wdSlots});
   }
 
   if (!allProposals.length) { alert('割り当て可能な空きがありません（全枠割当済み、または勤務表データなし）'); return; }
@@ -10019,6 +10043,9 @@ function showMonthAutoAssignPreview(y, m, allProposals) {
   var rows = allProposals.map(function(day) {
     var dt = new Date(day.ds); var wd = WD[dt.getDay()];
     var wdColor = dt.getDay()===0?'color:var(--rd)':dt.getDay()===6?'color:var(--ac)':'';
+    /* 体制人数バッジ（曜日ルールのスロット数） */
+    var roster = (day.wdSlots && day.wdSlots.length) || day.slots.length;
+    var badge = '<span style="font-size:10px;font-weight:600;color:var(--ac);background:var(--ac-bg);border-radius:8px;padding:1px 7px;margin-left:6px">'+roster+'名体制</span>';
     var slotRows = day.slots.map(function(p) {
       return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0 3px 12px;font-size:12px">'
         + '<span style="min-width:80px;color:var(--txt3)">'+escH(p.slot.label)+'</span>'
@@ -10026,7 +10053,7 @@ function showMonthAutoAssignPreview(y, m, allProposals) {
         + '</div>';
     }).join('');
     return '<div style="padding:6px 0;border-bottom:1px solid var(--bdr)">'
-      + '<div style="font-size:12px;font-weight:700;'+wdColor+'">'+fmtJ(day.ds)+'（'+wd+'）</div>'
+      + '<div style="font-size:12px;font-weight:700;'+wdColor+'">'+fmtJ(day.ds)+'（'+wd+'）'+badge+'</div>'
       + slotRows + '</div>';
   }).join('');
 
@@ -10050,6 +10077,10 @@ function doApplyMonthAutoAssign(allProposals) {
   allProposals.forEach(function(day) {
     var dat = D.pages[day.ds]; if (!dat) return;
     if (!dat.duties) dat.duties = {};
+    /* customDuties未設定の日のみ曜日ルールのスロット構成を書き込む（手動設定済みの日は尊重） */
+    if (!dat.customDuties && day.wdSlots && day.wdSlots.length) {
+      dat.customDuties = day.wdSlots.map(function(s){ return Object.assign({}, s); });
+    }
     day.slots.forEach(function(p){ dat.duties[p.slot.id] = p.name; total++; });
   });
   saveD();
