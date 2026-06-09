@@ -3204,8 +3204,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06k';
+var APP_VERSION = '2026.06l';
 var APP_CHANGELOG = [
+  { ver:'2026.06l', date:'2026-06-09', title:'自動割り当て時のPHS自動セット', items:[
+    {t:'new', d:'📞 自動割り当て時に担当へPHS内線番号を自動セット：病棟外回り=6030 / OPE=6160 / OPEサブ=6170 / 機器管理=6157。既にPHSが入力済みのスロットは上書きしません'}
+  ]},
   { ver:'2026.06k', date:'2026-06-09', title:'月次自動割り当てモード切替・無操作タイムアウト短縮', items:[
     {t:'new', d:'🎲 月次自動割り当てモード切替：業務マスタタブで「曜日ルール」と「従来モード」を切替可能に。曜日ルール=月木5名/火水金4名/土1名/日祝スキップ。従来モード=担当枠テンプレートの空き枠を補完（従来の動作）'},
     {t:'imp', d:'🔒 PC操作時の無操作自動ログアウトを30分→5分に短縮（残り1分で警告表示）'}
@@ -9930,6 +9933,14 @@ function _doSearch(q) {
 /* ===== 自動割り当て ===== */
 var EDU_BOOST = 3; /* 教育設定スタッフのスロット別カウントをこの値分マイナス扱いにして優先的に選ぶ */
 
+/* スロットID → デフォルトPHS内線番号（自動割り当て時に対応する担当へ自動セット） */
+var SLOT_PHS_MAP = {
+  'slot_ward':   '6030', /* 病棟外回り */
+  'slot_ope':    '6160', /* OPE */
+  'slot_sub':    '6170', /* OPEサブ */
+  'slot_device': '6157'  /* 機器管理 */
+};
+
 /* 曜日ルールに基づくその日の担当スロット構成を返す（月次自動割り当て用）
    月・木=5名体制（カテ/病棟外回り/OPE/OPEサブ/機器管理）
    火・水・金=4名体制（病棟外回り/OPE/OPEサブ/機器管理）
@@ -10039,7 +10050,12 @@ function doAutoAssign() {
   var ds = el._pending.ds, proposals = el._pending.proposals;
   var dat = D.pages[ds]; if (!dat) { closeAAModal(); return; }
   if (!dat.duties) dat.duties = {};
-  proposals.forEach(function(p){ dat.duties[p.slot.id] = p.name; });
+  if (!dat.phsNums) dat.phsNums = {};
+  proposals.forEach(function(p){
+    dat.duties[p.slot.id] = p.name;
+    /* 対応するスロットにPHS内線番号を自動セット（未設定の場合のみ） */
+    if (SLOT_PHS_MAP[p.slot.id] && !dat.phsNums[p.slot.id]) dat.phsNums[p.slot.id] = SLOT_PHS_MAP[p.slot.id];
+  });
   renderPage(ds);
   saveD();
   closeAAModal();
@@ -10138,7 +10154,12 @@ function doApplyMonthAutoAssign(allProposals) {
     if (!dat.customDuties && day.wdSlots && day.wdSlots.length) {
       dat.customDuties = day.wdSlots.map(function(s){ return Object.assign({}, s); });
     }
-    day.slots.forEach(function(p){ dat.duties[p.slot.id] = p.name; total++; });
+    if (!dat.phsNums) dat.phsNums = {};
+    day.slots.forEach(function(p){
+      dat.duties[p.slot.id] = p.name; total++;
+      /* 対応するスロットにPHS内線番号を自動セット（未設定の場合のみ） */
+      if (SLOT_PHS_MAP[p.slot.id] && !dat.phsNums[p.slot.id]) dat.phsNums[p.slot.id] = SLOT_PHS_MAP[p.slot.id];
+    });
   });
   saveD();
   renderCal();
