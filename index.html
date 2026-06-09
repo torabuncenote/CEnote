@@ -627,6 +627,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
 @keyframes notifSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
 .notif-time-row{display:flex;align-items:center;gap:6px;padding-left:2px;margin-top:2px;flex-wrap:wrap}
+.oc-alert-banner{background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;overflow:hidden}
 </style>
 </head>
 <body>
@@ -1317,8 +1318,28 @@ var DEF_DUTY_MASTER = [
   {id:'slot_cathsub',icon:'🫀', label:'カテサブ',  checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_ward',   icon:'🏥', label:'病棟外回り', checks:['HDプライミング','PSG取り外し'], freeRole:false},
   {id:'slot_device', icon:'⚙', label:'機器管理',   checks:['HDプライミング','PSG取り外し'], freeRole:false},
-  {id:'slot_free',   icon:'💉', label:'フリー',     checks:['HDプライミング','PSG取り外し'], freeRole:true}
+  {id:'slot_free',   icon:'💉', label:'フリー',     checks:['HDプライミング','PSG取り外し'], freeRole:true},
+  {id:'slot_late_ope',  icon:'🌙', label:'遅出OPE',  checks:[], freeRole:false},
+  {id:'slot_late_cath', icon:'🌙', label:'遅出カテ', checks:[], freeRole:false},
+  {id:'slot_late_free', icon:'🌙', label:'遅出フリー', checks:[], freeRole:true}
 ];
+/* 遅出担当枠（既存環境にも一度きりのマイグレーションで追加。id/labelで重複チェックし冪等） */
+var LATE_DUTY_SLOTS = [
+  {id:'slot_late_ope',  icon:'🌙', label:'遅出OPE',  checks:[], freeRole:false},
+  {id:'slot_late_cath', icon:'🌙', label:'遅出カテ', checks:[], freeRole:false},
+  {id:'slot_late_free', icon:'🌙', label:'遅出フリー', checks:[], freeRole:true}
+];
+function ensureLateDutySlots() {
+  function addMissing(arr){
+    if(!Array.isArray(arr)) return;
+    LATE_DUTY_SLOTS.forEach(function(s){
+      var exists = arr.some(function(x){ return x && (x.id===s.id || x.label===s.label); });
+      if(!exists) arr.push(Object.assign({}, s));
+    });
+  }
+  addMissing(D.dutyCfgMaster);                 /* 追加メニューに常に出す */
+  if (D.dutyCfg && D.dutyCfg.length) addMissing(D.dutyCfg); /* テンプレ運用の全ページに常時表示 */
+}
 var LOCK_DEFS = [
   {id:'duty',    icon:'🎯', label:'担当割り当て'},
   {id:'phs',     icon:'📞', label:'PHS番号の変更'},
@@ -1558,6 +1579,7 @@ function loadD() {
       if(D.dutyCfg) D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
       Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
     }
+    ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
     D.wd=JSON.parse(JSON.stringify(DEF_WD)); D.lk={};
@@ -1636,6 +1658,9 @@ function fbInit() {
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         showEmpty();
         document.getElementById('login-ov').classList.remove('hd');
+        document.getElementById('li-email').value = '';
+        document.getElementById('li-pass').value = '';
+        document.getElementById('li-err').textContent = '';
         document.getElementById('uc-label').style.display = 'none';
         document.getElementById('btn-logout').style.display = 'none';
         ['logs','staff','master','lock','docs'].forEach(function(id){
@@ -1786,6 +1811,12 @@ function fbInit() {
               D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
               Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
               D._migVer = 1;
+              saveD();
+            }
+            /* v2: 遅出担当枠を追加 */
+            if (!D._migVer || D._migVer < 2) {
+              ensureLateDutySlots();
+              D._migVer = 2;
               saveD();
             }
             D.opsCfg  = d.opsCfg  ? d.opsCfg  : [];
@@ -3153,8 +3184,18 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06';
+var APP_VERSION = '2026.06g';
 var APP_CHANGELOG = [
+  { ver:'2026.06g', date:'2026-06-08', title:'通知機能の追加', items:[
+    {t:'new', d:'🌙 OC対応の退勤時刻から翌日の出勤ルール（遅出/休み）を自動判定。確定時にトースト表示＋翌日の連絡表に警告バナーを表示'},
+    {t:'new', d:'🌙 担当枠に「遅出OPE・遅出カテ・遅出フリー」を標準追加。割り当てた時にトースト通知'},
+    {t:'new', d:'⏰ 業務マスタの各チェック項目に通知時刻を設定できるリマインダー機能を追加'},
+    {t:'new', d:'🌙 PSG付箋の通知時刻を業務マスタから変更できるように（既定10:00）'},
+    {t:'new', d:'📅 曜日別業務に「最終週」（その曜日の最終回のみ）の指定を追加'},
+    {t:'new', d:'📥 担当表のOC集計・業務集計・公平性タブもCSV出力／印刷に対応'},
+    {t:'imp', d:'個別権限を付与されたメンバーにスタッフ／業務マスタタブを表示'},
+    {t:'imp', d:'OC対応時間の入力を自由記述から開始・退勤の時刻選択に変更（表記揺れ防止）'}
+  ]},
   { ver:'2026.06f', date:'2026-06-07', title:'セキュリティ・利便性アップデート', items:[
     {t:'new', d:'ログイン画面にパスワード表示（👁️）ボタンを追加'},
     {t:'new', d:'「パスワードを忘れた方」からメールで再設定できるように'},
@@ -4799,10 +4840,12 @@ function setWdWeeks(i, mode) {
   if(!can('wm'))return;
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
   var text = wdText(arr[i]);
-  if (mode==='all')       arr[i] = text;
-  else if (mode==='odd')  arr[i] = { t:text, wk:[1,3,5] };
-  else if (mode==='even') arr[i] = { t:text, wk:[2,4] };
-  else if (mode==='last') arr[i] = { t:text, wk:[0] };
+  var oldN = (arr[i] && typeof arr[i]==='object' && arr[i].notif) ? arr[i].notif : null;
+  var mk = function(base) { return oldN ? Object.assign({}, base, {notif: oldN}) : base; };
+  if (mode==='all')       arr[i] = oldN ? {t:text, notif:oldN} : text;
+  else if (mode==='odd')  arr[i] = mk({t:text, wk:[1,3,5]});
+  else if (mode==='even') arr[i] = mk({t:text, wk:[2,4]});
+  else if (mode==='last') arr[i] = mk({t:text, wk:[0]});
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
 }
 /* 第N週チップの個別トグル */
@@ -4810,14 +4853,15 @@ function togWdWeek(i, wk) {
   if(!can('wm'))return;
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
   var text = wdText(arr[i]);
+  var oldN = (arr[i] && typeof arr[i]==='object' && arr[i].notif) ? arr[i].notif : null;
   var cur = wdWeeks(arr[i]);
   var weeks = cur ? cur.slice() : [0,1,2,3,4,5]; /* null=毎週 → 全6オプションに展開 */
   var pos = weeks.indexOf(wk);
   if (pos===-1) weeks.push(wk); else weeks.splice(pos,1);
   weeks.sort(function(a,b){ return a-b; });
   if (!weeks.length) { alert('最低1つの週を選んでください'); return; }
-  if (weeks.length>=6) arr[i] = text;       /* 全6オプション選択 → 毎週（文字列）に正規化 */
-  else                 arr[i] = { t:text, wk:weeks };
+  if (weeks.length>=6) arr[i] = oldN ? {t:text, notif:oldN} : text; /* 全6オプション → 毎週 */
+  else { var item = {t:text, wk:weeks}; if(oldN) item.notif=oldN; arr[i]=item; }
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
 }
 
@@ -5049,12 +5093,17 @@ function editDutyMaster(idx) {
 
 /* ===== LOCK ===== */
 function updateTabVisibility() {
+  /* can() はセクションが unlocked なら全員 true を返すため、
+     タブ表示には明示的なパーミッション付与のみを確認する */
+  var hasPerm = function(id) {
+    return !!(currentUser && currentUser.perms && currentUser.perms[id]);
+  };
   var show = {
-    'staff': isAdmin || can('sm'),
-    'master': isAdmin || can('dm') || can('wm'),
-    'lock':  isAdmin,
-    'logs':  isAdmin,
-    'docs':  isAdmin,
+    'staff':  isAdmin || hasPerm('sm'),
+    'master': isAdmin || hasPerm('dm') || hasPerm('wm'),
+    'lock':   isAdmin,
+    'logs':   isAdmin,
+    'docs':   isAdmin,
   };
   Object.keys(show).forEach(function(id) {
     var el = document.getElementById('tab-' + id);
@@ -5869,6 +5918,7 @@ function renderPage(ds) {
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
   h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p" id="prp">'+done+' / '+all.length+' 完了</span></div>';
   h+='</div>';
+  if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
   /* 勤務者プール */
   h+='<div class="pool-wrap">';
@@ -5930,7 +5980,13 @@ function renderPage(ds) {
   h+='対応</label></div>';
   /* 対応時間・年休（チェック時に展開） */
   h+='<div id="oc-done-detail" style="'+(ocDone?'':'display:none;')+'margin-top:4px;display:'+(ocDone?'flex':'none')+';flex-direction:column;gap:6px">';
-  h+='<div class="oc-row"><span class="oc-lbl">対応時間</span><textarea class="oc-txt" id="oc-time" placeholder="例：23:00〜01:30" rows="2"'+(dlk?' disabled':'')+'>'+(dat.ocData.time||'')+'</textarea></div>';
+  h+='<div class="oc-row"><span class="oc-lbl">対応時間</span>';
+  h+='<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
+  h+='<label style="font-size:12px;color:var(--txt3)">開始</label>';
+  h+='<input type="time" id="oc-start-time" value="'+(dat.ocData.startTime||'')+'"'+(dlk?' disabled':'')+' style="font-size:13px;padding:2px 6px;border:1px solid var(--bdr);border-radius:6px;background:var(--sur)">';
+  h+='<label style="font-size:12px;color:var(--txt3)">退勤</label>';
+  h+='<input type="time" id="oc-end-time" value="'+(dat.ocData.endTime||'')+'"'+(dlk?' disabled':'')+' style="font-size:13px;padding:2px 6px;border:1px solid var(--bdr);border-radius:6px;background:var(--sur)">';
+  h+='</span></div>';
   h+='<div class="oc-row"><label style="display:flex;align-items:center;gap:6px;cursor:pointer">';
   h+='<input type="checkbox" id="oc-nenkyu"'+(dat.ocData.nenkyu?' checked':'')+(dlk?' disabled':'')+' style="width:15px;height:15px;cursor:pointer;accent-color:var(--oc)">';
   h+='<span style="font-size:13px">年休取得</span></label></div>';
@@ -6079,19 +6135,23 @@ function renderPage(ds) {
     /* OC対応チェック・時間・年休 */
     var ocDoneCb=document.getElementById('oc-done');
     var ocDetail=document.getElementById('oc-done-detail');
-    var ocTime=document.getElementById('oc-time');
+    var ocStartTime=document.getElementById('oc-start-time');
+    var ocEndTime=document.getElementById('oc-end-time');
     var ocNenkyu=document.getElementById('oc-nenkyu');
     if(ocDoneCb){
       ocDoneCb.onchange=function(){
         D.pages[ds].ocData.done=this.checked;
-        if(!this.checked){D.pages[ds].ocData.time='';D.pages[ds].ocData.nenkyu=false;}
+        if(!this.checked){D.pages[ds].ocData.startTime='';D.pages[ds].ocData.endTime='';D.pages[ds].ocData.nenkyu=false;}
         saveD();
         if(ocDetail) ocDetail.style.display=this.checked?'flex':'none';
-        if(ocTime&&!this.checked) ocTime.value='';
+        if(ocStartTime&&!this.checked) ocStartTime.value='';
+        if(ocEndTime&&!this.checked) ocEndTime.value='';
         if(ocNenkyu&&!this.checked) ocNenkyu.checked=false;
+        notifyOcRule(ds);
       };
     }
-    if(ocTime){var t2;ocTime.oninput=function(){var v=this.value;clearTimeout(t2);t2=setTimeout(function(){D.pages[ds].ocData.time=v;saveD();},600);};}
+    if(ocStartTime){ocStartTime.onchange=function(){D.pages[ds].ocData.startTime=this.value;saveD();};}
+    if(ocEndTime){ocEndTime.onchange=function(){D.pages[ds].ocData.endTime=this.value;saveD();notifyOcRule(ds);};}
     if(ocNenkyu){ocNenkyu.onchange=function(){D.pages[ds].ocData.nenkyu=this.checked;saveD();};}
   })(ds);
 
@@ -6253,9 +6313,9 @@ function poolAssign(ds,name) {
     alert(name+'さん：全スロットが埋まっています。手動で割り当ててください。'); return;
   }
   if(!dat.duties)dat.duties={};
-  dat.duties[target]=name;
-  maybeLateToast(dat,target,name,null);
-  saveD();
+  var _oldTgt=dat.duties[target];
+  dat.duties[target]=name; saveD();
+  maybeLateToast(dat, target, name, _oldTgt);
   var sel=document.getElementById('sel-'+target);if(sel){sel.value=name;sel.classList.add('set');}
   refreshPool(ds);
 }
@@ -7138,9 +7198,11 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         var _oldDuty=(D.pages[ds].duties||{})[did];
         this.classList.toggle('set',!!this.value);
         if(!D.pages[ds].duties) D.pages[ds].duties={};
+        var _old=D.pages[ds].duties[did];
         D.pages[ds].duties[did]=this.value;
         maybeLateToast(D.pages[ds],did,this.value,_oldDuty);
         saveD(); refreshPool(ds);
+        maybeLateToast(D.pages[ds], did, this.value, _old);
         writeLog(this.value?'担当割り当て':'担当クリア', fmtJ(ds)+' '+did+(this.value?' → '+this.value:''));
       };
       var cbsWrap = document.getElementById('dccbs-'+did);
@@ -7429,9 +7491,11 @@ function buildDG(ds, dat, locked) {
             sel.value = _dragName; sel.classList.toggle('set', !!_dragName);
             var _oldDuty=(D.pages[_dragDs].duties||{})[did];
             if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
+            var _oldT=D.pages[_dragDs].duties[did];
             D.pages[_dragDs].duties[did] = _dragName;
             maybeLateToast(D.pages[_dragDs],did,_dragName,_oldDuty);
             saveD(); refreshPool(_dragDs);
+            maybeLateToast(D.pages[_dragDs], did, _dragName, _oldT);
             writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
           }
           _dragName=''; return;
@@ -7489,9 +7553,11 @@ function buildDG(ds, dat, locked) {
           sel.value=name; sel.classList.toggle('set',!!name);
           var _oldDuty=(D.pages[dropDs].duties||{})[did];
           if(!D.pages[dropDs].duties)D.pages[dropDs].duties={};
+          var _oldD=D.pages[dropDs].duties[did];
           D.pages[dropDs].duties[did]=name;
           maybeLateToast(D.pages[dropDs],did,name,_oldDuty);
           saveD(); refreshPool(dropDs);
+          maybeLateToast(D.pages[dropDs], did, name, _oldD);
         }
       });
       document.addEventListener('dragend', function() {
@@ -8409,33 +8475,130 @@ function buildOPS(ds,dat,locked) {
       checkPsgFusen(ds);
     };
   }
-  /* 付箋チェック状態確認（10時以降・装着あり・未チェックでアラート） */
-  function checkPsgFusen(ds) {
-    var onEl = document.getElementById('ops-psg-on');
-    var cbEl = document.getElementById('ops-psg-fusen');
-    if(!onEl || !cbEl) return;
-    var hasOn = onEl.value.trim() !== '';
-    var now = new Date();
-    var after10 = (now.getHours() >= 10);
-    var notChecked = !cbEl.checked;
-    if(hasOn && after10 && notChecked) {
-      onEl.classList.add('psg-fusen-alert');
-      cbEl.parentElement.style.color='var(--rd)';
-      if(!window._psgAlerted) {
-        window._psgAlerted = true;
-        setTimeout(function(){
-          if(!document.getElementById('ops-psg-fusen').checked) {
-            showNotifToast('🌙 PSG', '付箋入力が完了していません（10時を過ぎています）');
-          }
-        }, 800);
-      }
-    } else {
-      if(onEl) onEl.classList.remove('psg-fusen-alert');
-      if(cbEl && cbEl.parentElement) cbEl.parentElement.style.color='';
-    }
-  }
+  /* 付箋チェック状態確認はグローバル runPsgFusenCheck() に委譲（毎分チェックからも呼べるように） */
+  function checkPsgFusen(ds) { runPsgFusenCheck(); }
   /* ページ描画時にも確認 */
-  setTimeout(function(){ checkPsgFusen(ds); }, 1000);
+  setTimeout(function(){ runPsgFusenCheck(); }, 1000);
+}
+/* PSG付箋未入力チェック（DOM直読みのグローバル関数。設定時刻以降・装着あり・未チェックでトースト） */
+function runPsgFusenCheck() {
+  var onEl = document.getElementById('ops-psg-on');
+  var cbEl = document.getElementById('ops-psg-fusen');
+  if(!onEl || !cbEl) return;
+  var hasOn = onEl.value.trim() !== '';
+  var now = new Date();
+  var _psgT = (D.psgAlertTime || '10:00').split(':');
+  var _psgMin = parseInt(_psgT[0],10)*60 + (parseInt(_psgT[1],10)||0);
+  if (isNaN(_psgMin)) _psgMin = 600; /* 不正値は10:00にフォールバック */
+  var after10 = (now.getHours()*60 + now.getMinutes() >= _psgMin);
+  var notChecked = !cbEl.checked;
+  if(hasOn && after10 && notChecked) {
+    onEl.classList.add('psg-fusen-alert');
+    if(cbEl.parentElement) cbEl.parentElement.style.color='var(--rd)';
+    if(!window._psgAlerted) {
+      window._psgAlerted = true;
+      setTimeout(function(){
+        var c=document.getElementById('ops-psg-fusen');
+        if(c && !c.checked) showNotifToast('🌙 PSG', '付箋入力が完了していません（'+(D.psgAlertTime||'10:00')+'を過ぎています）');
+      }, 800);
+    }
+  } else {
+    onEl.classList.remove('psg-fusen-alert');
+    if(cbEl.parentElement) cbEl.parentElement.style.color='';
+  }
+}
+
+function savePsgAlertTime() {
+  if (!can('dm')) return;
+  var v = document.getElementById('psg-alert-time');
+  if (!v) return;
+  D.psgAlertTime = v.value || '10:00';
+  v.value = D.psgAlertTime; /* 空入力時は既定値を画面にも反映（表示と内部値のズレ防止） */
+  saveD();
+}
+
+/* ===== OC出勤ルール計算 ===== */
+function calcOcNextDayRule(endTimeStr) {
+  if (!endTimeStr) return null;
+  var p = endTimeStr.split(':');
+  var h = parseInt(p[0],10), mn = parseInt(p[1]||0,10);
+  if (isNaN(h)) return null;
+  if (h < 6) return { type:'off', label:'翌日休み取得可（深夜0時以降退勤）' };
+  if (h > 21 || (h === 21 && mn > 0)) {  /* 21:00ちょうどまでは通常 */
+    var sh = h + 11, sm = mn;
+    if (sh >= 24) sh -= 24;
+    return { type:'late', label:'遅出出勤（' + pad(sh) + ':' + pad(sm) + '〜）' };
+  }
+  return { type:'normal', label:'通常出勤' };
+}
+function getNextDs(ds) {
+  var d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate()+1); return toDS(d);
+}
+function getPrevDs(ds) {
+  var d = new Date(ds + 'T00:00:00'); d.setDate(d.getDate()-1); return toDS(d);
+}
+/* 当日ページに表示すべきOC警告を前日のOCデータから算出（保存せず都度計算→stale残留なし） */
+function ocAlertFor(ds) {
+  var pdat = D.pages[getPrevDs(ds)];
+  if (!pdat || !pdat.ocData || !pdat.ocData.done || !pdat.ocData.endTime) return null;
+  var rule = calcOcNextDayRule(pdat.ocData.endTime);
+  if (!rule || rule.type === 'normal') return null;
+  return { staff: pdat.ocData.staff||'', rule: rule, endTime: pdat.ocData.endTime, sourceDs: getPrevDs(ds) };
+}
+/* OCデータ確定時のトースト通知（翌日バナーは ocAlertFor で都度算出するため保存しない） */
+function notifyOcRule(ds) {
+  var dat = D.pages[ds]; if (!dat || !dat.ocData) return;
+  var od = dat.ocData;
+  if (!od.done || !od.endTime) return;
+  var rule = calcOcNextDayRule(od.endTime);
+  if (!rule || rule.type === 'normal') return;
+  showNotifToast('🌙 OC翌出勤ルール', (od.staff||'担当者') + '：' + rule.label);
+  /* 翌日ページが既に確認済み扱いなら、内容が変わった可能性があるので再表示できるよう解除 */
+  var nextDs = getNextDs(ds);
+  if (D.pages[nextDs] && D.pages[nextDs].ocAlertSeen) { delete D.pages[nextDs].ocAlertSeen; saveD(); }
+}
+function dismissOcAlert(ds) {
+  if (!D.pages[ds]) return;
+  D.pages[ds].ocAlertSeen = true;
+  delete D.pages[ds].ocAlert; /* 旧方式の残データがあれば掃除 */
+  saveD(); safeRenderPage();
+}
+
+var _notifFired = {}; /* 当日発火済みの通知をキャッシュ（key="ds:text"） */
+function checkTimeNotifs() {
+  if (!currentUser) return;
+  var now = new Date();
+  var ds = toDS(now);
+  var hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  /* 毎日業務 */
+  for (var i = 0; i < D.dly.length; i++) {
+    var it = D.dly[i], n = dlyNotif(it);
+    if (!n || !n.enabled || !n.time) continue;
+    if (n.time !== hhmm) continue;
+    var key = ds + ':dly:' + i;
+    if (_notifFired[key]) continue;
+    _notifFired[key] = true;
+    showNotifToast('📌 ' + dlyText(it), '通知時刻になりました（' + n.time + '）');
+  }
+  /* 曜日別業務 */
+  var w = new Date(ds).getDay(), ws = WDL[w];
+  var wdArr = D.wd[ws] || [];
+  for (var j = 0; j < wdArr.length; j++) {
+    var wit = wdArr[j];
+    if (!wdApplies(ds, wit)) continue;
+    var wn = (wit && typeof wit === 'object' && wit.notif) ? wit.notif : null;
+    if (!wn || !wn.enabled || !wn.time) continue;
+    if (wn.time !== hhmm) continue;
+    var wkey = ds + ':wd:' + ws + ':' + j;
+    if (_notifFired[wkey]) continue;
+    _notifFired[wkey] = true;
+    showNotifToast('📅 ' + wdText(wit), '通知時刻になりました（' + wn.time + '）');
+  }
+  /* PSG付箋チェック（開いている連絡表ページが対象。時刻を跨いだ瞬間にも通知される） */
+  try { runPsgFusenCheck(); } catch(e) {}
+  /* 翌日分に移ったらキャッシュをリセット */
+  if (_notifFired._ds && _notifFired._ds !== ds) _notifFired = {};
+  _notifFired._ds = ds;
 }
 
 /* ===== 通知トースト ===== */
@@ -8557,14 +8720,6 @@ function saveEmailjsCfg() {
   saveD();
   showNotifToast('✅ メール通知設定を保存しました', '');
 }
-function savePsgAlertTime() {
-  if (!can('dm')) return;
-  var v = document.getElementById('psg-alert-time');
-  if (!v) return;
-  D.psgAlertTime = v.value || '10:00';
-  v.value = D.psgAlertTime;
-  saveD();
-}
 
 /* ===== FCM Web Push ===== */
 function initFCMMessaging() {
@@ -8677,41 +8832,6 @@ function unlinkStf(idx) {
   delete D.stfLinks[name];
   saveD();
   renderStfList();
-}
-
-var _notifFired = {}; /* 当日発火済みの通知をキャッシュ（key="ds:text"） */
-function checkTimeNotifs() {
-  if (!currentUser) return;
-  var now = new Date();
-  var ds = toDS(now);
-  var hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
-  /* 毎日業務 */
-  for (var i = 0; i < D.dly.length; i++) {
-    var it = D.dly[i], n = dlyNotif(it);
-    if (!n || !n.enabled || !n.time) continue;
-    if (n.time !== hhmm) continue;
-    var key = ds + ':dly:' + i;
-    if (_notifFired[key]) continue;
-    _notifFired[key] = true;
-    showNotifToast('📌 ' + dlyText(it), '通知時刻になりました（' + n.time + '）');
-  }
-  /* 曜日別業務 */
-  var w = new Date(ds).getDay(), ws = WDL[w];
-  var wdArr = D.wd[ws] || [];
-  for (var j = 0; j < wdArr.length; j++) {
-    var wit = wdArr[j];
-    if (!wdApplies(ds, wit)) continue;
-    var wn = (wit && typeof wit === 'object' && wit.notif) ? wit.notif : null;
-    if (!wn || !wn.enabled || !wn.time) continue;
-    if (wn.time !== hhmm) continue;
-    var wkey = ds + ':wd:' + ws + ':' + j;
-    if (_notifFired[wkey]) continue;
-    _notifFired[wkey] = true;
-    showNotifToast('📅 ' + wdText(wit), '通知時刻になりました（' + wn.time + '）');
-  }
-  /* 翌日分に移ったらキャッシュをリセット */
-  if (_notifFired._ds && _notifFired._ds !== ds) _notifFired = {};
-  _notifFired._ds = ds;
 }
 
 /* ===== CHECKLIST ===== */
