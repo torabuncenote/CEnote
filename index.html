@@ -910,6 +910,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           <div class="pn" style="margin-bottom:8px">Firebase Cloud Messaging でアプリを閉じていても担当割り当て通知をプッシュ配信できます。Firebase コンソール → プロジェクト設定 → Cloud Messaging から VAPIDキー（公開鍵）とサーバーキーを取得してください。</div>
           <div id="fcm-cfg-form"></div>
         </div>
+        <div id="auto-assign-mode-cfg">
+          <div class="pt">🎲 月次自動割り当てモード</div>
+          <div id="auto-assign-mode-form"></div>
+        </div>
         <div class="pn">変更はすぐに全連絡表に反映されます。</div>
       </div>
     </div>
@@ -1192,8 +1196,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <button class="btn btn-p" onclick="doGenM()">生成する</button>
     </div>
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bdr)">
-      <div style="font-size:12px;color:var(--txt3);margin-bottom:8px">シフトインポート済みなら曜日ルール（月木=5名/火水金=4名/土=1名）で担当カードを自動生成。日曜・祝日はスキップ。適用後に手動修正できます</div>
-      <button class="btn btn-p btn-fw" onclick="closeGM();autoAssignMonth()">🎲 1ヶ月分 自動割り当て（曜日ルール）</button>
+      <div id="gm-aa-desc" style="font-size:12px;color:var(--txt3);margin-bottom:8px"></div>
+      <button class="btn btn-p btn-fw" id="gm-aa-btn" onclick="closeGM();autoAssignMonth()">🎲 1ヶ月分 自動割り当て</button>
     </div>
   </div>
 </div>
@@ -1467,7 +1471,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday'};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1579,6 +1583,7 @@ function loadD() {
     D.schedPresets= (s.schedPresets && s.schedPresets.length) ? s.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
     D._migVer = s._migVer || 0;
     D.stfEdu  = s.stfEdu  || {};
+    D.autoAssignMode = s.autoAssignMode || 'weekday';
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1660,7 +1665,7 @@ function fbInit() {
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
-        D.emailjsCfg={}; D.psgAlertTime='10:00'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={};
+        D.emailjsCfg={}; D.psgAlertTime='10:00'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.autoAssignMode='weekday';
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -1823,6 +1828,7 @@ function fbInit() {
             D.fcmCfg      = d.fcmCfg      || {};
             D.stfLinks    = d.stfLinks     || {};
             D.stfEdu      = d.stfEdu       || {};
+            D.autoAssignMode = d.autoAssignMode || 'weekday';
             D.psgAlertTime= d.psgAlertTime || '10:00';
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
@@ -1848,7 +1854,7 @@ function fbInit() {
             renderStfList(); renderPhsList();
             renderDlyList(); renderWdlyList();
             renderOpeList(); renderCathList();
-            renderLockList();
+            renderLockList(); renderAutoAssignModeSetting();
             updateTabVisibility();
             updatePendingBadge();
             /* 入力フォーカス中はページを再描画しない（入力内容が消えるのを防ぐ） */
@@ -3200,8 +3206,8 @@ function doRegister() {
 /* ===== 変更履歴（バージョン履歴） ===== */
 var APP_VERSION = '2026.06k';
 var APP_CHANGELOG = [
-  { ver:'2026.06k', date:'2026-06-09', title:'月次自動割り当ての曜日ルール化・無操作タイムアウト短縮', items:[
-    {t:'imp', d:'🎲 月次自動割り当てを曜日ルールベースに変更。月・木=5名体制（カテ/病棟外回り/OPE/OPEサブ/機器管理）、火水金=4名体制（病棟外回り/OPE/OPEサブ/機器管理）、土=1名体制（病棟外回り）で自動的に担当カードを生成。日曜・祝日（勤務者なし）はスキップ。適用後に管理者が修正する運用を想定'},
+  { ver:'2026.06k', date:'2026-06-09', title:'月次自動割り当てモード切替・無操作タイムアウト短縮', items:[
+    {t:'new', d:'🎲 月次自動割り当てモード切替：業務マスタタブで「曜日ルール」と「従来モード」を切替可能に。曜日ルール=月木5名/火水金4名/土1名/日祝スキップ。従来モード=担当枠テンプレートの空き枠を補完（従来の動作）'},
     {t:'imp', d:'🔒 PC操作時の無操作自動ログアウトを30分→5分に短縮（残り1分で警告表示）'}
   ]},
   { ver:'2026.06j', date:'2026-06-09', title:'データ保護: アップデート時のシフトデータ消失を修正', items:[
@@ -4729,7 +4735,7 @@ function renderDlyList() {
   var ok = can('dm');
   var _psgEl = document.getElementById('psg-alert-time');
   if (_psgEl) { _psgEl.value = D.psgAlertTime || '10:00'; _psgEl.disabled = !ok; }
-  renderEmailjsCfg(); renderFCMCfg();
+  renderEmailjsCfg(); renderFCMCfg(); renderAutoAssignModeSetting();
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
     var el = document.createElement('div'); el.className = 'ri';
@@ -5668,7 +5674,20 @@ function doSaveSIM() {
 }
 
 /* ===== GENERATE / ADD / DELETE ===== */
-function openGM() { if(!can('pg')){alert('🔒 管理者のみ可能です');return;} document.getElementById('modal-gm').classList.remove('hd'); }
+function openGM() {
+  if(!can('pg')){alert('🔒 管理者のみ可能です');return;}
+  document.getElementById('modal-gm').classList.remove('hd');
+  /* モーダル内の自動割り当て説明を現在のモードに合わせて更新 */
+  var desc = document.getElementById('gm-aa-desc');
+  var btn  = document.getElementById('gm-aa-btn');
+  if (desc) {
+    var isWd = (D.autoAssignMode !== 'legacy');
+    desc.textContent = isWd
+      ? '曜日ルール: 月木=5名 / 火水金=4名 / 土=1名 / 日祝=スキップ。適用後に手動修正できます。'
+      : '従来モード: 担当枠テンプレートの空き枠を公平性ベースで自動補完します。';
+    if (btn) btn.textContent = isWd ? '🎲 1ヶ月分 自動割り当て（曜日ルール）' : '🎲 1ヶ月分 自動割り当て（従来モード）';
+  }
+}
 function closeGM() { document.getElementById('modal-gm').classList.add('hd'); }
 function openNM() { if(!can('pg')){alert('🔒 管理者のみ可能です');return;} document.getElementById('modal-nm').classList.remove('hd'); }
 function closeNM() { document.getElementById('modal-nm').classList.add('hd'); }
@@ -8834,6 +8853,31 @@ function saveFCMCfg() {
   showNotifToast('✅ Web Push設定を保存しました', '');
 }
 
+/* ===== 月次自動割り当てモード設定 ===== */
+function renderAutoAssignModeSetting() {
+  var sec = document.getElementById('auto-assign-mode-cfg');
+  if (sec) sec.style.display = isAdmin ? '' : 'none';
+  var el = document.getElementById('auto-assign-mode-form');
+  if (!el || !isAdmin) return;
+  var isWd = (D.autoAssignMode !== 'legacy');
+  el.innerHTML = '<div style="display:flex;gap:8px;margin-bottom:10px">'
+    + '<button class="btn '+(isWd?'btn-p':'btn-g')+'" id="aa-mode-wd" onclick="setAutoAssignMode(\'weekday\')" style="flex:1">📅 曜日ルール</button>'
+    + '<button class="btn '+(isWd?'btn-g':'btn-p')+'" id="aa-mode-lg" onclick="setAutoAssignMode(\'legacy\')" style="flex:1">📋 従来モード</button>'
+    + '</div>'
+    + '<div class="pn" style="margin:0">'
+    + (isWd
+      ? '月木=5名（カテ/病棟外回り/OPE/OPEサブ/機器管理）、火水金=4名（病棟外回り/OPE/OPEサブ/機器管理）、土=1名（病棟外回り）で担当カードを自動生成。適用後に手動修正できます。'
+      : '担当枠テンプレート（担当枠マスタ）の空き枠を公平性ベースで自動補完します。既存の担当枠設定に依存するため、スロット構成は変更されません。')
+    + '</div>';
+}
+function setAutoAssignMode(mode) {
+  if (!isAdmin) return;
+  D.autoAssignMode = mode;
+  saveD();
+  renderAutoAssignModeSetting();
+  showNotifToast('✅ 月次自動割り当てモードを変更しました', mode === 'weekday' ? '曜日ルール' : '従来モード');
+}
+
 /* ===== スタッフ Firebase 紐付け ===== */
 function showLinkStfModal(idx) {
   if (!isAdmin) return;
@@ -10011,6 +10055,7 @@ function autoAssignMonth() {
   var days = new Date(y, m, 0).getDate();
   var counts = buildMonthCounts(ym); /* 現時点の月カウント（累積更新していく） */
   var allProposals = [];
+  var useWeekday = (D.autoAssignMode !== 'legacy');
 
   for (var d = 1; d <= days; d++) {
     var ds = y+'-'+pad(m)+'-'+pad(d);
@@ -10018,15 +10063,26 @@ function autoAssignMonth() {
     var si = getShiftForDay(ds);
     var available = si.ce.map(function(c){ return c.name; });
     if (!available.length) continue; /* 勤務者なし（日曜・祝日含む）はスキップ */
-    /* 曜日ルールでその日の担当スロット構成を決定（日曜は空配列） */
-    var wdSlots = getWeekdayDutySlots(ds);
-    if (!wdSlots.length) continue;
-    var existing = dat.duties || {};
-    /* 既に埋まっているスロットは除外（手動設定を尊重） */
-    var slotsToAssign = wdSlots.filter(function(s){ return !existing[s.id]; });
-    if (!slotsToAssign.length) continue;
-    var dayProps = buildAutoProposals(ds, dat, available, counts, slotsToAssign);
-    if (dayProps.length) allProposals.push({ds: ds, slots: dayProps, wdSlots: wdSlots});
+
+    if (useWeekday) {
+      /* 曜日ルールモード：曜日で担当スロット構成を決定（日曜は空配列でスキップ） */
+      var wdSlots = getWeekdayDutySlots(ds);
+      if (!wdSlots.length) continue;
+      var existing = dat.duties || {};
+      /* 既に埋まっているスロットは除外（手動設定を尊重） */
+      var slotsToAssign = wdSlots.filter(function(s){ return !existing[s.id]; });
+      if (!slotsToAssign.length) continue;
+      var dayProps = buildAutoProposals(ds, dat, available, counts, slotsToAssign);
+      if (dayProps.length) allProposals.push({ds: ds, slots: dayProps, wdSlots: wdSlots});
+    } else {
+      /* 従来モード：既存の担当枠テンプレート（getDutyCfg）の空き枠を補完 */
+      var cfg = getDutyCfg(dat);
+      if (!cfg.length) continue;
+      var hasEmpty = cfg.some(function(s){ return !dat.duties || !dat.duties[s.id]; });
+      if (!hasEmpty) continue;
+      var dayProps = buildAutoProposals(ds, dat, available, counts);
+      if (dayProps.length) allProposals.push({ds: ds, slots: dayProps, wdSlots: null});
+    }
   }
 
   if (!allProposals.length) { alert('割り当て可能な空きがありません（全枠割当済み、または勤務表データなし）'); return; }
@@ -10039,6 +10095,7 @@ function showMonthAutoAssignPreview(y, m, allProposals) {
   var WD = ['日','月','火','水','木','金','土'];
   var dayCount = allProposals.length;
   var slotCount = allProposals.reduce(function(s,d){ return s+d.slots.length; }, 0);
+  var modeLabel = (D.autoAssignMode !== 'legacy') ? '曜日ルール' : '従来モード';
 
   var rows = allProposals.map(function(day) {
     var dt = new Date(day.ds); var wd = WD[dt.getDay()];
@@ -10058,7 +10115,7 @@ function showMonthAutoAssignPreview(y, m, allProposals) {
   }).join('');
 
   md.innerHTML = '<div class="md-ttl">🎲 月次自動割り当てプレビュー</div>'
-    + '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">'+y+'年'+m+'月 ／ '+dayCount+'日分 ／ '+slotCount+'件</div>'
+    + '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">'+y+'年'+m+'月 ／ '+dayCount+'日分 ／ '+slotCount+'件 ／ <b>'+escH(modeLabel)+'</b></div>'
     + '<div style="max-height:400px;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--rs);padding:4px 8px;margin-bottom:14px">'+rows+'</div>'
     + '<div style="font-size:11px;color:var(--txt3);margin-bottom:12px">🎓 = 教育設定で優先割り当て。既に割り当て済みのスロットはスキップしています。</div>'
     + '<div style="display:flex;justify-content:flex-end;gap:8px">'
