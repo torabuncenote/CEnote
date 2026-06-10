@@ -3040,8 +3040,19 @@ function renderAdminUsers() {
     var allPerms = results[2].val() || {};
     var uids     = Object.keys(users);
 
+    /* スタッフ名簿とアカウントの紐付き状況を計算 */
+    var stfLinks = D.stfLinks || {};
+    var linkedUidSet = {};
+    Object.keys(stfLinks).forEach(function(name){ if(stfLinks[name]) linkedUidSet[stfLinks[name]] = name; });
+    /* D.stf のうちアカウント未作成（stfLinksに無い） */
+    var noAccountStaff = (D.stf || []).filter(function(name){ return !stfLinks[name]; });
+    /* stfLinksにUIDはあるが /users に存在しない（リンク切れ） */
+    var brokenLinkStaff = (D.stf || []).filter(function(name){
+      var uid = stfLinks[name]; return uid && !users[uid];
+    });
+
     var S = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 ユーザー管理</div>';
-    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限と編集権限をここから管理できます。<br>新規ユーザー登録も下のボタンから行えます。一度もログインしていないスタッフは表示されません。</div>';
+    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">登録済みスタッフの管理者権限と編集権限をここから管理できます。新規ユーザー登録は下のボタンから行えます。</div>';
 
     if (!uids.length) {
       S += '<div style="font-size:12px;color:var(--txt3);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px">⚠ まだ誰もログインしていません。</div>';
@@ -3052,14 +3063,22 @@ function renderAdminUsers() {
         var isSelf = currentUser && currentUser.uid === uid;
         var userPerms = allPerms[uid] || {};
         var panelId = 'pp-' + uid.replace(/[^a-zA-Z0-9]/g,'_');
+        var neverLoggedIn = !u.lastLogin;
+        /* このUIDに紐付いているスタッフ名 */
+        var linkedName = linkedUidSet[uid] || null;
 
-        S += '<div class="adminm-user-row" style="flex-direction:column;align-items:stretch">';
+        S += '<div class="adminm-user-row" style="flex-direction:column;align-items:stretch' + (neverLoggedIn ? ';border-left:3px solid var(--or)' : '') + '">';
         /* --- 上段：名前・メール・管理者ボタン --- */
         S += '<div style="display:flex;align-items:center;gap:10px">';
         S += '<div class="adminm-user-info">';
         S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : '👤 ') + escH(u.displayName || u.email) + '</span>';
+        if (linkedName) S += '<span style="font-size:10px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:10px;padding:1px 7px;margin-left:4px">🔗 ' + escH(linkedName) + '</span>';
         S += '<span class="adminm-user-email">' + escH(u.email) + '</span>';
-        if (u.lastLogin) S += '<span class="adminm-user-date">最終ログイン: ' + fmtTS(u.lastLogin) + '</span>';
+        if (u.lastLogin) {
+          S += '<span class="adminm-user-date">最終ログイン: ' + fmtTS(u.lastLogin) + '</span>';
+        } else {
+          S += '<span class="adminm-user-date" style="color:var(--or);font-weight:600">⚠ 未ログイン（登録済み・ログイン待ち）</span>';
+        }
         S += '</div>';
         if (isSelf) {
           S += '<span class="adminm-self-badge">自分</span>';
@@ -3092,6 +3111,31 @@ function renderAdminUsers() {
         S += '</div>';
       });
     }
+
+    /* ===== アカウント未作成 / リンク切れ セクション ===== */
+    if (noAccountStaff.length || brokenLinkStaff.length) {
+      S += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--bdr)">';
+      S += '<div style="font-size:13px;font-weight:700;color:var(--or);margin-bottom:8px">⚠ アカウント未紐付けのスタッフ</div>';
+      if (noAccountStaff.length) {
+        S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">アカウント未作成（スタッフ名簿にいるがFirebaseアカウントなし）</div>';
+        S += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">';
+        noAccountStaff.forEach(function(name){
+          S += '<span style="font-size:12px;background:var(--or-bg);border:1px solid var(--or);color:var(--or);border-radius:6px;padding:3px 10px">👤 ' + escH(name) + '</span>';
+        });
+        S += '</div>';
+      }
+      if (brokenLinkStaff.length) {
+        S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">リンク切れ（stfLinksにUIDはあるが /users に存在しない）</div>';
+        S += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">';
+        brokenLinkStaff.forEach(function(name){
+          S += '<span style="font-size:12px;background:var(--rd-bg);border:1px solid var(--rd);color:var(--rd);border-radius:6px;padding:3px 10px">⚠ ' + escH(name) + '</span>';
+        });
+        S += '</div>';
+      }
+      S += '<div style="font-size:11px;color:var(--txt3);line-height:1.6">「➕ 新規ユーザー登録」でアカウントを作成したあと、設定 › スタッフ管理でUID紐付けを行ってください。</div>';
+      S += '</div>';
+    }
+
     S += '<div style="display:flex;gap:6px;margin-top:10px">';
     S += '<button class="btn btn-p btn-sm" onclick="openRegModal()">➕ 新規ユーザー登録</button>';
     S += '<button class="btn btn-g btn-sm" onclick="renderAdminUsers()">🔄 更新</button>';
@@ -3214,8 +3258,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06n';
+var APP_VERSION = '2026.06o';
 var APP_CHANGELOG = [
+  { ver:'2026.06o', date:'2026-06-10', title:'管理者画面：ログイン状況の可視化', items:[
+    {t:'new', d:'👑 登録済みだが未ログインのスタッフに「⚠ 未ログイン（登録済み・ログイン待ち）」バッジを橙色で表示'},
+    {t:'new', d:'👑 未ログインユーザーの行に橙色の左ボーダーを追加し一目で区別できるように'},
+    {t:'new', d:'👑 スタッフ名簿と紐付き済みのアカウントに「🔗 スタッフ名」バッジを表示'},
+    {t:'new', d:'👑 アカウント未作成のスタッフ・リンク切れのスタッフを一覧セクションで表示'}
+  ]},
   { ver:'2026.06n', date:'2026-06-10', title:'PSG取り外し担当マーク強調表示', items:[
     {t:'new', d:'🌙 PSG取り外しチェックは「完了印」ではなく「担当割り当て印」として紫色で強調表示。「🌙 PSG取り外し（担当）」ラベルとホバー時ツールチップで区別'}
   ]},
