@@ -1990,11 +1990,11 @@ function resetIdleTimer() {
       if (sec <= 0) clearInterval(countdown);
     }, 1000);
   }, IDLE_TIMEOUT - IDLE_WARN);
-  /* 30分後に自動ログアウト */
+  /* 5分後に自動ログアウト */
   _idleTimer = setTimeout(function() {
     var warn2 = document.getElementById('idle-warn');
     if (warn2) warn2.classList.remove('show');
-    writeLog('自動ログアウト', '30分間の無操作により自動ログアウト');
+    writeLog('自動ログアウト', '5分間の無操作により自動ログアウト');
     firebase.auth().signOut();
   }, IDLE_TIMEOUT);
 }
@@ -3258,8 +3258,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06o';
+var APP_VERSION = '2026.06p';
 var APP_CHANGELOG = [
+  { ver:'2026.06p', date:'2026-06-10', title:'コードレビュー4件バグ修正', items:[
+    {t:'fix', d:'🔧 PSG取り外しチェックボックスが slot_ward で2重表示されていた問題を修正（静的checksに同名がある場合は除去してから追加し直す）'},
+    {t:'fix', d:'🔧 曜日ルール月次自動割り当てで既に担当済みのスタッフが二重割り当てされる可能性を修正（全 dat.duties から assigned スタッフを収集）'},
+    {t:'fix', d:'🔧 無操作自動ログアウトのFirebaseログに「30分間の無操作」と誤記されていた問題を修正（5分）'},
+    {t:'fix', d:'🔧 ユーザーガイドの自動ログアウト案内が「30分」と表記されていた問題を修正（5分）'}
+  ]},
   { ver:'2026.06o', date:'2026-06-10', title:'管理者画面：ログイン状況の可視化', items:[
     {t:'new', d:'👑 登録済みだが未ログインのスタッフに「⚠ 未ログイン（登録済み・ログイン待ち）」バッジを橙色で表示'},
     {t:'new', d:'👑 未ログインユーザーの行に橙色の左ボーダーを追加し一目で区別できるように'},
@@ -4302,7 +4308,7 @@ function renderGuide() {
   S += step(1,'URLにアクセス','管理者から共有されたURLをブラウザで開きます。');
   S += step(2,'メールアドレスとパスワードを入力','管理者から教えてもらったものを使います。');
   S += step(3,'右上に名前が表示されればOK','');
-  S += warn('共有パソコンを使ったら必ずログアウトしてください。30分操作しないと自動ログアウトされます。');
+  S += warn('共有パソコンを使ったら必ずログアウトしてください。5分操作しないと自動ログアウトされます。');
   S += h2('初回ログイン後にやること — 表示名の設定');
   S += step(1,'右上の名前（👤 ○○）をクリック','');
   S += step(2,'自分の氏名を入力して「保存」','申し送りに正しい名前で表示されます。');
@@ -7283,9 +7289,14 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
     + '<span style="color:var(--rd)">欠勤</span></label>';
   var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+absentChk+'</div>';
 
-  /* チェックボックス（マスター定義 + 前日PSG装着があれば PSG取り外しを動的追加） */
+  /* チェックボックス（マスター定義 + 前日PSG装着があれば PSG取り外しを担当マークとして追加）
+     slot_ward の静的 checks にも 'PSG取り外し' が含まれているため、
+     isPsgRemoval=true のときは静的リストから除去してから末尾に追加し直す（重複防止） */
   var dynChecks = (d.checks && d.checks.length) ? d.checks.slice() : [];
-  if (isPsgRemoval) dynChecks.push('PSG取り外し');
+  if (isPsgRemoval) {
+    dynChecks = dynChecks.filter(function(c){ return c !== 'PSG取り外し'; });
+    dynChecks.push('PSG取り外し');
+  }
   if (dynChecks.length) {
     var svChecks = (dat.dutyChecks && dat.dutyChecks[d.id]) || {};
     html += '<div class="dc-cbs" id="dccbs-'+d.id+'">';
@@ -10085,7 +10096,8 @@ function buildMonthCounts(ym) {
 function buildAutoProposals(ds, dat, available, counts, slots) {
   var cfg = slots || getDutyCfg(dat);
   var assignedToday = {};
-  if (dat.duties) { cfg.forEach(function(s){ if (dat.duties[s.id]) assignedToday[dat.duties[s.id]]=true; }); }
+  /* dat.duties の全スロットから既割当スタッフを収集（cfg が部分集合の場合でも二重割り当てを防ぐ） */
+  if (dat.duties) { Object.keys(dat.duties).forEach(function(sid){ if (dat.duties[sid]) assignedToday[dat.duties[sid]]=true; }); }
   var proposals = [];
   cfg.forEach(function(slot) {
     if (dat.duties && dat.duties[slot.id]) return;
