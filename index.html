@@ -529,6 +529,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .dc-cb-item:hover{border-color:var(--ac);color:var(--ac)}
 .dc-cb-item.checked{background:var(--ac-bg);border-color:var(--ac);color:var(--ac);font-weight:700}
 .dc-cb-item input{width:13px;height:13px;accent-color:var(--ac);cursor:pointer}
+/* PSG取り外し担当マーク：完了チェックではなく担当割り当て印 */
+.dc-cb-item.psg-duty{border-color:var(--pu);color:var(--pu);font-weight:600}
+.dc-cb-item.psg-duty:hover{border-color:var(--pu);opacity:.85}
+.dc-cb-item.psg-duty.checked{background:#f0ebff;border-color:var(--pu);color:var(--pu);font-weight:700}
+.dc-cb-item.psg-duty input{accent-color:var(--pu)}
 
 /* ===== 表示名変更モーダル ===== */
 #modal-name{position:fixed;inset:0;background:rgba(30,29,26,.72);z-index:3000;display:flex;align-items:center;justify-content:center}
@@ -3209,8 +3214,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06m';
+var APP_VERSION = '2026.06n';
 var APP_CHANGELOG = [
+  { ver:'2026.06n', date:'2026-06-10', title:'PSG取り外し担当マーク強調表示', items:[
+    {t:'new', d:'🌙 PSG取り外しチェックは「完了印」ではなく「担当割り当て印」として紫色で強調表示。「🌙 PSG取り外し（担当）」ラベルとホバー時ツールチップで区別'}
+  ]},
   { ver:'2026.06m', date:'2026-06-10', title:'PSG外し翌日自動表示・欠勤マーク・設定消滅バグ修正', items:[
     {t:'new', d:'🌙 PSG分割：装着日には装着欄のみ表示。前日に装着があると翌日カードに「外し（前日装着分）」欄が自動表示される'},
     {t:'new', d:'🌙 PSG外しのある日は病棟外回り担当カードに「PSG取り外し」チェックが自動でONになる'},
@@ -7233,11 +7241,14 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
     html += '<div class="dc-cbs" id="dccbs-'+d.id+'">';
     for (var ci=0; ci<dynChecks.length; ci++) {
       var ck=dynChecks[ci];
-      var isChk = (ck === 'PSG取り外し' && isPsgRemoval)
+      var isPsgDutyChk = (ck === 'PSG取り外し' && isPsgRemoval);
+      var isChk = isPsgDutyChk
         ? (svChecks[ck] === undefined ? true : !!svChecks[ck])
         : !!svChecks[ck];
-      html += '<label class="dc-cb-item'+(isChk?' checked':'')+'">';
-      html += '<input type="checkbox" data-duty="'+d.id+'" data-ck="'+ck+'"'+(isChk?' checked':'')+(locked?' disabled':'')+'>'+ck+'</label>';
+      var extraCls = isPsgDutyChk ? ' psg-duty' : '';
+      var ckLabel = isPsgDutyChk ? '🌙 PSG取り外し（担当）' : ck;
+      html += '<label class="dc-cb-item'+extraCls+(isChk?' checked':'')+'" title="'+(isPsgDutyChk?'前日装着あり：担当者として割り当て済み':'')+'">';
+      html += '<input type="checkbox" data-duty="'+d.id+'" data-ck="'+ck+'"'+(isChk?' checked':'')+(locked?' disabled':'')+'>'+ckLabel+'</label>';
     }
     html += '</div>';
   }
