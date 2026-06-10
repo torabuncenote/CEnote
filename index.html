@@ -3258,8 +3258,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06p';
+var APP_VERSION = '2026.06q';
 var APP_CHANGELOG = [
+  { ver:'2026.06q', date:'2026-06-10', title:'PSG外し翌日自動表示の修正', items:[
+    {t:'fix', d:'🌙 前日に PSG カードを追加しただけでは翌日に外し行が出なかった問題を修正。装着テキストの有無ではなく「前日に PSG カードが存在するか」で判定するよう変更'},
+    {t:'fix', d:'🌙 翌日に PSG カードがなくても前日装着があれば PSG カードを自動表示（外し行 + 解析残）'}
+  ]},
   { ver:'2026.06p', date:'2026-06-10', title:'コードレビュー4件バグ修正', items:[
     {t:'fix', d:'🔧 PSG取り外しチェックボックスが slot_ward で2重表示されていた問題を修正（静的checksに同名がある場合は除去してから追加し直す）'},
     {t:'fix', d:'🔧 曜日ルール月次自動割り当てで既に担当済みのスタッフが二重割り当てされる可能性を修正（全 dat.duties から assigned スタッフを収集）'},
@@ -7274,10 +7278,14 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   var card = document.createElement('div');
   card.className = 'dc' + (locked ? ' lc' : '') + (isAbsent ? ' absent' : '');
 
-  /* 前日PSG装着の有無（slot_ward に PSG取り外しチェックを動的追加するため） */
+  /* 前日PSG装着の有無（slot_ward に PSG取り外しチェックを動的追加するため）
+     psg_on テキストの有無だけでなく ops_cards に 'psg' があれば対象にする */
   var prevDsDC = getPrevDs(ds);
-  var prevOpsDC = D.pages[prevDsDC] && D.pages[prevDsDC].ops;
-  var isPsgRemoval = !!(d.id === 'slot_ward' && prevOpsDC && prevOpsDC.psg_on);
+  var prevDatDC = D.pages[prevDsDC];
+  var isPsgRemoval = !!(d.id === 'slot_ward' && prevDatDC && (
+    (prevDatDC.ops_cards && prevDatDC.ops_cards.indexOf('psg') !== -1) ||
+    (prevDatDC.ops && prevDatDC.ops.psg_on)
+  ));
 
   var opts = '<option value="">— 未割当 —</option>';
   for (var j=0; j<D.stf.length; j++)
@@ -8530,10 +8538,15 @@ function buildOPS(ds,dat,locked) {
       +'<label class="psg-fusen-lbl" for="ops-psg-fusen'+sfx+'">付箋入力済</label>'
       +'</div>';
     c3.appendChild(psgOnRow);
-    /* 外し行（前日に装着がある日だけ表示。psg_off は当日データに保存） */
+    /* 外し行（前日に PSG カードがある日だけ表示。psg_off は当日データに保存）
+       psg_on テキストの有無だけでなく ops_cards に 'psg' があれば表示する */
     var prevDsPsg = getPrevDs(ds);
-    var prevOpsPsg = D.pages[prevDsPsg] && D.pages[prevDsPsg].ops;
-    if (prevOpsPsg && prevOpsPsg.psg_on) {
+    var prevDatPsg = D.pages[prevDsPsg];
+    var prevHasPsgCard = prevDatPsg && (
+      (prevDatPsg.ops_cards && prevDatPsg.ops_cards.indexOf('psg') !== -1) ||
+      (prevDatPsg.ops && prevDatPsg.ops.psg_on)
+    );
+    if (prevHasPsgCard) {
       var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
       psgOffRow.innerHTML='<span class="ops-lbl">外し<br><span style="font-size:10px;color:var(--txt3);white-space:nowrap">（前日装着分）</span></span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea>';
       c3.appendChild(psgOffRow);
@@ -8560,6 +8573,17 @@ function buildOPS(ds,dat,locked) {
     else if(cid==='psg')  buildPsgCard();
     else if(cid.indexOf('free_')===0) buildFreeCard(cid.slice(5));
   });
+
+  /* 前日に PSG カードがあれば当日に PSG カードがなくても自動表示（外し行を見せるため）
+     psg_on テキストの有無ではなく「カードが追加されたか」で判定する */
+  var _prevDsOps = getPrevDs(ds);
+  var _prevDat   = D.pages[_prevDsOps];
+  var _prevHasPsg = _prevDat && (
+    (_prevDat.ops_cards && _prevDat.ops_cards.indexOf('psg') !== -1) ||
+    (_prevDat.ops && _prevDat.ops.psg_on)
+  );
+  var _todayHasPsg = cardsToRender.indexOf('psg') !== -1;
+  if (_prevHasPsg && !_todayHasPsg) buildPsgCard();
 
   if(locked) return;
 
