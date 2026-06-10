@@ -9214,6 +9214,17 @@ function linkStf(idx, uid, displayName) {
   if (!D.stfLinks) D.stfLinks = {};
   D.stfLinks[name] = uid;
   saveD();
+  if (FB_ON && fbDB) {
+    fbDB.ref('/users/' + uid).once('value', function(snap) {
+      if (!snap.val()) {
+        fbDB.ref('/users/' + uid).set({
+          email: '',
+          displayName: (displayName && displayName !== uid) ? displayName : name,
+          lastLogin: null
+        });
+      }
+    });
+  }
   var ov = document.getElementById('link-stf-ov');
   if (ov) ov.remove();
   showNotifToast('🔗 紐付け完了', name + ' → ' + (displayName || uid));
