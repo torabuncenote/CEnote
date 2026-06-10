@@ -169,6 +169,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .dc:hover{box-shadow:var(--shl);transform:translateY(-1px)}
 .dc.lc{opacity:.75;pointer-events:none}
 .dc.lc::after{content:'🔒';position:absolute;top:7px;right:9px;font-size:12px}
+.dc.absent{border-color:var(--rd)!important;background:var(--rd-bg)}
 .dl{font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:8px;display:flex;align-items:center;gap:4px}
 .ds2{width:100%;font-size:13px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;transition:border-color .15s;margin-bottom:7px;font-family:var(--fn)}
 .ds2:hover,.ds2:focus{border-color:var(--ac);background:var(--ac-bg)}
@@ -528,6 +529,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .dc-cb-item:hover{border-color:var(--ac);color:var(--ac)}
 .dc-cb-item.checked{background:var(--ac-bg);border-color:var(--ac);color:var(--ac);font-weight:700}
 .dc-cb-item input{width:13px;height:13px;accent-color:var(--ac);cursor:pointer}
+/* PSG取り外し担当マーク：完了チェックではなく担当割り当て印 */
+.dc-cb-item.psg-duty{border-color:var(--pu);color:var(--pu);font-weight:600}
+.dc-cb-item.psg-duty:hover{border-color:var(--pu);opacity:.85}
+.dc-cb-item.psg-duty.checked{background:#f0ebff;border-color:var(--pu);color:var(--pu);font-weight:700}
+.dc-cb-item.psg-duty input{accent-color:var(--pu)}
 
 /* ===== 表示名変更モーダル ===== */
 #modal-name{position:fixed;inset:0;background:rgba(30,29,26,.72);z-index:3000;display:flex;align-items:center;justify-content:center}
@@ -1471,7 +1477,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday'};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00'};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1584,6 +1590,10 @@ function loadD() {
     D._migVer = s._migVer || 0;
     D.stfEdu  = s.stfEdu  || {};
     D.autoAssignMode = s.autoAssignMode || 'weekday';
+    D.emailjsCfg  = s.emailjsCfg  || {};
+    D.fcmCfg      = s.fcmCfg      || {};
+    D.stfLinks    = s.stfLinks     || {};
+    D.psgAlertTime= s.psgAlertTime || '10:00';
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1980,11 +1990,11 @@ function resetIdleTimer() {
       if (sec <= 0) clearInterval(countdown);
     }, 1000);
   }, IDLE_TIMEOUT - IDLE_WARN);
-  /* 30分後に自動ログアウト */
+  /* 5分後に自動ログアウト */
   _idleTimer = setTimeout(function() {
     var warn2 = document.getElementById('idle-warn');
     if (warn2) warn2.classList.remove('show');
-    writeLog('自動ログアウト', '30分間の無操作により自動ログアウト');
+    writeLog('自動ログアウト', '5分間の無操作により自動ログアウト');
     firebase.auth().signOut();
   }, IDLE_TIMEOUT);
 }
@@ -3030,8 +3040,19 @@ function renderAdminUsers() {
     var allPerms = results[2].val() || {};
     var uids     = Object.keys(users);
 
+    /* スタッフ名簿とアカウントの紐付き状況を計算 */
+    var stfLinks = D.stfLinks || {};
+    var linkedUidSet = {};
+    Object.keys(stfLinks).forEach(function(name){ if(stfLinks[name]) linkedUidSet[stfLinks[name]] = name; });
+    /* D.stf のうちアカウント未作成（stfLinksに無い） */
+    var noAccountStaff = (D.stf || []).filter(function(name){ return !stfLinks[name]; });
+    /* stfLinksにUIDはあるが /users に存在しない（リンク切れ） */
+    var brokenLinkStaff = (D.stf || []).filter(function(name){
+      var uid = stfLinks[name]; return uid && !users[uid];
+    });
+
     var S = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 ユーザー管理</div>';
-    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">ログイン済みスタッフの管理者権限と編集権限をここから管理できます。<br>新規ユーザー登録も下のボタンから行えます。一度もログインしていないスタッフは表示されません。</div>';
+    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">登録済みスタッフの管理者権限と編集権限をここから管理できます。新規ユーザー登録は下のボタンから行えます。</div>';
 
     if (!uids.length) {
       S += '<div style="font-size:12px;color:var(--txt3);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px">⚠ まだ誰もログインしていません。</div>';
@@ -3042,14 +3063,22 @@ function renderAdminUsers() {
         var isSelf = currentUser && currentUser.uid === uid;
         var userPerms = allPerms[uid] || {};
         var panelId = 'pp-' + uid.replace(/[^a-zA-Z0-9]/g,'_');
+        var neverLoggedIn = !u.lastLogin;
+        /* このUIDに紐付いているスタッフ名 */
+        var linkedName = linkedUidSet[uid] || null;
 
-        S += '<div class="adminm-user-row" style="flex-direction:column;align-items:stretch">';
+        S += '<div class="adminm-user-row" style="flex-direction:column;align-items:stretch' + (neverLoggedIn ? ';border-left:3px solid var(--or)' : '') + '">';
         /* --- 上段：名前・メール・管理者ボタン --- */
         S += '<div style="display:flex;align-items:center;gap:10px">';
         S += '<div class="adminm-user-info">';
         S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : '👤 ') + escH(u.displayName || u.email) + '</span>';
+        if (linkedName) S += '<span style="font-size:10px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:10px;padding:1px 7px;margin-left:4px">🔗 ' + escH(linkedName) + '</span>';
         S += '<span class="adminm-user-email">' + escH(u.email) + '</span>';
-        if (u.lastLogin) S += '<span class="adminm-user-date">最終ログイン: ' + fmtTS(u.lastLogin) + '</span>';
+        if (u.lastLogin) {
+          S += '<span class="adminm-user-date">最終ログイン: ' + fmtTS(u.lastLogin) + '</span>';
+        } else {
+          S += '<span class="adminm-user-date" style="color:var(--or);font-weight:600">⚠ 未ログイン（登録済み・ログイン待ち）</span>';
+        }
         S += '</div>';
         if (isSelf) {
           S += '<span class="adminm-self-badge">自分</span>';
@@ -3082,6 +3111,31 @@ function renderAdminUsers() {
         S += '</div>';
       });
     }
+
+    /* ===== アカウント未作成 / リンク切れ セクション ===== */
+    if (noAccountStaff.length || brokenLinkStaff.length) {
+      S += '<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--bdr)">';
+      S += '<div style="font-size:13px;font-weight:700;color:var(--or);margin-bottom:8px">⚠ アカウント未紐付けのスタッフ</div>';
+      if (noAccountStaff.length) {
+        S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">アカウント未作成（スタッフ名簿にいるがFirebaseアカウントなし）</div>';
+        S += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">';
+        noAccountStaff.forEach(function(name){
+          S += '<span style="font-size:12px;background:var(--or-bg);border:1px solid var(--or);color:var(--or);border-radius:6px;padding:3px 10px">👤 ' + escH(name) + '</span>';
+        });
+        S += '</div>';
+      }
+      if (brokenLinkStaff.length) {
+        S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">リンク切れ（stfLinksにUIDはあるが /users に存在しない）</div>';
+        S += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">';
+        brokenLinkStaff.forEach(function(name){
+          S += '<span style="font-size:12px;background:var(--rd-bg);border:1px solid var(--rd);color:var(--rd);border-radius:6px;padding:3px 10px">⚠ ' + escH(name) + '</span>';
+        });
+        S += '</div>';
+      }
+      S += '<div style="font-size:11px;color:var(--txt3);line-height:1.6">「➕ 新規ユーザー登録」でアカウントを作成したあと、設定 › スタッフ管理でUID紐付けを行ってください。</div>';
+      S += '</div>';
+    }
+
     S += '<div style="display:flex;gap:6px;margin-top:10px">';
     S += '<button class="btn btn-p btn-sm" onclick="openRegModal()">➕ 新規ユーザー登録</button>';
     S += '<button class="btn btn-g btn-sm" onclick="renderAdminUsers()">🔄 更新</button>';
@@ -3204,8 +3258,29 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06l';
+var APP_VERSION = '2026.06p';
 var APP_CHANGELOG = [
+  { ver:'2026.06p', date:'2026-06-10', title:'コードレビュー4件バグ修正', items:[
+    {t:'fix', d:'🔧 PSG取り外しチェックボックスが slot_ward で2重表示されていた問題を修正（静的checksに同名がある場合は除去してから追加し直す）'},
+    {t:'fix', d:'🔧 曜日ルール月次自動割り当てで既に担当済みのスタッフが二重割り当てされる可能性を修正（全 dat.duties から assigned スタッフを収集）'},
+    {t:'fix', d:'🔧 無操作自動ログアウトのFirebaseログに「30分間の無操作」と誤記されていた問題を修正（5分）'},
+    {t:'fix', d:'🔧 ユーザーガイドの自動ログアウト案内が「30分」と表記されていた問題を修正（5分）'}
+  ]},
+  { ver:'2026.06o', date:'2026-06-10', title:'管理者画面：ログイン状況の可視化', items:[
+    {t:'new', d:'👑 登録済みだが未ログインのスタッフに「⚠ 未ログイン（登録済み・ログイン待ち）」バッジを橙色で表示'},
+    {t:'new', d:'👑 未ログインユーザーの行に橙色の左ボーダーを追加し一目で区別できるように'},
+    {t:'new', d:'👑 スタッフ名簿と紐付き済みのアカウントに「🔗 スタッフ名」バッジを表示'},
+    {t:'new', d:'👑 アカウント未作成のスタッフ・リンク切れのスタッフを一覧セクションで表示'}
+  ]},
+  { ver:'2026.06n', date:'2026-06-10', title:'PSG取り外し担当マーク強調表示', items:[
+    {t:'new', d:'🌙 PSG取り外しチェックは「完了印」ではなく「担当割り当て印」として紫色で強調表示。「🌙 PSG取り外し（担当）」ラベルとホバー時ツールチップで区別'}
+  ]},
+  { ver:'2026.06m', date:'2026-06-10', title:'PSG外し翌日自動表示・欠勤マーク・設定消滅バグ修正', items:[
+    {t:'new', d:'🌙 PSG分割：装着日には装着欄のみ表示。前日に装着があると翌日カードに「外し（前日装着分）」欄が自動表示される'},
+    {t:'new', d:'🌙 PSG外しのある日は病棟外回り担当カードに「PSG取り外し」チェックが自動でONになる'},
+    {t:'new', d:'❌ 担当割り当てカードに欠勤チェックボックスを追加。チェックするとカードが赤くなり欠勤を視覚的に表示'},
+    {t:'fix', d:'🔧 EmailJS公開鍵・サービスID・テンプレートID・スタッフUID紐付けがリロード後に消える問題を修正（loadD・バックアップ復元の両方）'}
+  ]},
   { ver:'2026.06l', date:'2026-06-09', title:'自動割り当て時のPHS自動セット', items:[
     {t:'new', d:'📞 自動割り当て時に担当へPHS内線番号を自動セット：病棟外回り=6030 / OPE=6160 / OPEサブ=6170 / 機器管理=6157。既にPHSが入力済みのスロットは上書きしません'}
   ]},
@@ -4233,7 +4308,7 @@ function renderGuide() {
   S += step(1,'URLにアクセス','管理者から共有されたURLをブラウザで開きます。');
   S += step(2,'メールアドレスとパスワードを入力','管理者から教えてもらったものを使います。');
   S += step(3,'右上に名前が表示されればOK','');
-  S += warn('共有パソコンを使ったら必ずログアウトしてください。30分操作しないと自動ログアウトされます。');
+  S += warn('共有パソコンを使ったら必ずログアウトしてください。5分操作しないと自動ログアウトされます。');
   S += h2('初回ログイン後にやること — 表示名の設定');
   S += step(1,'右上の名前（👤 ○○）をクリック','');
   S += step(2,'自分の氏名を入力して「保存」','申し送りに正しい名前で表示されます。');
@@ -7195,23 +7270,46 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   var svp    = (dat.phsNums   && dat.phsNums[d.id])   || '';
   var svNote = (dat.dutyNotes && dat.dutyNotes[d.id]) || '';
   var svRole = (dat.dutyRoles && dat.dutyRoles[d.id]) || 'フリー';
+  var isAbsent = !!(dat.dutyAbsent && dat.dutyAbsent[d.id]);
   var card = document.createElement('div');
-  card.className = 'dc' + (locked ? ' lc' : '');
+  card.className = 'dc' + (locked ? ' lc' : '') + (isAbsent ? ' absent' : '');
+
+  /* 前日PSG装着の有無（slot_ward に PSG取り外しチェックを動的追加するため） */
+  var prevDsDC = getPrevDs(ds);
+  var prevOpsDC = D.pages[prevDsDC] && D.pages[prevDsDC].ops;
+  var isPsgRemoval = !!(d.id === 'slot_ward' && prevOpsDC && prevOpsDC.psg_on);
 
   var opts = '<option value="">— 未割当 —</option>';
   for (var j=0; j<D.stf.length; j++)
     opts += '<option value="'+D.stf[j]+'"'+(D.stf[j]===sv?' selected':'')+'>'+D.stf[j]+'</option>';
 
-  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+'</div>';
+  /* ヘッダー（欠勤チェックを右端に配置） */
+  var absentChk = '<label style="margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;flex-shrink:0" title="欠勤マーク">'
+    + '<input type="checkbox" id="absent-cb-'+d.id+'"'+(isAbsent?' checked':'')+(locked?' disabled':'')+'>'
+    + '<span style="color:var(--rd)">欠勤</span></label>';
+  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+absentChk+'</div>';
 
-  /* チェックボックス */
-  if (d.checks && d.checks.length) {
+  /* チェックボックス（マスター定義 + 前日PSG装着があれば PSG取り外しを担当マークとして追加）
+     slot_ward の静的 checks にも 'PSG取り外し' が含まれているため、
+     isPsgRemoval=true のときは静的リストから除去してから末尾に追加し直す（重複防止） */
+  var dynChecks = (d.checks && d.checks.length) ? d.checks.slice() : [];
+  if (isPsgRemoval) {
+    dynChecks = dynChecks.filter(function(c){ return c !== 'PSG取り外し'; });
+    dynChecks.push('PSG取り外し');
+  }
+  if (dynChecks.length) {
     var svChecks = (dat.dutyChecks && dat.dutyChecks[d.id]) || {};
     html += '<div class="dc-cbs" id="dccbs-'+d.id+'">';
-    for (var ci=0; ci<d.checks.length; ci++) {
-      var ck=d.checks[ci], isChk=!!svChecks[ck];
-      html += '<label class="dc-cb-item'+(isChk?' checked':'')+'">';
-      html += '<input type="checkbox" data-duty="'+d.id+'" data-ck="'+ck+'"'+(isChk?' checked':'')+(locked?' disabled':'')+'>'+ck+'</label>';
+    for (var ci=0; ci<dynChecks.length; ci++) {
+      var ck=dynChecks[ci];
+      var isPsgDutyChk = (ck === 'PSG取り外し' && isPsgRemoval);
+      var isChk = isPsgDutyChk
+        ? (svChecks[ck] === undefined ? true : !!svChecks[ck])
+        : !!svChecks[ck];
+      var extraCls = isPsgDutyChk ? ' psg-duty' : '';
+      var ckLabel = isPsgDutyChk ? '🌙 PSG取り外し（担当）' : ck;
+      html += '<label class="dc-cb-item'+extraCls+(isChk?' checked':'')+'" title="'+(isPsgDutyChk?'前日装着あり：担当者として割り当て済み':'')+'">';
+      html += '<input type="checkbox" data-duty="'+d.id+'" data-ck="'+ck+'"'+(isChk?' checked':'')+(locked?' disabled':'')+'>'+ckLabel+'</label>';
     }
     html += '</div>';
   }
@@ -7290,6 +7388,17 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         };
       }
     })(d.id, !!d.freeRole);
+
+    /* 欠勤チェックボックス */
+    (function(did, cardEl){
+      var abEl = document.getElementById('absent-cb-'+did);
+      if (abEl) abEl.onchange = function(){
+        if(!D.pages[ds].dutyAbsent) D.pages[ds].dutyAbsent={};
+        D.pages[ds].dutyAbsent[did]=this.checked;
+        cardEl.classList.toggle('absent',this.checked);
+        saveD();
+      };
+    })(d.id, card);
 
     if (showPhs && !phsLk) {
       (function(did){
@@ -8411,6 +8520,7 @@ function buildOPS(ds,dat,locked) {
     var c3=card('🌙 PSG（睡眠検査）');
     var sfx=uid?'-'+uid:'';
     var fusenChecked=!!(ops.psg_fusen);
+    /* 装着行（常に表示） */
     var psgOnRow=document.createElement('div'); psgOnRow.className='ops-row';
     psgOnRow.innerHTML=
       '<span class="ops-lbl">装着</span>'
@@ -8420,9 +8530,14 @@ function buildOPS(ds,dat,locked) {
       +'<label class="psg-fusen-lbl" for="ops-psg-fusen'+sfx+'">付箋入力済</label>'
       +'</div>';
     c3.appendChild(psgOnRow);
-    var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
-    psgOffRow.innerHTML='<span class="ops-lbl">外し</span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea>';
-    c3.appendChild(psgOffRow);
+    /* 外し行（前日に装着がある日だけ表示。psg_off は当日データに保存） */
+    var prevDsPsg = getPrevDs(ds);
+    var prevOpsPsg = D.pages[prevDsPsg] && D.pages[prevDsPsg].ops;
+    if (prevOpsPsg && prevOpsPsg.psg_on) {
+      var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
+      psgOffRow.innerHTML='<span class="ops-lbl">外し<br><span style="font-size:10px;color:var(--txt3);white-space:nowrap">（前日装着分）</span></span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea>';
+      c3.appendChild(psgOffRow);
+    }
     var psgRestRow=document.createElement('div'); psgRestRow.className='ops-row';
     psgRestRow.innerHTML='<span class="ops-lbl">解析残</span><input type="number" class="ops-num" id="ops-psg-rest'+sfx+'" min="0" value="'+(ops.psg_rest||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span>';
     c3.appendChild(psgRestRow);
@@ -9981,7 +10096,8 @@ function buildMonthCounts(ym) {
 function buildAutoProposals(ds, dat, available, counts, slots) {
   var cfg = slots || getDutyCfg(dat);
   var assignedToday = {};
-  if (dat.duties) { cfg.forEach(function(s){ if (dat.duties[s.id]) assignedToday[dat.duties[s.id]]=true; }); }
+  /* dat.duties の全スロットから既割当スタッフを収集（cfg が部分集合の場合でも二重割り当てを防ぐ） */
+  if (dat.duties) { Object.keys(dat.duties).forEach(function(sid){ if (dat.duties[sid]) assignedToday[dat.duties[sid]]=true; }); }
   var proposals = [];
   cfg.forEach(function(slot) {
     if (dat.duties && dat.duties[slot.id]) return;
@@ -10304,7 +10420,8 @@ function restoreFirebaseSnapshot(dateStr) {
     }
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
-     'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+     'opsCfg','oc','shift','evts','manual','schedPresets',
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','stfEdu','autoAssignMode'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -10371,7 +10488,8 @@ function restoreAutoBackup(i) {
     autoSaveSnapshot('自動復元前');
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
-     'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+     'opsCfg','oc','shift','evts','manual','schedPresets',
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','stfEdu','autoAssignMode'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
