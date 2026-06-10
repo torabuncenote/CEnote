@@ -169,6 +169,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .dc:hover{box-shadow:var(--shl);transform:translateY(-1px)}
 .dc.lc{opacity:.75;pointer-events:none}
 .dc.lc::after{content:'🔒';position:absolute;top:7px;right:9px;font-size:12px}
+.dc.absent{border-color:var(--rd)!important;background:var(--rd-bg)}
 .dl{font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:8px;display:flex;align-items:center;gap:4px}
 .ds2{width:100%;font-size:13px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;transition:border-color .15s;margin-bottom:7px;font-family:var(--fn)}
 .ds2:hover,.ds2:focus{border-color:var(--ac);background:var(--ac-bg)}
@@ -1471,7 +1472,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday'};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00'};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1584,6 +1585,10 @@ function loadD() {
     D._migVer = s._migVer || 0;
     D.stfEdu  = s.stfEdu  || {};
     D.autoAssignMode = s.autoAssignMode || 'weekday';
+    D.emailjsCfg  = s.emailjsCfg  || {};
+    D.fcmCfg      = s.fcmCfg      || {};
+    D.stfLinks    = s.stfLinks     || {};
+    D.psgAlertTime= s.psgAlertTime || '10:00';
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -3204,8 +3209,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06l';
+var APP_VERSION = '2026.06m';
 var APP_CHANGELOG = [
+  { ver:'2026.06m', date:'2026-06-10', title:'PSG外し翌日自動表示・欠勤マーク・設定消滅バグ修正', items:[
+    {t:'new', d:'🌙 PSG分割：装着日には装着欄のみ表示。前日に装着があると翌日カードに「外し（前日装着分）」欄が自動表示される'},
+    {t:'new', d:'🌙 PSG外しのある日は病棟外回り担当カードに「PSG取り外し」チェックが自動でONになる'},
+    {t:'new', d:'❌ 担当割り当てカードに欠勤チェックボックスを追加。チェックするとカードが赤くなり欠勤を視覚的に表示'},
+    {t:'fix', d:'🔧 EmailJS公開鍵・サービスID・テンプレートID・スタッフUID紐付けがリロード後に消える問題を修正（loadD・バックアップ復元の両方）'}
+  ]},
   { ver:'2026.06l', date:'2026-06-09', title:'自動割り当て時のPHS自動セット', items:[
     {t:'new', d:'📞 自動割り当て時に担当へPHS内線番号を自動セット：病棟外回り=6030 / OPE=6160 / OPEサブ=6170 / 機器管理=6157。既にPHSが入力済みのスロットは上書きしません'}
   ]},
@@ -7195,21 +7206,36 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   var svp    = (dat.phsNums   && dat.phsNums[d.id])   || '';
   var svNote = (dat.dutyNotes && dat.dutyNotes[d.id]) || '';
   var svRole = (dat.dutyRoles && dat.dutyRoles[d.id]) || 'フリー';
+  var isAbsent = !!(dat.dutyAbsent && dat.dutyAbsent[d.id]);
   var card = document.createElement('div');
-  card.className = 'dc' + (locked ? ' lc' : '');
+  card.className = 'dc' + (locked ? ' lc' : '') + (isAbsent ? ' absent' : '');
+
+  /* 前日PSG装着の有無（slot_ward に PSG取り外しチェックを動的追加するため） */
+  var prevDsDC = getPrevDs(ds);
+  var prevOpsDC = D.pages[prevDsDC] && D.pages[prevDsDC].ops;
+  var isPsgRemoval = !!(d.id === 'slot_ward' && prevOpsDC && prevOpsDC.psg_on);
 
   var opts = '<option value="">— 未割当 —</option>';
   for (var j=0; j<D.stf.length; j++)
     opts += '<option value="'+D.stf[j]+'"'+(D.stf[j]===sv?' selected':'')+'>'+D.stf[j]+'</option>';
 
-  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+'</div>';
+  /* ヘッダー（欠勤チェックを右端に配置） */
+  var absentChk = '<label style="margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;flex-shrink:0" title="欠勤マーク">'
+    + '<input type="checkbox" id="absent-cb-'+d.id+'"'+(isAbsent?' checked':'')+(locked?' disabled':'')+'>'
+    + '<span style="color:var(--rd)">欠勤</span></label>';
+  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+absentChk+'</div>';
 
-  /* チェックボックス */
-  if (d.checks && d.checks.length) {
+  /* チェックボックス（マスター定義 + 前日PSG装着があれば PSG取り外しを動的追加） */
+  var dynChecks = (d.checks && d.checks.length) ? d.checks.slice() : [];
+  if (isPsgRemoval) dynChecks.push('PSG取り外し');
+  if (dynChecks.length) {
     var svChecks = (dat.dutyChecks && dat.dutyChecks[d.id]) || {};
     html += '<div class="dc-cbs" id="dccbs-'+d.id+'">';
-    for (var ci=0; ci<d.checks.length; ci++) {
-      var ck=d.checks[ci], isChk=!!svChecks[ck];
+    for (var ci=0; ci<dynChecks.length; ci++) {
+      var ck=dynChecks[ci];
+      var isChk = (ck === 'PSG取り外し' && isPsgRemoval)
+        ? (svChecks[ck] === undefined ? true : !!svChecks[ck])
+        : !!svChecks[ck];
       html += '<label class="dc-cb-item'+(isChk?' checked':'')+'">';
       html += '<input type="checkbox" data-duty="'+d.id+'" data-ck="'+ck+'"'+(isChk?' checked':'')+(locked?' disabled':'')+'>'+ck+'</label>';
     }
@@ -7290,6 +7316,17 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         };
       }
     })(d.id, !!d.freeRole);
+
+    /* 欠勤チェックボックス */
+    (function(did, cardEl){
+      var abEl = document.getElementById('absent-cb-'+did);
+      if (abEl) abEl.onchange = function(){
+        if(!D.pages[ds].dutyAbsent) D.pages[ds].dutyAbsent={};
+        D.pages[ds].dutyAbsent[did]=this.checked;
+        cardEl.classList.toggle('absent',this.checked);
+        saveD();
+      };
+    })(d.id, card);
 
     if (showPhs && !phsLk) {
       (function(did){
@@ -8411,6 +8448,7 @@ function buildOPS(ds,dat,locked) {
     var c3=card('🌙 PSG（睡眠検査）');
     var sfx=uid?'-'+uid:'';
     var fusenChecked=!!(ops.psg_fusen);
+    /* 装着行（常に表示） */
     var psgOnRow=document.createElement('div'); psgOnRow.className='ops-row';
     psgOnRow.innerHTML=
       '<span class="ops-lbl">装着</span>'
@@ -8420,9 +8458,14 @@ function buildOPS(ds,dat,locked) {
       +'<label class="psg-fusen-lbl" for="ops-psg-fusen'+sfx+'">付箋入力済</label>'
       +'</div>';
     c3.appendChild(psgOnRow);
-    var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
-    psgOffRow.innerHTML='<span class="ops-lbl">外し</span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea>';
-    c3.appendChild(psgOffRow);
+    /* 外し行（前日に装着がある日だけ表示。psg_off は当日データに保存） */
+    var prevDsPsg = getPrevDs(ds);
+    var prevOpsPsg = D.pages[prevDsPsg] && D.pages[prevDsPsg].ops;
+    if (prevOpsPsg && prevOpsPsg.psg_on) {
+      var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
+      psgOffRow.innerHTML='<span class="ops-lbl">外し<br><span style="font-size:10px;color:var(--txt3);white-space:nowrap">（前日装着分）</span></span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea>';
+      c3.appendChild(psgOffRow);
+    }
     var psgRestRow=document.createElement('div'); psgRestRow.className='ops-row';
     psgRestRow.innerHTML='<span class="ops-lbl">解析残</span><input type="number" class="ops-num" id="ops-psg-rest'+sfx+'" min="0" value="'+(ops.psg_rest||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span>';
     c3.appendChild(psgRestRow);
@@ -10304,7 +10347,8 @@ function restoreFirebaseSnapshot(dateStr) {
     }
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
-     'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+     'opsCfg','oc','shift','evts','manual','schedPresets',
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','stfEdu','autoAssignMode'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -10371,7 +10415,8 @@ function restoreAutoBackup(i) {
     autoSaveSnapshot('自動復元前');
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
-     'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+     'opsCfg','oc','shift','evts','manual','schedPresets',
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','stfEdu','autoAssignMode'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
