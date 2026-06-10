@@ -148,6 +148,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .surplus-wrap{background:var(--sur);border:1.5px dashed var(--bdr2);border-radius:var(--r);padding:10px 14px;margin-bottom:10px}
 .surplus-ttl{font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:6px}
 .surplus-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:28px}
+.surplus-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.surplus-hd .surplus-ttl{margin-bottom:0}
+.hd-toggle-btn{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;border:1.5px solid var(--pu);background:var(--pu-bg);color:var(--pu);cursor:pointer;white-space:nowrap}
+.hd-toggle-btn:hover{opacity:.8}
+.hd-toggle-btn.active{background:var(--pu);color:#fff}
+.hd-panel{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)}
+.pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
+.pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
 .pool-hd{font-size:11px;font-weight:700;color:var(--oc);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
 .pool-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:28px}
 .pool-sec{font-size:10px;font-weight:700;color:var(--txt3);width:100%;margin-top:6px;margin-bottom:2px}
@@ -3125,14 +3133,23 @@ function renderAdminUsers() {
         S += '</div>';
       }
       if (brokenLinkStaff.length) {
-        S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">リンク切れ（stfLinksにUIDはあるが /users に存在しない）</div>';
-        S += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px">';
+        S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">リンク切れ（紐付け先のFirebaseユーザーが存在しません）。解除すると未紐付けに戻せます。</div>';
+        S += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">';
         brokenLinkStaff.forEach(function(name){
-          S += '<span style="font-size:12px;background:var(--rd-bg);border:1px solid var(--rd);color:var(--rd);border-radius:6px;padding:3px 10px">⚠ ' + escH(name) + '</span>';
+          var sidx = D.stf.indexOf(name);
+          var badUid = (D.stfLinks && D.stfLinks[name]) || '';
+          S += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:5px 10px">';
+          S += '<span style="font-size:12px;color:var(--rd);font-weight:700">⚠ ' + escH(name) + '</span>';
+          S += '<span style="font-size:10px;color:var(--txt3)">不明なUID: ' + escH(badUid) + '</span>';
+          S += '<span style="margin-left:auto;display:flex;gap:5px">';
+          S += '<button class="btn btn-g btn-sm" style="font-size:11px" onclick="fixBrokenLink(' + sidx + ')">🔗 再紐付け</button>';
+          S += '<button class="btn btn-d btn-sm" style="font-size:11px" onclick="clearBrokenLink(' + sidx + ')">✖ 解除</button>';
+          S += '</span>';
+          S += '</div>';
         });
         S += '</div>';
       }
-      S += '<div style="font-size:11px;color:var(--txt3);line-height:1.6">「➕ 新規ユーザー登録」でアカウントを作成したあと、設定 › スタッフ管理でUID紐付けを行ってください。</div>';
+      S += '<div style="font-size:11px;color:var(--txt3);line-height:1.6">「➕ 新規ユーザー登録」でアカウントを作成したあと、設定 › スタッフ管理または上の「再紐付け」でUID紐付けを行ってください。</div>';
       S += '</div>';
     }
 
@@ -3258,8 +3275,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06q';
+var APP_VERSION = '2026.06r';
 var APP_CHANGELOG = [
+  { ver:'2026.06r', date:'2026-06-10', title:'HD勤務者表示・PSG外し改善・リンク切れ修正', items:[
+    {t:'new', d:'🩸 余剰人員枠の右に「HD勤務者」ボタンを追加。勤務表のHD（透析）日勤コード（M/A1/A2/A3/S/B1/B2/B）と準夜（準）を取り込み、当日のHD勤務者を日勤・準夜に分けて表示。CEと同様にドラッグ/タップで担当枠へ割当可能（要：対象月の勤務表を再取込）'},
+    {t:'fix', d:'🌙 PSG外し専用日（前日装着分の外しのみの日）の業務カードから不要な「装着」欄を非表示に'},
+    {t:'fix', d:'🌙 PSG業務を取り消すと装着・外しデータに加え、翌日に連動した「PSG取り外し」チェックも自動解除されるよう修正'},
+    {t:'fix', d:'👑 名簿外の名前（HD勤務者など）も担当枠の選択欄に「（名簿外）」付きで表示されるよう修正'},
+    {t:'new', d:'👑 管理者画面のリンク切れスタッフに「再紐付け」「解除」ボタンを追加し、その場で修正できるように'}
+  ]},
   { ver:'2026.06q', date:'2026-06-10', title:'PSG外し翌日自動表示の修正', items:[
     {t:'fix', d:'🌙 前日に PSG カードを追加しただけでは翌日に外し行が出なかった問題を修正。装着テキストの有無ではなく「前日に PSG カードが存在するか」で判定するよう変更'},
     {t:'fix', d:'🌙 翌日に PSG カードがなくても前日装着があれば PSG カードを自動表示（外し行 + 解析残）'}
@@ -3914,17 +3938,53 @@ function renderSurplusArea(ds, dat, locked) {
   var surplus = dat.surplus || [];
   var dlk = !can('duty');
 
-  var html = '<div class="surplus-ttl">🔄 余剰人員</div>';
+  var hd = getShiftForDay(ds).hd || [];
+  var hdDay   = hd.filter(function(x){ return !x.night; });
+  var hdNight = hd.filter(function(x){ return  x.night; });
+
+  /* ヘッダー：タイトル（左）＋ HD勤務者トグルボタン（右） */
+  var html = '<div class="surplus-hd">';
+  html += '<div class="surplus-ttl">🔄 余剰人員</div>';
+  html += '<button type="button" class="hd-toggle-btn" id="hd-toggle" onclick="toggleHDPanel()">🩸 HD勤務者 ('+hd.length+')</button>';
+  html += '</div>';
+
   html += '<div id="surplus-chips" class="surplus-chips"'+(dlk?'':' ondragover="event.preventDefault()" ondrop="dropToSurplus(event,\''+ds+'\')"')+'>';
   for (var i=0; i<surplus.length; i++) {
-    html += '<div class="pool-chip" draggable="'+(dlk?'false':'true')+'" data-name="'+surplus[i]+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
-    html += surplus[i];
-    if (!dlk) html += '<button class="chip-rm" onclick="removeFromSurplus(\''+ds+'\',\''+surplus[i]+'\')">×</button>';
+    html += '<div class="pool-chip" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(surplus[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
+    html += escH(surplus[i]);
+    if (!dlk) html += '<button class="chip-rm" onclick="removeFromSurplus(\''+ds+'\',\''+escH(surplus[i])+'\')">×</button>';
     html += '</div>';
   }
   if (!surplus.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   html += '</div>';
+
+  /* HD勤務者パネル（折りたたみ）。チップはCEと同様ドラッグ/タップで担当枠へ割当可能 */
+  html += '<div id="hd-worker-panel" class="hd-panel" style="display:none">';
+  if (!hd.length) {
+    html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">本日のHD勤務者データがありません（勤務表の再取込が必要な場合があります）。</div>';
+  } else {
+    if (hdDay.length) {
+      html += '<div class="pool-sec">🔵 日勤</div>';
+      for (var j=0; j<hdDay.length; j++)
+        html += '<div class="pchip hd" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdDay[j].name)+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(hdDay[j].name)+'<span class="cs">'+escH(hdDay[j].shift)+'</span></div>';
+    }
+    if (hdNight.length) {
+      html += '<div class="pool-sec">🌙 準夜</div>';
+      for (var k=0; k<hdNight.length; k++)
+        html += '<div class="pchip hd night" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdNight[k].name)+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(hdNight[k].name)+'<span class="cs">準</span></div>';
+    }
+  }
+  html += '</div>';
+
   wrap.innerHTML = html;
+}
+
+function toggleHDPanel(){
+  var p=document.getElementById('hd-worker-panel'), b=document.getElementById('hd-toggle');
+  if(!p) return;
+  var open = p.style.display === 'none';
+  p.style.display = open ? 'flex' : 'none';
+  if(b) b.classList.toggle('active', open);
 }
 
 function dropToSurplus(e, ds) {
@@ -4002,6 +4062,21 @@ function removeOpsCard(ds, cid) {
   var idx = dat.ops_cards.indexOf(cid);
   if (idx === -1) return;
   dat.ops_cards.splice(idx, 1);
+  /* PSGを取り消したら装着・外し等のデータも消し、翌日に連動した「PSG取り外し」チェックも解除する */
+  if (cid === 'psg') {
+    if (dat.ops) {
+      delete dat.ops.psg_on; delete dat.ops.psg_off;
+      delete dat.ops.psg_rest; delete dat.ops.psg_fusen;
+    }
+    var nextDs = getNextDs(ds);
+    var nextDat = D.pages[nextDs];
+    if (nextDat && nextDat.dutyChecks) {
+      for (var sid in nextDat.dutyChecks) {
+        if (nextDat.dutyChecks[sid] && nextDat.dutyChecks[sid]['PSG取り外し'] !== undefined)
+          delete nextDat.dutyChecks[sid]['PSG取り外し'];
+      }
+    }
+  }
   renderPage(ds); saveD(); /* renderPage先行でFirebaseエコー前に正しい画面を表示 */
 }
 
@@ -5271,9 +5346,19 @@ function togLk(id, v) {
 }
 
 /* ===== SHIFT DATA ===== */
+/* HD（透析）勤務コード */
+var HD_DAY_CODES  = ['M','A1','A2','A3','S','B1','B2','B']; /* 日勤 */
+var HD_NIGHT_VALS = ['準','準夜'];                          /* 準夜 */
+/* シフトコード正規化（全角英数字→半角 + 大文字化）。準/準夜は漢字なので大文字化の影響なし */
+function normShiftCode(raw){
+  if (raw == null) return '';
+  var s = raw.toString().trim()
+    .replace(/[！-～]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0);});
+  return s.toUpperCase();
+}
 function getShiftForDay(ds) {
   var pt = ds.split('-'); var ym = pt[0]+'-'+pt[1]; var day = parseInt(pt[2]);
-  var res = {ce:[], oc:[], evts:[]};
+  var res = {ce:[], oc:[], evts:[], hd:[]};
   var md = D.shift[ym];
   if (md) {
     for (var name in md) {
@@ -5287,6 +5372,12 @@ function getShiftForDay(ds) {
          CE兼OCはOC欄に自動入力済みなのでプールのCEカードで管理 */
       else if (info.oc) {
         res.oc.push({name:name, shift:info.shift||''});
+      }
+      /* HD（透析）：日勤コード / 準夜。CE・OCとは独立して収集 */
+      if (info.hd === 'day' || HD_DAY_CODES.indexOf(info.shift) !== -1) {
+        res.hd.push({name:name, shift:info.shift, night:false});
+      } else if (info.hd === 'night' || info.shift === '準') {
+        res.hd.push({name:name, shift:'準', night:true});
       }
     }
   }
@@ -5601,11 +5692,19 @@ function parseShiftSheet(wb, fileName) {
       var ciInt  = parseInt(ci);
 
       /* 氏名行: シフト値を確認 */
-      var shiftVal = (grid[ri][ciInt] || '').toString().trim().toUpperCase();
-      /* CE完全一致のみ */
+      var shiftVal = normShiftCode(grid[ri][ciInt]);
+      /* CE完全一致を最優先。次にHD（透析）日勤コード / 準夜を取り込む */
       if (shiftVal === 'CE') {
         if (!result[name][dayNum]) result[name][dayNum] = {};
         result[name][dayNum].shift = 'CE';
+      } else if (HD_DAY_CODES.indexOf(shiftVal) !== -1) {
+        if (!result[name][dayNum]) result[name][dayNum] = {};
+        result[name][dayNum].shift = shiftVal; /* 'M','A1'… を保持 */
+        result[name][dayNum].hd = 'day';
+      } else if (HD_NIGHT_VALS.indexOf(shiftVal) !== -1) {
+        if (!result[name][dayNum]) result[name][dayNum] = {};
+        result[name][dayNum].shift = '準';
+        result[name][dayNum].hd = 'night';
       }
 
       /* 職員番号行: OC完全一致（OC×は除外） */
@@ -5620,7 +5719,7 @@ function parseShiftSheet(wb, fileName) {
   /* ===== 集計 ===== */
   var ymParts   = ym.split('-');
   var totalDays = new Date(parseInt(ymParts[0]), parseInt(ymParts[1]), 0).getDate();
-  var ceCount = 0, ocCount = 0, evtCount = 0;
+  var ceCount = 0, ocCount = 0, evtCount = 0, hdCount = 0;
   var preview = {};
 
   for (var nm in result) {
@@ -5636,6 +5735,12 @@ function parseShiftSheet(wb, fileName) {
         if (!preview[day]) preview[day] = {ce:[], oc:[], evts:[]};
         if (preview[day].oc.indexOf(nm) === -1) preview[day].oc.push(nm);
       }
+      if (info.hd === 'day' || info.hd === 'night') {
+        hdCount++;
+        if (!preview[day]) preview[day] = {ce:[], oc:[], evts:[]};
+        if (!preview[day].hd) preview[day].hd = [];
+        preview[day].hd.push({name:nm, night:info.hd==='night'});
+      }
     }
   }
   for (var day in evts) {
@@ -5647,7 +5752,7 @@ function parseShiftSheet(wb, fileName) {
   /* ===== プレビュー ===== */
   var html = '<div style="background:var(--gr-bg);border:1px solid #a7d9d0;border-radius:8px;padding:12px 14px;margin-bottom:10px">';
   html += '<div style="font-size:12px;font-weight:700;color:var(--gr);margin-bottom:4px">\u2705 \u8aad\u307f\u8fbc\u307f\u5b8c\u4e86\uff1a' + ym + '\uff08' + sheetName + '\uff09</div>';
-  html += '<div style="font-size:11px;color:var(--txt2)">CE: ' + ceCount + '\u4ef6\u3000OC: ' + ocCount + '\u4ef6\u3000\u30a4\u30d9\u30f3\u30c8: ' + evtCount + '\u4ef6</div>';
+  html += '<div style="font-size:11px;color:var(--txt2)">CE: ' + ceCount + '\u4ef6\u3000OC: ' + ocCount + '\u4ef6\u3000HD: ' + hdCount + '\u4ef6\u3000\u30a4\u30d9\u30f3\u30c8: ' + evtCount + '\u4ef6</div>';
   html += '<div style="font-size:10px;color:var(--txt3);margin-top:2px">\u65e5\u4ed8\u884c: ' + (dateRowIdx+1) + '\u884c\u76ee\u3000\u30a4\u30d9\u30f3\u30c8\u884c: ' + (evtRowIdx !== -1 ? evtRowIdx+1 : '\u691c\u51fa\u306a\u3057') + '\u884c\u76ee</div>';
   html += '</div>';
   html += '<div style="font-size:11px;font-weight:700;color:var(--txt3);margin-bottom:6px">\u78ba\u8a8d\u7528\u30b5\u30de\u30ea\u30fc\uff08\u6700\u521d\u306e7\u65e5\uff09</div>';
@@ -5658,6 +5763,10 @@ function parseShiftSheet(wb, fileName) {
     html += '<span style="font-weight:700;color:var(--txt2);margin-right:8px">' + d2 + '\u65e5</span>';
     html += '<span style="color:var(--ac)">CE: ' + (p.ce.length ? p.ce.join('\u30fb') : '\u2014') + '</span>';
     if (p.oc.length) html += '<span style="color:#e67e22;margin-left:8px">OC: ' + p.oc.join('\u30fb') + '</span>';
+    if (p.hd && p.hd.length) {
+      var hdNm = p.hd.map(function(x){ return x.name + (x.night ? '(\u6e96)' : ''); });
+      html += '<span style="color:var(--pu);margin-left:8px">\ud83e\ude78 ' + hdNm.join('\u30fb') + '</span>';
+    }
     if (p.evts && p.evts.length) html += '<span style="color:var(--or);margin-left:8px">\ud83d\udcc5 ' + p.evts.join('\u30fb') + '</span>';
     html += '</div>';
   }
@@ -6380,7 +6489,8 @@ function refreshPool(ds) {
   /* OC担当はOCチップのみ隠す。CE兼任者はCEカードを当日勤務者一覧に残し、CEの割り振りにも使えるようにする */
   var ocAssigned={};
   if(dat.ocData&&dat.ocData.staff) ocAssigned[dat.ocData.staff]=true;
-  var chips=document.querySelectorAll('.pchip');
+  /* HD勤務者チップ（.pchip.hd）は当日勤務者プールではなく情報表示なので対象外 */
+  var chips=document.querySelectorAll('.pchip:not(.hd)');
   var vis=0;
   for(var i=0;i<chips.length;i++){
     var nm=chips[i].getAttribute('data-name')||(chips[i].id.replace('chip-','').replace(/_/g,' '));
@@ -7289,7 +7399,10 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
 
   var opts = '<option value="">— 未割当 —</option>';
   for (var j=0; j<D.stf.length; j++)
-    opts += '<option value="'+D.stf[j]+'"'+(D.stf[j]===sv?' selected':'')+'>'+D.stf[j]+'</option>';
+    opts += '<option value="'+escH(D.stf[j])+'"'+(D.stf[j]===sv?' selected':'')+'>'+escH(D.stf[j])+'</option>';
+  /* 名簿外の名前（HD勤務者など）が割当済みなら専用optionを追加して表示できるようにする */
+  if (sv && D.stf.indexOf(sv) === -1)
+    opts += '<option value="'+escH(sv)+'" selected>'+escH(sv)+'（名簿外）</option>';
 
   /* ヘッダー（欠勤チェックを右端に配置） */
   var absentChk = '<label style="margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;flex-shrink:0" title="欠勤マーク">'
@@ -7568,14 +7681,24 @@ function buildDG(ds, dat, locked) {
         var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
       });
     }
-    /* 余剰エリアのD&D */
-    var surplusEl = document.getElementById('surplus-chips');
+    /* 余剰エリア＋HD勤務者パネルのD&D（安定要素 #surplus-wrap に委譲。
+       innerHTML 差し替え後も子チップのドラッグを拾える） */
+    var surplusEl = document.getElementById('surplus-wrap');
     if (surplusEl) {
       surplusEl.addEventListener('dragstart', function(e) {
         var chip=e.target.closest('[draggable]'); if(!chip) return;
         e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
-        e.dataTransfer.setData('from','surplus');
+        e.dataTransfer.setData('from', chip.getAttribute('data-from')||'');
+        e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
         e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
+      });
+      surplusEl.addEventListener('dragend', function(e) {
+        var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
+      });
+      /* HD勤務者チップのタップ割当（data-action="poolAssign"） */
+      surplusEl.addEventListener('click', function(e) {
+        var b=e.target.closest('[data-action="poolAssign"]'); if(!b) return;
+        poolAssign(b.getAttribute('data-ds')||ds, b.getAttribute('data-name'));
       });
     }
 
@@ -8524,20 +8647,22 @@ function buildOPS(ds,dat,locked) {
       +'<div class="ops-row"><span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-mw-note'+sfx+'" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.mw_note||'')+'</textarea></div>';
     g.appendChild(c2);
   }
-  function buildPsgCard(uid){
+  function buildPsgCard(uid, removalOnly){
     var c3=card('🌙 PSG（睡眠検査）');
     var sfx=uid?'-'+uid:'';
     var fusenChecked=!!(ops.psg_fusen);
-    /* 装着行（常に表示） */
-    var psgOnRow=document.createElement('div'); psgOnRow.className='ops-row';
-    psgOnRow.innerHTML=
-      '<span class="ops-lbl">装着</span>'
-      +'<textarea class="ops-txt" id="ops-psg-on'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_on||'')+'</textarea>'
-      +'<div class="psg-fusen-wrap">'
-      +'<input type="checkbox" class="psg-fusen-cb" id="ops-psg-fusen'+sfx+'"'+(fusenChecked?' checked':'')+(locked?' disabled':'')+'>'
-      +'<label class="psg-fusen-lbl" for="ops-psg-fusen'+sfx+'">付箋入力済</label>'
-      +'</div>';
-    c3.appendChild(psgOnRow);
+    /* 装着行：外し専用日（前日装着分の外しのみを表示する日）には不要なので非表示 */
+    if (!removalOnly) {
+      var psgOnRow=document.createElement('div'); psgOnRow.className='ops-row';
+      psgOnRow.innerHTML=
+        '<span class="ops-lbl">装着</span>'
+        +'<textarea class="ops-txt" id="ops-psg-on'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_on||'')+'</textarea>'
+        +'<div class="psg-fusen-wrap">'
+        +'<input type="checkbox" class="psg-fusen-cb" id="ops-psg-fusen'+sfx+'"'+(fusenChecked?' checked':'')+(locked?' disabled':'')+'>'
+        +'<label class="psg-fusen-lbl" for="ops-psg-fusen'+sfx+'">付箋入力済</label>'
+        +'</div>';
+      c3.appendChild(psgOnRow);
+    }
     /* 外し行（前日に PSG カードがある日だけ表示。psg_off は当日データに保存）
        psg_on テキストの有無だけでなく ops_cards に 'psg' があれば表示する */
     var prevDsPsg = getPrevDs(ds);
@@ -8583,7 +8708,7 @@ function buildOPS(ds,dat,locked) {
     (_prevDat.ops && _prevDat.ops.psg_on)
   );
   var _todayHasPsg = cardsToRender.indexOf('psg') !== -1;
-  if (_prevHasPsg && !_todayHasPsg) buildPsgCard();
+  if (_prevHasPsg && !_todayHasPsg) buildPsgCard(null, true); /* 外し専用日：装着欄なし */
 
   if(locked) return;
 
@@ -9093,6 +9218,7 @@ function linkStf(idx, uid, displayName) {
   if (ov) ov.remove();
   showNotifToast('🔗 紐付け完了', name + ' → ' + (displayName || uid));
   renderStfList();
+  if (document.getElementById('adminm-users')) renderAdminUsers();
 }
 
 function unlinkStf(idx) {
@@ -9102,6 +9228,25 @@ function unlinkStf(idx) {
   delete D.stfLinks[name];
   saveD();
   renderStfList();
+  if (document.getElementById('adminm-users')) renderAdminUsers();
+}
+
+/* リンク切れスタッフの修正：解除（未紐付けに戻す） */
+function clearBrokenLink(idx) {
+  if (!isAdmin) return;
+  var name = D.stf[idx];
+  if (!name) return;
+  if (!confirm('「' + name + '」の壊れた紐付けを解除して未紐付けに戻しますか？')) return;
+  if (D.stfLinks) delete D.stfLinks[name];
+  saveD();
+  if (document.getElementById('adminm-users')) renderAdminUsers();
+  renderStfList();
+  showNotifToast('✖ 紐付けを解除しました', name);
+}
+/* リンク切れスタッフの修正：正しいユーザーへ再紐付け（既存モーダルを再利用） */
+function fixBrokenLink(idx) {
+  if (!isAdmin) return;
+  showLinkStfModal(idx);
 }
 
 /* ===== CHECKLIST ===== */
