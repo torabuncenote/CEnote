@@ -3275,8 +3275,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06r';
+var APP_VERSION = '2026.06s';
 var APP_CHANGELOG = [
+  { ver:'2026.06s', date:'2026-06-12', title:'OC完了時管理者通知・メンション件数拡張', items:[
+    {t:'new', d:'🌙 OC対応完了チェック時に管理者全員へアプリ内通知・FCMプッシュ・メール（EmailJS設定済みの場合）を送信'},
+    {t:'fix', d:'📝 メモのメンション（@）候補リストの表示上限を8件→20件に拡張'}
+  ]},
   { ver:'2026.06r', date:'2026-06-10', title:'HD勤務者表示・PSG外し改善・リンク切れ修正', items:[
     {t:'new', d:'🩸 余剰人員枠の右に「HD勤務者」ボタンを追加。勤務表のHD（透析）日勤コード（M/A1/A2/A3/S/B1/B2/B）と準夜（準）を取り込み、当日のHD勤務者を日勤・準夜に分けて表示。CEと同様にドラッグ/タップで担当枠へ割当可能（要：対象月の勤務表を再取込）'},
     {t:'fix', d:'🌙 PSG外し専用日（前日装着分の外しのみの日）の業務カードから不要な「装着」欄を非表示に'},
@@ -6393,6 +6397,15 @@ function renderPage(ds) {
         if(ocEndTime&&!this.checked) ocEndTime.value='';
         if(ocNenkyu&&!this.checked) ocNenkyu.checked=false;
         notifyOcRule(ds);
+        if(this.checked){
+          var od=D.pages[ds].ocData;
+          var lines=[ds.replace(/-/g,'/')+'  OC対応完了'];
+          if(od.staff)     lines.push('担当：'+od.staff);
+          if(od.startTime) lines.push('開始：'+od.startTime);
+          if(od.endTime)   lines.push('終了：'+od.endTime);
+          if(od.note)      lines.push('備考：'+od.note);
+          sendAdminNotification('🌙 OC対応完了', lines.join('\n'));
+        }
       };
     }
     if(ocStartTime){ocStartTime.onchange=function(){D.pages[ds].ocData.startTime=this.value;saveD();};}
@@ -6453,7 +6466,7 @@ function renderPage(ds) {
         var matches = D.stf.filter(function(s){ return s.indexOf(query) >= 0; });
         if (!matches.length) { popup.style.display = 'none'; return; }
         popup.innerHTML = '';
-        matches.slice(0, 8).forEach(function(name) {
+        matches.slice(0, 20).forEach(function(name) {
           var item = document.createElement('div');
           item.className = 'memo-mention-item';
           item.textContent = '@' + name;
@@ -8976,6 +8989,30 @@ function sendNotification(targetName, title, body, type) {
     if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
     }
+  });
+}
+function sendAdminNotification(title, body) {
+  if (!FB_ON || !fbDB) return;
+  var cfg = D.emailjsCfg;
+  fbDB.ref('/admins').once('value', function(snap) {
+    var admins = snap.val() || {};
+    Object.keys(admins).forEach(function(uid) {
+      fbDB.ref('/notifications/' + uid).push({ type: 'oc', title: title, body: body, ts: Date.now(), read: false });
+      sendFCMPush(uid, title, body);
+      if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
+        fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
+          var email = s.val(); if (!email) return;
+          try {
+            emailjs.init(cfg.publicKey);
+            emailjs.send(cfg.serviceId, cfg.templateId, { to_email: email, to_name: '管理者', subject: title, message: body })
+              .then(function(res) { console.log('[OC通知] EmailJS送信成功:', res.status); })
+              .catch(function(err) { console.error('[OC通知] EmailJS送信失敗:', err); });
+          } catch(e) { console.error('[OC通知] EmailJS例外:', e); }
+        });
+      } else {
+        console.warn('[OC通知] EmailJS未設定');
+      }
+    });
   });
 }
 function startNotifListener() {
