@@ -886,9 +886,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
               <input type="checkbox" id="in-duty-checks"> チェック欄
             </label>
             <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
-              <input type="checkbox" id="in-duty-freerole"> 役割選択
+              <input type="checkbox" id="in-duty-freerole" onchange="document.getElementById('new-role-opts-wrap').style.display=this.checked?'':'none'"> 役割選択
             </label>
             <button onclick="addDutyMaster()">追加</button>
+          </div>
+          <div id="new-role-opts-wrap" style="display:none;margin-top:6px">
+            <input type="text" id="in-duty-role-opts" class="fi" placeholder="役割選択肢（カンマ区切り） 例: フリー,PSG解析,自由記述" style="font-size:12px">
+            <div style="font-size:10px;color:var(--txt3);margin-top:2px">空欄の場合はデフォルト（フリー・PSG解析・自由記述）を使用</div>
           </div>
         </div>
         <div>
@@ -1269,6 +1273,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   <div class="md" style="max-width:500px">
     <h3 id="edit-item-title">項目を編集</h3>
     <textarea id="edit-item-input" class="fi" style="min-height:100px;max-height:300px;resize:vertical;margin-bottom:8px" placeholder="編集内容を入力..."></textarea>
+    <div id="edit-role-opts-wrap" style="display:none;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:4px">🎯 役割選択肢（1行1項目）</div>
+      <textarea id="edit-role-opts-input" class="fi" style="min-height:80px;max-height:200px;resize:vertical;font-size:12px" placeholder="フリー&#10;PSG解析&#10;自由記述"></textarea>
+      <div style="font-size:10px;color:var(--txt3);margin-top:3px">1行に1つの選択肢を入力。空行は無視されます。</div>
+    </div>
     <div style="font-size:11px;color:var(--txt3);margin-bottom:8px">💡 Enter で保存、Shift+Enter で改行、Esc で閉じる</div>
     <div class="mdb">
       <button class="btn btn-g" onclick="closeEditModal()">キャンセル</button>
@@ -4884,7 +4893,14 @@ function confirmEditModal() {
   } else if (state.type === 'dutyMaster') {
     if(!can('dm'))return;
     if(!D.dutyCfgMaster||!D.dutyCfgMaster.length) D.dutyCfgMaster=getDutyMaster();
-    D.dutyCfgMaster[state.index].label=newValue; renderDutyMasterList(); saveD();
+    D.dutyCfgMaster[state.index].label=newValue;
+    var roleWrapC=document.getElementById('edit-role-opts-wrap');
+    var roleInpC=document.getElementById('edit-role-opts-input');
+    if(roleWrapC&&roleWrapC.style.display!=='none'&&roleInpC){
+      var newOpts=roleInpC.value.split('\n').map(function(s){return s.trim();}).filter(Boolean);
+      D.dutyCfgMaster[state.index].roleOpts=newOpts.length?newOpts:['フリー','PSG解析','自由記述'];
+    }
+    renderDutyMasterList(); saveD();
   } else if (state.type === 'schedPreset') {
     if(!can('dm'))return;
     getSchedPresets()[state.index].label=newValue; renderSchedPresetList(); saveD();
@@ -4896,6 +4912,7 @@ function confirmEditModal() {
 
 function closeEditModal() {
   document.getElementById('modal-edit-item').classList.add('hd');
+  var rw=document.getElementById('edit-role-opts-wrap'); if(rw) rw.style.display='none';
   _editModalState = {type: null, index: null, level: null, di: null, ci: null, ii: null, saveKey: null};
 }
 
@@ -5290,7 +5307,10 @@ function renderDutyMasterList() {
       var el = document.createElement('div'); el.className='ri';
       var tags = [];
       if (m.checks && m.checks.length) tags.push('チェック欄あり');
-      if (m.freeRole) tags.push('役割選択あり');
+      if (m.freeRole) {
+        var _ro=m.roleOpts&&m.roleOpts.length?m.roleOpts:['フリー','PSG解析','自由記述'];
+        tags.push('役割: '+_ro.join('・'));
+      }
       el.innerHTML = '<span class="rn" style="font-size:11px">'+m.icon+' '+m.label+(tags.length?' <span style="color:var(--txt3);font-size:10px">('+tags.join('・')+')</span>':'')+'</span>'
         + '<button class="re2" onclick="editDutyMaster('+idx+')">✏️</button>'
         + '<button class="rd2" onclick="rmDutyMaster('+idx+')">×</button>';
@@ -5304,17 +5324,26 @@ function addDutyMaster() {
   if (!name) { document.getElementById('in-duty-name').focus(); return; }
   var hasChecks = document.getElementById('in-duty-checks').checked;
   var hasFree   = document.getElementById('in-duty-freerole').checked;
+  var roleOptsRaw = (document.getElementById('in-duty-role-opts')||{}).value||'';
+  var roleOpts = hasFree
+    ? (roleOptsRaw.trim()
+        ? roleOptsRaw.split(',').map(function(s){return s.trim();}).filter(Boolean)
+        : ['フリー','PSG解析','自由記述'])
+    : [];
   if (!D.dutyCfgMaster) D.dutyCfgMaster = DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
   D.dutyCfgMaster.push({
     id:       'slot_' + Date.now(),
     icon:     icon,
     label:    name,
     checks:   hasChecks ? ['HDプライミング','PSG取り外し'] : [],
-    freeRole: hasFree
+    freeRole: hasFree,
+    roleOpts: roleOpts
   });
   document.getElementById('in-duty-name').value = '';
   document.getElementById('in-duty-checks').checked = false;
   document.getElementById('in-duty-freerole').checked = false;
+  var roWrap=document.getElementById('new-role-opts-wrap'); if(roWrap) roWrap.style.display='none';
+  var roInp=document.getElementById('in-duty-role-opts'); if(roInp) roInp.value='';
   renderDutyMasterList();
   saveD();
   document.getElementById('in-duty-name').focus();
@@ -5331,6 +5360,15 @@ function editDutyMaster(idx) {
   _editModalState={type:'dutyMaster',index:idx};
   document.getElementById('edit-item-title').textContent=m.icon+' 担当スロット名を編集';
   var inp=document.getElementById('edit-item-input'); inp.value=m.label; inp.style.minHeight='40px';
+  var roleWrap=document.getElementById('edit-role-opts-wrap');
+  var roleInp=document.getElementById('edit-role-opts-input');
+  if(m.freeRole && roleWrap && roleInp){
+    var opts=m.roleOpts&&m.roleOpts.length?m.roleOpts:['フリー','PSG解析','自由記述'];
+    roleInp.value=opts.join('\n');
+    roleWrap.style.display='';
+  } else if(roleWrap) {
+    roleWrap.style.display='none';
+  }
   document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
 }
 
@@ -7493,9 +7531,10 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
 
   /* フリー役割 */
   if (d.freeRole) {
+    var _roleOpts = (d.roleOpts && d.roleOpts.length) ? d.roleOpts : ['フリー','PSG解析','自由記述'];
     html += '<select class="ds2 set" id="role-'+d.id+'"'+(locked?' disabled':'')+' style="margin-bottom:5px;font-size:11px;color:var(--txt3)">';
-    ['フリー','PSG解析','自由記述'].forEach(function(r){
-      html += '<option value="'+r+'"'+(svRole===r?' selected':'')+'>'+r+'</option>';
+    _roleOpts.forEach(function(r){
+      html += '<option value="'+escH(r)+'"'+(svRole===r?' selected':'')+'>'+escH(r)+'</option>';
     });
     html += '</select>';
     html += '<input type="text" id="role-free-'+d.id+'" class="ds2" placeholder="役割を入力..." value="'+(svRole==='自由記述'&&svNote?svNote:'')+'"'+(locked?' disabled':'')+(svRole!=='自由記述'?' style="display:none;margin-bottom:5px"':' style="margin-bottom:5px"')+'>';
