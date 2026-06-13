@@ -4704,7 +4704,20 @@ function can(id) {
 function wdText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
 function dlyText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
 function dlyNotif(it){ return (it && typeof it === 'object' && it.notif) ? it.notif : null; }
-function isDlyWdOnly(it){ return !!(it && typeof it==='object' && it.wd_only); }
+/* skip_wd/skip_sat/skip_sun フラグ。旧 wd_only:true は skip_sat+skip_sun として扱う */
+function _getDlySkip(it,key){
+  if(!it||typeof it!=='object') return false;
+  if(it[key]) return true;
+  if(it.wd_only&&(key==='skip_sat'||key==='skip_sun')) return true;
+  return false;
+}
+function isDlyShownOnDate(it,ds){
+  var dow=new Date(ds).getDay();
+  if(dow===0&&_getDlySkip(it,'skip_sun')) return false;
+  if(dow===6&&_getDlySkip(it,'skip_sat')) return false;
+  if(dow>0&&dow<6&&_getDlySkip(it,'skip_wd')) return false;
+  return true;
+}
 function wdWeeks(it){
   /* 制限ありなら週番号配列を返す。毎週（制限なし）は null。0=最終週、1〜5=第N週 */
   if (it && typeof it === 'object' && Array.isArray(it.wk) && it.wk.length && it.wk.length < 6) return it.wk.slice();
@@ -4738,14 +4751,10 @@ function wdItemsForDate(ds){
 function getPct(ds) {
   if (!D.pages[ds]) return 0;
   var d = D.pages[ds];
-  var _gdow=new Date(ds).getDay(), _gWe=(_gdow===0||_gdow===6);
-  var dlyEff=D.dly.filter(function(it){ return !(isDlyWdOnly(it)&&_gWe); });
   var wtl=wdItemsForDate(ds);
-  /* checks インデックスは D.dly 全体を基準にしているため、
-     平日のみ項目をスキップしつつ元のインデックスで done を数える */
   var done=0, total=0;
   for(var i=0;i<D.dly.length;i++){
-    if(isDlyWdOnly(D.dly[i])&&_gWe) continue;
+    if(!isDlyShownOnDate(D.dly[i],ds)) continue;
     total++;
     if(d.checks&&d.checks[i]) done++;
   }
@@ -4978,7 +4987,19 @@ function renderDlyList() {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
     var el = document.createElement('div'); el.className = 'ri';
     el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '4px';
-    var wdOnlyBtn = ok ? '<button type="button" onclick="togDlyWdOnly('+i+')" style="font-size:10px;padding:2px 6px;border-radius:10px;cursor:pointer;border:1px solid;white-space:nowrap;'+(isDlyWdOnly(it)?'background:var(--or);color:#fff;border-color:var(--or)':'background:transparent;color:var(--txt3);border-color:var(--bdr)')+'">平日のみ</button>' : (isDlyWdOnly(it)?'<span style="font-size:10px;background:var(--or);color:#fff;border-radius:8px;padding:1px 6px">平日のみ</span>':'');
+    var _dayKeys=[['skip_wd','平日'],['skip_sat','土'],['skip_sun','日']];
+    var wdOnlyBtn = (function(){
+      var s='';
+      _dayKeys.forEach(function(pair){
+        var skipped=_getDlySkip(it,pair[0]);
+        if(ok){
+          s+='<button type="button" onclick="togDlyDay('+i+',\''+pair[0]+'\')" title="'+(skipped?pair[1]+'を非表示中':pair[1]+'を表示中')+'" style="font-size:10px;padding:2px 6px;border-radius:6px;cursor:pointer;border:1px solid;white-space:nowrap;'+(skipped?'background:var(--sur2);color:var(--txt3);border-color:var(--bdr);text-decoration:line-through':'background:var(--ac-bg);color:var(--ac);border-color:var(--ac);font-weight:700')+'">'+pair[1]+'</button>';
+        } else if(skipped){
+          s+='<span style="font-size:10px;color:var(--txt3);text-decoration:line-through">'+pair[1]+'</span>';
+        }
+      });
+      return s?'<span style="display:inline-flex;gap:3px;align-items:center">'+s+'</span>':'';
+    })();
     var btns = ok ? '<button class="re2" onclick="editDly('+i+')">✏️</button><button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
     var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
     var notifRow = '';
@@ -5019,15 +5040,14 @@ function togDlyNotif(i, enabled) {
   D.dly[i] = { t: text, notif: Object.assign({}, oldNotif, { enabled: enabled }) };
   saveD();
 }
-function togDlyWdOnly(i) {
+function togDlyDay(i,key){
   if(!can('dm'))return;
-  var it=D.dly[i], txt=dlyText(it), notif=dlyNotif(it);
-  if(isDlyWdOnly(it)){
-    D.dly[i]=notif?{t:txt,notif:notif}:txt;
-  } else {
-    var obj=(it&&typeof it==='object')?Object.assign({},it):{t:txt};
-    obj.wd_only=true; D.dly[i]=obj;
-  }
+  var it=D.dly[i];
+  var obj=(it&&typeof it==='object')?Object.assign({},it):{t:dlyText(it)};
+  /* 旧 wd_only を新フラグに昇格 */
+  if(obj.wd_only){obj.skip_sat=true;obj.skip_sun=true;delete obj.wd_only;}
+  var cur=!!obj[key]; obj[key]=!cur; if(!obj[key]) delete obj[key];
+  D.dly[i]=obj;
   renderDlyList(); saveD(); if(curDs)safeRenderPage();
 }
 
@@ -9414,9 +9434,8 @@ function fixBrokenLink(idx) {
 
 /* ===== CHECKLIST ===== */
 function buildCL(ds,dat,wtl,all,locked) {
-  var _cldow=new Date(ds).getDay(), _clWe=(_cldow===0||_cldow===6);
   for(var i=0;i<D.dly.length;i++){
-    if(isDlyWdOnly(D.dly[i])&&_clWe) continue;
+    if(!isDlyShownOnDate(D.dly[i],ds)) continue;
     document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked));
   }
   var we=document.getElementById('wcl');
@@ -9466,8 +9485,7 @@ function mkCk(ds,idx,task,dat,locked) {
 }
 function updProg(ds) {
   var pct=getPct(ds), dat=D.pages[ds];
-  var _udow=new Date(ds).getDay(),_uWe=(_udow===0||_udow===6);
-  var all=D.dly.filter(function(it){return !(isDlyWdOnly(it)&&_uWe);}).concat(wdItemsForDate(ds));
+  var all=D.dly.filter(function(it){return isDlyShownOnDate(it,ds);}).concat(wdItemsForDate(ds));
   var done=0; for(var i=0;i<all.length;i++){if(dat.checks&&dat.checks[i])done++;}
   var f=document.getElementById('pgf'), t=document.getElementById('pgt'), p=document.getElementById('pgp'), pr=document.getElementById('prp');
   if(f)f.style.width=pct+'%';
