@@ -314,6 +314,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .at td.sc{background:var(--sur2);font-weight:700;font-size:11px;text-align:left;border-right:2px solid var(--bdr2);white-space:nowrap;position:sticky;left:0;z-index:2}
 .at td.sc.hpc{border-left:4px solid var(--rd)}
 .at td.sc.dpc{border-left:4px solid var(--ac)}
+.at th.self-col{background:var(--ac-bg)!important;color:var(--ac);font-weight:900;box-shadow:inset 0 -2px 0 var(--ac)}
+.at td.self-col{background:rgba(49,130,206,.06)!important}
 .atr{cursor:pointer}
 .atr:hover td{background:#f0f4ff!important}
 .atr:hover td.sc{background:#e4eafc!important}
@@ -4298,6 +4300,8 @@ function renderOpsSummary() {
 
 /* ===== 公平性チェック（担当回数の偏り） ===== */
 var FAIR_GAP_WARN = 3; /* 最多-最少 がこの値以上で「偏りあり」警告 */
+/* 公平性集計でOPE担当+OPEサブ、カテ担当+カテサブを同一業務として合算するラベルマップ */
+var FAIR_MERGE = {'OPE担当':'🔪 OPE','OPEサブ':'🔪 OPE','カテ担当':'🫀 カテ','カテサブ':'🫀 カテ'};
 function renderFairness() {
   var el = document.getElementById('fair-body');
   if (!el) return;
@@ -4319,9 +4323,10 @@ function renderFairness() {
     cfg.forEach(function(slot){
       var name = pg.duties[slot.id];
       if (!name) return;
-      if (!labelSeen[slot.label]) { labelSeen[slot.label]=1; labelsOrder.push(slot.label); }
+      var fKey = FAIR_MERGE[slot.label] || slot.label;
+      if (!labelSeen[fKey]) { labelSeen[fKey]=1; labelsOrder.push(fKey); }
       if (!counts[name]) counts[name] = {_total:0};
-      counts[name][slot.label] = (counts[name][slot.label]||0)+1;
+      counts[name][fKey] = (counts[name][fKey]||0)+1;
       counts[name]._total++;
     });
   }
@@ -4699,6 +4704,7 @@ function can(id) {
 function wdText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
 function dlyText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
 function dlyNotif(it){ return (it && typeof it === 'object' && it.notif) ? it.notif : null; }
+function isDlyWdOnly(it){ return !!(it && typeof it==='object' && it.wd_only); }
 function wdWeeks(it){
   /* 制限ありなら週番号配列を返す。毎週（制限なし）は null。0=最終週、1〜5=第N週 */
   if (it && typeof it === 'object' && Array.isArray(it.wk) && it.wk.length && it.wk.length < 6) return it.wk.slice();
@@ -4732,11 +4738,22 @@ function wdItemsForDate(ds){
 function getPct(ds) {
   if (!D.pages[ds]) return 0;
   var d = D.pages[ds];
-  var all = D.dly.concat(wdItemsForDate(ds));
-  if (!all.length) return 0;
-  var done = 0;
-  for (var i = 0; i < all.length; i++) { if (d.checks && d.checks[i]) done++; }
-  return Math.round(done / all.length * 100);
+  var _gdow=new Date(ds).getDay(), _gWe=(_gdow===0||_gdow===6);
+  var dlyEff=D.dly.filter(function(it){ return !(isDlyWdOnly(it)&&_gWe); });
+  var wtl=wdItemsForDate(ds);
+  /* checks インデックスは D.dly 全体を基準にしているため、
+     平日のみ項目をスキップしつつ元のインデックスで done を数える */
+  var done=0, total=0;
+  for(var i=0;i<D.dly.length;i++){
+    if(isDlyWdOnly(D.dly[i])&&_gWe) continue;
+    total++;
+    if(d.checks&&d.checks[i]) done++;
+  }
+  for(var j=0;j<wtl.length;j++){
+    total++;
+    if(d.checks&&d.checks[D.dly.length+j]) done++;
+  }
+  return total===0?0:Math.round(done/total*100);
 }
 
 function renderCal() {
@@ -4961,8 +4978,9 @@ function renderDlyList() {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
     var el = document.createElement('div'); el.className = 'ri';
     el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '4px';
+    var wdOnlyBtn = ok ? '<button type="button" onclick="togDlyWdOnly('+i+')" style="font-size:10px;padding:2px 6px;border-radius:10px;cursor:pointer;border:1px solid;white-space:nowrap;'+(isDlyWdOnly(it)?'background:var(--or);color:#fff;border-color:var(--or)':'background:transparent;color:var(--txt3);border-color:var(--bdr)')+'">平日のみ</button>' : (isDlyWdOnly(it)?'<span style="font-size:10px;background:var(--or);color:#fff;border-radius:8px;padding:1px 6px">平日のみ</span>':'');
     var btns = ok ? '<button class="re2" onclick="editDly('+i+')">✏️</button><button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
-    var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + btns + '</div>';
+    var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
     var notifRow = '';
     if (ok) {
       var nEnabled = notif && notif.enabled;
@@ -5000,6 +5018,17 @@ function togDlyNotif(i, enabled) {
   var it = D.dly[i], text = dlyText(it), oldNotif = dlyNotif(it) || {};
   D.dly[i] = { t: text, notif: Object.assign({}, oldNotif, { enabled: enabled }) };
   saveD();
+}
+function togDlyWdOnly(i) {
+  if(!can('dm'))return;
+  var it=D.dly[i], txt=dlyText(it), notif=dlyNotif(it);
+  if(isDlyWdOnly(it)){
+    D.dly[i]=notif?{t:txt,notif:notif}:txt;
+  } else {
+    var obj=(it&&typeof it==='object')?Object.assign({},it):{t:txt};
+    obj.wd_only=true; D.dly[i]=obj;
+  }
+  renderDlyList(); saveD(); if(curDs)safeRenderPage();
 }
 
 /* ===== WEEKDAY MASTER ===== */
@@ -9385,7 +9414,11 @@ function fixBrokenLink(idx) {
 
 /* ===== CHECKLIST ===== */
 function buildCL(ds,dat,wtl,all,locked) {
-  for(var i=0;i<D.dly.length;i++) document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked));
+  var _cldow=new Date(ds).getDay(), _clWe=(_cldow===0||_cldow===6);
+  for(var i=0;i<D.dly.length;i++){
+    if(isDlyWdOnly(D.dly[i])&&_clWe) continue;
+    document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked));
+  }
   var we=document.getElementById('wcl');
   if(!wtl.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
   for(var j=0;j<wtl.length;j++) we.appendChild(mkCk(ds,D.dly.length+j,wtl[j],dat,locked));
@@ -9433,7 +9466,8 @@ function mkCk(ds,idx,task,dat,locked) {
 }
 function updProg(ds) {
   var pct=getPct(ds), dat=D.pages[ds];
-  var all=D.dly.concat(wdItemsForDate(ds));
+  var _udow=new Date(ds).getDay(),_uWe=(_udow===0||_udow===6);
+  var all=D.dly.filter(function(it){return !(isDlyWdOnly(it)&&_uWe);}).concat(wdItemsForDate(ds));
   var done=0; for(var i=0;i<all.length;i++){if(dat.checks&&dat.checks[i])done++;}
   var f=document.getElementById('pgf'), t=document.getElementById('pgt'), p=document.getElementById('pgp'), pr=document.getElementById('prp');
   if(f)f.style.width=pct+'%';
@@ -9453,8 +9487,9 @@ function renderAT() {
   for(var d=1;d<=days;d++){var ds=asY+'-'+pad(asM+1)+'-'+pad(d);if(D.pages[ds])adates.push(ds);}
   if(!adates.length){wrap.innerHTML='<div class="ndm">📋 この月の連絡表がありません<br><br><button class="btn btn-p btn-sm" onclick="openGM()">📅 1ヶ月分生成する</button></div>';return;}
   var allS=D.stf.slice();
+  var selfIdx=(currentUser&&currentUser.uid!=='preview')?allS.indexOf(currentUser.displayName):-1;
   var html='<table class="at"><thead><tr><th class="sh">日付</th>';
-  for(var si=0;si<allS.length;si++) html+='<th style="min-width:48px;font-size:11px;white-space:nowrap">'+allS[si]+'</th>';
+  for(var si=0;si<allS.length;si++) html+='<th'+(si===selfIdx?' class="self-col"':'')+' style="min-width:48px;font-size:11px;white-space:nowrap">'+allS[si]+'</th>';
   html+='<th style="min-width:48px;font-size:11px">余剰</th>';
   html+='</tr></thead><tbody>';
   for(var di=0;di<adates.length;di++){
@@ -9490,7 +9525,7 @@ function renderAT() {
       if(dat&&dat.ocData&&dat.ocData.staff===name){
         chips.push('<span class="dch" style="background:#fff7ed;color:#b45309;border:1px solid #fcd34d;padding:1px 5px;border-radius:8px;font-size:10px">OC</span>');
       }
-      html+='<td>'+(chips.length?chips.join(' '):'<span class="dc-n">—</span>')+'</td>';
+      html+='<td'+(si===selfIdx?' class="self-col"':'')+' >'+(chips.length?chips.join(' '):'<span class="dc-n">—</span>')+'</td>';
     }
     /* 余剰人員列 */
     var surNames=(dat&&dat.surplus)||[];
@@ -9501,6 +9536,12 @@ function renderAT() {
   wrap.innerHTML=html;
   var rows=wrap.querySelectorAll('.atr');
   for(var i=0;i<rows.length;i++){(function(row){var ds=row.getAttribute('data-ds');row.onclick=function(){openFromAT(ds);};})(rows[i]);}
+  /* 自己列を中央にスクロール */
+  if(selfIdx>=0){requestAnimationFrame(function(){
+    var atoEl=document.querySelector('.ato');
+    var selfTh=atoEl&&atoEl.querySelector('th.self-col');
+    if(selfTh&&atoEl) atoEl.scrollLeft=selfTh.offsetLeft-atoEl.clientWidth/2+selfTh.offsetWidth/2;
+  });}
 }
 function openFromAT(ds){swTab('cal');var pt=ds.split('-');calY=parseInt(pt[0]);calM=parseInt(pt[1])-1;openPage(ds);}
 function printAt(){
