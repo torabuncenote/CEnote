@@ -139,6 +139,8 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .pv-d{background:var(--ac-bg);color:var(--ac)}
 .pv-w{background:var(--or-bg);color:var(--or)}
 .pv-p{background:var(--gr-bg);color:var(--gr)}
+.prp-jump{cursor:pointer;text-decoration:underline dotted}
+.prp-jump:hover{opacity:.75}
 .st{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;margin:22px 0 9px;display:flex;align-items:center;gap:7px}
 .slb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
 hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
@@ -252,8 +254,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .mo{width:100%;min-height:90px;font-size:13px;color:var(--txt);background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;resize:vertical;outline:none;font-family:var(--fn);line-height:1.8;box-shadow:var(--sh)}
 .mo:focus{border-color:var(--ac)}
 .mo::placeholder{color:var(--txt3)}
-.pgw{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 16px;margin-top:18px;display:flex;align-items:center;gap:14px;box-shadow:var(--sh);cursor:pointer}
-.pgw:hover .pgf{filter:brightness(1.1)}
+.pgw{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 16px;margin-top:18px;display:flex;align-items:center;gap:14px;box-shadow:var(--sh)}
 .pgi{flex:1}
 .pgt{font-size:11px;color:var(--txt3);margin-bottom:4px;font-family:var(--mo)}
 .pgtr{height:5px;background:var(--bdr);border-radius:10px;overflow:hidden}
@@ -261,7 +262,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pgp{font-size:17px;font-weight:900;color:var(--ac);font-family:var(--mo);min-width:44px;text-align:right}
 .pgp.dn{color:var(--gr)}
 .ops-item-wrap+.ops-item-wrap{border-top:1px solid var(--bdr);margin-top:8px;padding-top:8px}
-#scroll-top-btn{position:fixed;right:20px;bottom:80px;z-index:400;width:40px;height:40px;border-radius:50%;background:var(--ac);color:#fff;border:none;cursor:pointer;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;transition:opacity .2s}
+#scroll-top-btn{position:fixed;right:20px;bottom:80px;z-index:400;width:44px;height:36px;border-radius:8px;background:#fdfbf0;color:var(--txt2);border:1.5px solid var(--bdr);cursor:pointer;font-size:12px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);display:none;align-items:center;justify-content:center;transition:opacity .2s}
 #scroll-top-btn.show{display:flex}
 .btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:7px 14px;border-radius:var(--rs);border:none;cursor:pointer;transition:all .15s;font-family:var(--fn)}
 .btn-p{background:var(--ac);color:#fff}.btn-p:hover{background:#1744b8}
@@ -1193,7 +1194,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   </div><!-- /sb -->
 
   <!-- スクロールトップボタン -->
-  <button id="scroll-top-btn" onclick="scrollMainTop()" title="ページトップへ">▲</button>
+  <button id="scroll-top-btn" onclick="scrollMainTop()" title="ページトップへ">TOP</button>
 
   <!-- メイン -->
   <div class="main" id="main">
@@ -1588,9 +1589,9 @@ function init() {
     mainEl.addEventListener('scroll', function() {
       btn.classList.toggle('show', mainEl.scrollTop > 250);
     });
-    /* 進捗バークリック → チェックリストへジャンプ */
+    /* ヘッダー進捗ボタンクリック → チェックリストへジャンプ */
     mainEl.addEventListener('click', function(e) {
-      if (e.target.closest('.pgw')) {
+      if (e.target.closest('.prp-jump')) {
         var cl = mainEl.querySelector('.clg');
         if (cl) cl.scrollIntoView({behavior:'smooth'});
       }
@@ -3304,8 +3305,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06t';
+var APP_VERSION = '2026.06u';
 var APP_CHANGELOG = [
+  { ver:'2026.06u', date:'2026-06-13', title:'PSG連携・進捗ジャンプ・TOPボタン改善', items:[
+    {t:'fix', d:'🌙 PSG装着欄に入力した内容が翌日の外し欄に自動反映されるよう修正（未記入時のみ）'},
+    {t:'fix', d:'📋 ヘッダーの進捗（✅ X / Y 完了）をタップするとチェックリストへジャンプ'},
+    {t:'fix', d:'📱 スクロールトップボタンを「TOP」文字・クリーム背景に変更'},
+    {t:'fix', d:'📝 申し送り欄に「@でメンション可能」の説明を追加'}
+  ]},
   { ver:'2026.06t', date:'2026-06-13', title:'スマホUI改善・OPS横並び・スクロールトップ', items:[
     {t:'new', d:'📋 進捗バー（緑）をタップするとチェックリストセクションへスムーズスクロール'},
     {t:'new', d:'📱 ページを下にスクロールすると右下に「▲」ボタンが出現し、タップでトップへ戻れる'},
@@ -6201,7 +6208,7 @@ function renderPage(ds) {
   h+='<div class="pp">';
   h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
-  h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p" id="prp">'+done+' / '+all.length+' 完了</span></div>';
+  h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+all.length+' 完了</span></div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
@@ -6338,7 +6345,7 @@ function renderPage(ds) {
   if(!mlk){
     h+='<div class="memo-input-area">';
     /* 注意書き（常時表示） */
-    h+='<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。</div>';
+    h+='<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">💡 <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
     /* 患者情報検知警告エリア */
     h+='<div id="memo-phi-warn" class="memo-phi-warn" style="display:none"></div>';
     h+='<div class="memo-media-preview" id="memo-media-preview"></div>';
@@ -8725,7 +8732,8 @@ function buildOPS(ds,dat,locked) {
     );
     if (prevHasPsgCard) {
       var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
-      psgOffRow.innerHTML='<span class="ops-lbl">外し<br><span style="font-size:10px;color:var(--txt3);white-space:nowrap">（前日装着分）</span></span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_off||'')+'</textarea>';
+      var psgOffDefault = ops.psg_off || (prevDatPsg && prevDatPsg.ops && prevDatPsg.ops.psg_on) || '';
+      psgOffRow.innerHTML='<span class="ops-lbl">外し<br><span style="font-size:10px;color:var(--txt3);white-space:nowrap">（前日装着分）</span></span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(psgOffDefault)+'</textarea>';
       c3.appendChild(psgOffRow);
     }
     var psgRestRow=document.createElement('div'); psgRestRow.className='ops-row';
