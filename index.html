@@ -162,6 +162,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
 .pchip.sp{background:var(--bg2);color:var(--txt2);border:1.5px solid var(--bdr2)}
+.ss-zones-wrap{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)}
 .ss-zone{border:2px dashed var(--bdr2);border-radius:8px;padding:5px 8px;min-height:36px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start;width:100%;box-sizing:border-box;transition:border-color .15s,background .15s;margin-bottom:4px}
 .ss-zone.drag-over{border-color:var(--ac)!important;background:var(--ac-bg)}
 .ss-zone-lbl{font-size:10px;font-weight:700;width:100%;padding-bottom:2px}
@@ -4026,22 +4027,22 @@ function renderSurplusArea(ds, dat, locked) {
   html += '<button type="button" class="hd-toggle-btn'+ (_hdPanelOpen?' active':'')+'" id="hd-toggle" onclick="toggleHDPanel()">🩸 HD勤務者 ('+hd.length+')</button>';
   html += '</div>';
 
+  /* 余剰人員チップ */
   html += '<div id="surplus-chips" class="surplus-chips"'+(dlk?'':' ondragover="event.preventDefault()" ondrop="dropToSurplus(event,\''+ds+'\')"')+'>';
   for (var i=0; i<surplus.length; i++) {
-    html += '<div class="pool-chip" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(surplus[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
+    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(surplus[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
     html += escH(surplus[i]);
-    if (!dlk) html += '<button class="chip-rm" onclick="removeFromSurplus(\''+ds+'\',\''+escH(surplus[i])+'\')">×</button>';
+    if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escH(surplus[i])+'\')">×</button>';
     html += '</div>';
   }
   if (!surplus.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   html += '</div>';
 
-  /* HD勤務者パネル（折りたたみ） */
-  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+';flex-direction:column">';
-  /* ステータス分類ゾーン：CE余剰人員またはHD勤務者をドラッグして分類する */
+  /* ステータス分類ゾーン（常時表示）：余剰人員またはHD勤務者をここにドロップ */
   var ssData = dat.surplusStatus || {};
   var hdStatusData = dat.hdStatus || {};
   var hdAssigned = Object.keys(hdStatusData);
+  html += '<div class="ss-zones-wrap">';
   for (var zi=0; zi<SS_ZONES.length; zi++) {
     var zone = SS_ZONES[zi];
     var zWorkers = Object.keys(ssData).filter(function(n){ return ssData[n]===zone.key; });
@@ -4053,7 +4054,7 @@ function renderSurplusArea(ds, dat, locked) {
     for (var wi=0; wi<zWorkers.length; wi++) {
       html += '<div class="pchip" style="background:'+zone.bg+';color:'+zone.color+';border:1.5px solid '+zone.border+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(zWorkers[wi])+'" data-from="status" data-ds="'+ds+'" title="ドラッグして担当枠へ">'
         + escH(zWorkers[wi]);
-      if(!dlk) html += '<button class="chip-rm" onclick="removeFromStatus(\''+ds+'\',\''+escH(zWorkers[wi])+'\')">×</button>';
+      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromStatus(\''+ds+'\',\''+escH(zWorkers[wi])+'\')">×</button>';
       html += '</div>';
     }
     for (var hi=0; hi<zHdWorkers.length; hi++) {
@@ -4062,17 +4063,19 @@ function renderSurplusArea(ds, dat, locked) {
       var isNt = hdInf && hdInf.night;
       html += '<div class="pchip hd'+(isNt?' night':'')+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdN)+'" data-from="hd" data-ds="'+ds+'" title="ドラッグして移動">'+escH(hdN);
       if(hdInf) html += '<span class="cs">'+escH(isNt?'準':hdInf.shift)+'</span>';
-      if(!dlk) html += '<button class="chip-rm" onclick="removeFromHdStatus(\''+ds+'\',\''+escH(hdN)+'\')">×</button>';
+      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromHdStatus(\''+ds+'\',\''+escH(hdN)+'\')">×</button>';
       html += '</div>';
     }
-    if(!hasAny) html += '<span style="font-size:10px;color:var(--txt3)">余剰人員またはHD勤務者をドロップ</span>';
+    if(!hasAny) html += '<span style="font-size:10px;color:var(--txt3)">ここにドロップ</span>';
     html += '</div>';
   }
-  /* HD勤務者ソースリスト（未分類のみ） */
+  html += '</div>';
+
+  /* HD勤務者パネル（折りたたみ）：ソースリストのみ */
   var hdDayFree   = hdDay.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
   var hdNightFree = hdNight.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
+  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+';flex-direction:column">';
   if (!hd.length) {
-    html += '<div class="pool-sec" style="width:100%">HD勤務者</div>';
     html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
   } else {
     if (hdDay.length) {
@@ -6398,6 +6401,8 @@ function openPage(ds) {
       if(sb) sb.classList.add('hm');
     }
   }
+  /* 業務件数ヘッダーを常に最新化（renderPage skip時も含む） */
+  if (D.pages[ds]) updateOpsHeader(ds);
 }
 
 function opsHeaderChips(opeN,cathN,mwN,psgN){
