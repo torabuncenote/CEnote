@@ -162,6 +162,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
 .pchip.sp{background:var(--bg2);color:var(--txt2);border:1.5px solid var(--bdr2)}
+.ss-zone{border:2px dashed var(--bdr2);border-radius:8px;padding:5px 8px;min-height:36px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start;width:100%;box-sizing:border-box;transition:border-color .15s,background .15s;margin-bottom:4px}
+.ss-zone.drag-over{border-color:var(--ac)!important;background:var(--ac-bg)}
+.ss-zone-lbl{font-size:10px;font-weight:700;width:100%;padding-bottom:2px}
 .pool-hd{font-size:11px;font-weight:700;color:var(--oc);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
 .pool-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:28px}
 .pool-sec{font-size:10px;font-weight:700;color:var(--txt3);width:100%;margin-top:6px;margin-bottom:2px}
@@ -4033,13 +4036,26 @@ function renderSurplusArea(ds, dat, locked) {
   if (!surplus.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   html += '</div>';
 
-  /* HD勤務者パネル（折りたたみ）。チップはCEと同様ドラッグ/タップで担当枠へ割当可能 */
-  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+'">';
-  /* 固定スロット：メンテ・休み・その他（常に表示） */
-  var spSlots = ['🔧 メンテ','🏖️ 休み','📝 その他'];
-  html += '<div class="pool-sec" style="width:100%">枠</div>';
-  for (var si=0; si<spSlots.length; si++)
-    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(spSlots[si])+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(spSlots[si])+'</div>';
+  /* HD勤務者パネル（折りたたみ） */
+  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+';flex-direction:column">';
+  /* ステータス分類ゾーン：CE余剰人員をドラッグして分類する */
+  var ssData = dat.surplusStatus || {};
+  for (var zi=0; zi<SS_ZONES.length; zi++) {
+    var zone = SS_ZONES[zi];
+    var zWorkers = Object.keys(ssData).filter(function(n){ return ssData[n]===zone.key; });
+    html += '<div class="ss-zone" data-zone-key="'+zone.key+'" style="border-color:'+zone.border+';background:'+(zWorkers.length?zone.bg:'')+'"'
+      + (dlk?'':' ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="dropToStatusZone(event,\''+ds+'\',\''+zone.key+'\')"')+'>';
+    html += '<div class="ss-zone-lbl" style="color:'+zone.color+'">'+zone.icon+' '+zone.label+'</div>';
+    for (var wi=0; wi<zWorkers.length; wi++) {
+      html += '<div class="pchip" style="background:'+zone.bg+';color:'+zone.color+';border:1.5px solid '+zone.border+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(zWorkers[wi])+'" data-from="status" data-ds="'+ds+'" title="ドラッグして担当枠へ">'
+        + escH(zWorkers[wi]);
+      if(!dlk) html += '<button class="chip-rm" onclick="removeFromStatus(\''+ds+'\',\''+escH(zWorkers[wi])+'\')">×</button>';
+      html += '</div>';
+    }
+    if(!zWorkers.length) html += '<span style="font-size:10px;color:var(--txt3)">ドラッグして追加</span>';
+    html += '</div>';
+  }
+  /* HD勤務者（実際のHDシフト勤務者） */
   if (!hd.length) {
     html += '<div class="pool-sec" style="width:100%">HD勤務者</div>';
     html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
@@ -4060,6 +4076,36 @@ function renderSurplusArea(ds, dat, locked) {
   wrap.innerHTML = html;
 }
 
+var SS_ZONES=[
+  {key:'hd',   icon:'🔄',label:'HDシフトチェンジ',border:'var(--pu)',  bg:'var(--pu-bg)',  color:'var(--pu)'},
+  {key:'maint',icon:'🔧',label:'メンテ',           border:'var(--or)',  bg:'var(--or-bg)',  color:'var(--or)'},
+  {key:'off',  icon:'🏖️',label:'休み',             border:'var(--gr)',  bg:'var(--gr-bg,#f0fff4)',color:'var(--gr)'},
+  {key:'other',icon:'📝',label:'その他',           border:'var(--bdr2)',bg:'var(--bg2)',     color:'var(--txt2)'}
+];
+function assignToStatus(ds,name,fromSurplus,status){
+  if(!can('duty'))return;
+  if(!D.pages[ds])return;
+  if(fromSurplus){
+    var sur=D.pages[ds].surplus||[];
+    var si=sur.indexOf(name); if(si!==-1){sur.splice(si,1);D.pages[ds].surplus=sur;}
+  }
+  if(!D.pages[ds].surplusStatus) D.pages[ds].surplusStatus={};
+  D.pages[ds].surplusStatus[name]=status;
+  saveD(); refreshPool(ds); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+}
+function removeFromStatus(ds,name){
+  if(!can('duty')||!D.pages[ds])return;
+  if(D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
+  saveD(); refreshPool(ds); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+}
+function dropToStatusZone(e,ds,status){
+  e.preventDefault();
+  var name=e.dataTransfer.getData('text/plain');
+  var from=e.dataTransfer.getData('from');
+  if(!name)return;
+  /* ステータス間移動: 元のステータスを上書き */
+  assignToStatus(ds,name,from==='surplus',status);
+}
 function toggleHDPanel(){
   var p=document.getElementById('hd-worker-panel'), b=document.getElementById('hd-toggle');
   if(!p) return;
@@ -4076,9 +4122,13 @@ function dropToSurplus(e, ds) {
   if (D.pages[ds].surplus.indexOf(name) !== -1) return;
   D.pages[ds].surplus.push(name);
   /* 担当枠から来た場合は担当をクリア */
-  if (from !== 'surplus') {
+  if (from !== 'surplus' && from !== 'status') {
     var duties = D.pages[ds].duties || {};
     for (var k in duties) { if (duties[k] === name) duties[k] = ''; }
+  }
+  /* ステータスゾーンから来た場合はステータスを解除 */
+  if (from === 'status') {
+    if (D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
   }
   saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], !can('duty'));
 }
@@ -6711,6 +6761,8 @@ function refreshPool(ds) {
   if(dat.surplus){for(var si2=0;si2<dat.surplus.length;si2++) assigned[dat.surplus[si2]]=true;}
   /* extra_freeの担当も考慮 */
   if(dat.extra_free){for(var ef=0;ef<dat.extra_free.length;ef++){if(dat.extra_free[ef].name) assigned[dat.extra_free[ef].name]=true;}}
+  /* surplusStatusに分類された人員もプールから隠す */
+  if(dat.surplusStatus){for(var sk in dat.surplusStatus){if(dat.surplusStatus[sk]) assigned[sk]=true;}}
   /* OC担当はOCチップのみ隠す。CE兼任者はCEカードを当日勤務者一覧に残し、CEの割り振りにも使えるようにする */
   var ocAssigned={};
   if(dat.ocData&&dat.ocData.staff) ocAssigned[dat.ocData.staff]=true;
@@ -7979,6 +8031,10 @@ function buildDG(ds, dat, locked) {
           if (el && el.closest('#surplus-wrap')) {
             if (surWrap) surWrap.classList.add('drag-over');
           }
+          /* ステータスゾーンのハイライト */
+          var allZones = document.querySelectorAll('.ss-zone');
+          for(var zi2=0; zi2<allZones.length; zi2++) allZones[zi2].classList.remove('drag-over');
+          if (el) { var ssz = el.closest('.ss-zone'); if(ssz) ssz.classList.add('drag-over'); }
         }
       }
 
@@ -8001,6 +8057,15 @@ function buildDG(ds, dat, locked) {
 
         if (!el) { _dragName=''; return; }
 
+        /* ステータスゾーンへのドロップ */
+        var ssZone = el.closest('.ss-zone[data-zone-key]');
+        if (ssZone) {
+          var zk = ssZone.getAttribute('data-zone-key');
+          ssZone.classList.remove('drag-over');
+          assignToStatus(_dragDs, _dragName, _dragFrom === 'surplus', zk);
+          _dragName = ''; return;
+        }
+
         /* 担当カードへのドロップ */
         var card = el.closest('.dc[data-duty-id]');
         if (card) {
@@ -8009,6 +8074,9 @@ function buildDG(ds, dat, locked) {
             var sur = D.pages[ds].surplus || [];
             var si = sur.indexOf(_dragName);
             if (si !== -1) { sur.splice(si,1); D.pages[ds].surplus = sur; }
+          }
+          if (_dragFrom === 'status') {
+            if (D.pages[_dragDs].surplusStatus) delete D.pages[_dragDs].surplusStatus[_dragName];
           }
           var sel = document.getElementById('sel-' + did);
           if (sel) {
@@ -8072,6 +8140,10 @@ function buildDG(ds, dat, locked) {
           var sur=D.pages[ds].surplus||[];
           var si=sur.indexOf(name);
           if(si!==-1){sur.splice(si,1); D.pages[ds].surplus=sur;}
+        }
+        /* ステータスゾーンから来た場合はステータスを解除 */
+        if(from==='status'){
+          if(D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
         }
         var sel=document.getElementById('sel-'+did);
         if(sel){
