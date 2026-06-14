@@ -160,6 +160,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .hd-panel{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
+.pchip.sp{background:var(--bg2);color:var(--txt2);border:1.5px solid var(--bdr2)}
 .pool-hd{font-size:11px;font-weight:700;color:var(--oc);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
 .pool-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:28px}
 .pool-sec{font-size:10px;font-weight:700;color:var(--txt3);width:100%;margin-top:6px;margin-bottom:2px}
@@ -4030,16 +4031,22 @@ function renderSurplusArea(ds, dat, locked) {
 
   /* HD勤務者パネル（折りたたみ）。チップはCEと同様ドラッグ/タップで担当枠へ割当可能 */
   html += '<div id="hd-worker-panel" class="hd-panel" style="display:none">';
+  /* 固定スロット：メンテ・休み・その他（常に表示） */
+  var spSlots = ['🔧 メンテ','🏖️ 休み','📝 その他'];
+  html += '<div class="pool-sec" style="width:100%">枠</div>';
+  for (var si=0; si<spSlots.length; si++)
+    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(spSlots[si])+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(spSlots[si])+'</div>';
   if (!hd.length) {
-    html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">本日のHD勤務者データがありません（勤務表の再取込が必要な場合があります）。</div>';
+    html += '<div class="pool-sec" style="width:100%">HD勤務者</div>';
+    html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
   } else {
     if (hdDay.length) {
-      html += '<div class="pool-sec">🔵 日勤</div>';
+      html += '<div class="pool-sec" style="width:100%">🔵 日勤</div>';
       for (var j=0; j<hdDay.length; j++)
         html += '<div class="pchip hd" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdDay[j].name)+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(hdDay[j].name)+'<span class="cs">'+escH(hdDay[j].shift)+'</span></div>';
     }
     if (hdNight.length) {
-      html += '<div class="pool-sec">🌙 準夜</div>';
+      html += '<div class="pool-sec" style="width:100%">🌙 準夜</div>';
       for (var k=0; k<hdNight.length; k++)
         html += '<div class="pchip hd night" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdNight[k].name)+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(hdNight[k].name)+'<span class="cs">準</span></div>';
     }
