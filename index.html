@@ -86,6 +86,8 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .cd.sel{background:var(--ac-bg);outline:2px solid var(--ac)}
 .cd.hp::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:var(--rd);transition:background .3s}
 .cd.hp.dp::after{background:var(--ac)}
+.cd.hp.ap::after{background:var(--gr)}
+.cd.hp.ap.dp::after{background:var(--ac)}
 .cd.sun .dnp{color:var(--rd)}.cd.sat .dnp{color:var(--ac)}
 .dnp{font-size:12px}
 .sp{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;overscroll-behavior-y:contain}
@@ -4782,7 +4784,9 @@ function renderCal() {
     var ds = calY + '-' + pad(calM+1) + '-' + pad(d);
     var w  = new Date(calY, calM, d).getDay();
     var cls = 'cd' + (w===0?' sun':w===6?' sat':'') + (ds===today?' tod':'') +
-              (D.pages[ds] ? ' hp' : '') + (D.pages[ds] && getPct(ds)===100 ? ' dp' : '') +
+              (D.pages[ds] ? ' hp' : '') +
+              (D.pages[ds] && D.pages[ds].autoAssigned ? ' ap' : '') +
+              (D.pages[ds] && getPct(ds)===100 ? ' dp' : '') +
               (curDs===ds ? ' sel' : '');
     var e = document.createElement('div'); e.className = cls;
     e.innerHTML = ds===today ? '<span class="dn">'+d+'</span>' : '<span class="dnp">'+d+'</span>';
@@ -7620,6 +7624,7 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         if(!D.pages[ds].duties) D.pages[ds].duties={};
         var _old=D.pages[ds].duties[did];
         D.pages[ds].duties[did]=this.value;
+        D.pages[ds].autoAssigned=false;
         maybeLateToast(D.pages[ds],did,this.value,_oldDuty);
         saveD(); refreshPool(ds);
         maybeLateToast(D.pages[ds], did, this.value, _old);
@@ -9505,7 +9510,12 @@ function renderAT() {
   for(var d=1;d<=days;d++){var ds=asY+'-'+pad(asM+1)+'-'+pad(d);if(D.pages[ds])adates.push(ds);}
   if(!adates.length){wrap.innerHTML='<div class="ndm">📋 この月の連絡表がありません<br><br><button class="btn btn-p btn-sm" onclick="openGM()">📅 1ヶ月分生成する</button></div>';return;}
   var allS=D.stf.slice();
-  var selfIdx=(currentUser&&currentUser.uid!=='preview')?allS.indexOf(currentUser.displayName):-1;
+  var selfName=null;
+  if(currentUser&&currentUser.uid!=='preview'){
+    if(allS.indexOf(currentUser.displayName)>=0){selfName=currentUser.displayName;}
+    else if(D.stfLinks){for(var _k in D.stfLinks){if(D.stfLinks[_k]===currentUser.uid){selfName=_k;break;}}}
+  }
+  var selfIdx=selfName!==null?allS.indexOf(selfName):-1;
   var html='<table class="at"><thead><tr><th class="sh">日付</th>';
   for(var si=0;si<allS.length;si++) html+='<th'+(si===selfIdx?' class="self-col"':'')+' style="min-width:48px;font-size:11px;white-space:nowrap">'+allS[si]+'</th>';
   html+='<th style="min-width:48px;font-size:11px">余剰</th>';
@@ -10634,7 +10644,7 @@ function doApplyMonthAutoAssign(allProposals) {
     }
     if (!dat.phsNums) dat.phsNums = {};
     day.slots.forEach(function(p){
-      dat.duties[p.slot.id] = p.name; total++;
+      dat.duties[p.slot.id] = p.name; total++; dat.autoAssigned = true;
       /* 対応するスロットにPHS内線番号を自動セット（未設定の場合のみ） */
       if (SLOT_PHS_MAP[p.slot.id] && !dat.phsNums[p.slot.id]) dat.phsNums[p.slot.id] = SLOT_PHS_MAP[p.slot.id];
     });
