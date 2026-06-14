@@ -6346,10 +6346,26 @@ function renderPage(ds) {
   }
   h+='<button data-ds="'+ds+'" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
   h+='</div></div>';
+  /* 業務件数集計 */
+  var _ops=dat.ops||{};
+  var _opeN=0,_cathN=0,_mwN=0,_psgN=0;
+  if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(it.sel||it.txt)_opeN++;});
+  if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(it.sel||it.txt)_cathN++;});
+  if(_ops.mw_n) _mwN=parseInt(_ops.mw_n)||0;
+  if(_ops.psg_on) _psgN=1;
+  var _hasOps=_opeN||_cathN||_mwN||_psgN;
   h+='<div class="pp">';
   h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
   h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+all.length+' 完了</span></div>';
+  if(_hasOps){
+    var _opsChips='';
+    if(_opeN)  _opsChips+='<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px">🔪 オペ '+_opeN+'件</span> ';
+    if(_cathN) _opsChips+='<span style="background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🫀 カテ '+_cathN+'件</span> ';
+    if(_mwN)   _opsChips+='<span style="background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px">🚶 6MW '+_mwN+'件</span> ';
+    if(_psgN)  _opsChips+='<span style="background:var(--or-bg);color:var(--or);border:1px solid var(--or);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG 1件</span> ';
+    h+='<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+_opsChips+'</span></div>';
+  }
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
