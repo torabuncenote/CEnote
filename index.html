@@ -88,6 +88,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .cd.hp.dp::after{background:var(--ac)}
 .cd.hp.ap::after{background:var(--gr)}
 .cd.hp.ap.dp::after{background:var(--ac)}
+.cd.ev::before{content:'';position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:var(--gd)}
 .cd.sun .dnp{color:var(--rd)}.cd.sat .dnp{color:var(--ac)}
 .dnp{font-size:12px}
 .sp{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;overscroll-behavior-y:contain}
@@ -796,7 +797,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <span>🔴 未完了</span>
         <span>🔵 完了</span>
         <span>🟢 自動割り当て済み（未変更）</span>
+        <span>🟡 予定あり</span>
       </div>
+      <div id="cal-evts-list" style="overflow-y:auto;max-height:200px;font-size:12px"></div>
       <div style="flex:1"></div>
       <div class="sbf">
         <p>💡 月初に「1ヶ月生成」で一括作成できます</p>
@@ -4797,18 +4800,47 @@ function renderCal() {
   var days  = new Date(calY, calM+1, 0).getDate();
   var today = toDS(new Date());
   for (var i = 0; i < first; i++) { var e = document.createElement('div'); e.className = 'cd emp'; g.appendChild(e); }
+  var ym = calY + '-' + pad(calM+1);
+  var evtsM = (D.evts && D.evts[ym]) || {};
+  var evtRows = []; /* 月のイベント一覧用 */
   for (var d = 1; d <= days; d++) {
     var ds = calY + '-' + pad(calM+1) + '-' + pad(d);
     var w  = new Date(calY, calM, d).getDay();
+    /* イベント収集（Excelインポート＋手動追加、重複排除） */
+    var dayEvts = (evtsM[d] || []).slice();
+    var pageEvts2 = D.pages[ds] ? (D.pages[ds].events || []) : [];
+    for (var ei=0; ei<pageEvts2.length; ei++) { if (dayEvts.indexOf(pageEvts2[ei]) === -1) dayEvts.push(pageEvts2[ei]); }
+    var hasEvt = dayEvts.length > 0;
+    if (hasEvt) evtRows.push({d:d, ds:ds, w:w, evts:dayEvts});
     var cls = 'cd' + (w===0?' sun':w===6?' sat':'') + (ds===today?' tod':'') +
               (D.pages[ds] ? ' hp' : '') +
               (D.pages[ds] && D.pages[ds].autoAssigned ? ' ap' : '') +
               (D.pages[ds] && getPct(ds)===100 ? ' dp' : '') +
+              (hasEvt ? ' ev' : '') +
               (curDs===ds ? ' sel' : '');
     var e = document.createElement('div'); e.className = cls;
     e.innerHTML = ds===today ? '<span class="dn">'+d+'</span>' : '<span class="dnp">'+d+'</span>';
     (function(ds) { e.onclick = function() { if (D.pages[ds]) openPage(ds); else { document.getElementById('nm-date').value=ds; openNM(); }; }; })(ds);
     g.appendChild(e);
+  }
+  /* 月のイベント一覧を描画 */
+  var evtList = document.getElementById('cal-evts-list');
+  if (evtList) {
+    var dows2 = ['日','月','火','水','木','金','土'];
+    if (evtRows.length) {
+      var lh = '<div style="padding:6px 10px 2px;font-size:10px;font-weight:700;color:var(--txt3)">📅 ' + (calM+1) + '月の予定</div>';
+      for (var ri=0; ri<evtRows.length; ri++) {
+        var row = evtRows[ri];
+        var wc = row.w===0?'color:var(--rd)':row.w===6?'color:var(--ac)':'color:var(--txt2)';
+        lh += '<div style="display:flex;align-items:baseline;gap:6px;padding:4px 10px;border-bottom:1px solid var(--bdr);cursor:pointer" onclick="'+(D.pages[row.ds]?'openPage(\''+row.ds+'\')':'document.getElementById(\'nm-date\').value=\''+row.ds+'\';openNM()')+'">';
+        lh += '<span style="min-width:36px;font-size:11px;font-weight:700;'+wc+'">'+row.d+'日('+dows2[row.w]+')</span>';
+        lh += '<span style="flex:1;font-size:11px">🟡 '+escH(row.evts.join(' / '))+'</span>';
+        lh += '</div>';
+      }
+      evtList.innerHTML = lh;
+    } else {
+      evtList.innerHTML = '<div style="padding:4px 10px;font-size:11px;color:var(--txt3)">📅 '+(calM+1)+'月の予定なし</div>';
+    }
   }
   updateMonthSize();
 }
