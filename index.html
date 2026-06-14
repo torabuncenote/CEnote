@@ -791,6 +791,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         </div>
         <div class="cg" id="cg"></div>
       </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;padding:6px 10px;color:var(--txt3);font-size:11px">
+        <span>🔴 未完了</span>
+        <span>🔵 完了</span>
+        <span>🟢 自動割り当て済み（未変更）</span>
+      </div>
       <div style="flex:1"></div>
       <div class="sbf">
         <p>💡 月初に「1ヶ月生成」で一括作成できます</p>
@@ -3982,6 +3987,11 @@ function openDutySlotEditor(ds, dat) {
   renderPage(ds);
 }
 
+/* 手動で担当を変更したらカレンダー緑ドット（自動割り当て未変更）フラグを落とす */
+function markDutyEdited(ds) {
+  if (D.pages[ds] && D.pages[ds].autoAssigned) D.pages[ds].autoAssigned = false;
+}
+
 function removeDutySlot(ds, slotId) {
   var dat = D.pages[ds]; if (!dat) return;
   var cfg = getDutyCfg(dat).map(function(x){ return Object.assign({},x); });
@@ -6707,7 +6717,7 @@ function poolAssign(ds,name) {
   }
   if(!dat.duties)dat.duties={};
   var _oldTgt=dat.duties[target];
-  dat.duties[target]=name; saveD();
+  dat.duties[target]=name; markDutyEdited(ds); saveD();
   maybeLateToast(dat, target, name, _oldTgt);
   var sel=document.getElementById('sel-'+target);if(sel){sel.value=name;sel.classList.add('set');}
   refreshPool(ds);
@@ -7624,7 +7634,7 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         if(!D.pages[ds].duties) D.pages[ds].duties={};
         var _old=D.pages[ds].duties[did];
         D.pages[ds].duties[did]=this.value;
-        D.pages[ds].autoAssigned=false;
+        markDutyEdited(ds);
         maybeLateToast(D.pages[ds],did,this.value,_oldDuty);
         saveD(); refreshPool(ds);
         maybeLateToast(D.pages[ds], did, this.value, _old);
@@ -7939,6 +7949,7 @@ function buildDG(ds, dat, locked) {
             if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
             var _oldT=D.pages[_dragDs].duties[did];
             D.pages[_dragDs].duties[did] = _dragName;
+            markDutyEdited(_dragDs);
             maybeLateToast(D.pages[_dragDs],did,_dragName,_oldDuty);
             saveD(); refreshPool(_dragDs);
             maybeLateToast(D.pages[_dragDs], did, _dragName, _oldT);
@@ -8001,6 +8012,7 @@ function buildDG(ds, dat, locked) {
           if(!D.pages[dropDs].duties)D.pages[dropDs].duties={};
           var _oldD=D.pages[dropDs].duties[did];
           D.pages[dropDs].duties[did]=name;
+          markDutyEdited(dropDs);
           maybeLateToast(D.pages[dropDs],did,name,_oldDuty);
           saveD(); refreshPool(dropDs);
           maybeLateToast(D.pages[dropDs], did, name, _oldD);
@@ -10544,6 +10556,7 @@ function doAutoAssign() {
     /* 対応するスロットにPHS内線番号を自動セット（未設定の場合のみ） */
     if (SLOT_PHS_MAP[p.slot.id] && !dat.phsNums[p.slot.id]) dat.phsNums[p.slot.id] = SLOT_PHS_MAP[p.slot.id];
   });
+  dat.autoAssigned = true;
   renderPage(ds);
   saveD();
   closeAAModal();
