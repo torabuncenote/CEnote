@@ -6437,11 +6437,14 @@ function opsHeaderChips(opeN,cathN,mwN,psgN){
 function updateOpsHeader(ds){
   var el=document.getElementById('ops-header-row'); if(!el||!D.pages[ds]) return;
   var o=D.pages[ds].ops||{};
-  var opeN=0,cathN=0,mwN=0,psgN=0;
-  if(o.ope_items) o.ope_items.forEach(function(it){if(it.sel||it.txt)opeN++;});
-  if(o.cath_items) o.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
-  if(o.mw_n) mwN=parseInt(o.mw_n)||0;
-  if(o.psg_on) psgN=1;
+  var cards=D.pages[ds].ops_cards!=null?D.pages[ds].ops_cards:(D.opsCfg||[]);
+  /* オペ・カテ：行数でカウント（内容不問） */
+  var opeN=o.ope_items?o.ope_items.length:0;
+  var cathN=o.cath_items?o.cath_items.length:0;
+  /* 6MW：カード存在で1、件数入力があればその値 */
+  var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
+  /* PSG：psg_onがあれば1 */
+  var psgN=o.psg_on?1:0;
   var chips=opsHeaderChips(opeN,cathN,mwN,psgN);
   el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
 }
@@ -6482,11 +6485,11 @@ function renderPage(ds) {
   h+='</div></div>';
   /* 業務件数集計 */
   var _ops=dat.ops||{};
-  var _opeN=0,_cathN=0,_mwN=0,_psgN=0;
-  if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(it.sel||it.txt)_opeN++;});
-  if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(it.sel||it.txt)_cathN++;});
-  if(_ops.mw_n) _mwN=parseInt(_ops.mw_n)||0;
-  if(_ops.psg_on) _psgN=1;
+  var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
+  var _opeN=_ops.ope_items?_ops.ope_items.length:0;
+  var _cathN=_ops.cath_items?_ops.cath_items.length:0;
+  var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
+  var _psgN=_ops.psg_on?1:0;
   var _hasOps=_opeN||_cathN||_mwN||_psgN;
   h+='<div class="pp">';
   h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
