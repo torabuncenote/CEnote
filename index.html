@@ -162,6 +162,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
 .pchip.sp{background:var(--bg2);color:var(--txt2);border:1.5px solid var(--bdr2)}
+.ss-zones-wrap{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)}
+.ss-zone{border:2px dashed var(--bdr2);border-radius:8px;padding:5px 8px;min-height:36px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start;width:100%;box-sizing:border-box;transition:border-color .15s,background .15s;margin-bottom:4px}
+.ss-zone.drag-over{border-color:var(--ac)!important;background:var(--ac-bg)}
+.ss-zone-lbl{font-size:10px;font-weight:700;width:100%;padding-bottom:2px}
 .pool-hd{font-size:11px;font-weight:700;color:var(--oc);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between}
 .pool-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:28px}
 .pool-sec{font-size:10px;font-weight:700;color:var(--txt3);width:100%;margin-top:6px;margin-bottom:2px}
@@ -4023,36 +4027,74 @@ function renderSurplusArea(ds, dat, locked) {
   html += '<button type="button" class="hd-toggle-btn'+ (_hdPanelOpen?' active':'')+'" id="hd-toggle" onclick="toggleHDPanel()">🩸 HD勤務者 ('+hd.length+')</button>';
   html += '</div>';
 
+  /* 余剰人員チップ */
   html += '<div id="surplus-chips" class="surplus-chips"'+(dlk?'':' ondragover="event.preventDefault()" ondrop="dropToSurplus(event,\''+ds+'\')"')+'>';
   for (var i=0; i<surplus.length; i++) {
-    html += '<div class="pool-chip" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(surplus[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
+    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(surplus[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
     html += escH(surplus[i]);
-    if (!dlk) html += '<button class="chip-rm" onclick="removeFromSurplus(\''+ds+'\',\''+escH(surplus[i])+'\')">×</button>';
+    if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escH(surplus[i])+'\')">×</button>';
     html += '</div>';
   }
   if (!surplus.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   html += '</div>';
 
-  /* HD勤務者パネル（折りたたみ）。チップはCEと同様ドラッグ/タップで担当枠へ割当可能 */
-  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+'">';
-  /* 固定スロット：メンテ・休み・その他（常に表示） */
-  var spSlots = ['🔧 メンテ','🏖️ 休み','📝 その他'];
-  html += '<div class="pool-sec" style="width:100%">枠</div>';
-  for (var si=0; si<spSlots.length; si++)
-    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(spSlots[si])+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(spSlots[si])+'</div>';
+  /* ステータス分類ゾーン（常時表示）：余剰人員またはHD勤務者をここにドロップ */
+  var ssData = dat.surplusStatus || {};
+  var hdStatusData = dat.hdStatus || {};
+  var hdAssigned = Object.keys(hdStatusData);
+  html += '<div class="ss-zones-wrap">';
+  for (var zi=0; zi<SS_ZONES.length; zi++) {
+    var zone = SS_ZONES[zi];
+    var zWorkers = Object.keys(ssData).filter(function(n){ return ssData[n]===zone.key; });
+    var zHdWorkers = Object.keys(hdStatusData).filter(function(n){ return hdStatusData[n]===zone.key; });
+    var hasAny = zWorkers.length || zHdWorkers.length;
+    html += '<div class="ss-zone" data-zone-key="'+zone.key+'" style="border-color:'+zone.border+';background:'+(hasAny?zone.bg:'')+'"'
+      + (dlk?'':' ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="dropToStatusZone(event,\''+ds+'\',\''+zone.key+'\')"')+'>';
+    html += '<div class="ss-zone-lbl" style="color:'+zone.color+'">'+zone.icon+' '+zone.label+'</div>';
+    for (var wi=0; wi<zWorkers.length; wi++) {
+      html += '<div class="pchip" style="background:'+zone.bg+';color:'+zone.color+';border:1.5px solid '+zone.border+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(zWorkers[wi])+'" data-from="status" data-ds="'+ds+'" title="ドラッグして担当枠へ">'
+        + escH(zWorkers[wi]);
+      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromStatus(\''+ds+'\',\''+escH(zWorkers[wi])+'\')">×</button>';
+      html += '</div>';
+    }
+    for (var hi=0; hi<zHdWorkers.length; hi++) {
+      var hdN = zHdWorkers[hi];
+      var hdInf = hd.filter(function(x){ return x.name===hdN; })[0];
+      var isNt = hdInf && hdInf.night;
+      html += '<div class="pchip hd'+(isNt?' night':'')+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdN)+'" data-from="hd" data-ds="'+ds+'" title="ドラッグして移動">'+escH(hdN);
+      if(hdInf) html += '<span class="cs">'+escH(isNt?'準':hdInf.shift)+'</span>';
+      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromHdStatus(\''+ds+'\',\''+escH(hdN)+'\')">×</button>';
+      html += '</div>';
+    }
+    if(!hasAny) html += '<span style="font-size:10px;color:var(--txt3)">ここにドロップ</span>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  /* HD勤務者パネル（折りたたみ）：ソースリストのみ */
+  var hdDayFree   = hdDay.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
+  var hdNightFree = hdNight.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
+  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+';flex-direction:column">';
   if (!hd.length) {
-    html += '<div class="pool-sec" style="width:100%">HD勤務者</div>';
     html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
   } else {
     if (hdDay.length) {
       html += '<div class="pool-sec" style="width:100%">🔵 日勤</div>';
-      for (var j=0; j<hdDay.length; j++)
-        html += '<div class="pchip hd" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdDay[j].name)+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(hdDay[j].name)+'<span class="cs">'+escH(hdDay[j].shift)+'</span></div>';
+      if (hdDayFree.length) {
+        for (var j=0; j<hdDayFree.length; j++)
+          html += '<div class="pchip hd" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdDayFree[j].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdDayFree[j].name)+'<span class="cs">'+escH(hdDayFree[j].shift)+'</span></div>';
+      } else {
+        html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+      }
     }
     if (hdNight.length) {
       html += '<div class="pool-sec" style="width:100%">🌙 準夜</div>';
-      for (var k=0; k<hdNight.length; k++)
-        html += '<div class="pchip hd night" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdNight[k].name)+'" data-ds="'+ds+'" data-action="poolAssign"'+(dlk?'':' title="ドラッグまたはタップで担当枠へ"')+'>'+escH(hdNight[k].name)+'<span class="cs">準</span></div>';
+      if (hdNightFree.length) {
+        for (var k=0; k<hdNightFree.length; k++)
+          html += '<div class="pchip hd night" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdNightFree[k].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdNightFree[k].name)+'<span class="cs">準</span></div>';
+      } else {
+        html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+      }
     }
   }
   html += '</div>';
@@ -4060,6 +4102,51 @@ function renderSurplusArea(ds, dat, locked) {
   wrap.innerHTML = html;
 }
 
+var SS_ZONES=[
+  {key:'hd',   icon:'🔄',label:'HDシフトチェンジ',border:'var(--pu)',  bg:'var(--pu-bg)',  color:'var(--pu)'},
+  {key:'maint',icon:'🔧',label:'メンテ',           border:'var(--or)',  bg:'var(--or-bg)',  color:'var(--or)'},
+  {key:'off',  icon:'🏖️',label:'休み',             border:'var(--gr)',  bg:'var(--gr-bg,#f0fff4)',color:'var(--gr)'},
+  {key:'other',icon:'📝',label:'その他',           border:'var(--bdr2)',bg:'var(--bg2)',     color:'var(--txt2)'}
+];
+function assignToStatus(ds,name,fromSurplus,status){
+  if(!can('duty'))return;
+  if(!D.pages[ds])return;
+  if(fromSurplus){
+    var sur=D.pages[ds].surplus||[];
+    var si=sur.indexOf(name); if(si!==-1){sur.splice(si,1);D.pages[ds].surplus=sur;}
+  }
+  if(!D.pages[ds].surplusStatus) D.pages[ds].surplusStatus={};
+  D.pages[ds].surplusStatus[name]=status;
+  saveD(); refreshPool(ds); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+}
+function removeFromStatus(ds,name){
+  if(!can('duty')||!D.pages[ds])return;
+  if(D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
+  saveD(); refreshPool(ds); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+}
+function dropToStatusZone(e,ds,status){
+  e.preventDefault();
+  var el=e.target.closest('.ss-zone'); if(el) el.classList.remove('drag-over');
+  var name=e.dataTransfer.getData('text/plain');
+  var from=e.dataTransfer.getData('from');
+  if(!name)return;
+  if(from==='hd'){
+    assignHdToStatus(ds,name,status);
+  } else {
+    assignToStatus(ds,name,from==='surplus',status);
+  }
+}
+function assignHdToStatus(ds,name,status){
+  if(!can('duty')||!D.pages[ds])return;
+  if(!D.pages[ds].hdStatus) D.pages[ds].hdStatus={};
+  D.pages[ds].hdStatus[name]=status;
+  saveD(); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+}
+function removeFromHdStatus(ds,name){
+  if(!can('duty')||!D.pages[ds])return;
+  if(D.pages[ds].hdStatus) delete D.pages[ds].hdStatus[name];
+  saveD(); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+}
 function toggleHDPanel(){
   var p=document.getElementById('hd-worker-panel'), b=document.getElementById('hd-toggle');
   if(!p) return;
@@ -4072,13 +4159,18 @@ function dropToSurplus(e, ds) {
   e.preventDefault();
   var name = e.dataTransfer.getData('text/plain'); if (!name) return;
   var from = e.dataTransfer.getData('from');
+  if (from === 'hd') return; /* HD勤務者は余剰プールに入らない */
   if (!D.pages[ds].surplus) D.pages[ds].surplus = [];
   if (D.pages[ds].surplus.indexOf(name) !== -1) return;
   D.pages[ds].surplus.push(name);
   /* 担当枠から来た場合は担当をクリア */
-  if (from !== 'surplus') {
+  if (from !== 'surplus' && from !== 'status') {
     var duties = D.pages[ds].duties || {};
     for (var k in duties) { if (duties[k] === name) duties[k] = ''; }
+  }
+  /* ステータスゾーンから来た場合はステータスを解除 */
+  if (from === 'status') {
+    if (D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
   }
   saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], !can('duty'));
 }
@@ -6309,8 +6401,29 @@ function openPage(ds) {
       if(sb) sb.classList.add('hm');
     }
   }
+  /* 業務件数ヘッダーを常に最新化（renderPage skip時も含む） */
+  if (D.pages[ds]) updateOpsHeader(ds);
 }
 
+function opsHeaderChips(opeN,cathN,mwN,psgN){
+  var s='';
+  if(opeN)  s+='<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px">🔪 オペ '+opeN+'件</span> ';
+  if(cathN) s+='<span style="background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🫀 カテ '+cathN+'件</span> ';
+  if(mwN)   s+='<span style="background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px">🚶 6MW '+mwN+'件</span> ';
+  if(psgN)  s+='<span style="background:var(--or-bg);color:var(--or);border:1px solid var(--or);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG 1件</span> ';
+  return s;
+}
+function updateOpsHeader(ds){
+  var el=document.getElementById('ops-header-row'); if(!el||!D.pages[ds]) return;
+  var o=D.pages[ds].ops||{};
+  var opeN=0,cathN=0,mwN=0,psgN=0;
+  if(o.ope_items) o.ope_items.forEach(function(it){if(it.sel||it.txt)opeN++;});
+  if(o.cath_items) o.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
+  if(o.mw_n) mwN=parseInt(o.mw_n)||0;
+  if(o.psg_on) psgN=1;
+  var chips=opsHeaderChips(opeN,cathN,mwN,psgN);
+  el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
+}
 function renderPage(ds) {
   if (!D.pages[ds]) return;
   var dat=D.pages[ds];
@@ -6346,10 +6459,19 @@ function renderPage(ds) {
   }
   h+='<button data-ds="'+ds+'" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
   h+='</div></div>';
+  /* 業務件数集計 */
+  var _ops=dat.ops||{};
+  var _opeN=0,_cathN=0,_mwN=0,_psgN=0;
+  if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(it.sel||it.txt)_opeN++;});
+  if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(it.sel||it.txt)_cathN++;});
+  if(_ops.mw_n) _mwN=parseInt(_ops.mw_n)||0;
+  if(_ops.psg_on) _psgN=1;
+  var _hasOps=_opeN||_cathN||_mwN||_psgN;
   h+='<div class="pp">';
   h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
   h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+all.length+' 完了</span></div>';
+  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN)+'</span></div>' : '') +'</div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
@@ -6683,6 +6805,8 @@ function refreshPool(ds) {
   if(dat.surplus){for(var si2=0;si2<dat.surplus.length;si2++) assigned[dat.surplus[si2]]=true;}
   /* extra_freeの担当も考慮 */
   if(dat.extra_free){for(var ef=0;ef<dat.extra_free.length;ef++){if(dat.extra_free[ef].name) assigned[dat.extra_free[ef].name]=true;}}
+  /* surplusStatusに分類された人員もプールから隠す */
+  if(dat.surplusStatus){for(var sk in dat.surplusStatus){if(dat.surplusStatus[sk]) assigned[sk]=true;}}
   /* OC担当はOCチップのみ隠す。CE兼任者はCEカードを当日勤務者一覧に残し、CEの割り振りにも使えるようにする */
   var ocAssigned={};
   if(dat.ocData&&dat.ocData.staff) ocAssigned[dat.ocData.staff]=true;
@@ -7951,6 +8075,10 @@ function buildDG(ds, dat, locked) {
           if (el && el.closest('#surplus-wrap')) {
             if (surWrap) surWrap.classList.add('drag-over');
           }
+          /* ステータスゾーンのハイライト */
+          var allZones = document.querySelectorAll('.ss-zone');
+          for(var zi2=0; zi2<allZones.length; zi2++) allZones[zi2].classList.remove('drag-over');
+          if (el) { var ssz = el.closest('.ss-zone'); if(ssz) ssz.classList.add('drag-over'); }
         }
       }
 
@@ -7973,6 +8101,19 @@ function buildDG(ds, dat, locked) {
 
         if (!el) { _dragName=''; return; }
 
+        /* ステータスゾーンへのドロップ */
+        var ssZone = el.closest('.ss-zone[data-zone-key]');
+        if (ssZone) {
+          var zk = ssZone.getAttribute('data-zone-key');
+          ssZone.classList.remove('drag-over');
+          if (_dragFrom === 'hd') {
+            assignHdToStatus(_dragDs, _dragName, zk);
+          } else {
+            assignToStatus(_dragDs, _dragName, _dragFrom === 'surplus', zk);
+          }
+          _dragName = ''; return;
+        }
+
         /* 担当カードへのドロップ */
         var card = el.closest('.dc[data-duty-id]');
         if (card) {
@@ -7981,6 +8122,12 @@ function buildDG(ds, dat, locked) {
             var sur = D.pages[ds].surplus || [];
             var si = sur.indexOf(_dragName);
             if (si !== -1) { sur.splice(si,1); D.pages[ds].surplus = sur; }
+          }
+          if (_dragFrom === 'status') {
+            if (D.pages[_dragDs].surplusStatus) delete D.pages[_dragDs].surplusStatus[_dragName];
+          }
+          if (_dragFrom === 'hd') {
+            if (D.pages[_dragDs].hdStatus) delete D.pages[_dragDs].hdStatus[_dragName];
           }
           var sel = document.getElementById('sel-' + did);
           if (sel) {
@@ -7998,8 +8145,8 @@ function buildDG(ds, dat, locked) {
           _dragName=''; return;
         }
 
-        /* 余剰エリアへのドロップ */
-        if (el.closest('#surplus-wrap')) {
+        /* 余剰エリアへのドロップ（HD勤務者は除外） */
+        if (el.closest('#surplus-wrap') && _dragFrom !== 'hd') {
           dropToSurplus({preventDefault:function(){}, dataTransfer:{
             getData: function(k){ return k==='text/plain'?_dragName:(k==='from'?_dragFrom:''); }
           }}, ds);
@@ -8044,6 +8191,14 @@ function buildDG(ds, dat, locked) {
           var sur=D.pages[ds].surplus||[];
           var si=sur.indexOf(name);
           if(si!==-1){sur.splice(si,1); D.pages[ds].surplus=sur;}
+        }
+        /* ステータスゾーンから来た場合はステータスを解除 */
+        if(from==='status'){
+          if(D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
+        }
+        /* HDゾーンから来た場合はHDステータスを解除 */
+        if(from==='hd'){
+          if(D.pages[ds].hdStatus) delete D.pages[ds].hdStatus[name];
         }
         var sel=document.getElementById('sel-'+did);
         if(sel){
@@ -8429,7 +8584,7 @@ function buildOPS(ds,dat,locked) {
     function saveItems(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops[key]=JSON.parse(JSON.stringify(items));
-      saveD();
+      saveD(); updateOpsHeader(ds);
     }
 
     renderItems();
@@ -8926,12 +9081,13 @@ function buildOPS(ds,dat,locked) {
       if(!D.pages[ds].ops)D.pages[ds].ops={};
       D.pages[ds].ops[key2]=v;
       clearTimeout(_bindTimers[key2]);
-      _bindTimers[key2]=setTimeout(saveD,600);
+      _bindTimers[key2]=setTimeout(function(){saveD();updateOpsHeader(ds);},600);
+      updateOpsHeader(ds);
     };
     el.onchange=function(){
       if(!D.pages[ds].ops)D.pages[ds].ops={};
       D.pages[ds].ops[key2]=this.value;
-      saveD();
+      saveD(); updateOpsHeader(ds);
     };
   }
   /* bind処理：sfxなし・sfxありの両方を試みる（存在する方のみ有効） */
