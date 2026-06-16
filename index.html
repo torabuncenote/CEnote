@@ -1665,6 +1665,14 @@ function loadD() {
       if(D.dutyCfg) D.dutyCfg.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
       Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg&&pg.customDuties) pg.customDuties.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; }); });
     }
+    /* v3: スロット削除時の stale closure バグで残留した orphaned duties を一括クリーン */
+    if (!D._migVer || D._migVer < 3) {
+      Object.keys(D.pages||{}).forEach(function(ds){
+        var pg=D.pages[ds]; if(!pg||!pg.duties||!pg.customDuties) return;
+        var ok={}; pg.customDuties.forEach(function(s){ok[s.id]=true;});
+        Object.keys(pg.duties).forEach(function(k){if(!ok[k]) delete pg.duties[k];});
+      });
+    }
     ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
@@ -1919,6 +1927,16 @@ function fbInit() {
             if (!D._migVer || D._migVer < 2) {
               ensureLateDutySlots();
               D._migVer = 2;
+              saveD();
+            }
+            /* v3: スロット削除時の stale closure バグで残留した orphaned duties を一括クリーン */
+            if (!D._migVer || D._migVer < 3) {
+              Object.keys(D.pages||{}).forEach(function(ds){
+                var pg=D.pages[ds]; if(!pg||!pg.duties||!pg.customDuties) return;
+                var ok={}; pg.customDuties.forEach(function(s){ok[s.id]=true;});
+                Object.keys(pg.duties).forEach(function(k){if(!ok[k]) delete pg.duties[k];});
+              });
+              D._migVer=3;
               saveD();
             }
             setSyncLbl('同期済');
