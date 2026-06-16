@@ -9857,8 +9857,9 @@ function renderAT() {
       }
       html+='<td'+(si===selfIdx?' class="self-col"':'')+' >'+(chips.length?chips.join(' '):'<span class="dc-n">—</span>')+'</td>';
     }
-    /* 余剰人員列 */
-    var surNames=(dat&&dat.surplus)||[];
+    /* 余剰人員列（ステータスゾーン内のスタッフも余剰扱い） */
+    var surNames=(dat&&dat.surplus)?dat.surplus.slice():[];
+    if(dat&&dat.surplusStatus){Object.keys(dat.surplusStatus).forEach(function(n){if(surNames.indexOf(n)===-1)surNames.push(n);});}
     html+='<td style="font-size:10px;color:var(--txt3)">'+(surNames.join('<br>')||'')+'</td>';
     html+='</tr>';
   }
@@ -9970,7 +9971,9 @@ function exportAtCsv() {
       if(dat&&dat.ocData&&dat.ocData.staff===name)cells.push('OC');
       row.push(cells.join('/'));
     }
-    row.push(((dat&&dat.surplus)||[]).join('/'));
+    var _csvSur=(dat&&dat.surplus)?dat.surplus.slice():[];
+    if(dat&&dat.surplusStatus){Object.keys(dat.surplusStatus).forEach(function(n){if(_csvSur.indexOf(n)===-1)_csvSur.push(n);});}
+    row.push(_csvSur.join('/'));
     rows.push(row);
   }
   var csv='﻿';
