@@ -4056,15 +4056,17 @@ function renderSurplusArea(ds, dat, locked) {
   /* 本体：折りたたみ対象 */
   html += '<div id="surplus-body" style="display:'+(_surplusOpen?'block':'none')+'">';
 
-  /* 余剰人員チップ */
+  /* 余剰人員チップ（ゾーン配置済みはスキップ、ゾーンカードに表示） */
+  var _ssF = dat.surplusStatus || {};
+  var _freeChips = surplus.filter(function(n){ return !_ssF[n]; });
   html += '<div id="surplus-chips" class="surplus-chips"'+(dlk?'':' ondragover="event.preventDefault()" ondrop="dropToSurplus(event,\''+ds+'\')"')+'>';
-  for (var i=0; i<surplus.length; i++) {
-    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(surplus[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
-    html += escH(surplus[i]);
-    if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escH(surplus[i])+'\')">×</button>';
+  for (var i=0; i<_freeChips.length; i++) {
+    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(_freeChips[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
+    html += escH(_freeChips[i]);
+    if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escH(_freeChips[i])+'\')">×</button>';
     html += '</div>';
   }
-  if (!surplus.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
+  if (!_freeChips.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   html += '</div>';
 
   /* ステータス分類ゾーン（常時表示）：余剰人員またはHD勤務者をここにドロップ */
@@ -4149,10 +4151,7 @@ var SS_ZONES=[
 function assignToStatus(ds,name,fromSurplus,status){
   if(!can('duty'))return;
   if(!D.pages[ds])return;
-  if(fromSurplus){
-    var sur=D.pages[ds].surplus||[];
-    var si=sur.indexOf(name); if(si!==-1){sur.splice(si,1);D.pages[ds].surplus=sur;}
-  }
+  /* surplus には残したまま surplusStatus にも追加（担当表・余剰カウント維持） */
   if(!D.pages[ds].surplusStatus) D.pages[ds].surplusStatus={};
   D.pages[ds].surplusStatus[name]=status;
   saveD(); refreshPool(ds); renderSurplusArea(ds,D.pages[ds],!can('duty'));
@@ -4160,6 +4159,9 @@ function assignToStatus(ds,name,fromSurplus,status){
 function removeFromStatus(ds,name){
   if(!can('duty')||!D.pages[ds])return;
   if(D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
+  /* ゾーンから外したら余剰プールへ戻す（既存データで surplus にない場合も含む） */
+  if(!D.pages[ds].surplus) D.pages[ds].surplus=[];
+  if(D.pages[ds].surplus.indexOf(name)===-1) D.pages[ds].surplus.push(name);
   saveD(); refreshPool(ds); renderSurplusArea(ds,D.pages[ds],!can('duty'));
 }
 function dropToStatusZone(e,ds,status){
@@ -4199,16 +4201,15 @@ function dropToSurplus(e, ds) {
   var from = e.dataTransfer.getData('from');
   if (from === 'hd') return; /* HD勤務者は余剰プールに入らない */
   if (!D.pages[ds].surplus) D.pages[ds].surplus = [];
-  if (D.pages[ds].surplus.indexOf(name) !== -1) return;
-  D.pages[ds].surplus.push(name);
+  /* ステータスゾーンから来た場合はステータスを解除（重複チェック前に行う） */
+  if (from === 'status') {
+    if (D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
+  }
+  if (D.pages[ds].surplus.indexOf(name) === -1) D.pages[ds].surplus.push(name);
   /* 担当枠から来た場合は担当をクリア */
   if (from !== 'surplus' && from !== 'status') {
     var duties = D.pages[ds].duties || {};
     for (var k in duties) { if (duties[k] === name) duties[k] = ''; }
-  }
-  /* ステータスゾーンから来た場合はステータスを解除 */
-  if (from === 'status') {
-    if (D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
   }
   saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], !can('duty'));
 }
@@ -8219,6 +8220,8 @@ function buildDG(ds, dat, locked) {
           }
           if (_dragFrom === 'status') {
             if (D.pages[_dragDs].surplusStatus) delete D.pages[_dragDs].surplusStatus[_dragName];
+            var _sSur=D.pages[_dragDs].surplus||[]; var _sSi=_sSur.indexOf(_dragName);
+            if(_sSi!==-1){_sSur.splice(_sSi,1);D.pages[_dragDs].surplus=_sSur;}
           }
           if (_dragFrom === 'hd') {
             if (D.pages[_dragDs].hdStatus) delete D.pages[_dragDs].hdStatus[_dragName];
@@ -8289,6 +8292,8 @@ function buildDG(ds, dat, locked) {
         /* ステータスゾーンから来た場合はステータスを解除 */
         if(from==='status'){
           if(D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
+          var _stSur=D.pages[ds].surplus||[]; var _stSi=_stSur.indexOf(name);
+          if(_stSi!==-1){_stSur.splice(_stSi,1);D.pages[ds].surplus=_stSur;}
         }
         /* HDゾーンから来た場合はHDステータスを解除 */
         if(from==='hd'){
