@@ -7875,11 +7875,6 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         if(!D.pages[ds].duties) D.pages[ds].duties={};
         var _old=D.pages[ds].duties[did];
         D.pages[ds].duties[did]=this.value;
-        /* 旧担当者が居て別の人またはクリアになった場合は余剰プールへ戻す */
-        if(_old && _old!==this.value){
-          if(!D.pages[ds].surplus) D.pages[ds].surplus=[];
-          if(D.pages[ds].surplus.indexOf(_old)===-1) D.pages[ds].surplus.push(_old);
-        }
         markDutyEdited(ds);
         maybeLateToast(D.pages[ds],did,this.value,_oldDuty);
         saveD(); refreshPool(ds);
@@ -7986,13 +7981,7 @@ function buildDG(ds, dat, locked) {
           rx.onclick=(function(sid){return function(){
             var cfg=getDutyCfg(dat).filter(function(x){return x.id!==sid;});
             D.pages[ds].customDuties=cfg;
-            var assignedName = dat.duties && dat.duties[sid];
             if(dat.duties) delete dat.duties[sid];
-            if(assignedName){
-              if(!D.pages[ds].surplus) D.pages[ds].surplus=[];
-              if(D.pages[ds].surplus.indexOf(assignedName)===-1)
-                D.pages[ds].surplus.push(assignedName);
-            }
             saveD(); renderPage(ds);
           };})(slot.id);
           tag.appendChild(rx);
@@ -8035,14 +8024,7 @@ function buildDG(ds, dat, locked) {
           clrBtn2.textContent='🗑'; clrBtn2.title='全枠クリア';
           clrBtn2.onclick=function(){
             if(!confirm('全担当枠を削除しますか？')) return;
-            /* 全スロットの担当者を余剰プールへ戻す */
-            var duties=D.pages[ds].duties||{};
-            if(!D.pages[ds].surplus) D.pages[ds].surplus=[];
-            Object.keys(duties).forEach(function(sid){
-              var n=duties[sid];
-              if(n && D.pages[ds].surplus.indexOf(n)===-1) D.pages[ds].surplus.push(n);
-            });
-            D.pages[ds].customDuties=[]; saveD(); renderPage(ds);
+            D.pages[ds].customDuties=[]; D.pages[ds].duties={}; saveD(); renderPage(ds);
           };
           tagRow.appendChild(clrBtn2);
         }
