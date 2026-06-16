@@ -7980,7 +7980,13 @@ function buildDG(ds, dat, locked) {
           rx.onclick=(function(sid){return function(){
             var cfg=getDutyCfg(dat).filter(function(x){return x.id!==sid;});
             D.pages[ds].customDuties=cfg;
+            var assignedName = dat.duties && dat.duties[sid];
             if(dat.duties) delete dat.duties[sid];
+            if(assignedName){
+              if(!D.pages[ds].surplus) D.pages[ds].surplus=[];
+              if(D.pages[ds].surplus.indexOf(assignedName)===-1)
+                D.pages[ds].surplus.push(assignedName);
+            }
             saveD(); renderPage(ds);
           };})(slot.id);
           tag.appendChild(rx);
