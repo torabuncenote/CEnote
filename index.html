@@ -660,6 +660,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 </style>
 </head>
 <body>
+<div id="psg-removal-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#fff3cd;color:#856404;border-bottom:2px solid #ffc107;padding:10px 16px;font-size:14px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">🌙 7:30〜8:30までPSG外しがあります<button onclick="document.getElementById('psg-removal-banner').style.display='none'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:#856404;line-height:1">✕</button></div>
 <!-- ===== 表示名変更モーダル ===== -->
 <div id="modal-name" class="hd">
   <div class="name-box">
@@ -3366,8 +3367,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06x';
+var APP_VERSION = '2026.06y';
 var APP_CHANGELOG = [
+  { ver:'2026.06y', date:'2026-06-16', title:'PSG外し 業務ヘッダー表示・永続バナー追加', items:[
+    {t:'new', d:'🌙 前日PSGがある日（PSG外し日）は「業務」ヘッダーに「PSG外し」チップを表示'},
+    {t:'new', d:'🌙 PSG外し日の7:30〜8:30の間、画面上部に「PSG外しがあります」バナーを常時表示（✕で閉じる・8:30以降自動非表示）'}
+  ]},
   { ver:'2026.06x', date:'2026-06-16', title:'ガイド更新・ユーザー削除機能追加', items:[
     {t:'new', d:'📖 使い方ガイドに新機能セクション追加（HD勤務者/余剰ゾーン・業務件数・月次自動割り当て・公平性タブ・進捗バータップ・カレンダー🟢ドット）'},
     {t:'new', d:'🗑 管理者画面からユーザーのアプリデータを削除できるようになりました（ソフトデリート：Firebase Authアカウント自体はConsoleから別途削除が必要）'}
@@ -6497,10 +6502,12 @@ function openPage(ds) {
   }
   /* 業務件数ヘッダーを常に最新化（renderPage skip時も含む） */
   if (D.pages[ds]) updateOpsHeader(ds);
+  if (D.pages[ds]) updatePsgRemovalBanner(ds);
 }
 
-function opsHeaderChips(opeN,cathN,mwN,psgN){
+function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval){
   var s='';
+  if(psgRemoval) s+='<span style="background:#fff0f0;color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG外し</span> ';
   if(opeN)  s+='<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px">🔪 オペ '+opeN+'件</span> ';
   if(cathN) s+='<span style="background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🫀 カテ '+cathN+'件</span> ';
   if(mwN)   s+='<span style="background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px">🚶 6MW '+mwN+'件</span> ';
@@ -6518,8 +6525,22 @@ function updateOpsHeader(ds){
   var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
   /* PSG：psg_onがあれば1 */
   var psgN=o.psg_on?1:0;
-  var chips=opsHeaderChips(opeN,cathN,mwN,psgN);
+  /* PSG外し：前日にPSGがあれば当日は外し作業あり */
+  var prevDsOH=getPrevDs(ds),prevDatOH=D.pages[prevDsOH];
+  var psgRemoval=!!(prevDatOH&&((prevDatOH.ops_cards&&prevDatOH.ops_cards.indexOf('psg')!==-1)||(prevDatOH.ops&&prevDatOH.ops.psg_on)));
+  var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval);
   el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
+}
+function updatePsgRemovalBanner(ds){
+  var el=document.getElementById('psg-removal-banner'); if(!el) return;
+  if(!ds){el.style.display='none';return;}
+  var n=new Date(),todayStr=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+  if(ds!==todayStr){el.style.display='none';return;}
+  var prevDsBN=getPrevDs(ds),prevDatBN=D.pages[prevDsBN];
+  var isPsgR=!!(prevDatBN&&((prevDatBN.ops_cards&&prevDatBN.ops_cards.indexOf('psg')!==-1)||(prevDatBN.ops&&prevDatBN.ops.psg_on)));
+  if(!isPsgR){el.style.display='none';return;}
+  var nowMin=n.getHours()*60+n.getMinutes();
+  el.style.display=(nowMin<8*60+30)?'':'none';
 }
 function renderPage(ds) {
   if (!D.pages[ds]) return;
@@ -6563,12 +6584,14 @@ function renderPage(ds) {
   var _cathN=_ops.cath_items?_ops.cath_items.length:0;
   var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
   var _psgN=_ops.psg_on?1:0;
-  var _hasOps=_opeN||_cathN||_mwN||_psgN;
+  var _prevDsRP=getPrevDs(ds),_prevDatRP=D.pages[_prevDsRP];
+  var _psgRemoval=!!(_prevDatRP&&((_prevDatRP.ops_cards&&_prevDatRP.ops_cards.indexOf('psg')!==-1)||(_prevDatRP.ops&&_prevDatRP.ops.psg_on)));
+  var _hasOps=_opeN||_cathN||_mwN||_psgN||_psgRemoval;
   h+='<div class="pp">';
   h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
   h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+all.length+' 完了</span></div>';
-  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN)+'</span></div>' : '') +'</div>';
+  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval)+'</span></div>' : '') +'</div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
@@ -9303,6 +9326,7 @@ function runPsgFusenCheck() {
     onEl.classList.remove('psg-fusen-alert');
     if(cbEl.parentElement) cbEl.parentElement.style.color='';
   }
+  updatePsgRemovalBanner(curDs);
 }
 
 function savePsgAlertTime() {
