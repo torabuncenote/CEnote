@@ -7875,6 +7875,11 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         if(!D.pages[ds].duties) D.pages[ds].duties={};
         var _old=D.pages[ds].duties[did];
         D.pages[ds].duties[did]=this.value;
+        /* 旧担当者が余剰にいればそこからも除いてプールへ戻す */
+        if(_old && _old!==this.value && D.pages[ds].surplus){
+          var _si=D.pages[ds].surplus.indexOf(_old);
+          if(_si!==-1) D.pages[ds].surplus.splice(_si,1);
+        }
         markDutyEdited(ds);
         maybeLateToast(D.pages[ds],did,this.value,_oldDuty);
         saveD(); refreshPool(ds);
@@ -7981,7 +7986,9 @@ function buildDG(ds, dat, locked) {
           rx.onclick=(function(sid){return function(){
             var cfg=getDutyCfg(dat).filter(function(x){return x.id!==sid;});
             D.pages[ds].customDuties=cfg;
+            var _an=dat.duties&&dat.duties[sid];
             if(dat.duties) delete dat.duties[sid];
+            if(_an && D.pages[ds].surplus){var _si=D.pages[ds].surplus.indexOf(_an);if(_si!==-1)D.pages[ds].surplus.splice(_si,1);}
             saveD(); renderPage(ds);
           };})(slot.id);
           tag.appendChild(rx);
@@ -8024,6 +8031,15 @@ function buildDG(ds, dat, locked) {
           clrBtn2.textContent='🗑'; clrBtn2.title='全枠クリア';
           clrBtn2.onclick=function(){
             if(!confirm('全担当枠を削除しますか？')) return;
+            /* 割り当て済みスタッフを余剰からも除いてプールへ戻す */
+            var _duts=D.pages[ds].duties||{};
+            if(D.pages[ds].surplus){
+              Object.keys(_duts).forEach(function(sid){
+                var n=_duts[sid]; if(!n)return;
+                var _si=D.pages[ds].surplus.indexOf(n);
+                if(_si!==-1) D.pages[ds].surplus.splice(_si,1);
+              });
+            }
             D.pages[ds].customDuties=[]; D.pages[ds].duties={}; saveD(); renderPage(ds);
           };
           tagRow.appendChild(clrBtn2);
