@@ -3152,6 +3152,7 @@ function renderAdminUsers() {
           S += '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">管理者を外す</button>';
         } else {
           S += '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
+          S += '<button class="btn btn-d btn-sm" style="margin-left:4px" onclick="deleteAppUser(\'' + escH(uid) + '\',\'' + escH(u.displayName || u.email) + '\')">🗑 削除</button>';
         }
         S += '</div>';
         /* --- 下段：編集権限（管理者・自分以外のみ） --- */
@@ -3258,6 +3259,18 @@ function toggleAdminPriv(uid, currentlyAdmin) {
   });
 }
 
+function deleteAppUser(uid, name) {
+  if (!isAdmin || !FB_ON || !fbDB) return;
+  if (!confirm('「' + name + '」のアプリデータを削除しますか？\n' +
+    '※ Firebaseログインアカウント自体は残ります。\n' +
+    '　完全削除はFirebase Consoleから行ってください。')) return;
+  fbDB.ref('/users/' + uid).remove();
+  fbDB.ref('/admins/' + uid).remove();
+  fbDB.ref('/userPerms/' + uid).remove();
+  writeLog('ユーザー削除（ソフト）', uid + ' / ' + name);
+  renderAdminUsers();
+}
+
 /* ===== 新規ユーザー登録 ===== */
 function openRegModal() {
   document.getElementById('reg-email').value = '';
@@ -3333,8 +3346,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06w';
+var APP_VERSION = '2026.06x';
 var APP_CHANGELOG = [
+  { ver:'2026.06x', date:'2026-06-16', title:'ガイド更新・ユーザー削除機能追加', items:[
+    {t:'new', d:'📖 使い方ガイドに新機能セクション追加（HD勤務者/余剰ゾーン・業務件数・月次自動割り当て・公平性タブ・進捗バータップ・カレンダー🟢ドット）'},
+    {t:'new', d:'🗑 管理者画面からユーザーのアプリデータを削除できるようになりました（ソフトデリート：Firebase Authアカウント自体はConsoleから別途削除が必要）'}
+  ]},
   { ver:'2026.06w', date:'2026-06-15', title:'HD勤務者ステータスゾーン再設計', items:[
     {t:'fix', d:'🩸 HDステータスゾーン（HDシフトチェンジ・メンテ・休み・その他）を余剰人員エリアに常時表示。HDトグルを開かなくても一目で状況を確認できる'},
     {t:'fix', d:'🩸 余剰人員チップ・HD勤務者チップのどちらもゾーンにドロップして状態管理が可能。ゾーン分類済みのHDスタッフはソースリストから自動で非表示'},
@@ -4578,6 +4595,7 @@ function renderGuide() {
   S += '<table class="gd-tbl"><tr><th>マーク</th><th>意味</th></tr>'
     + '<tr><td>🔴 赤ドット</td><td>連絡表あり・チェックリスト未完了</td></tr>'
     + '<tr><td>🔵 青ドット</td><td>チェックリスト全て完了</td></tr>'
+    + '<tr><td>🟢 緑ドット</td><td>月次自動割り当て済み・まだ手動変更なし</td></tr>'
     + '</table>';
 
   S += h1('🔐 ログイン・ログアウト');
@@ -4602,9 +4620,41 @@ function renderGuide() {
   S += step(2,'担当枠の上で指を離す','');
   S += ok('割り当てた名前は一覧から自動的に消えます。');
 
+  S += h1('🔄 余剰人員 / HD 勤務者');
+  S += h2('余剰人員エリアの折りたたみ');
+  S += '<div class="gd-p">「🔄 余剰人員 ▲」タイトル部分をタップするとエリア全体を折りたたみ／展開できます。スマホで縦スクロールを減らしたいときに活用してください。</div>';
+  S += h2('🩸 HD 勤務者パネル');
+  S += '<div class="gd-p">余剰人員エリア右上の「🩸 HD勤務者」ボタンをタップすると、当日のHD（透析）勤務者が日勤・準夜別に表示されます。勤務表を取り込んでいない場合はデータなしと表示されます。</div>';
+  S += h2('ステータスゾーン');
+  S += '<div class="gd-p">余剰人員エリアには以下の4つのゾーンが常時表示されます。</div>';
+  S += '<table class="gd-tbl"><tr><th>ゾーン</th><th>用途</th></tr>'
+    + '<tr><td>🔄 HDシフトチェンジ</td><td>透析担当の入れ替わり</td></tr>'
+    + '<tr><td>🔧 メンテ</td><td>機器メンテナンス対応</td></tr>'
+    + '<tr><td>🏖️ 休み</td><td>休暇・不在</td></tr>'
+    + '<tr><td>📝 その他</td><td>上記以外の特記事項</td></tr>'
+    + '</table>';
+  S += '<div class="gd-p">余剰スタッフカードまたはHD勤務者カードをドラッグしてゾーンに置くと、その日のスタッフ状況が一目でわかります。カード右の「×」でゾーンから外せます。</div>';
+
+  S += h1('📊 業務件数');
+  S += '<div class="gd-p">連絡表上部のヘッダーに当日の業務件数が自動集計されて表示されます。</div>';
+  S += '<table class="gd-tbl"><tr><th>業務</th><th>カウント方法</th></tr>'
+    + '<tr><td>オペ・カテ</td><td>術式行の数（内容入力の有無を問わない）</td></tr>'
+    + '<tr><td>6MW</td><td>カード選択時点で1件・件数入力があればその値</td></tr>'
+    + '<tr><td>PSG</td><td>PSGカード追加で1件</td></tr>'
+    + '</table>';
+
+  S += h1('📅 月次自動割り当て・公平性確認');
+  S += h2('月次自動割り当て');
+  S += step(1,'左サイドバーの「月次担当一覧」タブを開く','管理者のみ操作できます。');
+  S += step(2,'「自動割り当て」ボタンをタップ','月単位で担当を自動生成します。');
+  S += step(3,'カレンダーに🟢緑ドットが表示される','自動割り当て済み・まだ手動変更なしの状態です。手動変更すると緑→赤に変わります。');
+  S += h2('公平性確認');
+  S += '<div class="gd-p">「月次担当一覧」内の「公平性」タブで、スタッフ別の担当回数マトリクスを確認できます。担当が偏っている列は赤・少ない列は青でハイライトされます。</div>';
+
   S += h1('✅ チェックリスト');
   S += '<div class="gd-p">連絡表の下部「業務チェックリスト」の項目をタップするとチェックが入ります。もう一度タップで解除。</div>';
   S += ok('全項目チェック完了 → カレンダーに🔵青ドットが表示されます。');
+  S += '<div class="gd-p">連絡表上部の進捗バー（緑のゲージ）をタップするとチェックリスト欄へ自動スクロールします。画面右下の「TOP」ボタンで最上部に戻れます。</div>';
 
   S += h1('💬 申し送りを書く');
   S += step(1,'入力欄をタップして文字を入力','「申し送りを入力...」と書かれている欄。');
@@ -4638,6 +4688,8 @@ function renderGuide() {
     + '<tr><td>名前が申し送りに出ない</td><td>右上の名前をクリックして表示名を設定</td></tr>'
     + '<tr><td>PSGのアラートが出た</td><td>装着欄に入力後、「付箋入力済」チェックを入れてください</td></tr>'
     + '<tr><td>掲示板/スケジュールが見られない</td><td>ページを再読み込み。それでも不可なら管理者に連絡</td></tr>'
+    + '<tr><td>HD勤務者が表示されない</td><td>その月の勤務表Excelを再取込してください</td></tr>'
+    + '<tr><td>業務件数が表示されない</td><td>ページを閉じて再度開くか管理者に確認</td></tr>'
     + '</table>';
 
   S += '</div>';
