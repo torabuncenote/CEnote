@@ -7902,9 +7902,8 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
           if(_si!==-1) D.pages[ds].surplus.splice(_si,1);
         }
         markDutyEdited(ds);
-        maybeLateToast(D.pages[ds],did,this.value,_oldDuty);
         saveD(); refreshPool(ds);
-        maybeLateToast(D.pages[ds], did, this.value, _old);
+        maybeLateToast(D.pages[ds], did, this.value, _oldDuty);
         writeLog(this.value?'担当割り当て':'担当クリア', fmtJ(ds)+' '+did+(this.value?' → '+this.value:''));
       };
       var cbsWrap = document.getElementById('dccbs-'+did);
@@ -8251,12 +8250,10 @@ function buildDG(ds, dat, locked) {
             sel.value = _dragName; sel.classList.toggle('set', !!_dragName);
             var _oldDuty=(D.pages[_dragDs].duties||{})[did];
             if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
-            var _oldT=D.pages[_dragDs].duties[did];
             D.pages[_dragDs].duties[did] = _dragName;
             markDutyEdited(_dragDs);
-            maybeLateToast(D.pages[_dragDs],did,_dragName,_oldDuty);
             saveD(); refreshPool(_dragDs);
-            maybeLateToast(D.pages[_dragDs], did, _dragName, _oldT);
+            maybeLateToast(D.pages[_dragDs], did, _dragName, _oldDuty);
             writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
           }
           _dragName=''; return;
@@ -8324,12 +8321,10 @@ function buildDG(ds, dat, locked) {
           sel.value=name; sel.classList.toggle('set',!!name);
           var _oldDuty=(D.pages[dropDs].duties||{})[did];
           if(!D.pages[dropDs].duties)D.pages[dropDs].duties={};
-          var _oldD=D.pages[dropDs].duties[did];
           D.pages[dropDs].duties[did]=name;
           markDutyEdited(dropDs);
-          maybeLateToast(D.pages[dropDs],did,name,_oldDuty);
           saveD(); refreshPool(dropDs);
-          maybeLateToast(D.pages[dropDs], did, name, _oldD);
+          maybeLateToast(D.pages[dropDs], did, name, _oldDuty);
         }
       });
       document.addEventListener('dragend', function() {
