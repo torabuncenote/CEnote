@@ -7874,6 +7874,11 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         if(!D.pages[ds].duties) D.pages[ds].duties={};
         var _old=D.pages[ds].duties[did];
         D.pages[ds].duties[did]=this.value;
+        /* 旧担当者が居て別の人またはクリアになった場合は余剰プールへ戻す */
+        if(_old && _old!==this.value){
+          if(!D.pages[ds].surplus) D.pages[ds].surplus=[];
+          if(D.pages[ds].surplus.indexOf(_old)===-1) D.pages[ds].surplus.push(_old);
+        }
         markDutyEdited(ds);
         maybeLateToast(D.pages[ds],did,this.value,_oldDuty);
         saveD(); refreshPool(ds);
@@ -8029,6 +8034,13 @@ function buildDG(ds, dat, locked) {
           clrBtn2.textContent='🗑'; clrBtn2.title='全枠クリア';
           clrBtn2.onclick=function(){
             if(!confirm('全担当枠を削除しますか？')) return;
+            /* 全スロットの担当者を余剰プールへ戻す */
+            var duties=D.pages[ds].duties||{};
+            if(!D.pages[ds].surplus) D.pages[ds].surplus=[];
+            Object.keys(duties).forEach(function(sid){
+              var n=duties[sid];
+              if(n && D.pages[ds].surplus.indexOf(n)===-1) D.pages[ds].surplus.push(n);
+            });
             D.pages[ds].customDuties=[]; saveD(); renderPage(ds);
           };
           tagRow.appendChild(clrBtn2);
@@ -9845,8 +9857,9 @@ function renderAT() {
       }
       html+='<td'+(si===selfIdx?' class="self-col"':'')+' >'+(chips.length?chips.join(' '):'<span class="dc-n">—</span>')+'</td>';
     }
-    /* 余剰人員列 */
-    var surNames=(dat&&dat.surplus)||[];
+    /* 余剰人員列（ステータスゾーン内のスタッフも余剰扱い） */
+    var surNames=(dat&&dat.surplus)?dat.surplus.slice():[];
+    if(dat&&dat.surplusStatus){Object.keys(dat.surplusStatus).forEach(function(n){if(surNames.indexOf(n)===-1)surNames.push(n);});}
     html+='<td style="font-size:10px;color:var(--txt3)">'+(surNames.join('<br>')||'')+'</td>';
     html+='</tr>';
   }
@@ -9958,7 +9971,9 @@ function exportAtCsv() {
       if(dat&&dat.ocData&&dat.ocData.staff===name)cells.push('OC');
       row.push(cells.join('/'));
     }
-    row.push(((dat&&dat.surplus)||[]).join('/'));
+    var _csvSur=(dat&&dat.surplus)?dat.surplus.slice():[];
+    if(dat&&dat.surplusStatus){Object.keys(dat.surplusStatus).forEach(function(n){if(_csvSur.indexOf(n)===-1)_csvSur.push(n);});}
+    row.push(_csvSur.join('/'));
     rows.push(row);
   }
   var csv='﻿';
