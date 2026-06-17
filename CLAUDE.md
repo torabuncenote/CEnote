@@ -8,10 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Structure
 
-This is a **single-file web app**: all HTML, CSS, and JavaScript lives in `index.html` (~380KB). There is no build system, no bundler, no package manager, and no test framework.
+This is a **single-file web app**: all HTML, CSS, and JavaScript lives in `index.html` (~480KB). There is no build system, no bundler, no package manager, and no test framework.
 
 Additional files:
-- `manifest.json` / `sw.js` — PWA support (offline caching)
+- `manifest.json` / `sw.js` — PWA support (offline caching, cache name `cenote-v4`)
 - `icon-192.svg` / `icon-512.svg` — PWA icons
 - `.github/scripts/validate.mjs` — lightweight syntax checker (run after every change)
 
@@ -44,6 +44,7 @@ All application data lives in a single global variable `D`:
 var D = {
   pages: {},        // daily pages keyed by "YYYY-MM-DD"
   stf: [],          // staff names list
+  stfHidden: {},    // { name: true } — hidden from assignment table/dropdowns
   phs: [],          // phone extension numbers
   dly: [],          // daily checklist items (every day)
   wd: {},           // weekday-specific checklist items { 月: [...], 火: [...], ... }
@@ -55,11 +56,29 @@ var D = {
   shift: {}, evts: {},                // shift/event data
   manual: {},       // task manuals { taskName: { text, media: [{url, name, type, pending?}] } }
   schedPresets: [], // schedule timetable presets
-  _migVer: 1        // data migration version flag (increment when running one-time migrations)
+  stfLinks: {},     // { name: uid } — staff ↔ Firebase auth linkage
+  stfEdu: {},       // { name: [...slots] } — education slot config
+  fcmCfg: {},       // FCM push notification config
+  emailjsCfg: {},   // EmailJS notification config
+  autoAssignMode: 'weekday', // auto-assign mode
+  psgAlertTime: '10:00',     // PSG 付箋未入力アラート時刻
+  psgBannerStart: '07:30',   // PSG取り外しバナー表示開始時刻
+  psgBannerEnd:   '08:30',   // PSG取り外しバナー表示終了時刻
+  _migVer: 3        // data migration version flag (increment when running one-time migrations)
 };
 ```
 
-Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, etc.
+Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, `surplus`, `surplusStatus`, `hdStatus`, `ops_cards`, etc.
+
+### Adding New D Properties
+
+When adding a new top-level property to `D`, update **all five** of these locations:
+
+1. `var D = {...}` initialization (line ~1539)
+2. `loadD()` — localStorage hydration (`D.newProp = s.newProp || default`)
+3. Firebase `/data` listener — hydration from Firebase (`D.newProp = d.newProp || default`)
+4. Logout reset block (`D.newProp = default`)
+5. Backup/restore key arrays — two `forEach` calls containing `'emailjsCfg','fcmCfg','stfLinks',...` (search for this pattern; appears twice)
 
 ### Persistence
 
@@ -156,7 +175,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
   .es     — empty-state placeholder (shown when no page is selected)
 ```
 
-Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`.
+Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` and `#pane-sched` are `position:fixed` full-screen overlays on mobile.
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
@@ -179,27 +198,64 @@ All class names are abbreviated:
 | `fbInit()` | Firebase auth listener → login → `/data` + `/board` listeners |
 | `saveD()` | Persist `D` to Firebase or localStorage |
 | `openDefaultPage()` | Open today's page on startup (if exists) |
-| `openPage(ds)` | Open a day's detail view in `.main` |
+| `openPage(ds)` | Open a day's detail view in `.main`; calls `updateOpsHeader` + `updatePsgRemovalBanner` |
 | `renderPage(ds)` | Re-render the open day page |
 | `safeRenderPage()` | `renderPage(curDs)` only if page is open |
 | `renderCal()` | Render calendar sidebar |
-| `renderAT()` / `renderFairness()` | Monthly assignment table / fairness matrix |
+| `renderAT()` / `renderFairness()` | Monthly assignment table / fairness matrix (both filter `D.stfHidden`) |
 | `buildDG(ds, dat, locked)` | Duty card grid |
 | `buildCL(ds, dat, wtl, all, locked)` | Checklist section |
 | `buildOPS(ds, dat, locked)` | OPE/cath/ops record section |
 | `renderMemos(ds, dat, locked)` | Memo/comment thread |
 | `renderSched()` | Per-day timetable for `curDs` |
 | `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board |
+| `renderSurplusArea(ds, dat, locked)` | 余剰人員エリア（デフォルト折りたたみ: `_surplusOpen = false`） |
 | `updatePendingBadge()` | Media approval badge (debounced 200ms) |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
 | `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
 | `saveFirebaseSnapshot(label)` | Write to `/backups/YYYY-MM-DD_HH` |
-| `renderAdminUsers()` | User management UI (generation counter guards race) |
+| `renderAdminUsers()` / `deleteAppUser(uid, name)` | User management (soft-delete removes `/users/{uid}`, `/admins/{uid}`, `/userPerms/{uid}`) |
 | `can(id)` / `lk(id)` | Access control helpers |
+| `opsHeaderChips(opeN, cathN, mwN, psgN, psgRemoval)` | Builds 業務 header chips (5th arg = PSG外し flag) |
+| `updateOpsHeader(ds)` | Refreshes `#ops-header-row` DOM element dynamically |
+| `updatePsgRemovalBanner(ds)` | Shows/hides `#psg-removal-banner` (today only, within `psgBannerStart`–`psgBannerEnd`) |
+| `toggleStfHidden(name)` | Toggle `D.stfHidden[name]`; affects AT columns, dropdowns, fairness matrix |
+| `setAtZoom(z)` / `initAtPinchZoom()` | 担当表ピンチズーム（ease-out animation for buttons, GPU transform during pinch） |
 
 ### Duty/Assignment System
 
 `DUTIES` defines fixed slot types. `DEF_DUTY_MASTER` is the admin-editable master. Each day stores assignments as `{ ope: "name", cath: "name", ... }` plus a pool of unassigned staff for drag-and-drop.
+
+**Pool ↔ Surplus**: `refreshPool(ds)` only touches `#pool-chips .pchip:not(.hd)` — do not broaden this selector or surplus zone chips will be hidden. `surplusStatus[name] = zoneKey` places staff in a zone (hd/maint/off/other).
+
+**Duty assignment paths** (3 total — all must call `maybeLateToast` and `writeLog`):
+1. `<select>` onchange in `buildDutyCard`
+2. Touch drop (`onTouchEnd`)
+3. Mouse drop (`onDrop`)
+
+**Staff visibility**: `D.stfHidden[name] = true` hides staff from `renderAT()` columns, `renderFairness()` names, and duty dropdown options. Hidden staff who are already assigned show as `（非表示）` in the dropdown. HD workers (from shift data) are unaffected.
+
+### PSG外し Detection
+
+```js
+var prevDs = getPrevDs(ds);
+var prevDat = D.pages[prevDs];
+var isPsgRemoval = !!(prevDat && (
+  (prevDat.ops_cards && prevDat.ops_cards.indexOf('psg') !== -1) ||
+  (prevDat.ops && prevDat.ops.psg_on)
+));
+```
+
+Used in: `buildDG` (duty card checkbox), `updateOpsHeader` (header chip), `updatePsgRemovalBanner` (persistent banner). The banner shows only when `ds === todayStr` and `nowMin` is within `[psgBannerStart, psgBannerEnd)`. Called every minute via `runPsgFusenCheck()`.
+
+### 担当表ピンチズーム
+
+Structure: `.ato#ato-wrap` > `#at-zoom-inner` > `#at-body` (table content).
+
+- During pinch: applies `transform: scale(ratio)` with `transform-origin` at the pinch midpoint (GPU-accelerated, no reflow)
+- On `touchend`: commits to `zoom` property and corrects scroll position: `scrollLeft = scrollLeft * ratio + pinchCenter * (ratio - 1)`
+- Button clicks: ease-out cubic animation over 10 frames via `_atZoomAnimRAF`
+- `_atZoom` global tracks current zoom level (0.25–3)
 
 ### Schedule Timetable
 
@@ -227,7 +283,7 @@ Uploads by non-admins get `pending: true`. In `renderMemos`, non-admins see a pl
 
 ### Fairness Check
 
-`renderFairness()` — 4th subtab of the assignment pane. Counts duty assignments per staff×slot for `asY/asM`, shows a matrix with max(red)/min(blue) highlighting. Warns when any column's max−min ≥ `FAIR_GAP_WARN` (default 3).
+`renderFairness()` — 4th subtab of the assignment pane. Counts duty assignments per staff×slot for `asY/asM`, shows a matrix with max(red)/min(blue) highlighting. Warns when any column's max−min ≥ `FAIR_GAP_WARN` (default 3). Hidden staff (`D.stfHidden`) are filtered from the matrix.
 
 ## Making Changes
 
@@ -240,4 +296,5 @@ Since everything is in one file, search for function names or CSS classes to loc
 - After mutating `D`, call `saveD()`.
 - For rendering, call the targeted function (e.g., `renderStfList()`) rather than `renderPage()` to avoid full re-renders.
 - `renderPage()` must sometimes be called **before** `saveD()` to avoid the Firebase echo overwriting the new UI state.
-- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`.
+- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **3**.
+- Stale closure bug: closures that capture `dat` become stale after Firebase updates `D`. Always reference `D.pages[ds]` (live) inside async callbacks, not the closed-over `dat`.
