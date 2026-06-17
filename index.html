@@ -934,11 +934,18 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           </div>
         </div>
         <div>
-          <div class="pt">🌙 PSG付箋通知設定</div>
+          <div class="pt">🌙 PSG通知設定</div>
           <div class="pn" style="margin-bottom:8px">PSG装着者がいる日に付箋未入力の場合、指定時刻にトーストで通知します。</div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <label style="font-size:13px;font-weight:600">通知時刻</label>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <label style="font-size:13px;font-weight:600">付箋通知時刻</label>
             <input type="time" id="psg-alert-time" onchange="savePsgAlertTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
+          </div>
+          <div class="pn" style="margin-bottom:8px">PSG外し日（前日装着あり）にバナーを表示する時間帯を設定します。</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <label style="font-size:13px;font-weight:600">バナー表示</label>
+            <input type="time" id="psg-banner-start" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
+            <span style="font-size:13px">〜</span>
+            <input type="time" id="psg-banner-end" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
           </div>
         </div>
         <div id="emailjs-cfg-section">
@@ -1520,7 +1527,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00'};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30'};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1660,6 +1667,8 @@ function loadD() {
     D.fcmCfg      = s.fcmCfg      || {};
     D.stfLinks    = s.stfLinks     || {};
     D.psgAlertTime= s.psgAlertTime || '10:00';
+    D.psgBannerStart = s.psgBannerStart || '07:30';
+    D.psgBannerEnd   = s.psgBannerEnd   || '08:30';
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1750,7 +1759,7 @@ function fbInit() {
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
-        D.emailjsCfg={}; D.psgAlertTime='10:00'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.autoAssignMode='weekday';
+        D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.autoAssignMode='weekday';
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -1915,6 +1924,8 @@ function fbInit() {
             D.stfEdu      = d.stfEdu       || {};
             D.autoAssignMode = d.autoAssignMode || 'weekday';
             D.psgAlertTime= d.psgAlertTime || '10:00';
+            D.psgBannerStart = d.psgBannerStart || '07:30';
+            D.psgBannerEnd   = d.psgBannerEnd   || '08:30';
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -5227,6 +5238,9 @@ function renderDlyList() {
   var ok = can('dm');
   var _psgEl = document.getElementById('psg-alert-time');
   if (_psgEl) { _psgEl.value = D.psgAlertTime || '10:00'; _psgEl.disabled = !ok; }
+  var _bsEl = document.getElementById('psg-banner-start'), _beEl = document.getElementById('psg-banner-end');
+  if (_bsEl) { _bsEl.value = D.psgBannerStart || '07:30'; _bsEl.disabled = !ok; }
+  if (_beEl) { _beEl.value = D.psgBannerEnd   || '08:30'; _beEl.disabled = !ok; }
   renderEmailjsCfg(); renderFCMCfg(); renderAutoAssignModeSetting();
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
@@ -6540,7 +6554,10 @@ function updatePsgRemovalBanner(ds){
   var isPsgR=!!(prevDatBN&&((prevDatBN.ops_cards&&prevDatBN.ops_cards.indexOf('psg')!==-1)||(prevDatBN.ops&&prevDatBN.ops.psg_on)));
   if(!isPsgR){el.style.display='none';return;}
   var nowMin=n.getHours()*60+n.getMinutes();
-  el.style.display=(nowMin>=7*60+30&&nowMin<8*60+30)?'':'none';
+  var _bsT=(D.psgBannerStart||'07:30').split(':'),_beT=(D.psgBannerEnd||'08:30').split(':');
+  var _bsMin=parseInt(_bsT[0],10)*60+(parseInt(_bsT[1],10)||0);
+  var _beMin=parseInt(_beT[0],10)*60+(parseInt(_beT[1],10)||0);
+  el.style.display=(nowMin>=_bsMin&&nowMin<_beMin)?'':'none';
 }
 function renderPage(ds) {
   if (!D.pages[ds]) return;
@@ -9337,6 +9354,13 @@ function savePsgAlertTime() {
   v.value = D.psgAlertTime; /* 空入力時は既定値を画面にも反映（表示と内部値のズレ防止） */
   saveD();
 }
+function savePsgBannerTime() {
+  if (!can('dm')) return;
+  var s = document.getElementById('psg-banner-start'), e = document.getElementById('psg-banner-end');
+  if (s) { D.psgBannerStart = s.value || '07:30'; s.value = D.psgBannerStart; }
+  if (e) { D.psgBannerEnd   = e.value || '08:30'; e.value = D.psgBannerEnd; }
+  saveD();
+}
 
 /* ===== OC出勤ルール計算 ===== */
 function calcOcNextDayRule(endTimeStr) {
@@ -11144,7 +11168,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','stfEdu','autoAssignMode'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','autoAssignMode'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -11212,7 +11236,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','stfEdu','autoAssignMode'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','autoAssignMode'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
