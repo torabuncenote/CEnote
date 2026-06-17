@@ -1196,9 +1196,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           <div class="ali" style="color:var(--txt3);font-size:11px">🔴左線=未完了　🔵左線=完了</div>
         </div>
         <div class="at-zoom-bar">
-          <button class="btn btn-g btn-sm" onclick="setAtZoom(_atZoom-0.15)" title="縮小">🔍−</button>
+          <button class="btn btn-g btn-sm" onclick="setAtZoom(_atZoom-0.1)" title="縮小">🔍−</button>
           <button class="btn btn-g btn-sm" onclick="setAtZoom(1)" title="等倍">等倍</button>
-          <button class="btn btn-g btn-sm" onclick="setAtZoom(_atZoom+0.15)" title="拡大">🔍＋</button>
+          <button class="btn btn-g btn-sm" onclick="setAtZoom(_atZoom+0.1)" title="拡大">🔍＋</button>
         </div>
         <div class="ato" id="ato-wrap"><div id="at-zoom-inner"><div id="at-body"></div></div></div>
       </div>
@@ -9897,28 +9897,64 @@ function updProg(ds) {
 /* ===== ASSIGN TABLE ===== */
 /* ===== 担当表ピンチズーム ===== */
 var _atZoom = 1;
+var _atZoomAnimRAF = null;
+
+/* ボタン操作：イーズアウトアニメーションで滑らかに補間 */
 function setAtZoom(z) {
-  _atZoom = Math.max(0.25, Math.min(3, z));
+  var target = Math.max(0.25, Math.min(3, z));
+  if (_atZoomAnimRAF) { cancelAnimationFrame(_atZoomAnimRAF); _atZoomAnimRAF = null; }
+  var start = _atZoom, diff = target - start, frames = 10, frame = 0;
   var el = document.getElementById('at-zoom-inner');
-  if (el) el.style.zoom = _atZoom;
+  if (!el || Math.abs(diff) < 0.001) { _atZoom = target; if(el) el.style.zoom = target; return; }
+  function step() {
+    frame++;
+    var t = frame / frames;
+    _atZoom = start + diff * (1 - Math.pow(1 - t, 3)); /* ease-out cubic */
+    el.style.zoom = _atZoom;
+    _atZoomAnimRAF = frame < frames ? requestAnimationFrame(step) : null;
+    if (frame >= frames) { _atZoom = target; el.style.zoom = target; }
+  }
+  _atZoomAnimRAF = requestAnimationFrame(step);
 }
+
+/* ピンチ操作：ピンチ中は GPU transform、指を離したら zoom に転換 */
 function initAtPinchZoom() {
   var cont = document.getElementById('ato-wrap');
   if (!cont || cont._pzBound) return;
   cont._pzBound = true;
-  var _d0 = 0, _z0 = 1;
+  var _d0 = 0, _z0 = 1, _active = false, _pendingRatio = 1, _raf = null;
   cont.addEventListener('touchstart', function(e) {
-    if (e.touches.length !== 2) return;
+    if (e.touches.length < 2) return;
     _d0 = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
-    _z0 = _atZoom;
+    _z0 = _atZoom; _pendingRatio = 1; _active = true;
+    if (_atZoomAnimRAF) { cancelAnimationFrame(_atZoomAnimRAF); _atZoomAnimRAF = null; }
     e.preventDefault();
   }, {passive: false});
   cont.addEventListener('touchmove', function(e) {
-    if (e.touches.length !== 2) return;
+    if (!_active || e.touches.length < 2 || _d0 === 0) return;
     var d = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
-    if (_d0 > 0) setAtZoom(_z0 * d / _d0);
+    _pendingRatio = Math.max(0.25 / _z0, Math.min(3 / _z0, d / _d0));
+    if (!_raf) {
+      _raf = requestAnimationFrame(function() {
+        _raf = null;
+        var el = document.getElementById('at-zoom-inner');
+        if (el) { el.style.transform = 'scale(' + _pendingRatio + ')'; el.style.transformOrigin = '0 0'; }
+      });
+    }
     e.preventDefault();
   }, {passive: false});
+  function commitZoom() {
+    if (!_active) return;
+    _active = false;
+    if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
+    var el = document.getElementById('at-zoom-inner');
+    if (!el) return;
+    _atZoom = Math.max(0.25, Math.min(3, _z0 * _pendingRatio));
+    el.style.transform = ''; el.style.transformOrigin = '';
+    el.style.zoom = _atZoom;
+  }
+  cont.addEventListener('touchend', function(e) { if (e.touches.length < 2) commitZoom(); }, {passive: true});
+  cont.addEventListener('touchcancel', commitZoom, {passive: true});
 }
 function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
 function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
