@@ -314,7 +314,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .atw{padding:20px 28px 60px;overflow-y:auto;flex:1;background:var(--bg)}
 .atnav{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .atnav .atml{font-size:16px;font-weight:900}
-.ato{width:100%;overflow-x:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr)}
+.ato{width:100%;overflow:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr)}
+#at-zoom-inner{transform-origin:0 0;display:inline-block;min-width:100%}
+.at-zoom-bar{display:none;gap:4px;margin-bottom:6px}
 .at{border-collapse:collapse;min-width:100%;font-size:11px;background:var(--sur)}
 .at th{background:#f0efeb;font-weight:700;color:var(--txt2);padding:6px 8px;border:1px solid var(--bdr);white-space:nowrap;text-align:center}
 .at th.sh{background:#e8e6e1;min-width:72px;text-align:left;position:sticky;left:0;z-index:3}
@@ -354,6 +356,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   body.printing-at #pane-assign{display:block!important;position:static!important;top:auto!important;bottom:auto!important;height:auto!important;flex:none!important;overflow:visible!important}
   .atw{display:block!important;padding:0!important;overflow:visible!important}
   .ato{overflow:visible!important;box-shadow:none!important;border:1px solid #ccc!important;border-radius:0!important}
+  #at-zoom-inner{zoom:1!important}
   .at{font-size:8px!important}
   .at th,.at td{padding:2px 3px!important;border:1px solid #ccc!important}
   .dch{font-size:7px!important;padding:1px 3px!important}
@@ -391,6 +394,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
+  .at-zoom-bar{display:flex}
   .tb-sub,.tb-sep,.sl{display:none}
   #month-size{display:none!important}
   .tb{gap:6px;padding:0 10px}
@@ -1191,7 +1195,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
           <div class="ali"><span class="dch dc-dv">機器管理</span></div>
           <div class="ali" style="color:var(--txt3);font-size:11px">🔴左線=未完了　🔵左線=完了</div>
         </div>
-        <div class="ato"><div id="at-body"></div></div>
+        <div class="at-zoom-bar">
+          <button class="btn btn-g btn-sm" onclick="setAtZoom(_atZoom-0.15)" title="縮小">🔍−</button>
+          <button class="btn btn-g btn-sm" onclick="setAtZoom(1)" title="等倍">等倍</button>
+          <button class="btn btn-g btn-sm" onclick="setAtZoom(_atZoom+0.15)" title="拡大">🔍＋</button>
+        </div>
+        <div class="ato" id="ato-wrap"><div id="at-zoom-inner"><div id="at-body"></div></div></div>
       </div>
       <!-- OC集計シート -->
       <div id="subpane-oc" style="display:none">
@@ -9872,6 +9881,31 @@ function updProg(ds) {
 }
 
 /* ===== ASSIGN TABLE ===== */
+/* ===== 担当表ピンチズーム ===== */
+var _atZoom = 1;
+function setAtZoom(z) {
+  _atZoom = Math.max(0.25, Math.min(3, z));
+  var el = document.getElementById('at-zoom-inner');
+  if (el) el.style.zoom = _atZoom;
+}
+function initAtPinchZoom() {
+  var cont = document.getElementById('ato-wrap');
+  if (!cont || cont._pzBound) return;
+  cont._pzBound = true;
+  var _d0 = 0, _z0 = 1;
+  cont.addEventListener('touchstart', function(e) {
+    if (e.touches.length !== 2) return;
+    _d0 = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+    _z0 = _atZoom;
+    e.preventDefault();
+  }, {passive: false});
+  cont.addEventListener('touchmove', function(e) {
+    if (e.touches.length !== 2) return;
+    var d = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+    if (_d0 > 0) setAtZoom(_z0 * d / _d0);
+    e.preventDefault();
+  }, {passive: false});
+}
 function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
 function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
 function renderAT() {
@@ -9938,10 +9972,11 @@ function renderAT() {
   for(var i=0;i<rows.length;i++){(function(row){var ds=row.getAttribute('data-ds');row.onclick=function(){openFromAT(ds);};})(rows[i]);}
   /* 自己列を中央にスクロール */
   if(selfIdx>=0){requestAnimationFrame(function(){
-    var atoEl=document.querySelector('.ato');
+    var atoEl=document.getElementById('ato-wrap');
     var selfTh=atoEl&&atoEl.querySelector('th.self-col');
     if(selfTh&&atoEl) atoEl.scrollLeft=selfTh.offsetLeft-atoEl.clientWidth/2+selfTh.offsetWidth/2;
   });}
+  initAtPinchZoom();
 }
 function openFromAT(ds){swTab('cal');var pt=ds.split('-');calY=parseInt(pt[0]);calM=parseInt(pt[1])-1;openPage(ds);}
 function printAt(){
