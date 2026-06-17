@@ -9917,16 +9917,25 @@ function setAtZoom(z) {
   _atZoomAnimRAF = requestAnimationFrame(step);
 }
 
-/* ピンチ操作：ピンチ中は GPU transform、指を離したら zoom に転換 */
+/* ピンチ操作：ピンチ中心を origin に、zoom 確定時はスクロール補正 */
 function initAtPinchZoom() {
   var cont = document.getElementById('ato-wrap');
   if (!cont || cont._pzBound) return;
   cont._pzBound = true;
   var _d0 = 0, _z0 = 1, _active = false, _pendingRatio = 1, _raf = null;
+  var _originX = 0, _originY = 0, _mx = 0, _my = 0;
   cont.addEventListener('touchstart', function(e) {
     if (e.touches.length < 2) return;
-    _d0 = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+    var t0 = e.touches[0], t1 = e.touches[1];
+    _d0 = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
     _z0 = _atZoom; _pendingRatio = 1; _active = true;
+    _mx = (t0.clientX + t1.clientX) / 2;
+    _my = (t0.clientY + t1.clientY) / 2;
+    /* ピンチ中心を transform-origin に（zoom 適用後の CSS 座標系に変換） */
+    var el = document.getElementById('at-zoom-inner');
+    var rect = el ? el.getBoundingClientRect() : {left: 0, top: 0};
+    _originX = (_mx - rect.left) / _z0;
+    _originY = (_my - rect.top) / _z0;
     if (_atZoomAnimRAF) { cancelAnimationFrame(_atZoomAnimRAF); _atZoomAnimRAF = null; }
     e.preventDefault();
   }, {passive: false});
@@ -9938,7 +9947,10 @@ function initAtPinchZoom() {
       _raf = requestAnimationFrame(function() {
         _raf = null;
         var el = document.getElementById('at-zoom-inner');
-        if (el) { el.style.transform = 'scale(' + _pendingRatio + ')'; el.style.transformOrigin = '0 0'; }
+        if (el) {
+          el.style.transformOrigin = _originX + 'px ' + _originY + 'px';
+          el.style.transform = 'scale(' + _pendingRatio + ')';
+        }
       });
     }
     e.preventDefault();
@@ -9948,10 +9960,20 @@ function initAtPinchZoom() {
     _active = false;
     if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
     var el = document.getElementById('at-zoom-inner');
+    var sc = document.getElementById('ato-wrap');
     if (!el) return;
-    _atZoom = Math.max(0.25, Math.min(3, _z0 * _pendingRatio));
+    var Z_new = Math.max(0.25, Math.min(3, _z0 * _pendingRatio));
+    var ratio = Z_new / _z0;
+    var scRect = sc ? sc.getBoundingClientRect() : null;
+    var sl = sc ? sc.scrollLeft : 0, st = sc ? sc.scrollTop : 0;
+    _atZoom = Z_new;
     el.style.transform = ''; el.style.transformOrigin = '';
     el.style.zoom = _atZoom;
+    /* zoom 確定後にスクロール位置を補正してピンチ中心を画面内に保つ */
+    if (sc && scRect && Math.abs(ratio - 1) > 0.001) {
+      sc.scrollLeft = sl * ratio + (_mx - scRect.left) * (ratio - 1);
+      sc.scrollTop  = st * ratio + (_my - scRect.top)  * (ratio - 1);
+    }
   }
   cont.addEventListener('touchend', function(e) { if (e.touches.length < 2) commitZoom(); }, {passive: true});
   cont.addEventListener('touchcancel', commitZoom, {passive: true});
