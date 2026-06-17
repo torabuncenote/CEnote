@@ -1536,7 +1536,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30'};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1671,6 +1671,7 @@ function loadD() {
     D.schedPresets= (s.schedPresets && s.schedPresets.length) ? s.schedPresets : JSON.parse(JSON.stringify(DEF_SCHED_PRESETS));
     D._migVer = s._migVer || 0;
     D.stfEdu  = s.stfEdu  || {};
+    D.stfHidden = s.stfHidden || {};
     D.autoAssignMode = s.autoAssignMode || 'weekday';
     D.emailjsCfg  = s.emailjsCfg  || {};
     D.fcmCfg      = s.fcmCfg      || {};
@@ -1768,7 +1769,7 @@ function fbInit() {
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
-        D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.autoAssignMode='weekday';
+        D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -1931,6 +1932,7 @@ function fbInit() {
             D.fcmCfg      = d.fcmCfg      || {};
             D.stfLinks    = d.stfLinks     || {};
             D.stfEdu      = d.stfEdu       || {};
+            D.stfHidden   = d.stfHidden    || {};
             D.autoAssignMode = d.autoAssignMode || 'weekday';
             D.psgAlertTime= d.psgAlertTime || '10:00';
             D.psgBannerStart = d.psgBannerStart || '07:30';
@@ -4530,7 +4532,7 @@ function renderFairness() {
     });
   }
 
-  var names = Object.keys(counts);
+  var names = Object.keys(counts).filter(function(n){return !(D.stfHidden&&D.stfHidden[n]);});
   if (!names.length) {
     el.innerHTML = '<div class="pool-empty" style="padding:20px 0">この月に担当の割り当てがありません</div>';
     return;
@@ -5073,11 +5075,19 @@ function renderStfList() {
       : '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showLinkStfModal('+i+')">🔗 紐付け</button>') : '';
     var eduBtn = isAdmin ? '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showStfEduModal('+i+')" title="教育スロット設定">'+(eduSlots && eduSlots.length ? '🎓' : '🎓 設定')+'</button>' : (eduSlots && eduSlots.length ? '<span style="font-size:10px;color:var(--or);margin-right:3px">🎓</span>' : '');
     var btns = ok ? '<button class="ru" onclick="mvStf('+i+',-1)">↑</button><button class="rdw" onclick="mvStf('+i+',1)">↓</button><button class="rd2" onclick="rmStf('+i+')">×</button>' : '';
-    var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none">👤 ' + escH(name) + '</span>';
-    el.innerHTML = nameSpan + linkBtn + eduBtn + btns;
+    var isHidden = !!(D.stfHidden && D.stfHidden[name]);
+    var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none;'+(isHidden?'opacity:.4;text-decoration:line-through':'')+'">👤 ' + escH(name) + '</span>';
+    var hideBtn = isAdmin ? '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="toggleStfHidden(\''+escH(name)+'\')" title="'+(isHidden?'担当表・割当に表示する':'担当表・割当から非表示にする')+'">'+(isHidden?'👁 表示':'🚫 非表示')+'</button>' : '';
+    el.innerHTML = nameSpan + hideBtn + linkBtn + eduBtn + btns;
     l.appendChild(el);
   }
   document.getElementById('stf-ar').style.display = ok ? 'flex' : 'none';
+}
+function toggleStfHidden(name) {
+  if (!isAdmin) return;
+  if (!D.stfHidden) D.stfHidden = {};
+  if (D.stfHidden[name]) { delete D.stfHidden[name]; } else { D.stfHidden[name] = true; }
+  saveD(); renderStfList(); renderCal();
 }
 function addStf() { if(!can('sm'))return; var v=document.getElementById('in-stf').value.trim(); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function rmStf(i) { if(!can('sm'))return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
@@ -7866,11 +7876,15 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   ));
 
   var opts = '<option value="">— 未割当 —</option>';
-  for (var j=0; j<D.stf.length; j++)
-    opts += '<option value="'+escH(D.stf[j])+'"'+(D.stf[j]===sv?' selected':'')+'>'+escH(D.stf[j])+'</option>';
-  /* 名簿外の名前（HD勤務者など）が割当済みなら専用optionを追加して表示できるようにする */
+  for (var j=0; j<D.stf.length; j++) {
+    var _sn=D.stf[j], _hidden=D.stfHidden&&D.stfHidden[_sn]&&_sn!==sv;
+    if(!_hidden) opts += '<option value="'+escH(_sn)+'"'+(_sn===sv?' selected':'')+'>'+escH(_sn)+'</option>';
+  }
+  /* 名簿外の名前（HD勤務者など・非表示スタッフが既に割当済みの場合も含む）は専用optionを追加 */
   if (sv && D.stf.indexOf(sv) === -1)
     opts += '<option value="'+escH(sv)+'" selected>'+escH(sv)+'（名簿外）</option>';
+  else if (sv && D.stfHidden && D.stfHidden[sv])
+    opts += '<option value="'+escH(sv)+'" selected>'+escH(sv)+'（非表示）</option>';
 
   /* ヘッダー（欠勤チェックを右端に配置） */
   var absentChk = '<label style="margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;flex-shrink:0" title="欠勤マーク">'
@@ -9914,7 +9928,7 @@ function renderAT() {
   var days=new Date(asY,asM+1,0).getDate(), today=toDS(new Date()), adates=[];
   for(var d=1;d<=days;d++){var ds=asY+'-'+pad(asM+1)+'-'+pad(d);if(D.pages[ds])adates.push(ds);}
   if(!adates.length){wrap.innerHTML='<div class="ndm">📋 この月の連絡表がありません<br><br><button class="btn btn-p btn-sm" onclick="openGM()">📅 1ヶ月分生成する</button></div>';return;}
-  var allS=D.stf.slice();
+  var allS=D.stf.filter(function(n){return !(D.stfHidden&&D.stfHidden[n]);});
   var selfName=null;
   if(currentUser&&currentUser.uid!=='preview'){
     if(allS.indexOf(currentUser.displayName)>=0){selfName=currentUser.displayName;}
@@ -10062,7 +10076,7 @@ function exportAtCsv() {
   var days=new Date(asY,asM+1,0).getDate(), adates=[];
   for(var d=1;d<=days;d++){var ds=asY+'-'+pad(asM+1)+'-'+pad(d);if(D.pages[ds])adates.push(ds);}
   if(!adates.length){alert('この月の連絡表がありません');return;}
-  var allS=D.stf.slice();
+  var allS=D.stf.filter(function(n){return !(D.stfHidden&&D.stfHidden[n]);});
   var rows=[['日付','曜日'].concat(allS).concat(['余剰'])];
   for(var di=0;di<adates.length;di++){
     var ds=adates[di], w=new Date(ds).getDay(), dn=parseInt(ds.split('-')[2]);
@@ -11203,7 +11217,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','autoAssignMode'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -11271,7 +11285,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','autoAssignMode'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
