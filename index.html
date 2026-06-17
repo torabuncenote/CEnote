@@ -11420,6 +11420,30 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+/* ===== pane-assign ピンチズーム後スクロール補正 ===== */
+(function() {
+  var pane = document.getElementById('pane-assign');
+  if (!pane) return;
+  var _pinchCenterY = null;
+  pane.addEventListener('touchstart', function(e) {
+    if (e.touches.length >= 2) {
+      _pinchCenterY = pane.scrollTop + pane.clientHeight / 2;
+    }
+  }, {passive: true});
+  pane.addEventListener('touchend', function(e) {
+    if (_pinchCenterY !== null && e.touches.length === 0) {
+      var cy = _pinchCenterY;
+      _pinchCenterY = null;
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          var vvH = window.visualViewport ? window.visualViewport.height : pane.clientHeight;
+          pane.scrollTop = cy - vvH / 2;
+        });
+      });
+    }
+  }, {passive: true});
+})();
+
 init();
 </script>
 </body>
