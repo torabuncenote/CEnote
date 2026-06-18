@@ -314,7 +314,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .atw{padding:20px 28px 60px;overflow-y:auto;flex:1;background:var(--bg)}
 .atnav{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .atnav .atml{font-size:16px;font-weight:900}
-.ato{width:100%;overflow:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr)}
+.ato{width:100%;overflow:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr);-webkit-overflow-scrolling:touch}
+.ato.pinching{touch-action:none;overscroll-behavior:contain}
 #at-zoom-inner{transform-origin:0 0;display:inline-block;min-width:100%}
 .at-zoom-bar{display:none;gap:4px;margin-bottom:6px}
 .at{border-collapse:collapse;min-width:100%;font-size:11px;background:var(--sur)}
@@ -9898,85 +9899,95 @@ function updProg(ds) {
 /* ===== 担当表ピンチズーム ===== */
 var _atZoom = 1;
 var _atZoomAnimRAF = null;
+var _atPinch = null;
+function clampAtZoom(z) {
+  return Math.max(0.25, Math.min(3, z));
+}
+function atPinchDist(touches) {
+  var dx = touches[1].clientX - touches[0].clientX;
+  var dy = touches[1].clientY - touches[0].clientY;
+  return Math.hypot ? Math.hypot(dx, dy) : Math.sqrt(dx * dx + dy * dy);
+}
+function atPinchCenter(touches) {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2
+  };
+}
+function atYScroller() {
+  var pane = document.getElementById('pane-assign');
+  if (pane && pane.scrollHeight > pane.clientHeight) return pane;
+  var wrap = document.querySelector('#pane-assign .atw');
+  return wrap || pane;
+}
+function applyAtZoom(z) {
+  var el = document.getElementById('at-zoom-inner');
+  _atZoom = clampAtZoom(z);
+  if (el) {
+    el.style.transform = '';
+    el.style.transformOrigin = '';
+    el.style.zoom = _atZoom;
+  }
+}
 
 /* ボタン操作：イーズアウトアニメーションで滑らかに補間 */
 function setAtZoom(z) {
-  var target = Math.max(0.25, Math.min(3, z));
+  var target = clampAtZoom(z);
   if (_atZoomAnimRAF) { cancelAnimationFrame(_atZoomAnimRAF); _atZoomAnimRAF = null; }
   var start = _atZoom, diff = target - start, frames = 10, frame = 0;
   var el = document.getElementById('at-zoom-inner');
-  if (!el || Math.abs(diff) < 0.001) { _atZoom = target; if(el) el.style.zoom = target; return; }
+  if (!el || Math.abs(diff) < 0.001) { applyAtZoom(target); return; }
   function step() {
     frame++;
     var t = frame / frames;
-    _atZoom = start + diff * (1 - Math.pow(1 - t, 3)); /* ease-out cubic */
-    el.style.zoom = _atZoom;
+    applyAtZoom(start + diff * (1 - Math.pow(1 - t, 3))); /* ease-out cubic */
     _atZoomAnimRAF = frame < frames ? requestAnimationFrame(step) : null;
-    if (frame >= frames) { _atZoom = target; el.style.zoom = target; }
+    if (frame >= frames) applyAtZoom(target);
   }
   _atZoomAnimRAF = requestAnimationFrame(step);
 }
 
-/* ピンチ操作：ピンチ中心を origin に、zoom 確定時はスクロール補正 */
+/* ピンチ操作：指で挟んだ表内座標を、拡大縮小中も同じ画面位置に保つ */
 function initAtPinchZoom() {
   var cont = document.getElementById('ato-wrap');
   if (!cont || cont._pzBound) return;
   cont._pzBound = true;
-  var _d0 = 0, _z0 = 1, _active = false, _pendingRatio = 1, _raf = null;
-  var _originX = 0, _originY = 0, _mx = 0, _my = 0;
   cont.addEventListener('touchstart', function(e) {
     if (e.touches.length < 2) return;
-    var t0 = e.touches[0], t1 = e.touches[1];
-    _d0 = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
-    _z0 = _atZoom; _pendingRatio = 1; _active = true;
-    _mx = (t0.clientX + t1.clientX) / 2;
-    _my = (t0.clientY + t1.clientY) / 2;
-    /* ピンチ中心を transform-origin に（zoom 適用後の CSS 座標系に変換） */
     var el = document.getElementById('at-zoom-inner');
-    var rect = el ? el.getBoundingClientRect() : {left: 0, top: 0};
-    _originX = (_mx - rect.left) / _z0;
-    _originY = (_my - rect.top) / _z0;
+    if (!el) return;
     if (_atZoomAnimRAF) { cancelAnimationFrame(_atZoomAnimRAF); _atZoomAnimRAF = null; }
+    var c = atPinchCenter(e.touches);
+    var xr = cont.getBoundingClientRect();
+    var sy = atYScroller();
+    _atPinch = {
+      startDist: atPinchDist(e.touches),
+      startZoom: _atZoom,
+      contentX: (cont.scrollLeft + c.x - xr.left) / _atZoom,
+      contentY: (c.y - el.getBoundingClientRect().top) / _atZoom,
+      contentTop: (sy ? sy.scrollTop : 0) + el.getBoundingClientRect().top
+    };
+    cont.classList.add('pinching');
     e.preventDefault();
   }, {passive: false});
   cont.addEventListener('touchmove', function(e) {
-    if (!_active || e.touches.length < 2 || _d0 === 0) return;
-    var d = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
-    _pendingRatio = Math.max(0.25 / _z0, Math.min(3 / _z0, d / _d0));
-    if (!_raf) {
-      _raf = requestAnimationFrame(function() {
-        _raf = null;
-        var el = document.getElementById('at-zoom-inner');
-        if (el) {
-          el.style.transformOrigin = _originX + 'px ' + _originY + 'px';
-          el.style.transform = 'scale(' + _pendingRatio + ')';
-        }
-      });
-    }
+    if (!_atPinch || e.touches.length < 2 || _atPinch.startDist === 0) return;
+    var c = atPinchCenter(e.touches);
+    var xr = cont.getBoundingClientRect();
+    var sy = atYScroller();
+    var z = clampAtZoom(_atPinch.startZoom * atPinchDist(e.touches) / _atPinch.startDist);
+    applyAtZoom(z);
+    cont.scrollLeft = _atPinch.contentX * z - (c.x - xr.left);
+    if (sy) sy.scrollTop = _atPinch.contentTop + _atPinch.contentY * z - c.y;
     e.preventDefault();
   }, {passive: false});
-  function commitZoom() {
-    if (!_active) return;
-    _active = false;
-    if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
-    var el = document.getElementById('at-zoom-inner');
-    var sc = document.getElementById('ato-wrap');
-    if (!el) return;
-    var Z_new = Math.max(0.25, Math.min(3, _z0 * _pendingRatio));
-    var ratio = Z_new / _z0;
-    var scRect = sc ? sc.getBoundingClientRect() : null;
-    var sl = sc ? sc.scrollLeft : 0, st = sc ? sc.scrollTop : 0;
-    _atZoom = Z_new;
-    el.style.transform = ''; el.style.transformOrigin = '';
-    el.style.zoom = _atZoom;
-    /* zoom 確定後にスクロール位置を補正してピンチ中心を画面内に保つ */
-    if (sc && scRect && Math.abs(ratio - 1) > 0.001) {
-      sc.scrollLeft = sl * ratio + (_mx - scRect.left) * (ratio - 1);
-      sc.scrollTop  = st * ratio + (_my - scRect.top)  * (ratio - 1);
-    }
+  function endPinch(e) {
+    if (e && e.touches && e.touches.length >= 2) return;
+    _atPinch = null;
+    cont.classList.remove('pinching');
   }
-  cont.addEventListener('touchend', function(e) { if (e.touches.length < 2) commitZoom(); }, {passive: true});
-  cont.addEventListener('touchcancel', commitZoom, {passive: true});
+  cont.addEventListener('touchend', endPinch, {passive: true});
+  cont.addEventListener('touchcancel', endPinch, {passive: true});
 }
 function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
 function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
@@ -11419,30 +11430,6 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(function(){});
   });
 }
-
-/* ===== pane-assign ピンチズーム後スクロール補正 ===== */
-(function() {
-  var pane = document.getElementById('pane-assign');
-  if (!pane) return;
-  var _pinchCenterY = null;
-  pane.addEventListener('touchstart', function(e) {
-    if (e.touches.length >= 2) {
-      _pinchCenterY = pane.scrollTop + pane.clientHeight / 2;
-    }
-  }, {passive: true});
-  pane.addEventListener('touchend', function(e) {
-    if (_pinchCenterY !== null && e.touches.length === 0) {
-      var cy = _pinchCenterY;
-      _pinchCenterY = null;
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          var vvH = window.visualViewport ? window.visualViewport.height : pane.clientHeight;
-          pane.scrollTop = cy - vvH / 2;
-        });
-      });
-    }
-  }, {passive: true});
-})();
 
 init();
 </script>
