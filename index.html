@@ -953,17 +953,17 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
             <input type="time" id="psg-banner-end" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
           </div>
         </div>
-        <div id="emailjs-cfg-section" data-perm="mst">
+        <div id="emailjs-cfg-section" data-perm="admin">
           <div class="pt">📧 メール通知設定（EmailJS）</div>
           <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
           <div id="emailjs-cfg-form"></div>
         </div>
-        <div id="fcm-cfg-section" data-perm="mst">
+        <div id="fcm-cfg-section" data-perm="admin">
           <div class="pt">🔔 Web Push設定（FCM）</div>
           <div class="pn" style="margin-bottom:8px">Firebase Cloud Messaging でアプリを閉じていても担当割り当て通知をプッシュ配信できます。Firebase コンソール → プロジェクト設定 → Cloud Messaging から VAPIDキー（公開鍵）とサーバーキーを取得してください。</div>
           <div id="fcm-cfg-form"></div>
         </div>
-        <div id="auto-assign-mode-cfg" data-perm="mst">
+        <div id="auto-assign-mode-cfg" data-perm="admin">
           <div class="pt">🎲 月次自動割り当てモード</div>
           <div id="auto-assign-mode-form"></div>
         </div>
@@ -10594,7 +10594,8 @@ function swTab(t) {
     renderWdlyList();renderDlyList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
     document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
-      sec.style.display=can(sec.getAttribute('data-perm'))?'':'none';
+      var perm=sec.getAttribute('data-perm');
+      sec.style.display=(perm==='admin'?isAdmin:can(perm))?'':'none';
     });
   }
   if(t==='logs'){loadLogs();}
