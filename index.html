@@ -9983,8 +9983,19 @@ function initAtPinchZoom() {
   }, {passive: false});
   function endPinch(e) {
     if (e && e.touches && e.touches.length >= 2) return;
+    if (!_atPinch) return;
+    var sy = atYScroller();
+    var savedY = sy ? sy.scrollTop : null;
+    var savedX = cont.scrollLeft;
     _atPinch = null;
     cont.classList.remove('pinching');
+    /* iOS が touchend 後に scrollTop を非同期調整するのを防ぐため数フレーム上書きする */
+    var n = 0;
+    (function relock() {
+      if (sy && savedY !== null) sy.scrollTop = savedY;
+      cont.scrollLeft = savedX;
+      if (++n < 8) requestAnimationFrame(relock);
+    })();
   }
   cont.addEventListener('touchend', endPinch, {passive: true});
   cont.addEventListener('touchcancel', endPinch, {passive: true});
