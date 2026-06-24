@@ -3202,10 +3202,11 @@ function renderAdminUsers() {
         S += '</div>';
         /* --- 下段：編集権限（管理者・自分以外のみ） --- */
         if (!isAdm && !isSelf) {
-          var grantCount = Object.keys(userPerms).filter(function(k){ return userPerms[k]; }).length;
+          var grantCount = Object.keys(userPerms).filter(function(k){ return userPerms[k] && k.indexOf('tab_')!==0; }).length;
+          var tabCount  = Object.keys(userPerms).filter(function(k){ return userPerms[k] && k.indexOf('tab_')===0; }).length;
           S += '<div style="margin-top:5px">';
           S += '<button class="btn btn-g btn-sm" style="font-size:11px" onclick="togPermPanel(\'' + panelId + '\')">';
-          S += '🔑 編集権限' + (grantCount ? ' (' + grantCount + '件付与中)' : '') + ' ▾</button>';
+          S += '🔑 権限設定' + ((grantCount||tabCount) ? ' (' + (grantCount?'編集'+grantCount:'') + (grantCount&&tabCount?'・':'') + (tabCount?'タブ'+tabCount:'') + '件付与中)' : '') + ' ▾</button>';
           S += '<div id="' + panelId + '" style="display:none;margin-top:6px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)">';
           S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:6px">🔒 がロックされている機能でも、権限を付与したユーザーは編集できます。</div>';
           S += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
@@ -3295,6 +3296,7 @@ function saveUserPerm(uid, permId, grant) {
       if(!currentUser.perms) currentUser.perms = {};
       if(grant) currentUser.perms[permId] = true;
       else delete currentUser.perms[permId];
+      updateTabVisibility();
     }
   }).catch(function(err) { alert('エラー: ' + err.message); });
 }
