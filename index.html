@@ -6729,8 +6729,9 @@ function updateOpsHeader(ds){
   var cathN=0; if(o.cath_items) o.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
   /* 6MW：カード存在で1、件数入力があればその値 */
   var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
-  /* PSG：psg_onがあれば1 */
-  var psgN=o.psg_on?1:0;
+  /* PSG：カードが追加されているか、または psg_on に入力があれば1 */
+  var _opsCards=D.pages[ds].ops_cards;
+  var psgN=!!(o.psg_on||(_opsCards&&_opsCards.indexOf('psg')!==-1))?1:0;
   /* PSG外し：前日にPSGがあれば当日は外し作業あり */
   var prevDsOH=getPrevDs(ds),prevDatOH=D.pages[prevDsOH];
   var psgRemoval=!!(prevDatOH&&((prevDatOH.ops_cards&&prevDatOH.ops_cards.indexOf('psg')!==-1)||(prevDatOH.ops&&prevDatOH.ops.psg_on)));
@@ -6794,7 +6795,8 @@ function renderPage(ds) {
   var _opeN=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(it.sel||it.txt)_opeN++;});
   var _cathN=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(it.sel||it.txt)_cathN++;});
   var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
-  var _psgN=_ops.psg_on?1:0;
+  var _opsCardsRP=dat.ops_cards;
+  var _psgN=!!(_ops.psg_on||(_opsCardsRP&&_opsCardsRP.indexOf('psg')!==-1))?1:0;
   var _prevDsRP=getPrevDs(ds),_prevDatRP=D.pages[_prevDsRP];
   var _psgRemoval=!!(_prevDatRP&&((_prevDatRP.ops_cards&&_prevDatRP.ops_cards.indexOf('psg')!==-1)||(_prevDatRP.ops&&_prevDatRP.ops.psg_on)));
   var _hasOps=_opeN||_cathN||_mwN||_psgN||_psgRemoval;
