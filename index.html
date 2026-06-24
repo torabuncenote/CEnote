@@ -1183,6 +1183,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <button id="subtab-oc" class="btn btn-g btn-sm" onclick="swSubTab('oc')" style="border-radius:6px 6px 0 0">📞 OC集計</button>
         <button id="subtab-ops" class="btn btn-g btn-sm" onclick="swSubTab('ops')" style="border-radius:6px 6px 0 0">📈 業務集計</button>
         <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0;display:none">⚖️ 公平性</button>
+        <button id="subtab-my" class="btn btn-g btn-sm" onclick="swSubTab('my')" style="border-radius:6px 6px 0 0">👤 マイ担当</button>
       </div>
       <!-- 担当表 -->
       <div id="subpane-at">
@@ -1214,6 +1215,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <!-- 公平性チェック -->
       <div id="subpane-fair" style="display:none">
         <div id="fair-body"></div>
+      </div>
+      <!-- マイ担当 -->
+      <div id="subpane-my" style="display:none;padding:10px 4px">
+        <div id="my-body"></div>
       </div>
     </div>
   </div>
@@ -1550,6 +1555,7 @@ var _lastCleanupDate = ''; /* cleanOldSnapshots の日次レート制限 */
 var _fbDataLoaded = false; /* Firebase /data リスナーが初回データを受信済み。trueになるまでFirebase書き込みを禁止（ログイン直後の空書き込みを防止） */
 var _hdPanelOpen = false; /* HD勤務者パネルの開閉状態（renderSurplusArea 再呼出しを跨いで保持） */
 var _surplusOpen = false; /* 余剰人員エリア本体の開閉状態 */
+var _dcCounts = null; /* buildDutyCard 用担当回数キャッシュ（renderPage ごとに更新） */
 var _fbLastPageCount = -1; /* 最後にFirebaseから受信したページ数（不審な削減検出用） */
 var _boardData = {}; /* Firebase /board のキャッシュ */
 var FB_SNAP_KEY = 'ce2_lastfbsnap'; /* 最後にFirebaseスナップショットを取った日付 */
@@ -4359,7 +4365,7 @@ function removeOpsCard(ds, cid) {
 var _curSubTab = 'at';
 function swSubTab(id) {
   _curSubTab = id;
-  var ids = ['at','oc','ops','fair'];
+  var ids = ['at','oc','ops','fair','my'];
   ids.forEach(function(sid){
     var pane = document.getElementById('subpane-'+sid);
     if (pane) pane.style.display = sid===id ? '' : 'none';
@@ -4371,11 +4377,12 @@ function swSubTab(id) {
   /* CSV/印刷ボタンの有無をサブタブに合わせて切り替え */
   var csvBtn   = document.getElementById('btn-sub-csv');
   var printBtn = document.getElementById('btn-sub-print');
-  if (csvBtn)   csvBtn.style.display   = (id==='fair') ? 'none' : '';
-  if (printBtn) printBtn.style.display = '';
+  if (csvBtn)   csvBtn.style.display   = (id==='fair'||id==='my') ? 'none' : '';
+  if (printBtn) printBtn.style.display = (id==='my') ? 'none' : '';
   if (id==='oc')   renderOCSummary();
   if (id==='ops')  renderOpsSummary();
   if (id==='fair') renderFairness();
+  if (id==='my')   renderMySchedule();
 }
 
 /* ===== OC集計シート ===== */
@@ -4477,13 +4484,82 @@ function renderOpsSummary() {
     return;
   }
 
+  /* ===== 週別トレンドグラフ ===== */
+  var weeks = [{label:'第1週',days:[1,7]},{label:'第2週',days:[8,14]},{label:'第3週',days:[15,21]},{label:'第4週',days:[22,28]}];
+  var lastDay = new Date(asY, asM+1, 0).getDate();
+  if (lastDay > 28) weeks.push({label:'第5週',days:[29,lastDay]});
+
+  var wkTotals = weeks.map(function(w){
+    var t = {ope:0,cath:0,mw:0,psg:0};
+    rows.forEach(function(r){
+      var dn = parseInt(r.ds.split('-')[2]);
+      if (dn >= w.days[0] && dn <= w.days[1]) { t.ope+=r.opeN; t.cath+=r.cathN; t.mw+=r.mwN; t.psg+=r.psgN; }
+    });
+    return t;
+  });
+
+  var maxVal = 1;
+  wkTotals.forEach(function(t){ maxVal = Math.max(maxVal, t.ope, t.cath, t.mw, t.psg); });
+
+  /* SVG グラフ: viewBox 400×130, 内部チャートエリア 340×80 (margin-left:40, top:10, bottom:30) */
+  var ML=40, MT=10, CW=340, CH=80, BW=7, BG=3; /* bar width / gap between bars in a group */
+  var GW = CW / weeks.length; /* group width per week */
+  var COLORS = ['#f0a030','#e05050','#4488dd','#8866cc'];
+  var KEYS   = ['ope','cath','mw','psg'];
+  var LABELS = ['OPE','カテ','6MW','PSG'];
+
+  var svg = '<svg viewBox="0 0 400 130" style="width:100%;max-width:500px;display:block;margin:0 auto 12px" xmlns="http://www.w3.org/2000/svg">';
+
+  /* Y軸グリッド */
+  [0,0.25,0.5,0.75,1].forEach(function(p){
+    var y = MT + CH * (1 - p);
+    var val = Math.round(maxVal * p);
+    svg += '<line x1="'+ML+'" y1="'+y+'" x2="'+(ML+CW)+'" y2="'+y+'" stroke="#ddd" stroke-width="0.5"/>';
+    if (p > 0) svg += '<text x="'+(ML-4)+'" y="'+(y+4)+'" font-size="8" text-anchor="end" fill="#999">'+val+'</text>';
+  });
+  svg += '<line x1="'+ML+'" y1="'+MT+'" x2="'+ML+'" y2="'+(MT+CH)+'" stroke="#bbb" stroke-width="1"/>';
+  svg += '<line x1="'+ML+'" y1="'+(MT+CH)+'" x2="'+(ML+CW)+'" y2="'+(MT+CH)+'" stroke="#bbb" stroke-width="1"/>';
+
+  /* バー */
+  var groupW4 = BW * 4 + BG * 3;
+  wkTotals.forEach(function(t, wi){
+    var gx = ML + wi * GW + (GW - groupW4) / 2;
+    KEYS.forEach(function(k, ki){
+      var v = t[k];
+      if (!v) return;
+      var bh = Math.max(2, (v / maxVal) * CH);
+      var bx = gx + ki * (BW + BG);
+      var by = MT + CH - bh;
+      svg += '<rect x="'+bx+'" y="'+by+'" width="'+BW+'" height="'+bh+'" fill="'+COLORS[ki]+'" rx="1">';
+      svg += '<title>'+LABELS[ki]+': '+v+'件</title></rect>';
+      if (v > 0) svg += '<text x="'+(bx+BW/2)+'" y="'+(by-2)+'" font-size="7" text-anchor="middle" fill="'+COLORS[ki]+'">'+v+'</text>';
+    });
+    /* X軸ラベル */
+    var lx = ML + wi * GW + GW / 2;
+    svg += '<text x="'+lx+'" y="'+(MT+CH+12)+'" font-size="9" text-anchor="middle" fill="#666">'+weeks[wi].label+'</text>';
+  });
+
+  /* 凡例 */
+  var legX = ML, legY = MT + CH + 24;
+  KEYS.forEach(function(k, ki){
+    svg += '<rect x="'+(legX+ki*72)+'" y="'+(legY-5)+'" width="8" height="8" fill="'+COLORS[ki]+'" rx="1"/>';
+    svg += '<text x="'+(legX+ki*72+10)+'" y="'+legY+'" font-size="9" fill="#666">'+LABELS[ki]+'</text>';
+  });
+  svg += '</svg>';
+
   var h = '';
   /* サマリーバッジ */
-  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center">';
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
   h += '<span style="font-size:13px;font-weight:700">'+asY+'年'+(asM+1)+'月　業務集計</span>';
   [['🔪 オペ', totals.ope],['🫀 カテ', totals.cath],['🚶 6MW', totals.mw],['🌙 PSG', totals.psg]].forEach(function(pair){
     h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">'+pair[0]+': '+pair[1]+'件</span>';
   });
+  h += '</div>';
+
+  /* 週別グラフ */
+  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px 8px;margin-bottom:12px">';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">週別件数</div>';
+  h += svg;
   h += '</div>';
 
   /* テーブル */
@@ -6204,10 +6280,88 @@ function parseShiftSheet(wb, fileName) {
   if (totalDays > 7) html += '<div style="padding:6px 10px;font-size:11px;color:var(--txt3)">\u2026\u4ee5\u964d ' + (totalDays-7) + ' \u65e5\u5206\u3082\u53d6\u308a\u8fbc\u307f\u6e08\u307f</div>';
   html += '</div>';
 
+  /* ===== シフト検証 ===== */
+  var valIssues = validateShiftData(result, ym);
+  if (valIssues.length) {
+    var vh = '<div style="margin-bottom:10px">';
+    var vErrors = valIssues.filter(function(i){ return i.type === 'error'; });
+    var vWarns  = valIssues.filter(function(i){ return i.type === 'warn'; });
+    var vInfos  = valIssues.filter(function(i){ return i.type === 'info'; });
+    if (vErrors.length) {
+      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--rd);padding:6px 10px;background:#ffeaea;border:1px solid var(--rd);border-radius:6px">❌ エラー（' + vErrors.length + '件）</summary>'
+          + '<div style="padding:6px 10px;font-size:11px">' + vErrors.map(function(e){ return '<div style="padding:2px 0;color:var(--rd)">• ' + e.msg + '</div>'; }).join('') + '</div></details>';
+    }
+    if (vWarns.length) {
+      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--or);padding:6px 10px;background:#fff8ee;border:1px solid var(--or);border-radius:6px;margin-top:4px">⚠️ 確認事項（' + vWarns.length + '件）</summary>'
+          + '<div style="padding:6px 10px;font-size:11px">' + vWarns.map(function(w){ return '<div style="padding:2px 0;color:var(--or)">• ' + w.msg + '</div>'; }).join('') + '</div></details>';
+    }
+    if (vInfos.length) {
+      vh += '<details><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--txt3);padding:6px 10px;background:var(--sur2,#f5f5f5);border:1px solid var(--bdr);border-radius:6px;margin-top:4px">ℹ️ 情報（' + vInfos.length + '件）</summary>'
+          + '<div style="padding:6px 10px;font-size:11px">' + vInfos.map(function(i){ return '<div style="padding:2px 0;color:var(--txt3)">• ' + i.msg + '</div>'; }).join('') + '</div></details>';
+    }
+    vh += '</div>';
+    html = vh + html;
+    var warnTotal = vErrors.length + vWarns.length;
+    if (warnTotal) saveBtn.textContent = '✅ この内容で保存する（⚠️ ' + warnTotal + '件の確認事項あり）';
+    else saveBtn.textContent = '✅ この内容で保存する';
+  } else {
+    saveBtn.textContent = '✅ この内容で保存する';
+  }
+
   resultEl.innerHTML = html;
   parsedShiftData = {ym: ym, data: result, evts: evts};
   saveBtn.style.display = '';
 }
+
+function validateShiftData(result, ym) {
+  var ymParts = ym.split('-');
+  var month = parseInt(ymParts[1]);
+  var totalDays = new Date(parseInt(ymParts[0]), month, 0).getDate();
+  var WD2 = ['日','月','火','水','木','金','土'];
+  var issues = [];
+
+  /* 1. CE+OC 重複 */
+  for (var nm in result) {
+    var dupDays = [];
+    for (var d = 1; d <= totalDays; d++) {
+      var info = result[nm][d];
+      if (info && info.shift === 'CE' && info.oc) dupDays.push(d);
+    }
+    if (dupDays.length) {
+      issues.push({type:'error', msg: escH(nm) + '（' + dupDays.map(function(dd){ return month + '/' + dd; }).join('、') + '）: CE と OC が重複しています'});
+    }
+  }
+
+  /* 2. CE不在日（シフトデータはあるのに CE 勤務者が 0 人） */
+  for (var d2 = 1; d2 <= totalDays; d2++) {
+    var hasAny = false, hasCE = false;
+    for (var nm2 in result) {
+      var inf2 = result[nm2][d2];
+      if (inf2) { hasAny = true; if (inf2.shift === 'CE') hasCE = true; }
+    }
+    if (hasAny && !hasCE) {
+      var dt = new Date(parseInt(ymParts[0]), month - 1, d2);
+      issues.push({type:'warn', msg: month + '/' + d2 + '（' + WD2[dt.getDay()] + '）: CE勤務者が登録されていません'});
+    }
+  }
+
+  /* 3. 名簿未登録スタッフ */
+  for (var nm3 in result) {
+    if (D.stf.indexOf(nm3) === -1) {
+      issues.push({type:'warn', msg: '「' + escH(nm3) + '」は名簿に未登録です（新スタッフ？）'});
+    }
+  }
+
+  /* 4. 名簿にいるがシートに出てこないスタッフ（情報のみ） */
+  D.stf.forEach(function(sn) {
+    if (!result[sn]) {
+      issues.push({type:'info', msg: escH(sn) + ': このシートに勤務情報がありません'});
+    }
+  });
+
+  return issues;
+}
+
 /* その日の連絡表に担当が割り当てられているか（duties に非空の値があるか） */
 function dayHasDutyAssigned(ds){
   var dat=D.pages&&D.pages[ds];
@@ -7899,7 +8053,11 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   var opts = '<option value="">— 未割当 —</option>';
   for (var j=0; j<D.stf.length; j++) {
     var _sn=D.stf[j], _hidden=D.stfHidden&&D.stfHidden[_sn]&&_sn!==sv;
-    if(!_hidden) opts += '<option value="'+escH(_sn)+'"'+(_sn===sv?' selected':'')+'>'+escH(_sn)+'</option>';
+    if(!_hidden) {
+      var _cnt = (_dcCounts && _dcCounts[_sn] && _dcCounts[_sn][d.label]) || 0;
+      var _cntTxt = _cnt > 0 ? '（'+_cnt+'回）' : '';
+      opts += '<option value="'+escH(_sn)+'"'+(_sn===sv?' selected':'')+'>'+escH(_sn)+_cntTxt+'</option>';
+    }
   }
   /* 名簿外の名前（HD勤務者など・非表示スタッフが既に割当済みの場合も含む）は専用optionを追加 */
   if (sv && D.stf.indexOf(sv) === -1)
@@ -8055,6 +8213,9 @@ function buildDG(ds, dat, locked) {
   var g = document.getElementById('dg');
   var showPhs = !(D.lk && D.lk.show_phs === true);
   var phsLk = lk('phs') && !isAdmin;
+
+  /* 当月担当回数キャッシュを更新（ドロップダウン件数表示に使用） */
+  _dcCounts = buildMonthCounts(ds.slice(0,7));
 
   /* 現在の担当枠設定を取得 */
   var duties = getDutyCfg(dat);
@@ -10035,7 +10196,113 @@ function initAtPinchZoom() {
   cont.addEventListener('touchcancel', endPinch, {passive: true});
 }
 function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
-function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
+function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOpsSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
+
+var _mySchedName = null; /* マイ担当でスタッフが選択されたときのキャッシュ */
+function renderMySchedule(overrideName) {
+  var el = document.getElementById('my-body');
+  if (!el) return;
+  var WD3 = ['日','月','火','水','木','金','土'];
+
+  /* selfName 解決 */
+  var selfName = overrideName || _mySchedName || null;
+  if (!selfName) {
+    if (currentUser && currentUser.uid !== 'preview') {
+      if (D.stf.indexOf(currentUser.displayName) >= 0) {
+        selfName = currentUser.displayName;
+      } else if (D.stfLinks) {
+        for (var k in D.stfLinks) {
+          if (D.stfLinks[k] === currentUser.uid) { selfName = k; break; }
+        }
+      }
+    }
+  }
+  _mySchedName = selfName;
+
+  /* 名前が特定できない場合はスタッフ選択UIを表示 */
+  if (!selfName) {
+    var opts = D.stf.map(function(n){ return '<option value="'+escH(n)+'">'+escH(n)+'</option>'; }).join('');
+    el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--txt2)">'
+      + '<div style="margin-bottom:8px;font-size:13px">担当を確認するスタッフを選んでください</div>'
+      + '<select id="my-stf-sel" class="ds2" style="font-size:13px;padding:6px 10px"><option value="">— 選択 —</option>'+opts+'</select>'
+      + '<button class="btn btn-p btn-sm" style="margin-left:8px" onclick="var s=document.getElementById(\'my-stf-sel\');if(s.value){_mySchedName=null;renderMySchedule(s.value);}">表示</button>'
+      + '</div>';
+    return;
+  }
+
+  /* スキャン範囲: 当月1日 〜 今日+30日 */
+  var today = toDS(new Date());
+  var todayDt = new Date(today);
+  var endDt = new Date(todayDt); endDt.setDate(endDt.getDate() + 30);
+  var startYM = today.slice(0,7); /* 当月最初から */
+  var startDt = new Date(startYM + '-01');
+
+  var cards = [];
+  var cur = new Date(startDt);
+  while (cur <= endDt) {
+    var ds = toDS(cur);
+    var dat = D.pages[ds];
+    if (dat) {
+      var slots = [];
+      /* 担当枠 */
+      var dutyCfg = getDutyCfg(dat);
+      for (var di = 0; di < dutyCfg.length; di++) {
+        var slot = dutyCfg[di];
+        if (dat.duties && dat.duties[slot.id] === selfName) {
+          slots.push(slot.label || slot.id);
+        }
+      }
+      /* タイムテーブルブロック */
+      if (dat.schedule) {
+        for (var si = 0; si < dat.schedule.length; si++) {
+          var blk = dat.schedule[si];
+          if (blk.staff === selfName && blk.label) slots.push('📅 ' + blk.label);
+        }
+      }
+      if (slots.length) cards.push({ds: ds, slots: slots});
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+
+  var nameLabel = isAdmin && overrideName ? '<span style="font-size:11px;color:var(--txt3)">（' + escH(selfName) + '）</span> ' : '';
+  var changeBtn = (isAdmin || D.stf.indexOf(currentUser && currentUser.displayName) === -1)
+    ? '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:8px" onclick="_mySchedName=null;renderMySchedule()">変更</button>' : '';
+
+  var html = '<div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;padding:0 4px">'
+    + '<span style="font-size:13px;font-weight:700;color:var(--txt1)">👤 '+escH(selfName)+'の担当予定</span>'
+    + changeBtn + '</div>';
+
+  if (!cards.length) {
+    html += '<div class="pool-empty" style="padding:20px 0">この期間に担当割り当てがありません</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  html += '<div style="display:flex;flex-direction:column;gap:6px">';
+  for (var ci = 0; ci < cards.length; ci++) {
+    var c = cards[ci];
+    var dt2 = new Date(c.ds + 'T00:00:00');
+    var wd = WD3[dt2.getDay()];
+    var wdColor = dt2.getDay()===0?'var(--rd)':dt2.getDay()===6?'var(--ac)':'var(--txt2)';
+    var isToday = c.ds === today;
+    var isFuture = c.ds > today;
+    var border = isToday ? '2px solid var(--ac)' : '1px solid var(--bdr)';
+    var bg = isToday ? 'var(--ac-bg,#eef4ff)' : isFuture ? 'var(--sur)' : 'var(--sur2)';
+    html += '<div style="background:'+bg+';border:'+border+';border-radius:8px;padding:8px 12px;cursor:pointer" onclick="openPage(\''+c.ds+'\')">';
+    html += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px">';
+    if (isToday) html += '<span style="font-size:10px;font-weight:700;background:var(--ac);color:#fff;border-radius:4px;padding:1px 5px">今日</span>';
+    html += '<span style="font-size:13px;font-weight:700;color:var(--txt1)">' + fmtJ(c.ds) + '</span>';
+    html += '<span style="font-size:12px;font-weight:700;color:'+wdColor+'">（'+wd+'）</span>';
+    html += '</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px">';
+    for (var si2 = 0; si2 < c.slots.length; si2++) {
+      html += '<span style="font-size:11px;background:var(--ac);color:#fff;border-radius:4px;padding:2px 7px">'+escH(c.slots[si2])+'</span>';
+    }
+    html += '</div></div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
 function renderAT() {
   document.getElementById('atml').textContent=asY+'年'+(asM+1)+'月';
   var wrap=document.getElementById('at-body');
@@ -11007,6 +11274,17 @@ function buildMonthCounts(ym) {
   return counts;
 }
 
+/* 指定スロットにpersonを割り当てた後の公平差（max-min）を返す */
+function fairGapAfter(counts, slotLabel, person) {
+  var allStf = D.stf.filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
+  if (!allStf.length) return 0;
+  var vals = allStf.map(function(n){ return (counts[n] && counts[n][slotLabel]) || 0; });
+  var idx = allStf.indexOf(person);
+  if (idx !== -1) vals[idx]++;
+  else vals.push(1);
+  return Math.max.apply(null, vals) - Math.min.apply(null, vals);
+}
+
 /* 1日分の割り当て案を生成（適用はしない）。countsは呼び元が渡す（月次一括用）
    slots を渡すと曜日ルール等の任意スロット構成で割り当て可能（省略時はページ設定を使用） */
 function buildAutoProposals(ds, dat, available, counts, slots) {
@@ -11063,10 +11341,13 @@ function autoAssignDuties(ds) {
     var savedCounts = buildMonthCounts(ym); /* 表示用：変更前のカウント */
     prev.innerHTML = proposals.map(function(p) {
       var thisCnt = (savedCounts[p.name] && savedCounts[p.name][p.slot.label]) || 0;
+      var gap = fairGapAfter(savedCounts, p.slot.label, p.name);
+      var fairDot = gap <= FAIR_GAP_WARN ? '🟢' : gap <= FAIR_GAP_WARN + 2 ? '🟡' : '🔴';
       return '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--bdr)">'
         + '<span style="min-width:90px;font-size:12px;color:var(--txt3)">'+escH(p.slot.label)+'</span>'
         + '<span style="font-weight:700;flex:1">'+escH(p.name)+(p.isEdu?' 🎓':'')+'</span>'
         + '<span style="font-size:10px;color:var(--txt3)">今月'+thisCnt+'回</span>'
+        + '<span style="font-size:13px" title="割当後の公平差: '+gap+'回">'+fairDot+'</span>'
         + '</div>';
     }).join('');
   }
