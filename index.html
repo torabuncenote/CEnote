@@ -6568,9 +6568,9 @@ function updateOpsHeader(ds){
   var el=document.getElementById('ops-header-row'); if(!el||!D.pages[ds]) return;
   var o=D.pages[ds].ops||{};
   var cards=D.pages[ds].ops_cards!=null?D.pages[ds].ops_cards:(D.opsCfg||[]);
-  /* オペ・カテ：行数でカウント（内容不問） */
-  var opeN=o.ope_items?o.ope_items.length:0;
-  var cathN=o.cath_items?o.cath_items.length:0;
+  /* オペ・カテ：種別または自由記述が入力されている行数 */
+  var opeN=0; if(o.ope_items) o.ope_items.forEach(function(it){if(it.sel||it.txt)opeN++;});
+  var cathN=0; if(o.cath_items) o.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
   /* 6MW：カード存在で1、件数入力があればその値 */
   var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
   /* PSG：psg_onがあれば1 */
@@ -6635,8 +6635,8 @@ function renderPage(ds) {
   /* 業務件数集計 */
   var _ops=dat.ops||{};
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
-  var _opeN=_ops.ope_items?_ops.ope_items.length:0;
-  var _cathN=_ops.cath_items?_ops.cath_items.length:0;
+  var _opeN=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(it.sel||it.txt)_opeN++;});
+  var _cathN=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(it.sel||it.txt)_cathN++;});
   var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
   var _psgN=_ops.psg_on?1:0;
   var _prevDsRP=getPrevDs(ds),_prevDatRP=D.pages[_prevDsRP];
