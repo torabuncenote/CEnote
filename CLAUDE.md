@@ -107,7 +107,7 @@ var FB_ON = !FB_CFG.apiKey.includes("YOUR_");
 
 - Firebase Email/Password auth
 - Admin status: `/admins/{uid}` = `true` in Firebase
-- Per-user granular permissions: `/userPerms/{uid}` = `{ duty: true, memo: true, ... }`
+- Per-user granular permissions: `/userPerms/{uid}` = `{ duty: true, memo: true, tab_master: true, ... }`
 - Global: `isAdmin` boolean, `currentUser = { uid, email, displayName, isAdmin, perms: {} }`
 - Idle auto-logout: 30 minutes with 5-minute countdown warning
 
@@ -120,9 +120,54 @@ function can(id) {
 }
 ```
 
-Lock IDs (`LOCK_DEFS`): `duty`, `sm` (staff mgmt), `phs` (phones), `dm` (daily master), `wm` (weekday master), `pg` (page generation), `memo`, `ops`, `oc`.
-
 **Always use `can(id)` for permission checks — not `lk(id)&&!isAdmin`.** The latter ignores per-user grants.
+
+#### Lock IDs (`LOCK_DEFS`)
+
+| id | label | notes |
+|---|---|---|
+| `duty` | 担当割り当て | |
+| `phs` | PHS番号の変更 | |
+| `ops` | 業務内容（オペ/カテ等） | |
+| `dm` | チェックリスト（共通）の編集 | pane-master 共通業務セクション |
+| `wm` | チェックリスト（曜日別）の編集 | pane-master 曜日別業務セクション |
+| `mst` | 各種マスタの編集 | OPE/カテ/使用物品/担当枠/スケジュール/PSG通知セクション |
+| `sm` | スタッフマスタの編集 | |
+| `cl` | チェックリストの入力 | |
+| `memo` | 業務連絡・申し送りの編集 | |
+| `pg` | 連絡表の生成・削除 | |
+| `show_phs` | PHS番号欄の表示切替 | 反転ロジック（ON=表示、OFF=非表示） |
+
+#### Tab Visibility
+
+`updateTabVisibility()` controls which sidebar tabs non-admin users can see. It must be called after any change to `currentUser.perms` (e.g., inside `saveUserPerm()` when the current user's own permissions change).
+
+```js
+// Tab visibility is controlled by explicit tab_ permissions, NOT by edit-lock permissions
+'master': isAdmin || hasPerm('tab_master'),  // 業務タブ
+'staff':  isAdmin || hasPerm('sm') || hasPerm('tab_staff'),
+'lock':   isAdmin,
+'logs':   isAdmin,
+'docs':   isAdmin,
+```
+
+`tab_master` and `tab_staff` are stored in `/userPerms/{uid}` alongside regular lock permissions, but are granted via the "タブ表示" section in `renderAdminUsers()` rather than the lock-permission buttons.
+
+#### pane-master Section Gating
+
+Each section div in `#pane-master .sp` has a `data-perm` attribute. `swTab('master')` evaluates them after rendering:
+
+```js
+document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
+  var perm = sec.getAttribute('data-perm');
+  sec.style.display = (perm === 'admin' ? isAdmin : can(perm)) ? '' : 'none';
+});
+```
+
+- `data-perm="dm"` — 共通チェックリスト section
+- `data-perm="wm"` — 曜日別チェックリスト section
+- `data-perm="mst"` — OPE/カテ/使用物品/担当枠/PSG通知 sections
+- `data-perm="admin"` — メール通知/Web Push/月次自動割り当て sections (admin-only regardless of locks)
 
 ### Firebase Listener Lifecycle
 
@@ -141,7 +186,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /logs/                      — activity log (append-only via push())
 /admins/{uid}               — true for admin users
 /users/{uid}                — { email, displayName, lastLogin }
-/userPerms/{uid}            — { lockId: true, ... } per-user permission grants
+/userPerms/{uid}            — { lockId: true, tab_master: true, tab_staff: true, ... }
 /backups/YYYY-MM-DD_HH      — hourly Firebase snapshots (7-day retention)
 /backup_meta/YYYY-MM-DD_HH  — snapshot metadata { ts, label, pages, stf }
 /recent_backup              — latest successful write snapshot (always 1 entry)
@@ -165,7 +210,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
   .sb     — sidebar (left, collapsible)
     .stabs — tab strip
     pane-cal    — calendar with month navigation
-    pane-assign — assignment table (月次担当一覧) + 公平性 subtab
+    pane-assign — assignment table (月次担当一覧) with subtabs:
+                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性)
     pane-sched  — daily timetable (⏰ スケジュール)
     pane-board  — 掲示板 (department bulletin board)
     pane-guide  — user guide
@@ -178,6 +224,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` and `#pane-sched` are `position:fixed` full-screen overlays on mobile.
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
+
+`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair`). Each subtab has a matching `subpane-{id}` div.
 
 ### CSS Conventions
 
@@ -197,6 +245,7 @@ All class names are abbreviated:
 | `loadD()` | Hydrate `D` from localStorage |
 | `fbInit()` | Firebase auth listener → login → `/data` + `/board` listeners |
 | `saveD()` | Persist `D` to Firebase or localStorage |
+| `updateTabVisibility()` | Show/hide sidebar tabs based on `isAdmin` and `currentUser.perms` |
 | `openDefaultPage()` | Open today's page on startup (if exists) |
 | `openPage(ds)` | Open a day's detail view in `.main`; calls `updateOpsHeader` + `updatePsgRemovalBanner` |
 | `renderPage(ds)` | Re-render the open day page |
@@ -210,17 +259,21 @@ All class names are abbreviated:
 | `renderSched()` | Per-day timetable for `curDs` |
 | `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board |
 | `renderSurplusArea(ds, dat, locked)` | 余剰人員エリア（デフォルト折りたたみ: `_surplusOpen = false`） |
+| `renderOpsSummary()` | 業務集計サブタブ — monthly OPE/cath/6MW/PSG counts |
+| `renderOCSummary()` | OC集計サブタブ — on-call response log |
 | `updatePendingBadge()` | Media approval badge (debounced 200ms) |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
 | `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
 | `saveFirebaseSnapshot(label)` | Write to `/backups/YYYY-MM-DD_HH` |
 | `renderAdminUsers()` / `deleteAppUser(uid, name)` | User management (soft-delete removes `/users/{uid}`, `/admins/{uid}`, `/userPerms/{uid}`) |
+| `saveUserPerm(uid, permId, grant)` | Grant/revoke single permission in `/userPerms/{uid}`; calls `updateTabVisibility()` when uid === currentUser.uid |
 | `can(id)` / `lk(id)` | Access control helpers |
 | `opsHeaderChips(opeN, cathN, mwN, psgN, psgRemoval)` | Builds 業務 header chips (5th arg = PSG外し flag) |
 | `updateOpsHeader(ds)` | Refreshes `#ops-header-row` DOM element dynamically |
 | `updatePsgRemovalBanner(ds)` | Shows/hides `#psg-removal-banner` (today only, within `psgBannerStart`–`psgBannerEnd`) |
 | `toggleStfHidden(name)` | Toggle `D.stfHidden[name]`; affects AT columns, dropdowns, fairness matrix |
 | `setAtZoom(z)` / `initAtPinchZoom()` | 担当表ピンチズーム（ease-out animation for buttons, GPU transform during pinch） |
+| `getPct(ds)` | Correct checklist completion % — use this as the reference implementation for done/total counting |
 
 ### Duty/Assignment System
 
@@ -234,6 +287,19 @@ All class names are abbreviated:
 3. Mouse drop (`onDrop`)
 
 **Staff visibility**: `D.stfHidden[name] = true` hides staff from `renderAT()` columns, `renderFairness()` names, and duty dropdown options. Hidden staff who are already assigned show as `（非表示）` in the dropdown. HD workers (from shift data) are unaffected.
+
+### OPE / カテカード（buildOPS内）
+
+`buildItemList(card, key, masterList, labelName, itemId, withTime, withOrder, withSup, withDept)` and `buildItemListTree(card, key, masterTree, labelName, itemId, withTime, withOrder, withSup)` build per-item rows inside an ops card.
+
+- OPE card: `withTime=true, withOrder=false, withSup=true`
+- カテ card: `withTime=true, withOrder=false`（入室時間ドロップダウン表示）
+
+カテカード固定フィールド（`ops.` に保存）:
+- `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
+- `cath_note` — 備考
+
+**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`it.sel || it.txt` が truthy な行だけをカウントする。空の初期行を誤カウントしないために、`updateOpsHeader()` と `renderPage()` の両方でこのルールを使用している。
 
 ### PSG外し Detection
 
@@ -253,7 +319,7 @@ Used in: `buildDG` (duty card checkbox), `updateOpsHeader` (header chip), `updat
 Structure: `.ato#ato-wrap` > `#at-zoom-inner` > `#at-body` (table content).
 
 - During pinch: applies `transform: scale(ratio)` with `transform-origin` at the pinch midpoint (GPU-accelerated, no reflow)
-- On `touchend`: commits to `zoom` property and corrects scroll position: `scrollLeft = scrollLeft * ratio + pinchCenter * (ratio - 1)`
+- On `touchend`: commits to `zoom` property and corrects scroll position; 8-frame `requestAnimationFrame` relock overrides iOS's async `scrollTop` adjustment
 - Button clicks: ease-out cubic animation over 10 frames via `_atZoomAnimRAF`
 - `_atZoom` global tracks current zoom level (0.25–3)
 
@@ -263,11 +329,26 @@ Vertical time axis 8:00–21:00 in 15-min steps, one column per on-duty staff. B
 
 ### Checklist Items & Week-of-Month Filtering
 
-`wdItemsForDate(ds)` returns the weekday items applicable to the given date, filtered by `wdApplies(ds, it)` (week-of-month). `dat.checks[]` is indexed positionally against `D.dly.concat(wdItemsForDate(ds))`. **If week-of-month filters are added to existing items, saved check indices for older days may skew — requires a migration.**
+`wdItemsForDate(ds)` returns the weekday items applicable to the given date, filtered by `wdApplies(ds, it)` (week-of-month). `dat.checks[]` is indexed against the **original** `D.dly` array positions, not filtered positions.
+
+**Critical**: When computing done/total counts, iterate `D.dly` with original index `i` and skip hidden items via `isDlyShownOnDate()` — do NOT use a filtered array's sequential index. `getPct(ds)` is the canonical reference implementation.
+
+```js
+// Correct pattern (matches getPct):
+for (var i = 0; i < D.dly.length; i++) {
+  if (!isDlyShownOnDate(D.dly[i], ds)) continue;
+  total++;
+  if (dat.checks && dat.checks[i]) done++;
+}
+for (var j = 0; j < wtl.length; j++) {
+  total++;
+  if (dat.checks && dat.checks[D.dly.length + j]) done++;
+}
+```
 
 ### Shift Import
 
-`parseShiftSheet(wb, fileName)` parses Excel → `D.shift`. `doSaveSIM()` protects days with existing duty assignments from being overwritten.
+`parseShiftSheet(wb, fileName)` parses Excel → `D.shift[ym][name][day] = { shift, hd, oc }`. `doSaveSIM()` protects days with existing duty assignments from being overwritten. Shift codes: `'CE'` (clinical engineer on duty), `'OC'` (on-call flag), HD day codes `['M','A1','A2',...]`, HD night codes `['準','準夜']`.
 
 ### PHI Detection
 
@@ -298,3 +379,4 @@ Since everything is in one file, search for function names or CSS classes to loc
 - `renderPage()` must sometimes be called **before** `saveD()` to avoid the Firebase echo overwriting the new UI state.
 - For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **3**.
 - Stale closure bug: closures that capture `dat` become stale after Firebase updates `D`. Always reference `D.pages[ds]` (live) inside async callbacks, not the closed-over `dat`.
+- When changing `currentUser.perms` (e.g., in `saveUserPerm`), call `updateTabVisibility()` if the change affects the currently logged-in user.
