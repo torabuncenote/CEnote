@@ -7111,19 +7111,20 @@ function renderPage(ds) {
           item.textContent = '@' + name;
           /* mousedown で preventDefault することでタップ時も textarea がフォーカスを失わない */
           item.onmousedown = function(e) { e.preventDefault(); };
-          item.onclick = (function(n){ return function(){
+          item.onclick = (function(n, savedAt, savedPos){ return function(){
             var ta2 = document.getElementById('memo-new');
+            popup.style.display = 'none';
             if (!ta2) return;
             var v = ta2.value;
-            /* クリック時点の値とカーソル位置で @ 位置を再計算（古い pos/ai を使わない） */
-            var curPos = ta2.selectionStart;
+            /* クリック時点のカーソル位置を取得。フォーカス消失で 0 になる場合は savedPos を使う */
+            var curPos = ta2.selectionStart || savedPos;
             var freshAt = v.lastIndexOf('@', curPos - 1);
-            if (freshAt === -1) return;
+            if (freshAt === -1) freshAt = savedAt; /* フォールバック */
+            if (freshAt === -1) { ta2.focus(); return; }
             ta2.value = v.slice(0, freshAt) + '@' + n + ' ' + v.slice(curPos);
             ta2.selectionStart = ta2.selectionEnd = freshAt + n.length + 2;
-            popup.style.display = 'none';
             ta2.focus();
-          };})(name);
+          };})(name, atIdx, pos);
           popup.appendChild(item);
         });
         /* popupをtextareaの上に表示 */
