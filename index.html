@@ -7109,15 +7109,21 @@ function renderPage(ds) {
           var item = document.createElement('div');
           item.className = 'memo-mention-item';
           item.textContent = '@' + name;
-          item.onclick = (function(n, ai){ return function(){
+          /* mousedown で preventDefault することでタップ時も textarea がフォーカスを失わない */
+          item.onmousedown = function(e) { e.preventDefault(); };
+          item.onclick = (function(n){ return function(){
             var ta2 = document.getElementById('memo-new');
             if (!ta2) return;
             var v = ta2.value;
-            ta2.value = v.slice(0, ai) + '@' + n + ' ' + v.slice(pos);
-            ta2.selectionStart = ta2.selectionEnd = ai + n.length + 2;
+            /* クリック時点の値とカーソル位置で @ 位置を再計算（古い pos/ai を使わない） */
+            var curPos = ta2.selectionStart;
+            var freshAt = v.lastIndexOf('@', curPos - 1);
+            if (freshAt === -1) return;
+            ta2.value = v.slice(0, freshAt) + '@' + n + ' ' + v.slice(curPos);
+            ta2.selectionStart = ta2.selectionEnd = freshAt + n.length + 2;
             popup.style.display = 'none';
             ta2.focus();
-          };})(name, atIdx);
+          };})(name);
           popup.appendChild(item);
         });
         /* popupをtextareaの上に表示 */
