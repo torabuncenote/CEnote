@@ -7116,14 +7116,16 @@ function renderPage(ds) {
             popup.style.display = 'none';
             if (!ta2) return;
             var v = ta2.value;
-            /* クリック時点のカーソル位置を取得。フォーカス消失で 0 になる場合は savedPos を使う */
             var curPos = ta2.selectionStart || savedPos;
             var freshAt = v.lastIndexOf('@', curPos - 1);
-            if (freshAt === -1) freshAt = savedAt; /* フォールバック */
-            if (freshAt === -1) { ta2.focus(); return; }
+            if (freshAt === -1) freshAt = savedAt;
+            if (freshAt === -1) { if (document.activeElement !== ta2) ta2.focus(); return; }
+            var newPos = freshAt + n.length + 2;
             ta2.value = v.slice(0, freshAt) + '@' + n + ' ' + v.slice(curPos);
-            ta2.selectionStart = ta2.selectionEnd = freshAt + n.length + 2;
-            ta2.focus();
+            /* フォーカス中に不要な focus() を呼ぶと IME がリセットされるため、
+               外れている場合のみ focus() し、カーソル位置は setTimeout で確実に設定する */
+            if (document.activeElement !== ta2) ta2.focus();
+            setTimeout(function(){ ta2.setSelectionRange(newPos, newPos); }, 0);
           };})(name, atIdx, pos);
           popup.appendChild(item);
         });
