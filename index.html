@@ -5093,7 +5093,7 @@ function getPct(ds) {
     total++;
     if(d.checks&&d.checks[D.dly.length+j]) done++;
   }
-  return total===0?0:Math.round(done/total*100);
+  return total===0?100:Math.round(done/total*100);
 }
 
 function renderCal() {
@@ -6761,7 +6761,7 @@ function renderPage(ds) {
   var done=0, total=0;
   for(var i=0;i<D.dly.length;i++){if(!isDlyShownOnDate(D.dly[i],ds))continue;total++;if(dat.checks&&dat.checks[i])done++;}
   for(var j=0;j<wtl.length;j++){total++;if(dat.checks&&dat.checks[D.dly.length+j])done++;}
-  var pct=total===0?0:Math.round(done/total*100);
+  var pct=total===0?100:Math.round(done/total*100);
   var dlk=!can('duty'), clk=!can('cl'), mlk=!can('memo'), olk=!can('ops');
   var si=getShiftForDay(ds);
 
@@ -6803,7 +6803,7 @@ function renderPage(ds) {
   h+='<div class="pp">';
   h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
-  h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+all.length+' 完了</span></div>';
+  h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+total+' 完了</span></div>';
   h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval)+'</span></div>' : '') +'</div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
