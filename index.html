@@ -4610,9 +4610,12 @@ function renderFairness() {
     var ds = asY+'-'+pad(asM+1)+'-'+pad(d);
     var pg = D.pages[ds];
     if (!pg) continue;
-    /* 勤務日数（当日勤務者一覧） */
+    /* 勤務日数：CE・HD・OC・宿直 すべてを出勤としてカウント */
     var si = getShiftForDay(ds);
     si.ce.forEach(function(c){ workedDays[c.name] = (workedDays[c.name]||0)+1; });
+    si.hd.forEach(function(h){ workedDays[h.name] = (workedDays[h.name]||0)+1; });
+    si.oc.forEach(function(o){ workedDays[o.name] = (workedDays[o.name]||0)+1; });
+    si.nd.forEach(function(n){ workedDays[n.name] = (workedDays[n.name]||0)+1; });
     /* 担当割り当て */
     if (!pg.duties) continue;
     var cfg = getDutyCfg(pg);
@@ -5856,6 +5859,7 @@ function togLk(id, v) {
 /* HD（透析）勤務コード */
 var HD_DAY_CODES  = ['M','A1','A2','A3','S','B1','B2','B']; /* 日勤 */
 var HD_NIGHT_VALS = ['準','準夜'];                          /* 準夜 */
+var NIGHT_DUTY_VALS = ['宿直'];                             /* 宿直（CE以外の出勤扱い） */
 /* シフトコード正規化（全角英数字→半角 + 大文字化）。準/準夜は漢字なので大文字化の影響なし */
 function normShiftCode(raw){
   if (raw == null) return '';
@@ -5865,7 +5869,7 @@ function normShiftCode(raw){
 }
 function getShiftForDay(ds) {
   var pt = ds.split('-'); var ym = pt[0]+'-'+pt[1]; var day = parseInt(pt[2]);
-  var res = {ce:[], oc:[], evts:[], hd:[]};
+  var res = {ce:[], oc:[], evts:[], hd:[], nd:[]};
   var md = D.shift[ym];
   if (md) {
     for (var name in md) {
@@ -5885,6 +5889,10 @@ function getShiftForDay(ds) {
         res.hd.push({name:name, shift:info.shift, night:false});
       } else if (info.hd === 'night' || info.shift === '準') {
         res.hd.push({name:name, shift:'準', night:true});
+      }
+      /* 宿直 */
+      if (info.nd) {
+        res.nd.push({name:name, shift:info.shift});
       }
     }
   }
@@ -6212,6 +6220,10 @@ function parseShiftSheet(wb, fileName) {
         if (!result[name][dayNum]) result[name][dayNum] = {};
         result[name][dayNum].shift = '準';
         result[name][dayNum].hd = 'night';
+      } else if (NIGHT_DUTY_VALS.indexOf(shiftVal) !== -1) {
+        if (!result[name][dayNum]) result[name][dayNum] = {};
+        result[name][dayNum].shift = shiftVal;
+        result[name][dayNum].nd = true;
       }
 
       /* 職員番号行: OC完全一致（OC×は除外） */
