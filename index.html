@@ -2891,7 +2891,7 @@ function renderManual() {
   S += tip('管理者は「🔪 オペ」「🫀 カテ」「🚶 6MW」「🌙 PSG」「➕ フリー」ボタンでカードを追加・削除できます。💾でテンプレートとして保存すると次回以降も同じ構成が使えます。');
   S += h2('🔪 オペ（手術）');
   S += step(1,'術式を選ぶ','プルダウンから選択。一覧にない場合は「自由記述...」を選んでテキスト入力。');
-  S += step(2,'入室時間を選ぶ','8:00〜16:45（15分刻み）/ AMOC / PMOC / 自由記述から選択。');
+  S += step(2,'入室時間を選ぶ','「○時：△分」の2つのプルダウンで選択（ブリーフィング欄と同じ方式）。○は8〜16時＋AM／PM、△は0〜55分（5分刻み）＋OC。「自由入力」ボタンでテキスト入力にも切替可。');
   S += step(3,'術式を追加する','「＋ 術式を追加」ボタンで行を増やせます。');
   S += h2('🫀 カテ（カテーテル）');
   S += step(1,'治療順番号を選ぶ','左端のプルダウンで1〜10から選択。');
@@ -8825,23 +8825,40 @@ function buildOPS(ds,dat,locked) {
     return c;
   }
 
-  /* ===== 入室時間の選択肢（8:00〜16:45 15分刻み + AMOC/PMOC） ===== */
-  function makeTimeOpts(selected) {
-    var opts = '<option value="">-- 入室時間 --</option>';
-    /* 8:00〜16:45を15分刻みで生成 */
+  /* ===== 入室時間の選択肢（カテのブリーフィングと同じ ○：△ 方式）
+     ○（時）：8〜16 + AM / PM　　△（分）：0〜55を5分刻み + OC ===== */
+  function makeTimeHourOpts(selH) {
+    var opts = '<option value="">--時</option>';
     for (var h = 8; h <= 16; h++) {
-      for (var m2 = 0; m2 < 60; m2 += 15) {
-        if (h === 16 && m2 > 45) break;
-        var label = h + ':' + (m2 === 0 ? '00' : m2);
-        opts += '<option value="' + label + '"' + (selected === label ? ' selected' : '') + '>' + label + '</option>';
-      }
+      opts += '<option value="' + h + '"' + (selH === String(h) ? ' selected' : '') + '>' + h + '時</option>';
     }
-    /* AMOC / PMOC */
-    ['AMOC', 'PMOC'].forEach(function(v) {
-      opts += '<option value="' + v + '"' + (selected === v ? ' selected' : '') + '>' + v + '</option>';
+    ['AM', 'PM'].forEach(function(v) {
+      opts += '<option value="' + v + '"' + (selH === v ? ' selected' : '') + '>' + v + '</option>';
     });
-    opts += '<option value="__free__"' + (selected === '__free__' ? ' selected' : '') + '>自由記述...</option>';
     return opts;
+  }
+  function makeTimeMinuteOpts(selM) {
+    var opts = '<option value="">--分</option>';
+    ['00','05','10','15','20','25','30','35','40','45','50','55'].forEach(function(m2) {
+      opts += '<option value="' + m2 + '"' + (selM === m2 ? ' selected' : '') + '>' + m2 + '分</option>';
+    });
+    opts += '<option value="OC"' + (selM === 'OC' ? ' selected' : '') + '>OC</option>';
+    return opts;
+  }
+  /* item.time の文字列 ⇔ {h,m} 相互変換（旧形式 8:15 / AMOC / PMOC も読める） */
+  function parseItemTime(t) {
+    if (!t || t === '__free__') return { h:'', m:'' };
+    if (t === 'AMOC') return { h:'AM', m:'OC' };
+    if (t === 'PMOC') return { h:'PM', m:'OC' };
+    var mm = /^([^:]*):(.*)$/.exec(t);
+    if (mm) return { h:mm[1], m:mm[2] };
+    return { h:t, m:'' };
+  }
+  function combineItemTime(h, m) {
+    if (!h && !m) return '';
+    if (h === 'AM' && m === 'OC') return 'AMOC';
+    if (h === 'PM' && m === 'OC') return 'PMOC';
+    return h + ':' + m;
   }
 
   /* ===== 術式/種別 複数行リスト ===== */
@@ -8967,15 +8984,27 @@ function buildOPS(ds,dat,locked) {
 
         row.appendChild(hierDiv); /* orderSelの後に追加されるので順序: dragHandle → orderSel → hierDiv */
 
-        /* 入室時間（オペのみ） */
-        var timeSelEl2=null,timeTxtEl2=null;
+        /* 入室時間（オペのみ）：カテのブリーフィングと同じ ○：△ 方式 */
         if(withTime){
-          var timeWrap=document.createElement('div'); timeWrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:2px';
+          var timeWrap=document.createElement('div'); timeWrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:2px;flex-wrap:wrap';
           var timeLbl=document.createElement('span'); timeLbl.textContent='⏱ 入室'; timeLbl.style.cssText='font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0';
-          timeSelEl2=document.createElement('select'); timeSelEl2.className='ops-sel'; timeSelEl2.style.flex='1'; timeSelEl2.disabled=!!locked; timeSelEl2.innerHTML=makeTimeOpts(item.time||'');
-          timeTxtEl2=document.createElement('input'); timeTxtEl2.type='text'; timeTxtEl2.className='ops-txt'; timeTxtEl2.style.flex='1'; timeTxtEl2.placeholder='時間を入力...'; timeTxtEl2.disabled=!!locked; timeTxtEl2.value=item.timeTxt||''; timeTxtEl2.style.display=item.time==='__free__'?'':'none';
-          timeWrap.appendChild(timeLbl); timeWrap.appendChild(timeSelEl2); timeWrap.appendChild(timeTxtEl2); hierDiv.appendChild(timeWrap);
-          if(!locked){(function(i2,tS,tT){tS.onchange=function(){items[i2].time=this.value;tT.style.display=this.value==='__free__'?'':'none';if(this.value!=='__free__')items[i2].timeTxt='';saveItems();};tT.oninput=function(){items[i2].timeTxt=this.value;saveItems();};})(idx,timeSelEl2,timeTxtEl2);}
+          var timeIsFree2=(item.time==='__free__');
+          var timeParsed2=parseItemTime(item.time||'');
+          var timeHourEl2=document.createElement('select'); timeHourEl2.className='ops-sel'; timeHourEl2.style.cssText='flex:1;min-width:60px'; timeHourEl2.disabled=!!locked; timeHourEl2.innerHTML=makeTimeHourOpts(timeParsed2.h); timeHourEl2.style.display=timeIsFree2?'none':'';
+          var timeColonEl2=document.createElement('span'); timeColonEl2.textContent=':'; timeColonEl2.style.cssText='font-size:13px;flex-shrink:0'; timeColonEl2.style.display=timeIsFree2?'none':'';
+          var timeMinEl2=document.createElement('select'); timeMinEl2.className='ops-sel'; timeMinEl2.style.cssText='flex:1;min-width:60px'; timeMinEl2.disabled=!!locked; timeMinEl2.innerHTML=makeTimeMinuteOpts(timeParsed2.m); timeMinEl2.style.display=timeIsFree2?'none':'';
+          var timeTxtEl2=document.createElement('input'); timeTxtEl2.type='text'; timeTxtEl2.className='ops-txt'; timeTxtEl2.style.flex='1'; timeTxtEl2.placeholder='時間を入力...'; timeTxtEl2.disabled=!!locked; timeTxtEl2.value=item.timeTxt||''; timeTxtEl2.style.display=timeIsFree2?'':'none';
+          var timeFreeBtn2=document.createElement('button'); timeFreeBtn2.type='button'; timeFreeBtn2.disabled=!!locked;
+          timeFreeBtn2.style.cssText='font-size:10px;padding:2px 6px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap;flex-shrink:0';
+          timeFreeBtn2.textContent=timeIsFree2?'一覧選択':'自由入力';
+          timeWrap.appendChild(timeLbl); timeWrap.appendChild(timeHourEl2); timeWrap.appendChild(timeColonEl2); timeWrap.appendChild(timeMinEl2); timeWrap.appendChild(timeTxtEl2); timeWrap.appendChild(timeFreeBtn2);
+          hierDiv.appendChild(timeWrap);
+          if(!locked){(function(i2,hEl,mEl,tEl,fBtn){
+            hEl.onchange=function(){items[i2].time=combineItemTime(this.value,mEl.value);saveItems();};
+            mEl.onchange=function(){items[i2].time=combineItemTime(hEl.value,this.value);saveItems();};
+            tEl.oninput=function(){items[i2].timeTxt=this.value;saveItems();};
+            fBtn.onclick=function(){items[i2].time=(items[i2].time==='__free__')?'':'__free__';saveItems();renderItems();};
+          })(idx,timeHourEl2,timeMinEl2,timeTxtEl2,timeFreeBtn2);}
         }
 
         /* 業務終了トグルボタン */
@@ -9197,26 +9226,45 @@ function buildOPS(ds,dat,locked) {
           }
         }
 
-        /* 入室時間（flex:1）- オペのみ */
-        var timeSelEl, timeTxtEl;
+        /* 入室時間（flex:1）- オペのみ：カテのブリーフィングと同じ ○：△ 方式 */
+        var timeHourEl, timeMinEl, timeTxtEl, timeFreeBtn;
         if (withTime) {
           var timeWrap = document.createElement('div');
-          timeWrap.style.cssText = 'flex:1;display:flex;gap:4px';
+          timeWrap.style.cssText = 'flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center';
 
-          timeSelEl = document.createElement('select');
-          timeSelEl.className = 'ops-sel';
-          timeSelEl.style.flex = '1';
-          timeSelEl.disabled = !!locked;
-          timeSelEl.innerHTML = makeTimeOpts(item.time||'');
+          var timeIsFree = (item.time === '__free__');
+          var timeParsed = parseItemTime(item.time||'');
+
+          timeHourEl = document.createElement('select');
+          timeHourEl.className = 'ops-sel'; timeHourEl.style.cssText='flex:1;min-width:60px'; timeHourEl.disabled=!!locked;
+          timeHourEl.innerHTML = makeTimeHourOpts(timeParsed.h);
+          timeHourEl.style.display = timeIsFree ? 'none' : '';
+
+          var timeColonEl = document.createElement('span');
+          timeColonEl.textContent = ':'; timeColonEl.style.cssText = 'font-size:13px;flex-shrink:0';
+          timeColonEl.style.display = timeIsFree ? 'none' : '';
+
+          timeMinEl = document.createElement('select');
+          timeMinEl.className = 'ops-sel'; timeMinEl.style.cssText='flex:1;min-width:60px'; timeMinEl.disabled=!!locked;
+          timeMinEl.innerHTML = makeTimeMinuteOpts(timeParsed.m);
+          timeMinEl.style.display = timeIsFree ? 'none' : '';
 
           timeTxtEl = document.createElement('input');
           timeTxtEl.type='text'; timeTxtEl.className='ops-txt'; timeTxtEl.style.flex='1';
           timeTxtEl.placeholder='時間を入力...'; timeTxtEl.disabled=!!locked;
           timeTxtEl.value = item.timeTxt||'';
-          timeTxtEl.style.display = item.time==='__free__' ? '' : 'none';
+          timeTxtEl.style.display = timeIsFree ? '' : 'none';
 
-          timeWrap.appendChild(timeSelEl);
+          timeFreeBtn = document.createElement('button');
+          timeFreeBtn.type='button'; timeFreeBtn.disabled=!!locked;
+          timeFreeBtn.style.cssText='font-size:10px;padding:2px 6px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap;flex-shrink:0';
+          timeFreeBtn.textContent = timeIsFree ? '一覧選択' : '自由入力';
+
+          timeWrap.appendChild(timeHourEl);
+          timeWrap.appendChild(timeColonEl);
+          timeWrap.appendChild(timeMinEl);
           timeWrap.appendChild(timeTxtEl);
+          timeWrap.appendChild(timeFreeBtn);
           row.appendChild(timeWrap);
         }
 
@@ -9324,7 +9372,7 @@ function buildOPS(ds,dat,locked) {
         wrap.appendChild(itemWrap);
 
         if(!locked) {
-          (function(idx2, selEl2, txtEl2, timeSelEl2, timeTxtEl2, delBtn2){
+          (function(idx2, selEl2, txtEl2, timeHourEl2, timeMinEl2, timeTxtEl2, timeFreeBtn2, delBtn2){
             selEl2.onchange = function(){
               items[idx2].sel = this.value;
               txtEl2.style.display = this.value==='__free__' ? '' : 'none';
@@ -9332,21 +9380,18 @@ function buildOPS(ds,dat,locked) {
               saveItems();
             };
             txtEl2.oninput = function(){ items[idx2].txt=this.value; saveItems(); };
-            if (timeSelEl2) {
-              timeSelEl2.onchange = function(){
-                items[idx2].time = this.value;
-                timeTxtEl2.style.display = this.value==='__free__' ? '' : 'none';
-                if(this.value!=='__free__') items[idx2].timeTxt='';
-                saveItems();
-              };
+            if (timeHourEl2) {
+              timeHourEl2.onchange = function(){ items[idx2].time = combineItemTime(this.value, timeMinEl2.value); saveItems(); };
+              timeMinEl2.onchange = function(){ items[idx2].time = combineItemTime(timeHourEl2.value, this.value); saveItems(); };
               timeTxtEl2.oninput = function(){ items[idx2].timeTxt=this.value; saveItems(); };
+              timeFreeBtn2.onclick = function(){ items[idx2].time = (items[idx2].time==='__free__') ? '' : '__free__'; saveItems(); renderItems(); };
             }
             delBtn2.onclick = function(){
               if(items.length<=1){ items[0]={sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]}; }
               else { items.splice(idx2,1); }
               saveItems(); renderItems();
             };
-          })(idx, selEl, txtEl, timeSelEl||null, timeTxtEl||null, delBtn);
+          })(idx, selEl, txtEl, timeHourEl||null, timeMinEl||null, timeTxtEl||null, timeFreeBtn||null, delBtn);
         }
       });
 
