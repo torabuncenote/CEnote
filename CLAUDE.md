@@ -85,8 +85,8 @@ When adding a new top-level property to `D`, update **all five** of these locati
 - **Firebase ON**: `saveD()` writes the entire `D` object to `fbDB.ref('/data').set(D)`
 - **Firebase OFF / fallback**: writes to `localStorage` key `'ce2'`
 - **Logs**: written via `writeLog()` to Firebase `/logs`
-- **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}`
-- **Board**: stored at Firebase `/board` (independent of `/data`)
+- **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}` (manuals), `memo/{ds}/{ts}_{idx}_{filename}` (memos), `board/{ts}_{idx}_{filename}` (board images)
+- **Board**: stored at Firebase `/board` (independent of `/data`). Posts may carry a `media` array (images only); non-admin uploads get `pending: true` and go through the same approval flow as memo media (`approveBoardMedia` / `rejectBoardMedia`, scanned by `listPendingMedia`)
 
 `saveD()` always writes the **full** `D` object. After mutating any property of `D`, call `saveD()`.
 
@@ -299,7 +299,9 @@ All class names are abbreviated:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
 - `cath_note` — 備考
 
-**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`it.sel || it.txt` が truthy な行だけをカウントする。空の初期行を誤カウントしないために、`updateOpsHeader()` と `renderPage()` の両方でこのルールを使用している。
+**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`exportOpsCsv()` の4箇所すべてでこの共通ヘルパーを使用する。
+
+**業務終了フラグ**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。
 
 ### PSG外し Detection
 

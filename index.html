@@ -71,6 +71,8 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .brd-compose{padding:10px 12px;border-top:1px solid var(--bdr);background:var(--sur);flex-shrink:0}
 .brd-compose textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:58px;font-size:13px;padding:7px 9px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt1)}
 .brd-ri{width:100%;box-sizing:border-box;font-size:12px;padding:5px 8px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt1);resize:none;margin-top:4px}
+.brd-media{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.brd-media img{max-width:180px;max-height:130px;border-radius:5px;border:1px solid var(--bdr);cursor:pointer;object-fit:cover}
 .cw{padding:12px;flex-shrink:0}
 .mnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .mnav .ml{font-size:14px;font-weight:700}
@@ -225,6 +227,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-item-row .ops-txt{flex:1}
 .ops-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:0 2px;line-height:1;flex-shrink:0}
 .ops-item-del:hover{color:var(--rd)}
+.ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ops-done-btn.on{background:var(--gr);color:#fff}
+.ops-item-wrap.ops-item-done{opacity:.45;filter:grayscale(.6);transition:opacity .2s}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
 .ops-add-btn:hover{background:var(--ac);color:#fff}
 /* ===== 階層マスタ ===== */
@@ -1060,9 +1065,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <div style="font-size:12px;color:var(--txt3);text-align:center;padding:20px">読み込み中...</div>
       </div>
       <div class="brd-compose">
+        <div class="memo-media-preview" id="board-media-preview"></div>
         <textarea id="board-input" placeholder="お知らせ・連絡を投稿…" rows="2"></textarea>
-        <div style="display:flex;justify-content:flex-end;margin-top:6px">
-          <button class="btn btn-p btn-sm" onclick="postBoard()">投稿</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <label class="memo-media-btn">📎 画像<input type="file" id="board-media-input" accept="image/*" multiple style="display:none" onchange="onBoardMediaAdd(this)"></label>
+          <button class="btn btn-p btn-sm" id="board-post-btn" onclick="postBoard()">投稿</button>
         </div>
       </div>
     </div>
@@ -2004,6 +2011,7 @@ function fbInit() {
             var bp = document.getElementById('pane-board');
             if (bp && bp.style.display !== 'none') renderBoard();
             updateBoardBadge();
+            updatePendingBadge();
           });
         } else {
           /* トークン更新時：データは既に同期済みなのでUI表示だけ更新 */
@@ -4454,13 +4462,13 @@ function renderOpsSummary() {
     var opeN  = 0, cathN = 0, mwN = 0, psgN = 0, freeN = 0;
     var hasAny = false;
 
-    /* オペ：ope_itemsの術式が入力されている行数 */
+    /* オペ：ope_itemsの何らかの入力がある行数 */
     if (ops.ope_items) {
-      ops.ope_items.forEach(function(it){ if(it.sel||it.txt){ opeN++; hasAny=true; } });
+      ops.ope_items.forEach(function(it){ if(opsItemFilled(it)){ opeN++; hasAny=true; } });
     }
-    /* カテ：cath_itemsの種別が入力されている行数 */
+    /* カテ：cath_itemsの何らかの入力がある行数 */
     if (ops.cath_items) {
-      ops.cath_items.forEach(function(it){ if(it.sel||it.txt){ cathN++; hasAny=true; } });
+      ops.cath_items.forEach(function(it){ if(opsItemFilled(it)){ cathN++; hasAny=true; } });
     }
     /* 6MW：mw_nの値 */
     if (ops.mw_n) { mwN = parseInt(ops.mw_n)||0; if(mwN) hasAny=true; }
@@ -6723,6 +6731,17 @@ function openPage(ds) {
   if (D.pages[ds]) updatePsgRemovalBanner(ds);
 }
 
+/* オペ・カテ行の件数カウント判定：
+   小カテゴリ（術式/種別）まで選択していなくても、科・中カテゴリの選択や
+   自由記述・入室時間・順番・使用物品など何らかの入力があれば1件と数える */
+function opsItemFilled(it){
+  if (!it) return false;
+  if (it.sel || it.txt || it.cat) return true;
+  if (it.dept && it.dept !== '__free__') return true; /* __free__選択のみ（未入力）は除外 */
+  if (it.time || it.timeTxt || it.order) return true;
+  if (it.sup && it.sup.length) return true;
+  return false;
+}
 function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval){
   var s='';
   if(psgRemoval) s+='<span style="background:#fff0f0;color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG外し</span> ';
@@ -6736,9 +6755,9 @@ function updateOpsHeader(ds){
   var el=document.getElementById('ops-header-row'); if(!el||!D.pages[ds]) return;
   var o=D.pages[ds].ops||{};
   var cards=D.pages[ds].ops_cards!=null?D.pages[ds].ops_cards:(D.opsCfg||[]);
-  /* オペ・カテ：種別または自由記述が入力されている行数 */
-  var opeN=0; if(o.ope_items) o.ope_items.forEach(function(it){if(it.sel||it.txt)opeN++;});
-  var cathN=0; if(o.cath_items) o.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
+  /* オペ・カテ：何らかの入力がある行数（術式追加した行を反映） */
+  var opeN=0; if(o.ope_items) o.ope_items.forEach(function(it){if(opsItemFilled(it))opeN++;});
+  var cathN=0; if(o.cath_items) o.cath_items.forEach(function(it){if(opsItemFilled(it))cathN++;});
   /* 6MW：カード存在で1、件数入力があればその値 */
   var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
   /* PSG：カードが追加されているか、または psg_on に入力があれば1 */
@@ -6804,8 +6823,8 @@ function renderPage(ds) {
   /* 業務件数集計 */
   var _ops=dat.ops||{};
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
-  var _opeN=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(it.sel||it.txt)_opeN++;});
-  var _cathN=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(it.sel||it.txt)_cathN++;});
+  var _opeN=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(opsItemFilled(it))_opeN++;});
+  var _cathN=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(opsItemFilled(it))_cathN++;});
   var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
   var _opsCardsRP=dat.ops_cards;
   var _psgN=!!(_ops.psg_on||(_opsCardsRP&&_opsCardsRP.indexOf('psg')!==-1))?1:0;
@@ -7931,6 +7950,12 @@ function listPendingMedia() {
       if (med.pending) out.push({ kind:'manual', task:task, idx:idx, name:med.name||'', type:med.type });
     });
   });
+  Object.keys(_boardData || {}).forEach(function(id) {
+    var p = _boardData[id]; if (!p) return;
+    _boardMediaArr(p).forEach(function(med, mi) {
+      if (med && med.pending) out.push({ kind:'board', id:id, mi:mi, name:med.name||'', type:med.type, by:p.author||'' });
+    });
+  });
   return out;
 }
 var _badgeDebounce = null;
@@ -7964,6 +7989,8 @@ function renderPendingList() {
   el.innerHTML = items.map(function(it, k) {
     var loc = it.kind === 'memo'
       ? (escH(fmtJ(it.ds)) + ' の申し送り' + (it.by ? '（' + escH(it.by) + '）' : ''))
+      : it.kind === 'board'
+      ? ('掲示板' + (it.by ? '（' + escH(it.by) + '）' : ''))
       : ('業務マニュアル: ' + escH(it.task));
     var icon = it.type === 'video' ? '🎬' : '🖼️';
     return '<div class="pend-row">'
@@ -7977,12 +8004,14 @@ function renderPendingList() {
 function pendApprove(k) {
   var it = listPendingMedia()[k]; if (!it) return;
   if (it.kind === 'memo') approveMemoMedia(it.ds, it.i, it.mi);
+  else if (it.kind === 'board') approveBoardMedia(it.id, it.mi);
   else approveSPMedia(it.idx, it.task);
   renderPendingList();
 }
 function pendReject(k) {
   var it = listPendingMedia()[k]; if (!it) return;
   if (it.kind === 'memo') rejectMemoMedia(it.ds, it.i, it.mi);
+  else if (it.kind === 'board') rejectBoardMedia(it.id, it.mi);
   else rejectSPMedia(it.idx, it.task);
   renderPendingList();
 }
@@ -8833,6 +8862,7 @@ function buildOPS(ds,dat,locked) {
         /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
         var itemWrap = document.createElement('div');
         itemWrap.className = 'ops-item-wrap';
+        if (item.done) itemWrap.classList.add('ops-item-done');
         if (!locked) {
           itemWrap.draggable = true;
           itemWrap.setAttribute('data-item-idx', idx);
@@ -8912,6 +8942,12 @@ function buildOPS(ds,dat,locked) {
           timeWrap.appendChild(timeLbl); timeWrap.appendChild(timeSelEl2); timeWrap.appendChild(timeTxtEl2); hierDiv.appendChild(timeWrap);
           if(!locked){(function(i2,tS,tT){tS.onchange=function(){items[i2].time=this.value;tT.style.display=this.value==='__free__'?'':'none';if(this.value!=='__free__')items[i2].timeTxt='';saveItems();};tT.oninput=function(){items[i2].timeTxt=this.value;saveItems();};})(idx,timeSelEl2,timeTxtEl2);}
         }
+
+        /* 業務終了トグルボタン */
+        var doneBtn=document.createElement('button'); doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
+        doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
+        if(!locked) doneBtn.onclick=(function(i2){return function(){items[i2].done=!items[i2].done;saveItems();renderItems();};})(idx);
+        row.appendChild(doneBtn);
 
         /* 削除ボタン */
         var delBtn=document.createElement('button'); delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除'; delBtn.type='button'; delBtn.disabled=!!locked;
@@ -9066,6 +9102,7 @@ function buildOPS(ds,dat,locked) {
         /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
         var itemWrap = document.createElement('div');
         itemWrap.className = 'ops-item-wrap';
+        if (item.done) itemWrap.classList.add('ops-item-done');
         if (!locked) {
           itemWrap.draggable = true;
           itemWrap.setAttribute('data-item-idx', idx);
@@ -9232,6 +9269,13 @@ function buildOPS(ds,dat,locked) {
           supRow.appendChild(supSel);
           supRow.appendChild(supInp);
         }
+
+        /* 業務終了トグルボタン */
+        var doneBtn = document.createElement('button');
+        doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
+        doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
+        if(!locked) doneBtn.onclick=(function(i2){return function(){items[i2].done=!items[i2].done;saveItems();renderItems();};})(idx);
+        row.appendChild(doneBtn);
 
         /* 削除ボタン */
         var delBtn = document.createElement('button');
@@ -10448,8 +10492,8 @@ function exportOpsCsv() {
     if (!pg) continue;
     var ops = pg.ops||{};
     var opeN=0,cathN=0,mwN=0,psgN=0,freeN=0;
-    if(ops.ope_items)  ops.ope_items.forEach(function(it){if(it.sel||it.txt)opeN++;});
-    if(ops.cath_items) ops.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
+    if(ops.ope_items)  ops.ope_items.forEach(function(it){if(opsItemFilled(it))opeN++;});
+    if(ops.cath_items) ops.cath_items.forEach(function(it){if(opsItemFilled(it))cathN++;});
     if(ops.mw_n) mwN=parseInt(ops.mw_n)||0;
     if(ops.psg_on) psgN=1;
     Object.keys(ops).forEach(function(k){if(k.indexOf('free_')===0&&ops[k])freeN++;});
@@ -11015,6 +11059,33 @@ function renderBoard() {
     html += '<span>' + dt + '</span>';
     html += '</div>';
     html += '<div class="brd-text">' + esc(p.text || '') + '</div>';
+    /* 添付画像 */
+    var pMedia = p.media ? (Array.isArray(p.media) ? p.media : Object.keys(p.media).map(function(k){ return p.media[k]; })) : [];
+    if (pMedia.length) {
+      html += '<div class="brd-media">';
+      pMedia.forEach(function(med, mi) {
+        if (!med) return;
+        /* 承認待ち：一般ユーザーにはプレースホルダーのみ */
+        if (med.pending && !isAdmin) {
+          html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + esc(med.name || '') + '</span></div>';
+          return;
+        }
+        var src = esc(med.url || med.data || '');
+        html += '<div class="media-cell">';
+        html += '<img src="' + src + '" alt="' + esc(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
+        if (med.pending) {
+          html += '<span class="media-pend-badge">承認待ち</span>';
+          if (isAdmin) {
+            html += '<div class="media-actions">'
+              + '<button class="media-appr" onclick="approveBoardMedia(\'' + p._id + '\',' + mi + ')">✅承認</button>'
+              + '<button class="media-rej" onclick="rejectBoardMedia(\'' + p._id + '\',' + mi + ')">🗑却下</button>'
+              + '</div>';
+          }
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
     html += '<div class="brd-acts">';
     html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardReply(\'' + p._id + '\')">💬 返信</button>';
     if (canPin) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="pinBoard(\'' + p._id + '\',' + (!p.pin) + ')">' + (p.pin ? '📌解除' : '📌留め') + '</button>';
@@ -11064,9 +11135,76 @@ function toggleBoardReply(id) {
   if (!shown) { var ti = document.getElementById('brd-ri-' + id); if(ti) ti.focus(); }
 }
 
+/* 掲示板用の一時メディアバッファ（画像のみ） */
+var _boardMediaBuf = [];
+
+function onBoardMediaAdd(input) {
+  var files = Array.prototype.slice.call(input.files);
+  if (!files.length) return;
+  var pending = files.length;
+  files.forEach(function(file) {
+    if (!file.type.startsWith('image/')) {
+      alert(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。');
+      pending--;
+      if (pending === 0) renderBoardMediaPreview();
+      return;
+    }
+    compressImage(file, function(dataUrl, blob) {
+      var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
+      _boardMediaBuf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
+      pending--;
+      if (pending === 0) renderBoardMediaPreview();
+    });
+  });
+  input.value = '';
+}
+
+function renderBoardMediaPreview() {
+  var wrap = document.getElementById('board-media-preview');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _boardMediaBuf.forEach(function(m, idx) {
+    var item = document.createElement('div'); item.className = 'memo-media-prev-item';
+    var img = document.createElement('img'); img.src = m.previewSrc || m.data; item.appendChild(img);
+    var del = document.createElement('button'); del.className = 'memo-media-prev-del'; del.textContent = '×';
+    del.onclick = function() {
+      if (m.previewSrc && m.previewSrc.startsWith('blob:')) URL.revokeObjectURL(m.previewSrc);
+      _boardMediaBuf.splice(idx, 1); renderBoardMediaPreview();
+    };
+    item.appendChild(del);
+    wrap.appendChild(item);
+  });
+}
+
 function _doPostBoard(text) {
   if (!currentUser) { alert('ログインが必要です'); return; }
   var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false };
+  var buf = _boardMediaBuf.slice();
+  var btn = document.getElementById('board-post-btn');
+  if (!buf.length) { _finishPostBoard(post, text, btn); return; }
+
+  /* 画像あり → Storageへアップロードしてから投稿 */
+  if (btn) { btn.disabled = true; btn.textContent = '送信中...'; }
+  post.media = [];
+  var pending = buf.length;
+  buf.forEach(function(m, idx) {
+    var path = 'board/' + post.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+      post.media.push({
+        type:        'image',
+        name:        m.name,
+        url:         url || fallback,     /* StorageURL or base64 */
+        storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
+        data:        null,
+        pending:     !isAdmin             /* 非管理者の投稿は管理者承認待ち */
+      });
+      pending--;
+      if (pending === 0) _finishPostBoard(post, text, btn);
+    });
+  });
+}
+
+function _finishPostBoard(post, text, btn) {
   if (FB_ON && fbDB) {
     fbDB.ref('/board').push(post).catch(function(e){ alert('投稿エラー: '+e.message); });
   } else {
@@ -11076,22 +11214,70 @@ function _doPostBoard(text) {
   }
   var inp = document.getElementById('board-input');
   if (inp) inp.value = '';
-  if(FB_ON) writeLog('掲示板投稿', text.substring(0,30));
+  _boardMediaBuf.forEach(function(m){ if (m.previewSrc && m.previewSrc.startsWith('blob:')) URL.revokeObjectURL(m.previewSrc); });
+  _boardMediaBuf = [];
+  renderBoardMediaPreview();
+  if (btn) { btn.disabled = false; btn.textContent = '投稿'; }
+  if(FB_ON) writeLog('掲示板投稿', (text || '[画像]').substring(0,30));
+  updatePendingBadge();
+  if (post.media && post.media.some(function(m){ return m.pending; }))
+    alert('画像は管理者の承認後に表示されます。');
 }
+
 function postBoard() {
   var inp = document.getElementById('board-input');
   if (!inp) return;
   var text = inp.value.trim();
-  if (!text) return;
-  var phiRes = detectPHI(text);
-  if (phiRes.red.length || phiRes.yellow.length) {
-    showPHIPopup({ result: phiRes, mode: 'memo',
-      onProceed: function() { _doPostBoard(text); },
-      onFix: function() { if(inp) inp.focus(); }
-    });
-    return;
+  if (!text && !_boardMediaBuf.length) return;
+  if (text) {
+    var phiRes = detectPHI(text);
+    if (phiRes.red.length || phiRes.yellow.length) {
+      showPHIPopup({ result: phiRes, mode: 'memo',
+        onProceed: function() { _doPostBoard(text); },
+        onFix: function() { if(inp) inp.focus(); }
+      });
+      return;
+    }
   }
   _doPostBoard(text);
+}
+
+/* ===== 掲示板メディア承認（管理者のみ） ===== */
+function _boardMediaArr(p) {
+  if (!p || !p.media) return [];
+  return Array.isArray(p.media) ? p.media : Object.keys(p.media).map(function(k){ return p.media[k]; });
+}
+function approveBoardMedia(id, mi) {
+  if (!isAdmin) return;
+  var p = _boardData[id]; if (!p) return;
+  var media = _boardMediaArr(p);
+  if (!media[mi]) return;
+  media[mi].pending = false;
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    renderBoard();
+  }
+  writeLog('メディア承認', '掲示板 ' + (media[mi].name || ''));
+  updatePendingBadge();
+}
+function rejectBoardMedia(id, mi) {
+  if (!isAdmin) return;
+  var p = _boardData[id]; if (!p) return;
+  var media = _boardMediaArr(p);
+  if (!media[mi]) return;
+  if (!confirm('この画像を却下（削除）しますか？')) return;
+  var med = media[mi];
+  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
+  media.splice(mi, 1);
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    p.media = media;
+    renderBoard();
+  }
+  writeLog('メディア却下', '掲示板 ' + (med.name || ''));
+  updatePendingBadge();
 }
 
 function _doPostBoardReply(postId, text) {
@@ -11128,6 +11314,9 @@ function postBoardReply(postId) {
 
 function deleteBoard(id) {
   if (!confirm('この投稿を削除しますか？（返信も全て削除されます）')) return;
+  /* 添付画像をStorageからも削除 */
+  var delMedia = _boardMediaArr(_boardData[id]);
+  if (fbST) delMedia.forEach(function(med){ if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){}); });
   if (FB_ON && fbDB) {
     fbDB.ref('/board/' + id).remove().catch(function(e){ alert('削除エラー: '+e.message); });
   } else {
