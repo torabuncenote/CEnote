@@ -268,7 +268,7 @@ All class names are abbreviated:
 | `renderAdminUsers()` / `deleteAppUser(uid, name)` | User management (soft-delete removes `/users/{uid}`, `/admins/{uid}`, `/userPerms/{uid}`) |
 | `saveUserPerm(uid, permId, grant)` | Grant/revoke single permission in `/userPerms/{uid}`; calls `updateTabVisibility()` when uid === currentUser.uid |
 | `can(id)` / `lk(id)` | Access control helpers |
-| `opsHeaderChips(opeN, cathN, mwN, psgN, psgRemoval)` | Builds 業務 header chips (5th arg = PSG外し flag) |
+| `opsHeaderChips(opeN, cathN, mwN, psgN, psgRemoval, opeDone, cathDone)` | Builds 業務 header chips (5th arg = PSG外し flag; 6th/7th = 業務終了済み件数 → 「2/3件終了」進捗表示) |
 | `updateOpsHeader(ds)` | Refreshes `#ops-header-row` DOM element dynamically |
 | `updatePsgRemovalBanner(ds)` | Shows/hides `#psg-removal-banner` (today only, within `psgBannerStart`–`psgBannerEnd`) |
 | `toggleStfHidden(name)` | Toggle `D.stfHidden[name]`; affects AT columns, dropdowns, fairness matrix |
@@ -301,7 +301,10 @@ All class names are abbreviated:
 
 **opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`exportOpsCsv()` の4箇所すべてでこの共通ヘルパーを使用する。
 
-**業務終了フラグ**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。
+**業務終了フラグ**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
+- `opsToggleDone(items, idx)` — トグル時に終了行を配列末尾へ移動（解除時は未終了ブロックの末尾へ戻す）。データ自体の並びを変えるので全端末に同期される
+- `updateOpsCardDoneBadge(cardEl, items)` — 入力済み全行が終了ならカードタイトルに「✅ 本日終了」バッジ（`.ops-card-done-badge`）を表示
+- ヘッダーチップは終了数があると「🔪 オペ 2/3件終了」形式になり、全件終了で緑色+✅表示（`opsHeaderChips` の第6・7引数 `opeDone`/`cathDone`）
 
 ### PSG外し Detection
 

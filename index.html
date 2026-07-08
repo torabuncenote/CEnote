@@ -228,6 +228,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:0 2px;line-height:1;flex-shrink:0}
 .ops-item-del:hover{color:var(--rd)}
 .ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ops-card-done-badge{display:inline-block;margin-left:8px;background:var(--gr);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:2px 8px;vertical-align:middle}
 .ops-done-btn.on{background:var(--gr);color:#fff}
 .ops-item-wrap.ops-item-done{opacity:.45;filter:grayscale(.6);transition:opacity .2s}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
@@ -6742,12 +6743,46 @@ function opsItemFilled(it){
   if (it.sup && it.sup.length) return true;
   return false;
 }
-function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval){
+/* 業務終了トグル：終了した行は末尾へ移動、解除した行は未終了ブロックの末尾へ戻す */
+function opsToggleDone(items, idx) {
+  var it = items[idx];
+  it.done = !it.done;
+  items.splice(idx, 1);
+  if (it.done) { items.push(it); return; }
+  var firstDone = -1;
+  for (var i = 0; i < items.length; i++) { if (items[i].done) { firstDone = i; break; } }
+  if (firstDone === -1) items.push(it); else items.splice(firstDone, 0, it);
+}
+/* 入力済みの全行が終了ならカードタイトルに「✅ 本日終了」バッジを表示 */
+function updateOpsCardDoneBadge(cardEl, items) {
+  var ttl = cardEl.querySelector('.ops-ttl');
+  if (!ttl) return;
+  var old = ttl.querySelector('.ops-card-done-badge');
+  if (old) old.parentNode.removeChild(old);
+  var filled = items.filter(opsItemFilled);
+  if (filled.length && filled.every(function(it){ return !!it.done; })) {
+    var b = document.createElement('span');
+    b.className = 'ops-card-done-badge';
+    b.textContent = '✅ 本日終了';
+    ttl.appendChild(b);
+  }
+}
+function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone){
+  opeDone=opeDone||0; cathDone=cathDone||0;
   var s='';
+  var GR_CHIP='background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px';
   if(psgRemoval) s+='<span style="background:#fff0f0;color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG外し</span> ';
-  if(opeN)  s+='<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px">🔪 オペ '+opeN+'件</span> ';
-  if(cathN) s+='<span style="background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🫀 カテ '+cathN+'件</span> ';
-  if(mwN)   s+='<span style="background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px">🚶 6MW '+mwN+'件</span> ';
+  if(opeN){
+    var opeAll=(opeDone>=opeN);
+    var opeTxt=opeDone>0?('🔪 オペ '+opeDone+'/'+opeN+'件終了'+(opeAll?' ✅':'')):('🔪 オペ '+opeN+'件');
+    s+='<span style="'+(opeAll?GR_CHIP:'background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px')+'">'+opeTxt+'</span> ';
+  }
+  if(cathN){
+    var cathAll=(cathDone>=cathN);
+    var cathTxt=cathDone>0?('🫀 カテ '+cathDone+'/'+cathN+'件終了'+(cathAll?' ✅':'')):('🫀 カテ '+cathN+'件');
+    s+='<span style="'+(cathAll?GR_CHIP:'background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px')+'">'+cathTxt+'</span> ';
+  }
+  if(mwN)   s+='<span style="'+GR_CHIP+'">🚶 6MW '+mwN+'件</span> ';
   if(psgN)  s+='<span style="background:var(--or-bg);color:var(--or);border:1px solid var(--or);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG 1件</span> ';
   return s;
 }
@@ -6755,9 +6790,9 @@ function updateOpsHeader(ds){
   var el=document.getElementById('ops-header-row'); if(!el||!D.pages[ds]) return;
   var o=D.pages[ds].ops||{};
   var cards=D.pages[ds].ops_cards!=null?D.pages[ds].ops_cards:(D.opsCfg||[]);
-  /* オペ・カテ：何らかの入力がある行数（術式追加した行を反映） */
-  var opeN=0; if(o.ope_items) o.ope_items.forEach(function(it){if(opsItemFilled(it))opeN++;});
-  var cathN=0; if(o.cath_items) o.cath_items.forEach(function(it){if(opsItemFilled(it))cathN++;});
+  /* オペ・カテ：何らかの入力がある行数（術式追加した行を反映）+ 業務終了済みの行数 */
+  var opeN=0,opeDone=0; if(o.ope_items) o.ope_items.forEach(function(it){if(opsItemFilled(it)){opeN++;if(it.done)opeDone++;}});
+  var cathN=0,cathDone=0; if(o.cath_items) o.cath_items.forEach(function(it){if(opsItemFilled(it)){cathN++;if(it.done)cathDone++;}});
   /* 6MW：カード存在で1、件数入力があればその値 */
   var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
   /* PSG：カードが追加されているか、または psg_on に入力があれば1 */
@@ -6766,7 +6801,7 @@ function updateOpsHeader(ds){
   /* PSG外し：前日にPSGがあれば当日は外し作業あり */
   var prevDsOH=getPrevDs(ds),prevDatOH=D.pages[prevDsOH];
   var psgRemoval=!!(prevDatOH&&((prevDatOH.ops_cards&&prevDatOH.ops_cards.indexOf('psg')!==-1)||(prevDatOH.ops&&prevDatOH.ops.psg_on)));
-  var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval);
+  var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone);
   el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
 }
 function updatePsgRemovalBanner(ds){
@@ -6823,8 +6858,8 @@ function renderPage(ds) {
   /* 業務件数集計 */
   var _ops=dat.ops||{};
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
-  var _opeN=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(opsItemFilled(it))_opeN++;});
-  var _cathN=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(opsItemFilled(it))_cathN++;});
+  var _opeN=0,_opeDone=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(opsItemFilled(it)){_opeN++;if(it.done)_opeDone++;}});
+  var _cathN=0,_cathDone=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(opsItemFilled(it)){_cathN++;if(it.done)_cathDone++;}});
   var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
   var _opsCardsRP=dat.ops_cards;
   var _psgN=!!(_ops.psg_on||(_opsCardsRP&&_opsCardsRP.indexOf('psg')!==-1))?1:0;
@@ -6835,7 +6870,7 @@ function renderPage(ds) {
   h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
   h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+total+' 完了</span></div>';
-  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval)+'</span></div>' : '') +'</div>';
+  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone)+'</span></div>' : '') +'</div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
@@ -8946,7 +8981,7 @@ function buildOPS(ds,dat,locked) {
         /* 業務終了トグルボタン */
         var doneBtn=document.createElement('button'); doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
         doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
-        if(!locked) doneBtn.onclick=(function(i2){return function(){items[i2].done=!items[i2].done;saveItems();renderItems();};})(idx);
+        if(!locked) doneBtn.onclick=(function(i2){return function(){opsToggleDone(items,i2);saveItems();renderItems();};})(idx);
         row.appendChild(doneBtn);
 
         /* 削除ボタン */
@@ -8994,6 +9029,7 @@ function buildOPS(ds,dat,locked) {
         addBtn3.onclick=function(){items.push({dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]});saveItems();renderItems();};
         wrap.appendChild(addBtn3);
       }
+      updateOpsCardDoneBadge(cardEl, items);
     }
 
     function saveItems(){
@@ -9274,7 +9310,7 @@ function buildOPS(ds,dat,locked) {
         var doneBtn = document.createElement('button');
         doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
         doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
-        if(!locked) doneBtn.onclick=(function(i2){return function(){items[i2].done=!items[i2].done;saveItems();renderItems();};})(idx);
+        if(!locked) doneBtn.onclick=(function(i2){return function(){opsToggleDone(items,i2);saveItems();renderItems();};})(idx);
         row.appendChild(doneBtn);
 
         /* 削除ボタン */
@@ -9325,6 +9361,7 @@ function buildOPS(ds,dat,locked) {
         };
         wrap.appendChild(addBtn);
       }
+      updateOpsCardDoneBadge(cardEl, items);
     }
 
     function saveItems(){
