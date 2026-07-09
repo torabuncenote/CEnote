@@ -4979,6 +4979,9 @@ var _saveQueued  = null;  /* 直近のDスナップショット（write完了後
 var _fbConnected = false; /* .info/connected 状態 */
 var _fbEverConn  = false; /* 初回接続済みフラグ */
 
+var _savePageWriting = false; /* saveDPage() の /data/pages/{ds} write in-flight（saveD本体の_saveWritingとは別管理） */
+var _savePageQueue   = {};    /* saveDPage() 書き込み中に追加された ds のキュー（ds → true） */
+
 function saveD() {
   /* D.manualのキーにFirebase禁止文字があると全体が失敗するため事前に修正 */
   sanitizeManualKeys();
@@ -5072,9 +5075,105 @@ function _doFbWrite(data, attempt) {
     });
 }
 
+/* ===== ページ単位のFirebase部分書き込み（同時編集の全体上書き対策・限定導入） =====
+   saveD() は毎回 D 全体を /data に set するため、2人が同時に別ページを編集すると
+   後勝ちで一方の変更が丸ごと消える可能性がある。saveDPage(ds) は
+   明確にページ単位の変更だとわかる呼び出し箇所（ops入力・チェックリスト・
+   申し送り・スケジュール）に限定して /data/pages/{ds} だけを set することで
+   この上書きリスクを減らす。saveD本体の書き込みキュー（_saveWriting/_saveQueued等）
+   には一切手を入れず、専用の状態変数（_savePageWriting/_savePageQueue）で
+   直列化する。 */
+function saveDPage(ds) {
+  /* localStorageへの全体書き込みはsaveDと同じ（オフライン/フォールバック対応） */
+  sanitizeManualKeys();
+  try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
+  if (!FB_ON || !fbDB) return; /* Firebase OFF → ローカル保存のみ（saveDと同じ） */
+  if (!currentUser) return;
+  /* _fbDataLoadedガードはsaveDと同様に絶対維持。falseなら書かない（ローカル保存のみ） */
+  if (!_fbDataLoaded) {
+    console.warn('[saveDPage] Firebase未ロードのため書き込みをスキップ（データ保護）');
+    return;
+  }
+  if (!D.pages || !D.pages[ds]) {
+    /* ページが存在しない（削除された等）場合は部分書き込みの対象がないため全体保存に委譲 */
+    saveD();
+    return;
+  }
+  /* 順序問題対策：full saveD()が進行中(_saveWriting)または予約中(_savePending)の間は
+     saveDPageを実行しない。理由: full saveDの書き込みスナップショットはsaveD呼び出し時点の
+     ものなので、それより後に確定するページ単位の変更が反映されないまま古いスナップショットが
+     後から/dataに書き込まれると、page単位の変更が消えてしまう。full saveDに委譲すれば
+     （_saveWriting中ならキューされ、書き込み完了後に最新Dで再送されるため）このページの
+     変更も確実に含まれる。 */
+  if (_saveWriting || _savePending) {
+    saveD();
+    return;
+  }
+  if (_savePageWriting) {
+    /* 別ページ（または同じページ）の部分書き込みが進行中 → 完了後に処理するようキューに積む */
+    _savePageQueue[ds] = true;
+    _savingTs = Date.now(); /* エコー抑制ウィンドウを更新 */
+    return;
+  }
+  _doFbPageWrite(ds, 0);
+}
+
+/* リトライ付きページ単位Firebase書き込み（最大4回: 2s/4s/8s/16s、saveDのリトライ仕様に合わせる） */
+function _doFbPageWrite(ds, attempt) {
+  attempt = attempt || 0;
+  /* 書き込み直前にもfull saveDが割り込んでいないか再確認（保険）。
+     割り込んでいれば全体保存に委譲し、キューに残っている他ページの分も
+     full saveDが丸ごとカバーするのでキューをクリアしてよい。 */
+  if (_saveWriting || _savePending) {
+    _savePageQueue = {};
+    saveD();
+    return;
+  }
+  var pageData = D.pages && D.pages[ds];
+  if (!pageData) {
+    /* 書き込み対象がすでに消えている（削除済み）→ このpage writeは何もしない */
+    return;
+  }
+  _savePageWriting = true;
+  _savingTs = Date.now();
+  fbDB.ref('/data/pages/' + ds).set(JSON.parse(JSON.stringify(pageData)))
+    .then(function() {
+      _savePageWriting = false;
+      _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長（saveDと同様） */
+      var nextDs = null;
+      for (var k in _savePageQueue) { nextDs = k; break; }
+      if (nextDs) {
+        delete _savePageQueue[nextDs];
+        _doFbPageWrite(nextDs, 0);
+      }
+    })
+    .catch(function(err) {
+      var canRetry = err.code !== 'PERMISSION_DENIED' && attempt < 4;
+      if (canRetry) {
+        var delay = [2000, 4000, 8000, 16000][attempt];
+        setTimeout(function() {
+          if (!FB_ON || !fbDB || !currentUser || !_fbDataLoaded) {
+            _savePageWriting = false; _savePageQueue = {}; return;
+          }
+          _doFbPageWrite(ds, attempt + 1);
+        }, delay);
+      } else {
+        _savePageWriting = false;
+        console.error('saveDPage失敗:', ds, err.code, err.message);
+        writeLog && writeLog('ページ同期エラー発生', ds + ': ' + (err.code || '') + ': ' + (err.message || ''));
+        var nextDs2 = null;
+        for (var k2 in _savePageQueue) { nextDs2 = k2; break; }
+        if (nextDs2) {
+          delete _savePageQueue[nextDs2];
+          _doFbPageWrite(nextDs2, 0);
+        }
+      }
+    });
+}
+
 /* 未保存変更がある状態でタブを閉じようとしたとき警告 */
 window.addEventListener('beforeunload', function(e) {
-  if (_savePending || _saveWriting) { e.preventDefault(); e.returnValue = ''; }
+  if (_savePending || _saveWriting || _savePageWriting || Object.keys(_savePageQueue).length) { e.preventDefault(); e.returnValue = ''; }
 });
 
 /* ===== LOCK ===== */
@@ -7421,7 +7520,7 @@ function renderMemos(ds, dat, locked) {
       /* チェックしたユーザーと時刻を記録 */
       D.pages[bds].memos[idx].doneBy   = currentUser ? (currentUser.displayName || currentUser.email) : '';
       D.pages[bds].memos[idx].doneAt   = cb.checked ? Date.now() : null;
-      saveD();
+      saveDPage(bds);
       /* 投稿ボックスのクラスを即時切り替え（再描画なし） */
       var post = cb.closest('.memo-post');
       if (post) post.classList.toggle('memo-done', cb.checked);
@@ -8024,7 +8123,7 @@ function _doPostMemo(ds) {
 
 function _finishPostMemo(ds, entry, text, sendBtn) {
   D.pages[ds].memos.push(entry);
-  saveD();
+  saveDPage(ds);
   writeLog('申し送り投稿', fmtJ(ds) + ' 「' + (text||'[画像/動画]').slice(0,30) + (text.length>30?'...':'') + '」');
   var ta = document.getElementById('memo-new');
   if (ta) ta.value = '';
@@ -8207,7 +8306,7 @@ function delMemo(ds, idx) {
     });
   }
   D.pages[ds].memos.splice(idx, 1);
-  saveD();
+  saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
 }
@@ -9208,7 +9307,7 @@ function buildOPS(ds,dat,locked) {
     function saveItems(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops[key]=JSON.parse(JSON.stringify(items));
-      saveD(); updateOpsHeader(ds);
+      saveDPage(ds); updateOpsHeader(ds);
     }
 
     renderItems();
@@ -9556,7 +9655,7 @@ function buildOPS(ds,dat,locked) {
     function saveItems(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops[key] = JSON.parse(JSON.stringify(items));
-      saveD();
+      saveDPage(ds);
     }
 
     renderItems();
@@ -9740,13 +9839,13 @@ function buildOPS(ds,dat,locked) {
       if(!D.pages[ds].ops)D.pages[ds].ops={};
       D.pages[ds].ops[key2]=v;
       clearTimeout(_bindTimers[key2]);
-      _bindTimers[key2]=setTimeout(function(){saveD();updateOpsHeader(ds);},600);
+      _bindTimers[key2]=setTimeout(function(){saveDPage(ds);updateOpsHeader(ds);},600);
       updateOpsHeader(ds);
     };
     el.onchange=function(){
       if(!D.pages[ds].ops)D.pages[ds].ops={};
       D.pages[ds].ops[key2]=this.value;
-      saveD(); updateOpsHeader(ds);
+      saveDPage(ds); updateOpsHeader(ds);
     };
   }
   /* bind処理：sfxなし・sfxありの両方を試みる（存在する方のみ有効） */
@@ -9766,12 +9865,12 @@ function buildOPS(ds,dat,locked) {
         if(!D.pages[ds].ops)D.pages[ds].ops={};
         D.pages[ds].ops['free_'+uid2]=this.value;
         clearTimeout(_bindTimers['free_'+uid2]);
-        _bindTimers['free_'+uid2]=setTimeout(saveD,600);
+        _bindTimers['free_'+uid2]=setTimeout(function(){saveDPage(ds);},600);
       };
       el2.onchange=function(){
         if(!D.pages[ds].ops)D.pages[ds].ops={};
         D.pages[ds].ops['free_'+uid2]=this.value;
-        saveD();
+        saveDPage(ds);
       };
     })(freeFlds[fi]);
   }
@@ -9786,7 +9885,7 @@ function buildOPS(ds,dat,locked) {
     fusenCb.onchange = function(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops.psg_fusen = this.checked;
-      saveD();
+      saveDPage(ds);
       checkPsgFusen(ds);
     };
   }
@@ -9800,12 +9899,12 @@ function buildOPS(ds,dat,locked) {
         if(!D.pages[ds].ops)D.pages[ds].ops={};
         D.pages[ds].ops['free_'+uid2]=this.value;
         clearTimeout(_bindTimers['free_'+uid2]);
-        _bindTimers['free_'+uid2]=setTimeout(saveD,600);
+        _bindTimers['free_'+uid2]=setTimeout(function(){saveDPage(ds);},600);
       };
       el2.onchange=function(){
         if(!D.pages[ds].ops)D.pages[ds].ops={};
         D.pages[ds].ops['free_'+uid2]=this.value;
-        saveD();
+        saveDPage(ds);
       };
     })(freeFlds[fi]);
   }
@@ -9814,7 +9913,7 @@ function buildOPS(ds,dat,locked) {
     fusenCb.onchange = function(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops.psg_fusen = this.checked;
-      saveD();
+      saveDPage(ds);
       checkPsgFusen(ds);
     };
   }
@@ -10349,14 +10448,14 @@ function mkCk(ds,idx,task,dat,locked) {
         if(!D.pages[ds].checks)D.pages[ds].checks={};
         D.pages[ds].checks[idx]=cb.checked;
         div.classList.toggle('dn',cb.checked);
-        saveD(); updProg(ds);
+        saveDPage(ds); updProg(ds);
         writeLog(cb.checked?'チェック完了':'チェック解除', fmtJ(ds)+' '+task);
       }
       cb.onchange=function(){
         if(!D.pages[ds].checks)D.pages[ds].checks={};
         D.pages[ds].checks[idx]=cb.checked;
         div.classList.toggle('dn',cb.checked);
-        saveD(); updProg(ds);
+        saveDPage(ds); updProg(ds);
         writeLog(cb.checked?'チェック完了':'チェック解除', fmtJ(ds)+' '+task);
       };
       div.onclick=function(e){
@@ -10977,7 +11076,7 @@ function schedAddBlock(ds,staff,presetIdx,startMin){
   var end=Math.min(SCHED_END,start+(p.dur||60));
   if(end<=start) end=Math.min(SCHED_END,start+SCHED_SLOT);
   dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
-  saveD();
+  saveDPage(ds);
   writeLog('スケジュール追加',fmtJ(ds)+' '+staff+' '+label+' '+schedMinToHM(start));
   renderSched();
 }
@@ -11001,7 +11100,7 @@ function schedImportDuties(){
     dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*10000)+i,staff:name,label:slot.label,start:start,end:end,color:def.color});
     added++;
   }
-  saveD();
+  saveDPage(ds);
   writeLog('スケジュール業務取込',fmtJ(ds)+' '+added+'件');
   renderSched();
   if(!added) alert('追加する新しい業務割当はありませんでした。');
@@ -11012,7 +11111,7 @@ function schedClear(){
   if(!dat.schedule||!dat.schedule.length) return;
   if(!confirm(fmtJ(ds)+' のスケジュールをすべて消去しますか？')) return;
   dat.schedule=[];
-  saveD();
+  saveDPage(ds);
   writeLog('スケジュール全消去',fmtJ(ds));
   renderSched();
 }
@@ -11028,7 +11127,7 @@ function schedBindInteractions(ds){
       e.stopPropagation();
       var id=x.getAttribute('data-del');
       dat.schedule=dat.schedule.filter(function(b){return b.id!==id;});
-      saveD(); writeLog('スケジュール削除',fmtJ(ds)); renderSched();
+      saveDPage(ds); writeLog('スケジュール削除',fmtJ(ds)); renderSched();
     });
   });
 
@@ -11095,7 +11194,7 @@ function schedBindInteractions(ds){
       function onUp(ev){
         document.removeEventListener('pointermove',onMove);
         document.removeEventListener('pointerup',onUp);
-        if(moved){ saveD(); renderSched(); }
+        if(moved){ saveDPage(ds); renderSched(); }
       }
       document.addEventListener('pointermove',onMove);
       document.addEventListener('pointerup',onUp);

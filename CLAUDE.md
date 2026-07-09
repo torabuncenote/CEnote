@@ -98,6 +98,18 @@ When adding a new top-level property to `D`, update **all five** of these locati
 
 After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state.
 
+#### `saveDPage(ds)` — page-level partial write (limited use)
+
+`saveDPage(ds)` writes only `/data/pages/{ds}` (`fbDB.ref('/data/pages/'+ds).set(D.pages[ds])`) instead of the full `D` object, to reduce the chance that two people editing different days' pages at the same time clobber each other's changes via `saveD()`'s full-object overwrite. It always writes the full `D` to `localStorage` first (identical to `saveD()`), so the local/offline behavior is unchanged.
+
+- Uses its own state (`_savePageWriting`, `_savePageQueue`) — completely separate from `saveD()`'s queue (`_saveWriting`/`_saveQueued`). Multiple `saveDPage()` calls serialize through this queue (dedup by `ds`).
+- Same `_fbDataLoaded` guard as `saveD()` — never bypassed.
+- If `D.pages[ds]` doesn't exist (page deleted), delegates to full `saveD()`.
+- **Ordering guard**: if a full `saveD()` write is in-flight or pending (`_saveWriting || _savePending`), `saveDPage()` defers entirely to `saveD()` instead of writing the page directly. This prevents a stale full-`D` snapshot (taken *before* the page edit) from landing in Firebase *after* the page-level write and silently reverting it.
+- Does **not** touch `/recent_backup` — that's updated only by full `saveD()`'s success callback.
+
+**Only use `saveDPage(ds)` where the change is unambiguously scoped to a single page** — currently: ops card item lists and field binds (`buildOPS`'s `saveItems()` / `bind()` / free-card / PSG付箋 handlers), checklist checkbox toggles (`mkCk`), memo post/done-check/delete (`_finishPostMemo`, `doneMemo` handler, `delMemo`), and schedule block add/import/clear/move/resize/delete (`schedAddBlock`, `schedImportDuties`, `schedClear`, `schedBindInteractions`). Duty assignment, staff/master edits, and anything with cross-page side effects still use full `saveD()` — do not switch those to `saveDPage()` without re-checking every side effect (`maybeLateToast`, `writeLog`, pool refresh, etc.).
+
 ### Firebase Setup
 
 ```js
