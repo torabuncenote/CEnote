@@ -85,8 +85,11 @@ When adding a new top-level property to `D`, update **all five** of these locati
 - **Firebase ON**: `saveD()` writes the entire `D` object to `fbDB.ref('/data').set(D)`
 - **Firebase OFF / fallback**: writes to `localStorage` key `'ce2'`
 - **Logs**: written via `writeLog()` to Firebase `/logs`
-- **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}` (manuals), `memo/{ds}/{ts}_{idx}_{filename}` (memos), `board/{ts}_{idx}_{filename}` (board images)
-- **Board**: stored at Firebase `/board` (independent of `/data`). Posts may carry a `media` array (images only); non-admin uploads get `pending: true` and go through the same approval flow as memo media (`approveBoardMedia` / `rejectBoardMedia`, scanned by `listPendingMedia`)
+- **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}` (manuals), `memo/{ds}/{ts}_{idx}_{filename}` (memos), `board/{ts}_{idx}_{filename}` (board post images), `board/reply_{ts}_{idx}_{filename}` (board reply images)
+- **Board**: stored at Firebase `/board` (independent of `/data`). Posts (and replies) may carry a `media` array (images only); non-admin uploads get `pending: true` and go through the same approval flow as memo media (`approveBoardMedia`/`rejectBoardMedia` for posts, `approveBoardReplyMedia`/`rejectBoardReplyMedia` for replies — both scanned by `listPendingMedia`, which emits `kind:'board'` and `kind:'boardReply'` entries)
+  - **既読 (read receipts)**: each post carries `reads: { uid: { n: displayName, ts } }`. `renderBoard()` writes the current user's read entry the first time it renders a post they haven't read yet (checked via `p.reads[currentUser.uid]` so it never re-writes — no infinite loop). The 👀 count shown excludes the post author's own read; `toggleBoardReads(id)` expands the name+time list.
+  - **カテゴリタグ**: posts carry `tag` (`'info'`|`'req'`|`'etc'`, default `'etc'`, see `BOARD_TAGS`). `req`-tagged posts can be marked `resolved: true/false` (with `resolvedBy`/`resolvedAt`) by the author or an admin via `toggleBoardResolved()`; resolved posts render dimmed (`.brd-post.resolved`). `board-list` has a filter chip row (`setBoardFilter()`, module-level `_boardFilter`) for all/info/req/etc/unresolved-only.
+  - **ピン留め期限**: `pinBoard(id, pin)` prompts for a number of days when pinning (blank = no expiry) and stores `pinUntil` (ts). `boardPinActive(p)` — `p.pin && (!p.pinUntil || p.pinUntil > Date.now())` — is the single source of truth for sort order and the 📌 badge/expiry-date label. Admins auto-clear expired pins (`/board/{id}/pin` → `false`) inside `renderBoard()`.
 
 `saveD()` always writes the **full** `D` object. After mutating any property of `D`, call `saveD()`.
 
@@ -257,7 +260,9 @@ All class names are abbreviated:
 | `buildOPS(ds, dat, locked)` | OPE/cath/ops record section |
 | `renderMemos(ds, dat, locked)` | Memo/comment thread |
 | `renderSched()` | Per-day timetable for `curDs` |
-| `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board |
+| `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board (also handles read-receipt marking, tag/resolved rendering, pin-expiry sort/cleanup, filter chips) |
+| `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
+| `toggleBoardReads(id)` / `setBoardFilter(f)` | Board: 既読者一覧の開閉／フィルタチップ切替（`_boardFilter`） |
 | `renderSurplusArea(ds, dat, locked)` | 余剰人員エリア（デフォルト折りたたみ: `_surplusOpen = false`） |
 | `renderOpsSummary()` | 業務集計サブタブ — monthly OPE/cath/6MW/PSG counts |
 | `renderOCSummary()` | OC集計サブタブ — on-call response log |
