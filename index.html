@@ -2294,6 +2294,12 @@ function onSPMediaAdd(input) {
       var uploadData = blob || dataUrl; /* blobがあればblobを優先 */
       var path = 'manual/' + encodeURIComponent(_spTask) + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       uploadToStorage(path, uploadData, function(url, fallback) {
+        if (!url && !fallback) {
+          /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
+          pending--;
+          if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); }
+          return;
+        }
         entry.media.push({
           type: isVideo ? 'video' : 'image',
           name: file.name,
@@ -7451,16 +7457,38 @@ function compressImage(file, callback) {
 }
 
 /* ===== Firebase Storageにアップロード → URL取得 ===== */
+var B64_FALLBACK_SIZE_LIMIT = 300 * 1024; /* base64フォールバックを許容する上限（DB本体の肥大化防止） */
+var _lastB64FallbackAlertTs = 0;
+function _b64FallbackAlertOnce() {
+  var now = Date.now();
+  if (now - _lastB64FallbackAlertTs > 3000) { /* 複数枚同時アップロード時の連打防止 */
+    _lastB64FallbackAlertTs = now;
+    alert('⚠️ 画像サーバーに接続できないため、画像を添付できませんでした。');
+  }
+}
+/* Storage未接続 or アップロード失敗時の共通フォールバック処理
+   本番Firebaseモード(FB_ON)で300KB超はDB肥大化防止のため添付自体を諦める。
+   ローカル運用(FB_ON=false)は従来通りサイズ問わずbase64を許容する。 */
+function _uploadFallback(dataOrBlob, callback) {
+  var size = (dataOrBlob instanceof Blob) ? dataOrBlob.size
+    : (typeof dataOrBlob === 'string' ? dataOrBlob.length * 0.75 : 0);
+  if (FB_ON && size > B64_FALLBACK_SIZE_LIMIT) {
+    _b64FallbackAlertOnce();
+    callback(null, null);
+    return;
+  }
+  if (dataOrBlob instanceof Blob) {
+    var reader = new FileReader();
+    reader.onload = function(e){ callback(null, e.target.result); };
+    reader.readAsDataURL(dataOrBlob);
+  } else {
+    callback(null, dataOrBlob);
+  }
+}
 function uploadToStorage(path, dataOrBlob, callback) {
   if (!fbST) {
-    /* Storage未接続時：blobはdata_urlに変換してフォールバック */
-    if (dataOrBlob instanceof Blob) {
-      var reader = new FileReader();
-      reader.onload = function(e){ callback(null, e.target.result); };
-      reader.readAsDataURL(dataOrBlob);
-    } else {
-      callback(null, dataOrBlob);
-    }
+    /* Storage未接続時：フォールバック（サイズにより添付自体を諦める場合あり） */
+    _uploadFallback(dataOrBlob, callback);
     return;
   }
   var ref = fbST.ref(path);
@@ -7475,14 +7503,8 @@ function uploadToStorage(path, dataOrBlob, callback) {
     callback(url, null);
   }).catch(function(err) {
     console.error('Storage upload error:', err);
-    /* エラー時：blobをdata_urlに変換してフォールバック */
-    if (dataOrBlob instanceof Blob) {
-      var reader = new FileReader();
-      reader.onload = function(e){ callback(null, e.target.result); };
-      reader.readAsDataURL(dataOrBlob);
-    } else {
-      callback(null, dataOrBlob);
-    }
+    /* エラー時：フォールバック（サイズにより添付自体を諦める場合あり） */
+    _uploadFallback(dataOrBlob, callback);
   });
 }
 
@@ -7980,6 +8002,12 @@ function _doPostMemo(ds) {
   buf.forEach(function(m, idx) {
     var path = 'memo/' + ds + '/' + ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+      if (!url && !fallback) {
+        /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
+        pending--;
+        if (pending === 0) _finishPostMemo(ds, entry, text, sendBtn);
+        return;
+      }
       entry.media.push({
         type:        m.type,
         name:        m.name,
@@ -11564,6 +11592,12 @@ function _doPostBoard(text) {
   buf.forEach(function(m, idx) {
     var path = 'board/' + post.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+      if (!url && !fallback) {
+        /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
+        pending--;
+        if (pending === 0) _finishPostBoard(post, text, btn);
+        return;
+      }
       post.media.push({
         type:        'image',
         name:        m.name,
@@ -11672,6 +11706,12 @@ function _doPostBoardReply(postId, text) {
   buf.forEach(function(m, idx) {
     var path = 'board/reply_' + reply.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+      if (!url && !fallback) {
+        /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
+        pending--;
+        if (pending === 0) _finishPostBoardReply(postId, reply, btn);
+        return;
+      }
       reply.media.push({
         type:        'image',
         name:        m.name,
