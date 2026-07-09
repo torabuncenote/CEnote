@@ -1558,7 +1558,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1702,6 +1702,7 @@ function loadD() {
     D.psgAlertTime= s.psgAlertTime || '10:00';
     D.psgBannerStart = s.psgBannerStart || '07:30';
     D.psgBannerEnd   = s.psgBannerEnd   || '08:30';
+    D.autoDelCfg = s.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1715,6 +1716,18 @@ function loadD() {
         var ok={}; pg.customDuties.forEach(function(s){ok[s.id]=true;});
         Object.keys(pg.duties).forEach(function(k){if(!ok[k]) delete pg.duties[k];});
       });
+    }
+    /* v4: 自動削除設定を localStorage 個別キーから D.autoDelCfg へ移行 */
+    if (!D._migVer || D._migVer < 4) {
+      if (!s.autoDelCfg && localStorage.getItem('autoDelEnabled') !== null) {
+        D.autoDelCfg = {
+          enabled:  localStorage.getItem('autoDelEnabled') === 'true',
+          period:   parseInt(localStorage.getItem('autoDelPeriod')   || '365'),
+          interval: parseInt(localStorage.getItem('autoDelInterval') || '30'),
+          lastClean:parseInt(localStorage.getItem('lastAutoClean')   || '0')
+        };
+      }
+      D._migVer = 4;
     }
     ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
@@ -1793,6 +1806,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0};
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -1960,6 +1974,7 @@ function fbInit() {
             D.psgAlertTime= d.psgAlertTime || '10:00';
             D.psgBannerStart = d.psgBannerStart || '07:30';
             D.psgBannerEnd   = d.psgBannerEnd   || '08:30';
+            D.autoDelCfg = d.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -1986,6 +2001,19 @@ function fbInit() {
               saveD();
               /* マイグレーション後はjustSavedでrenderPageがスキップされるため即時再描画 */
               if (curDs && D.pages[curDs]) renderPage(curDs);
+            }
+            /* v4: 自動削除設定を localStorage 個別キーから D.autoDelCfg へ移行 */
+            if (!D._migVer || D._migVer < 4) {
+              if (!d.autoDelCfg && localStorage.getItem('autoDelEnabled') !== null) {
+                D.autoDelCfg = {
+                  enabled:  localStorage.getItem('autoDelEnabled') === 'true',
+                  period:   parseInt(localStorage.getItem('autoDelPeriod')   || '365'),
+                  interval: parseInt(localStorage.getItem('autoDelInterval') || '30'),
+                  lastClean:parseInt(localStorage.getItem('lastAutoClean')   || '0')
+                };
+              }
+              D._migVer = 4;
+              saveD();
             }
             setSyncLbl('同期済');
             if (wasFirstLoad) autoSaveSnapshot('起動時'); /* Firebase最新データ受信後にローカルBKを取る */
@@ -7461,9 +7489,11 @@ function uploadToStorage(path, dataOrBlob, callback) {
 /* ===== 1年経過データの自動削除チェック ===== */
 /* ===== 自動削除設定 ===== */
 function loadAutoDelSettings() {
-  var enabled  = localStorage.getItem('autoDelEnabled') === 'true';
-  var period   = parseInt(localStorage.getItem('autoDelPeriod')  || '365');
-  var interval = parseInt(localStorage.getItem('autoDelInterval')|| '30');
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  var enabled  = !!D.autoDelCfg.enabled;
+  var period   = D.autoDelCfg.period   || 365;
+  var interval = D.autoDelCfg.interval;
+  if (interval === undefined || interval === null) interval = 30;
   var toggle = document.getElementById('auto-del-toggle');
   var opts   = document.getElementById('auto-del-options');
   var badge  = document.getElementById('auto-del-badge');
@@ -7485,9 +7515,11 @@ function saveAutoDelSettings() {
   var intervalEl = document.querySelector('input[name="auto-del-interval"]:checked');
   var period   = periodEl   ? parseInt(periodEl.value)   : 365;
   var interval = intervalEl ? parseInt(intervalEl.value) : 30;
-  localStorage.setItem('autoDelEnabled',  enabled);
-  localStorage.setItem('autoDelPeriod',   period);
-  localStorage.setItem('autoDelInterval', interval);
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  D.autoDelCfg.enabled  = enabled;
+  D.autoDelCfg.period   = period;
+  D.autoDelCfg.interval = interval;
+  saveD();
   if (opts)  opts.style.display = enabled ? '' : 'none';
   if (badge) { badge.textContent = enabled ? '✅ 有効' : '🔓 無効'; badge.className = 'lkb ' + (enabled ? 'ul' : 'lk'); }
 }
@@ -7499,10 +7531,10 @@ function runAutoDelNow() {
 function checkAndDeleteOldData(force) {
   if (!FB_ON || !fbDB) return;
   /* 設定値を読み込む */
-  var enabled  = localStorage.getItem('autoDelEnabled') === 'true';
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  var enabled  = !!D.autoDelCfg.enabled;
   if (!enabled && !force) return; /* 無効時はスキップ */
-  var period   = parseInt(localStorage.getItem('autoDelPeriod')  || '365');
-  var interval = parseInt(localStorage.getItem('autoDelInterval')|| '30');
+  var period   = D.autoDelCfg.period || 365;
   var cutoff   = Date.now() - period * 24 * 60 * 60 * 1000;
   /* 連絡表ページの削除 */
   var deleted = 0;
@@ -7539,16 +7571,19 @@ function checkAndDeleteOldData(force) {
 
 /* 自動削除タイミングチェック（ログイン成功時に呼ぶ） */
 function checkAutoDelTiming() {
-  var enabled  = localStorage.getItem('autoDelEnabled') === 'true';
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  var enabled  = !!D.autoDelCfg.enabled;
   if (!enabled || !isAdmin) return;
-  var interval = parseInt(localStorage.getItem('autoDelInterval') || '30');
+  var interval = D.autoDelCfg.interval;
+  if (interval === undefined || interval === null) interval = 30;
   if (interval === 0) { /* ログインのたびに実行 */
     setTimeout(checkAndDeleteOldData, 5000); return;
   }
-  var lastClean = parseInt(localStorage.getItem('lastAutoClean') || '0');
+  var lastClean = D.autoDelCfg.lastClean || 0;
   var now3 = Date.now();
   if (now3 - lastClean > interval * 24 * 60 * 60 * 1000) {
-    localStorage.setItem('lastAutoClean', now3);
+    D.autoDelCfg.lastClean = now3;
+    saveD();
     setTimeout(checkAndDeleteOldData, 5000);
   }
 }
@@ -12284,7 +12319,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -12352,7 +12387,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
