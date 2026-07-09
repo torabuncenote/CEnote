@@ -7624,6 +7624,26 @@ function highlightMention(escapedText) {
   return result;
 }
 
+/* 本文から @メンション されたスタッフ名を抽出（重複排除、投稿者本人は除外） */
+function extractMentions(text, excludeName) {
+  if (!text || typeof D === 'undefined' || !D.stf || !D.stf.length) return [];
+  var names = D.stf.slice().sort(function(a,b){ return b.length-a.length; }); /* 長い名前優先 */
+  var work = text;
+  var found = [];
+  names.forEach(function(name) {
+    if (!name) return;
+    var escaped = name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    var re = new RegExp('@' + escaped);
+    if (re.test(work)) {
+      if (name !== excludeName) found.push(name);
+      /* マッチ済み部分は自分自身へのメンションでも除去し、短い名前の部分一致誤検知を防ぐ
+         （例: 田中太郎 が本人でも除去しないと 田中 が重複検知されてしまう） */
+      work = work.replace(new RegExp('@' + escaped, 'g'), '');
+    }
+  });
+  return found;
+}
+
 /* ===== 患者情報検知 ===== */
 var PHI_PATTERNS = (function(){
   var surnames = [
@@ -7928,6 +7948,17 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   if (entry.media && entry.media.some(function(m){return m.pending;})) {
     alert('画像/動画は管理者の承認後に表示されます。');
     sendAdminNotification('🕓 承認依頼: ' + entry.name + 'さんが申し送り（' + fmtJ(ds) + '）に画像/動画を追加しました', entry.text ? entry.text.slice(0,50) : '');
+  }
+  /* @メンション通知 */
+  var mentioned = extractMentions(text, entry.name);
+  if (mentioned.length) {
+    var mTitle = '💬 ' + entry.name + 'さんからメンション';
+    var mBody = (text || '').slice(0,50) + (text && text.length > 50 ? '…' : '') + '（' + fmtJ(ds) + '）';
+    mentioned.forEach(function(name) {
+      var uid = D.stfLinks && D.stfLinks[name];
+      if (uid) sendNotificationToUid(uid, name, mTitle, mBody, 'mention');
+      else sendNotification(name, mTitle, mBody, 'mention');
+    });
   }
 }
 
@@ -9858,35 +9889,39 @@ function getUidByName(name, cb) {
     cb(uid);
   });
 }
+function sendNotificationToUid(uid, dispName, title, body, type) {
+  if (!FB_ON || !fbDB || !uid) return;
+  fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
+  sendFCMPush(uid, title, body);
+  var cfg = D.emailjsCfg;
+  if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
+    fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
+      var email = s.val();
+      if (!email) { console.warn('[通知] メールアドレス未登録 uid:', uid); return; }
+      console.log('[通知] EmailJS送信開始 →', email);
+      try {
+        emailjs.init(cfg.publicKey);
+        emailjs.send(cfg.serviceId, cfg.templateId, {
+          to_email: email, to_name: dispName, subject: title, message: body
+        }).then(function(res) {
+          console.log('[通知] EmailJS送信成功:', res.status, res.text);
+        }).catch(function(err) {
+          console.error('[通知] EmailJS送信失敗:', err);
+        });
+      } catch(e) { console.error('[通知] EmailJS例外:', e); }
+    });
+  } else {
+    console.warn('[通知] EmailJS未設定 — マスタタブで設定してください');
+  }
+  if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
+  }
+}
 function sendNotification(targetName, title, body, type) {
   if (!FB_ON || !fbDB) return;
   getUidByName(targetName, function(uid) {
     if (!uid) { console.warn('[通知] UID未解決 — スタッフ名簿に紐付けてください:', targetName); return; }
-    fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
-    sendFCMPush(uid, title, body);
-    var cfg = D.emailjsCfg;
-    if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
-      fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
-        var email = s.val();
-        if (!email) { console.warn('[通知] メールアドレス未登録 uid:', uid); return; }
-        console.log('[通知] EmailJS送信開始 →', email);
-        try {
-          emailjs.init(cfg.publicKey);
-          emailjs.send(cfg.serviceId, cfg.templateId, {
-            to_email: email, to_name: targetName, subject: title, message: body
-          }).then(function(res) {
-            console.log('[通知] EmailJS送信成功:', res.status, res.text);
-          }).catch(function(err) {
-            console.error('[通知] EmailJS送信失敗:', err);
-          });
-        } catch(e) { console.error('[通知] EmailJS例外:', e); }
-      });
-    } else {
-      console.warn('[通知] EmailJS未設定 — マスタタブで設定してください');
-    }
-    if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
-    }
+    sendNotificationToUid(uid, targetName, title, body, type);
   });
 }
 function sendAdminNotification(title, body) {
