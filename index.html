@@ -11114,6 +11114,21 @@ function renderBoard() {
   var el = document.getElementById('board-list');
   if (!el) return;
   var readTs = getBoardReadTs();
+  /* 既読マーク：ログイン中ユーザーの既読がまだ無い投稿に記録する（無ければ書き込み、あれば何もしない＝無限ループ防止） */
+  if (currentUser) {
+    Object.keys(_boardData).forEach(function(id) {
+      var p = _boardData[id];
+      if (!p) return;
+      if (!p.reads) p.reads = {};
+      if (!p.reads[currentUser.uid]) {
+        var robj = { n: currentUser.displayName || currentUser.email, ts: Date.now() };
+        p.reads[currentUser.uid] = robj; /* 今回の描画に反映されるようローカルへ即時反映 */
+        if (FB_ON && fbDB) {
+          fbDB.ref('/board/' + id + '/reads/' + currentUser.uid).set(robj).catch(function(){});
+        }
+      }
+    });
+  }
   var posts = Object.keys(_boardData).map(function(id) {
     return Object.assign({ _id: id }, _boardData[id]);
   });
@@ -11168,10 +11183,28 @@ function renderBoard() {
       });
       html += '</div>';
     }
+    /* 既読リスト（投稿者本人はカウントに含めない） */
+    var readList = [];
+    var readCount = 0;
+    if (p.reads) {
+      Object.keys(p.reads).forEach(function(uid) {
+        var r = p.reads[uid];
+        if (!r) return;
+        readList.push({ uid: uid, n: r.n, ts: r.ts });
+        if (!(p.uid && uid === p.uid)) readCount++;
+      });
+      readList.sort(function(a, b){ return (a.ts || 0) - (b.ts || 0); });
+    }
     html += '<div class="brd-acts">';
     html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardReply(\'' + p._id + '\')">💬 返信</button>';
     if (canPin) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="pinBoard(\'' + p._id + '\',' + (!p.pin) + ')">' + (p.pin ? '📌解除' : '📌留め') + '</button>';
     if (canDel) html += '<button class="btn btn-d btn-sm" style="font-size:11px;padding:2px 8px" onclick="deleteBoard(\'' + p._id + '\')">削除</button>';
+    html += '<span class="brd-read-toggle" style="margin-left:auto;font-size:11px;color:var(--txt3);cursor:pointer;user-select:none" onclick="toggleBoardReads(\'' + p._id + '\')">👀 ' + readCount + '</span>';
+    html += '</div>';
+    html += '<div id="brd-reads-' + p._id + '" style="display:none;font-size:11px;color:var(--txt3);margin-top:4px;padding:6px 8px;background:var(--sur);border-radius:6px;line-height:1.7">';
+    html += readList.length
+      ? readList.map(function(r){ return esc(r.n) + '（' + fmtDT(r.ts) + '）'; }).join('<br>')
+      : 'まだ既読はありません';
     html += '</div>';
     /* 返信 */
     var replies = p.replies ? Object.keys(p.replies).map(function(rid) {
@@ -11215,6 +11248,12 @@ function toggleBoardReply(id) {
   var shown = f.style.display !== 'none';
   f.style.display = shown ? 'none' : '';
   if (!shown) { var ti = document.getElementById('brd-ri-' + id); if(ti) ti.focus(); }
+}
+
+function toggleBoardReads(id) {
+  var el = document.getElementById('brd-reads-' + id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? '' : 'none';
 }
 
 /* 掲示板用の一時メディアバッファ（画像のみ） */
