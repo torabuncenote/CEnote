@@ -73,6 +73,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .brd-ri{width:100%;box-sizing:border-box;font-size:12px;padding:5px 8px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt1);resize:none;margin-top:4px}
 .brd-media{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
 .brd-media img{max-width:180px;max-height:130px;border-radius:5px;border:1px solid var(--bdr);cursor:pointer;object-fit:cover}
+.brd-reply .brd-media img{max-width:100px;max-height:76px}
 .cw{padding:12px;flex-shrink:0}
 .mnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .mnav .ml{font-size:14px;font-weight:700}
@@ -7990,6 +7991,14 @@ function listPendingMedia() {
     _boardMediaArr(p).forEach(function(med, mi) {
       if (med && med.pending) out.push({ kind:'board', id:id, mi:mi, name:med.name||'', type:med.type, by:p.author||'' });
     });
+    if (p.replies) {
+      Object.keys(p.replies).forEach(function(rid) {
+        var r = p.replies[rid]; if (!r) return;
+        _boardMediaArr(r).forEach(function(med, mi) {
+          if (med && med.pending) out.push({ kind:'boardReply', id:id, rid:rid, mi:mi, name:med.name||'', type:med.type, by:r.author||'' });
+        });
+      });
+    }
   });
   return out;
 }
@@ -8026,6 +8035,8 @@ function renderPendingList() {
       ? (escH(fmtJ(it.ds)) + ' の申し送り' + (it.by ? '（' + escH(it.by) + '）' : ''))
       : it.kind === 'board'
       ? ('掲示板' + (it.by ? '（' + escH(it.by) + '）' : ''))
+      : it.kind === 'boardReply'
+      ? ('掲示板の返信' + (it.by ? '（' + escH(it.by) + '）' : ''))
       : ('業務マニュアル: ' + escH(it.task));
     var icon = it.type === 'video' ? '🎬' : '🖼️';
     return '<div class="pend-row">'
@@ -8040,6 +8051,7 @@ function pendApprove(k) {
   var it = listPendingMedia()[k]; if (!it) return;
   if (it.kind === 'memo') approveMemoMedia(it.ds, it.i, it.mi);
   else if (it.kind === 'board') approveBoardMedia(it.id, it.mi);
+  else if (it.kind === 'boardReply') approveBoardReplyMedia(it.id, it.rid, it.mi);
   else approveSPMedia(it.idx, it.task);
   renderPendingList();
 }
@@ -8047,6 +8059,7 @@ function pendReject(k) {
   var it = listPendingMedia()[k]; if (!it) return;
   if (it.kind === 'memo') rejectMemoMedia(it.ds, it.i, it.mi);
   else if (it.kind === 'board') rejectBoardMedia(it.id, it.mi);
+  else if (it.kind === 'boardReply') rejectBoardReplyMedia(it.id, it.rid, it.mi);
   else rejectSPMedia(it.idx, it.task);
   renderPendingList();
 }
@@ -11218,15 +11231,45 @@ function renderBoard() {
         html += '<div class="brd-meta" style="margin-bottom:3px"><span style="font-weight:600;color:var(--txt1)">' + esc(r.author||'匿名') + '</span><span>' + fmtDT(r.ts) + '</span>';
         if (isAdmin || rMine) html += '<button class="btn btn-d btn-sm" style="font-size:10px;padding:1px 6px;margin-left:auto" onclick="deleteReply(\'' + p._id + '\',\'' + r._rid + '\')">削除</button>';
         html += '</div>';
-        html += '<div class="brd-rtext">' + esc(r.text||'') + '</div>';
+        if (r.text) html += '<div class="brd-rtext">' + esc(r.text) + '</div>';
+        /* 返信への添付画像 */
+        var rMedia = _boardMediaArr(r);
+        if (rMedia.length) {
+          html += '<div class="brd-media">';
+          rMedia.forEach(function(med, mi) {
+            if (!med) return;
+            if (med.pending && !isAdmin) {
+              html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + esc(med.name || '') + '</span></div>';
+              return;
+            }
+            var src = esc(med.url || med.data || '');
+            html += '<div class="media-cell">';
+            html += '<img src="' + src + '" alt="' + esc(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
+            if (med.pending) {
+              html += '<span class="media-pend-badge">承認待ち</span>';
+              if (isAdmin) {
+                html += '<div class="media-actions">'
+                  + '<button class="media-appr" onclick="approveBoardReplyMedia(\'' + p._id + '\',\'' + r._rid + '\',' + mi + ')">✅承認</button>'
+                  + '<button class="media-rej" onclick="rejectBoardReplyMedia(\'' + p._id + '\',\'' + r._rid + '\',' + mi + ')">🗑却下</button>'
+                  + '</div>';
+              }
+            }
+            html += '</div>';
+          });
+          html += '</div>';
+        }
         html += '</div>';
       });
       html += '</div>';
     }
     /* 返信入力欄（非表示デフォルト） */
     html += '<div id="brd-reply-form-' + p._id + '" style="display:none;margin-top:6px">';
+    html += '<div class="memo-media-preview" id="board-reply-media-preview-' + p._id + '"></div>';
     html += '<textarea class="brd-ri" rows="2" placeholder="返信を入力…" id="brd-ri-' + p._id + '"></textarea>';
-    html += '<div style="display:flex;justify-content:flex-end;margin-top:4px"><button class="btn btn-p btn-sm" style="font-size:11px" onclick="postBoardReply(\'' + p._id + '\')">返信</button></div>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">';
+    html += '<label class="memo-media-btn">📎 画像<input type="file" accept="image/*" multiple style="display:none" onchange="onBoardReplyMediaAdd(this,\'' + p._id + '\')"></label>';
+    html += '<button class="btn btn-p btn-sm" style="font-size:11px" onclick="postBoardReply(\'' + p._id + '\')">返信</button>';
+    html += '</div>';
     html += '</div>';
     html += '</div>';
   });
@@ -11247,6 +11290,9 @@ function toggleBoardReply(id) {
   if (!f) return;
   var shown = f.style.display !== 'none';
   f.style.display = shown ? 'none' : '';
+  /* 開閉のたびにそのpostの画像バッファをクリア */
+  _boardReplyMediaBuf[id] = [];
+  renderBoardReplyMediaPreview(id);
   if (!shown) { var ti = document.getElementById('brd-ri-' + id); if(ti) ti.focus(); }
 }
 
@@ -11291,6 +11337,50 @@ function renderBoardMediaPreview() {
     del.onclick = function() {
       if (m.previewSrc && m.previewSrc.startsWith('blob:')) URL.revokeObjectURL(m.previewSrc);
       _boardMediaBuf.splice(idx, 1); renderBoardMediaPreview();
+    };
+    item.appendChild(del);
+    wrap.appendChild(item);
+  });
+}
+
+/* 返信用の一時メディアバッファ（画像のみ、postIdキー） */
+var _boardReplyMediaBuf = {};
+
+function onBoardReplyMediaAdd(input, postId) {
+  var files = Array.prototype.slice.call(input.files);
+  if (!files.length) return;
+  if (!_boardReplyMediaBuf[postId]) _boardReplyMediaBuf[postId] = [];
+  var buf = _boardReplyMediaBuf[postId];
+  var pending = files.length;
+  files.forEach(function(file) {
+    if (!file.type.startsWith('image/')) {
+      alert(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。');
+      pending--;
+      if (pending === 0) renderBoardReplyMediaPreview(postId);
+      return;
+    }
+    compressImage(file, function(dataUrl, blob) {
+      var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
+      buf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
+      pending--;
+      if (pending === 0) renderBoardReplyMediaPreview(postId);
+    });
+  });
+  input.value = '';
+}
+
+function renderBoardReplyMediaPreview(postId) {
+  var wrap = document.getElementById('board-reply-media-preview-' + postId);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  var buf = _boardReplyMediaBuf[postId] || [];
+  buf.forEach(function(m, idx) {
+    var item = document.createElement('div'); item.className = 'memo-media-prev-item';
+    var img = document.createElement('img'); img.src = m.previewSrc || m.data; item.appendChild(img);
+    var del = document.createElement('button'); del.className = 'memo-media-prev-del'; del.textContent = '×';
+    del.onclick = function() {
+      if (m.previewSrc && m.previewSrc.startsWith('blob:')) URL.revokeObjectURL(m.previewSrc);
+      buf.splice(idx, 1); renderBoardReplyMediaPreview(postId);
     };
     item.appendChild(del);
     wrap.appendChild(item);
@@ -11404,6 +11494,32 @@ function rejectBoardMedia(id, mi) {
 function _doPostBoardReply(postId, text) {
   if (!currentUser) { alert('ログインが必要です'); return; }
   var reply = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text };
+  var buf = (_boardReplyMediaBuf[postId] || []).slice();
+  var btn = document.querySelector('#brd-reply-form-' + postId + ' .btn-p');
+  if (!buf.length) { _finishPostBoardReply(postId, reply, btn); return; }
+
+  /* 画像あり → Storageへアップロードしてから返信 */
+  if (btn) { btn.disabled = true; btn.textContent = '送信中...'; }
+  reply.media = [];
+  var pending = buf.length;
+  buf.forEach(function(m, idx) {
+    var path = 'board/reply_' + reply.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+      reply.media.push({
+        type:        'image',
+        name:        m.name,
+        url:         url || fallback,
+        storagePath: url ? path : null,
+        data:        null,
+        pending:     !isAdmin
+      });
+      pending--;
+      if (pending === 0) _finishPostBoardReply(postId, reply, btn);
+    });
+  });
+}
+
+function _finishPostBoardReply(postId, reply, btn) {
   if (FB_ON && fbDB) {
     fbDB.ref('/board/' + postId + '/replies').push(reply).catch(function(e){ alert('返信エラー: '+e.message); });
   } else {
@@ -11413,31 +11529,80 @@ function _doPostBoardReply(postId, text) {
   }
   var inp = document.getElementById('brd-ri-' + postId);
   if (inp) inp.value = '';
+  _boardReplyMediaBuf[postId] = [];
   var f = document.getElementById('brd-reply-form-' + postId);
   if (f) f.style.display = 'none';
-  if(FB_ON) writeLog('掲示板返信', text.substring(0,30));
+  if (btn) { btn.disabled = false; btn.textContent = '返信'; }
+  if(FB_ON) writeLog('掲示板返信', (reply.text || '[画像]').substring(0,30));
+  updatePendingBadge();
+  if (reply.media && reply.media.some(function(m){ return m.pending; }))
+    alert('画像は管理者の承認後に表示されます。');
 }
 function postBoardReply(postId) {
   var inp = document.getElementById('brd-ri-' + postId);
   if (!inp) return;
   var text = inp.value.trim();
-  if (!text) return;
-  var phiRes = detectPHI(text);
-  if (phiRes.red.length || phiRes.yellow.length) {
-    showPHIPopup({ result: phiRes, mode: 'memo',
-      onProceed: function() { _doPostBoardReply(postId, text); },
-      onFix: function() { if(inp) inp.focus(); }
-    });
-    return;
+  var buf = _boardReplyMediaBuf[postId] || [];
+  if (!text && !buf.length) return;
+  if (text) {
+    var phiRes = detectPHI(text);
+    if (phiRes.red.length || phiRes.yellow.length) {
+      showPHIPopup({ result: phiRes, mode: 'memo',
+        onProceed: function() { _doPostBoardReply(postId, text); },
+        onFix: function() { if(inp) inp.focus(); }
+      });
+      return;
+    }
   }
   _doPostBoardReply(postId, text);
 }
 
+/* ===== 掲示板返信メディア承認（管理者のみ） ===== */
+function approveBoardReplyMedia(postId, rid, mi) {
+  if (!isAdmin) return;
+  var p = _boardData[postId]; if (!p || !p.replies || !p.replies[rid]) return;
+  var media = _boardMediaArr(p.replies[rid]);
+  if (!media[mi]) return;
+  media[mi].pending = false;
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    p.replies[rid].media = media;
+    renderBoard();
+  }
+  writeLog('メディア承認', '掲示板返信 ' + (media[mi].name || ''));
+  updatePendingBadge();
+}
+function rejectBoardReplyMedia(postId, rid, mi) {
+  if (!isAdmin) return;
+  var p = _boardData[postId]; if (!p || !p.replies || !p.replies[rid]) return;
+  var media = _boardMediaArr(p.replies[rid]);
+  if (!media[mi]) return;
+  if (!confirm('この画像を却下（削除）しますか？')) return;
+  var med = media[mi];
+  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
+  media.splice(mi, 1);
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    p.replies[rid].media = media;
+    renderBoard();
+  }
+  writeLog('メディア却下', '掲示板返信 ' + (med.name || ''));
+  updatePendingBadge();
+}
+
 function deleteBoard(id) {
   if (!confirm('この投稿を削除しますか？（返信も全て削除されます）')) return;
-  /* 添付画像をStorageからも削除 */
-  var delMedia = _boardMediaArr(_boardData[id]);
+  var post = _boardData[id];
+  /* 添付画像をStorageからも削除（投稿本体＋全返信） */
+  var delMedia = _boardMediaArr(post);
   if (fbST) delMedia.forEach(function(med){ if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){}); });
+  if (post && post.replies && fbST) {
+    Object.keys(post.replies).forEach(function(rid) {
+      _boardMediaArr(post.replies[rid]).forEach(function(med){ if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){}); });
+    });
+  }
   if (FB_ON && fbDB) {
     fbDB.ref('/board/' + id).remove().catch(function(e){ alert('削除エラー: '+e.message); });
   } else {
@@ -11448,6 +11613,11 @@ function deleteBoard(id) {
 
 function deleteReply(postId, replyId) {
   if (!confirm('この返信を削除しますか？')) return;
+  var p = _boardData[postId];
+  var r = p && p.replies && p.replies[replyId];
+  if (r && fbST) {
+    _boardMediaArr(r).forEach(function(med){ if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){}); });
+  }
   if (FB_ON && fbDB) {
     fbDB.ref('/board/' + postId + '/replies/' + replyId).remove().catch(function(e){ alert('削除エラー: '+e.message); });
   } else {
