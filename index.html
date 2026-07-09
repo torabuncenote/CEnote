@@ -11154,12 +11154,22 @@ function renderBoard() {
       }
     });
   }
+  /* 期限切れピンのクリーンアップ（管理者のみ・Firebase接続時）：pinがtrueの投稿のみ書き戻すのでループしない */
+  if (isAdmin && FB_ON && fbDB) {
+    Object.keys(_boardData).forEach(function(id) {
+      var pd = _boardData[id];
+      if (pd && pd.pin && pd.pinUntil && pd.pinUntil <= Date.now()) {
+        fbDB.ref('/board/' + id + '/pin').set(false).catch(function(){});
+      }
+    });
+  }
   var allPosts = Object.keys(_boardData).map(function(id) {
     return Object.assign({ _id: id }, _boardData[id]);
   });
-  /* ピン留め → 新しい順 */
+  /* ピン留め（有効期限内のもののみ）→ 新しい順 */
   allPosts.sort(function(a, b) {
-    if (!!b.pin !== !!a.pin) return b.pin ? 1 : -1;
+    var ap = boardPinActive(a), bp = boardPinActive(b);
+    if (ap !== bp) return bp ? 1 : -1;
     return (b.ts || 0) - (a.ts || 0);
   });
   /* フィルタチップ行 */
@@ -11194,9 +11204,14 @@ function renderBoard() {
     var canPin = isAdmin;
     var dt = p.ts ? fmtDT(p.ts) : '';
     var canResolve = p.tag === 'req' && (isAdmin || isMine);
-    html += '<div class="brd-post' + (p.pin ? ' pin' : '') + (p.resolved ? ' resolved' : '') + '" id="bpost-' + p._id + '">';
+    var pinActive = boardPinActive(p);
+    html += '<div class="brd-post' + (pinActive ? ' pin' : '') + (p.resolved ? ' resolved' : '') + '" id="bpost-' + p._id + '">';
     html += '<div class="brd-meta">';
-    if (p.pin) html += '<span style="color:var(--or);font-weight:700">📌</span>';
+    if (pinActive) {
+      var pinLabel = '📌';
+      if (p.pinUntil) { var pd2 = new Date(p.pinUntil); pinLabel += ' 〜' + (pd2.getMonth()+1) + '/' + pd2.getDate(); }
+      html += '<span style="color:var(--or);font-weight:700">' + pinLabel + '</span>';
+    }
     if (isNew) html += '<span style="color:var(--rd);font-weight:700;font-size:10px">NEW</span>';
     if (p.tag && BOARD_TAGS[p.tag]) {
       var tg = BOARD_TAGS[p.tag];
@@ -11248,7 +11263,7 @@ function renderBoard() {
     }
     html += '<div class="brd-acts">';
     html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardReply(\'' + p._id + '\')">💬 返信</button>';
-    if (canPin) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="pinBoard(\'' + p._id + '\',' + (!p.pin) + ')">' + (p.pin ? '📌解除' : '📌留め') + '</button>';
+    if (canPin) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="pinBoard(\'' + p._id + '\',' + (!pinActive) + ')">' + (pinActive ? '📌解除' : '📌留め') + '</button>';
     if (canResolve) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardResolved(\'' + p._id + '\',' + (!p.resolved) + ')">' + (p.resolved ? '解決を取消' : '✅解決') + '</button>';
     if (canDel) html += '<button class="btn btn-d btn-sm" style="font-size:11px;padding:2px 8px" onclick="deleteBoard(\'' + p._id + '\')">削除</button>';
     html += '<span class="brd-read-toggle" style="margin-left:auto;font-size:11px;color:var(--txt3);cursor:pointer;user-select:none" onclick="toggleBoardReads(\'' + p._id + '\')">👀 ' + readCount + '</span>';
@@ -11674,11 +11689,25 @@ function deleteReply(postId, replyId) {
   }
 }
 
+function boardPinActive(p) {
+  return !!(p && p.pin && (!p.pinUntil || p.pinUntil > Date.now()));
+}
+
 function pinBoard(id, pin) {
+  var pinUntil = null;
+  if (pin) {
+    var days = prompt('何日間ピン留めしますか？（空欄=無期限）', '7');
+    if (days === null) return; /* キャンセル：操作を中止 */
+    days = days.trim();
+    if (days !== '') {
+      var n = parseInt(days, 10);
+      if (!isNaN(n) && n > 0) pinUntil = Date.now() + n * 86400000;
+    }
+  }
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id + '/pin').set(pin).catch(function(e){ alert('エラー: '+e.message); });
+    fbDB.ref('/board/' + id).update({ pin: pin, pinUntil: pinUntil }).catch(function(e){ alert('エラー: '+e.message); });
   } else {
-    if (_boardData[id]) { _boardData[id].pin = pin; renderBoard(); }
+    if (_boardData[id]) { _boardData[id].pin = pin; _boardData[id].pinUntil = pinUntil; renderBoard(); }
   }
 }
 
