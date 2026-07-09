@@ -7669,6 +7669,30 @@ var PHI_PATTERNS = (function(){
   return { surnames:surnames };
 })();
 
+/* 業務頻出語ホワイトリスト（漢字2〜4文字の氏名誤検知対策）
+   単語単体だけでなく「投稿画像」のような複合語も、除外語の連結として判定できるようにする */
+var PHI_EXCLUDE_WORDS = [
+  '投稿','画像','添付','資料','会議','点検','業務','連絡','確認','対応','報告','依頼',
+  '完了','予定','変更','追加','削除','修正','更新','機器','装置','器械','動画','写真',
+  '記入','入力','出力','保存','送信','受信','編集','作成','登録','解除','許可','承認',
+  '担当','当番','日勤','夜勤','準夜','深夜','日直','当直','出勤','退勤','休憩','食事',
+  '午前','午後','朝礼','夕礼','引継','申送','記載','記録','管理','使用','使用中','貸出',
+  '返却','故障','異常','正常','点検中','稼働','停止','起動','終了','開始','中止','再開'
+];
+var _PHI_EXCLUDE_SET = {};
+PHI_EXCLUDE_WORDS.forEach(function(w){ _PHI_EXCLUDE_SET[w] = true; });
+/* word全体を除外語の連結だけで構成できるか（DPで分割判定） */
+function phiIsExcludedCompound(word) {
+  if (!word) return false;
+  if (_PHI_EXCLUDE_SET[word]) return true;
+  var n = word.length;
+  for (var i=1; i<n; i++) {
+    var a = word.slice(0,i), b = word.slice(i);
+    if (_PHI_EXCLUDE_SET[a] && phiIsExcludedCompound(b)) return true;
+  }
+  return false;
+}
+
 /*
  * 🚨 赤（明確な患者情報 → ブロック or 強い警告）
  * ⚠️ 黄（連合会が認める形式 → 確認後送信可）
@@ -7718,6 +7742,7 @@ function detectPHI(text) {
     while ((km = kanjiPat.exec(text)) !== null) {
       var word = km[0];
       if (KANJI_WL.test(word)) continue;
+      if (phiIsExcludedCompound(word)) continue;
       var isStaff2 = false;
       for (var wi2=0; wi2<staffNames.length; wi2++) {
         if (staffNames[wi2]===word || staffNames[wi2].indexOf(word)>=0) { isStaff2=true; break; }
