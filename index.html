@@ -2275,7 +2275,11 @@ function onSPMediaAdd(input) {
           pending: !isAdmin            /* 非管理者の投稿は管理者承認待ち */
         });
         pending--;
-        if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); }
+        if (pending === 0) {
+          saveSPEntry(entry); renderSPMedia(entry.media);
+          if (entry.media.some(function(m){ return m.pending; }))
+            sendAdminNotification('🕓 承認依頼: マニュアル「' + _spTask + '」に画像/動画が追加されました', '');
+        }
       });
     };
     if (isVideo) {
@@ -7921,8 +7925,10 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '送信'; }
   renderMemos(ds, D.pages[ds], !can('memo'));
   updatePendingBadge();
-  if (entry.media && entry.media.some(function(m){return m.pending;}))
+  if (entry.media && entry.media.some(function(m){return m.pending;})) {
     alert('画像/動画は管理者の承認後に表示されます。');
+    sendAdminNotification('🕓 承認依頼: ' + entry.name + 'さんが申し送り（' + fmtJ(ds) + '）に画像/動画を追加しました', entry.text ? entry.text.slice(0,50) : '');
+  }
 }
 
 /* ===== メディア承認（管理者のみ） ===== */
@@ -11495,8 +11501,10 @@ function _finishPostBoard(post, text, btn) {
   if (btn) { btn.disabled = false; btn.textContent = '投稿'; }
   if(FB_ON) writeLog('掲示板投稿', (text || '[画像]').substring(0,30));
   updatePendingBadge();
-  if (post.media && post.media.some(function(m){ return m.pending; }))
+  if (post.media && post.media.some(function(m){ return m.pending; })) {
     alert('画像は管理者の承認後に表示されます。');
+    sendAdminNotification('🕓 承認依頼: ' + post.author + 'さんが掲示板に画像を投稿しました', (text || '').slice(0,50));
+  }
 }
 
 function postBoard() {
@@ -11599,8 +11607,10 @@ function _finishPostBoardReply(postId, reply, btn) {
   if (btn) { btn.disabled = false; btn.textContent = '返信'; }
   if(FB_ON) writeLog('掲示板返信', (reply.text || '[画像]').substring(0,30));
   updatePendingBadge();
-  if (reply.media && reply.media.some(function(m){ return m.pending; }))
+  if (reply.media && reply.media.some(function(m){ return m.pending; })) {
     alert('画像は管理者の承認後に表示されます。');
+    sendAdminNotification('🕓 承認依頼: ' + reply.author + 'さんが掲示板に画像を投稿しました', (reply.text || '').slice(0,50));
+  }
 }
 function postBoardReply(postId) {
   var inp = document.getElementById('brd-ri-' + postId);
