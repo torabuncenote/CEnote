@@ -61,6 +61,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .tab-badge{display:inline-block;background:var(--rd);color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:3px;vertical-align:middle;line-height:1.4}
 .brd-post{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:11px 13px;margin-bottom:8px}
 .brd-post.pin{border-color:var(--or);background:color-mix(in srgb,var(--or) 6%,var(--sur2))}
+.brd-post.resolved{opacity:0.6}
 .brd-meta{font-size:11px;color:var(--txt3);display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
 .brd-text{font-size:13px;color:var(--txt1);white-space:pre-wrap;word-break:break-word;line-height:1.6}
 .brd-acts{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
@@ -1070,6 +1071,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <div class="memo-media-preview" id="board-media-preview"></div>
         <textarea id="board-input" placeholder="お知らせ・連絡を投稿…" rows="2"></textarea>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <select id="board-tag-sel" style="font-size:12px;padding:4px 6px;border-radius:var(--rs);border:1.5px solid var(--bdr2);background:var(--sur2);color:var(--txt2)">
+            <option value="etc" selected>💬 その他</option>
+            <option value="info">📢 お知らせ</option>
+            <option value="req">🙏 依頼</option>
+          </select>
           <label class="memo-media-btn">📎 画像<input type="file" id="board-media-input" accept="image/*" multiple style="display:none" onchange="onBoardMediaAdd(this)"></label>
           <button class="btn btn-p btn-sm" id="board-post-btn" onclick="postBoard()">投稿</button>
         </div>
@@ -11123,6 +11129,12 @@ function updateBoardBadge() {
   }
 }
 
+var BOARD_TAGS = {
+  info: { emoji:'📢', label:'お知らせ', color:'var(--ac)' },
+  req:  { emoji:'🙏', label:'依頼',     color:'var(--or)' },
+  etc:  { emoji:'💬', label:'その他',   color:'var(--txt3)' }
+};
+
 function renderBoard() {
   var el = document.getElementById('board-list');
   if (!el) return;
@@ -11142,16 +11154,36 @@ function renderBoard() {
       }
     });
   }
-  var posts = Object.keys(_boardData).map(function(id) {
+  var allPosts = Object.keys(_boardData).map(function(id) {
     return Object.assign({ _id: id }, _boardData[id]);
   });
   /* ピン留め → 新しい順 */
-  posts.sort(function(a, b) {
+  allPosts.sort(function(a, b) {
     if (!!b.pin !== !!a.pin) return b.pin ? 1 : -1;
     return (b.ts || 0) - (a.ts || 0);
   });
+  /* フィルタチップ行 */
+  var filterDefs = [
+    { id:'all', label:'すべて' },
+    { id:'info', label:'📢お知らせ' },
+    { id:'req', label:'🙏依頼' },
+    { id:'etc', label:'💬その他' },
+    { id:'unresolved', label:'未解決のみ' }
+  ];
+  var filterHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + filterDefs.map(function(f) {
+    return '<button class="btn ' + (_boardFilter === f.id ? 'btn-p' : 'btn-g') + ' btn-sm" style="font-size:11px;padding:3px 9px" onclick="setBoardFilter(\'' + f.id + '\')">' + f.label + '</button>';
+  }).join('') + '</div>';
+  if (!allPosts.length) {
+    el.innerHTML = filterHtml + '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:30px 10px">投稿はまだありません</div>';
+    return;
+  }
+  var posts = allPosts.filter(function(p) {
+    if (_boardFilter === 'all') return true;
+    if (_boardFilter === 'unresolved') return p.tag === 'req' && !p.resolved;
+    return (p.tag || 'etc') === _boardFilter;
+  });
   if (!posts.length) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:30px 10px">投稿はまだありません</div>';
+    el.innerHTML = filterHtml + '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:30px 10px">該当する投稿はありません</div>';
     return;
   }
   var html = '';
@@ -11161,10 +11193,16 @@ function renderBoard() {
     var canDel = isAdmin || isMine;
     var canPin = isAdmin;
     var dt = p.ts ? fmtDT(p.ts) : '';
-    html += '<div class="brd-post' + (p.pin ? ' pin' : '') + '" id="bpost-' + p._id + '">';
+    var canResolve = p.tag === 'req' && (isAdmin || isMine);
+    html += '<div class="brd-post' + (p.pin ? ' pin' : '') + (p.resolved ? ' resolved' : '') + '" id="bpost-' + p._id + '">';
     html += '<div class="brd-meta">';
     if (p.pin) html += '<span style="color:var(--or);font-weight:700">📌</span>';
     if (isNew) html += '<span style="color:var(--rd);font-weight:700;font-size:10px">NEW</span>';
+    if (p.tag && BOARD_TAGS[p.tag]) {
+      var tg = BOARD_TAGS[p.tag];
+      html += '<span style="font-size:10px;font-weight:700;color:#fff;background:' + tg.color + ';border-radius:4px;padding:1px 6px">' + tg.emoji + ' ' + tg.label + '</span>';
+    }
+    if (p.resolved) html += '<span style="color:var(--gr);font-weight:700;font-size:10px">✅解決済み</span>';
     html += '<span style="font-weight:600;color:var(--txt1)">' + esc(p.author || '匿名') + '</span>';
     html += '<span>' + dt + '</span>';
     html += '</div>';
@@ -11211,6 +11249,7 @@ function renderBoard() {
     html += '<div class="brd-acts">';
     html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardReply(\'' + p._id + '\')">💬 返信</button>';
     if (canPin) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="pinBoard(\'' + p._id + '\',' + (!p.pin) + ')">' + (p.pin ? '📌解除' : '📌留め') + '</button>';
+    if (canResolve) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardResolved(\'' + p._id + '\',' + (!p.resolved) + ')">' + (p.resolved ? '解決を取消' : '✅解決') + '</button>';
     if (canDel) html += '<button class="btn btn-d btn-sm" style="font-size:11px;padding:2px 8px" onclick="deleteBoard(\'' + p._id + '\')">削除</button>';
     html += '<span class="brd-read-toggle" style="margin-left:auto;font-size:11px;color:var(--txt3);cursor:pointer;user-select:none" onclick="toggleBoardReads(\'' + p._id + '\')">👀 ' + readCount + '</span>';
     html += '</div>';
@@ -11273,7 +11312,13 @@ function renderBoard() {
     html += '</div>';
     html += '</div>';
   });
-  el.innerHTML = html;
+  el.innerHTML = filterHtml + html;
+}
+
+var _boardFilter = 'all';
+function setBoardFilter(f) {
+  _boardFilter = f;
+  renderBoard();
 }
 
 function esc(s) {
@@ -11389,7 +11434,9 @@ function renderBoardReplyMediaPreview(postId) {
 
 function _doPostBoard(text) {
   if (!currentUser) { alert('ログインが必要です'); return; }
-  var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false };
+  var tagSel = document.getElementById('board-tag-sel');
+  var tag = (tagSel && tagSel.value) || 'etc';
+  var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false, tag: tag };
   var buf = _boardMediaBuf.slice();
   var btn = document.getElementById('board-post-btn');
   if (!buf.length) { _finishPostBoard(post, text, btn); return; }
@@ -11425,6 +11472,8 @@ function _finishPostBoard(post, text, btn) {
   }
   var inp = document.getElementById('board-input');
   if (inp) inp.value = '';
+  var tagSel = document.getElementById('board-tag-sel');
+  if (tagSel) tagSel.value = 'etc';
   _boardMediaBuf.forEach(function(m){ if (m.previewSrc && m.previewSrc.startsWith('blob:')) URL.revokeObjectURL(m.previewSrc); });
   _boardMediaBuf = [];
   renderBoardMediaPreview();
@@ -11631,6 +11680,24 @@ function pinBoard(id, pin) {
   } else {
     if (_boardData[id]) { _boardData[id].pin = pin; renderBoard(); }
   }
+}
+
+function toggleBoardResolved(id, val) {
+  var p = _boardData[id]; if (!p) return;
+  var isMine = currentUser && p.uid === currentUser.uid;
+  if (!isAdmin && !isMine) return;
+  var upd = {
+    resolved:   val,
+    resolvedBy: val ? (currentUser.displayName || currentUser.email) : null,
+    resolvedAt: val ? Date.now() : null
+  };
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + id).update(upd).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    Object.assign(p, upd);
+    renderBoard();
+  }
+  writeLog('掲示板解決状態変更', id + ' -> ' + val);
 }
 
 /* ===== Firebase 日次スナップショット ===== */
