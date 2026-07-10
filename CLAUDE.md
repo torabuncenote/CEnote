@@ -220,6 +220,10 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 
 **Auto-delete settings** (`D.autoDelCfg`, used by `checkAndDeleteOldData()`/`checkAutoDelTiming()`) live in the synced `D` object, not per-PC `localStorage` — previously they were `localStorage` keys (`autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean`), which meant the auto-delete schedule could disagree between devices. `_migVer` 4 migrates any existing per-PC values into `D.autoDelCfg` once.
 
+### Firebase Security Rules
+
+`database.rules.json` and `storage.rules` (repo root) hold the recommended, path-scoped Realtime Database / Storage security rules — replacing the earlier "any authenticated user can read/write everything" default. They are **not auto-deployed**; an admin must paste them into the Firebase Console manually (see `FIREBASE_RULES.md` for steps, the per-path rationale table, a post-apply verification checklist, and rollback instructions). The in-app spec/docs pages (`renderSpec`, `renderAdminManual`, `renderDevDocs`) source the RTDB rule text from the shared `LATEST_DB_RULES` string (defined once near the top of the script) so the three doc displays never drift out of sync with `database.rules.json`.
+
 ### UI Layout
 
 ```

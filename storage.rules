@@ -1,0 +1,24 @@
+rules_version = '2';
+// CEnote Firebase Storage セキュリティルール
+//
+// 現状「認証済みユーザーなら全パス読み書き可」のまま維持しています。
+// 理由: Storageのセキュリティルールはオブジェクト単体のメタデータしか
+// 参照できず、「アップロード者=削除者か」「掲示板の投稿者本人か」といった
+// アプリ内の所有関係（Realtime Database側で管理）と正しく突き合わせるのが
+// 難しく、無理に絞ると承認フロー（memo/board/manual の画像削除・却下）が
+// 壊れる恐れがあるため。パス別の権限分離は Realtime Database
+// （database.rules.json）側で行い、Storage は「ログイン必須」のみを担保する
+// 方針とした。
+//
+// 対象パス（index.html 内の grep 結果）:
+//   manual/{taskName}/{ts}_{filename}        業務マニュアル添付
+//   memo/{ds}/{ts}_{idx}_{filename}          申し送りメモ添付
+//   board/{ts}_{idx}_{filename}              掲示板投稿添付
+//   board/reply_{ts}_{idx}_{filename}        掲示板返信添付
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
