@@ -659,11 +659,22 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .task-tag-done{background:var(--gr-bg);color:var(--gr);border-color:var(--gr)}
 .task-due-over{color:var(--rd);font-weight:700}
 .task-asg{display:inline-block;font-size:10px;background:var(--sur);border:1px solid var(--bdr);border-radius:20px;padding:1px 7px;margin-right:3px}
-.task-load-row{display:flex;align-items:center;gap:8px;padding:3px 0;cursor:pointer;border-radius:6px}
-.task-load-row:hover{background:var(--ac-bg)}
-.task-load-name{width:90px;font-size:12px;font-weight:700;text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.task-load-bar{flex:1;height:14px;background:var(--bdr);border-radius:4px;overflow:hidden;display:flex}
-.task-load-cnt{font-size:11px;color:var(--txt2);min-width:70px;flex-shrink:0}
+.task-graph-wrap{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
+.task-cluster{display:flex;flex-direction:column;align-items:center;flex:0 0 auto;width:84px;padding:8px 4px 6px;border-radius:8px;cursor:pointer}
+.task-cluster:hover{background:var(--ac-bg)}
+.task-cluster-bars{display:flex;align-items:flex-end;justify-content:center;gap:4px;height:104px;width:100%;border-bottom:2px solid var(--bdr2)}
+.task-bar-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;width:18px}
+.task-bar-val{font-size:9px;font-weight:700;color:var(--txt2);line-height:1.3;margin-bottom:2px;font-family:var(--mo);white-space:nowrap}
+.task-bar{width:100%;border-radius:3px 3px 0 0}
+.task-bar-todo{background:var(--or)}
+.task-bar-doing{background:var(--ac)}
+.task-bar-done{background:var(--gr)}
+.task-cluster-name{margin-top:6px;font-size:11px;font-weight:700;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.task-cluster-total{font-size:10px;color:var(--txt3);margin-top:1px}
+@media(max-width:768px){
+  .task-graph-wrap{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin:0 -4px;padding-left:4px;padding-right:4px}
+  .task-cluster{scroll-snap-align:start}
+}
 /* ===== 検索モーダル ===== */
 .srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
 .srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
@@ -11038,16 +11049,22 @@ function renderTasks() {
   var today = toDS(new Date());
   var names = D.stf.filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
 
-  /* --- スタッフ別負荷（完了は除外） --- */
-  var load = {}; names.forEach(function(n){ load[n] = {todo:0, doing:0}; });
+  /* --- スタッフ別タスク量（未着手・進行中・完了） --- */
+  var load = {}; names.forEach(function(n){ load[n] = {todo:0, doing:0, done:0}; });
   ids.forEach(function(id){
-    var t = _tasksData[id]; if (!t || t.status === 'done') return;
+    var t = _tasksData[id]; if (!t) return;
+    var st = t.status === 'doing' ? 'doing' : (t.status === 'done' ? 'done' : 'todo');
     taskAssignees(t).forEach(function(n){
-      if (load[n]) load[n][t.status === 'doing' ? 'doing' : 'todo']++;
+      if (load[n]) load[n][st]++;
     });
   });
+  /* 集合棒グラフなのでスケールは「スタッフ毎の合計」ではなく「単一バーの最大値」 */
   var maxLoad = 1;
-  names.forEach(function(n){ var s = load[n].todo + load[n].doing; if (s > maxLoad) maxLoad = s; });
+  names.forEach(function(n){
+    ['todo','doing','done'].forEach(function(k){ if (load[n][k] > maxLoad) maxLoad = load[n][k]; });
+  });
+  var TASK_BAR_AREA_H = 92, TASK_BAR_MIN_H = 3;
+  function taskBarH(v) { return v ? Math.max(TASK_BAR_MIN_H, Math.round(v / maxLoad * TASK_BAR_AREA_H)) : 0; }
 
   _taskGraphNames = names;
   var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
@@ -11055,18 +11072,34 @@ function renderTasks() {
     + '<button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openTaskModal(null)">＋ タスクを追加</button></div>';
 
   h += '<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin-bottom:12px">'
-    + '<div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:6px">👥 スタッフ別タスク量（完了を除く）'
-    + '<span style="font-weight:400;color:var(--txt3);margin-left:8px;font-size:11px"><span class="task-tag task-tag-todo">未着手</span> <span class="task-tag task-tag-doing">進行中</span>　名前クリックで個人ページへ</span></div>';
-  names.forEach(function(n, i){
-    var td = load[n].todo, dg = load[n].doing, tot = td + dg;
-    h += '<div class="task-load-row" onclick="taskOpenPerson('+i+')">'
-      + '<span class="task-load-name">'+escH(n)+'</span>'
-      + '<div class="task-load-bar">'
-      + '<div style="width:'+Math.round(td/maxLoad*100)+'%;background:var(--or)"></div>'
-      + '<div style="width:'+Math.round(dg/maxLoad*100)+'%;background:var(--ac)"></div>'
-      + '</div>'
-      + '<span class="task-load-cnt">'+(tot ? '未'+td+'・進'+dg : '<span style="color:var(--txt3)">—</span>')+'</span></div>';
-  });
+    + '<div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:8px">👥 スタッフ別タスク量'
+    + '<span style="font-weight:400;color:var(--txt3);margin-left:8px;font-size:11px">'
+    + '<span class="task-tag task-tag-todo">未着手</span> <span class="task-tag task-tag-doing">進行中</span> <span class="task-tag task-tag-done">完了</span>'
+    + '　クリックで個人ページへ</span></div>';
+
+  if (!names.length) {
+    h += '<div class="pool-empty" style="padding:14px 0">スタッフが登録されていません</div>';
+  } else {
+    h += '<div class="task-graph-wrap">';
+    names.forEach(function(n, i){
+      var td = load[n].todo, dg = load[n].doing, dn = load[n].done, tot = td + dg + dn;
+      var bars = [['todo', td], ['doing', dg], ['done', dn]];
+      h += '<div class="task-cluster" onclick="taskOpenPerson('+i+')" title="'+escH(n)+'：未'+td+'・進'+dg+'・完'+dn+'">'
+        + '<div class="task-cluster-bars">'
+        + bars.map(function(b){
+            var v = b[1];
+            return '<div class="task-bar-col">'
+              + '<div class="task-bar-val">'+(v ? v : '')+'</div>'
+              + '<div class="task-bar task-bar-'+b[0]+'" style="height:'+taskBarH(v)+'px"></div>'
+              + '</div>';
+          }).join('')
+        + '</div>'
+        + '<div class="task-cluster-name">'+escH(n)+'</div>'
+        + (tot ? '' : '<div class="task-cluster-total">—</div>')
+        + '</div>';
+    });
+    h += '</div>';
+  }
   h += '</div>';
 
   /* --- フィルタチップ --- */
