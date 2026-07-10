@@ -470,6 +470,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-post .mp-name{font-weight:700;color:var(--ac)}
 .memo-post .mp-del{position:absolute;top:7px;right:9px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
 .memo-post .mp-del:hover{color:var(--rd)}
+.memo-post .mp-move{position:absolute;top:7px;right:34px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
+.memo-post .mp-move:hover{color:var(--ac)}
 .memo-input-row{display:flex;gap:8px}
 .memo-input-row textarea{flex:1;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:var(--fn);resize:vertical;min-height:52px;outline:none}
 .memo-input-row textarea:focus{border-color:var(--ac);background:var(--ac-bg)}
@@ -7582,8 +7584,8 @@ function renderMemos(ds, dat, locked) {
     var canDel = !locked && (isAdmin || (currentUser && currentUser.uid === m.uid));
     var isDone = !!m.done;
     h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
-    /* 済チェックボックス：削除ボタンの有無で右位置を調整 */
-    var doneRight = canDel ? '36px' : '9px';
+    /* 済チェックボックス：削除・移動ボタンの有無で右位置を調整 */
+    var doneRight = canDel ? '64px' : '9px';
     h += '<label class="memo-done-label" style="right:' + doneRight + '" title="既読・完了">'
        + '<input type="checkbox" class="memo-done-cb"'
        + ' data-idx="' + i + '" data-ds="' + ds + '" data-action="doneMemo"'
@@ -7594,6 +7596,7 @@ function renderMemos(ds, dat, locked) {
     h += '<span class="mp-name">' + escH(m.name || '不明') + '</span>';
     h += '<span>' + (m.ts ? fmtTS(m.ts) : '') + '</span>';
     if (m.isAdmin) h += '<span style="font-size:9px;background:var(--gd-bg);color:var(--gd);border-radius:4px;padding:1px 5px;border:1px solid var(--gd-bdr)">管理者</span>';
+    if (m.movedFrom) { var mfP = m.movedFrom.split('-'); h += '<span style="font-size:10px;color:var(--txt3)">(' + parseInt(mfP[1]) + '/' + parseInt(mfP[2]) + 'から移動)</span>'; }
     h += '</div>';
     if (m.text) h += '<div class="mp-body" style="white-space:pre-wrap">' + highlightMention(escH(m.text)) + '</div>';
     /* 画像・動画 */
@@ -7626,6 +7629,7 @@ function renderMemos(ds, dat, locked) {
       }
       h += '</div>';
     }
+    if (canDel && !isDone) h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
     if (canDel) h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
     h += '</div>';
   }
@@ -7635,6 +7639,12 @@ function renderMemos(ds, dat, locked) {
     var btn = e.target.closest('[data-action="delMemo"]');
     if (btn) {
       delMemo(btn.getAttribute('data-ds'), parseInt(btn.getAttribute('data-idx')));
+      return;
+    }
+    /* 別日へ移動ボタン */
+    var mvBtn = e.target.closest('[data-action="moveMemo"]');
+    if (mvBtn) {
+      openMoveMemoModal(mvBtn.getAttribute('data-ds'), parseInt(mvBtn.getAttribute('data-idx')));
       return;
     }
     /* 済チェックボックス */
@@ -8436,6 +8446,45 @@ function delMemo(ds, idx) {
   saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
+}
+
+function openMoveMemoModal(ds, idx) {
+  if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return;
+  var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+  var defDs = tmr.getFullYear() + '-' + String(tmr.getMonth()+1).padStart(2,'0') + '-' + String(tmr.getDate()).padStart(2,'0');
+  var ov = document.createElement('div'); ov.id = 'move-memo-ov'; ov.className = 'ov';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '340px';
+  md.innerHTML = '<h3>📅 申し送りを別の日へ移動</h3>'
+    + '<div style="font-size:12px;font-weight:700;margin-bottom:4px">移動先の日付</div>'
+    + '<input type="date" id="move-memo-date" class="fi" style="width:100%;box-sizing:border-box" value="' + defDs + '">'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'move-memo-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" id="move-memo-go">移動</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('move-memo-go').addEventListener('click', function(){
+    var targetDs = document.getElementById('move-memo-date').value;
+    if (!targetDs) { alert('移動先の日付を選択してください'); return; }
+    if (moveMemo(ds, idx, targetDs)) ov.remove();
+  });
+}
+
+function moveMemo(ds, idx, targetDs) {
+  if (targetDs === ds) { alert('移動元と同じ日付です'); return false; }
+  if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return false;
+  if (!D.pages[targetDs]) {
+    if (!can('pg')) { alert('🔒 移動先の連絡表がまだ作成されていません。管理者に連絡してください。'); return false; }
+    D.pages[targetDs] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
+  }
+  if (!D.pages[targetDs].memos) D.pages[targetDs].memos = [];
+  var m = D.pages[ds].memos[idx];
+  D.pages[ds].memos.splice(idx, 1);
+  m.movedFrom = ds;
+  D.pages[targetDs].memos.push(m);
+  saveD();
+  writeLog('申し送り移動', fmtJ(ds) + '→' + fmtJ(targetDs) + ' 「' + (m.text||'').slice(0,30) + '」');
+  renderMemos(ds, D.pages[ds], !can('memo'));
+  renderCal();
+  return true;
 }
 
 function fmtTS(ts) {
