@@ -187,9 +187,9 @@ document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(
 
 ### Firebase Listener Lifecycle
 
-Both `/data` and `/board` listeners are set inside a single `if (!dataListenerOn)` block in `fbInit()`. On logout, **both** must be detached:
+`/data`, `/board`, and `/tasks` listeners are all set inside a single `if (!dataListenerOn)` block in `fbInit()`. On logout, **all three** must be detached:
 ```js
-fbDB.ref('/data').off(); fbDB.ref('/board').off();
+fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off();
 dataListenerOn = false;
 ```
 On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverConn`, `_fbConnected`, `_fbDataLoaded`, `_fbLastPageCount`.
@@ -199,6 +199,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 ```
 /data/                      — full D object (saveD())
 /board/                     — 掲示板 posts (independent of /data)
+/tasks/                     — タスク管理 (independent of /data; see Task Management section)
 /logs/                      — activity log (append-only via push())
 /admins/{uid}               — true for admin users
 /users/{uid}                — { email, displayName, lastLogin }
@@ -233,7 +234,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
     .stabs — tab strip
     pane-cal    — calendar with month navigation
     pane-assign — assignment table (月次担当一覧) with subtabs:
-                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性)
+                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性) / my (マイ担当) / task (タスク)
     pane-sched  — daily timetable (⏰ スケジュール)
     pane-board  — 掲示板 (department bulletin board)
     pane-guide  — user guide
@@ -247,7 +248,7 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
-`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair`). Each subtab has a matching `subpane-{id}` div.
+`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair` / `my` / `task`). Each subtab has a matching `subpane-{id}` div.
 
 ### CSS Conventions
 
@@ -265,7 +266,7 @@ All class names are abbreviated:
 |---|---|
 | `init()` | Bootstrap — `loadD()`, start intervals, `fbInit()`, render UI |
 | `loadD()` | Hydrate `D` from localStorage |
-| `fbInit()` | Firebase auth listener → login → `/data` + `/board` listeners |
+| `fbInit()` | Firebase auth listener → login → `/data` + `/board` + `/tasks` listeners |
 | `saveD()` | Persist `D` to Firebase or localStorage |
 | `updateTabVisibility()` | Show/hide sidebar tabs based on `isAdmin` and `currentUser.perms` |
 | `openDefaultPage()` | Open today's page on startup (if exists) |
@@ -298,6 +299,10 @@ All class names are abbreviated:
 | `toggleStfHidden(name)` | Toggle `D.stfHidden[name]`; affects AT columns, dropdowns, fairness matrix |
 | `setAtZoom(z)` / `initAtPinchZoom()` | 担当表ピンチズーム（ease-out animation for buttons, GPU transform during pinch） |
 | `getPct(ds)` | Correct checklist completion % — use this as the reference implementation for done/total counting |
+| `renderTasks()` / `renderTaskPerson(el, name)` | タスク管理 — 俯瞰ビュー（負荷グラフ+フィルタ+リスト）／個人詳細ビュー |
+| `taskCycleStatus(id)` / `taskPersist(id, t)` / `taskDelete(id)` | タスクのステータス循環（未着手→進行中→完了）／楽観更新保存／削除 |
+| `openTaskModal(id)` / `saveTaskFromModal(id)` | タスク作成・編集モーダル（動的生成の `.ov`/`.md`） |
+| `openMoveMemoModal(ds, idx)` / `moveMemo(ds, idx, targetDs)` | 申し送りを別日へ移動するモーダルと移動処理（`movedFrom`付与、`saveD()`使用） |
 
 ### Duty/Assignment System
 
@@ -388,6 +393,7 @@ for (var j = 0; j < wtl.length; j++) {
 - **Memos**: `postMemo(ds)` calls `detectPHI` explicitly.
 - **`#main` free-text fields**: `initPHIGuard()` attaches a delegated `focusout` listener on `#main` — covers all `textarea`/`input[type=text]` added under `#main` automatically.
 - **Board (`#pane-board`)**: Outside `#main` — `postBoard()` and `postBoardReply()` call `detectPHI` explicitly. Any new board input fields must do the same.
+- **Tasks (`#pane-assign` task subtab)**: Outside `#main` — `saveTaskFromModal()` calls `detectPHI` on `title+'\n'+desc` explicitly before persisting.
 
 ### Media Approval
 
@@ -396,6 +402,35 @@ Uploads by non-admins get `pending: true`. In `renderMemos`, non-admins see a pl
 ### Fairness Check
 
 `renderFairness()` — 4th subtab of the assignment pane. Counts duty assignments per staff×slot for `asY/asM`, shows a matrix with max(red)/min(blue) highlighting. Warns when any column's max−min ≥ `FAIR_GAP_WARN` (default 3). Hidden staff (`D.stfHidden`) are filtered from the matrix.
+
+### Task Management (`/tasks`)
+
+Independent Firebase path (like `/board`), not part of the `D` object — the "5 locations" rule for `D` properties does not apply. Cached client-side in `_tasksData` (mirrors `_boardData`'s pattern), rendered by `renderTasks()` (overview) / `renderTaskPerson(el, name)` (per-staff detail, toggled via module-level `_taskView`).
+
+```js
+/tasks/{taskId} = {
+  title:     '...',                 // required, PHI-checked
+  desc:      '...',                 // optional, PHI-checked, '' if empty
+  assignees: ['松野 敏宏', ...],    // D.stf names, 1+ required
+  status:    'todo',                // 'todo' | 'doing' | 'done'
+  due:       '2026-07-20',          // optional, '' if unset
+  createdBy: { uid, name },
+  ts: 0, updatedTs: 0, doneAt: 0    // doneAt is 0 while not done
+}
+```
+
+- `assignees` is stored by **staff name**, not uid, so the load graph and per-staff view can key off `D.stf` directly. `taskAssignees(t)` normalizes Firebase's array→object coercion (same shape as `_boardMediaArr`).
+- **Permission model is app-side, not Firebase-rule-enforced** (RTDB rules cannot inspect array membership against `auth.uid`): everyone can create/edit; `taskCanStatus(t)` additionally allows any assignee to cycle status; `taskCanDelete(t)` / `taskCanEditAll(t)` restrict to the creator or an admin. The `/tasks` RTDB rule only hard-enforces the delete-permission boundary (see `database.rules.json` / `LATEST_DB_RULES`).
+- `taskCycleStatus(id)` cycles todo→doing→done→todo (Notion-style tag click) and updates `doneAt`/`updatedTs`.
+- Completed tasks are kept (not deleted) but rendered dimmed (`.task-card.st-done`, `opacity:.45`) and excluded from the staff load graph.
+- `taskPersist(id, t)` follows the optimistic-update pattern: mutate `_tasksData` + re-render immediately, then `fbDB.ref('/tasks/'+id).set(t)` (local/preview mode skips the Firebase write, cache-only, same as `postBoard`).
+- Listener setup/teardown mirrors `/board`: `fbDB.ref('/tasks').on('value', ...)` inside `fbInit()`'s `if (!dataListenerOn)` block; `fbDB.ref('/tasks').off()` plus `_tasksData={}; _taskView=null; _taskFilter='all';` on logout.
+
+### Memo Move-to-Another-Day
+
+Incomplete memo posts show a 📅 button (`.mp-move`, same `canDel` gate as the existing delete button) next to the 済 checkbox in `renderMemos()`. Clicking it opens `openMoveMemoModal(ds, idx)` (dynamic `.ov`/`.md` with a date input, defaulting to tomorrow), which calls `moveMemo(ds, idx, targetDs)`.
+
+`moveMemo` splices the memo out of `D.pages[ds].memos`, tags it with `movedFrom: ds`, and pushes it into `D.pages[targetDs].memos` (auto-creating the target page via the same minimal structure as `_doPostMemo` if it doesn't exist yet, gated by `can('pg')`). **Because this mutates two different pages, it must use full `saveD()` — not `saveDPage()`** (per the page-scoped-only rule above). Moved memos display a small "(M/DDから移動)" annotation in `.mp-meta` when `m.movedFrom` is set.
 
 ### Changelog System
 

@@ -1505,6 +1505,13 @@ var LATEST_DB_RULES = [
 '        }',
 '      }',
 '    },',
+'    "tasks": {',
+'      ".read": "auth != null",',
+'      "$taskId": {',
+'        ".write": "auth != null && (newData.exists() || data.child(\'createdBy\').child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)",',
+'        "status": { ".validate": "newData.val() === \'todo\' || newData.val() === \'doing\' || newData.val() === \'done\'" }',
+'      }',
+'    },',
 '    "backups":       { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "backup_meta":   { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "recent_backup": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", ".write": "auth != null" },',
@@ -3526,8 +3533,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/07/10-26';
+var APP_VERSION = 'Ver.2026/07/10-27';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/10-27', date:'2026-07-10', title:'タスク管理機能・申し送りの日付移動を追加', items:[
+    {t:'new', d:'📋 担当表タブに「タスク」サブタブを追加。スタッフ間でタスクを割り振り（複数人可）、未着手・進行中・完了のステータスで管理できます'},
+    {t:'new', d:'📊 スタッフごとのタスク量をグラフで俯瞰でき、名前をクリックすると個人ごとの詳細ページが見られます'},
+    {t:'new', d:'📅 タスクに期限を設定でき、期限超過は赤く強調表示されます'},
+    {t:'new', d:'📝 申し送りを別の日へ移動できるようになりました（済チェックの横の📅ボタン）'},
+    {t:'imp', d:'👑 Firebaseセキュリティルールに /tasks パスを追加（要:管理者がFirebase Console側で再適用）', admin:true}
+  ]},
   { ver:'Ver.2026/07/10-26', date:'2026-07-10', title:'掲示板機能拡張・通知強化・データ保護アップデート', items:[
     {t:'new', d:'📢 掲示板の投稿に既読確認機能を追加。誰が読んだか👀アイコンで確認できます'},
     {t:'new', d:'📢 掲示板の返信にも画像を添付できるようになりました'},
