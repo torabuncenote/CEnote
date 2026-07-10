@@ -61,6 +61,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .tab-badge{display:inline-block;background:var(--rd);color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:3px;vertical-align:middle;line-height:1.4}
 .brd-post{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:11px 13px;margin-bottom:8px}
 .brd-post.pin{border-color:var(--or);background:color-mix(in srgb,var(--or) 6%,var(--sur2))}
+.brd-post.resolved{opacity:0.6}
 .brd-meta{font-size:11px;color:var(--txt3);display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
 .brd-text{font-size:13px;color:var(--txt1);white-space:pre-wrap;word-break:break-word;line-height:1.6}
 .brd-acts{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
@@ -71,6 +72,9 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .brd-compose{padding:10px 12px;border-top:1px solid var(--bdr);background:var(--sur);flex-shrink:0}
 .brd-compose textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:58px;font-size:13px;padding:7px 9px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt1)}
 .brd-ri{width:100%;box-sizing:border-box;font-size:12px;padding:5px 8px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt1);resize:none;margin-top:4px}
+.brd-media{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.brd-media img{max-width:180px;max-height:130px;border-radius:5px;border:1px solid var(--bdr);cursor:pointer;object-fit:cover}
+.brd-reply .brd-media img{max-width:100px;max-height:76px}
 .cw{padding:12px;flex-shrink:0}
 .mnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
 .mnav .ml{font-size:14px;font-weight:700}
@@ -225,6 +229,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-item-row .ops-txt{flex:1}
 .ops-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:0 2px;line-height:1;flex-shrink:0}
 .ops-item-del:hover{color:var(--rd)}
+.ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.ops-card-done-badge{display:inline-block;margin-left:8px;background:var(--gr);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:2px 8px;vertical-align:middle}
+.ops-done-btn.on{background:var(--gr);color:#fff}
+.ops-item-wrap.ops-item-done{opacity:.45;filter:grayscale(.6);transition:opacity .2s}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
 .ops-add-btn:hover{background:var(--ac);color:#fff}
 /* ===== 階層マスタ ===== */
@@ -1060,9 +1068,16 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <div style="font-size:12px;color:var(--txt3);text-align:center;padding:20px">読み込み中...</div>
       </div>
       <div class="brd-compose">
+        <div class="memo-media-preview" id="board-media-preview"></div>
         <textarea id="board-input" placeholder="お知らせ・連絡を投稿…" rows="2"></textarea>
-        <div style="display:flex;justify-content:flex-end;margin-top:6px">
-          <button class="btn btn-p btn-sm" onclick="postBoard()">投稿</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <select id="board-tag-sel" style="font-size:12px;padding:4px 6px;border-radius:var(--rs);border:1.5px solid var(--bdr2);background:var(--sur2);color:var(--txt2)">
+            <option value="etc" selected>💬 その他</option>
+            <option value="info">📢 お知らせ</option>
+            <option value="req">🙏 依頼</option>
+          </select>
+          <label class="memo-media-btn">📎 画像<input type="file" id="board-media-input" accept="image/*" multiple style="display:none" onchange="onBoardMediaAdd(this)"></label>
+          <button class="btn btn-p btn-sm" id="board-post-btn" onclick="postBoard()">投稿</button>
         </div>
       </div>
     </div>
@@ -1070,7 +1085,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <!-- 使い方パネル（全ユーザー対象） -->
     <div id="pane-guide" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:40px">
-        <div class="pt" style="margin-bottom:12px">📘 使い方ガイド</div>
+        <div class="pt" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+          <span>📘 使い方ガイド</span>
+          <button class="btn btn-g btn-sm" onclick="openChangelogPublic()">📝 変更履歴</button>
+        </div>
         <div id="guide-body"></div>
       </div>
     </div>
@@ -1339,6 +1357,16 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   </div>
 </div>
 <!-- ===== 横断検索モーダル ===== -->
+<!-- ===== 変更履歴（一般公開・フィルタ済み）モーダル ===== -->
+<div class="ov hd" id="modal-changelog-public">
+  <div class="md" style="max-width:560px">
+    <h3>📝 変更履歴</h3>
+    <div id="changelog-public-body"></div>
+    <div class="mdb">
+      <button class="btn btn-g" onclick="closeChangelogPublic()">閉じる</button>
+    </div>
+  </div>
+</div>
 <div class="ov hd" id="modal-search">
   <div class="md" style="max-width:560px">
     <h3>🔍 横断検索</h3>
@@ -1445,13 +1473,16 @@ var LATEST_DB_RULES = [
 '      ".read": "auth != null",',
 '      "$postId": {',
 '        ".write": "auth != null && (!data.exists() || data.child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)",',
+'        "reads": {',
+'          "$uid": { ".write": "auth != null && auth.uid === $uid" }',
+'        },',
 '        "replies": {',
 '          "$replyId": { ".write": "auth != null && (!data.exists() || data.child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)" }',
 '        }',
 '      }',
 '    },',
-'    "backups":       { ".read": "root.child(\'admins\').child(auth.uid).val() === true", "$date": { ".write": "auth != null" } },',
-'    "backup_meta":   { ".read": "root.child(\'admins\').child(auth.uid).val() === true", "$date": { ".write": "auth != null" } },',
+'    "backups":       { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
+'    "backup_meta":   { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "recent_backup": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", ".write": "auth != null" },',
 '    "logs": {',
 '      ".read": "auth != null",',
@@ -1462,6 +1493,16 @@ var LATEST_DB_RULES = [
 '    "userPerms": {',
 '      ".read": "root.child(\'admins\').child(auth.uid).val() === true",',
 '      "$uid": { ".read": "auth.uid === $uid", ".write": "root.child(\'admins\').child(auth.uid).val() === true" }',
+'    },',
+'    "notifications": {',
+'      "$uid": {',
+'        ".read": "auth != null && auth.uid === $uid",',
+'        "$notifId": { ".write": "auth != null && (!data.exists() || auth.uid === $uid)" }',
+'      }',
+'    },',
+'    "fcmTokens": {',
+'      ".read": "auth != null",',
+'      "$uid": { ".write": "auth != null && auth.uid === $uid" }',
 '    }',
 '  }',
 '}'
@@ -1543,7 +1584,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1687,6 +1728,7 @@ function loadD() {
     D.psgAlertTime= s.psgAlertTime || '10:00';
     D.psgBannerStart = s.psgBannerStart || '07:30';
     D.psgBannerEnd   = s.psgBannerEnd   || '08:30';
+    D.autoDelCfg = s.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1700,6 +1742,18 @@ function loadD() {
         var ok={}; pg.customDuties.forEach(function(s){ok[s.id]=true;});
         Object.keys(pg.duties).forEach(function(k){if(!ok[k]) delete pg.duties[k];});
       });
+    }
+    /* v4: 自動削除設定を localStorage 個別キーから D.autoDelCfg へ移行 */
+    if (!D._migVer || D._migVer < 4) {
+      if (!s.autoDelCfg && localStorage.getItem('autoDelEnabled') !== null) {
+        D.autoDelCfg = {
+          enabled:  localStorage.getItem('autoDelEnabled') === 'true',
+          period:   parseInt(localStorage.getItem('autoDelPeriod')   || '365'),
+          interval: parseInt(localStorage.getItem('autoDelInterval') || '30'),
+          lastClean:parseInt(localStorage.getItem('lastAutoClean')   || '0')
+        };
+      }
+      D._migVer = 4;
     }
     ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
@@ -1778,6 +1832,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0};
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -1945,6 +2000,7 @@ function fbInit() {
             D.psgAlertTime= d.psgAlertTime || '10:00';
             D.psgBannerStart = d.psgBannerStart || '07:30';
             D.psgBannerEnd   = d.psgBannerEnd   || '08:30';
+            D.autoDelCfg = d.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -1971,6 +2027,19 @@ function fbInit() {
               saveD();
               /* マイグレーション後はjustSavedでrenderPageがスキップされるため即時再描画 */
               if (curDs && D.pages[curDs]) renderPage(curDs);
+            }
+            /* v4: 自動削除設定を localStorage 個別キーから D.autoDelCfg へ移行 */
+            if (!D._migVer || D._migVer < 4) {
+              if (!d.autoDelCfg && localStorage.getItem('autoDelEnabled') !== null) {
+                D.autoDelCfg = {
+                  enabled:  localStorage.getItem('autoDelEnabled') === 'true',
+                  period:   parseInt(localStorage.getItem('autoDelPeriod')   || '365'),
+                  interval: parseInt(localStorage.getItem('autoDelInterval') || '30'),
+                  lastClean:parseInt(localStorage.getItem('lastAutoClean')   || '0')
+                };
+              }
+              D._migVer = 4;
+              saveD();
             }
             setSyncLbl('同期済');
             if (wasFirstLoad) autoSaveSnapshot('起動時'); /* Firebase最新データ受信後にローカルBKを取る */
@@ -2004,6 +2073,7 @@ function fbInit() {
             var bp = document.getElementById('pane-board');
             if (bp && bp.style.display !== 'none') renderBoard();
             updateBoardBadge();
+            updatePendingBadge();
           });
         } else {
           /* トークン更新時：データは既に同期済みなのでUI表示だけ更新 */
@@ -2250,6 +2320,12 @@ function onSPMediaAdd(input) {
       var uploadData = blob || dataUrl; /* blobがあればblobを優先 */
       var path = 'manual/' + encodeURIComponent(_spTask) + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       uploadToStorage(path, uploadData, function(url, fallback) {
+        if (!url && !fallback) {
+          /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
+          pending--;
+          if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); }
+          return;
+        }
         entry.media.push({
           type: isVideo ? 'video' : 'image',
           name: file.name,
@@ -2259,7 +2335,11 @@ function onSPMediaAdd(input) {
           pending: !isAdmin            /* 非管理者の投稿は管理者承認待ち */
         });
         pending--;
-        if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); }
+        if (pending === 0) {
+          saveSPEntry(entry); renderSPMedia(entry.media);
+          if (entry.media.some(function(m){ return m.pending; }))
+            sendAdminNotification('🕓 承認依頼: マニュアル「' + _spTask + '」に画像/動画が追加されました', '');
+        }
       });
     };
     if (isVideo) {
@@ -2882,7 +2962,7 @@ function renderManual() {
   S += tip('管理者は「🔪 オペ」「🫀 カテ」「🚶 6MW」「🌙 PSG」「➕ フリー」ボタンでカードを追加・削除できます。💾でテンプレートとして保存すると次回以降も同じ構成が使えます。');
   S += h2('🔪 オペ（手術）');
   S += step(1,'術式を選ぶ','プルダウンから選択。一覧にない場合は「自由記述...」を選んでテキスト入力。');
-  S += step(2,'入室時間を選ぶ','8:00〜16:45（15分刻み）/ AMOC / PMOC / 自由記述から選択。');
+  S += step(2,'入室時間を選ぶ','「○時：△分」の2つのプルダウンで選択（ブリーフィング欄と同じ方式）。○は8〜16時＋AM／PM、△は0〜55分（5分刻み）＋OC。「自由入力」ボタンでテキスト入力にも切替可。');
   S += step(3,'術式を追加する','「＋ 術式を追加」ボタンで行を増やせます。');
   S += h2('🫀 カテ（カテーテル）');
   S += step(1,'治療順番号を選ぶ','左端のプルダウンで1〜10から選択。');
@@ -3411,15 +3491,34 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06y';
+var APP_VERSION = 'Ver.2026/07/10-26';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/10-26', date:'2026-07-10', title:'掲示板機能拡張・通知強化・データ保護アップデート', items:[
+    {t:'new', d:'📢 掲示板の投稿に既読確認機能を追加。誰が読んだか👀アイコンで確認できます'},
+    {t:'new', d:'📢 掲示板の返信にも画像を添付できるようになりました'},
+    {t:'new', d:'📢 掲示板の投稿に「連絡」「依頼」「その他」カテゴリタグを追加。「依頼」は解決済みマーク・未解決フィルタに対応'},
+    {t:'new', d:'📌 掲示板のピン留めに有効期限を設定可能に（期限切れで自動的にピン解除）'},
+    {t:'new', d:'📝 申し送りメモで@メンションすると相手に通知が届くようになりました'},
+    {t:'fix', d:'🔧 個人情報チェックが「投稿画像」など通常の業務用語を誤検知していた問題を修正'},
+    {t:'fix', d:'🔧 画像アップロードに失敗した際、300KBを超える画像は添付を中止するよう変更（動作が重くなるのを防止）'},
+    {t:'imp', d:'🔧 保存方式を最適化し、複数人が同時に別の日を編集した際のデータ競合を軽減'},
+    {t:'new', d:'👑 承認待ちの画像/動画がある場合、管理者に通知が届くようになりました', admin:true},
+    {t:'imp', d:'👑 データ自動削除設定を端末ごとの保存から全端末共有の設定に変更', admin:true},
+    {t:'imp', d:'👑 Firebaseセキュリティルールをパスごとに細分化し、不要なデータアクセスを防止（要:管理者がFirebase Console側で反映）', admin:true}
+  ]},
+  { ver:'Ver.2026/07/10-25', date:'2026-07-10', title:'掲示板画像添付・業務入力の改善', items:[
+    {t:'new', d:'📢 掲示板に画像を添付できるようになりました（一般ユーザーの投稿は管理者承認後に表示）'},
+    {t:'new', d:'✅ オペ/カテの各行に「終了」ボタンを追加。押すと薄暗く表示され、進捗（例: オペ2/3件終了）がひと目で分かります'},
+    {t:'imp', d:'🔪 オペ/カテの件数集計を、術式を選び切らなくても入力があれば1件とカウントするよう変更'},
+    {t:'imp', d:'⏱ 入室時間の入力を「○時：△分」の2択方式に変更（カテのブリーフィング欄と同じ操作感）'}
+  ]},
   { ver:'2026.06y', date:'2026-06-16', title:'PSG外し 業務ヘッダー表示・永続バナー追加', items:[
     {t:'new', d:'🌙 前日PSGがある日（PSG外し日）は「業務」ヘッダーに「PSG外し」チップを表示'},
     {t:'new', d:'🌙 PSG外し日の7:30〜8:30の間、画面上部に「PSG外しがあります」バナーを常時表示（✕で閉じる・8:30以降自動非表示）'}
   ]},
   { ver:'2026.06x', date:'2026-06-16', title:'ガイド更新・ユーザー削除機能追加', items:[
     {t:'new', d:'📖 使い方ガイドに新機能セクション追加（HD勤務者/余剰ゾーン・業務件数・月次自動割り当て・公平性タブ・進捗バータップ・カレンダー🟢ドット）'},
-    {t:'new', d:'🗑 管理者画面からユーザーのアプリデータを削除できるようになりました（ソフトデリート：Firebase Authアカウント自体はConsoleから別途削除が必要）'}
+    {t:'new', d:'🗑 管理者画面からユーザーのアプリデータを削除できるようになりました（ソフトデリート：Firebase Authアカウント自体はConsoleから別途削除が必要）', admin:true}
   ]},
   { ver:'2026.06w', date:'2026-06-15', title:'HD勤務者ステータスゾーン再設計', items:[
     {t:'fix', d:'🩸 HDステータスゾーン（HDシフトチェンジ・メンテ・休み・その他）を余剰人員エリアに常時表示。HDトグルを開かなくても一目で状況を確認できる'},
@@ -3443,7 +3542,7 @@ var APP_CHANGELOG = [
     {t:'fix', d:'🔪 術式エントリ間に区切り線を追加し境界を明確化'}
   ]},
   { ver:'2026.06s', date:'2026-06-12', title:'OC完了時管理者通知・メンション件数拡張', items:[
-    {t:'new', d:'🌙 OC対応完了チェック時に管理者全員へアプリ内通知・FCMプッシュ・メール（EmailJS設定済みの場合）を送信'},
+    {t:'new', d:'🌙 OC対応完了チェック時に管理者全員へアプリ内通知・FCMプッシュ・メール（EmailJS設定済みの場合）を送信', admin:true},
     {t:'fix', d:'📝 メモのメンション（@）候補リストの表示上限を8件→20件に拡張'}
   ]},
   { ver:'2026.06r', date:'2026-06-10', title:'HD勤務者表示・PSG外し改善・リンク切れ修正', items:[
@@ -3451,7 +3550,7 @@ var APP_CHANGELOG = [
     {t:'fix', d:'🌙 PSG外し専用日（前日装着分の外しのみの日）の業務カードから不要な「装着」欄を非表示に'},
     {t:'fix', d:'🌙 PSG業務を取り消すと装着・外しデータに加え、翌日に連動した「PSG取り外し」チェックも自動解除されるよう修正'},
     {t:'fix', d:'👑 名簿外の名前（HD勤務者など）も担当枠の選択欄に「（名簿外）」付きで表示されるよう修正'},
-    {t:'new', d:'👑 管理者画面のリンク切れスタッフに「再紐付け」「解除」ボタンを追加し、その場で修正できるように'}
+    {t:'new', d:'👑 管理者画面のリンク切れスタッフに「再紐付け」「解除」ボタンを追加し、その場で修正できるように', admin:true}
   ]},
   { ver:'2026.06q', date:'2026-06-10', title:'PSG外し翌日自動表示の修正', items:[
     {t:'fix', d:'🌙 前日に PSG カードを追加しただけでは翌日に外し行が出なかった問題を修正。装着テキストの有無ではなく「前日に PSG カードが存在するか」で判定するよう変更'},
@@ -3459,15 +3558,15 @@ var APP_CHANGELOG = [
   ]},
   { ver:'2026.06p', date:'2026-06-10', title:'コードレビュー4件バグ修正', items:[
     {t:'fix', d:'🔧 PSG取り外しチェックボックスが slot_ward で2重表示されていた問題を修正（静的checksに同名がある場合は除去してから追加し直す）'},
-    {t:'fix', d:'🔧 曜日ルール月次自動割り当てで既に担当済みのスタッフが二重割り当てされる可能性を修正（全 dat.duties から assigned スタッフを収集）'},
-    {t:'fix', d:'🔧 無操作自動ログアウトのFirebaseログに「30分間の無操作」と誤記されていた問題を修正（5分）'},
+    {t:'fix', d:'🔧 曜日ルール月次自動割り当てで既に担当済みのスタッフが二重割り当てされる可能性を修正（全 dat.duties から assigned スタッフを収集）', admin:true},
+    {t:'fix', d:'🔧 無操作自動ログアウトのFirebaseログに「30分間の無操作」と誤記されていた問題を修正（5分）', admin:true},
     {t:'fix', d:'🔧 ユーザーガイドの自動ログアウト案内が「30分」と表記されていた問題を修正（5分）'}
   ]},
   { ver:'2026.06o', date:'2026-06-10', title:'管理者画面：ログイン状況の可視化', items:[
-    {t:'new', d:'👑 登録済みだが未ログインのスタッフに「⚠ 未ログイン（登録済み・ログイン待ち）」バッジを橙色で表示'},
-    {t:'new', d:'👑 未ログインユーザーの行に橙色の左ボーダーを追加し一目で区別できるように'},
-    {t:'new', d:'👑 スタッフ名簿と紐付き済みのアカウントに「🔗 スタッフ名」バッジを表示'},
-    {t:'new', d:'👑 アカウント未作成のスタッフ・リンク切れのスタッフを一覧セクションで表示'}
+    {t:'new', d:'👑 登録済みだが未ログインのスタッフに「⚠ 未ログイン（登録済み・ログイン待ち）」バッジを橙色で表示', admin:true},
+    {t:'new', d:'👑 未ログインユーザーの行に橙色の左ボーダーを追加し一目で区別できるように', admin:true},
+    {t:'new', d:'👑 スタッフ名簿と紐付き済みのアカウントに「🔗 スタッフ名」バッジを表示', admin:true},
+    {t:'new', d:'👑 アカウント未作成のスタッフ・リンク切れのスタッフを一覧セクションで表示', admin:true}
   ]},
   { ver:'2026.06n', date:'2026-06-10', title:'PSG取り外し担当マーク強調表示', items:[
     {t:'new', d:'🌙 PSG取り外しチェックは「完了印」ではなく「担当割り当て印」として紫色で強調表示。「🌙 PSG取り外し（担当）」ラベルとホバー時ツールチップで区別'}
@@ -3476,36 +3575,36 @@ var APP_CHANGELOG = [
     {t:'new', d:'🌙 PSG分割：装着日には装着欄のみ表示。前日に装着があると翌日カードに「外し（前日装着分）」欄が自動表示される'},
     {t:'new', d:'🌙 PSG外しのある日は病棟外回り担当カードに「PSG取り外し」チェックが自動でONになる'},
     {t:'new', d:'❌ 担当割り当てカードに欠勤チェックボックスを追加。チェックするとカードが赤くなり欠勤を視覚的に表示'},
-    {t:'fix', d:'🔧 EmailJS公開鍵・サービスID・テンプレートID・スタッフUID紐付けがリロード後に消える問題を修正（loadD・バックアップ復元の両方）'}
+    {t:'fix', d:'🔧 EmailJS公開鍵・サービスID・テンプレートID・スタッフUID紐付けがリロード後に消える問題を修正（loadD・バックアップ復元の両方）', admin:true}
   ]},
   { ver:'2026.06l', date:'2026-06-09', title:'自動割り当て時のPHS自動セット', items:[
     {t:'new', d:'📞 自動割り当て時に担当へPHS内線番号を自動セット：病棟外回り=6030 / OPE=6160 / OPEサブ=6170 / 機器管理=6157。既にPHSが入力済みのスロットは上書きしません'}
   ]},
   { ver:'2026.06k', date:'2026-06-09', title:'月次自動割り当てモード切替・無操作タイムアウト短縮', items:[
-    {t:'new', d:'🎲 月次自動割り当てモード切替：業務マスタタブで「曜日ルール」と「従来モード」を切替可能に。曜日ルール=月木5名/火水金4名/土1名/日祝スキップ。従来モード=担当枠テンプレートの空き枠を補完（従来の動作）'},
+    {t:'new', d:'🎲 月次自動割り当てモード切替：業務マスタタブで「曜日ルール」と「従来モード」を切替可能に。曜日ルール=月木5名/火水金4名/土1名/日祝スキップ。従来モード=担当枠テンプレートの空き枠を補完（従来の動作）', admin:true},
     {t:'imp', d:'🔒 PC操作時の無操作自動ログアウトを30分→5分に短縮（残り1分で警告表示）'}
   ]},
   { ver:'2026.06j', date:'2026-06-09', title:'データ保護: アップデート時のシフトデータ消失を修正', items:[
     {t:'fix', d:'🔧 重要バグ修正: アプリ更新時にインポート済みシフトデータ・勤務者情報が消えてしまう問題を修正。Firebase水和処理でマイグレーション前にシフト等の全フィールドを復元するよう変更'}
   ]},
   { ver:'2026.06i', date:'2026-06-09', title:'月次自動割り当て・教育設定', items:[
-    {t:'new', d:'🎲 1ヶ月分一括自動割り当て：「1ヶ月生成」モーダルからシフトデータをもとに月全体の空き担当枠を一括割り当て。プレビュー確認後に適用'},
-    {t:'new', d:'🎓 スタッフ教育設定：名簿で各メンバーに「優先スロット」を設定。自動割り当て時に指定スロットへ優先的に配置（教育・スキルアップ目的）'},
-    {t:'imp', d:'自動割り当てアルゴリズムに教育重み付けを追加。教育設定スタッフは対象スロットで優先的に選ばれる'}
+    {t:'new', d:'🎲 1ヶ月分一括自動割り当て：「1ヶ月生成」モーダルからシフトデータをもとに月全体の空き担当枠を一括割り当て。プレビュー確認後に適用', admin:true},
+    {t:'new', d:'🎓 スタッフ教育設定：名簿で各メンバーに「優先スロット」を設定。自動割り当て時に指定スロットへ優先的に配置（教育・スキルアップ目的）', admin:true},
+    {t:'imp', d:'自動割り当てアルゴリズムに教育重み付けを追加。教育設定スタッフは対象スロットで優先的に選ばれる', admin:true}
   ]},
   { ver:'2026.06h', date:'2026-06-09', title:'メール通知・名簿UID紐付け', items:[
     {t:'new', d:'📧 メール通知（EmailJS）：遅出担当の割り当て・OC翌出勤ルール確定時に担当者へメールを自動送信（無料200通/月）。業務マスタタブで設定'},
     {t:'new', d:'📬 初回起動ポップアップ：担当変更後に初めてアプリを開いたときにお知らせをモーダル表示'},
-    {t:'new', d:'🔗 名簿の各メンバーに Firebase アカウントを紐付け可能に（管理者のみ）。名前→UID変換が確実になりメール通知が正確に届く'},
+    {t:'new', d:'🔗 名簿の各メンバーに Firebase アカウントを紐付け可能に（管理者のみ）。名前→UID変換が確実になりメール通知が正確に届く', admin:true},
     {t:'fix', d:'通知ポップアップが表示直後に既読化されていた問題を修正。「確認しました」を押した時点で既読化されるように変更'},
-    {t:'fix', d:'通知・EmailJS 設定値がリロード後に消える問題を修正'}
+    {t:'fix', d:'通知・EmailJS 設定値がリロード後に消える問題を修正', admin:true}
   ]},
   { ver:'2026.06g', date:'2026-06-08', title:'通知機能の追加', items:[
     {t:'new', d:'🌙 OC対応の退勤時刻から翌日の出勤ルール（遅出/休み）を自動判定。確定時にトースト表示＋翌日の連絡表に警告バナーを表示'},
     {t:'new', d:'🌙 担当枠に「遅出OPE・遅出カテ・遅出フリー」を標準追加。割り当てた時にトースト通知'},
-    {t:'new', d:'⏰ 業務マスタの各チェック項目に通知時刻を設定できるリマインダー機能を追加'},
-    {t:'new', d:'🌙 PSG付箋の通知時刻を業務マスタから変更できるように（既定10:00）'},
-    {t:'new', d:'📅 曜日別業務に「最終週」（その曜日の最終回のみ）の指定を追加'},
+    {t:'new', d:'⏰ 業務マスタの各チェック項目に通知時刻を設定できるリマインダー機能を追加', admin:true},
+    {t:'new', d:'🌙 PSG付箋の通知時刻を業務マスタから変更できるように（既定10:00）', admin:true},
+    {t:'new', d:'📅 曜日別業務に「最終週」（その曜日の最終回のみ）の指定を追加', admin:true},
     {t:'new', d:'📥 担当表のOC集計・業務集計・公平性タブもCSV出力／印刷に対応'},
     {t:'imp', d:'個別権限を付与されたメンバーにスタッフ／業務マスタタブを表示'},
     {t:'imp', d:'OC対応時間の入力を自由記述から開始・退勤の時刻選択に変更（表記揺れ防止）'}
@@ -3519,7 +3618,7 @@ var APP_CHANGELOG = [
   ]},
   { ver:'2026.06e', date:'2026-06-07', title:'データ保護の強化', items:[
     {t:'fix', d:'別端末で初回ログインした際にデータが消える不具合を修正（最重要）'},
-    {t:'new', d:'データ全消去を検知し、書き込んだアカウントをログに記録＋管理者へ警告表示'}
+    {t:'new', d:'データ全消去を検知し、書き込んだアカウントをログに記録＋管理者へ警告表示', admin:true}
   ]},
   { ver:'2026.06d', date:'2026-06-07', title:'新機能3点', items:[
     {t:'new', d:'🔍 横断検索（Ctrl/Cmd+K）：全日付のメモ・担当・術式を検索'},
@@ -3527,15 +3626,15 @@ var APP_CHANGELOG = [
     {t:'new', d:'🎲 担当の自動割り当て（公平性ベース）'}
   ]},
   { ver:'2026.06c', date:'2026-06-06', title:'Firebase・バックアップの堅牢化', items:[
-    {t:'fix', d:'マスタの中カテゴリ追加直後にボタンが反応しない不具合を修正'},
-    {t:'fix', d:'空配列が原因のツリー編集クラッシュを根本修正（読込時に正規化）'},
-    {t:'imp', d:'バックアップを1時間ごとの時間別スナップに変更（7日×24h保持）'},
-    {t:'imp', d:'保存のたびに /recent_backup を更新し、データ消失時の復元性を向上'},
-    {t:'fix', d:'古いスナップショットの削除漏れ・孤立バックアップを修正'}
+    {t:'fix', d:'マスタの中カテゴリ追加直後にボタンが反応しない不具合を修正', admin:true},
+    {t:'fix', d:'空配列が原因のツリー編集クラッシュを根本修正（読込時に正規化）', admin:true},
+    {t:'imp', d:'バックアップを1時間ごとの時間別スナップに変更（7日×24h保持）', admin:true},
+    {t:'imp', d:'保存のたびに /recent_backup を更新し、データ消失時の復元性を向上', admin:true},
+    {t:'fix', d:'古いスナップショットの削除漏れ・孤立バックアップを修正', admin:true}
   ]},
   { ver:'2026.06b', date:'2026-06-05', title:'勤務表・担当まわり', items:[
-    {t:'fix', d:'CE兼OCの人を当日勤務者一覧に残しつつOCを自動振り分け'},
-    {t:'fix', d:'勤務表読み込み時のOC対応者の自動反映を修正'},
+    {t:'fix', d:'CE兼OCの人を当日勤務者一覧に残しつつOCを自動振り分け', admin:true},
+    {t:'fix', d:'勤務表読み込み時のOC対応者の自動反映を修正', admin:true},
     {t:'imp', d:'古いセッションによるデータ巻き戻りを検出・自動修正'}
   ]}
 ];
@@ -3544,28 +3643,76 @@ var APP_ROADMAP = [
   '📊 月次集計（担当回数・チェック実施率）のCSV/Excel出力',
   '👥 オンライン状況の可視化（同時編集の事故防止）'
 ];
-function renderChangelog() {
-  var el = document.getElementById('changelog-body');
-  if (!el || el.innerHTML) return;
+function formatVerString(dateStr, seq) { return 'Ver.' + dateStr.replace(/-/g, '/') + '-' + seq; }
+/* 通算リリース番号を自動算出（旧24件は数値シーケンスを持たないため24をベースにする） */
+function nextChangelogSeq() {
+  var max = 24;
+  APP_CHANGELOG.forEach(function(rel) {
+    var m = /^Ver\.\d{4}\/\d{2}\/\d{2}-(\d+)$/.exec(rel.ver);
+    if (m) { var n = parseInt(m[1], 10); if (n > max) max = n; }
+  });
+  return max + 1;
+}
+/* リリース単位でadmin専用itemを除外。全item除外されたリリースは丸ごと非表示 */
+function filterChangelogForGeneral(changelog) {
+  var out = [];
+  changelog.forEach(function(rel) {
+    var items = (rel.items || []).filter(function(it) { return !it.admin; });
+    if (!items.length) return;
+    out.push({ ver: rel.ver, date: rel.date, title: rel.title, items: items });
+  });
+  return out;
+}
+/* 旧形式('2026.06y')は'v'を前置、新形式('Ver.YYYY/MM/DD-N')はそのまま表示 */
+function verDisplay(ver) { return /^Ver\./.test(ver) ? ver : ('v' + ver); }
+/* HTML組み立て本体。renderChangelog()（管理者向け・全件）とrenderChangelogPublic()（一般向け・フィルタ済み）の両方から呼ぶ */
+function buildChangelogHTML(changelog, opts) {
+  opts = opts || {};
   var tagLabel = { fix:'修正', 'new':'新機能', imp:'改善' };
   var tagCls   = { fix:'cl-tag-fix', 'new':'cl-tag-new', imp:'cl-tag-imp' };
   var S = '';
-  S += '<div class="cl-h1">📝 変更履歴</div>';
-  S += '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">現在のバージョン：<b>v' + escH(APP_VERSION) + '</b></div>';
+  if (opts.heading !== false) S += '<div class="cl-h1">📝 変更履歴</div>';
+  S += '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">現在のバージョン：<b>' + escH(verDisplay(APP_VERSION)) + '</b></div>';
   S += '<div class="cl-h2">🚀 今後の予定（予定は変更される場合があります）</div>';
   S += '<div class="cl-entry cl-future"><ul>' + APP_ROADMAP.map(function(r){ return '<li>' + escH(r) + '</li>'; }).join('') + '</ul></div>';
   S += '<div class="cl-h2">📜 これまでの更新</div>';
-  APP_CHANGELOG.forEach(function(rel) {
+  changelog.forEach(function(rel) {
     S += '<div class="cl-entry">';
-    S += '<div class="cl-ver">' + escH(rel.title) + ' <span class="cl-date">(' + escH(rel.date) + ' / v' + escH(rel.ver) + ')</span></div>';
+    S += '<div class="cl-ver">' + escH(rel.title) + ' <span class="cl-date">(' + escH(rel.date) + ' / ' + escH(verDisplay(rel.ver)) + ')</span></div>';
     S += '<ul>';
     rel.items.forEach(function(it) {
       S += '<li><span class="cl-tag ' + (tagCls[it.t] || 'cl-tag-imp') + '">' + (tagLabel[it.t] || '') + '</span> ' + escH(it.d) + '</li>';
     });
     S += '</ul></div>';
   });
-  el.innerHTML = S;
+  return S;
 }
+function renderChangelog() {
+  var el = document.getElementById('changelog-body');
+  if (!el || el.innerHTML) return;
+  el.innerHTML = buildChangelogHTML(APP_CHANGELOG); /* 管理者向け：全件表示、見た目は変更前と同一 */
+}
+function renderChangelogPublic() {
+  var el = document.getElementById('changelog-public-body');
+  if (!el || el.innerHTML) return;
+  el.innerHTML = buildChangelogHTML(filterChangelogForGeneral(APP_CHANGELOG), {heading:false}); /* 一般向け：admin項目を除外。モーダルの<h3>が見出しを兼ねるのでcl-h1は省略 */
+}
+function openChangelogPublic() {
+  var m = document.getElementById('modal-changelog-public'); if (!m) return;
+  m.classList.remove('hd');
+  renderChangelogPublic();
+}
+function closeChangelogPublic() {
+  var m = document.getElementById('modal-changelog-public'); if (m) m.classList.add('hd');
+}
+(function(){
+  document.addEventListener('keydown', function(e){
+    if (e.key==='Escape') {
+      var m=document.getElementById('modal-changelog-public');
+      if (m && !m.classList.contains('hd')) closeChangelogPublic();
+    }
+  });
+})();
 
 /* ===== 法令・ガイドライン ===== */
 function renderRegs() {
@@ -4454,13 +4601,13 @@ function renderOpsSummary() {
     var opeN  = 0, cathN = 0, mwN = 0, psgN = 0, freeN = 0;
     var hasAny = false;
 
-    /* オペ：ope_itemsの術式が入力されている行数 */
+    /* オペ：ope_itemsの何らかの入力がある行数 */
     if (ops.ope_items) {
-      ops.ope_items.forEach(function(it){ if(it.sel||it.txt){ opeN++; hasAny=true; } });
+      ops.ope_items.forEach(function(it){ if(opsItemFilled(it)){ opeN++; hasAny=true; } });
     }
-    /* カテ：cath_itemsの種別が入力されている行数 */
+    /* カテ：cath_itemsの何らかの入力がある行数 */
     if (ops.cath_items) {
-      ops.cath_items.forEach(function(it){ if(it.sel||it.txt){ cathN++; hasAny=true; } });
+      ops.cath_items.forEach(function(it){ if(opsItemFilled(it)){ cathN++; hasAny=true; } });
     }
     /* 6MW：mw_nの値 */
     if (ops.mw_n) { mwN = parseInt(ops.mw_n)||0; if(mwN) hasAny=true; }
@@ -4925,6 +5072,9 @@ var _saveQueued  = null;  /* 直近のDスナップショット（write完了後
 var _fbConnected = false; /* .info/connected 状態 */
 var _fbEverConn  = false; /* 初回接続済みフラグ */
 
+var _savePageWriting = false; /* saveDPage() の /data/pages/{ds} write in-flight（saveD本体の_saveWritingとは別管理） */
+var _savePageQueue   = {};    /* saveDPage() 書き込み中に追加された ds のキュー（ds → true） */
+
 function saveD() {
   /* D.manualのキーにFirebase禁止文字があると全体が失敗するため事前に修正 */
   sanitizeManualKeys();
@@ -5018,9 +5168,105 @@ function _doFbWrite(data, attempt) {
     });
 }
 
+/* ===== ページ単位のFirebase部分書き込み（同時編集の全体上書き対策・限定導入） =====
+   saveD() は毎回 D 全体を /data に set するため、2人が同時に別ページを編集すると
+   後勝ちで一方の変更が丸ごと消える可能性がある。saveDPage(ds) は
+   明確にページ単位の変更だとわかる呼び出し箇所（ops入力・チェックリスト・
+   申し送り・スケジュール）に限定して /data/pages/{ds} だけを set することで
+   この上書きリスクを減らす。saveD本体の書き込みキュー（_saveWriting/_saveQueued等）
+   には一切手を入れず、専用の状態変数（_savePageWriting/_savePageQueue）で
+   直列化する。 */
+function saveDPage(ds) {
+  /* localStorageへの全体書き込みはsaveDと同じ（オフライン/フォールバック対応） */
+  sanitizeManualKeys();
+  try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
+  if (!FB_ON || !fbDB) return; /* Firebase OFF → ローカル保存のみ（saveDと同じ） */
+  if (!currentUser) return;
+  /* _fbDataLoadedガードはsaveDと同様に絶対維持。falseなら書かない（ローカル保存のみ） */
+  if (!_fbDataLoaded) {
+    console.warn('[saveDPage] Firebase未ロードのため書き込みをスキップ（データ保護）');
+    return;
+  }
+  if (!D.pages || !D.pages[ds]) {
+    /* ページが存在しない（削除された等）場合は部分書き込みの対象がないため全体保存に委譲 */
+    saveD();
+    return;
+  }
+  /* 順序問題対策：full saveD()が進行中(_saveWriting)または予約中(_savePending)の間は
+     saveDPageを実行しない。理由: full saveDの書き込みスナップショットはsaveD呼び出し時点の
+     ものなので、それより後に確定するページ単位の変更が反映されないまま古いスナップショットが
+     後から/dataに書き込まれると、page単位の変更が消えてしまう。full saveDに委譲すれば
+     （_saveWriting中ならキューされ、書き込み完了後に最新Dで再送されるため）このページの
+     変更も確実に含まれる。 */
+  if (_saveWriting || _savePending) {
+    saveD();
+    return;
+  }
+  if (_savePageWriting) {
+    /* 別ページ（または同じページ）の部分書き込みが進行中 → 完了後に処理するようキューに積む */
+    _savePageQueue[ds] = true;
+    _savingTs = Date.now(); /* エコー抑制ウィンドウを更新 */
+    return;
+  }
+  _doFbPageWrite(ds, 0);
+}
+
+/* リトライ付きページ単位Firebase書き込み（最大4回: 2s/4s/8s/16s、saveDのリトライ仕様に合わせる） */
+function _doFbPageWrite(ds, attempt) {
+  attempt = attempt || 0;
+  /* 書き込み直前にもfull saveDが割り込んでいないか再確認（保険）。
+     割り込んでいれば全体保存に委譲し、キューに残っている他ページの分も
+     full saveDが丸ごとカバーするのでキューをクリアしてよい。 */
+  if (_saveWriting || _savePending) {
+    _savePageQueue = {};
+    saveD();
+    return;
+  }
+  var pageData = D.pages && D.pages[ds];
+  if (!pageData) {
+    /* 書き込み対象がすでに消えている（削除済み）→ このpage writeは何もしない */
+    return;
+  }
+  _savePageWriting = true;
+  _savingTs = Date.now();
+  fbDB.ref('/data/pages/' + ds).set(JSON.parse(JSON.stringify(pageData)))
+    .then(function() {
+      _savePageWriting = false;
+      _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長（saveDと同様） */
+      var nextDs = null;
+      for (var k in _savePageQueue) { nextDs = k; break; }
+      if (nextDs) {
+        delete _savePageQueue[nextDs];
+        _doFbPageWrite(nextDs, 0);
+      }
+    })
+    .catch(function(err) {
+      var canRetry = err.code !== 'PERMISSION_DENIED' && attempt < 4;
+      if (canRetry) {
+        var delay = [2000, 4000, 8000, 16000][attempt];
+        setTimeout(function() {
+          if (!FB_ON || !fbDB || !currentUser || !_fbDataLoaded) {
+            _savePageWriting = false; _savePageQueue = {}; return;
+          }
+          _doFbPageWrite(ds, attempt + 1);
+        }, delay);
+      } else {
+        _savePageWriting = false;
+        console.error('saveDPage失敗:', ds, err.code, err.message);
+        writeLog && writeLog('ページ同期エラー発生', ds + ': ' + (err.code || '') + ': ' + (err.message || ''));
+        var nextDs2 = null;
+        for (var k2 in _savePageQueue) { nextDs2 = k2; break; }
+        if (nextDs2) {
+          delete _savePageQueue[nextDs2];
+          _doFbPageWrite(nextDs2, 0);
+        }
+      }
+    });
+}
+
 /* 未保存変更がある状態でタブを閉じようとしたとき警告 */
 window.addEventListener('beforeunload', function(e) {
-  if (_savePending || _saveWriting) { e.preventDefault(); e.returnValue = ''; }
+  if (_savePending || _saveWriting || _savePageWriting || Object.keys(_savePageQueue).length) { e.preventDefault(); e.returnValue = ''; }
 });
 
 /* ===== LOCK ===== */
@@ -6723,12 +6969,57 @@ function openPage(ds) {
   if (D.pages[ds]) updatePsgRemovalBanner(ds);
 }
 
-function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval){
+/* オペ・カテ行の件数カウント判定：
+   小カテゴリ（術式/種別）まで選択していなくても、科・中カテゴリの選択や
+   自由記述・入室時間・順番・使用物品など何らかの入力があれば1件と数える */
+function opsItemFilled(it){
+  if (!it) return false;
+  if (it.sel || it.txt || it.cat) return true;
+  if (it.dept && it.dept !== '__free__') return true; /* __free__選択のみ（未入力）は除外 */
+  if (it.time || it.timeTxt || it.order) return true;
+  if (it.sup && it.sup.length) return true;
+  return false;
+}
+/* 業務終了トグル：終了した行は末尾へ移動、解除した行は未終了ブロックの末尾へ戻す */
+function opsToggleDone(items, idx) {
+  var it = items[idx];
+  it.done = !it.done;
+  items.splice(idx, 1);
+  if (it.done) { items.push(it); return; }
+  var firstDone = -1;
+  for (var i = 0; i < items.length; i++) { if (items[i].done) { firstDone = i; break; } }
+  if (firstDone === -1) items.push(it); else items.splice(firstDone, 0, it);
+}
+/* 入力済みの全行が終了ならカードタイトルに「✅ 本日終了」バッジを表示 */
+function updateOpsCardDoneBadge(cardEl, items) {
+  var ttl = cardEl.querySelector('.ops-ttl');
+  if (!ttl) return;
+  var old = ttl.querySelector('.ops-card-done-badge');
+  if (old) old.parentNode.removeChild(old);
+  var filled = items.filter(opsItemFilled);
+  if (filled.length && filled.every(function(it){ return !!it.done; })) {
+    var b = document.createElement('span');
+    b.className = 'ops-card-done-badge';
+    b.textContent = '✅ 本日終了';
+    ttl.appendChild(b);
+  }
+}
+function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone){
+  opeDone=opeDone||0; cathDone=cathDone||0;
   var s='';
+  var GR_CHIP='background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px';
   if(psgRemoval) s+='<span style="background:#fff0f0;color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG外し</span> ';
-  if(opeN)  s+='<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px">🔪 オペ '+opeN+'件</span> ';
-  if(cathN) s+='<span style="background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🫀 カテ '+cathN+'件</span> ';
-  if(mwN)   s+='<span style="background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px">🚶 6MW '+mwN+'件</span> ';
+  if(opeN){
+    var opeAll=(opeDone>=opeN);
+    var opeTxt=opeDone>0?('🔪 オペ '+opeDone+'/'+opeN+'件終了'+(opeAll?' ✅':'')):('🔪 オペ '+opeN+'件');
+    s+='<span style="'+(opeAll?GR_CHIP:'background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px')+'">'+opeTxt+'</span> ';
+  }
+  if(cathN){
+    var cathAll=(cathDone>=cathN);
+    var cathTxt=cathDone>0?('🫀 カテ '+cathDone+'/'+cathN+'件終了'+(cathAll?' ✅':'')):('🫀 カテ '+cathN+'件');
+    s+='<span style="'+(cathAll?GR_CHIP:'background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px')+'">'+cathTxt+'</span> ';
+  }
+  if(mwN)   s+='<span style="'+GR_CHIP+'">🚶 6MW '+mwN+'件</span> ';
   if(psgN)  s+='<span style="background:var(--or-bg);color:var(--or);border:1px solid var(--or);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG 1件</span> ';
   return s;
 }
@@ -6736,9 +7027,9 @@ function updateOpsHeader(ds){
   var el=document.getElementById('ops-header-row'); if(!el||!D.pages[ds]) return;
   var o=D.pages[ds].ops||{};
   var cards=D.pages[ds].ops_cards!=null?D.pages[ds].ops_cards:(D.opsCfg||[]);
-  /* オペ・カテ：種別または自由記述が入力されている行数 */
-  var opeN=0; if(o.ope_items) o.ope_items.forEach(function(it){if(it.sel||it.txt)opeN++;});
-  var cathN=0; if(o.cath_items) o.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
+  /* オペ・カテ：何らかの入力がある行数（術式追加した行を反映）+ 業務終了済みの行数 */
+  var opeN=0,opeDone=0; if(o.ope_items) o.ope_items.forEach(function(it){if(opsItemFilled(it)){opeN++;if(it.done)opeDone++;}});
+  var cathN=0,cathDone=0; if(o.cath_items) o.cath_items.forEach(function(it){if(opsItemFilled(it)){cathN++;if(it.done)cathDone++;}});
   /* 6MW：カード存在で1、件数入力があればその値 */
   var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
   /* PSG：カードが追加されているか、または psg_on に入力があれば1 */
@@ -6747,7 +7038,7 @@ function updateOpsHeader(ds){
   /* PSG外し：前日にPSGがあれば当日は外し作業あり */
   var prevDsOH=getPrevDs(ds),prevDatOH=D.pages[prevDsOH];
   var psgRemoval=!!(prevDatOH&&((prevDatOH.ops_cards&&prevDatOH.ops_cards.indexOf('psg')!==-1)||(prevDatOH.ops&&prevDatOH.ops.psg_on)));
-  var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval);
+  var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone);
   el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
 }
 function updatePsgRemovalBanner(ds){
@@ -6804,8 +7095,8 @@ function renderPage(ds) {
   /* 業務件数集計 */
   var _ops=dat.ops||{};
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
-  var _opeN=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(it.sel||it.txt)_opeN++;});
-  var _cathN=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(it.sel||it.txt)_cathN++;});
+  var _opeN=0,_opeDone=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(opsItemFilled(it)){_opeN++;if(it.done)_opeDone++;}});
+  var _cathN=0,_cathDone=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(opsItemFilled(it)){_cathN++;if(it.done)_cathDone++;}});
   var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
   var _opsCardsRP=dat.ops_cards;
   var _psgN=!!(_ops.psg_on||(_opsCardsRP&&_opsCardsRP.indexOf('psg')!==-1))?1:0;
@@ -6816,7 +7107,7 @@ function renderPage(ds) {
   h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
   h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
   h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+total+' 完了</span></div>';
-  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval)+'</span></div>' : '') +'</div>';
+  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone)+'</span></div>' : '') +'</div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
@@ -7322,7 +7613,7 @@ function renderMemos(ds, dat, locked) {
       /* チェックしたユーザーと時刻を記録 */
       D.pages[bds].memos[idx].doneBy   = currentUser ? (currentUser.displayName || currentUser.email) : '';
       D.pages[bds].memos[idx].doneAt   = cb.checked ? Date.now() : null;
-      saveD();
+      saveDPage(bds);
       /* 投稿ボックスのクラスを即時切り替え（再描画なし） */
       var post = cb.closest('.memo-post');
       if (post) post.classList.toggle('memo-done', cb.checked);
@@ -7358,16 +7649,38 @@ function compressImage(file, callback) {
 }
 
 /* ===== Firebase Storageにアップロード → URL取得 ===== */
+var B64_FALLBACK_SIZE_LIMIT = 300 * 1024; /* base64フォールバックを許容する上限（DB本体の肥大化防止） */
+var _lastB64FallbackAlertTs = 0;
+function _b64FallbackAlertOnce() {
+  var now = Date.now();
+  if (now - _lastB64FallbackAlertTs > 3000) { /* 複数枚同時アップロード時の連打防止 */
+    _lastB64FallbackAlertTs = now;
+    alert('⚠️ 画像サーバーに接続できないため、画像を添付できませんでした。');
+  }
+}
+/* Storage未接続 or アップロード失敗時の共通フォールバック処理
+   本番Firebaseモード(FB_ON)で300KB超はDB肥大化防止のため添付自体を諦める。
+   ローカル運用(FB_ON=false)は従来通りサイズ問わずbase64を許容する。 */
+function _uploadFallback(dataOrBlob, callback) {
+  var size = (dataOrBlob instanceof Blob) ? dataOrBlob.size
+    : (typeof dataOrBlob === 'string' ? dataOrBlob.length * 0.75 : 0);
+  if (FB_ON && size > B64_FALLBACK_SIZE_LIMIT) {
+    _b64FallbackAlertOnce();
+    callback(null, null);
+    return;
+  }
+  if (dataOrBlob instanceof Blob) {
+    var reader = new FileReader();
+    reader.onload = function(e){ callback(null, e.target.result); };
+    reader.readAsDataURL(dataOrBlob);
+  } else {
+    callback(null, dataOrBlob);
+  }
+}
 function uploadToStorage(path, dataOrBlob, callback) {
   if (!fbST) {
-    /* Storage未接続時：blobはdata_urlに変換してフォールバック */
-    if (dataOrBlob instanceof Blob) {
-      var reader = new FileReader();
-      reader.onload = function(e){ callback(null, e.target.result); };
-      reader.readAsDataURL(dataOrBlob);
-    } else {
-      callback(null, dataOrBlob);
-    }
+    /* Storage未接続時：フォールバック（サイズにより添付自体を諦める場合あり） */
+    _uploadFallback(dataOrBlob, callback);
     return;
   }
   var ref = fbST.ref(path);
@@ -7382,23 +7695,19 @@ function uploadToStorage(path, dataOrBlob, callback) {
     callback(url, null);
   }).catch(function(err) {
     console.error('Storage upload error:', err);
-    /* エラー時：blobをdata_urlに変換してフォールバック */
-    if (dataOrBlob instanceof Blob) {
-      var reader = new FileReader();
-      reader.onload = function(e){ callback(null, e.target.result); };
-      reader.readAsDataURL(dataOrBlob);
-    } else {
-      callback(null, dataOrBlob);
-    }
+    /* エラー時：フォールバック（サイズにより添付自体を諦める場合あり） */
+    _uploadFallback(dataOrBlob, callback);
   });
 }
 
 /* ===== 1年経過データの自動削除チェック ===== */
 /* ===== 自動削除設定 ===== */
 function loadAutoDelSettings() {
-  var enabled  = localStorage.getItem('autoDelEnabled') === 'true';
-  var period   = parseInt(localStorage.getItem('autoDelPeriod')  || '365');
-  var interval = parseInt(localStorage.getItem('autoDelInterval')|| '30');
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  var enabled  = !!D.autoDelCfg.enabled;
+  var period   = D.autoDelCfg.period   || 365;
+  var interval = D.autoDelCfg.interval;
+  if (interval === undefined || interval === null) interval = 30;
   var toggle = document.getElementById('auto-del-toggle');
   var opts   = document.getElementById('auto-del-options');
   var badge  = document.getElementById('auto-del-badge');
@@ -7420,9 +7729,11 @@ function saveAutoDelSettings() {
   var intervalEl = document.querySelector('input[name="auto-del-interval"]:checked');
   var period   = periodEl   ? parseInt(periodEl.value)   : 365;
   var interval = intervalEl ? parseInt(intervalEl.value) : 30;
-  localStorage.setItem('autoDelEnabled',  enabled);
-  localStorage.setItem('autoDelPeriod',   period);
-  localStorage.setItem('autoDelInterval', interval);
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  D.autoDelCfg.enabled  = enabled;
+  D.autoDelCfg.period   = period;
+  D.autoDelCfg.interval = interval;
+  saveD();
   if (opts)  opts.style.display = enabled ? '' : 'none';
   if (badge) { badge.textContent = enabled ? '✅ 有効' : '🔓 無効'; badge.className = 'lkb ' + (enabled ? 'ul' : 'lk'); }
 }
@@ -7434,10 +7745,10 @@ function runAutoDelNow() {
 function checkAndDeleteOldData(force) {
   if (!FB_ON || !fbDB) return;
   /* 設定値を読み込む */
-  var enabled  = localStorage.getItem('autoDelEnabled') === 'true';
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  var enabled  = !!D.autoDelCfg.enabled;
   if (!enabled && !force) return; /* 無効時はスキップ */
-  var period   = parseInt(localStorage.getItem('autoDelPeriod')  || '365');
-  var interval = parseInt(localStorage.getItem('autoDelInterval')|| '30');
+  var period   = D.autoDelCfg.period || 365;
   var cutoff   = Date.now() - period * 24 * 60 * 60 * 1000;
   /* 連絡表ページの削除 */
   var deleted = 0;
@@ -7474,16 +7785,19 @@ function checkAndDeleteOldData(force) {
 
 /* 自動削除タイミングチェック（ログイン成功時に呼ぶ） */
 function checkAutoDelTiming() {
-  var enabled  = localStorage.getItem('autoDelEnabled') === 'true';
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  var enabled  = !!D.autoDelCfg.enabled;
   if (!enabled || !isAdmin) return;
-  var interval = parseInt(localStorage.getItem('autoDelInterval') || '30');
+  var interval = D.autoDelCfg.interval;
+  if (interval === undefined || interval === null) interval = 30;
   if (interval === 0) { /* ログインのたびに実行 */
     setTimeout(checkAndDeleteOldData, 5000); return;
   }
-  var lastClean = parseInt(localStorage.getItem('lastAutoClean') || '0');
+  var lastClean = D.autoDelCfg.lastClean || 0;
   var now3 = Date.now();
   if (now3 - lastClean > interval * 24 * 60 * 60 * 1000) {
-    localStorage.setItem('lastAutoClean', now3);
+    D.autoDelCfg.lastClean = now3;
+    saveD();
     setTimeout(checkAndDeleteOldData, 5000);
   }
 }
@@ -7559,6 +7873,26 @@ function highlightMention(escapedText) {
   return result;
 }
 
+/* 本文から @メンション されたスタッフ名を抽出（重複排除、投稿者本人は除外） */
+function extractMentions(text, excludeName) {
+  if (!text || typeof D === 'undefined' || !D.stf || !D.stf.length) return [];
+  var names = D.stf.slice().sort(function(a,b){ return b.length-a.length; }); /* 長い名前優先 */
+  var work = text;
+  var found = [];
+  names.forEach(function(name) {
+    if (!name) return;
+    var escaped = name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    var re = new RegExp('@' + escaped);
+    if (re.test(work)) {
+      if (name !== excludeName) found.push(name);
+      /* マッチ済み部分は自分自身へのメンションでも除去し、短い名前の部分一致誤検知を防ぐ
+         （例: 田中太郎 が本人でも除去しないと 田中 が重複検知されてしまう） */
+      work = work.replace(new RegExp('@' + escaped, 'g'), '');
+    }
+  });
+  return found;
+}
+
 /* ===== 患者情報検知 ===== */
 var PHI_PATTERNS = (function(){
   var surnames = [
@@ -7583,6 +7917,30 @@ var PHI_PATTERNS = (function(){
   ];
   return { surnames:surnames };
 })();
+
+/* 業務頻出語ホワイトリスト（漢字2〜4文字の氏名誤検知対策）
+   単語単体だけでなく「投稿画像」のような複合語も、除外語の連結として判定できるようにする */
+var PHI_EXCLUDE_WORDS = [
+  '投稿','画像','添付','資料','会議','点検','業務','連絡','確認','対応','報告','依頼',
+  '完了','予定','変更','追加','削除','修正','更新','機器','装置','器械','動画','写真',
+  '記入','入力','出力','保存','送信','受信','編集','作成','登録','解除','許可','承認',
+  '担当','当番','日勤','夜勤','準夜','深夜','日直','当直','出勤','退勤','休憩','食事',
+  '午前','午後','朝礼','夕礼','引継','申送','記載','記録','管理','使用','使用中','貸出',
+  '返却','故障','異常','正常','点検中','稼働','停止','起動','終了','開始','中止','再開'
+];
+var _PHI_EXCLUDE_SET = {};
+PHI_EXCLUDE_WORDS.forEach(function(w){ _PHI_EXCLUDE_SET[w] = true; });
+/* word全体を除外語の連結だけで構成できるか（DPで分割判定） */
+function phiIsExcludedCompound(word) {
+  if (!word) return false;
+  if (_PHI_EXCLUDE_SET[word]) return true;
+  var n = word.length;
+  for (var i=1; i<n; i++) {
+    var a = word.slice(0,i), b = word.slice(i);
+    if (_PHI_EXCLUDE_SET[a] && phiIsExcludedCompound(b)) return true;
+  }
+  return false;
+}
 
 /*
  * 🚨 赤（明確な患者情報 → ブロック or 強い警告）
@@ -7633,6 +7991,7 @@ function detectPHI(text) {
     while ((km = kanjiPat.exec(text)) !== null) {
       var word = km[0];
       if (KANJI_WL.test(word)) continue;
+      if (phiIsExcludedCompound(word)) continue;
       var isStaff2 = false;
       for (var wi2=0; wi2<staffNames.length; wi2++) {
         if (staffNames[wi2]===word || staffNames[wi2].indexOf(word)>=0) { isStaff2=true; break; }
@@ -7835,6 +8194,12 @@ function _doPostMemo(ds) {
   buf.forEach(function(m, idx) {
     var path = 'memo/' + ds + '/' + ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+      if (!url && !fallback) {
+        /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
+        pending--;
+        if (pending === 0) _finishPostMemo(ds, entry, text, sendBtn);
+        return;
+      }
       entry.media.push({
         type:        m.type,
         name:        m.name,
@@ -7851,7 +8216,7 @@ function _doPostMemo(ds) {
 
 function _finishPostMemo(ds, entry, text, sendBtn) {
   D.pages[ds].memos.push(entry);
-  saveD();
+  saveDPage(ds);
   writeLog('申し送り投稿', fmtJ(ds) + ' 「' + (text||'[画像/動画]').slice(0,30) + (text.length>30?'...':'') + '」');
   var ta = document.getElementById('memo-new');
   if (ta) ta.value = '';
@@ -7860,8 +8225,21 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '送信'; }
   renderMemos(ds, D.pages[ds], !can('memo'));
   updatePendingBadge();
-  if (entry.media && entry.media.some(function(m){return m.pending;}))
+  if (entry.media && entry.media.some(function(m){return m.pending;})) {
     alert('画像/動画は管理者の承認後に表示されます。');
+    sendAdminNotification('🕓 承認依頼: ' + entry.name + 'さんが申し送り（' + fmtJ(ds) + '）に画像/動画を追加しました', entry.text ? entry.text.slice(0,50) : '');
+  }
+  /* @メンション通知 */
+  var mentioned = extractMentions(text, entry.name);
+  if (mentioned.length) {
+    var mTitle = '💬 ' + entry.name + 'さんからメンション';
+    var mBody = (text || '').slice(0,50) + (text && text.length > 50 ? '…' : '') + '（' + fmtJ(ds) + '）';
+    mentioned.forEach(function(name) {
+      var uid = D.stfLinks && D.stfLinks[name];
+      if (uid) sendNotificationToUid(uid, name, mTitle, mBody, 'mention');
+      else sendNotification(name, mTitle, mBody, 'mention');
+    });
+  }
 }
 
 /* ===== メディア承認（管理者のみ） ===== */
@@ -7931,6 +8309,20 @@ function listPendingMedia() {
       if (med.pending) out.push({ kind:'manual', task:task, idx:idx, name:med.name||'', type:med.type });
     });
   });
+  Object.keys(_boardData || {}).forEach(function(id) {
+    var p = _boardData[id]; if (!p) return;
+    _boardMediaArr(p).forEach(function(med, mi) {
+      if (med && med.pending) out.push({ kind:'board', id:id, mi:mi, name:med.name||'', type:med.type, by:p.author||'' });
+    });
+    if (p.replies) {
+      Object.keys(p.replies).forEach(function(rid) {
+        var r = p.replies[rid]; if (!r) return;
+        _boardMediaArr(r).forEach(function(med, mi) {
+          if (med && med.pending) out.push({ kind:'boardReply', id:id, rid:rid, mi:mi, name:med.name||'', type:med.type, by:r.author||'' });
+        });
+      });
+    }
+  });
   return out;
 }
 var _badgeDebounce = null;
@@ -7964,6 +8356,10 @@ function renderPendingList() {
   el.innerHTML = items.map(function(it, k) {
     var loc = it.kind === 'memo'
       ? (escH(fmtJ(it.ds)) + ' の申し送り' + (it.by ? '（' + escH(it.by) + '）' : ''))
+      : it.kind === 'board'
+      ? ('掲示板' + (it.by ? '（' + escH(it.by) + '）' : ''))
+      : it.kind === 'boardReply'
+      ? ('掲示板の返信' + (it.by ? '（' + escH(it.by) + '）' : ''))
       : ('業務マニュアル: ' + escH(it.task));
     var icon = it.type === 'video' ? '🎬' : '🖼️';
     return '<div class="pend-row">'
@@ -7977,12 +8373,16 @@ function renderPendingList() {
 function pendApprove(k) {
   var it = listPendingMedia()[k]; if (!it) return;
   if (it.kind === 'memo') approveMemoMedia(it.ds, it.i, it.mi);
+  else if (it.kind === 'board') approveBoardMedia(it.id, it.mi);
+  else if (it.kind === 'boardReply') approveBoardReplyMedia(it.id, it.rid, it.mi);
   else approveSPMedia(it.idx, it.task);
   renderPendingList();
 }
 function pendReject(k) {
   var it = listPendingMedia()[k]; if (!it) return;
   if (it.kind === 'memo') rejectMemoMedia(it.ds, it.i, it.mi);
+  else if (it.kind === 'board') rejectBoardMedia(it.id, it.mi);
+  else if (it.kind === 'boardReply') rejectBoardReplyMedia(it.id, it.rid, it.mi);
   else rejectSPMedia(it.idx, it.task);
   renderPendingList();
 }
@@ -7999,7 +8399,7 @@ function delMemo(ds, idx) {
     });
   }
   D.pages[ds].memos.splice(idx, 1);
-  saveD();
+  saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
 }
@@ -8761,23 +9161,40 @@ function buildOPS(ds,dat,locked) {
     return c;
   }
 
-  /* ===== 入室時間の選択肢（8:00〜16:45 15分刻み + AMOC/PMOC） ===== */
-  function makeTimeOpts(selected) {
-    var opts = '<option value="">-- 入室時間 --</option>';
-    /* 8:00〜16:45を15分刻みで生成 */
+  /* ===== 入室時間の選択肢（カテのブリーフィングと同じ ○：△ 方式）
+     ○（時）：8〜16 + AM / PM　　△（分）：0〜55を5分刻み + OC ===== */
+  function makeTimeHourOpts(selH) {
+    var opts = '<option value="">--時</option>';
     for (var h = 8; h <= 16; h++) {
-      for (var m2 = 0; m2 < 60; m2 += 15) {
-        if (h === 16 && m2 > 45) break;
-        var label = h + ':' + (m2 === 0 ? '00' : m2);
-        opts += '<option value="' + label + '"' + (selected === label ? ' selected' : '') + '>' + label + '</option>';
-      }
+      opts += '<option value="' + h + '"' + (selH === String(h) ? ' selected' : '') + '>' + h + '時</option>';
     }
-    /* AMOC / PMOC */
-    ['AMOC', 'PMOC'].forEach(function(v) {
-      opts += '<option value="' + v + '"' + (selected === v ? ' selected' : '') + '>' + v + '</option>';
+    ['AM', 'PM'].forEach(function(v) {
+      opts += '<option value="' + v + '"' + (selH === v ? ' selected' : '') + '>' + v + '</option>';
     });
-    opts += '<option value="__free__"' + (selected === '__free__' ? ' selected' : '') + '>自由記述...</option>';
     return opts;
+  }
+  function makeTimeMinuteOpts(selM) {
+    var opts = '<option value="">--分</option>';
+    ['00','05','10','15','20','25','30','35','40','45','50','55'].forEach(function(m2) {
+      opts += '<option value="' + m2 + '"' + (selM === m2 ? ' selected' : '') + '>' + m2 + '分</option>';
+    });
+    opts += '<option value="OC"' + (selM === 'OC' ? ' selected' : '') + '>OC</option>';
+    return opts;
+  }
+  /* item.time の文字列 ⇔ {h,m} 相互変換（旧形式 8:15 / AMOC / PMOC も読める） */
+  function parseItemTime(t) {
+    if (!t || t === '__free__') return { h:'', m:'' };
+    if (t === 'AMOC') return { h:'AM', m:'OC' };
+    if (t === 'PMOC') return { h:'PM', m:'OC' };
+    var mm = /^([^:]*):(.*)$/.exec(t);
+    if (mm) return { h:mm[1], m:mm[2] };
+    return { h:t, m:'' };
+  }
+  function combineItemTime(h, m) {
+    if (!h && !m) return '';
+    if (h === 'AM' && m === 'OC') return 'AMOC';
+    if (h === 'PM' && m === 'OC') return 'PMOC';
+    return h + ':' + m;
   }
 
   /* ===== 術式/種別 複数行リスト ===== */
@@ -8833,6 +9250,7 @@ function buildOPS(ds,dat,locked) {
         /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
         var itemWrap = document.createElement('div');
         itemWrap.className = 'ops-item-wrap';
+        if (item.done) itemWrap.classList.add('ops-item-done');
         if (!locked) {
           itemWrap.draggable = true;
           itemWrap.setAttribute('data-item-idx', idx);
@@ -8902,16 +9320,34 @@ function buildOPS(ds,dat,locked) {
 
         row.appendChild(hierDiv); /* orderSelの後に追加されるので順序: dragHandle → orderSel → hierDiv */
 
-        /* 入室時間（オペのみ） */
-        var timeSelEl2=null,timeTxtEl2=null;
+        /* 入室時間（オペのみ）：カテのブリーフィングと同じ ○：△ 方式 */
         if(withTime){
-          var timeWrap=document.createElement('div'); timeWrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:2px';
+          var timeWrap=document.createElement('div'); timeWrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:2px;flex-wrap:wrap';
           var timeLbl=document.createElement('span'); timeLbl.textContent='⏱ 入室'; timeLbl.style.cssText='font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0';
-          timeSelEl2=document.createElement('select'); timeSelEl2.className='ops-sel'; timeSelEl2.style.flex='1'; timeSelEl2.disabled=!!locked; timeSelEl2.innerHTML=makeTimeOpts(item.time||'');
-          timeTxtEl2=document.createElement('input'); timeTxtEl2.type='text'; timeTxtEl2.className='ops-txt'; timeTxtEl2.style.flex='1'; timeTxtEl2.placeholder='時間を入力...'; timeTxtEl2.disabled=!!locked; timeTxtEl2.value=item.timeTxt||''; timeTxtEl2.style.display=item.time==='__free__'?'':'none';
-          timeWrap.appendChild(timeLbl); timeWrap.appendChild(timeSelEl2); timeWrap.appendChild(timeTxtEl2); hierDiv.appendChild(timeWrap);
-          if(!locked){(function(i2,tS,tT){tS.onchange=function(){items[i2].time=this.value;tT.style.display=this.value==='__free__'?'':'none';if(this.value!=='__free__')items[i2].timeTxt='';saveItems();};tT.oninput=function(){items[i2].timeTxt=this.value;saveItems();};})(idx,timeSelEl2,timeTxtEl2);}
+          var timeIsFree2=(item.time==='__free__');
+          var timeParsed2=parseItemTime(item.time||'');
+          var timeHourEl2=document.createElement('select'); timeHourEl2.className='ops-sel'; timeHourEl2.style.cssText='flex:1;min-width:60px'; timeHourEl2.disabled=!!locked; timeHourEl2.innerHTML=makeTimeHourOpts(timeParsed2.h); timeHourEl2.style.display=timeIsFree2?'none':'';
+          var timeColonEl2=document.createElement('span'); timeColonEl2.textContent=':'; timeColonEl2.style.cssText='font-size:13px;flex-shrink:0'; timeColonEl2.style.display=timeIsFree2?'none':'';
+          var timeMinEl2=document.createElement('select'); timeMinEl2.className='ops-sel'; timeMinEl2.style.cssText='flex:1;min-width:60px'; timeMinEl2.disabled=!!locked; timeMinEl2.innerHTML=makeTimeMinuteOpts(timeParsed2.m); timeMinEl2.style.display=timeIsFree2?'none':'';
+          var timeTxtEl2=document.createElement('input'); timeTxtEl2.type='text'; timeTxtEl2.className='ops-txt'; timeTxtEl2.style.flex='1'; timeTxtEl2.placeholder='時間を入力...'; timeTxtEl2.disabled=!!locked; timeTxtEl2.value=item.timeTxt||''; timeTxtEl2.style.display=timeIsFree2?'':'none';
+          var timeFreeBtn2=document.createElement('button'); timeFreeBtn2.type='button'; timeFreeBtn2.disabled=!!locked;
+          timeFreeBtn2.style.cssText='font-size:10px;padding:2px 6px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap;flex-shrink:0';
+          timeFreeBtn2.textContent=timeIsFree2?'一覧選択':'自由入力';
+          timeWrap.appendChild(timeLbl); timeWrap.appendChild(timeHourEl2); timeWrap.appendChild(timeColonEl2); timeWrap.appendChild(timeMinEl2); timeWrap.appendChild(timeTxtEl2); timeWrap.appendChild(timeFreeBtn2);
+          hierDiv.appendChild(timeWrap);
+          if(!locked){(function(i2,hEl,mEl,tEl,fBtn){
+            hEl.onchange=function(){items[i2].time=combineItemTime(this.value,mEl.value);saveItems();};
+            mEl.onchange=function(){items[i2].time=combineItemTime(hEl.value,this.value);saveItems();};
+            tEl.oninput=function(){items[i2].timeTxt=this.value;saveItems();};
+            fBtn.onclick=function(){items[i2].time=(items[i2].time==='__free__')?'':'__free__';saveItems();renderItems();};
+          })(idx,timeHourEl2,timeMinEl2,timeTxtEl2,timeFreeBtn2);}
         }
+
+        /* 業務終了トグルボタン */
+        var doneBtn=document.createElement('button'); doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
+        doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
+        if(!locked) doneBtn.onclick=(function(i2){return function(){opsToggleDone(items,i2);saveItems();renderItems();};})(idx);
+        row.appendChild(doneBtn);
 
         /* 削除ボタン */
         var delBtn=document.createElement('button'); delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除'; delBtn.type='button'; delBtn.disabled=!!locked;
@@ -8958,12 +9394,13 @@ function buildOPS(ds,dat,locked) {
         addBtn3.onclick=function(){items.push({dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]});saveItems();renderItems();};
         wrap.appendChild(addBtn3);
       }
+      updateOpsCardDoneBadge(cardEl, items);
     }
 
     function saveItems(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops[key]=JSON.parse(JSON.stringify(items));
-      saveD(); updateOpsHeader(ds);
+      saveDPage(ds); updateOpsHeader(ds);
     }
 
     renderItems();
@@ -9066,6 +9503,7 @@ function buildOPS(ds,dat,locked) {
         /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
         var itemWrap = document.createElement('div');
         itemWrap.className = 'ops-item-wrap';
+        if (item.done) itemWrap.classList.add('ops-item-done');
         if (!locked) {
           itemWrap.draggable = true;
           itemWrap.setAttribute('data-item-idx', idx);
@@ -9124,26 +9562,45 @@ function buildOPS(ds,dat,locked) {
           }
         }
 
-        /* 入室時間（flex:1）- オペのみ */
-        var timeSelEl, timeTxtEl;
+        /* 入室時間（flex:1）- オペのみ：カテのブリーフィングと同じ ○：△ 方式 */
+        var timeHourEl, timeMinEl, timeTxtEl, timeFreeBtn;
         if (withTime) {
           var timeWrap = document.createElement('div');
-          timeWrap.style.cssText = 'flex:1;display:flex;gap:4px';
+          timeWrap.style.cssText = 'flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center';
 
-          timeSelEl = document.createElement('select');
-          timeSelEl.className = 'ops-sel';
-          timeSelEl.style.flex = '1';
-          timeSelEl.disabled = !!locked;
-          timeSelEl.innerHTML = makeTimeOpts(item.time||'');
+          var timeIsFree = (item.time === '__free__');
+          var timeParsed = parseItemTime(item.time||'');
+
+          timeHourEl = document.createElement('select');
+          timeHourEl.className = 'ops-sel'; timeHourEl.style.cssText='flex:1;min-width:60px'; timeHourEl.disabled=!!locked;
+          timeHourEl.innerHTML = makeTimeHourOpts(timeParsed.h);
+          timeHourEl.style.display = timeIsFree ? 'none' : '';
+
+          var timeColonEl = document.createElement('span');
+          timeColonEl.textContent = ':'; timeColonEl.style.cssText = 'font-size:13px;flex-shrink:0';
+          timeColonEl.style.display = timeIsFree ? 'none' : '';
+
+          timeMinEl = document.createElement('select');
+          timeMinEl.className = 'ops-sel'; timeMinEl.style.cssText='flex:1;min-width:60px'; timeMinEl.disabled=!!locked;
+          timeMinEl.innerHTML = makeTimeMinuteOpts(timeParsed.m);
+          timeMinEl.style.display = timeIsFree ? 'none' : '';
 
           timeTxtEl = document.createElement('input');
           timeTxtEl.type='text'; timeTxtEl.className='ops-txt'; timeTxtEl.style.flex='1';
           timeTxtEl.placeholder='時間を入力...'; timeTxtEl.disabled=!!locked;
           timeTxtEl.value = item.timeTxt||'';
-          timeTxtEl.style.display = item.time==='__free__' ? '' : 'none';
+          timeTxtEl.style.display = timeIsFree ? '' : 'none';
 
-          timeWrap.appendChild(timeSelEl);
+          timeFreeBtn = document.createElement('button');
+          timeFreeBtn.type='button'; timeFreeBtn.disabled=!!locked;
+          timeFreeBtn.style.cssText='font-size:10px;padding:2px 6px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap;flex-shrink:0';
+          timeFreeBtn.textContent = timeIsFree ? '一覧選択' : '自由入力';
+
+          timeWrap.appendChild(timeHourEl);
+          timeWrap.appendChild(timeColonEl);
+          timeWrap.appendChild(timeMinEl);
           timeWrap.appendChild(timeTxtEl);
+          timeWrap.appendChild(timeFreeBtn);
           row.appendChild(timeWrap);
         }
 
@@ -9233,6 +9690,13 @@ function buildOPS(ds,dat,locked) {
           supRow.appendChild(supInp);
         }
 
+        /* 業務終了トグルボタン */
+        var doneBtn = document.createElement('button');
+        doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
+        doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
+        if(!locked) doneBtn.onclick=(function(i2){return function(){opsToggleDone(items,i2);saveItems();renderItems();};})(idx);
+        row.appendChild(doneBtn);
+
         /* 削除ボタン */
         var delBtn = document.createElement('button');
         delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除';
@@ -9244,7 +9708,7 @@ function buildOPS(ds,dat,locked) {
         wrap.appendChild(itemWrap);
 
         if(!locked) {
-          (function(idx2, selEl2, txtEl2, timeSelEl2, timeTxtEl2, delBtn2){
+          (function(idx2, selEl2, txtEl2, timeHourEl2, timeMinEl2, timeTxtEl2, timeFreeBtn2, delBtn2){
             selEl2.onchange = function(){
               items[idx2].sel = this.value;
               txtEl2.style.display = this.value==='__free__' ? '' : 'none';
@@ -9252,21 +9716,18 @@ function buildOPS(ds,dat,locked) {
               saveItems();
             };
             txtEl2.oninput = function(){ items[idx2].txt=this.value; saveItems(); };
-            if (timeSelEl2) {
-              timeSelEl2.onchange = function(){
-                items[idx2].time = this.value;
-                timeTxtEl2.style.display = this.value==='__free__' ? '' : 'none';
-                if(this.value!=='__free__') items[idx2].timeTxt='';
-                saveItems();
-              };
+            if (timeHourEl2) {
+              timeHourEl2.onchange = function(){ items[idx2].time = combineItemTime(this.value, timeMinEl2.value); saveItems(); };
+              timeMinEl2.onchange = function(){ items[idx2].time = combineItemTime(timeHourEl2.value, this.value); saveItems(); };
               timeTxtEl2.oninput = function(){ items[idx2].timeTxt=this.value; saveItems(); };
+              timeFreeBtn2.onclick = function(){ items[idx2].time = (items[idx2].time==='__free__') ? '' : '__free__'; saveItems(); renderItems(); };
             }
             delBtn2.onclick = function(){
               if(items.length<=1){ items[0]={sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]}; }
               else { items.splice(idx2,1); }
               saveItems(); renderItems();
             };
-          })(idx, selEl, txtEl, timeSelEl||null, timeTxtEl||null, delBtn);
+          })(idx, selEl, txtEl, timeHourEl||null, timeMinEl||null, timeTxtEl||null, timeFreeBtn||null, delBtn);
         }
       });
 
@@ -9281,12 +9742,13 @@ function buildOPS(ds,dat,locked) {
         };
         wrap.appendChild(addBtn);
       }
+      updateOpsCardDoneBadge(cardEl, items);
     }
 
     function saveItems(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops[key] = JSON.parse(JSON.stringify(items));
-      saveD();
+      saveDPage(ds);
     }
 
     renderItems();
@@ -9470,13 +9932,13 @@ function buildOPS(ds,dat,locked) {
       if(!D.pages[ds].ops)D.pages[ds].ops={};
       D.pages[ds].ops[key2]=v;
       clearTimeout(_bindTimers[key2]);
-      _bindTimers[key2]=setTimeout(function(){saveD();updateOpsHeader(ds);},600);
+      _bindTimers[key2]=setTimeout(function(){saveDPage(ds);updateOpsHeader(ds);},600);
       updateOpsHeader(ds);
     };
     el.onchange=function(){
       if(!D.pages[ds].ops)D.pages[ds].ops={};
       D.pages[ds].ops[key2]=this.value;
-      saveD(); updateOpsHeader(ds);
+      saveDPage(ds); updateOpsHeader(ds);
     };
   }
   /* bind処理：sfxなし・sfxありの両方を試みる（存在する方のみ有効） */
@@ -9496,12 +9958,12 @@ function buildOPS(ds,dat,locked) {
         if(!D.pages[ds].ops)D.pages[ds].ops={};
         D.pages[ds].ops['free_'+uid2]=this.value;
         clearTimeout(_bindTimers['free_'+uid2]);
-        _bindTimers['free_'+uid2]=setTimeout(saveD,600);
+        _bindTimers['free_'+uid2]=setTimeout(function(){saveDPage(ds);},600);
       };
       el2.onchange=function(){
         if(!D.pages[ds].ops)D.pages[ds].ops={};
         D.pages[ds].ops['free_'+uid2]=this.value;
-        saveD();
+        saveDPage(ds);
       };
     })(freeFlds[fi]);
   }
@@ -9516,7 +9978,7 @@ function buildOPS(ds,dat,locked) {
     fusenCb.onchange = function(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops.psg_fusen = this.checked;
-      saveD();
+      saveDPage(ds);
       checkPsgFusen(ds);
     };
   }
@@ -9530,12 +9992,12 @@ function buildOPS(ds,dat,locked) {
         if(!D.pages[ds].ops)D.pages[ds].ops={};
         D.pages[ds].ops['free_'+uid2]=this.value;
         clearTimeout(_bindTimers['free_'+uid2]);
-        _bindTimers['free_'+uid2]=setTimeout(saveD,600);
+        _bindTimers['free_'+uid2]=setTimeout(function(){saveDPage(ds);},600);
       };
       el2.onchange=function(){
         if(!D.pages[ds].ops)D.pages[ds].ops={};
         D.pages[ds].ops['free_'+uid2]=this.value;
-        saveD();
+        saveDPage(ds);
       };
     })(freeFlds[fi]);
   }
@@ -9544,7 +10006,7 @@ function buildOPS(ds,dat,locked) {
     fusenCb.onchange = function(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
       D.pages[ds].ops.psg_fusen = this.checked;
-      saveD();
+      saveDPage(ds);
       checkPsgFusen(ds);
     };
   }
@@ -9707,35 +10169,39 @@ function getUidByName(name, cb) {
     cb(uid);
   });
 }
+function sendNotificationToUid(uid, dispName, title, body, type) {
+  if (!FB_ON || !fbDB || !uid) return;
+  fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
+  sendFCMPush(uid, title, body);
+  var cfg = D.emailjsCfg;
+  if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
+    fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
+      var email = s.val();
+      if (!email) { console.warn('[通知] メールアドレス未登録 uid:', uid); return; }
+      console.log('[通知] EmailJS送信開始 →', email);
+      try {
+        emailjs.init(cfg.publicKey);
+        emailjs.send(cfg.serviceId, cfg.templateId, {
+          to_email: email, to_name: dispName, subject: title, message: body
+        }).then(function(res) {
+          console.log('[通知] EmailJS送信成功:', res.status, res.text);
+        }).catch(function(err) {
+          console.error('[通知] EmailJS送信失敗:', err);
+        });
+      } catch(e) { console.error('[通知] EmailJS例外:', e); }
+    });
+  } else {
+    console.warn('[通知] EmailJS未設定 — マスタタブで設定してください');
+  }
+  if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
+  }
+}
 function sendNotification(targetName, title, body, type) {
   if (!FB_ON || !fbDB) return;
   getUidByName(targetName, function(uid) {
     if (!uid) { console.warn('[通知] UID未解決 — スタッフ名簿に紐付けてください:', targetName); return; }
-    fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
-    sendFCMPush(uid, title, body);
-    var cfg = D.emailjsCfg;
-    if (cfg && cfg.publicKey && cfg.serviceId && cfg.templateId) {
-      fbDB.ref('/users/' + uid + '/email').once('value', function(s) {
-        var email = s.val();
-        if (!email) { console.warn('[通知] メールアドレス未登録 uid:', uid); return; }
-        console.log('[通知] EmailJS送信開始 →', email);
-        try {
-          emailjs.init(cfg.publicKey);
-          emailjs.send(cfg.serviceId, cfg.templateId, {
-            to_email: email, to_name: targetName, subject: title, message: body
-          }).then(function(res) {
-            console.log('[通知] EmailJS送信成功:', res.status, res.text);
-          }).catch(function(err) {
-            console.error('[通知] EmailJS送信失敗:', err);
-          });
-        } catch(e) { console.error('[通知] EmailJS例外:', e); }
-      });
-    } else {
-      console.warn('[通知] EmailJS未設定 — マスタタブで設定してください');
-    }
-    if (uid === (currentUser && currentUser.uid) && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-      try { new Notification(title, { body: body, icon: 'icon-192.svg' }); } catch(e) {}
-    }
+    sendNotificationToUid(uid, targetName, title, body, type);
   });
 }
 function sendAdminNotification(title, body) {
@@ -10075,14 +10541,14 @@ function mkCk(ds,idx,task,dat,locked) {
         if(!D.pages[ds].checks)D.pages[ds].checks={};
         D.pages[ds].checks[idx]=cb.checked;
         div.classList.toggle('dn',cb.checked);
-        saveD(); updProg(ds);
+        saveDPage(ds); updProg(ds);
         writeLog(cb.checked?'チェック完了':'チェック解除', fmtJ(ds)+' '+task);
       }
       cb.onchange=function(){
         if(!D.pages[ds].checks)D.pages[ds].checks={};
         D.pages[ds].checks[idx]=cb.checked;
         div.classList.toggle('dn',cb.checked);
-        saveD(); updProg(ds);
+        saveDPage(ds); updProg(ds);
         writeLog(cb.checked?'チェック完了':'チェック解除', fmtJ(ds)+' '+task);
       };
       div.onclick=function(e){
@@ -10448,8 +10914,8 @@ function exportOpsCsv() {
     if (!pg) continue;
     var ops = pg.ops||{};
     var opeN=0,cathN=0,mwN=0,psgN=0,freeN=0;
-    if(ops.ope_items)  ops.ope_items.forEach(function(it){if(it.sel||it.txt)opeN++;});
-    if(ops.cath_items) ops.cath_items.forEach(function(it){if(it.sel||it.txt)cathN++;});
+    if(ops.ope_items)  ops.ope_items.forEach(function(it){if(opsItemFilled(it))opeN++;});
+    if(ops.cath_items) ops.cath_items.forEach(function(it){if(opsItemFilled(it))cathN++;});
     if(ops.mw_n) mwN=parseInt(ops.mw_n)||0;
     if(ops.psg_on) psgN=1;
     Object.keys(ops).forEach(function(k){if(k.indexOf('free_')===0&&ops[k])freeN++;});
@@ -10703,7 +11169,7 @@ function schedAddBlock(ds,staff,presetIdx,startMin){
   var end=Math.min(SCHED_END,start+(p.dur||60));
   if(end<=start) end=Math.min(SCHED_END,start+SCHED_SLOT);
   dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
-  saveD();
+  saveDPage(ds);
   writeLog('スケジュール追加',fmtJ(ds)+' '+staff+' '+label+' '+schedMinToHM(start));
   renderSched();
 }
@@ -10727,7 +11193,7 @@ function schedImportDuties(){
     dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*10000)+i,staff:name,label:slot.label,start:start,end:end,color:def.color});
     added++;
   }
-  saveD();
+  saveDPage(ds);
   writeLog('スケジュール業務取込',fmtJ(ds)+' '+added+'件');
   renderSched();
   if(!added) alert('追加する新しい業務割当はありませんでした。');
@@ -10738,7 +11204,7 @@ function schedClear(){
   if(!dat.schedule||!dat.schedule.length) return;
   if(!confirm(fmtJ(ds)+' のスケジュールをすべて消去しますか？')) return;
   dat.schedule=[];
-  saveD();
+  saveDPage(ds);
   writeLog('スケジュール全消去',fmtJ(ds));
   renderSched();
 }
@@ -10754,7 +11220,7 @@ function schedBindInteractions(ds){
       e.stopPropagation();
       var id=x.getAttribute('data-del');
       dat.schedule=dat.schedule.filter(function(b){return b.id!==id;});
-      saveD(); writeLog('スケジュール削除',fmtJ(ds)); renderSched();
+      saveDPage(ds); writeLog('スケジュール削除',fmtJ(ds)); renderSched();
     });
   });
 
@@ -10821,7 +11287,7 @@ function schedBindInteractions(ds){
       function onUp(ev){
         document.removeEventListener('pointermove',onMove);
         document.removeEventListener('pointerup',onUp);
-        if(moved){ saveD(); renderSched(); }
+        if(moved){ saveDPage(ds); renderSched(); }
       }
       document.addEventListener('pointermove',onMove);
       document.addEventListener('pointerup',onUp);
@@ -10984,20 +11450,71 @@ function updateBoardBadge() {
   }
 }
 
+var BOARD_TAGS = {
+  info: { emoji:'📢', label:'お知らせ', color:'var(--ac)' },
+  req:  { emoji:'🙏', label:'依頼',     color:'var(--or)' },
+  etc:  { emoji:'💬', label:'その他',   color:'var(--txt3)' }
+};
+
 function renderBoard() {
   var el = document.getElementById('board-list');
   if (!el) return;
   var readTs = getBoardReadTs();
-  var posts = Object.keys(_boardData).map(function(id) {
+  /* 既読マーク：ログイン中ユーザーの既読がまだ無い投稿に記録する（無ければ書き込み、あれば何もしない＝無限ループ防止） */
+  if (currentUser) {
+    Object.keys(_boardData).forEach(function(id) {
+      var p = _boardData[id];
+      if (!p) return;
+      if (!p.reads) p.reads = {};
+      if (!p.reads[currentUser.uid]) {
+        var robj = { n: currentUser.displayName || currentUser.email, ts: Date.now() };
+        p.reads[currentUser.uid] = robj; /* 今回の描画に反映されるようローカルへ即時反映 */
+        if (FB_ON && fbDB) {
+          fbDB.ref('/board/' + id + '/reads/' + currentUser.uid).set(robj).catch(function(){});
+        }
+      }
+    });
+  }
+  /* 期限切れピンのクリーンアップ（管理者のみ・Firebase接続時）：pinがtrueの投稿のみ書き戻すのでループしない */
+  if (isAdmin && FB_ON && fbDB) {
+    Object.keys(_boardData).forEach(function(id) {
+      var pd = _boardData[id];
+      if (pd && pd.pin && pd.pinUntil && pd.pinUntil <= Date.now()) {
+        fbDB.ref('/board/' + id + '/pin').set(false).catch(function(){});
+      }
+    });
+  }
+  var allPosts = Object.keys(_boardData).map(function(id) {
     return Object.assign({ _id: id }, _boardData[id]);
   });
-  /* ピン留め → 新しい順 */
-  posts.sort(function(a, b) {
-    if (!!b.pin !== !!a.pin) return b.pin ? 1 : -1;
+  /* ピン留め（有効期限内のもののみ）→ 新しい順 */
+  allPosts.sort(function(a, b) {
+    var ap = boardPinActive(a), bp = boardPinActive(b);
+    if (ap !== bp) return bp ? 1 : -1;
     return (b.ts || 0) - (a.ts || 0);
   });
+  /* フィルタチップ行 */
+  var filterDefs = [
+    { id:'all', label:'すべて' },
+    { id:'info', label:'📢お知らせ' },
+    { id:'req', label:'🙏依頼' },
+    { id:'etc', label:'💬その他' },
+    { id:'unresolved', label:'未解決のみ' }
+  ];
+  var filterHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' + filterDefs.map(function(f) {
+    return '<button class="btn ' + (_boardFilter === f.id ? 'btn-p' : 'btn-g') + ' btn-sm" style="font-size:11px;padding:3px 9px" onclick="setBoardFilter(\'' + f.id + '\')">' + f.label + '</button>';
+  }).join('') + '</div>';
+  if (!allPosts.length) {
+    el.innerHTML = filterHtml + '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:30px 10px">投稿はまだありません</div>';
+    return;
+  }
+  var posts = allPosts.filter(function(p) {
+    if (_boardFilter === 'all') return true;
+    if (_boardFilter === 'unresolved') return p.tag === 'req' && !p.resolved;
+    return (p.tag || 'etc') === _boardFilter;
+  });
   if (!posts.length) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:30px 10px">投稿はまだありません</div>';
+    el.innerHTML = filterHtml + '<div style="font-size:12px;color:var(--txt3);text-align:center;padding:30px 10px">該当する投稿はありません</div>';
     return;
   }
   var html = '';
@@ -11007,18 +11524,75 @@ function renderBoard() {
     var canDel = isAdmin || isMine;
     var canPin = isAdmin;
     var dt = p.ts ? fmtDT(p.ts) : '';
-    html += '<div class="brd-post' + (p.pin ? ' pin' : '') + '" id="bpost-' + p._id + '">';
+    var canResolve = p.tag === 'req' && (isAdmin || isMine);
+    var pinActive = boardPinActive(p);
+    html += '<div class="brd-post' + (pinActive ? ' pin' : '') + (p.resolved ? ' resolved' : '') + '" id="bpost-' + p._id + '">';
     html += '<div class="brd-meta">';
-    if (p.pin) html += '<span style="color:var(--or);font-weight:700">📌</span>';
+    if (pinActive) {
+      var pinLabel = '📌';
+      if (p.pinUntil) { var pd2 = new Date(p.pinUntil); pinLabel += ' 〜' + (pd2.getMonth()+1) + '/' + pd2.getDate(); }
+      html += '<span style="color:var(--or);font-weight:700">' + pinLabel + '</span>';
+    }
     if (isNew) html += '<span style="color:var(--rd);font-weight:700;font-size:10px">NEW</span>';
+    if (p.tag && BOARD_TAGS[p.tag]) {
+      var tg = BOARD_TAGS[p.tag];
+      html += '<span style="font-size:10px;font-weight:700;color:#fff;background:' + tg.color + ';border-radius:4px;padding:1px 6px">' + tg.emoji + ' ' + tg.label + '</span>';
+    }
+    if (p.resolved) html += '<span style="color:var(--gr);font-weight:700;font-size:10px">✅解決済み</span>';
     html += '<span style="font-weight:600;color:var(--txt1)">' + esc(p.author || '匿名') + '</span>';
     html += '<span>' + dt + '</span>';
     html += '</div>';
     html += '<div class="brd-text">' + esc(p.text || '') + '</div>';
+    /* 添付画像 */
+    var pMedia = p.media ? (Array.isArray(p.media) ? p.media : Object.keys(p.media).map(function(k){ return p.media[k]; })) : [];
+    if (pMedia.length) {
+      html += '<div class="brd-media">';
+      pMedia.forEach(function(med, mi) {
+        if (!med) return;
+        /* 承認待ち：一般ユーザーにはプレースホルダーのみ */
+        if (med.pending && !isAdmin) {
+          html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + esc(med.name || '') + '</span></div>';
+          return;
+        }
+        var src = esc(med.url || med.data || '');
+        html += '<div class="media-cell">';
+        html += '<img src="' + src + '" alt="' + esc(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
+        if (med.pending) {
+          html += '<span class="media-pend-badge">承認待ち</span>';
+          if (isAdmin) {
+            html += '<div class="media-actions">'
+              + '<button class="media-appr" onclick="approveBoardMedia(\'' + p._id + '\',' + mi + ')">✅承認</button>'
+              + '<button class="media-rej" onclick="rejectBoardMedia(\'' + p._id + '\',' + mi + ')">🗑却下</button>'
+              + '</div>';
+          }
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    /* 既読リスト（投稿者本人はカウントに含めない） */
+    var readList = [];
+    var readCount = 0;
+    if (p.reads) {
+      Object.keys(p.reads).forEach(function(uid) {
+        var r = p.reads[uid];
+        if (!r) return;
+        readList.push({ uid: uid, n: r.n, ts: r.ts });
+        if (!(p.uid && uid === p.uid)) readCount++;
+      });
+      readList.sort(function(a, b){ return (a.ts || 0) - (b.ts || 0); });
+    }
     html += '<div class="brd-acts">';
     html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardReply(\'' + p._id + '\')">💬 返信</button>';
-    if (canPin) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="pinBoard(\'' + p._id + '\',' + (!p.pin) + ')">' + (p.pin ? '📌解除' : '📌留め') + '</button>';
+    if (canPin) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="pinBoard(\'' + p._id + '\',' + (!pinActive) + ')">' + (pinActive ? '📌解除' : '📌留め') + '</button>';
+    if (canResolve) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardResolved(\'' + p._id + '\',' + (!p.resolved) + ')">' + (p.resolved ? '解決を取消' : '✅解決') + '</button>';
     if (canDel) html += '<button class="btn btn-d btn-sm" style="font-size:11px;padding:2px 8px" onclick="deleteBoard(\'' + p._id + '\')">削除</button>';
+    html += '<span class="brd-read-toggle" style="margin-left:auto;font-size:11px;color:var(--txt3);cursor:pointer;user-select:none" onclick="toggleBoardReads(\'' + p._id + '\')">👀 ' + readCount + '</span>';
+    html += '</div>';
+    html += '<div id="brd-reads-' + p._id + '" style="display:none;font-size:11px;color:var(--txt3);margin-top:4px;padding:6px 8px;background:var(--sur);border-radius:6px;line-height:1.7">';
+    html += readList.length
+      ? readList.map(function(r){ return esc(r.n) + '（' + fmtDT(r.ts) + '）'; }).join('<br>')
+      : 'まだ既読はありません';
     html += '</div>';
     /* 返信 */
     var replies = p.replies ? Object.keys(p.replies).map(function(rid) {
@@ -11032,19 +11606,55 @@ function renderBoard() {
         html += '<div class="brd-meta" style="margin-bottom:3px"><span style="font-weight:600;color:var(--txt1)">' + esc(r.author||'匿名') + '</span><span>' + fmtDT(r.ts) + '</span>';
         if (isAdmin || rMine) html += '<button class="btn btn-d btn-sm" style="font-size:10px;padding:1px 6px;margin-left:auto" onclick="deleteReply(\'' + p._id + '\',\'' + r._rid + '\')">削除</button>';
         html += '</div>';
-        html += '<div class="brd-rtext">' + esc(r.text||'') + '</div>';
+        if (r.text) html += '<div class="brd-rtext">' + esc(r.text) + '</div>';
+        /* 返信への添付画像 */
+        var rMedia = _boardMediaArr(r);
+        if (rMedia.length) {
+          html += '<div class="brd-media">';
+          rMedia.forEach(function(med, mi) {
+            if (!med) return;
+            if (med.pending && !isAdmin) {
+              html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + esc(med.name || '') + '</span></div>';
+              return;
+            }
+            var src = esc(med.url || med.data || '');
+            html += '<div class="media-cell">';
+            html += '<img src="' + src + '" alt="' + esc(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
+            if (med.pending) {
+              html += '<span class="media-pend-badge">承認待ち</span>';
+              if (isAdmin) {
+                html += '<div class="media-actions">'
+                  + '<button class="media-appr" onclick="approveBoardReplyMedia(\'' + p._id + '\',\'' + r._rid + '\',' + mi + ')">✅承認</button>'
+                  + '<button class="media-rej" onclick="rejectBoardReplyMedia(\'' + p._id + '\',\'' + r._rid + '\',' + mi + ')">🗑却下</button>'
+                  + '</div>';
+              }
+            }
+            html += '</div>';
+          });
+          html += '</div>';
+        }
         html += '</div>';
       });
       html += '</div>';
     }
     /* 返信入力欄（非表示デフォルト） */
     html += '<div id="brd-reply-form-' + p._id + '" style="display:none;margin-top:6px">';
+    html += '<div class="memo-media-preview" id="board-reply-media-preview-' + p._id + '"></div>';
     html += '<textarea class="brd-ri" rows="2" placeholder="返信を入力…" id="brd-ri-' + p._id + '"></textarea>';
-    html += '<div style="display:flex;justify-content:flex-end;margin-top:4px"><button class="btn btn-p btn-sm" style="font-size:11px" onclick="postBoardReply(\'' + p._id + '\')">返信</button></div>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">';
+    html += '<label class="memo-media-btn">📎 画像<input type="file" accept="image/*" multiple style="display:none" onchange="onBoardReplyMediaAdd(this,\'' + p._id + '\')"></label>';
+    html += '<button class="btn btn-p btn-sm" style="font-size:11px" onclick="postBoardReply(\'' + p._id + '\')">返信</button>';
+    html += '</div>';
     html += '</div>';
     html += '</div>';
   });
-  el.innerHTML = html;
+  el.innerHTML = filterHtml + html;
+}
+
+var _boardFilter = 'all';
+function setBoardFilter(f) {
+  _boardFilter = f;
+  renderBoard();
 }
 
 function esc(s) {
@@ -11061,12 +11671,140 @@ function toggleBoardReply(id) {
   if (!f) return;
   var shown = f.style.display !== 'none';
   f.style.display = shown ? 'none' : '';
+  /* 開閉のたびにそのpostの画像バッファをクリア */
+  _boardReplyMediaBuf[id] = [];
+  renderBoardReplyMediaPreview(id);
   if (!shown) { var ti = document.getElementById('brd-ri-' + id); if(ti) ti.focus(); }
+}
+
+function toggleBoardReads(id) {
+  var el = document.getElementById('brd-reads-' + id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+/* 掲示板用の一時メディアバッファ（画像のみ） */
+var _boardMediaBuf = [];
+
+function onBoardMediaAdd(input) {
+  var files = Array.prototype.slice.call(input.files);
+  if (!files.length) return;
+  var pending = files.length;
+  files.forEach(function(file) {
+    if (!file.type.startsWith('image/')) {
+      alert(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。');
+      pending--;
+      if (pending === 0) renderBoardMediaPreview();
+      return;
+    }
+    compressImage(file, function(dataUrl, blob) {
+      var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
+      _boardMediaBuf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
+      pending--;
+      if (pending === 0) renderBoardMediaPreview();
+    });
+  });
+  input.value = '';
+}
+
+function renderBoardMediaPreview() {
+  var wrap = document.getElementById('board-media-preview');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _boardMediaBuf.forEach(function(m, idx) {
+    var item = document.createElement('div'); item.className = 'memo-media-prev-item';
+    var img = document.createElement('img'); img.src = m.previewSrc || m.data; item.appendChild(img);
+    var del = document.createElement('button'); del.className = 'memo-media-prev-del'; del.textContent = '×';
+    del.onclick = function() {
+      if (m.previewSrc && m.previewSrc.startsWith('blob:')) URL.revokeObjectURL(m.previewSrc);
+      _boardMediaBuf.splice(idx, 1); renderBoardMediaPreview();
+    };
+    item.appendChild(del);
+    wrap.appendChild(item);
+  });
+}
+
+/* 返信用の一時メディアバッファ（画像のみ、postIdキー） */
+var _boardReplyMediaBuf = {};
+
+function onBoardReplyMediaAdd(input, postId) {
+  var files = Array.prototype.slice.call(input.files);
+  if (!files.length) return;
+  if (!_boardReplyMediaBuf[postId]) _boardReplyMediaBuf[postId] = [];
+  var buf = _boardReplyMediaBuf[postId];
+  var pending = files.length;
+  files.forEach(function(file) {
+    if (!file.type.startsWith('image/')) {
+      alert(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。');
+      pending--;
+      if (pending === 0) renderBoardReplyMediaPreview(postId);
+      return;
+    }
+    compressImage(file, function(dataUrl, blob) {
+      var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
+      buf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
+      pending--;
+      if (pending === 0) renderBoardReplyMediaPreview(postId);
+    });
+  });
+  input.value = '';
+}
+
+function renderBoardReplyMediaPreview(postId) {
+  var wrap = document.getElementById('board-reply-media-preview-' + postId);
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  var buf = _boardReplyMediaBuf[postId] || [];
+  buf.forEach(function(m, idx) {
+    var item = document.createElement('div'); item.className = 'memo-media-prev-item';
+    var img = document.createElement('img'); img.src = m.previewSrc || m.data; item.appendChild(img);
+    var del = document.createElement('button'); del.className = 'memo-media-prev-del'; del.textContent = '×';
+    del.onclick = function() {
+      if (m.previewSrc && m.previewSrc.startsWith('blob:')) URL.revokeObjectURL(m.previewSrc);
+      buf.splice(idx, 1); renderBoardReplyMediaPreview(postId);
+    };
+    item.appendChild(del);
+    wrap.appendChild(item);
+  });
 }
 
 function _doPostBoard(text) {
   if (!currentUser) { alert('ログインが必要です'); return; }
-  var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false };
+  var tagSel = document.getElementById('board-tag-sel');
+  var tag = (tagSel && tagSel.value) || 'etc';
+  var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false, tag: tag };
+  var buf = _boardMediaBuf.slice();
+  var btn = document.getElementById('board-post-btn');
+  if (!buf.length) { _finishPostBoard(post, text, btn); return; }
+
+  /* 画像あり → Storageへアップロードしてから投稿 */
+  if (btn) { btn.disabled = true; btn.textContent = '送信中...'; }
+  post.media = [];
+  var pending = buf.length;
+  buf.forEach(function(m, idx) {
+    var path = 'board/' + post.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+      if (!url && !fallback) {
+        /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
+        pending--;
+        if (pending === 0) _finishPostBoard(post, text, btn);
+        return;
+      }
+      post.media.push({
+        type:        'image',
+        name:        m.name,
+        url:         url || fallback,     /* StorageURL or base64 */
+        storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
+        data:        null,
+        pending:     !isAdmin             /* 非管理者の投稿は管理者承認待ち */
+      });
+      pending--;
+      if (pending === 0) _finishPostBoard(post, text, btn);
+    });
+  });
+}
+
+function _finishPostBoard(post, text, btn) {
   if (FB_ON && fbDB) {
     fbDB.ref('/board').push(post).catch(function(e){ alert('投稿エラー: '+e.message); });
   } else {
@@ -11076,27 +11814,111 @@ function _doPostBoard(text) {
   }
   var inp = document.getElementById('board-input');
   if (inp) inp.value = '';
-  if(FB_ON) writeLog('掲示板投稿', text.substring(0,30));
+  var tagSel = document.getElementById('board-tag-sel');
+  if (tagSel) tagSel.value = 'etc';
+  _boardMediaBuf.forEach(function(m){ if (m.previewSrc && m.previewSrc.startsWith('blob:')) URL.revokeObjectURL(m.previewSrc); });
+  _boardMediaBuf = [];
+  renderBoardMediaPreview();
+  if (btn) { btn.disabled = false; btn.textContent = '投稿'; }
+  if(FB_ON) writeLog('掲示板投稿', (text || '[画像]').substring(0,30));
+  updatePendingBadge();
+  if (post.media && post.media.some(function(m){ return m.pending; })) {
+    alert('画像は管理者の承認後に表示されます。');
+    sendAdminNotification('🕓 承認依頼: ' + post.author + 'さんが掲示板に画像を投稿しました', (text || '').slice(0,50));
+  }
 }
+
 function postBoard() {
   var inp = document.getElementById('board-input');
   if (!inp) return;
   var text = inp.value.trim();
-  if (!text) return;
-  var phiRes = detectPHI(text);
-  if (phiRes.red.length || phiRes.yellow.length) {
-    showPHIPopup({ result: phiRes, mode: 'memo',
-      onProceed: function() { _doPostBoard(text); },
-      onFix: function() { if(inp) inp.focus(); }
-    });
-    return;
+  if (!text && !_boardMediaBuf.length) return;
+  if (text) {
+    var phiRes = detectPHI(text);
+    if (phiRes.red.length || phiRes.yellow.length) {
+      showPHIPopup({ result: phiRes, mode: 'memo',
+        onProceed: function() { _doPostBoard(text); },
+        onFix: function() { if(inp) inp.focus(); }
+      });
+      return;
+    }
   }
   _doPostBoard(text);
+}
+
+/* ===== 掲示板メディア承認（管理者のみ） ===== */
+function _boardMediaArr(p) {
+  if (!p || !p.media) return [];
+  return Array.isArray(p.media) ? p.media : Object.keys(p.media).map(function(k){ return p.media[k]; });
+}
+function approveBoardMedia(id, mi) {
+  if (!isAdmin) return;
+  var p = _boardData[id]; if (!p) return;
+  var media = _boardMediaArr(p);
+  if (!media[mi]) return;
+  media[mi].pending = false;
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    renderBoard();
+  }
+  writeLog('メディア承認', '掲示板 ' + (media[mi].name || ''));
+  updatePendingBadge();
+}
+function rejectBoardMedia(id, mi) {
+  if (!isAdmin) return;
+  var p = _boardData[id]; if (!p) return;
+  var media = _boardMediaArr(p);
+  if (!media[mi]) return;
+  if (!confirm('この画像を却下（削除）しますか？')) return;
+  var med = media[mi];
+  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
+  media.splice(mi, 1);
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    p.media = media;
+    renderBoard();
+  }
+  writeLog('メディア却下', '掲示板 ' + (med.name || ''));
+  updatePendingBadge();
 }
 
 function _doPostBoardReply(postId, text) {
   if (!currentUser) { alert('ログインが必要です'); return; }
   var reply = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text };
+  var buf = (_boardReplyMediaBuf[postId] || []).slice();
+  var btn = document.querySelector('#brd-reply-form-' + postId + ' .btn-p');
+  if (!buf.length) { _finishPostBoardReply(postId, reply, btn); return; }
+
+  /* 画像あり → Storageへアップロードしてから返信 */
+  if (btn) { btn.disabled = true; btn.textContent = '送信中...'; }
+  reply.media = [];
+  var pending = buf.length;
+  buf.forEach(function(m, idx) {
+    var path = 'board/reply_' + reply.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+      if (!url && !fallback) {
+        /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
+        pending--;
+        if (pending === 0) _finishPostBoardReply(postId, reply, btn);
+        return;
+      }
+      reply.media.push({
+        type:        'image',
+        name:        m.name,
+        url:         url || fallback,
+        storagePath: url ? path : null,
+        data:        null,
+        pending:     !isAdmin
+      });
+      pending--;
+      if (pending === 0) _finishPostBoardReply(postId, reply, btn);
+    });
+  });
+}
+
+function _finishPostBoardReply(postId, reply, btn) {
   if (FB_ON && fbDB) {
     fbDB.ref('/board/' + postId + '/replies').push(reply).catch(function(e){ alert('返信エラー: '+e.message); });
   } else {
@@ -11106,28 +11928,82 @@ function _doPostBoardReply(postId, text) {
   }
   var inp = document.getElementById('brd-ri-' + postId);
   if (inp) inp.value = '';
+  _boardReplyMediaBuf[postId] = [];
   var f = document.getElementById('brd-reply-form-' + postId);
   if (f) f.style.display = 'none';
-  if(FB_ON) writeLog('掲示板返信', text.substring(0,30));
+  if (btn) { btn.disabled = false; btn.textContent = '返信'; }
+  if(FB_ON) writeLog('掲示板返信', (reply.text || '[画像]').substring(0,30));
+  updatePendingBadge();
+  if (reply.media && reply.media.some(function(m){ return m.pending; })) {
+    alert('画像は管理者の承認後に表示されます。');
+    sendAdminNotification('🕓 承認依頼: ' + reply.author + 'さんが掲示板に画像を投稿しました', (reply.text || '').slice(0,50));
+  }
 }
 function postBoardReply(postId) {
   var inp = document.getElementById('brd-ri-' + postId);
   if (!inp) return;
   var text = inp.value.trim();
-  if (!text) return;
-  var phiRes = detectPHI(text);
-  if (phiRes.red.length || phiRes.yellow.length) {
-    showPHIPopup({ result: phiRes, mode: 'memo',
-      onProceed: function() { _doPostBoardReply(postId, text); },
-      onFix: function() { if(inp) inp.focus(); }
-    });
-    return;
+  var buf = _boardReplyMediaBuf[postId] || [];
+  if (!text && !buf.length) return;
+  if (text) {
+    var phiRes = detectPHI(text);
+    if (phiRes.red.length || phiRes.yellow.length) {
+      showPHIPopup({ result: phiRes, mode: 'memo',
+        onProceed: function() { _doPostBoardReply(postId, text); },
+        onFix: function() { if(inp) inp.focus(); }
+      });
+      return;
+    }
   }
   _doPostBoardReply(postId, text);
 }
 
+/* ===== 掲示板返信メディア承認（管理者のみ） ===== */
+function approveBoardReplyMedia(postId, rid, mi) {
+  if (!isAdmin) return;
+  var p = _boardData[postId]; if (!p || !p.replies || !p.replies[rid]) return;
+  var media = _boardMediaArr(p.replies[rid]);
+  if (!media[mi]) return;
+  media[mi].pending = false;
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    p.replies[rid].media = media;
+    renderBoard();
+  }
+  writeLog('メディア承認', '掲示板返信 ' + (media[mi].name || ''));
+  updatePendingBadge();
+}
+function rejectBoardReplyMedia(postId, rid, mi) {
+  if (!isAdmin) return;
+  var p = _boardData[postId]; if (!p || !p.replies || !p.replies[rid]) return;
+  var media = _boardMediaArr(p.replies[rid]);
+  if (!media[mi]) return;
+  if (!confirm('この画像を却下（削除）しますか？')) return;
+  var med = media[mi];
+  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
+  media.splice(mi, 1);
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    p.replies[rid].media = media;
+    renderBoard();
+  }
+  writeLog('メディア却下', '掲示板返信 ' + (med.name || ''));
+  updatePendingBadge();
+}
+
 function deleteBoard(id) {
   if (!confirm('この投稿を削除しますか？（返信も全て削除されます）')) return;
+  var post = _boardData[id];
+  /* 添付画像をStorageからも削除（投稿本体＋全返信） */
+  var delMedia = _boardMediaArr(post);
+  if (fbST) delMedia.forEach(function(med){ if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){}); });
+  if (post && post.replies && fbST) {
+    Object.keys(post.replies).forEach(function(rid) {
+      _boardMediaArr(post.replies[rid]).forEach(function(med){ if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){}); });
+    });
+  }
   if (FB_ON && fbDB) {
     fbDB.ref('/board/' + id).remove().catch(function(e){ alert('削除エラー: '+e.message); });
   } else {
@@ -11138,6 +12014,11 @@ function deleteBoard(id) {
 
 function deleteReply(postId, replyId) {
   if (!confirm('この返信を削除しますか？')) return;
+  var p = _boardData[postId];
+  var r = p && p.replies && p.replies[replyId];
+  if (r && fbST) {
+    _boardMediaArr(r).forEach(function(med){ if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){}); });
+  }
   if (FB_ON && fbDB) {
     fbDB.ref('/board/' + postId + '/replies/' + replyId).remove().catch(function(e){ alert('削除エラー: '+e.message); });
   } else {
@@ -11145,12 +12026,44 @@ function deleteReply(postId, replyId) {
   }
 }
 
+function boardPinActive(p) {
+  return !!(p && p.pin && (!p.pinUntil || p.pinUntil > Date.now()));
+}
+
 function pinBoard(id, pin) {
-  if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id + '/pin').set(pin).catch(function(e){ alert('エラー: '+e.message); });
-  } else {
-    if (_boardData[id]) { _boardData[id].pin = pin; renderBoard(); }
+  var pinUntil = null;
+  if (pin) {
+    var days = prompt('何日間ピン留めしますか？（空欄=無期限）', '7');
+    if (days === null) return; /* キャンセル：操作を中止 */
+    days = days.trim();
+    if (days !== '') {
+      var n = parseInt(days, 10);
+      if (!isNaN(n) && n > 0) pinUntil = Date.now() + n * 86400000;
+    }
   }
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + id).update({ pin: pin, pinUntil: pinUntil }).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    if (_boardData[id]) { _boardData[id].pin = pin; _boardData[id].pinUntil = pinUntil; renderBoard(); }
+  }
+}
+
+function toggleBoardResolved(id, val) {
+  var p = _boardData[id]; if (!p) return;
+  var isMine = currentUser && p.uid === currentUser.uid;
+  if (!isAdmin && !isMine) return;
+  var upd = {
+    resolved:   val,
+    resolvedBy: val ? (currentUser.displayName || currentUser.email) : null,
+    resolvedAt: val ? Date.now() : null
+  };
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + id).update(upd).catch(function(e){ alert('エラー: '+e.message); });
+  } else {
+    Object.assign(p, upd);
+    renderBoard();
+  }
+  writeLog('掲示板解決状態変更', id + ' -> ' + val);
 }
 
 /* ===== Firebase 日次スナップショット ===== */
@@ -11638,7 +12551,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -11706,7 +12619,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();

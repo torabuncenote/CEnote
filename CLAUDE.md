@@ -64,7 +64,8 @@ var D = {
   psgAlertTime: '10:00',     // PSG 付箋未入力アラート時刻
   psgBannerStart: '07:30',   // PSG取り外しバナー表示開始時刻
   psgBannerEnd:   '08:30',   // PSG取り外しバナー表示終了時刻
-  _migVer: 3        // data migration version flag (increment when running one-time migrations)
+  autoDelCfg: { enabled:false, period:365, interval:30, lastClean:0 }, // 自動削除設定（旧: localStorage個別キー、_migVer 4で移行）
+  _migVer: 4        // data migration version flag (increment when running one-time migrations)
 };
 ```
 
@@ -85,14 +86,29 @@ When adding a new top-level property to `D`, update **all five** of these locati
 - **Firebase ON**: `saveD()` writes the entire `D` object to `fbDB.ref('/data').set(D)`
 - **Firebase OFF / fallback**: writes to `localStorage` key `'ce2'`
 - **Logs**: written via `writeLog()` to Firebase `/logs`
-- **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}`
-- **Board**: stored at Firebase `/board` (independent of `/data`)
+- **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}` (manuals), `memo/{ds}/{ts}_{idx}_{filename}` (memos), `board/{ts}_{idx}_{filename}` (board post images), `board/reply_{ts}_{idx}_{filename}` (board reply images)
+- **Board**: stored at Firebase `/board` (independent of `/data`). Posts (and replies) may carry a `media` array (images only); non-admin uploads get `pending: true` and go through the same approval flow as memo media (`approveBoardMedia`/`rejectBoardMedia` for posts, `approveBoardReplyMedia`/`rejectBoardReplyMedia` for replies — both scanned by `listPendingMedia`, which emits `kind:'board'` and `kind:'boardReply'` entries)
+  - **既読 (read receipts)**: each post carries `reads: { uid: { n: displayName, ts } }`. `renderBoard()` writes the current user's read entry the first time it renders a post they haven't read yet (checked via `p.reads[currentUser.uid]` so it never re-writes — no infinite loop). The 👀 count shown excludes the post author's own read; `toggleBoardReads(id)` expands the name+time list.
+  - **カテゴリタグ**: posts carry `tag` (`'info'`|`'req'`|`'etc'`, default `'etc'`, see `BOARD_TAGS`). `req`-tagged posts can be marked `resolved: true/false` (with `resolvedBy`/`resolvedAt`) by the author or an admin via `toggleBoardResolved()`; resolved posts render dimmed (`.brd-post.resolved`). `board-list` has a filter chip row (`setBoardFilter()`, module-level `_boardFilter`) for all/info/req/etc/unresolved-only.
+  - **ピン留め期限**: `pinBoard(id, pin)` prompts for a number of days when pinning (blank = no expiry) and stores `pinUntil` (ts). `boardPinActive(p)` — `p.pin && (!p.pinUntil || p.pinUntil > Date.now())` — is the single source of truth for sort order and the 📌 badge/expiry-date label. Admins auto-clear expired pins (`/board/{id}/pin` → `false`) inside `renderBoard()`.
 
 `saveD()` always writes the **full** `D` object. After mutating any property of `D`, call `saveD()`.
 
 **Critical guard**: `_fbDataLoaded` must be `true` before `saveD()` writes to Firebase. It is set when the `/data` listener first fires. This prevents empty-D overwrites on login. **Do not bypass this guard.**
 
 After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state.
+
+#### `saveDPage(ds)` — page-level partial write (limited use)
+
+`saveDPage(ds)` writes only `/data/pages/{ds}` (`fbDB.ref('/data/pages/'+ds).set(D.pages[ds])`) instead of the full `D` object, to reduce the chance that two people editing different days' pages at the same time clobber each other's changes via `saveD()`'s full-object overwrite. It always writes the full `D` to `localStorage` first (identical to `saveD()`), so the local/offline behavior is unchanged.
+
+- Uses its own state (`_savePageWriting`, `_savePageQueue`) — completely separate from `saveD()`'s queue (`_saveWriting`/`_saveQueued`). Multiple `saveDPage()` calls serialize through this queue (dedup by `ds`).
+- Same `_fbDataLoaded` guard as `saveD()` — never bypassed.
+- If `D.pages[ds]` doesn't exist (page deleted), delegates to full `saveD()`.
+- **Ordering guard**: if a full `saveD()` write is in-flight or pending (`_saveWriting || _savePending`), `saveDPage()` defers entirely to `saveD()` instead of writing the page directly. This prevents a stale full-`D` snapshot (taken *before* the page edit) from landing in Firebase *after* the page-level write and silently reverting it.
+- Does **not** touch `/recent_backup` — that's updated only by full `saveD()`'s success callback.
+
+**Only use `saveDPage(ds)` where the change is unambiguously scoped to a single page** — currently: ops card item lists and field binds (`buildOPS`'s `saveItems()` / `bind()` / free-card / PSG付箋 handlers), checklist checkbox toggles (`mkCk`), memo post/done-check/delete (`_finishPostMemo`, `doneMemo` handler, `delMemo`), and schedule block add/import/clear/move/resize/delete (`schedAddBlock`, `schedImportDuties`, `schedClear`, `schedBindInteractions`). Duty assignment, staff/master edits, and anything with cross-page side effects still use full `saveD()` — do not switch those to `saveDPage()` without re-checking every side effect (`maybeLateToast`, `writeLog`, pool refresh, etc.).
 
 ### Firebase Setup
 
@@ -202,6 +218,12 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 
 `autoSaveSnapshot(label)` adds to the local ring buffer. It is called **after Firebase first load** (not at `init()` time) to ensure fresh data is saved.
 
+**Auto-delete settings** (`D.autoDelCfg`, used by `checkAndDeleteOldData()`/`checkAutoDelTiming()`) live in the synced `D` object, not per-PC `localStorage` — previously they were `localStorage` keys (`autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean`), which meant the auto-delete schedule could disagree between devices. `_migVer` 4 migrates any existing per-PC values into `D.autoDelCfg` once.
+
+### Firebase Security Rules
+
+`database.rules.json` and `storage.rules` (repo root) hold the recommended, path-scoped Realtime Database / Storage security rules — replacing the earlier "any authenticated user can read/write everything" default. They are **not auto-deployed**; an admin must paste them into the Firebase Console manually (see `FIREBASE_RULES.md` for steps, the per-path rationale table, a post-apply verification checklist, and rollback instructions). The in-app spec/docs pages (`renderSpec`, `renderAdminManual`, `renderDevDocs`) source the RTDB rule text from the shared `LATEST_DB_RULES` string (defined once near the top of the script) so the three doc displays never drift out of sync with `database.rules.json`.
+
 ### UI Layout
 
 ```
@@ -257,7 +279,9 @@ All class names are abbreviated:
 | `buildOPS(ds, dat, locked)` | OPE/cath/ops record section |
 | `renderMemos(ds, dat, locked)` | Memo/comment thread |
 | `renderSched()` | Per-day timetable for `curDs` |
-| `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board |
+| `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board (also handles read-receipt marking, tag/resolved rendering, pin-expiry sort/cleanup, filter chips) |
+| `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
+| `toggleBoardReads(id)` / `setBoardFilter(f)` | Board: 既読者一覧の開閉／フィルタチップ切替（`_boardFilter`） |
 | `renderSurplusArea(ds, dat, locked)` | 余剰人員エリア（デフォルト折りたたみ: `_surplusOpen = false`） |
 | `renderOpsSummary()` | 業務集計サブタブ — monthly OPE/cath/6MW/PSG counts |
 | `renderOCSummary()` | OC集計サブタブ — on-call response log |
@@ -268,7 +292,7 @@ All class names are abbreviated:
 | `renderAdminUsers()` / `deleteAppUser(uid, name)` | User management (soft-delete removes `/users/{uid}`, `/admins/{uid}`, `/userPerms/{uid}`) |
 | `saveUserPerm(uid, permId, grant)` | Grant/revoke single permission in `/userPerms/{uid}`; calls `updateTabVisibility()` when uid === currentUser.uid |
 | `can(id)` / `lk(id)` | Access control helpers |
-| `opsHeaderChips(opeN, cathN, mwN, psgN, psgRemoval)` | Builds 業務 header chips (5th arg = PSG外し flag) |
+| `opsHeaderChips(opeN, cathN, mwN, psgN, psgRemoval, opeDone, cathDone)` | Builds 業務 header chips (5th arg = PSG外し flag; 6th/7th = 業務終了済み件数 → 「2/3件終了」進捗表示) |
 | `updateOpsHeader(ds)` | Refreshes `#ops-header-row` DOM element dynamically |
 | `updatePsgRemovalBanner(ds)` | Shows/hides `#psg-removal-banner` (today only, within `psgBannerStart`–`psgBannerEnd`) |
 | `toggleStfHidden(name)` | Toggle `D.stfHidden[name]`; affects AT columns, dropdowns, fairness matrix |
@@ -295,11 +319,18 @@ All class names are abbreviated:
 - OPE card: `withTime=true, withOrder=false, withSup=true`
 - カテ card: `withTime=true, withOrder=false`（入室時間ドロップダウン表示）
 
+**入室時間ピッカー**: `withTime=true` の行は、カテのブリーフィング欄と同じ「○時：△分」の2セレクト方式（`makeTimeHourOpts`/`makeTimeMinuteOpts`）。○は8〜16時＋AM／PM、△は0〜55分（5分刻み）＋OC。値は `item.time` に単一文字列で保存（`combineItemTime(h,m)` で結合、`parseItemTime(t)` で復元。旧形式 `"8:15"` `"AMOC"` `"PMOC"` も読める）。「自由入力」ボタンで `item.time='__free__'` に切替えるとテキスト入力（`item.timeTxt`）に変わる。`buildItemList` / `buildItemListTree` の両方に実装。
+
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
 - `cath_note` — 備考
 
-**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`it.sel || it.txt` が truthy な行だけをカウントする。空の初期行を誤カウントしないために、`updateOpsHeader()` と `renderPage()` の両方でこのルールを使用している。
+**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`exportOpsCsv()` の4箇所すべてでこの共通ヘルパーを使用する。
+
+**業務終了フラグ**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
+- `opsToggleDone(items, idx)` — トグル時に終了行を配列末尾へ移動（解除時は未終了ブロックの末尾へ戻す）。データ自体の並びを変えるので全端末に同期される
+- `updateOpsCardDoneBadge(cardEl, items)` — 入力済み全行が終了ならカードタイトルに「✅ 本日終了」バッジ（`.ops-card-done-badge`）を表示
+- ヘッダーチップは終了数があると「🔪 オペ 2/3件終了」形式になり、全件終了で緑色+✅表示（`opsHeaderChips` の第6・7引数 `opeDone`/`cathDone`）
 
 ### PSG外し Detection
 
@@ -366,6 +397,15 @@ Uploads by non-admins get `pending: true`. In `renderMemos`, non-admins see a pl
 
 `renderFairness()` — 4th subtab of the assignment pane. Counts duty assignments per staff×slot for `asY/asM`, shows a matrix with max(red)/min(blue) highlighting. Warns when any column's max−min ≥ `FAIR_GAP_WARN` (default 3). Hidden staff (`D.stfHidden`) are filtered from the matrix.
 
+### Changelog System
+
+`APP_VERSION` (string) and `APP_CHANGELOG` (array, newest release first) live near line 3480, hand-maintained — there is no build step that generates them. Each release is `{ ver, date, title, items:[{t, d, admin?}] }` where `t` is `'new'|'fix'|'imp'`.
+
+- **`admin` flag**: optional on each item; omit for general-audience items (default), set `admin:true` for entries that only matter to admins (master-data editing, backups, EmailJS/FCM config, user management, `/logs`, monthly bulk auto-assign, etc.). `filterChangelogForGeneral(changelog)` strips `admin:true` items and drops any release left with zero items.
+- **Version format**: new releases use `formatVerString('YYYY-MM-DD', nextChangelogSeq())` → `'Ver.YYYY/MM/DD-N'` where N is the all-time cumulative release count (`nextChangelogSeq()` scans existing `Ver.*-N` entries and returns max+1, defaulting to 24 as the base since the pre-existing 24 releases used the old `'2026.06y'`-style string and are never renumbered). `verDisplay(ver)` renders old-style strings with a `v` prefix and new-style strings as-is, so both eras display correctly side by side.
+- **Two render paths, one HTML builder**: `buildChangelogHTML(changelog, opts)` is shared. `renderChangelog()` (admin-only, sidebar `資料▾→変更履歴` / `pane-changelog`) calls it with the full unfiltered `APP_CHANGELOG` — output is unchanged from before this system existed. `renderChangelogPublic()` (all users, opened via the "📝 変更履歴" button in the top-right of the 使い方 guide tab → `openChangelogPublic()`/`closeChangelogPublic()`, modal `#modal-changelog-public`) calls it with `filterChangelogForGeneral(APP_CHANGELOG)` and `{heading:false}` since the modal's own `<h3>` already provides the title.
+- When adding a new release entry: prepend it to `APP_CHANGELOG` (array is newest-first), update `APP_VERSION` to match, and judge each item's `admin` flag by who the change is actually relevant to — not by whether the *setting* lives on an admin screen (e.g. EmailJS notifications are admin-configured but the resulting emails land in general users' inboxes, so that kind of item is left general).
+
 ## Making Changes
 
 Since everything is in one file, search for function names or CSS classes to locate sections. File organization:
@@ -377,6 +417,6 @@ Since everything is in one file, search for function names or CSS classes to loc
 - After mutating `D`, call `saveD()`.
 - For rendering, call the targeted function (e.g., `renderStfList()`) rather than `renderPage()` to avoid full re-renders.
 - `renderPage()` must sometimes be called **before** `saveD()` to avoid the Firebase echo overwriting the new UI state.
-- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **3**.
+- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **4** (v4: migrates auto-delete settings from per-PC `localStorage` keys `autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean` into `D.autoDelCfg`, applied in both `loadD()` and the Firebase `/data` listener).
 - Stale closure bug: closures that capture `dat` become stale after Firebase updates `D`. Always reference `D.pages[ds]` (live) inside async callbacks, not the closed-over `dat`.
 - When changing `currentUser.perms` (e.g., in `saveUserPerm`), call `updateTabVisibility()` if the change affects the currently logged-in user.
