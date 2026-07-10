@@ -1085,7 +1085,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     <!-- 使い方パネル（全ユーザー対象） -->
     <div id="pane-guide" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:40px">
-        <div class="pt" style="margin-bottom:12px">📘 使い方ガイド</div>
+        <div class="pt" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+          <span>📘 使い方ガイド</span>
+          <button class="btn btn-g btn-sm" onclick="openChangelogPublic()">📝 変更履歴</button>
+        </div>
         <div id="guide-body"></div>
       </div>
     </div>
@@ -1354,6 +1357,16 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   </div>
 </div>
 <!-- ===== 横断検索モーダル ===== -->
+<!-- ===== 変更履歴（一般公開・フィルタ済み）モーダル ===== -->
+<div class="ov hd" id="modal-changelog-public">
+  <div class="md" style="max-width:560px">
+    <h3>📝 変更履歴</h3>
+    <div id="changelog-public-body"></div>
+    <div class="mdb">
+      <button class="btn btn-g" onclick="closeChangelogPublic()">閉じる</button>
+    </div>
+  </div>
+</div>
 <div class="ov hd" id="modal-search">
   <div class="md" style="max-width:560px">
     <h3>🔍 横断検索</h3>
@@ -3478,15 +3491,34 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = '2026.06y';
+var APP_VERSION = 'Ver.2026/07/10-26';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/10-26', date:'2026-07-10', title:'掲示板機能拡張・通知強化・データ保護アップデート', items:[
+    {t:'new', d:'📢 掲示板の投稿に既読確認機能を追加。誰が読んだか👀アイコンで確認できます'},
+    {t:'new', d:'📢 掲示板の返信にも画像を添付できるようになりました'},
+    {t:'new', d:'📢 掲示板の投稿に「連絡」「依頼」「その他」カテゴリタグを追加。「依頼」は解決済みマーク・未解決フィルタに対応'},
+    {t:'new', d:'📌 掲示板のピン留めに有効期限を設定可能に（期限切れで自動的にピン解除）'},
+    {t:'new', d:'📝 申し送りメモで@メンションすると相手に通知が届くようになりました'},
+    {t:'fix', d:'🔧 個人情報チェックが「投稿画像」など通常の業務用語を誤検知していた問題を修正'},
+    {t:'fix', d:'🔧 画像アップロードに失敗した際、300KBを超える画像は添付を中止するよう変更（動作が重くなるのを防止）'},
+    {t:'imp', d:'🔧 保存方式を最適化し、複数人が同時に別の日を編集した際のデータ競合を軽減'},
+    {t:'new', d:'👑 承認待ちの画像/動画がある場合、管理者に通知が届くようになりました', admin:true},
+    {t:'imp', d:'👑 データ自動削除設定を端末ごとの保存から全端末共有の設定に変更', admin:true},
+    {t:'imp', d:'👑 Firebaseセキュリティルールをパスごとに細分化し、不要なデータアクセスを防止（要:管理者がFirebase Console側で反映）', admin:true}
+  ]},
+  { ver:'Ver.2026/07/10-25', date:'2026-07-10', title:'掲示板画像添付・業務入力の改善', items:[
+    {t:'new', d:'📢 掲示板に画像を添付できるようになりました（一般ユーザーの投稿は管理者承認後に表示）'},
+    {t:'new', d:'✅ オペ/カテの各行に「終了」ボタンを追加。押すと薄暗く表示され、進捗（例: オペ2/3件終了）がひと目で分かります'},
+    {t:'imp', d:'🔪 オペ/カテの件数集計を、術式を選び切らなくても入力があれば1件とカウントするよう変更'},
+    {t:'imp', d:'⏱ 入室時間の入力を「○時：△分」の2択方式に変更（カテのブリーフィング欄と同じ操作感）'}
+  ]},
   { ver:'2026.06y', date:'2026-06-16', title:'PSG外し 業務ヘッダー表示・永続バナー追加', items:[
     {t:'new', d:'🌙 前日PSGがある日（PSG外し日）は「業務」ヘッダーに「PSG外し」チップを表示'},
     {t:'new', d:'🌙 PSG外し日の7:30〜8:30の間、画面上部に「PSG外しがあります」バナーを常時表示（✕で閉じる・8:30以降自動非表示）'}
   ]},
   { ver:'2026.06x', date:'2026-06-16', title:'ガイド更新・ユーザー削除機能追加', items:[
     {t:'new', d:'📖 使い方ガイドに新機能セクション追加（HD勤務者/余剰ゾーン・業務件数・月次自動割り当て・公平性タブ・進捗バータップ・カレンダー🟢ドット）'},
-    {t:'new', d:'🗑 管理者画面からユーザーのアプリデータを削除できるようになりました（ソフトデリート：Firebase Authアカウント自体はConsoleから別途削除が必要）'}
+    {t:'new', d:'🗑 管理者画面からユーザーのアプリデータを削除できるようになりました（ソフトデリート：Firebase Authアカウント自体はConsoleから別途削除が必要）', admin:true}
   ]},
   { ver:'2026.06w', date:'2026-06-15', title:'HD勤務者ステータスゾーン再設計', items:[
     {t:'fix', d:'🩸 HDステータスゾーン（HDシフトチェンジ・メンテ・休み・その他）を余剰人員エリアに常時表示。HDトグルを開かなくても一目で状況を確認できる'},
@@ -3510,7 +3542,7 @@ var APP_CHANGELOG = [
     {t:'fix', d:'🔪 術式エントリ間に区切り線を追加し境界を明確化'}
   ]},
   { ver:'2026.06s', date:'2026-06-12', title:'OC完了時管理者通知・メンション件数拡張', items:[
-    {t:'new', d:'🌙 OC対応完了チェック時に管理者全員へアプリ内通知・FCMプッシュ・メール（EmailJS設定済みの場合）を送信'},
+    {t:'new', d:'🌙 OC対応完了チェック時に管理者全員へアプリ内通知・FCMプッシュ・メール（EmailJS設定済みの場合）を送信', admin:true},
     {t:'fix', d:'📝 メモのメンション（@）候補リストの表示上限を8件→20件に拡張'}
   ]},
   { ver:'2026.06r', date:'2026-06-10', title:'HD勤務者表示・PSG外し改善・リンク切れ修正', items:[
@@ -3518,7 +3550,7 @@ var APP_CHANGELOG = [
     {t:'fix', d:'🌙 PSG外し専用日（前日装着分の外しのみの日）の業務カードから不要な「装着」欄を非表示に'},
     {t:'fix', d:'🌙 PSG業務を取り消すと装着・外しデータに加え、翌日に連動した「PSG取り外し」チェックも自動解除されるよう修正'},
     {t:'fix', d:'👑 名簿外の名前（HD勤務者など）も担当枠の選択欄に「（名簿外）」付きで表示されるよう修正'},
-    {t:'new', d:'👑 管理者画面のリンク切れスタッフに「再紐付け」「解除」ボタンを追加し、その場で修正できるように'}
+    {t:'new', d:'👑 管理者画面のリンク切れスタッフに「再紐付け」「解除」ボタンを追加し、その場で修正できるように', admin:true}
   ]},
   { ver:'2026.06q', date:'2026-06-10', title:'PSG外し翌日自動表示の修正', items:[
     {t:'fix', d:'🌙 前日に PSG カードを追加しただけでは翌日に外し行が出なかった問題を修正。装着テキストの有無ではなく「前日に PSG カードが存在するか」で判定するよう変更'},
@@ -3526,15 +3558,15 @@ var APP_CHANGELOG = [
   ]},
   { ver:'2026.06p', date:'2026-06-10', title:'コードレビュー4件バグ修正', items:[
     {t:'fix', d:'🔧 PSG取り外しチェックボックスが slot_ward で2重表示されていた問題を修正（静的checksに同名がある場合は除去してから追加し直す）'},
-    {t:'fix', d:'🔧 曜日ルール月次自動割り当てで既に担当済みのスタッフが二重割り当てされる可能性を修正（全 dat.duties から assigned スタッフを収集）'},
-    {t:'fix', d:'🔧 無操作自動ログアウトのFirebaseログに「30分間の無操作」と誤記されていた問題を修正（5分）'},
+    {t:'fix', d:'🔧 曜日ルール月次自動割り当てで既に担当済みのスタッフが二重割り当てされる可能性を修正（全 dat.duties から assigned スタッフを収集）', admin:true},
+    {t:'fix', d:'🔧 無操作自動ログアウトのFirebaseログに「30分間の無操作」と誤記されていた問題を修正（5分）', admin:true},
     {t:'fix', d:'🔧 ユーザーガイドの自動ログアウト案内が「30分」と表記されていた問題を修正（5分）'}
   ]},
   { ver:'2026.06o', date:'2026-06-10', title:'管理者画面：ログイン状況の可視化', items:[
-    {t:'new', d:'👑 登録済みだが未ログインのスタッフに「⚠ 未ログイン（登録済み・ログイン待ち）」バッジを橙色で表示'},
-    {t:'new', d:'👑 未ログインユーザーの行に橙色の左ボーダーを追加し一目で区別できるように'},
-    {t:'new', d:'👑 スタッフ名簿と紐付き済みのアカウントに「🔗 スタッフ名」バッジを表示'},
-    {t:'new', d:'👑 アカウント未作成のスタッフ・リンク切れのスタッフを一覧セクションで表示'}
+    {t:'new', d:'👑 登録済みだが未ログインのスタッフに「⚠ 未ログイン（登録済み・ログイン待ち）」バッジを橙色で表示', admin:true},
+    {t:'new', d:'👑 未ログインユーザーの行に橙色の左ボーダーを追加し一目で区別できるように', admin:true},
+    {t:'new', d:'👑 スタッフ名簿と紐付き済みのアカウントに「🔗 スタッフ名」バッジを表示', admin:true},
+    {t:'new', d:'👑 アカウント未作成のスタッフ・リンク切れのスタッフを一覧セクションで表示', admin:true}
   ]},
   { ver:'2026.06n', date:'2026-06-10', title:'PSG取り外し担当マーク強調表示', items:[
     {t:'new', d:'🌙 PSG取り外しチェックは「完了印」ではなく「担当割り当て印」として紫色で強調表示。「🌙 PSG取り外し（担当）」ラベルとホバー時ツールチップで区別'}
@@ -3543,36 +3575,36 @@ var APP_CHANGELOG = [
     {t:'new', d:'🌙 PSG分割：装着日には装着欄のみ表示。前日に装着があると翌日カードに「外し（前日装着分）」欄が自動表示される'},
     {t:'new', d:'🌙 PSG外しのある日は病棟外回り担当カードに「PSG取り外し」チェックが自動でONになる'},
     {t:'new', d:'❌ 担当割り当てカードに欠勤チェックボックスを追加。チェックするとカードが赤くなり欠勤を視覚的に表示'},
-    {t:'fix', d:'🔧 EmailJS公開鍵・サービスID・テンプレートID・スタッフUID紐付けがリロード後に消える問題を修正（loadD・バックアップ復元の両方）'}
+    {t:'fix', d:'🔧 EmailJS公開鍵・サービスID・テンプレートID・スタッフUID紐付けがリロード後に消える問題を修正（loadD・バックアップ復元の両方）', admin:true}
   ]},
   { ver:'2026.06l', date:'2026-06-09', title:'自動割り当て時のPHS自動セット', items:[
     {t:'new', d:'📞 自動割り当て時に担当へPHS内線番号を自動セット：病棟外回り=6030 / OPE=6160 / OPEサブ=6170 / 機器管理=6157。既にPHSが入力済みのスロットは上書きしません'}
   ]},
   { ver:'2026.06k', date:'2026-06-09', title:'月次自動割り当てモード切替・無操作タイムアウト短縮', items:[
-    {t:'new', d:'🎲 月次自動割り当てモード切替：業務マスタタブで「曜日ルール」と「従来モード」を切替可能に。曜日ルール=月木5名/火水金4名/土1名/日祝スキップ。従来モード=担当枠テンプレートの空き枠を補完（従来の動作）'},
+    {t:'new', d:'🎲 月次自動割り当てモード切替：業務マスタタブで「曜日ルール」と「従来モード」を切替可能に。曜日ルール=月木5名/火水金4名/土1名/日祝スキップ。従来モード=担当枠テンプレートの空き枠を補完（従来の動作）', admin:true},
     {t:'imp', d:'🔒 PC操作時の無操作自動ログアウトを30分→5分に短縮（残り1分で警告表示）'}
   ]},
   { ver:'2026.06j', date:'2026-06-09', title:'データ保護: アップデート時のシフトデータ消失を修正', items:[
     {t:'fix', d:'🔧 重要バグ修正: アプリ更新時にインポート済みシフトデータ・勤務者情報が消えてしまう問題を修正。Firebase水和処理でマイグレーション前にシフト等の全フィールドを復元するよう変更'}
   ]},
   { ver:'2026.06i', date:'2026-06-09', title:'月次自動割り当て・教育設定', items:[
-    {t:'new', d:'🎲 1ヶ月分一括自動割り当て：「1ヶ月生成」モーダルからシフトデータをもとに月全体の空き担当枠を一括割り当て。プレビュー確認後に適用'},
-    {t:'new', d:'🎓 スタッフ教育設定：名簿で各メンバーに「優先スロット」を設定。自動割り当て時に指定スロットへ優先的に配置（教育・スキルアップ目的）'},
-    {t:'imp', d:'自動割り当てアルゴリズムに教育重み付けを追加。教育設定スタッフは対象スロットで優先的に選ばれる'}
+    {t:'new', d:'🎲 1ヶ月分一括自動割り当て：「1ヶ月生成」モーダルからシフトデータをもとに月全体の空き担当枠を一括割り当て。プレビュー確認後に適用', admin:true},
+    {t:'new', d:'🎓 スタッフ教育設定：名簿で各メンバーに「優先スロット」を設定。自動割り当て時に指定スロットへ優先的に配置（教育・スキルアップ目的）', admin:true},
+    {t:'imp', d:'自動割り当てアルゴリズムに教育重み付けを追加。教育設定スタッフは対象スロットで優先的に選ばれる', admin:true}
   ]},
   { ver:'2026.06h', date:'2026-06-09', title:'メール通知・名簿UID紐付け', items:[
     {t:'new', d:'📧 メール通知（EmailJS）：遅出担当の割り当て・OC翌出勤ルール確定時に担当者へメールを自動送信（無料200通/月）。業務マスタタブで設定'},
     {t:'new', d:'📬 初回起動ポップアップ：担当変更後に初めてアプリを開いたときにお知らせをモーダル表示'},
-    {t:'new', d:'🔗 名簿の各メンバーに Firebase アカウントを紐付け可能に（管理者のみ）。名前→UID変換が確実になりメール通知が正確に届く'},
+    {t:'new', d:'🔗 名簿の各メンバーに Firebase アカウントを紐付け可能に（管理者のみ）。名前→UID変換が確実になりメール通知が正確に届く', admin:true},
     {t:'fix', d:'通知ポップアップが表示直後に既読化されていた問題を修正。「確認しました」を押した時点で既読化されるように変更'},
-    {t:'fix', d:'通知・EmailJS 設定値がリロード後に消える問題を修正'}
+    {t:'fix', d:'通知・EmailJS 設定値がリロード後に消える問題を修正', admin:true}
   ]},
   { ver:'2026.06g', date:'2026-06-08', title:'通知機能の追加', items:[
     {t:'new', d:'🌙 OC対応の退勤時刻から翌日の出勤ルール（遅出/休み）を自動判定。確定時にトースト表示＋翌日の連絡表に警告バナーを表示'},
     {t:'new', d:'🌙 担当枠に「遅出OPE・遅出カテ・遅出フリー」を標準追加。割り当てた時にトースト通知'},
-    {t:'new', d:'⏰ 業務マスタの各チェック項目に通知時刻を設定できるリマインダー機能を追加'},
-    {t:'new', d:'🌙 PSG付箋の通知時刻を業務マスタから変更できるように（既定10:00）'},
-    {t:'new', d:'📅 曜日別業務に「最終週」（その曜日の最終回のみ）の指定を追加'},
+    {t:'new', d:'⏰ 業務マスタの各チェック項目に通知時刻を設定できるリマインダー機能を追加', admin:true},
+    {t:'new', d:'🌙 PSG付箋の通知時刻を業務マスタから変更できるように（既定10:00）', admin:true},
+    {t:'new', d:'📅 曜日別業務に「最終週」（その曜日の最終回のみ）の指定を追加', admin:true},
     {t:'new', d:'📥 担当表のOC集計・業務集計・公平性タブもCSV出力／印刷に対応'},
     {t:'imp', d:'個別権限を付与されたメンバーにスタッフ／業務マスタタブを表示'},
     {t:'imp', d:'OC対応時間の入力を自由記述から開始・退勤の時刻選択に変更（表記揺れ防止）'}
@@ -3586,7 +3618,7 @@ var APP_CHANGELOG = [
   ]},
   { ver:'2026.06e', date:'2026-06-07', title:'データ保護の強化', items:[
     {t:'fix', d:'別端末で初回ログインした際にデータが消える不具合を修正（最重要）'},
-    {t:'new', d:'データ全消去を検知し、書き込んだアカウントをログに記録＋管理者へ警告表示'}
+    {t:'new', d:'データ全消去を検知し、書き込んだアカウントをログに記録＋管理者へ警告表示', admin:true}
   ]},
   { ver:'2026.06d', date:'2026-06-07', title:'新機能3点', items:[
     {t:'new', d:'🔍 横断検索（Ctrl/Cmd+K）：全日付のメモ・担当・術式を検索'},
@@ -3594,15 +3626,15 @@ var APP_CHANGELOG = [
     {t:'new', d:'🎲 担当の自動割り当て（公平性ベース）'}
   ]},
   { ver:'2026.06c', date:'2026-06-06', title:'Firebase・バックアップの堅牢化', items:[
-    {t:'fix', d:'マスタの中カテゴリ追加直後にボタンが反応しない不具合を修正'},
-    {t:'fix', d:'空配列が原因のツリー編集クラッシュを根本修正（読込時に正規化）'},
-    {t:'imp', d:'バックアップを1時間ごとの時間別スナップに変更（7日×24h保持）'},
-    {t:'imp', d:'保存のたびに /recent_backup を更新し、データ消失時の復元性を向上'},
-    {t:'fix', d:'古いスナップショットの削除漏れ・孤立バックアップを修正'}
+    {t:'fix', d:'マスタの中カテゴリ追加直後にボタンが反応しない不具合を修正', admin:true},
+    {t:'fix', d:'空配列が原因のツリー編集クラッシュを根本修正（読込時に正規化）', admin:true},
+    {t:'imp', d:'バックアップを1時間ごとの時間別スナップに変更（7日×24h保持）', admin:true},
+    {t:'imp', d:'保存のたびに /recent_backup を更新し、データ消失時の復元性を向上', admin:true},
+    {t:'fix', d:'古いスナップショットの削除漏れ・孤立バックアップを修正', admin:true}
   ]},
   { ver:'2026.06b', date:'2026-06-05', title:'勤務表・担当まわり', items:[
-    {t:'fix', d:'CE兼OCの人を当日勤務者一覧に残しつつOCを自動振り分け'},
-    {t:'fix', d:'勤務表読み込み時のOC対応者の自動反映を修正'},
+    {t:'fix', d:'CE兼OCの人を当日勤務者一覧に残しつつOCを自動振り分け', admin:true},
+    {t:'fix', d:'勤務表読み込み時のOC対応者の自動反映を修正', admin:true},
     {t:'imp', d:'古いセッションによるデータ巻き戻りを検出・自動修正'}
   ]}
 ];
@@ -3611,28 +3643,76 @@ var APP_ROADMAP = [
   '📊 月次集計（担当回数・チェック実施率）のCSV/Excel出力',
   '👥 オンライン状況の可視化（同時編集の事故防止）'
 ];
-function renderChangelog() {
-  var el = document.getElementById('changelog-body');
-  if (!el || el.innerHTML) return;
+function formatVerString(dateStr, seq) { return 'Ver.' + dateStr.replace(/-/g, '/') + '-' + seq; }
+/* 通算リリース番号を自動算出（旧24件は数値シーケンスを持たないため24をベースにする） */
+function nextChangelogSeq() {
+  var max = 24;
+  APP_CHANGELOG.forEach(function(rel) {
+    var m = /^Ver\.\d{4}\/\d{2}\/\d{2}-(\d+)$/.exec(rel.ver);
+    if (m) { var n = parseInt(m[1], 10); if (n > max) max = n; }
+  });
+  return max + 1;
+}
+/* リリース単位でadmin専用itemを除外。全item除外されたリリースは丸ごと非表示 */
+function filterChangelogForGeneral(changelog) {
+  var out = [];
+  changelog.forEach(function(rel) {
+    var items = (rel.items || []).filter(function(it) { return !it.admin; });
+    if (!items.length) return;
+    out.push({ ver: rel.ver, date: rel.date, title: rel.title, items: items });
+  });
+  return out;
+}
+/* 旧形式('2026.06y')は'v'を前置、新形式('Ver.YYYY/MM/DD-N')はそのまま表示 */
+function verDisplay(ver) { return /^Ver\./.test(ver) ? ver : ('v' + ver); }
+/* HTML組み立て本体。renderChangelog()（管理者向け・全件）とrenderChangelogPublic()（一般向け・フィルタ済み）の両方から呼ぶ */
+function buildChangelogHTML(changelog, opts) {
+  opts = opts || {};
   var tagLabel = { fix:'修正', 'new':'新機能', imp:'改善' };
   var tagCls   = { fix:'cl-tag-fix', 'new':'cl-tag-new', imp:'cl-tag-imp' };
   var S = '';
-  S += '<div class="cl-h1">📝 変更履歴</div>';
-  S += '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">現在のバージョン：<b>v' + escH(APP_VERSION) + '</b></div>';
+  if (opts.heading !== false) S += '<div class="cl-h1">📝 変更履歴</div>';
+  S += '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">現在のバージョン：<b>' + escH(verDisplay(APP_VERSION)) + '</b></div>';
   S += '<div class="cl-h2">🚀 今後の予定（予定は変更される場合があります）</div>';
   S += '<div class="cl-entry cl-future"><ul>' + APP_ROADMAP.map(function(r){ return '<li>' + escH(r) + '</li>'; }).join('') + '</ul></div>';
   S += '<div class="cl-h2">📜 これまでの更新</div>';
-  APP_CHANGELOG.forEach(function(rel) {
+  changelog.forEach(function(rel) {
     S += '<div class="cl-entry">';
-    S += '<div class="cl-ver">' + escH(rel.title) + ' <span class="cl-date">(' + escH(rel.date) + ' / v' + escH(rel.ver) + ')</span></div>';
+    S += '<div class="cl-ver">' + escH(rel.title) + ' <span class="cl-date">(' + escH(rel.date) + ' / ' + escH(verDisplay(rel.ver)) + ')</span></div>';
     S += '<ul>';
     rel.items.forEach(function(it) {
       S += '<li><span class="cl-tag ' + (tagCls[it.t] || 'cl-tag-imp') + '">' + (tagLabel[it.t] || '') + '</span> ' + escH(it.d) + '</li>';
     });
     S += '</ul></div>';
   });
-  el.innerHTML = S;
+  return S;
 }
+function renderChangelog() {
+  var el = document.getElementById('changelog-body');
+  if (!el || el.innerHTML) return;
+  el.innerHTML = buildChangelogHTML(APP_CHANGELOG); /* 管理者向け：全件表示、見た目は変更前と同一 */
+}
+function renderChangelogPublic() {
+  var el = document.getElementById('changelog-public-body');
+  if (!el || el.innerHTML) return;
+  el.innerHTML = buildChangelogHTML(filterChangelogForGeneral(APP_CHANGELOG), {heading:false}); /* 一般向け：admin項目を除外。モーダルの<h3>が見出しを兼ねるのでcl-h1は省略 */
+}
+function openChangelogPublic() {
+  var m = document.getElementById('modal-changelog-public'); if (!m) return;
+  m.classList.remove('hd');
+  renderChangelogPublic();
+}
+function closeChangelogPublic() {
+  var m = document.getElementById('modal-changelog-public'); if (m) m.classList.add('hd');
+}
+(function(){
+  document.addEventListener('keydown', function(e){
+    if (e.key==='Escape') {
+      var m=document.getElementById('modal-changelog-public');
+      if (m && !m.classList.contains('hd')) closeChangelogPublic();
+    }
+  });
+})();
 
 /* ===== 法令・ガイドライン ===== */
 function renderRegs() {
