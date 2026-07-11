@@ -470,6 +470,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-post .mp-name{font-weight:700;color:var(--ac)}
 .memo-post .mp-del{position:absolute;top:7px;right:9px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
 .memo-post .mp-del:hover{color:var(--rd)}
+.memo-post .mp-move{position:absolute;top:7px;right:34px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
+.memo-post .mp-move:hover{color:var(--ac)}
 .memo-input-row{display:flex;gap:8px}
 .memo-input-row textarea{flex:1;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:var(--fn);resize:vertical;min-height:52px;outline:none}
 .memo-input-row textarea:focus{border-color:var(--ac);background:var(--ac-bg)}
@@ -645,6 +647,36 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .cl-future{background:var(--ac-bg);border:1px solid var(--ac)}
 .cl-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:6px}
 .cl-tag-fix{background:var(--rd);color:#fff}.cl-tag-new{background:var(--gr);color:#fff}.cl-tag-imp{background:var(--ac);color:#fff}
+/* ===== タスク管理 ===== */
+.task-card{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:9px 12px;margin:6px 0;border-left:3px solid var(--bdr2)}
+.task-card.st-todo{border-left-color:var(--or)}
+.task-card.st-doing{border-left-color:var(--ac)}
+.task-card.st-done{opacity:.45;border-left-color:var(--gr)}
+.task-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;border:1px solid transparent;user-select:none;white-space:nowrap}
+.task-tag.clickable{cursor:pointer}
+.task-tag-todo{background:var(--or-bg);color:var(--or);border-color:var(--or)}
+.task-tag-doing{background:var(--ac-bg);color:var(--ac);border-color:var(--ac)}
+.task-tag-done{background:var(--gr-bg);color:var(--gr);border-color:var(--gr)}
+.task-due-over{color:var(--rd);font-weight:700}
+.task-asg{display:inline-block;font-size:10px;background:var(--sur);border:1px solid var(--bdr);border-radius:20px;padding:1px 7px;margin-right:3px}
+.task-graph-wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:10px 8px;align-items:end}
+.task-cluster{display:flex;flex-direction:column;align-items:center;padding:8px 4px 6px;border-radius:8px;cursor:pointer}
+.task-cluster:hover{background:var(--ac-bg)}
+.task-cluster-bars{display:flex;align-items:flex-end;justify-content:center;gap:4px;height:104px;width:100%;border-bottom:2px solid var(--bdr2)}
+.task-bar-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;width:18px}
+.task-bar-val{font-size:9px;font-weight:700;color:var(--txt2);line-height:1.3;margin-bottom:2px;font-family:var(--mo);white-space:nowrap}
+.task-bar{width:100%;border-radius:3px 3px 0 0}
+.task-bar-todo{background:var(--or)}
+.task-bar-doing{background:var(--ac)}
+.task-bar-done{background:var(--gr)}
+.task-cluster-name{margin-top:6px;font-size:11px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.task-cluster-total{font-size:10px;color:var(--txt3);margin-top:1px}
+.asub .btn{white-space:nowrap;flex-shrink:0}
+@media(max-width:768px){
+  .task-graph-wrap{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding-bottom:6px;margin:0 -4px;padding-left:4px;padding-right:4px}
+  .task-cluster{flex:0 0 84px;scroll-snap-align:start}
+  .asub{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+}
 /* ===== 検索モーダル ===== */
 .srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
 .srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
@@ -1196,12 +1228,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
         <button id="btn-sub-print" class="btn btn-g btn-sm" onclick="printSubTab()">🖨️<span class="btn-at-text"> 印刷</span></button>
       </div>
       <!-- サブタブ -->
-      <div style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
+      <div class="asub" style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
         <button id="subtab-at" class="btn btn-g btn-sm" onclick="swSubTab('at')" style="border-radius:6px 6px 0 0;border-bottom:2px solid var(--ac);font-weight:700">📊 担当表</button>
         <button id="subtab-oc" class="btn btn-g btn-sm" onclick="swSubTab('oc')" style="border-radius:6px 6px 0 0">📞 OC集計</button>
         <button id="subtab-ops" class="btn btn-g btn-sm" onclick="swSubTab('ops')" style="border-radius:6px 6px 0 0">📈 業務集計</button>
         <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0;display:none">⚖️ 公平性</button>
         <button id="subtab-my" class="btn btn-g btn-sm" onclick="swSubTab('my')" style="border-radius:6px 6px 0 0">👤 マイ担当</button>
+        <button id="subtab-task" class="btn btn-g btn-sm" onclick="swSubTab('task')" style="border-radius:6px 6px 0 0">📋 タスク</button>
       </div>
       <!-- 担当表 -->
       <div id="subpane-at">
@@ -1237,6 +1270,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       <!-- マイ担当 -->
       <div id="subpane-my" style="display:none;padding:10px 4px">
         <div id="my-body"></div>
+      </div>
+      <!-- タスク管理 -->
+      <div id="subpane-task" style="display:none;padding:10px 4px">
+        <div id="task-body"></div>
       </div>
     </div>
   </div>
@@ -1358,9 +1395,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 </div>
 <!-- ===== 横断検索モーダル ===== -->
 <!-- ===== 変更履歴（一般公開・フィルタ済み）モーダル ===== -->
-<div class="ov hd" id="modal-changelog-public">
+<div class="ov hd" id="modal-changelog-public" onclick="if(event.target===this)closeChangelogPublic()">
   <div class="md" style="max-width:560px">
-    <h3>📝 変更履歴</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <h3 style="margin:0">📝 変更履歴</h3>
+      <button class="btn btn-g btn-sm" onclick="closeChangelogPublic()" title="閉じる">✕</button>
+    </div>
     <div id="changelog-public-body"></div>
     <div class="mdb">
       <button class="btn btn-g" onclick="closeChangelogPublic()">閉じる</button>
@@ -1481,6 +1521,13 @@ var LATEST_DB_RULES = [
 '        }',
 '      }',
 '    },',
+'    "tasks": {',
+'      ".read": "auth != null",',
+'      "$taskId": {',
+'        ".write": "auth != null && (newData.exists() || data.child(\'createdBy\').child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)",',
+'        "status": { ".validate": "newData.val() === \'todo\' || newData.val() === \'doing\' || newData.val() === \'done\'" }',
+'      }',
+'    },',
 '    "backups":       { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "backup_meta":   { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "recent_backup": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", ".write": "auth != null" },',
@@ -1599,6 +1646,10 @@ var _surplusOpen = false; /* 余剰人員エリア本体の開閉状態 */
 var _dcCounts = null; /* buildDutyCard 用担当回数キャッシュ（renderPage ごとに更新） */
 var _fbLastPageCount = -1; /* 最後にFirebaseから受信したページ数（不審な削減検出用） */
 var _boardData = {}; /* Firebase /board のキャッシュ */
+var _tasksData = {};   /* Firebase /tasks のキャッシュ */
+var _taskView = null;  /* null=俯瞰ビュー / スタッフ名=個人詳細ビュー */
+var _taskFilter = 'all'; /* 俯瞰リストのフィルタ: all|todo|doing|done */
+var _taskGraphNames = []; /* 負荷グラフ行の名前（onclickでのindex参照用） */
 var FB_SNAP_KEY = 'ce2_lastfbsnap'; /* 最後にFirebaseスナップショットを取った日付 */
 var FB_SNAP_DAYS = 7; /* 保持日数 */
 var _fbSnapDone = false; /* 初回ロード時のスナップショット実行済みフラグ */
@@ -1823,8 +1874,9 @@ function fbInit() {
         _fbDataLoaded = false; /* 次のログインでFirebaseデータ受信まで書き込みをブロック */
         _fbLastPageCount = -1;
         if (_notifListenerRef) { _notifListenerRef.off(); _notifListenerRef = null; }
-        if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
+        if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
+        _tasksData = {}; _taskView = null; _taskFilter = 'all';
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
         curDs = null;
@@ -2074,6 +2126,12 @@ function fbInit() {
             if (bp && bp.style.display !== 'none') renderBoard();
             updateBoardBadge();
             updatePendingBadge();
+          });
+          /* タスクリスナー（初回ログイン時に一度だけ設定） */
+          fbDB.ref('/tasks').on('value', function(tsnap) {
+            _tasksData = tsnap.val() || {};
+            var tp = document.getElementById('subpane-task');
+            if (tp && tp.style.display !== 'none') renderTasks();
           });
         } else {
           /* トークン更新時：データは既に同期済みなのでUI表示だけ更新 */
@@ -3491,8 +3549,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/07/10-26';
+var APP_VERSION = 'Ver.2026/07/10-27';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/10-27', date:'2026-07-10', title:'タスク管理機能・申し送りの日付移動を追加', items:[
+    {t:'new', d:'📋 担当表タブに「タスク」サブタブを追加。スタッフ間でタスクを割り振り（複数人可）、未着手・進行中・完了のステータスで管理できます'},
+    {t:'new', d:'📊 スタッフごとのタスク量をグラフで俯瞰でき、名前をクリックすると個人ごとの詳細ページが見られます'},
+    {t:'new', d:'📅 タスクに期限を設定でき、期限超過は赤く強調表示されます'},
+    {t:'new', d:'📝 申し送りを別の日へ移動できるようになりました（済チェックの横の📅ボタン）'},
+    {t:'imp', d:'👑 Firebaseセキュリティルールに /tasks パスを追加（要:管理者がFirebase Console側で再適用）', admin:true}
+  ]},
   { ver:'Ver.2026/07/10-26', date:'2026-07-10', title:'掲示板機能拡張・通知強化・データ保護アップデート', items:[
     {t:'new', d:'📢 掲示板の投稿に既読確認機能を追加。誰が読んだか👀アイコンで確認できます'},
     {t:'new', d:'📢 掲示板の返信にも画像を添付できるようになりました'},
@@ -4512,7 +4577,7 @@ function removeOpsCard(ds, cid) {
 var _curSubTab = 'at';
 function swSubTab(id) {
   _curSubTab = id;
-  var ids = ['at','oc','ops','fair','my'];
+  var ids = ['at','oc','ops','fair','my','task'];
   ids.forEach(function(sid){
     var pane = document.getElementById('subpane-'+sid);
     if (pane) pane.style.display = sid===id ? '' : 'none';
@@ -4524,12 +4589,13 @@ function swSubTab(id) {
   /* CSV/印刷ボタンの有無をサブタブに合わせて切り替え */
   var csvBtn   = document.getElementById('btn-sub-csv');
   var printBtn = document.getElementById('btn-sub-print');
-  if (csvBtn)   csvBtn.style.display   = (id==='fair'||id==='my') ? 'none' : '';
-  if (printBtn) printBtn.style.display = (id==='my') ? 'none' : '';
+  if (csvBtn)   csvBtn.style.display   = (id==='fair'||id==='my'||id==='task') ? 'none' : '';
+  if (printBtn) printBtn.style.display = (id==='my'||id==='task') ? 'none' : '';
   if (id==='oc')   renderOCSummary();
   if (id==='ops')  renderOpsSummary();
   if (id==='fair') renderFairness();
   if (id==='my')   renderMySchedule();
+  if (id==='task') renderTasks();
 }
 
 /* ===== OC集計シート ===== */
@@ -7548,8 +7614,8 @@ function renderMemos(ds, dat, locked) {
     var canDel = !locked && (isAdmin || (currentUser && currentUser.uid === m.uid));
     var isDone = !!m.done;
     h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
-    /* 済チェックボックス：削除ボタンの有無で右位置を調整 */
-    var doneRight = canDel ? '36px' : '9px';
+    /* 済チェックボックス：削除・移動ボタンの有無で右位置を調整 */
+    var doneRight = canDel ? '64px' : '9px';
     h += '<label class="memo-done-label" style="right:' + doneRight + '" title="既読・完了">'
        + '<input type="checkbox" class="memo-done-cb"'
        + ' data-idx="' + i + '" data-ds="' + ds + '" data-action="doneMemo"'
@@ -7560,6 +7626,7 @@ function renderMemos(ds, dat, locked) {
     h += '<span class="mp-name">' + escH(m.name || '不明') + '</span>';
     h += '<span>' + (m.ts ? fmtTS(m.ts) : '') + '</span>';
     if (m.isAdmin) h += '<span style="font-size:9px;background:var(--gd-bg);color:var(--gd);border-radius:4px;padding:1px 5px;border:1px solid var(--gd-bdr)">管理者</span>';
+    if (m.movedFrom) { var mfP = m.movedFrom.split('-'); h += '<span style="font-size:10px;color:var(--txt3)">(' + parseInt(mfP[1]) + '/' + parseInt(mfP[2]) + 'から移動)</span>'; }
     h += '</div>';
     if (m.text) h += '<div class="mp-body" style="white-space:pre-wrap">' + highlightMention(escH(m.text)) + '</div>';
     /* 画像・動画 */
@@ -7592,6 +7659,7 @@ function renderMemos(ds, dat, locked) {
       }
       h += '</div>';
     }
+    if (canDel && !isDone) h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
     if (canDel) h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
     h += '</div>';
   }
@@ -7601,6 +7669,12 @@ function renderMemos(ds, dat, locked) {
     var btn = e.target.closest('[data-action="delMemo"]');
     if (btn) {
       delMemo(btn.getAttribute('data-ds'), parseInt(btn.getAttribute('data-idx')));
+      return;
+    }
+    /* 別日へ移動ボタン */
+    var mvBtn = e.target.closest('[data-action="moveMemo"]');
+    if (mvBtn) {
+      openMoveMemoModal(mvBtn.getAttribute('data-ds'), parseInt(mvBtn.getAttribute('data-idx')));
       return;
     }
     /* 済チェックボックス */
@@ -8402,6 +8476,45 @@ function delMemo(ds, idx) {
   saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
+}
+
+function openMoveMemoModal(ds, idx) {
+  if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return;
+  var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
+  var defDs = tmr.getFullYear() + '-' + String(tmr.getMonth()+1).padStart(2,'0') + '-' + String(tmr.getDate()).padStart(2,'0');
+  var ov = document.createElement('div'); ov.id = 'move-memo-ov'; ov.className = 'ov';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '340px';
+  md.innerHTML = '<h3>📅 申し送りを別の日へ移動</h3>'
+    + '<div style="font-size:12px;font-weight:700;margin-bottom:4px">移動先の日付</div>'
+    + '<input type="date" id="move-memo-date" class="fi" style="width:100%;box-sizing:border-box" value="' + defDs + '">'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'move-memo-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" id="move-memo-go">移動</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('move-memo-go').addEventListener('click', function(){
+    var targetDs = document.getElementById('move-memo-date').value;
+    if (!targetDs) { alert('移動先の日付を選択してください'); return; }
+    if (moveMemo(ds, idx, targetDs)) ov.remove();
+  });
+}
+
+function moveMemo(ds, idx, targetDs) {
+  if (targetDs === ds) { alert('移動元と同じ日付です'); return false; }
+  if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return false;
+  if (!D.pages[targetDs]) {
+    if (!can('pg')) { alert('🔒 移動先の連絡表がまだ作成されていません。管理者に連絡してください。'); return false; }
+    D.pages[targetDs] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
+  }
+  if (!D.pages[targetDs].memos) D.pages[targetDs].memos = [];
+  var m = D.pages[ds].memos[idx];
+  D.pages[ds].memos.splice(idx, 1);
+  m.movedFrom = ds;
+  D.pages[targetDs].memos.push(m);
+  saveD();
+  writeLog('申し送り移動', fmtJ(ds) + '→' + fmtJ(targetDs) + ' 「' + (m.text||'').slice(0,30) + '」');
+  renderMemos(ds, D.pages[ds], !can('memo'));
+  renderCal();
+  return true;
 }
 
 function fmtTS(ts) {
@@ -10858,6 +10971,267 @@ function renderAT() {
   });}
   initAtPinchZoom();
 }
+/* ===== タスク管理 ===== */
+var TASK_ST = ['todo','doing','done'];
+var TASK_ST_LABEL = { todo:'未着手', doing:'進行中', done:'完了' };
+var TASK_ST_ICON  = { todo:'⚪', doing:'🔵', done:'✅' };
+
+function taskAssignees(t) {
+  if (!t || !t.assignees) return [];
+  return Array.isArray(t.assignees) ? t.assignees
+    : Object.keys(t.assignees).map(function(k){ return t.assignees[k]; });
+}
+/* 自分のスタッフ名を解決（renderMySchedule の selfName 解決と同一ロジック） */
+function taskSelfName() {
+  if (!currentUser) return null;
+  if (D.stf.indexOf(currentUser.displayName) >= 0) return currentUser.displayName;
+  if (D.stfLinks) for (var k in D.stfLinks) { if (D.stfLinks[k] === currentUser.uid) return k; }
+  return null;
+}
+/* 権限判定（アプリ側制御） */
+function taskCanDelete(t) {
+  return isAdmin || !!(currentUser && t.createdBy && t.createdBy.uid === currentUser.uid);
+}
+function taskCanEditAll(t) { return taskCanDelete(t); } /* 全項目編集=作成者/管理者 */
+function taskCanStatus(t) {
+  if (taskCanDelete(t)) return true;
+  var self = taskSelfName();
+  return !!(self && taskAssignees(t).indexOf(self) !== -1); /* 担当者はステータスのみ */
+}
+/* 永続化（FB/ローカル両対応 — postBoard 系と同パターン） */
+function taskPersist(id, t) {
+  _tasksData[id] = t; renderTasks(); /* 楽観更新 → リスナーエコーで確定 */
+  if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).set(t).catch(function(e){ alert('保存エラー: '+e.message); });
+}
+function taskDelete(id) {
+  var t = _tasksData[id]; if (!t || !taskCanDelete(t)) return;
+  if (!confirm('タスク「'+(t.title||'')+'」を削除しますか？')) return;
+  delete _tasksData[id]; renderTasks();
+  if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).remove().catch(function(e){ alert('削除エラー: '+e.message); });
+  if (FB_ON) writeLog('タスク削除', (t.title||'').substring(0,30));
+}
+/* ステータスをクリックでサイクル: 未着手→進行中→完了→未着手（Notion風） */
+function taskCycleStatus(id) {
+  var t = _tasksData[id]; if (!t || !taskCanStatus(t)) return;
+  var next = TASK_ST[(TASK_ST.indexOf(t.status||'todo') + 1) % 3];
+  t.status = next;
+  t.doneAt = next === 'done' ? Date.now() : 0;
+  t.updatedTs = Date.now();
+  taskPersist(id, t);
+  if (FB_ON) writeLog('タスク状態変更', (t.title||'').substring(0,20)+' → '+TASK_ST_LABEL[next]);
+}
+function setTaskFilter(f) { _taskFilter = f; renderTasks(); }
+function taskOpenPerson(i) { _taskView = _taskGraphNames[i] || null; renderTasks(); }
+function taskBackOverview() { _taskView = null; renderTasks(); }
+
+function taskCardHTML(id, t, today) {
+  var st = t.status || 'todo';
+  var canSt = taskCanStatus(t), canAll = taskCanEditAll(t), canDel = taskCanDelete(t);
+  var tag = '<span class="task-tag task-tag-'+st+(canSt?' clickable" title="クリックで状態変更" onclick="taskCycleStatus(\''+id+'\')':'"')+'">'
+    + TASK_ST_ICON[st]+' '+TASK_ST_LABEL[st]+'</span>';
+  var over = t.due && st !== 'done' && t.due < today;
+  var dueH = t.due ? '<span style="font-size:11px;margin-left:8px" class="'+(over?'task-due-over':'')+'">'
+    + (over?'⚠️ ':'📅 ')+escH(t.due.replace(/-/g,'/'))+(over?' 期限超過':'')+'</span>' : '';
+  var h = '<div class="task-card st-'+st+'">'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    + tag + '<span style="font-weight:700;font-size:13px;flex:1;min-width:120px">'+escH(t.title||'')+'</span>' + dueH;
+  if (canAll) h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openTaskModal(\''+id+'\')">✎ 編集</button>';
+  if (canDel) h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rd)" onclick="taskDelete(\''+id+'\')">🗑</button>';
+  h += '</div>';
+  if (t.desc) h += '<div style="font-size:11px;color:var(--txt2);margin-top:4px;white-space:pre-wrap">'+escH(t.desc)+'</div>';
+  h += '<div style="margin-top:5px;font-size:10px;color:var(--txt3)">'
+    + taskAssignees(t).map(function(n){ return '<span class="task-asg">👤 '+escH(n)+'</span>'; }).join('')
+    + '<span style="margin-left:6px">作成: '+escH((t.createdBy&&t.createdBy.name)||'')+'</span></div></div>';
+  return h;
+}
+
+function renderTasks() {
+  var el = document.getElementById('task-body');
+  if (!el) return;
+  if (_taskView) { renderTaskPerson(el, _taskView); return; }
+
+  var ids = Object.keys(_tasksData);
+  var today = toDS(new Date());
+  var names = D.stf.filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
+
+  /* --- スタッフ別タスク量（未着手・進行中・完了） --- */
+  var load = {}; names.forEach(function(n){ load[n] = {todo:0, doing:0, done:0}; });
+  ids.forEach(function(id){
+    var t = _tasksData[id]; if (!t) return;
+    var st = t.status === 'doing' ? 'doing' : (t.status === 'done' ? 'done' : 'todo');
+    taskAssignees(t).forEach(function(n){
+      if (load[n]) load[n][st]++;
+    });
+  });
+  /* 集合棒グラフなのでスケールは「スタッフ毎の合計」ではなく「単一バーの最大値」 */
+  var maxLoad = 1;
+  names.forEach(function(n){
+    ['todo','doing','done'].forEach(function(k){ if (load[n][k] > maxLoad) maxLoad = load[n][k]; });
+  });
+  var TASK_BAR_AREA_H = 92, TASK_BAR_MIN_H = 3;
+  function taskBarH(v) { return v ? Math.max(TASK_BAR_MIN_H, Math.round(v / maxLoad * TASK_BAR_AREA_H)) : 0; }
+
+  _taskGraphNames = names;
+  var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    + '<span style="font-size:14px;font-weight:800">📋 タスク管理</span>'
+    + '<button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openTaskModal(null)">＋ タスクを追加</button></div>';
+
+  h += '<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin-bottom:12px">'
+    + '<div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:8px">👥 スタッフ別タスク量'
+    + '<span style="font-weight:400;color:var(--txt3);margin-left:8px;font-size:11px">'
+    + '<span class="task-tag task-tag-todo">未着手</span> <span class="task-tag task-tag-doing">進行中</span> <span class="task-tag task-tag-done">完了</span>'
+    + '　クリックで個人ページへ</span></div>';
+
+  if (!names.length) {
+    h += '<div class="pool-empty" style="padding:14px 0">スタッフが登録されていません</div>';
+  } else {
+    h += '<div class="task-graph-wrap">';
+    names.forEach(function(n, i){
+      var td = load[n].todo, dg = load[n].doing, dn = load[n].done, tot = td + dg + dn;
+      var bars = [['todo', td], ['doing', dg], ['done', dn]];
+      h += '<div class="task-cluster" onclick="taskOpenPerson('+i+')" title="'+escH(n)+'：未'+td+'・進'+dg+'・完'+dn+'">'
+        + '<div class="task-cluster-bars">'
+        + bars.map(function(b){
+            var v = b[1];
+            return '<div class="task-bar-col">'
+              + '<div class="task-bar-val">'+(v ? v : '')+'</div>'
+              + '<div class="task-bar task-bar-'+b[0]+'" style="height:'+taskBarH(v)+'px"></div>'
+              + '</div>';
+          }).join('')
+        + '</div>'
+        + '<div class="task-cluster-name">'+escH(n)+'</div>'
+        + (tot ? '' : '<div class="task-cluster-total">—</div>')
+        + '</div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
+
+  /* --- フィルタチップ --- */
+  var chips = [['all','すべて'],['todo','⚪ 未着手'],['doing','🔵 進行中'],['done','✅ 完了']];
+  h += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">' + chips.map(function(c){
+    var on = _taskFilter === c[0];
+    return '<button class="btn btn-sm '+(on?'btn-p':'btn-g')+'" style="font-size:11px" onclick="setTaskFilter(\''+c[0]+'\')">'+c[1]+'</button>';
+  }).join('') + '</div>';
+
+  /* --- タスクリスト: 未完了（期限昇順→作成降順）、完了は下部に薄く --- */
+  var act = [], done = [];
+  ids.forEach(function(id){
+    var t = _tasksData[id]; if (!t) return;
+    if (_taskFilter !== 'all' && (t.status||'todo') !== _taskFilter) return;
+    (t.status === 'done' ? done : act).push([id, t]);
+  });
+  act.sort(function(a,b){
+    var da = a[1].due || '9999', db2 = b[1].due || '9999';
+    return da !== db2 ? (da < db2 ? -1 : 1) : (b[1].ts||0) - (a[1].ts||0);
+  });
+  done.sort(function(a,b){ return (b[1].doneAt||0) - (a[1].doneAt||0); });
+
+  if (!act.length && !done.length) h += '<div class="pool-empty" style="padding:20px 0">タスクはありません</div>';
+  act.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); });
+  if (done.length && _taskFilter === 'all')
+    h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:14px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">✅ 完了（'+done.length+'件）</div>';
+  done.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); });
+  el.innerHTML = h;
+}
+
+function renderTaskPerson(el, name) {
+  var today = toDS(new Date());
+  var mine = [];
+  Object.keys(_tasksData).forEach(function(id){
+    var t = _tasksData[id]; if (!t) return;
+    if (taskAssignees(t).indexOf(name) !== -1) mine.push([id, t]);
+  });
+  var todo = mine.filter(function(p){ return (p[1].status||'todo') === 'todo'; });
+  var doing = mine.filter(function(p){ return p[1].status === 'doing'; });
+  var done = mine.filter(function(p){ return p[1].status === 'done'; });
+  var sortByDue = function(a,b){ var da=a[1].due||'9999', db2=b[1].due||'9999'; return da!==db2?(da<db2?-1:1):(b[1].ts||0)-(a[1].ts||0); };
+  todo.sort(sortByDue); doing.sort(sortByDue);
+  done.sort(function(a,b){ return (b[1].doneAt||0) - (a[1].doneAt||0); });
+
+  var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+    + '<button class="btn btn-g btn-sm" onclick="taskBackOverview()">← 全体へ戻る</button>'
+    + '<span style="font-size:14px;font-weight:800">👤 '+escH(name)+' のタスク</span></div>';
+
+  if (!mine.length) { h += '<div class="pool-empty" style="padding:20px 0">タスクはありません</div>'; el.innerHTML = h; return; }
+
+  if (todo.length) { h += '<div style="font-size:12px;font-weight:700;color:var(--or);margin:8px 0 4px">⚪ 未着手（'+todo.length+'件）</div>'; todo.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); }); }
+  if (doing.length) { h += '<div style="font-size:12px;font-weight:700;color:var(--ac);margin:12px 0 4px">🔵 進行中（'+doing.length+'件）</div>'; doing.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); }); }
+  if (done.length) { h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:14px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">✅ 完了（'+done.length+'件）</div>'; done.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); }); }
+  el.innerHTML = h;
+}
+
+function openTaskModal(id) {
+  var t = id ? _tasksData[id] : null;
+  if (id && !t) return;
+  if (t && !taskCanEditAll(t)) return;
+  var cur = t ? taskAssignees(t) : [];
+  var names = D.stf.filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
+  var checks = names.map(function(n){
+    return '<label class="dc-cb-item'+(cur.indexOf(n)!==-1?' checked':'')+'">'
+      + '<input type="checkbox" value="'+escH(n)+'"'+(cur.indexOf(n)!==-1?' checked':'')
+      + ' onchange="this.parentNode.classList.toggle(\'checked\',this.checked)">'+escH(n)+'</label>';
+  }).join('');
+  var stOpts = TASK_ST.map(function(s){
+    return '<option value="'+s+'"'+((t&&t.status)===s?' selected':'')+'>'+TASK_ST_ICON[s]+' '+TASK_ST_LABEL[s]+'</option>';
+  }).join('');
+  var ov = document.createElement('div'); ov.id='task-md-ov'; ov.className='ov';
+  var md = document.createElement('div'); md.className='md'; md.style.maxWidth='440px';
+  md.innerHTML = '<h3>'+(t?'✎ タスクを編集':'＋ タスクを追加')+'</h3>'
+    + '<div style="font-size:12px;font-weight:700;margin-bottom:4px">タイトル<span style="color:var(--rd)">*</span></div>'
+    + '<input id="task-md-title" class="fi" style="width:100%;box-sizing:border-box" maxlength="100" value="'+escH(t?t.title:'')+'">'
+    + '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">詳細メモ（任意）</div>'
+    + '<textarea id="task-md-desc" class="fi" rows="3" style="width:100%;box-sizing:border-box;resize:vertical">'+escH(t?(t.desc||''):'')+'</textarea>'
+    + '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">担当者<span style="color:var(--rd)">*</span>（複数選択可）</div>'
+    + '<div id="task-md-asg" class="dc-cbs" style="max-height:160px;overflow-y:auto">'+checks+'</div>'
+    + '<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">'
+    + '<div><div style="font-size:12px;font-weight:700;margin-bottom:4px">期限（任意）</div><input type="date" id="task-md-due" class="fi" value="'+escH(t?(t.due||''):'')+'"></div>'
+    + '<div><div style="font-size:12px;font-weight:700;margin-bottom:4px">ステータス</div><select id="task-md-st" class="ds2">'+stOpts+'</select></div></div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'task-md-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" id="task-md-save">保存</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('task-md-save').addEventListener('click', function(){ saveTaskFromModal(id || null); });
+}
+
+function saveTaskFromModal(id) {
+  if (!currentUser) { alert('ログインが必要です'); return; }
+  var title = document.getElementById('task-md-title').value.trim();
+  var desc  = document.getElementById('task-md-desc').value.trim();
+  if (!title) { alert('タイトルを入力してください'); return; }
+  var asg = [];
+  document.querySelectorAll('#task-md-asg input[type=checkbox]:checked').forEach(function(cb){ asg.push(cb.value); });
+  if (!asg.length) { alert('担当者を1名以上選択してください'); return; }
+  /* PHI検知（#main外なので明示呼び出し必須） */
+  var phiRes = detectPHI(title + '\n' + desc);
+  if (phiRes.red.length || phiRes.yellow.length) {
+    showPHIPopup({ result: phiRes, mode: 'memo',
+      onProceed: function(){ _doSaveTask(id, title, desc, asg); },
+      onFix: function(){ var e = document.getElementById('task-md-title'); if (e) e.focus(); }
+    });
+    return;
+  }
+  _doSaveTask(id, title, desc, asg);
+}
+
+function _doSaveTask(id, title, desc, asg) {
+  var old = id ? _tasksData[id] : null;
+  var st  = document.getElementById('task-md-st').value || 'todo';
+  var t = {
+    title: title, desc: desc || '',
+    assignees: asg, status: st,
+    due: document.getElementById('task-md-due').value || '',
+    createdBy: old ? old.createdBy : { uid: currentUser.uid, name: currentUser.displayName || currentUser.email || '' },
+    ts: old ? (old.ts || Date.now()) : Date.now(),
+    updatedTs: Date.now(),
+    doneAt: st === 'done' ? ((old && old.doneAt) || Date.now()) : 0
+  };
+  var key = id || ((FB_ON && fbDB) ? fbDB.ref('/tasks').push().key : 'local_' + Date.now());
+  taskPersist(key, t);
+  var ovEl = document.getElementById('task-md-ov'); if (ovEl) ovEl.remove();
+  if (FB_ON) writeLog(id ? 'タスク編集' : 'タスク作成', title.substring(0,30));
+}
+
 function openFromAT(ds){swTab('cal');var pt=ds.split('-');calY=parseInt(pt[0]);calM=parseInt(pt[1])-1;openPage(ds);}
 function printAt(){
   document.getElementById('ph').textContent='分院CE連絡表　担当一覧　'+asY+'年'+(asM+1)+'月';
