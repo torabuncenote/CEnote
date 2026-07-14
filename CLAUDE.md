@@ -420,10 +420,10 @@ Independent Firebase path (like `/board`), not part of the `D` object — the "5
 ```
 
 - `assignees` is stored by **staff name**, not uid, so the load graph and per-staff view can key off `D.stf` directly. `taskAssignees(t)` normalizes Firebase's array→object coercion (same shape as `_boardMediaArr`).
-- **Permission model is app-side, not Firebase-rule-enforced** (RTDB rules cannot inspect array membership against `auth.uid`): everyone can create/edit; `taskCanStatus(t)` additionally allows any assignee to cycle status; `taskCanDelete(t)` / `taskCanEditAll(t)` restrict to the creator or an admin. The `/tasks` RTDB rule only hard-enforces the delete-permission boundary (see `database.rules.json` / `LATEST_DB_RULES`).
+- **Permission model is app-side, not Firebase-rule-enforced** (RTDB rules cannot inspect array membership against `auth.uid`): everyone can create/edit; `taskCanStatus(t)` additionally allows any assignee to cycle status; `taskCanDelete(t)` / `taskCanEditAll(t)` restrict to the creator or an admin. The `/tasks` RTDB rule hard-enforces two boundaries: the delete permission, and `createdBy.uid` immutability via `.validate` (must be a string on create, must equal the existing value on update — otherwise anyone could rewrite `createdBy` to themselves and then delete). See `database.rules.json` / `LATEST_DB_RULES`.
 - `taskCycleStatus(id)` cycles todo→doing→done→todo (Notion-style tag click) and updates `doneAt`/`updatedTs`.
 - Completed tasks are kept (not deleted) but rendered dimmed (`.task-card.st-done`, `opacity:.45`) and excluded from the staff load graph.
-- `taskPersist(id, t)` follows the optimistic-update pattern: mutate `_tasksData` + re-render immediately, then `fbDB.ref('/tasks/'+id).set(t)` (local/preview mode skips the Firebase write, cache-only, same as `postBoard`).
+- `taskPersist(id, t)` follows the optimistic-update pattern: mutate `_tasksData` + re-render immediately, then `fbDB.ref('/tasks/'+id).set(t)` (local/preview mode skips the Firebase write, cache-only, same as `postBoard`). On write failure the `.catch` rolls the cache back to the previous value and re-renders (`taskDelete` likewise restores the deleted entry) so the UI never shows a phantom saved/deleted state.
 - Listener setup/teardown mirrors `/board`: `fbDB.ref('/tasks').on('value', ...)` inside `fbInit()`'s `if (!dataListenerOn)` block; `fbDB.ref('/tasks').off()` plus `_tasksData={}; _taskView=null; _taskFilter='all';` on logout.
 
 ### Memo Move-to-Another-Day

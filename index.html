@@ -1524,6 +1524,7 @@ var LATEST_DB_RULES = [
 '      ".read": "auth != null",',
 '      "$taskId": {',
 '        ".write": "auth != null && (newData.exists() || data.child(\'createdBy\').child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)",',
+'        ".validate": "newData.child(\'createdBy\').child(\'uid\').isString() && (!data.exists() || newData.child(\'createdBy\').child(\'uid\').val() === data.child(\'createdBy\').child(\'uid\').val())",',
 '        "status": { ".validate": "newData.val() === \'todo\' || newData.val() === \'doing\' || newData.val() === \'done\'" }',
 '      }',
 '    },',
@@ -3548,8 +3549,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/07/10-27';
+var APP_VERSION = 'Ver.2026/07/13-28';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/13-28', date:'2026-07-13', title:'タスク管理・申し送り移動の安定性改善', items:[
+    {t:'fix', d:'📝 申し送りの移動画面を開いている間に他の端末が同じ日の申し送りを編集すると、別の申し送りが移動されることがある問題を修正'},
+    {t:'fix', d:'📋 タスクの保存・削除がサーバーに反映できなかった場合、画面表示を自動で元に戻してお知らせするようにしました（保存されたように見えて消える問題の対策）'},
+    {t:'fix', d:'📋 タスク追加・申し送り移動の画面がボタンの素早い2回押しで二重に開き、保存ボタンが効かなくなる問題を修正'},
+    {t:'fix', d:'📝 完了済み申し送りの「済」チェックの表示位置がずれる問題を修正'},
+    {t:'imp', d:'👑 Firebaseセキュリティルールを強化：タスクの作成者情報の書き換えを禁止し、他人のタスクを削除できる抜け道を封鎖（要:管理者がFirebase Console側で再適用）', admin:true}
+  ]},
   { ver:'Ver.2026/07/10-27', date:'2026-07-10', title:'タスク管理機能・申し送りの日付移動を追加', items:[
     {t:'new', d:'📋 担当表タブに「タスク」サブタブを追加。スタッフ間でタスクを割り振り（複数人可）、未着手・進行中・完了のステータスで管理できます'},
     {t:'new', d:'📊 スタッフごとのタスク量をグラフで俯瞰でき、名前をクリックすると個人ごとの詳細ページが見られます'},
@@ -7607,7 +7615,8 @@ function renderMemos(ds, dat, locked) {
     var isDone = !!m.done;
     h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
     /* 済チェックボックス：削除・移動ボタンの有無で右位置を調整 */
-    var doneRight = canDel ? '64px' : '9px';
+    var canMove = canDel && !isDone;
+    var doneRight = canMove ? '64px' : (canDel ? '36px' : '9px');
     h += '<label class="memo-done-label" style="right:' + doneRight + '" title="既読・完了">'
        + '<input type="checkbox" class="memo-done-cb"'
        + ' data-idx="' + i + '" data-ds="' + ds + '" data-action="doneMemo"'
@@ -7651,7 +7660,7 @@ function renderMemos(ds, dat, locked) {
       }
       h += '</div>';
     }
-    if (canDel && !isDone) h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
+    if (canMove) h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
     if (canDel) h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
     h += '</div>';
   }
@@ -8472,6 +8481,10 @@ function delMemo(ds, idx) {
 
 function openMoveMemoModal(ds, idx) {
   if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return;
+  /* モーダル表示中にFirebaseエコーでindexがずれても対象を再特定できるよう識別子を保持 */
+  var m0 = D.pages[ds].memos[idx];
+  var memoTs = m0.ts, memoUid = m0.uid;
+  var oldOv = document.getElementById('move-memo-ov'); if (oldOv) oldOv.remove(); /* 二重表示防止 */
   var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
   var defDs = tmr.getFullYear() + '-' + String(tmr.getMonth()+1).padStart(2,'0') + '-' + String(tmr.getDate()).padStart(2,'0');
   var ov = document.createElement('div'); ov.id = 'move-memo-ov'; ov.className = 'ov';
@@ -8486,7 +8499,14 @@ function openMoveMemoModal(ds, idx) {
   document.getElementById('move-memo-go').addEventListener('click', function(){
     var targetDs = document.getElementById('move-memo-date').value;
     if (!targetDs) { alert('移動先の日付を選択してください'); return; }
-    if (moveMemo(ds, idx, targetDs)) ov.remove();
+    /* 他端末の編集でindexがずれた可能性があるため ts+uid で対象を再特定する */
+    var memos = (D.pages[ds] && D.pages[ds].memos) || [];
+    var curIdx = -1;
+    for (var i = 0; i < memos.length; i++) {
+      if (memoTs ? (memos[i].ts === memoTs && memos[i].uid === memoUid) : i === idx) { curIdx = i; break; }
+    }
+    if (curIdx === -1) { alert('この申し送りは既に削除または移動されています'); ov.remove(); return; }
+    if (moveMemo(ds, curIdx, targetDs)) ov.remove();
   });
 }
 
@@ -10992,14 +11012,22 @@ function taskCanStatus(t) {
 }
 /* 永続化（FB/ローカル両対応 — postBoard 系と同パターン） */
 function taskPersist(id, t) {
+  var prev = _tasksData[id]; /* 書き込み失敗時のロールバック用 */
   _tasksData[id] = t; renderTasks(); /* 楽観更新 → リスナーエコーで確定 */
-  if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).set(t).catch(function(e){ alert('保存エラー: '+e.message); });
+  if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).set(t).catch(function(e){
+    if (prev === undefined) delete _tasksData[id]; else _tasksData[id] = prev;
+    renderTasks();
+    alert('保存エラー: '+e.message);
+  });
 }
 function taskDelete(id) {
   var t = _tasksData[id]; if (!t || !taskCanDelete(t)) return;
   if (!confirm('タスク「'+(t.title||'')+'」を削除しますか？')) return;
   delete _tasksData[id]; renderTasks();
-  if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).remove().catch(function(e){ alert('削除エラー: '+e.message); });
+  if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).remove().catch(function(e){
+    _tasksData[id] = t; renderTasks(); /* 削除失敗 → 復元 */
+    alert('削除エラー: '+e.message);
+  });
   if (FB_ON) writeLog('タスク削除', (t.title||'').substring(0,30));
 }
 /* ステータスをクリックでサイクル: 未着手→進行中→完了→未着手（Notion風） */
@@ -11157,6 +11185,7 @@ function openTaskModal(id) {
   var t = id ? _tasksData[id] : null;
   if (id && !t) return;
   if (t && !taskCanEditAll(t)) return;
+  var oldOv = document.getElementById('task-md-ov'); if (oldOv) oldOv.remove(); /* 二重表示防止 */
   var cur = t ? taskAssignees(t) : [];
   var names = D.stf.filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
   var checks = names.map(function(n){
