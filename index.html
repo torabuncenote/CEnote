@@ -677,6 +677,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .asub{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
 }
 /* ===== タブレット貸出・返却 ===== */
+.tbl-badge{display:inline-block;min-width:16px;padding:0 4px;margin-left:5px;font-size:10px;font-weight:700;color:#fff;background:var(--rd);border-radius:20px;text-align:center;line-height:16px}
 .tbl-list{display:flex;flex-direction:column;gap:4px}
 .tbl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;background:var(--sur2);border-left:3px solid var(--gr)}
 .tbl-row.out{border-left-color:var(--rd)}
@@ -3586,7 +3587,7 @@ function doRegister() {
 var APP_VERSION = 'Ver.2026/07/15-29';
 var APP_CHANGELOG = [
   { ver:'Ver.2026/07/15-29', date:'2026-07-15', title:'タブレット貸出・返却管理を追加', items:[
-    {t:'new', d:'📱 業務ページに「タブレット貸出・返却」を追加。借りた人・返した人と時刻を記録でき、現在貸出中の台数がひと目で分かります'},
+    {t:'new', d:'📱 連絡表ヘッダーの「タブレット」ボタンから貸出・返却を記録できるようになりました。借りた人・返した人と時刻を記録でき、ボタンのバッジで現在貸出中の台数がひと目で分かります'},
     {t:'new', d:'📊 タブレットの貸出時間帯をスケジュール表のようなタイムラインで俯瞰できます（未返却は現在時刻まで表示）'},
     {t:'imp', d:'👑 業務マスタに「タブレット台帳」を追加。貸出対象のタブレットを登録できます', admin:true}
   ]},
@@ -7193,6 +7194,8 @@ function renderPage(ds) {
   var h='<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
   h+='<div class="pi">⚙️</div>';
   h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
+  var _tblOut=(dat.tabletLogs||[]).filter(function(l){return !l.returnedAt;}).length;
+  h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱 タブレット<span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️ 印刷</button>';
   h+='</div>';
   /* イベント表示エリア */
@@ -7355,11 +7358,6 @@ function renderPage(ds) {
   }
   h+='<div class="ops-grid" id="ops-grid"></div><hr>';
 
-  /* タブレット貸出・返却 */
-  var tblLk = !can('tablet');
-  h+='<div class="st">📱 タブレット貸出・返却'+(tblLk?'<span class="slb lk">🔒</span>':'')+'</div>';
-  h+='<div id="tablet-wrap"></div><hr>';
-
   /* チェックリスト */
   h+='<div class="st">✅ 業務チェックリスト'+(clk?'<span class="slb lk">🔒</span>':'')+'</div>';
   h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> 共通業務（毎日・'+D.dly.length+'項目）</div><div id="dcl"></div></div>';
@@ -7442,7 +7440,6 @@ function renderPage(ds) {
   buildDG(ds, dat, dlk);
   renderSurplusArea(ds, dat, dlk);
   buildOPS(ds, dat, olk);
-  buildTablet(ds, dat, !can('tablet'));
   buildCL(ds, dat, wtl, all, clk);
   refreshPool(ds);
 
@@ -11765,35 +11762,58 @@ function tabletNowHM(){ return schedMinToHM(tabletNowMin()); }
 function tabletHMToMin(hm){ if(!hm) return 0; var p=(''+hm).split(':'); return (parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0); }
 function tabletTodayStr(){ var n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0'); }
 
-function setTabletView(v){ _tabletView=v; if(curDs && D.pages[curDs]) buildTablet(curDs, D.pages[curDs], !can('tablet')); }
+function setTabletView(v){ _tabletView=v; if(curDs) renderTabletPanelBody(curDs); }
 
-function buildTablet(ds, dat, locked){
-  var wrap = document.getElementById('tablet-wrap'); if(!wrap) return;
-  var logs = dat.tabletLogs = dat.tabletLogs || [];
-  var tablets = D.tablets || [];
-  var h = '';
+/* ヘッダーの📱ボタンの貸出中バッジを更新 */
+function updateTabletBtnBadge(ds){
+  var b=document.getElementById('tablet-btn-badge'); if(!b) return;
+  var dat=D.pages[ds];
+  var out=(dat&&dat.tabletLogs)?dat.tabletLogs.filter(function(l){return !l.returnedAt;}).length:0;
+  b.textContent=out; b.style.display=out?'inline-block':'none';
+}
+
+/* ヘッダーの📱ボタンから呼び出すモーダルパネル */
+function openTabletPanel(ds){
+  if(!D.pages[ds]) return;
+  var ov=document.createElement('div'); ov.id='tablet-panel-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  var md=document.createElement('div'); md.className='md'; md.style.maxWidth='680px'; md.style.width='94%'; md.style.maxHeight='85vh'; md.style.overflowY='auto';
+  md.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">'
+    +'<h3 style="margin:0">📱 タブレット貸出・返却</h3>'
+    +'<button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-panel-ov\').remove()">✕ 閉じる</button></div>'
+    +'<div id="tablet-panel-body"></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderTabletPanelBody(ds);
+}
+
+function renderTabletPanelBody(ds){
+  var wrap=document.getElementById('tablet-panel-body'); if(!wrap) return;
+  var dat=D.pages[ds]; if(!dat) return;
+  var locked=!can('tablet');
+  var logs=dat.tabletLogs=dat.tabletLogs||[];
+  var tablets=D.tablets||[];
+  var h='';
   /* 貸出中サマリ */
-  var outLogs = logs.filter(function(l){ return !l.returnedAt; });
-  h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
+  var outLogs=logs.filter(function(l){return !l.returnedAt;});
+  h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
   if(outLogs.length){
-    h += '<span style="font-weight:700;color:var(--rd)">🔴 現在貸出中: '+outLogs.length+'台</span>';
-    h += '<span style="font-size:11px;color:var(--txt3)">'+escH(outLogs.map(function(l){return l.tablet;}).join('・'))+'</span>';
+    h+='<span style="font-weight:700;color:var(--rd)">🔴 現在貸出中: '+outLogs.length+'台</span>';
+    h+='<span style="font-size:11px;color:var(--txt3)">'+escH(outLogs.map(function(l){return l.tablet;}).join('・'))+'</span>';
   } else {
-    h += '<span style="font-weight:700;color:var(--gr)">✅ 全台返却済み</span>';
+    h+='<span style="font-weight:700;color:var(--gr)">✅ 全台返却済み</span>';
   }
-  h += '</div>';
+  h+='</div>';
   if(!tablets.length){
-    h += '<div class="pool-empty" style="font-size:12px;padding:8px 0">タブレット台帳が未登録です（業務タブ →「📱 タブレット台帳」で登録）</div>';
-    wrap.innerHTML = h; return;
+    h+='<div class="pool-empty" style="font-size:12px;padding:8px 0">タブレット台帳が未登録です（業務タブ →「📱 タブレット台帳」で登録）</div>';
+    wrap.innerHTML=h; return;
   }
   /* コントロール */
-  h += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">';
-  if(!locked) h += '<button class="btn btn-p btn-sm" onclick="openTabletLendModal(\''+ds+'\')">＋ 貸出を記録</button>';
-  h += '<button class="btn '+(_tabletView==='list'?'btn-p':'btn-g')+' btn-sm" onclick="setTabletView(\'list\')">📋 リスト</button>';
-  h += '<button class="btn '+(_tabletView==='timeline'?'btn-p':'btn-g')+' btn-sm" onclick="setTabletView(\'timeline\')">📊 タイムライン</button>';
-  h += '</div>';
-  h += (_tabletView==='timeline') ? buildTabletTimeline(ds, logs, tablets) : buildTabletListView(ds, logs, locked);
-  wrap.innerHTML = h;
+  h+='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">';
+  if(!locked) h+='<button class="btn btn-p btn-sm" onclick="openTabletLendModal(\''+ds+'\')">＋ 貸出を記録</button>';
+  h+='<button class="btn '+(_tabletView==='list'?'btn-p':'btn-g')+' btn-sm" onclick="setTabletView(\'list\')">📋 リスト</button>';
+  h+='<button class="btn '+(_tabletView==='timeline'?'btn-p':'btn-g')+' btn-sm" onclick="setTabletView(\'timeline\')">📊 タイムライン</button>';
+  h+='</div>';
+  h+=(_tabletView==='timeline')?buildTabletTimeline(ds,logs,tablets):buildTabletListView(ds,logs,locked);
+  wrap.innerHTML=h;
 }
 
 function buildTabletListView(ds, logs, locked){
@@ -11898,7 +11918,7 @@ function _doSaveTabletLend(ds,name,borrower,timeStr){
   saveDPage(ds);
   writeLog('タブレット貸出', fmtJ(ds)+' '+name+'（'+borrower+'）');
   var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
-  buildTablet(ds, dat, !can('tablet'));
+  renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
 }
 
 function openTabletReturnModal(ds, idx){
@@ -11943,7 +11963,7 @@ function _doSaveTabletReturn(ds,idx,retby,timeStr){
   saveDPage(ds);
   writeLog('タブレット返却', fmtJ(ds)+' '+l.tablet+'（'+retby+'）');
   var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
-  buildTablet(ds, dat, !can('tablet'));
+  renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
 }
 function tabletDelete(ds, idx){
   if(!can('tablet')) return;
@@ -11953,7 +11973,7 @@ function tabletDelete(ds, idx){
   dat.tabletLogs.splice(idx,1);
   saveDPage(ds);
   writeLog('タブレット記録削除', fmtJ(ds)+' '+l.tablet);
-  buildTablet(ds, dat, !can('tablet'));
+  renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
 }
 
 /* ===== TABS / SIDEBAR ===== */
