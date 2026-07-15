@@ -65,11 +65,12 @@ var D = {
   psgBannerStart: '07:30',   // PSG取り外しバナー表示開始時刻
   psgBannerEnd:   '08:30',   // PSG取り外しバナー表示終了時刻
   autoDelCfg: { enabled:false, period:365, interval:30, lastClean:0 }, // 自動削除設定（旧: localStorage個別キー、_migVer 4で移行）
+  tablets: [],      // タブレット台帳（貸出対象名の配列）— 日々の貸出ログは D.pages[ds].tabletLogs
   _migVer: 4        // data migration version flag (increment when running one-time migrations)
 };
 ```
 
-Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, `surplus`, `surplusStatus`, `hdStatus`, `ops_cards`, etc.
+Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, `surplus`, `surplusStatus`, `hdStatus`, `ops_cards`, `tabletLogs`, etc.
 
 ### Adding New D Properties
 
@@ -153,6 +154,7 @@ function can(id) {
 | `memo` | 業務連絡・申し送りの編集 | |
 | `pg` | 連絡表の生成・削除 | |
 | `show_phs` | PHS番号欄の表示切替 | 反転ロジック（ON=表示、OFF=非表示） |
+| `tablet` | タブレット貸出の記録 | 貸出/返却/削除の操作をゲート。台帳マスタ編集は `mst` |
 
 #### Tab Visibility
 
@@ -303,6 +305,9 @@ All class names are abbreviated:
 | `taskCycleStatus(id)` / `taskPersist(id, t)` / `taskDelete(id)` | タスクのステータス循環（未着手→進行中→完了）／楽観更新保存／削除 |
 | `openTaskModal(id)` / `saveTaskFromModal(id)` | タスク作成・編集モーダル（動的生成の `.ov`/`.md`） |
 | `openMoveMemoModal(ds, idx)` / `moveMemo(ds, idx, targetDs)` | 申し送りを別日へ移動するモーダルと移動処理（`movedFrom`付与、`saveD()`使用） |
+| `buildTablet(ds, dat, locked)` | タブレット貸出・返却セクション（`#tablet-wrap`）— 貸出中サマリ＋リスト/タイムライン切替（`_tabletView`） |
+| `renderTabletList()` / `addTablet()` / `rmTablet()` | タブレット台帳マスタ（`D.tablets`、`mst`権限、PHSマスタと同型） |
+| `openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` | 貸出/返却の記録モーダル（datalistでスタッフ選択＋手入力、`saveDPage`使用） |
 
 ### Duty/Assignment System
 
@@ -431,6 +436,17 @@ Independent Firebase path (like `/board`), not part of the `D` object — the "5
 Incomplete memo posts show a 📅 button (`.mp-move`, same `canDel` gate as the existing delete button) next to the 済 checkbox in `renderMemos()`. Clicking it opens `openMoveMemoModal(ds, idx)` (dynamic `.ov`/`.md` with a date input, defaulting to tomorrow), which calls `moveMemo(ds, idx, targetDs)`.
 
 `moveMemo` splices the memo out of `D.pages[ds].memos`, tags it with `movedFrom: ds`, and pushes it into `D.pages[targetDs].memos` (auto-creating the target page via the same minimal structure as `_doPostMemo` if it doesn't exist yet, gated by `can('pg')`). **Because this mutates two different pages, it must use full `saveD()` — not `saveDPage()`** (per the page-scoped-only rule above). Moved memos display a small "(M/DDから移動)" annotation in `.mp-meta` when `m.movedFrom` is set.
+
+### Tablet Lending/Return (タブレット貸出・返却)
+
+Digitizes the paper tablet loan log. Two data pieces:
+
+- **Master `D.tablets`** — array of tablet names (strings), top-level D property (follows the 5-location rule; edited in pane-master's `📱 タブレット台帳` section via `renderTabletList`/`addTablet`/`rmTablet`, gated `can('mst')`, modeled on the PHS master).
+- **Per-page `D.pages[ds].tabletLogs`** — array of loan records `{ id, tablet, borrower, lentAt, returnedBy, returnedAt }`. Times are **minutes-from-midnight** (same unit as `schedule`; format with `schedMinToHM(m)`, parse with `tabletHMToMin("HH:MM")`, "now" via `tabletNowMin()`/`tabletNowHM()`). Unreturned = `returnedAt === 0`. Lazy-init with `dat.tabletLogs = dat.tabletLogs || []` (old pages predate the field). Persisted with `saveDPage(ds)` (single-page scope).
+
+`buildTablet(ds, dat, locked)` renders into the `#tablet-wrap` placeholder (inserted in `renderPage` between OPS and the checklist). It shows a "現在貸出中: N台" summary (red when N>0), a record button, and a list/timeline toggle (`_tabletView`, `setTabletView`). The **list** view shows each loan (green/red left-border by returned state) with 返却/削除 buttons; the **timeline** view (`buildTabletTimeline`) reuses the schedule grid structure — vertical time axis × one column per tablet — with returned loans as solid blocks and unreturned ones as red-striped blocks extending to the current time (today only, else axis end). Timeline is view-only; editing happens in the list.
+
+`openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` are dynamic `.ov`/`.md` modals (appended to `document.body`, click-outside closes) with a tablet `<select>`, a borrower/returner `<input list=…>` backed by a `<datalist>` of `D.stf` (staff-pick **plus** free text for other-department people), and an `<input type="time">` defaulting to now with a 「今」button. Because the modals live **outside `#main`**, `initPHIGuard` does not cover them — `saveTabletLend`/`saveTabletReturn` call `detectPHI` on the free-text name explicitly (mirrors `saveTaskFromModal`). All record/return/delete operations are gated by `can('tablet')` (new lock, default unlocked = everyone can record). **No Firebase rule change needed** — both `D.tablets` and `tabletLogs` live under `/data`, unlike `/tasks`.
 
 ### Changelog System
 
