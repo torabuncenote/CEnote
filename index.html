@@ -676,6 +676,28 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .task-cluster{flex:0 0 84px;scroll-snap-align:start}
   .asub{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
 }
+/* ===== タブレット貸出・返却 ===== */
+.tbl-list{display:flex;flex-direction:column;gap:4px}
+.tbl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;background:var(--sur2);border-left:3px solid var(--gr)}
+.tbl-row.out{border-left-color:var(--rd)}
+.tbl-name{font-weight:700;font-size:13px;flex-shrink:0}
+.tbl-info{font-size:12px;color:var(--txt2)}
+.tbl-arrow{color:var(--txt3);font-size:12px}
+.tbl-out-badge{font-size:10px;font-weight:700;color:var(--rd);background:var(--rd-bg,#fdeaea);border:1px solid var(--rd);border-radius:20px;padding:1px 8px}
+.tbl-ret-btn{padding:3px 12px!important}
+.tbl-del{margin-left:auto;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0 2px;flex-shrink:0}
+.tbl-del:hover{color:var(--rd)}
+.tbl-tl-grid{display:flex;border:1px solid var(--bdr);border-radius:var(--rs);overflow-x:auto;background:var(--sur);-webkit-overflow-scrolling:touch}
+.tbl-tl-timecol{flex:0 0 46px;position:relative;border-right:1px solid var(--bdr);background:var(--sur2)}
+.tbl-tl-tl{position:absolute;left:0;right:2px;text-align:right;font-size:10px;color:var(--txt3);font-family:var(--mo);transform:translateY(-6px)}
+.tbl-tl-cols{display:flex;flex:1}
+.tbl-tl-col{flex:1 0 96px;min-width:96px;position:relative;border-right:1px solid var(--bdr)}
+.tbl-tl-colhd{position:sticky;top:0;z-index:5;height:28px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--ac-bg);color:var(--ac);border-bottom:1px solid var(--bdr);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px}
+.tbl-tl-track{position:relative}
+.tbl-tl-block{position:absolute;left:2px;right:2px;border-radius:5px;padding:2px 4px;font-size:10px;color:#fff;overflow:hidden;background:var(--ac);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.tbl-tl-block.open{background:repeating-linear-gradient(45deg,var(--rd),var(--rd) 6px,#e06666 6px,#e06666 12px)}
+.tbl-tl-bt{font-family:var(--mo);font-weight:700}
+.tbl-tl-bn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ===== 検索モーダル ===== */
 .srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
 .srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
@@ -990,6 +1012,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
             <input type="time" id="psg-banner-start" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
             <span style="font-size:13px">〜</span>
             <input type="time" id="psg-banner-end" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
+          </div>
+        </div>
+        <div data-perm="mst">
+          <div class="pt">📱 タブレット台帳</div>
+          <div class="pn" style="margin-bottom:8px">貸出・返却を記録するタブレットを登録します。連絡表の「タブレット貸出・返却」で選択肢になります。</div>
+          <div class="rl" id="tablet-master-list"></div>
+          <div class="ar" id="tablet-master-ar">
+            <input type="text" id="in-tablet" placeholder="例: 1号機" maxlength="20">
+            <button onclick="addTablet()" style="background:var(--pu)">追加</button>
           </div>
         </div>
         <div id="emailjs-cfg-section" data-perm="admin">
@@ -1497,7 +1528,8 @@ var LOCK_DEFS = [
   {id:'cl',      icon:'✅', label:'チェックリストの入力'},
   {id:'memo',    icon:'📝', label:'業務連絡・申し送りの編集'},
   {id:'pg',      icon:'🗑', label:'連絡表の生成・削除'},
-  {id:'show_phs', icon:'📞', label:'PHS番号欄の表示切替'}
+  {id:'show_phs', icon:'📞', label:'PHS番号欄の表示切替'},
+  {id:'tablet',  icon:'📱', label:'タブレット貸出の記録'}
 ];
 var WDL = ['日','月','火','水','木','金','土'];
 var WDF = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
@@ -1631,7 +1663,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[]};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1709,7 +1741,7 @@ function init() {
   }, 60*60*1000);
   if (!isPreview) fbInit();
   renderCal();
-  renderStfList(); renderPhsList();
+  renderStfList(); renderPhsList(); renderTabletList();
   renderDlyList(); renderWdlyList();
   renderOpeList(); renderCathList();
   renderLockList();
@@ -1780,6 +1812,7 @@ function loadD() {
     D.psgBannerStart = s.psgBannerStart || '07:30';
     D.psgBannerEnd   = s.psgBannerEnd   || '08:30';
     D.autoDelCfg = s.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
+    D.tablets = s.tablets || [];
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1884,7 +1917,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[];
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -2053,6 +2086,7 @@ function fbInit() {
             D.psgBannerStart = d.psgBannerStart || '07:30';
             D.psgBannerEnd   = d.psgBannerEnd   || '08:30';
             D.autoDelCfg = d.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
+            D.tablets = d.tablets || [];
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -2099,7 +2133,7 @@ function fbInit() {
             updateMonthSize();
             checkAutoDelTiming();
             renderCal();
-            renderStfList(); renderPhsList();
+            renderStfList(); renderPhsList(); renderTabletList();
             renderDlyList(); renderWdlyList();
             renderOpeList(); renderCathList();
             renderLockList(); renderAutoAssignModeSetting();
@@ -5661,6 +5695,23 @@ function renderPhsList() {
 function addPhs() { if(!can('phs'))return; var v=document.getElementById('in-phs').value.trim(); if(!v)return; D.phs.push(v); document.getElementById('in-phs').value=''; renderPhsList(); saveD(); if(curDs)safeRenderPage(); }
 function rmPhs(i) { if(!can('phs'))return; D.phs.splice(i,1); renderPhsList(); saveD(); if(curDs)safeRenderPage(); }
 
+/* ===== タブレット台帳マスタ ===== */
+function renderTabletList() {
+  var l = document.getElementById('tablet-master-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('mst');
+  D.tablets = D.tablets || [];
+  for (var i = 0; i < D.tablets.length; i++) {
+    var el = document.createElement('div'); el.className = 'ri';
+    var btns = ok ? '<button class="rd2" onclick="rmTablet('+i+')">×</button>' : '';
+    el.innerHTML = '<span class="rn">📱 ' + escH(D.tablets[i]) + '</span>' + btns;
+    l.appendChild(el);
+  }
+  var ar = document.getElementById('tablet-master-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addTablet() { if(!can('mst'))return; var el=document.getElementById('in-tablet'); var v=el.value.trim(); if(!v)return; D.tablets=D.tablets||[]; D.tablets.push(v); el.value=''; renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
+function rmTablet(i) { if(!can('mst'))return; D.tablets.splice(i,1); renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
+
 /* ===== DAILY MASTER ===== */
 function renderDlyList() {
   var l = document.getElementById('dly-list'); l.innerHTML = '';
@@ -6162,7 +6213,7 @@ function togLk(id, v) {
   } else {
     D.lk[id] = v;
   }
-  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
+  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList();
   if(curDs&&D.pages[curDs])safeRenderPage();
   var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
 }
@@ -7299,6 +7350,11 @@ function renderPage(ds) {
   }
   h+='<div class="ops-grid" id="ops-grid"></div><hr>';
 
+  /* タブレット貸出・返却 */
+  var tblLk = !can('tablet');
+  h+='<div class="st">📱 タブレット貸出・返却'+(tblLk?'<span class="slb lk">🔒</span>':'')+'</div>';
+  h+='<div id="tablet-wrap"></div><hr>';
+
   /* チェックリスト */
   h+='<div class="st">✅ 業務チェックリスト'+(clk?'<span class="slb lk">🔒</span>':'')+'</div>';
   h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> 共通業務（毎日・'+D.dly.length+'項目）</div><div id="dcl"></div></div>';
@@ -7381,6 +7437,7 @@ function renderPage(ds) {
   buildDG(ds, dat, dlk);
   renderSurplusArea(ds, dat, dlk);
   buildOPS(ds, dat, olk);
+  buildTablet(ds, dat, !can('tablet'));
   buildCL(ds, dat, wtl, all, clk);
   refreshPool(ds);
 
@@ -11696,6 +11753,204 @@ function schedBindInteractions(ds){
 }
 var _schedDragPreset=null;
 
+/* ===== タブレット貸出・返却 ===== */
+var _tabletView = 'list'; /* 'list' | 'timeline' */
+function tabletNowMin(){ var n=new Date(); return n.getHours()*60+n.getMinutes(); }
+function tabletNowHM(){ return schedMinToHM(tabletNowMin()); }
+function tabletHMToMin(hm){ if(!hm) return 0; var p=(''+hm).split(':'); return (parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0); }
+function tabletTodayStr(){ var n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0'); }
+
+function setTabletView(v){ _tabletView=v; if(curDs && D.pages[curDs]) buildTablet(curDs, D.pages[curDs], !can('tablet')); }
+
+function buildTablet(ds, dat, locked){
+  var wrap = document.getElementById('tablet-wrap'); if(!wrap) return;
+  var logs = dat.tabletLogs = dat.tabletLogs || [];
+  var tablets = D.tablets || [];
+  var h = '';
+  /* 貸出中サマリ */
+  var outLogs = logs.filter(function(l){ return !l.returnedAt; });
+  h += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
+  if(outLogs.length){
+    h += '<span style="font-weight:700;color:var(--rd)">🔴 現在貸出中: '+outLogs.length+'台</span>';
+    h += '<span style="font-size:11px;color:var(--txt3)">'+escH(outLogs.map(function(l){return l.tablet;}).join('・'))+'</span>';
+  } else {
+    h += '<span style="font-weight:700;color:var(--gr)">✅ 全台返却済み</span>';
+  }
+  h += '</div>';
+  if(!tablets.length){
+    h += '<div class="pool-empty" style="font-size:12px;padding:8px 0">タブレット台帳が未登録です（業務タブ →「📱 タブレット台帳」で登録）</div>';
+    wrap.innerHTML = h; return;
+  }
+  /* コントロール */
+  h += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">';
+  if(!locked) h += '<button class="btn btn-p btn-sm" onclick="openTabletLendModal(\''+ds+'\')">＋ 貸出を記録</button>';
+  h += '<button class="btn '+(_tabletView==='list'?'btn-p':'btn-g')+' btn-sm" onclick="setTabletView(\'list\')">📋 リスト</button>';
+  h += '<button class="btn '+(_tabletView==='timeline'?'btn-p':'btn-g')+' btn-sm" onclick="setTabletView(\'timeline\')">📊 タイムライン</button>';
+  h += '</div>';
+  h += (_tabletView==='timeline') ? buildTabletTimeline(ds, logs, tablets) : buildTabletListView(ds, logs, locked);
+  wrap.innerHTML = h;
+}
+
+function buildTabletListView(ds, logs, locked){
+  if(!logs.length) return '<div class="pool-empty" style="font-size:12px;padding:8px 0">まだ貸出記録がありません</div>';
+  var sorted = logs.map(function(l,i){ return {l:l,i:i}; }).sort(function(a,b){ return (a.l.lentAt||0)-(b.l.lentAt||0); });
+  var h = '<div class="tbl-list">';
+  sorted.forEach(function(o){
+    var l=o.l, i=o.i, returned=!!l.returnedAt;
+    h += '<div class="tbl-row'+(returned?'':' out')+'">';
+    h += '<span class="tbl-name">📱 '+escH(l.tablet)+'</span>';
+    h += '<span class="tbl-info">'+schedMinToHM(l.lentAt)+' '+escH(l.borrower)+'が貸出</span>';
+    h += '<span class="tbl-arrow">→</span>';
+    if(returned){
+      h += '<span class="tbl-info">'+schedMinToHM(l.returnedAt)+' '+escH(l.returnedBy)+'が返却</span>';
+    } else {
+      h += '<span class="tbl-out-badge">未返却</span>';
+      if(!locked) h += '<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+ds+'\','+i+')">返却</button>';
+    }
+    if(!locked) h += '<button class="tbl-del" onclick="tabletDelete(\''+ds+'\','+i+')" title="削除">✕</button>';
+    h += '</div>';
+  });
+  h += '</div>';
+  return h;
+}
+
+function buildTabletTimeline(ds, logs, tablets){
+  var START=480, END=1080, PX=1.2; /* 8:00〜18:00、自動延長あり */
+  logs.forEach(function(l){
+    if(l.lentAt<START) START=Math.floor(l.lentAt/60)*60;
+    var e=l.returnedAt||l.lentAt; if(e>END) END=Math.ceil(e/60)*60;
+  });
+  var isToday=(ds===tabletTodayStr());
+  var nowMin=tabletNowMin();
+  var totalH=(END-START)*PX;
+  var h='<div class="tbl-tl-grid">';
+  h+='<div class="tbl-tl-timecol" style="height:'+(totalH+28)+'px">';
+  for(var m=START;m<=END;m+=60){ h+='<div class="tbl-tl-tl" style="top:'+(28+(m-START)*PX)+'px">'+schedMinToHM(m)+'</div>'; }
+  h+='</div>';
+  h+='<div class="tbl-tl-cols">';
+  tablets.forEach(function(tb){
+    h+='<div class="tbl-tl-col"><div class="tbl-tl-colhd">'+escH(tb)+'</div>';
+    h+='<div class="tbl-tl-track" style="height:'+totalH+'px;background:repeating-linear-gradient(to bottom,transparent,transparent '+(60*PX-1)+'px,var(--bdr) '+(60*PX-1)+'px,var(--bdr) '+(60*PX)+'px)">';
+    logs.forEach(function(l){
+      if(l.tablet!==tb) return;
+      var open=!l.returnedAt;
+      var end=l.returnedAt || (isToday ? Math.max(l.lentAt+5, Math.min(nowMin,END)) : END);
+      var top=(l.lentAt-START)*PX, hgt=Math.max(8,(end-l.lentAt)*PX);
+      h+='<div class="tbl-tl-block'+(open?' open':'')+'" style="top:'+top+'px;height:'+hgt+'px" title="'+escH(l.borrower)+' '+schedMinToHM(l.lentAt)+(open?'〜（貸出中）':'〜'+schedMinToHM(l.returnedAt))+'">';
+      h+='<div class="tbl-tl-bt">'+schedMinToHM(l.lentAt)+'</div><div class="tbl-tl-bn">'+escH(l.borrower)+'</div>';
+      h+='</div>';
+    });
+    h+='</div></div>';
+  });
+  h+='</div></div>';
+  return h;
+}
+
+function openTabletLendModal(ds){
+  if(!can('tablet')) return;
+  var tablets=D.tablets||[];
+  if(!tablets.length){ alert('先に業務タブでタブレットを登録してください'); return; }
+  var tblOpts=tablets.map(function(t){ return '<option value="'+escH(t)+'">'+escH(t)+'</option>'; }).join('');
+  var stfDL=(D.stf||[]).map(function(n){ return '<option value="'+escH(n)+'">'; }).join('');
+  var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
+  md.innerHTML='<h3>📱 タブレット貸出を記録</h3>'
+    +'<div style="font-size:12px;font-weight:700;margin-bottom:4px">タブレット<span style="color:var(--rd)">*</span></div>'
+    +'<select id="tablet-md-name" class="ds2" style="width:100%">'+tblOpts+'</select>'
+    +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">借りた人<span style="color:var(--rd)">*</span></div>'
+    +'<input id="tablet-md-borrower" class="fi" style="width:100%;box-sizing:border-box;margin-bottom:0" list="tablet-stf-dl" placeholder="スタッフ選択 または 手入力" autocomplete="off">'
+    +'<datalist id="tablet-stf-dl">'+stfDL+'</datalist>'
+    +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">貸出時刻</div>'
+    +'<div style="display:flex;gap:8px;align-items:center"><input type="time" id="tablet-md-time" class="fi" style="width:auto;margin:0" value="'+tabletNowHM()+'"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-md-time\').value=tabletNowHM()">今</button></div>'
+    +'<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    +'<button class="btn btn-g" onclick="document.getElementById(\'tablet-md-ov\').remove()">キャンセル</button>'
+    +'<button class="btn btn-p" id="tablet-md-save">記録</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('tablet-md-save').addEventListener('click', function(){ saveTabletLend(ds); });
+}
+
+function saveTabletLend(ds){
+  if(!can('tablet')) return;
+  var name=document.getElementById('tablet-md-name').value;
+  var borrower=document.getElementById('tablet-md-borrower').value.trim();
+  var timeStr=document.getElementById('tablet-md-time').value;
+  if(!name){ alert('タブレットを選択してください'); return; }
+  if(!borrower){ alert('借りた人を入力してください'); return; }
+  if(!timeStr){ alert('貸出時刻を入力してください'); return; }
+  var phi=detectPHI(borrower);
+  if(phi.red.length||phi.yellow.length){
+    showPHIPopup({ result:phi, mode:'memo',
+      onProceed:function(){ _doSaveTabletLend(ds,name,borrower,timeStr); },
+      onFix:function(){ var e=document.getElementById('tablet-md-borrower'); if(e) e.focus(); } });
+    return;
+  }
+  _doSaveTabletLend(ds,name,borrower,timeStr);
+}
+function _doSaveTabletLend(ds,name,borrower,timeStr){
+  var dat=D.pages[ds]; if(!dat) return;
+  dat.tabletLogs = dat.tabletLogs || [];
+  dat.tabletLogs.push({ id:'tl'+Date.now()+Math.floor(Math.random()*1000), tablet:name, borrower:borrower, lentAt:tabletHMToMin(timeStr), returnedBy:'', returnedAt:0 });
+  saveDPage(ds);
+  writeLog('タブレット貸出', fmtJ(ds)+' '+name+'（'+borrower+'）');
+  var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
+  buildTablet(ds, dat, !can('tablet'));
+}
+
+function openTabletReturnModal(ds, idx){
+  if(!can('tablet')) return;
+  var dat=D.pages[ds]; if(!dat||!dat.tabletLogs||!dat.tabletLogs[idx]) return;
+  var l=dat.tabletLogs[idx];
+  var stfDL=(D.stf||[]).map(function(n){ return '<option value="'+escH(n)+'">'; }).join('');
+  var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
+  md.innerHTML='<h3>📱 '+escH(l.tablet)+' を返却</h3>'
+    +'<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">'+schedMinToHM(l.lentAt)+' '+escH(l.borrower)+'が貸出</div>'
+    +'<div style="font-size:12px;font-weight:700;margin-bottom:4px">返した人<span style="color:var(--rd)">*</span></div>'
+    +'<input id="tablet-md-retby" class="fi" style="width:100%;box-sizing:border-box;margin-bottom:0" list="tablet-stf-dl2" placeholder="スタッフ選択 または 手入力" autocomplete="off">'
+    +'<datalist id="tablet-stf-dl2">'+stfDL+'</datalist>'
+    +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">返却時刻</div>'
+    +'<div style="display:flex;gap:8px;align-items:center"><input type="time" id="tablet-md-rettime" class="fi" style="width:auto;margin:0" value="'+tabletNowHM()+'"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-md-rettime\').value=tabletNowHM()">今</button></div>'
+    +'<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    +'<button class="btn btn-g" onclick="document.getElementById(\'tablet-md-ov\').remove()">キャンセル</button>'
+    +'<button class="btn btn-p" id="tablet-md-retsave">返却</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('tablet-md-retsave').addEventListener('click', function(){ saveTabletReturn(ds, idx); });
+}
+function saveTabletReturn(ds, idx){
+  if(!can('tablet')) return;
+  var retby=document.getElementById('tablet-md-retby').value.trim();
+  var timeStr=document.getElementById('tablet-md-rettime').value;
+  if(!retby){ alert('返した人を入力してください'); return; }
+  if(!timeStr){ alert('返却時刻を入力してください'); return; }
+  var phi=detectPHI(retby);
+  if(phi.red.length||phi.yellow.length){
+    showPHIPopup({ result:phi, mode:'memo',
+      onProceed:function(){ _doSaveTabletReturn(ds,idx,retby,timeStr); },
+      onFix:function(){ var e=document.getElementById('tablet-md-retby'); if(e) e.focus(); } });
+    return;
+  }
+  _doSaveTabletReturn(ds,idx,retby,timeStr);
+}
+function _doSaveTabletReturn(ds,idx,retby,timeStr){
+  var dat=D.pages[ds]; if(!dat||!dat.tabletLogs||!dat.tabletLogs[idx]) return;
+  var l=dat.tabletLogs[idx];
+  l.returnedBy=retby; l.returnedAt=tabletHMToMin(timeStr);
+  saveDPage(ds);
+  writeLog('タブレット返却', fmtJ(ds)+' '+l.tablet+'（'+retby+'）');
+  var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
+  buildTablet(ds, dat, !can('tablet'));
+}
+function tabletDelete(ds, idx){
+  if(!can('tablet')) return;
+  var dat=D.pages[ds]; if(!dat||!dat.tabletLogs||!dat.tabletLogs[idx]) return;
+  var l=dat.tabletLogs[idx];
+  if(!confirm(l.tablet+'の貸出記録を削除しますか？')) return;
+  dat.tabletLogs.splice(idx,1);
+  saveDPage(ds);
+  writeLog('タブレット記録削除', fmtJ(ds)+' '+l.tablet);
+  buildTablet(ds, dat, !can('tablet'));
+}
+
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
@@ -12946,14 +13201,14 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
     saveD();
     writeLog('Firebaseスナップショットから復元', dateStr);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
     renderFirebaseSnapshots();
@@ -13014,13 +13269,13 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
     if(FB_ON) writeLog('自動バックアップから復元', dt+' '+s.label);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
     renderAutoBackups();
@@ -13073,7 +13328,7 @@ function importBackup(file) {
       saveD();
       if(FB_ON) writeLog('バックアップインポート', file.name);
       renderCal(); safeRenderPage();
-      renderStfList(); renderPhsList(); renderDlyList(); renderWdlyList();
+      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList();
       renderOpeList(); renderCathList(); renderLockList(); renderAT();
       var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
       if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';
