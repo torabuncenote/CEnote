@@ -1024,6 +1024,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
             <button onclick="addTablet()" style="background:var(--pu)">追加</button>
           </div>
         </div>
+        <div data-perm="mst">
+          <div class="pt">📞 OC対応フローチャート</div>
+          <div class="pn" style="margin-bottom:8px">OC集計タブの「OC対応フローチャート」ボタンで全員が閲覧できる内容です。改行・字下げ・矢印（→ ↓）はそのまま表示されます。</div>
+          <textarea id="oc-flow-text" rows="10" style="width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur2);color:var(--txt)" placeholder="例:&#10;1. OC携帯が鳴ったら病棟名・用件を確認&#10;2. 機器トラブル → 現地へ&#10;   ↓解決しない場合&#10;3. リーダーへ連絡"></textarea>
+          <div style="margin-top:6px;text-align:right"><button class="btn btn-p btn-sm" onclick="saveOcFlow()">保存</button></div>
+        </div>
         <div id="emailjs-cfg-section" data-perm="admin">
           <div class="pt">📧 メール通知設定（EmailJS）</div>
           <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
@@ -1288,6 +1294,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       </div>
       <!-- OC集計シート -->
       <div id="subpane-oc" style="display:none">
+        <div style="margin-bottom:8px"><button class="btn btn-g btn-sm" onclick="openOcFlowModal()">📞 OC対応フローチャート</button></div>
         <div id="oc-sum-body"></div>
       </div>
       <!-- 業務集計シート -->
@@ -1664,7 +1671,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[]};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:''};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -1814,6 +1821,7 @@ function loadD() {
     D.psgBannerEnd   = s.psgBannerEnd   || '08:30';
     D.autoDelCfg = s.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
     D.tablets = s.tablets || [];
+    D.ocFlow = s.ocFlow || '';
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -1918,7 +1926,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[];
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow='';
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -2088,6 +2096,7 @@ function fbInit() {
             D.psgBannerEnd   = d.psgBannerEnd   || '08:30';
             D.autoDelCfg = d.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
             D.tablets = d.tablets || [];
+            D.ocFlow = d.ocFlow || '';
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -3584,8 +3593,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/07/15-29';
+var APP_VERSION = 'Ver.2026/07/19-30';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/19-30', date:'2026-07-19', title:'OC対応フローチャートを追加', items:[
+    {t:'new', d:'📞 OC集計タブに「OC対応フローチャート」ボタンを追加。タップするとOC対応の手順がポップアップで確認できます'},
+    {t:'imp', d:'👑 フローチャートの内容は業務マスタの「OC対応フローチャート」欄から編集できます', admin:true}
+  ]},
   { ver:'Ver.2026/07/15-29', date:'2026-07-15', title:'タブレット貸出・返却管理を追加', items:[
     {t:'new', d:'📱 連絡表ヘッダーの「タブレット」ボタンから貸出・返却を記録できるようになりました。借りた人・返した人と時刻を記録でき、ボタンのバッジで現在貸出中の台数がひと目で分かります'},
     {t:'new', d:'📊 タブレットの貸出時間帯をスケジュール表のようなタイムラインで俯瞰できます（未返却は現在時刻まで表示）'},
@@ -5716,6 +5729,29 @@ function renderTabletList() {
   var ar = document.getElementById('tablet-master-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
 }
 function addTablet() { if(!can('mst'))return; var el=document.getElementById('in-tablet'); var v=el.value.trim(); if(!v)return; D.tablets=D.tablets||[]; D.tablets.push(v); el.value=''; renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
+
+/* ===== OC対応フローチャート ===== */
+function saveOcFlow() {
+  if(!can('mst')) return;
+  var el = document.getElementById('oc-flow-text'); if(!el) return;
+  D.ocFlow = el.value;
+  saveD();
+  writeLog('OCフローチャート更新', (D.ocFlow||'').slice(0,30));
+  alert('保存しました');
+}
+function openOcFlowModal() {
+  var ov = document.createElement('div'); ov.id='oc-flow-ov'; ov.className='ov';
+  ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
+  var md = document.createElement('div'); md.className='md'; md.style.maxWidth='560px'; md.style.maxHeight='85vh'; md.style.overflowY='auto';
+  var body = (D.ocFlow||'').trim()
+    ? '<div style="white-space:pre-wrap;font-size:13px;line-height:1.8">'+escH(D.ocFlow)+'</div>'
+    : '<div class="pool-empty" style="padding:14px 0">まだ登録されていません。業務タブの「📞 OC対応フローチャート」から入力できます。</div>';
+  md.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px">'
+    + '<h3 style="margin:0">📞 OC対応フローチャート</h3>'
+    + '<button class="btn btn-g btn-sm" onclick="document.getElementById(\'oc-flow-ov\').remove()">✕ 閉じる</button></div>'
+    + body;
+  ov.appendChild(md); document.body.appendChild(ov);
+}
 function rmTablet(i) { if(!can('mst'))return; D.tablets.splice(i,1); renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
 
 /* ===== DAILY MASTER ===== */
@@ -5727,6 +5763,8 @@ function renderDlyList() {
   var _bsEl = document.getElementById('psg-banner-start'), _beEl = document.getElementById('psg-banner-end');
   if (_bsEl) { _bsEl.value = D.psgBannerStart || '07:30'; _bsEl.disabled = !ok; }
   if (_beEl) { _beEl.value = D.psgBannerEnd   || '08:30'; _beEl.disabled = !ok; }
+  var _ofEl = document.getElementById('oc-flow-text');
+  if (_ofEl) { _ofEl.value = D.ocFlow || ''; _ofEl.disabled = !can('mst'); }
   renderEmailjsCfg(); renderFCMCfg(); renderAutoAssignModeSetting();
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
@@ -13226,7 +13264,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -13294,7 +13332,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
