@@ -14,6 +14,7 @@ Additional files:
 - `manifest.json` / `sw.js` — PWA support (offline caching, cache name `cenote-v4`)
 - `icon-192.svg` / `icon-512.svg` — PWA icons
 - `.github/scripts/validate.mjs` — lightweight syntax checker (run after every change)
+- `AGENTS.md` — pointer file for other AI agents (Codex etc.): it references this CLAUDE.md as the single source of truth. Do **not** duplicate rules there — update only CLAUDE.md.
 
 ## Validation
 
@@ -66,6 +67,7 @@ var D = {
   psgBannerEnd:   '08:30',   // PSG取り外しバナー表示終了時刻
   autoDelCfg: { enabled:false, period:365, interval:30, lastClean:0 }, // 自動削除設定（旧: localStorage個別キー、_migVer 4で移行）
   tablets: [],      // タブレット台帳（貸出対象名の配列）— 日々の貸出ログは D.pages[ds].tabletLogs
+  ocFlow: '',       // OC対応フローチャート本文（複数行テキスト。OC集計タブのボタン→openOcFlowModal で全員閲覧、業務マスタの mst セクションで編集）
   _migVer: 4        // data migration version flag (increment when running one-time migrations)
 };
 ```
@@ -184,7 +186,7 @@ document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(
 
 - `data-perm="dm"` — 共通チェックリスト section
 - `data-perm="wm"` — 曜日別チェックリスト section
-- `data-perm="mst"` — OPE/カテ/使用物品/担当枠/PSG通知 sections
+- `data-perm="mst"` — OPE/カテ/使用物品/担当枠/PSG通知/タブレット台帳/OC対応フローチャート sections
 - `data-perm="admin"` — メール通知/Web Push/月次自動割り当て sections (admin-only regardless of locks)
 
 ### Firebase Listener Lifecycle
@@ -308,6 +310,7 @@ All class names are abbreviated:
 | `openTabletPanel(ds)` / `renderTabletPanelBody(ds)` | タブレット貸出・返却モーダルパネル（ヘッダーの📱ボタンから起動）— 貸出中サマリ＋リスト/タイムライン切替（`_tabletView`） |
 | `updateTabletBtnBadge(ds)` | ヘッダー📱ボタンの貸出中バッジ（未返却台数）を更新 |
 | `renderTabletList()` / `addTablet()` / `rmTablet()` | タブレット台帳マスタ（`D.tablets`、`mst`権限、PHSマスタと同型） |
+| `openOcFlowModal()` / `saveOcFlow()` | OC対応フローチャートの閲覧モーダル（OC集計サブタブ上部の常設ボタンから、全ユーザー可）／マスタ保存（`mst`権限。textareaの値投入は `renderDlyList` 内） |
 | `openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` | 貸出/返却の記録モーダル（datalistでスタッフ選択＋手入力、`saveDPage`使用） |
 
 ### Duty/Assignment System
