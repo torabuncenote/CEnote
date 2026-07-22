@@ -11846,10 +11846,10 @@ function renderTabletPanelBody(ds){
     wrap.innerHTML=h; return;
   }
   /* コントロール */
-  h+='<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">';
-  if(!locked) h+='<button class="btn btn-p btn-sm" onclick="openTabletLendModal(\''+ds+'\')">＋ 貸出を記録</button>';
-  h+='<button class="btn '+(_tabletView==='list'?'btn-p':'btn-g')+' btn-sm" onclick="setTabletView(\'list\')">📋 リスト</button>';
-  h+='<button class="btn '+(_tabletView==='timeline'?'btn-p':'btn-g')+' btn-sm" onclick="setTabletView(\'timeline\')">📊 タイムライン</button>';
+  if(!locked) h+='<div style="margin-bottom:10px"><button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;font-weight:800" onclick="openTabletLendModal(\''+ds+'\')">＋ 貸出を記録</button></div>';
+  h+='<div style="display:flex;gap:6px;margin-bottom:8px">';
+  h+='<button class="btn '+(_tabletView==='list'?'btn-p':'btn-g')+' btn-sm" style="flex:1" onclick="setTabletView(\'list\')">📋 リスト</button>';
+  h+='<button class="btn '+(_tabletView==='timeline'?'btn-p':'btn-g')+' btn-sm" style="flex:1" onclick="setTabletView(\'timeline\')">📊 タイムライン</button>';
   h+='</div>';
   h+=(_tabletView==='timeline')?buildTabletTimeline(ds,logs,tablets):buildTabletListView(ds,logs,locked);
   wrap.innerHTML=h;
@@ -11910,20 +11910,39 @@ function buildTabletTimeline(ds, logs, tablets){
   return h;
 }
 
+/* 「その他（手入力）」選択時に手入力欄を出し入れする共通ヘルパー */
+function tabletToggleOther(selId, inputId){
+  var sel=document.getElementById(selId), inp=document.getElementById(inputId);
+  if(!sel||!inp) return;
+  var other=sel.value==='__other__';
+  inp.style.display=other?'':'none';
+  if(other) inp.focus();
+}
+function tabletNameValue(selId, inputId){
+  var sel=document.getElementById(selId), inp=document.getElementById(inputId);
+  if(!sel) return '';
+  return sel.value==='__other__' ? inp.value.trim() : sel.value;
+}
+function tabletStfOptions(selected){
+  var opts='<option value="">-- 選択 --</option>';
+  (D.stf||[]).forEach(function(n){ opts+='<option value="'+escH(n)+'"'+(n===selected?' selected':'')+'>'+escH(n)+'</option>'; });
+  opts+='<option value="__other__">その他（手入力）</option>';
+  return opts;
+}
+
 function openTabletLendModal(ds){
   if(!can('tablet')) return;
   var tablets=D.tablets||[];
   if(!tablets.length){ alert('先に業務タブでタブレットを登録してください'); return; }
   var tblOpts=tablets.map(function(t){ return '<option value="'+escH(t)+'">'+escH(t)+'</option>'; }).join('');
-  var stfDL=(D.stf||[]).map(function(n){ return '<option value="'+escH(n)+'">'; }).join('');
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
   md.innerHTML='<h3>📱 タブレット貸出を記録</h3>'
     +'<div style="font-size:12px;font-weight:700;margin-bottom:4px">タブレット<span style="color:var(--rd)">*</span></div>'
     +'<select id="tablet-md-name" class="ds2" style="width:100%">'+tblOpts+'</select>'
     +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">借りた人<span style="color:var(--rd)">*</span></div>'
-    +'<input id="tablet-md-borrower" class="fi" style="width:100%;box-sizing:border-box;margin-bottom:0" list="tablet-stf-dl" placeholder="スタッフ選択 または 手入力" autocomplete="off">'
-    +'<datalist id="tablet-stf-dl">'+stfDL+'</datalist>'
+    +'<select id="tablet-md-borrower-sel" class="ds2" style="width:100%" onchange="tabletToggleOther(\'tablet-md-borrower-sel\',\'tablet-md-borrower\')">'+tabletStfOptions(null)+'</select>'
+    +'<input id="tablet-md-borrower" class="fi" style="width:100%;box-sizing:border-box;margin-top:6px;margin-bottom:0;display:none" placeholder="名前を入力" autocomplete="off">'
     +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">貸出時刻</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input type="time" id="tablet-md-time" class="fi" style="width:auto;margin:0" value="'+tabletNowHM()+'"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-md-time\').value=tabletNowHM()">今</button></div>'
     +'<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
@@ -11936,7 +11955,7 @@ function openTabletLendModal(ds){
 function saveTabletLend(ds){
   if(!can('tablet')) return;
   var name=document.getElementById('tablet-md-name').value;
-  var borrower=document.getElementById('tablet-md-borrower').value.trim();
+  var borrower=tabletNameValue('tablet-md-borrower-sel','tablet-md-borrower');
   var timeStr=document.getElementById('tablet-md-time').value;
   if(!name){ alert('タブレットを選択してください'); return; }
   if(!borrower){ alert('借りた人を入力してください'); return; }
@@ -11945,7 +11964,7 @@ function saveTabletLend(ds){
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
       onProceed:function(){ _doSaveTabletLend(ds,name,borrower,timeStr); },
-      onFix:function(){ var e=document.getElementById('tablet-md-borrower'); if(e) e.focus(); } });
+      onFix:function(){ var inp=document.getElementById('tablet-md-borrower'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-borrower-sel'); if(e) e.focus(); } });
     return;
   }
   _doSaveTabletLend(ds,name,borrower,timeStr);
@@ -11964,14 +11983,14 @@ function openTabletReturnModal(ds, idx){
   if(!can('tablet')) return;
   var dat=D.pages[ds]; if(!dat||!dat.tabletLogs||!dat.tabletLogs[idx]) return;
   var l=dat.tabletLogs[idx];
-  var stfDL=(D.stf||[]).map(function(n){ return '<option value="'+escH(n)+'">'; }).join('');
+  var self=taskSelfName(); /* ログイン中の人がスタッフ登録されていれば初期選択、変更可 */
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
   md.innerHTML='<h3>📱 '+escH(l.tablet)+' を返却</h3>'
     +'<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">'+schedMinToHM(l.lentAt)+' '+escH(l.borrower)+'が貸出</div>'
     +'<div style="font-size:12px;font-weight:700;margin-bottom:4px">返した人<span style="color:var(--rd)">*</span></div>'
-    +'<input id="tablet-md-retby" class="fi" style="width:100%;box-sizing:border-box;margin-bottom:0" list="tablet-stf-dl2" placeholder="スタッフ選択 または 手入力" autocomplete="off">'
-    +'<datalist id="tablet-stf-dl2">'+stfDL+'</datalist>'
+    +'<select id="tablet-md-retby-sel" class="ds2" style="width:100%" onchange="tabletToggleOther(\'tablet-md-retby-sel\',\'tablet-md-retby\')">'+tabletStfOptions(self)+'</select>'
+    +'<input id="tablet-md-retby" class="fi" style="width:100%;box-sizing:border-box;margin-top:6px;margin-bottom:0;display:none" placeholder="名前を入力" autocomplete="off">'
     +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">返却時刻</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input type="time" id="tablet-md-rettime" class="fi" style="width:auto;margin:0" value="'+tabletNowHM()+'"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-md-rettime\').value=tabletNowHM()">今</button></div>'
     +'<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
@@ -11982,7 +12001,7 @@ function openTabletReturnModal(ds, idx){
 }
 function saveTabletReturn(ds, idx){
   if(!can('tablet')) return;
-  var retby=document.getElementById('tablet-md-retby').value.trim();
+  var retby=tabletNameValue('tablet-md-retby-sel','tablet-md-retby');
   var timeStr=document.getElementById('tablet-md-rettime').value;
   if(!retby){ alert('返した人を入力してください'); return; }
   if(!timeStr){ alert('返却時刻を入力してください'); return; }
@@ -11990,7 +12009,7 @@ function saveTabletReturn(ds, idx){
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
       onProceed:function(){ _doSaveTabletReturn(ds,idx,retby,timeStr); },
-      onFix:function(){ var e=document.getElementById('tablet-md-retby'); if(e) e.focus(); } });
+      onFix:function(){ var inp=document.getElementById('tablet-md-retby'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-retby-sel'); if(e) e.focus(); } });
     return;
   }
   _doSaveTabletReturn(ds,idx,retby,timeStr);
