@@ -47,7 +47,12 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .uc{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--gd-bg);border:1px solid var(--gd-bdr);color:var(--gd)}
 .sd{width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:auto;flex-shrink:0}
 .sl{font-size:11px;color:var(--txt3);font-family:var(--mo)}
-.tb-btns{display:flex;gap:6px;align-items:center}
+.tb-btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
+/* ツールバー内は文字を縦に折り返させない（Android等の狭い幅でヘッダーが崩れるのを防止） */
+.tb{overflow:hidden}
+.tb .btn,.tb-logo,.tb-sub,.tb-sep,.sl,.btn-logout,.uc-name,.hbg{white-space:nowrap}
+.tb-logo{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.btn-logout,.hbg,.pend-badge{flex-shrink:0}
 .hbg{display:none;background:none;border:1px solid var(--bdr);border-radius:var(--rs);padding:5px 9px;cursor:pointer;font-size:16px;color:var(--txt)}
 .ab{display:flex;flex-direction:row;margin-top:var(--th);height:calc(100vh - var(--th));overflow:hidden}
 .sb{width:var(--sw);min-width:var(--sw);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden;transition:width .25s,min-width .25s,opacity .2s}
@@ -181,7 +186,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pchip.manual{border-style:dashed}
 .pool-mini-btn{font-size:10px;font-weight:700;border:1px solid var(--bdr);border-radius:12px;background:var(--sur);color:var(--txt2);padding:2px 7px;cursor:pointer;white-space:nowrap}
 .pool-mini-btn:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-bg)}
-.pool-chip-x{border:none;background:transparent;color:inherit;opacity:.65;cursor:pointer;font-size:12px;line-height:1;padding:0 0 0 2px}
+.pool-chip-x{border:none;background:transparent;color:inherit;opacity:.65;cursor:pointer;font-size:12px;line-height:1;padding:2px 4px 2px 6px;margin:-2px -2px -2px 0;touch-action:manipulation;flex-shrink:0}
 .pool-chip-x:hover{opacity:1;color:var(--rd)}
 .dc.drag-over{border:2px dashed var(--ac);background:var(--ac-bg);transform:translateY(-2px)}
 .pchip .cs{font-size:10px;font-weight:400;opacity:.7}
@@ -408,7 +413,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .tb-sub,.tb-sep,.sl{display:none}
   #month-size{display:none!important}
   .tb{gap:6px;padding:0 10px}
-  .tb-logo{font-size:13px}
+  /* 狭い画面ではアプリ名を隠し、操作ボタンを優先（本文冒頭に日付付きタイトルがあるため情報は失われない） */
+  .tb-logo{display:none}
   .tb-btns{gap:4px;margin-left:auto}
   .tb-btns .btn{font-size:11px;padding:5px 8px}
   .btn-nm-text{display:none}
@@ -9031,6 +9037,8 @@ function buildDG(ds, dat, locked) {
       var _ghost = null, _dragName = '', _dragFrom = '', _dragDs = '';
 
       function onTouchStart(e) {
+        /* ×ボタン等の操作要素から始まったタッチはドラッグ扱いにしない（タップでの削除を優先） */
+        if (e.target.closest('button,a,input,select,textarea')) return;
         var chip = e.target.closest('[draggable]'); if (!chip) return;
         _dragName = chip.getAttribute('data-name') || '';
         _dragFrom = chip.getAttribute('data-from') || '';
