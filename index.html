@@ -730,6 +730,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* ===== 通知トースト ===== */
 .notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
 @keyframes notifSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
+/* ===== 操作フィードバックのトースト（alert の置き換え） ===== */
+.fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:#fff;background:#1e293b;box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
+.fb-toast.ok{background:#15803d}
+.fb-toast.warn{background:#b45309}
+.fb-toast.err{background:#b91c1c}
+.fb-toast .fb-toast-x{margin-left:4px;opacity:.7;font-size:12px;flex-shrink:0}
+@keyframes fbToastIn{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+@media (prefers-reduced-motion:reduce){.fb-toast{animation:none}}
 .notif-time-row{display:flex;align-items:center;gap:6px;padding-left:2px;margin-top:2px;flex-wrap:wrap}
 .oc-alert-banner{background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;overflow:hidden}
 </style>
@@ -10370,6 +10378,26 @@ function checkTimeNotifs() {
   /* 翌日分に移ったらキャッシュをリセット */
   if (_notifFired._ds && _notifFired._ds !== ds) _notifFired = {};
   _notifFired._ds = ds;
+}
+
+/* ===== 操作フィードバックのトースト ===== */
+/* alert() の置き換え。画面をブロックせずに結果を伝える。
+   type: 'ok'（完了）| 'warn'（入力ミス・権限など既定）| 'err'（失敗・エラー）
+   err は見落とすと困るので長めに表示する。どれもタップで即座に消える。 */
+var _fbToastTimer = null;
+function toast(msg, type) {
+  var t = type || 'warn';
+  var old = document.getElementById('fb-toast');
+  if (old) old.remove();
+  var el = document.createElement('div');
+  el.id = 'fb-toast';
+  el.className = 'fb-toast ' + t;
+  el.setAttribute('role', t === 'err' ? 'alert' : 'status');
+  el.innerHTML = '<span>' + escH(msg) + '</span><span class="fb-toast-x">✕</span>';
+  el.onclick = function(){ el.remove(); };
+  document.body.appendChild(el);
+  clearTimeout(_fbToastTimer);
+  _fbToastTimer = setTimeout(function(){ if (el.parentNode) el.remove(); }, t === 'err' ? 10000 : 5000);
 }
 
 /* ===== 通知トースト ===== */
