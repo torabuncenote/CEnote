@@ -3393,7 +3393,7 @@ function renderAdminUsers() {
           S += '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">管理者を外す</button>';
         } else {
           S += '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
-          S += '<button class="btn btn-d btn-sm" style="margin-left:4px" onclick="deleteAppUser(\'' + escH(uid) + '\',\'' + escH(u.displayName || u.email) + '\')">🗑 削除</button>';
+          S += '<button class="btn btn-d btn-sm" style="margin-left:4px" onclick="deleteAppUser(\'' + escH(uid) + '\',\'' + escJs(u.displayName || u.email) + '\')">🗑 削除</button>';
         }
         S += '</div>';
         /* --- 下段：編集権限（管理者・自分以外のみ） --- */
@@ -4367,7 +4367,7 @@ function renderSurplusArea(ds, dat, locked) {
   for (var i=0; i<_freeChips.length; i++) {
     html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(_freeChips[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
     html += escH(_freeChips[i]);
-    if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escH(_freeChips[i])+'\')">×</button>';
+    if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escJs(_freeChips[i])+'\')">×</button>';
     html += '</div>';
   }
   if (!_freeChips.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
@@ -4389,7 +4389,7 @@ function renderSurplusArea(ds, dat, locked) {
     for (var wi=0; wi<zWorkers.length; wi++) {
       html += '<div class="pchip" style="background:'+zone.bg+';color:'+zone.color+';border:1.5px solid '+zone.border+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(zWorkers[wi])+'" data-from="status" data-ds="'+ds+'" title="ドラッグして担当枠へ">'
         + escH(zWorkers[wi]);
-      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromStatus(\''+ds+'\',\''+escH(zWorkers[wi])+'\')">×</button>';
+      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromStatus(\''+ds+'\',\''+escJs(zWorkers[wi])+'\')">×</button>';
       html += '</div>';
     }
     for (var hi=0; hi<zHdWorkers.length; hi++) {
@@ -4398,7 +4398,7 @@ function renderSurplusArea(ds, dat, locked) {
       var isNt = hdInf && hdInf.night;
       html += '<div class="pchip hd'+(isNt?' night':'')+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdN)+'" data-from="hd" data-ds="'+ds+'" title="ドラッグして移動">'+escH(hdN);
       if(hdInf) html += '<span class="cs">'+escH(isNt?'準':hdInf.shift)+'</span>';
-      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromHdStatus(\''+ds+'\',\''+escH(hdN)+'\')">×</button>';
+      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromHdStatus(\''+ds+'\',\''+escJs(hdN)+'\')">×</button>';
       html += '</div>';
     }
     if(!hasAny) html += '<span style="font-size:10px;color:var(--txt3)">ここにドロップ</span>';
@@ -4519,10 +4519,13 @@ function dropToSurplus(e, ds) {
 }
 
 function removeFromSurplus(ds, name) {
+  if (!D.pages[ds]) return;
   var sur = D.pages[ds].surplus || [];
   var i = sur.indexOf(name); if (i === -1) return;
   sur.splice(i, 1);
   D.pages[ds].surplus = sur;
+  /* ゾーン割り当ても一緒に消す（残すとゾーン表示だけ復活する） */
+  if (D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
   saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], !can('duty'));
 }
 
@@ -5172,6 +5175,11 @@ function renderLogList() {
   el.innerHTML = h;
 }
 function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+/* onclick等のインラインハンドラ内のJS文字列（'...'）に値を埋め込む用。
+   HTML属性は先にエンティティが解読されてからJSとして解釈されるため、
+   escH だけでは名前に ' が含まれるとJSの文字列が閉じてしまう。
+   先に \ と ' をJSエスケープしてから escH に通す。 */
+function escJs(s) { return escH(String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 
 /* Firebase RTDBキーに使えない文字を除去（. # $ [ ] /） */
 function sanitizeManualKeys() {
@@ -5539,7 +5547,7 @@ function renderStfList() {
     var btns = ok ? '<button class="ru" onclick="mvStf('+i+',-1)">↑</button><button class="rdw" onclick="mvStf('+i+',1)">↓</button><button class="rd2" onclick="rmStf('+i+')">×</button>' : '';
     var isHidden = !!(D.stfHidden && D.stfHidden[name]);
     var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none;'+(isHidden?'opacity:.4;text-decoration:line-through':'')+'">👤 ' + escH(name) + '</span>';
-    var hideBtn = isAdmin ? '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="toggleStfHidden(\''+escH(name)+'\')" title="'+(isHidden?'担当表・割当に表示する':'担当表・割当から非表示にする')+'">'+(isHidden?'👁 表示':'🚫 非表示')+'</button>' : '';
+    var hideBtn = isAdmin ? '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="toggleStfHidden(\''+escJs(name)+'\')" title="'+(isHidden?'担当表・割当に表示する':'担当表・割当から非表示にする')+'">'+(isHidden?'👁 表示':'🚫 非表示')+'</button>' : '';
     el.innerHTML = nameSpan + hideBtn + linkBtn + eduBtn + btns;
     l.appendChild(el);
   }
