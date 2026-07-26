@@ -2431,7 +2431,7 @@ function onSPMediaAdd(input) {
   files.forEach(function(file) {
     var isVideo = file.type.startsWith('video/');
     if (isVideo && file.size > VIDEO_MAX) {
-      alert(file.name + ' は50MBを超えています。動画は50MB以下にしてください。');
+      toast(file.name + ' は50MBを超えています。動画は50MB以下にしてください。', 'warn');
       pending--; if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); } return;
     }
     var processFile = function(dataUrl, blob) {
@@ -3502,7 +3502,7 @@ function saveUserPerm(uid, permId, grant) {
       else delete currentUser.perms[permId];
       updateTabVisibility();
     }
-  }).catch(function(err) { alert('エラー: ' + err.message); });
+  }).catch(function(err) { toast('エラー: ' + err.message, 'err'); });
 }
 
 function toggleAdminPriv(uid, currentlyAdmin) {
@@ -3518,7 +3518,7 @@ function toggleAdminPriv(uid, currentlyAdmin) {
     writeLog(currentlyAdmin ? '管理者権限を取り消し' : '管理者権限を付与', uid);
     renderAdminUsers();
   }).catch(function(err) {
-    alert('エラーが発生しました: ' + err.message);
+    toast('エラーが発生しました: ' + err.message, 'err');
   });
 }
 
@@ -4553,7 +4553,7 @@ function saveOpsCfg(ds) {
     if (pgDat.ops_cards === null || pgDat.ops_cards === undefined) updated++;
   }
   saveD();
-  alert('テンプレートを保存しました（' + updated + 'ページに適用）。');
+  toast('テンプレートを保存しました（' + updated + 'ページに適用）。', 'ok');
 }
 function resetOpsCards(ds) {
   var dat = D.pages[ds]; if (!dat) return;
@@ -5592,7 +5592,7 @@ function confirmEditModal() {
   var newValue = input.value.trim();
 
   if (!newValue) {
-    alert('内容は空にできません');
+    toast('内容は空にできません', 'warn');
     return;
   }
 
@@ -5601,7 +5601,7 @@ function confirmEditModal() {
     if (!can('sm')) return;
     for (var j = 0; j < D.stf.length; j++) {
       if (j !== state.index && D.stf[j].toLowerCase() === newValue.toLowerCase()) {
-        alert('このスタッフ名は既に登録されています');
+        toast('このスタッフ名は既に登録されています', 'warn');
         return;
       }
     }
@@ -5626,7 +5626,7 @@ function confirmEditModal() {
       oldValue = tree[state.di].dept;
       for (var i = 0; i < tree.length; i++) {
         if (i !== state.di && tree[i].dept.toLowerCase() === newValue.toLowerCase()) {
-          alert('この科名は既に登録されています');
+          toast('この科名は既に登録されています', 'warn');
           return;
         }
       }
@@ -5635,7 +5635,7 @@ function confirmEditModal() {
       oldValue = tree[state.di].cats[state.ci].name;
       for (var i = 0; i < tree[state.di].cats.length; i++) {
         if (i !== state.ci && tree[state.di].cats[i].name.toLowerCase() === newValue.toLowerCase()) {
-          alert('このカテゴリ名は既に登録されています');
+          toast('このカテゴリ名は既に登録されています', 'warn');
           return;
         }
       }
@@ -5644,7 +5644,7 @@ function confirmEditModal() {
       oldValue = tree[state.di].cats[state.ci].items[state.ii];
       for (var i = 0; i < tree[state.di].cats[state.ci].items.length; i++) {
         if (i !== state.ii && tree[state.di].cats[state.ci].items[i].toLowerCase() === newValue.toLowerCase()) {
-          alert('この項目名は既に登録されています');
+          toast('この項目名は既に登録されています', 'warn');
           return;
         }
       }
@@ -5752,7 +5752,7 @@ function saveOcFlow() {
   D.ocFlow = el.value;
   saveD();
   writeLog('OCフローチャート更新', (D.ocFlow||'').slice(0,30));
-  alert('保存しました');
+  toast('保存しました', 'ok');
 }
 function openOcFlowModal() {
   var ov = document.createElement('div'); ov.id='oc-flow-ov'; ov.className='ov';
@@ -5968,7 +5968,7 @@ function togWdWeek(i, wk) {
   var pos = weeks.indexOf(wk);
   if (pos===-1) weeks.push(wk); else weeks.splice(pos,1);
   weeks.sort(function(a,b){ return a-b; });
-  if (!weeks.length) { alert('最低1つの週を選んでください'); return; }
+  if (!weeks.length) { toast('最低1つの週を選んでください', 'warn'); return; }
   if (weeks.length>=6) arr[i] = oldN ? {t:text, notif:oldN} : text; /* 全6オプション → 毎週 */
   else { var item = {t:text, wk:weeks}; if(oldN) item.notif=oldN; arr[i]=item; }
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
@@ -6803,7 +6803,7 @@ function dayHasDutyAssigned(ds){
 }
 
 function doSaveSIM() {
-  if (!parsedShiftData) { alert('先にExcelファイルを読み込んでください。'); return; }
+  if (!parsedShiftData) { toast('先にExcelファイルを読み込んでください。', 'warn'); return; }
   var ym   = parsedShiftData.ym;
   var data = parsedShiftData.data;
   var ymParts   = ym.split('-');
@@ -6876,13 +6876,13 @@ function doSaveSIM() {
   writeLog('勤務表インポート', ym + (protectedDays.length ? '（保護: '+protectedDays.length+'日）' : ''));
   closeSIM();
   if (curDs && D.pages[curDs]) safeRenderPage();
-  alert('\u2705 ' + ym + ' \u306e\u52e4\u52d9\u8868\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f\uff01'
-        + (protectedDays.length ? '\n\uff08\u5272\u5f53\u6e08\u307f ' + protectedDays.length + ' \u65e5\u5206\u306f\u4fdd\u8b77\u3057\u307e\u3057\u305f\uff09' : ''));
+  toast('\u2705 ' + ym + ' \u306e\u52e4\u52d9\u8868\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f\uff01'
+        + (protectedDays.length ? '\n\uff08\u5272\u5f53\u6e08\u307f ' + protectedDays.length + ' \u65e5\u5206\u306f\u4fdd\u8b77\u3057\u307e\u3057\u305f\uff09' : ''), 'ok');
 }
 
 /* ===== GENERATE / ADD / DELETE ===== */
 function openGM() {
-  if(!can('pg')){alert('🔒 管理者のみ可能です');return;}
+  if(!can('pg')){toast('🔒 管理者のみ可能です', 'warn');return;}
   document.getElementById('modal-gm').classList.remove('hd');
   /* モーダル内の自動割り当て説明を現在のモードに合わせて更新 */
   var desc = document.getElementById('gm-aa-desc');
@@ -6896,7 +6896,7 @@ function openGM() {
   }
 }
 function closeGM() { document.getElementById('modal-gm').classList.add('hd'); }
-function openNM() { if(!can('pg')){alert('🔒 管理者のみ可能です');return;} document.getElementById('modal-nm').classList.remove('hd'); }
+function openNM() { if(!can('pg')){toast('🔒 管理者のみ可能です', 'warn');return;} document.getElementById('modal-nm').classList.remove('hd'); }
 function closeNM() { document.getElementById('modal-nm').classList.add('hd'); }
 
 /* Pool Staff Modal */
@@ -6987,7 +6987,7 @@ function searchPoolStaff(query) {
 
 function confirmPoolStaffSelect() {
   if (!poolStaffModalState.selected) {
-    alert('スタッフを選択してください');
+    toast('スタッフを選択してください', 'warn');
     return;
   }
 
@@ -7050,7 +7050,7 @@ function doGenM() {
   saveD(); renderCal();
   if (document.getElementById('pane-assign').style.display!=='none') renderAT();
   writeLog('連絡表生成', y+'年'+m+'月 '+cnt+'枚');
-  closeGM(); alert('✅ '+y+'年'+m+'月分 '+cnt+'枚の連絡表を生成しました！');
+  closeGM(); toast('✅ '+y+'年'+m+'月分 '+cnt+'枚の連絡表を生成しました！', 'ok');
 }
 function doAddPage() {
   var ds=document.getElementById('nm-date').value; if(!ds)return;
@@ -7061,7 +7061,7 @@ function doAddPage() {
   renderCal(); openPage(ds);
 }
 function delPage(ds) {
-  if(!can('pg')){alert('🔒 管理者のみ可能です');return;}
+  if(!can('pg')){toast('🔒 管理者のみ可能です', 'warn');return;}
   if(!confirm(fmtJ(ds)+' の連絡表を削除しますか？'))return;
   autoSaveSnapshot('削除前: '+fmtJ(ds));
   saveFirebaseSnapshot('削除前: '+fmtJ(ds));
@@ -7070,13 +7070,13 @@ function delPage(ds) {
   if(curDs===ds){curDs=null;showEmpty();} renderCal();
 }
 function doDelM() {
-  if(!can('pg')){alert('🔒 管理者のみ可能です');return;}
+  if(!can('pg')){toast('🔒 管理者のみ可能です', 'warn');return;}
   var v = document.getElementById('gm-month').value; if(!v)return;
   var pt=v.split('-'); var y=parseInt(pt[0]); var m=parseInt(pt[1]);
   var ym = y+'-'+pad(m);
   /* 対象月の連絡表を数える */
   var targets = Object.keys(D.pages).filter(function(ds){ return ds.indexOf(ym+'-')===0; });
-  if(targets.length===0){ alert(y+'年'+m+'月の連絡表はありません。'); return; }
+  if(targets.length===0){ toast(y+'年'+m+'月の連絡表はありません。', 'warn'); return; }
   if(!confirm(y+'年'+m+'月の連絡表 '+targets.length+'枚を全て削除しますか？\nこの操作は元に戻せません。'))return;
   autoSaveSnapshot('一括削除前: '+ym);
   saveFirebaseSnapshot('一括削除前: '+ym);
@@ -7085,7 +7085,7 @@ function doDelM() {
   saveD(); closeGM();
   if(curDs && curDs.indexOf(ym+'-')===0){ curDs=null; showEmpty(); }
   renderCal();
-  alert('🗑 '+y+'年'+m+'月の連絡表 '+targets.length+'枚を削除しました。');
+  toast('🗑 '+y+'年'+m+'月の連絡表 '+targets.length+'枚を削除しました。', 'ok');
 }
 function showEmpty() {
   document.getElementById('main').innerHTML='<div class="es"><div class="es-ic">📋</div><div class="es-t">連絡表を選択または作成してください</div><p class="es-s">左のカレンダーから日付を選ぶか<br>「1ヶ月生成」で一括作成できます</p></div>';
@@ -7698,7 +7698,7 @@ function poolAssign(ds,name) {
       var os=document.getElementById('oc-staff');if(os){os.value=name;os.classList.add('set');}
       refreshPool(ds); return;
     }
-    alert(name+'さん：全スロットが埋まっています。手動で割り当ててください。'); return;
+    toast(name+'さん：全スロットが埋まっています。手動で割り当ててください。', 'warn'); return;
   }
   if(!dat.duties)dat.duties={};
   var _oldTgt=dat.duties[target];
@@ -7839,7 +7839,7 @@ function _b64FallbackAlertOnce() {
   var now = Date.now();
   if (now - _lastB64FallbackAlertTs > 3000) { /* 複数枚同時アップロード時の連打防止 */
     _lastB64FallbackAlertTs = now;
-    alert('⚠️ 画像サーバーに接続できないため、画像を添付できませんでした。');
+    toast('⚠️ 画像サーバーに接続できないため、画像を添付できませんでした。', 'err');
   }
 }
 /* Storage未接続 or アップロード失敗時の共通フォールバック処理
@@ -7963,7 +7963,7 @@ function checkAndDeleteOldData(force) {
   if (deleted > 0 || force) {
     saveD();
     writeLog('自動削除実行', period + '日以上前のデータを削除（' + deleted + '件）');
-    if (force) alert('✅ 削除完了（連絡表 ' + deleted + '件）');
+    if (force) toast('✅ 削除完了（連絡表 ' + deleted + '件）', 'ok');
   }
 }
 
@@ -7994,7 +7994,7 @@ function onMemoMediaAdd(input) {
   files.forEach(function(file) {
     var isVideo = file.type.startsWith('video/');
     if (isVideo && file.size > VIDEO_MAX) {
-      alert(file.name + ' は50MBを超えています（' + Math.round(file.size/1024/1024) + 'MB）。動画は50MB以下にしてください。');
+      toast(file.name + ' は50MBを超えています（' + Math.round(file.size/1024/1024) + 'MB）。動画は50MB以下にしてください。', 'warn');
       pending--;
       if (pending === 0) renderMemoMediaPreview();
       return;
@@ -8346,9 +8346,9 @@ function _doPostMemo(ds) {
   if (!ta) return;
   var text = ta.value.trim();
   if (!text && !_memoMediaBuf.length) return;
-  if (!currentUser) { alert('ログインが必要です'); return; }
+  if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   if (!D.pages[ds]) {
-    if (!can('pg')) { alert('🔒 このページはまだ作成されていません。管理者に連絡してください。'); return; }
+    if (!can('pg')) { toast('🔒 このページはまだ作成されていません。管理者に連絡してください。', 'warn'); return; }
     D.pages[ds] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
   }
   if (!D.pages[ds].memos) D.pages[ds].memos = [];
@@ -8410,7 +8410,7 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   renderMemos(ds, D.pages[ds], !can('memo'));
   updatePendingBadge();
   if (entry.media && entry.media.some(function(m){return m.pending;})) {
-    alert('画像/動画は管理者の承認後に表示されます。');
+    toast('画像/動画は管理者の承認後に表示されます。', 'warn');
     sendAdminNotification('🕓 承認依頼: ' + entry.name + 'さんが申し送り（' + fmtJ(ds) + '）に画像/動画を追加しました', entry.text ? entry.text.slice(0,50) : '');
   }
   /* @メンション通知 */
@@ -8607,23 +8607,23 @@ function openMoveMemoModal(ds, idx) {
   ov.appendChild(md); document.body.appendChild(ov);
   document.getElementById('move-memo-go').addEventListener('click', function(){
     var targetDs = document.getElementById('move-memo-date').value;
-    if (!targetDs) { alert('移動先の日付を選択してください'); return; }
+    if (!targetDs) { toast('移動先の日付を選択してください', 'warn'); return; }
     /* 他端末の編集でindexがずれた可能性があるため ts+uid で対象を再特定する */
     var memos = (D.pages[ds] && D.pages[ds].memos) || [];
     var curIdx = -1;
     for (var i = 0; i < memos.length; i++) {
       if (memoTs ? (memos[i].ts === memoTs && memos[i].uid === memoUid) : i === idx) { curIdx = i; break; }
     }
-    if (curIdx === -1) { alert('この申し送りは既に削除または移動されています'); ov.remove(); return; }
+    if (curIdx === -1) { toast('この申し送りは既に削除または移動されています', 'warn'); ov.remove(); return; }
     if (moveMemo(ds, curIdx, targetDs)) ov.remove();
   });
 }
 
 function moveMemo(ds, idx, targetDs) {
-  if (targetDs === ds) { alert('移動元と同じ日付です'); return false; }
+  if (targetDs === ds) { toast('移動元と同じ日付です', 'warn'); return false; }
   if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return false;
   if (!D.pages[targetDs]) {
-    if (!can('pg')) { alert('🔒 移動先の連絡表がまだ作成されていません。管理者に連絡してください。'); return false; }
+    if (!can('pg')) { toast('🔒 移動先の連絡表がまだ作成されていません。管理者に連絡してください。', 'warn'); return false; }
     D.pages[targetDs] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
   }
   if (!D.pages[targetDs].memos) D.pages[targetDs].memos = [];
@@ -8931,7 +8931,7 @@ function buildDG(ds, dat, locked) {
             if(pgDat.duties){for(var k in pgDat.duties){if(pgDat.duties[k]){hasDuty=true;break;}}}
             if(!hasDuty){pgDat.customDuties=null;updated++;}
           }
-          saveD(); alert('テンプレートを保存しました（'+updated+'ページに適用）。');
+          saveD(); toast('テンプレートを保存しました（'+updated+'ページに適用）。', 'ok');
         };
         tagRow.appendChild(tplBtn2);
         if(isCustom){
@@ -10654,7 +10654,7 @@ function setAutoAssignMode(mode) {
 /* ===== スタッフ Firebase 紐付け ===== */
 function showLinkStfModal(idx) {
   if (!isAdmin) return;
-  if (!FB_ON || !fbDB) { alert('Firebaseが利用できないため紐付けできません'); return; }
+  if (!FB_ON || !fbDB) { toast('Firebaseが利用できないため紐付けできません', 'warn'); return; }
   var name = D.stf[idx];
   if (!name) return;
   var ov = document.createElement('div'); ov.id = 'link-stf-ov'; ov.className = 'ov';
@@ -10707,7 +10707,7 @@ function showLinkStfModal(idx) {
     uidBtn.addEventListener('click', function() {
       var input = document.getElementById('link-stf-uid-input');
       var uid = input ? input.value.trim() : '';
-      if (!uid) { alert('UIDを入力してください'); return; }
+      if (!uid) { toast('UIDを入力してください', 'warn'); return; }
       linkStf(idx, uid, uid);
     });
   }
@@ -11148,7 +11148,7 @@ function taskPersist(id, t) {
   if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).set(t).catch(function(e){
     if (prev === undefined) delete _tasksData[id]; else _tasksData[id] = prev;
     renderTasks();
-    alert('保存エラー: '+e.message);
+    toast('保存エラー: '+e.message, 'err');
   });
 }
 function taskDelete(id) {
@@ -11157,7 +11157,7 @@ function taskDelete(id) {
   delete _tasksData[id]; renderTasks();
   if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).remove().catch(function(e){
     _tasksData[id] = t; renderTasks(); /* 削除失敗 → 復元 */
-    alert('削除エラー: '+e.message);
+    toast('削除エラー: '+e.message, 'err');
   });
   if (FB_ON) writeLog('タスク削除', (t.title||'').substring(0,30));
 }
@@ -11347,13 +11347,13 @@ function openTaskModal(id) {
 }
 
 function saveTaskFromModal(id) {
-  if (!currentUser) { alert('ログインが必要です'); return; }
+  if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   var title = document.getElementById('task-md-title').value.trim();
   var desc  = document.getElementById('task-md-desc').value.trim();
-  if (!title) { alert('タイトルを入力してください'); return; }
+  if (!title) { toast('タイトルを入力してください', 'warn'); return; }
   var asg = [];
   document.querySelectorAll('#task-md-asg input[type=checkbox]:checked').forEach(function(cb){ asg.push(cb.value); });
-  if (!asg.length) { alert('担当者を1名以上選択してください'); return; }
+  if (!asg.length) { toast('担当者を1名以上選択してください', 'warn'); return; }
   /* PHI検知（#main外なので明示呼び出し必須） */
   var phiRes = detectPHI(title + '\n' + desc);
   if (phiRes.red.length || phiRes.yellow.length) {
@@ -11430,7 +11430,7 @@ function exportOcCsv() {
     var oc = pg.ocData, w = new Date(ds).getDay();
     rows.push([asY+'/'+(asM+1)+'/'+d, WDL[w], oc.staff||'', oc.note||'', oc.done?'✔':'', oc.time||'', oc.nenkyu?'✔':'']);
   }
-  if (rows.length===1){alert('この月にOC担当の記録がありません');return;}
+  if (rows.length===1){toast('この月にOC担当の記録がありません', 'warn');return;}
   downloadCsv('分院CE_OC集計_'+asY+'年'+(asM+1)+'月.csv', rows);
 }
 function exportOpsCsv() {
@@ -11448,7 +11448,7 @@ function exportOpsCsv() {
     if(!opeN&&!cathN&&!mwN&&!psgN&&!freeN) continue;
     rows.push([asY+'/'+(asM+1)+'/'+d, WDL[new Date(ds).getDay()], opeN||'', cathN||'', mwN||'', psgN||'', freeN||'']);
   }
-  if (rows.length===1){alert('この月に業務記録がありません');return;}
+  if (rows.length===1){toast('この月に業務記録がありません', 'warn');return;}
   downloadCsv('分院CE_業務集計_'+asY+'年'+(asM+1)+'月.csv', rows);
 }
 /* サブタブ対応 印刷（現在のサブタブを印刷） */
@@ -11467,7 +11467,7 @@ function printSubTab() {
 function exportAtCsv() {
   var days=new Date(asY,asM+1,0).getDate(), adates=[];
   for(var d=1;d<=days;d++){var ds=asY+'-'+pad(asM+1)+'-'+pad(d);if(D.pages[ds])adates.push(ds);}
-  if(!adates.length){alert('この月の連絡表がありません');return;}
+  if(!adates.length){toast('この月の連絡表がありません', 'warn');return;}
   var allS=D.stf.filter(function(n){return !(D.stfHidden&&D.stfHidden[n]);});
   var rows=[['日付','曜日'].concat(allS).concat(['余剰'])];
   for(var di=0;di<adates.length;di++){
@@ -11536,7 +11536,7 @@ function renderSchedPresetList(){
 function addSchedPreset(){
   if(!can('dm'))return;
   var label=document.getElementById('in-sp-label').value.trim();
-  if(!label){alert('プリセット名を入力してください');return;}
+  if(!label){toast('プリセット名を入力してください', 'warn');return;}
   var color=document.getElementById('in-sp-color').value;
   var dur=parseInt(document.getElementById('in-sp-dur').value)||60;
   getSchedPresets().push({label:label,color:color,dur:dur});
@@ -11702,8 +11702,8 @@ function schedAddBlock(ds,staff,presetIdx,startMin){
 
 function schedImportDuties(){
   var ds=curDs, dat=D.pages[ds]; if(!dat) return;
-  if(!can('duty')){ alert('🔒 担当割り当ての編集権限がありません'); return; }
-  if(!dat.duties){ alert('業務割当がありません。'); return; }
+  if(!can('duty')){ toast('🔒 担当割り当ての編集権限がありません', 'warn'); return; }
+  if(!dat.duties){ toast('業務割当がありません。', 'warn'); return; }
   if(!dat.schedule) dat.schedule=[];
   var cfg=getDutyCfg(dat);
   var added=0;
@@ -11722,7 +11722,7 @@ function schedImportDuties(){
   saveDPage(ds);
   writeLog('スケジュール業務取込',fmtJ(ds)+' '+added+'件');
   renderSched();
-  if(!added) alert('追加する新しい業務割当はありませんでした。');
+  if(!added) toast('追加する新しい業務割当はありませんでした。', 'warn');
 }
 
 function schedClear(){
@@ -11966,7 +11966,7 @@ function tabletStfOptions(selected){
 function openTabletLendModal(ds){
   if(!can('tablet')) return;
   var tablets=D.tablets||[];
-  if(!tablets.length){ alert('先に業務タブでタブレットを登録してください'); return; }
+  if(!tablets.length){ toast('先に業務タブでタブレットを登録してください', 'warn'); return; }
   var tblOpts=tablets.map(function(t){ return '<option value="'+escH(t)+'">'+escH(t)+'</option>'; }).join('');
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
@@ -11990,9 +11990,9 @@ function saveTabletLend(ds){
   var name=document.getElementById('tablet-md-name').value;
   var borrower=tabletNameValue('tablet-md-borrower-sel','tablet-md-borrower');
   var timeStr=document.getElementById('tablet-md-time').value;
-  if(!name){ alert('タブレットを選択してください'); return; }
-  if(!borrower){ alert('借りた人を入力してください'); return; }
-  if(!timeStr){ alert('貸出時刻を入力してください'); return; }
+  if(!name){ toast('タブレットを選択してください', 'warn'); return; }
+  if(!borrower){ toast('借りた人を入力してください', 'warn'); return; }
+  if(!timeStr){ toast('貸出時刻を入力してください', 'warn'); return; }
   var phi=detectPHI(borrower);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
@@ -12036,8 +12036,8 @@ function saveTabletReturn(ds, idx){
   if(!can('tablet')) return;
   var retby=tabletNameValue('tablet-md-retby-sel','tablet-md-retby');
   var timeStr=document.getElementById('tablet-md-rettime').value;
-  if(!retby){ alert('返した人を入力してください'); return; }
-  if(!timeStr){ alert('返却時刻を入力してください'); return; }
+  if(!retby){ toast('返した人を入力してください', 'warn'); return; }
+  if(!timeStr){ toast('返却時刻を入力してください', 'warn'); return; }
   var phi=detectPHI(retby);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
@@ -12454,7 +12454,7 @@ function onBoardMediaAdd(input) {
   var pending = files.length;
   files.forEach(function(file) {
     if (!file.type.startsWith('image/')) {
-      alert(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。');
+      toast(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。', 'warn');
       pending--;
       if (pending === 0) renderBoardMediaPreview();
       return;
@@ -12497,7 +12497,7 @@ function onBoardReplyMediaAdd(input, postId) {
   var pending = files.length;
   files.forEach(function(file) {
     if (!file.type.startsWith('image/')) {
-      alert(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。');
+      toast(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。', 'warn');
       pending--;
       if (pending === 0) renderBoardReplyMediaPreview(postId);
       return;
@@ -12531,7 +12531,7 @@ function renderBoardReplyMediaPreview(postId) {
 }
 
 function _doPostBoard(text) {
-  if (!currentUser) { alert('ログインが必要です'); return; }
+  if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   var tagSel = document.getElementById('board-tag-sel');
   var tag = (tagSel && tagSel.value) || 'etc';
   var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false, tag: tag };
@@ -12568,7 +12568,7 @@ function _doPostBoard(text) {
 
 function _finishPostBoard(post, text, btn) {
   if (FB_ON && fbDB) {
-    fbDB.ref('/board').push(post).catch(function(e){ alert('投稿エラー: '+e.message); });
+    fbDB.ref('/board').push(post).catch(function(e){ toast('投稿エラー: '+e.message, 'err'); });
   } else {
     var id = 'local_' + Date.now();
     _boardData[id] = post;
@@ -12585,7 +12585,7 @@ function _finishPostBoard(post, text, btn) {
   if(FB_ON) writeLog('掲示板投稿', (text || '[画像]').substring(0,30));
   updatePendingBadge();
   if (post.media && post.media.some(function(m){ return m.pending; })) {
-    alert('画像は管理者の承認後に表示されます。');
+    toast('画像は管理者の承認後に表示されます。', 'warn');
     sendAdminNotification('🕓 承認依頼: ' + post.author + 'さんが掲示板に画像を投稿しました', (text || '').slice(0,50));
   }
 }
@@ -12620,7 +12620,7 @@ function approveBoardMedia(id, mi) {
   if (!media[mi]) return;
   media[mi].pending = false;
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ toast('エラー: '+e.message, 'err'); });
   } else {
     renderBoard();
   }
@@ -12637,7 +12637,7 @@ function rejectBoardMedia(id, mi) {
   if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
   media.splice(mi, 1);
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ toast('エラー: '+e.message, 'err'); });
   } else {
     p.media = media;
     renderBoard();
@@ -12647,7 +12647,7 @@ function rejectBoardMedia(id, mi) {
 }
 
 function _doPostBoardReply(postId, text) {
-  if (!currentUser) { alert('ログインが必要です'); return; }
+  if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   var reply = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text };
   var buf = (_boardReplyMediaBuf[postId] || []).slice();
   var btn = document.querySelector('#brd-reply-form-' + postId + ' .btn-p');
@@ -12682,7 +12682,7 @@ function _doPostBoardReply(postId, text) {
 
 function _finishPostBoardReply(postId, reply, btn) {
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + postId + '/replies').push(reply).catch(function(e){ alert('返信エラー: '+e.message); });
+    fbDB.ref('/board/' + postId + '/replies').push(reply).catch(function(e){ toast('返信エラー: '+e.message, 'err'); });
   } else {
     if (!_boardData[postId].replies) _boardData[postId].replies = {};
     _boardData[postId].replies['local_'+Date.now()] = reply;
@@ -12697,7 +12697,7 @@ function _finishPostBoardReply(postId, reply, btn) {
   if(FB_ON) writeLog('掲示板返信', (reply.text || '[画像]').substring(0,30));
   updatePendingBadge();
   if (reply.media && reply.media.some(function(m){ return m.pending; })) {
-    alert('画像は管理者の承認後に表示されます。');
+    toast('画像は管理者の承認後に表示されます。', 'warn');
     sendAdminNotification('🕓 承認依頼: ' + reply.author + 'さんが掲示板に画像を投稿しました', (reply.text || '').slice(0,50));
   }
 }
@@ -12728,7 +12728,7 @@ function approveBoardReplyMedia(postId, rid, mi) {
   if (!media[mi]) return;
   media[mi].pending = false;
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ toast('エラー: '+e.message, 'err'); });
   } else {
     p.replies[rid].media = media;
     renderBoard();
@@ -12746,7 +12746,7 @@ function rejectBoardReplyMedia(postId, rid, mi) {
   if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
   media.splice(mi, 1);
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ alert('エラー: '+e.message); });
+    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ toast('エラー: '+e.message, 'err'); });
   } else {
     p.replies[rid].media = media;
     renderBoard();
@@ -12767,7 +12767,7 @@ function deleteBoard(id) {
     });
   }
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id).remove().catch(function(e){ alert('削除エラー: '+e.message); });
+    fbDB.ref('/board/' + id).remove().catch(function(e){ toast('削除エラー: '+e.message, 'err'); });
   } else {
     delete _boardData[id]; renderBoard(); updateBoardBadge();
   }
@@ -12782,7 +12782,7 @@ function deleteReply(postId, replyId) {
     _boardMediaArr(r).forEach(function(med){ if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){}); });
   }
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + postId + '/replies/' + replyId).remove().catch(function(e){ alert('削除エラー: '+e.message); });
+    fbDB.ref('/board/' + postId + '/replies/' + replyId).remove().catch(function(e){ toast('削除エラー: '+e.message, 'err'); });
   } else {
     delete _boardData[postId].replies[replyId]; renderBoard();
   }
@@ -12804,7 +12804,7 @@ function pinBoard(id, pin) {
     }
   }
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id).update({ pin: pin, pinUntil: pinUntil }).catch(function(e){ alert('エラー: '+e.message); });
+    fbDB.ref('/board/' + id).update({ pin: pin, pinUntil: pinUntil }).catch(function(e){ toast('エラー: '+e.message, 'err'); });
   } else {
     if (_boardData[id]) { _boardData[id].pin = pin; _boardData[id].pinUntil = pinUntil; renderBoard(); }
   }
@@ -12820,7 +12820,7 @@ function toggleBoardResolved(id, val) {
     resolvedAt: val ? Date.now() : null
   };
   if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id).update(upd).catch(function(e){ alert('エラー: '+e.message); });
+    fbDB.ref('/board/' + id).update(upd).catch(function(e){ toast('エラー: '+e.message, 'err'); });
   } else {
     Object.assign(p, upd);
     renderBoard();
@@ -13017,10 +13017,10 @@ function autoAssignDuties(ds) {
   var dat = D.pages[ds]; if (!dat) return;
   if (!can('duty')) return;
   var cfg = getDutyCfg(dat);
-  if (!cfg.length) { alert('担当枠が設定されていません'); return; }
+  if (!cfg.length) { toast('担当枠が設定されていません', 'warn'); return; }
   var si = getShiftForDay(ds);
   var available = si.ce.map(function(c){ return c.name; });
-  if (!available.length) { alert('勤務表データがありません'); return; }
+  if (!available.length) { toast('勤務表データがありません', 'warn'); return; }
 
   var ym = ds.slice(0,7);
   var counts = buildMonthCounts(ym);
@@ -13072,8 +13072,8 @@ function doAutoAssign() {
 
 /* ===== 月次一括自動割り当て ===== */
 function autoAssignMonth() {
-  if (!can('duty')) { alert('🔒 担当割り当て権限がありません'); return; }
-  var v = document.getElementById('gm-month').value; if (!v) { alert('対象月を選択してください'); return; }
+  if (!can('duty')) { toast('🔒 担当割り当て権限がありません', 'warn'); return; }
+  var v = document.getElementById('gm-month').value; if (!v) { toast('対象月を選択してください', 'warn'); return; }
   var pt = v.split('-'); var y = parseInt(pt[0]); var m = parseInt(pt[1]);
   var ym = y+'-'+pad(m);
   var days = new Date(y, m, 0).getDate();
@@ -13109,7 +13109,7 @@ function autoAssignMonth() {
     }
   }
 
-  if (!allProposals.length) { alert('割り当て可能な空きがありません（全枠割当済み、または勤務表データなし）'); return; }
+  if (!allProposals.length) { toast('割り当て可能な空きがありません（全枠割当済み、または勤務表データなし）', 'warn'); return; }
   showMonthAutoAssignPreview(y, m, allProposals);
 }
 
@@ -13304,11 +13304,11 @@ function restoreFirebaseSnapshot(dateStr) {
   autoSaveSnapshot('Firebase復元前');
   fbDB.ref('/backups/'+dateStr).once('value', function(snap) {
     var data = snap.val();
-    if (!data || !data.pages) { alert('スナップショットデータが見つかりません。'); return; }
+    if (!data || !data.pages) { toast('スナップショットデータが見つかりません。', 'warn'); return; }
     var pageCount = Object.keys(data.pages).length;
     /* 空ページのスナップは saveD() の空ガードで書き込みスキップされるため明示的に拒否 */
     if (pageCount === 0 && (!data.stf || !data.stf.length)) {
-      alert('このスナップショットは空のため復元できません。'); return;
+      toast('このスナップショットは空のため復元できません。', 'warn'); return;
     }
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
@@ -13326,7 +13326,7 @@ function restoreFirebaseSnapshot(dateStr) {
     renderFirebaseSnapshots();
     var stEl=document.getElementById('fb-snap-status');
     if(stEl) stEl.textContent='✅ 復元しました（'+dateStr+'・'+pageCount+'ページ）';
-  }, function(e){ alert('復元エラー: '+e.message); });
+  }, function(e){ toast('復元エラー: '+e.message, 'err'); });
 }
 
 function autoSaveSnapshot(label) {
@@ -13374,7 +13374,7 @@ function restoreAutoBackup(i) {
     var d = new Date(s.ts);
     var dt = d.getFullYear()+'/'+pad(d.getMonth()+1)+'/'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
     var data = JSON.parse(s.data);
-    if (!data.pages) { alert('バックアップデータが無効です。'); return; }
+    if (!data.pages) { toast('バックアップデータが無効です。', 'warn'); return; }
     var pageCount = Object.keys(data.pages).length;
     if (!confirm('自動バックアップ（'+dt+' / '+s.label+'）から復元しますか？\n\n連絡表 '+pageCount+' ページ\n\n⚠️ 現在のデータが上書きされます。')) return;
     autoSaveSnapshot('自動復元前');
@@ -13394,7 +13394,7 @@ function restoreAutoBackup(i) {
     var stEl = document.getElementById('auto-backup-status');
     if (stEl) stEl.textContent = '✅ 復元しました（'+dt+'）';
   } catch(e) {
-    alert('復元エラー: ' + e.message);
+    toast('復元エラー: ' + e.message, 'err');
   }
 }
 
@@ -13421,7 +13421,7 @@ function importBackup(file) {
     try {
       var data = JSON.parse(ev.target.result);
       if (!data.pages || !Array.isArray(data.stf)) {
-        alert('有効なCEnoteバックアップファイルではありません。');
+        toast('有効なCEnoteバックアップファイルではありません。', 'warn');
         return;
       }
       var pageCount = Object.keys(data.pages||{}).length;
@@ -13445,7 +13445,7 @@ function importBackup(file) {
       var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
       if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';
     } catch(err) {
-      alert('読み込みエラー: ' + err.message);
+      toast('読み込みエラー: ' + err.message, 'err');
     }
   };
   reader.readAsText(file);
