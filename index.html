@@ -1770,6 +1770,7 @@ function init() {
   renderOpeList(); renderCathList();
   renderLockList();
   initPHIGuard();
+  initTextareaAutoGrow();
   document.getElementById('in-stf').addEventListener('keydown', function(e){ if(e.key==='Enter') addStf(); });
   document.getElementById('in-phs').addEventListener('keydown', function(e){ if(e.key==='Enter') addPhs(); });
   document.getElementById('in-dly').addEventListener('keydown', function(e){ if(e.key==='Enter') addDly(); });
@@ -3609,8 +3610,25 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/07/19-30';
+var APP_VERSION = 'Ver.2026/07/27-31';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/27-31', date:'2026-07-27', title:'記録のずれ・取り違えの修正と入力欄の使い勝手改善', items:[
+    {t:'fix', d:'✅ チェックリストの項目を追加・削除・並べ替えすると、過去の連絡表のチェックが1つずつずれてしまう問題を修正。曜日別業務の週設定を変えたときも同様にずれないようにしました'},
+    {t:'fix', d:'📱 タブレットの返却・削除画面を開いている間に他の端末が記録を消すと、別のタブレットを返却・削除してしまう可能性があった問題を修正'},
+    {t:'new', d:'📱 前日以前から借りたままのタブレットが、その日のタブレット画面に「前日以前から貸出中」として表示され、そこから返却できるようになりました（日をまたぐ貸出に対応）'},
+    {t:'imp', d:'🔒 患者情報の警告が、内容を読むために欄をタップしただけでも出ていたのを、実際に書き換えたときだけ出るよう変更'},
+    {t:'imp', d:'📝 備考欄などのテキスト入力欄が、入力した文章の量に合わせて自動で広がるようになりました（長文が見切れなくなります）'},
+    {t:'fix', d:'🔒 スケジュールの業務名・当日勤務者の追加・イベント名・使用物品の自由入力にも患者情報チェックがかかるようになりました'},
+    {t:'fix', d:'📋 タスクの完了マークがサーバーに保存できなかった場合に、画面表示が元に戻らなかった問題を修正'},
+    {t:'fix', d:'☎️ PHS番号の編集権限を個別に付与しても反映されない問題を修正'},
+    {t:'fix', d:'📢 OSの警告ダイアログをアプリ内のトースト表示に置き換えました'},
+    {t:'fix', d:'🔧 名前にアポストロフィ（’）が含まれるとボタンが反応しない問題を修正'},
+    {t:'fix', d:'🔧 余剰人員・当日勤務者一覧の「×」がスマホでタップしても効かない問題を修正'},
+    {t:'fix', d:'🔧 Androidなど横幅の狭い画面で、ヘッダーの文字が縦に伸びて崩れる問題を修正'},
+    {t:'fix', d:'📝 申し送りの移動画面が、背景をタップしても閉じられなかったのを修正'},
+    {t:'imp', d:'📖 使い方ガイドに、未掲載だった機能の説明を追加'},
+    {t:'fix', d:'👑 バックアップファイル（JSON）からの復元で、スタッフとアカウントの紐付け・タブレット台帳・OC対応フロー・通知設定・自動削除設定などが復元されていなかった問題を修正', admin:true}
+  ]},
   { ver:'Ver.2026/07/19-30', date:'2026-07-19', title:'OC対応フローチャートを追加', items:[
     {t:'new', d:'📞 OC集計タブに「OC対応フローチャート」ボタンを追加。タップするとOC対応の手順がポップアップで確認できます'},
     {t:'imp', d:'👑 フローチャートの内容は業務マスタの「OC対応フローチャート」欄から編集できます', admin:true}
@@ -5461,6 +5479,53 @@ function wdItemsForDate(ds){
   return out;
 }
 
+/* ===== チェックリスト添字の付け替え =====
+   dat.checks は「D.dly 内の位置」と「D.dly.length + その日に表示される曜日別項目の位置」を
+   キーにして保存されている。そのためマスタ側で項目を増減・並べ替え・週設定変更すると、
+   何も手当てしなければ過去の全ページでチェックが1つずつずれる（点検記録が実態と食い違う）。
+   マスタを編集する各関数から下の2つを呼び、既存ページの checks を新しい位置へ付け替える。 */
+
+/* 共通業務（D.dly）用。mapFn(oldIdx) → 新添字（null を返すとそのチェックを破棄） */
+function remapDlyChecks(mapFn) {
+  Object.keys(D.pages || {}).forEach(function(ds) {
+    var dat = D.pages[ds];
+    if (!dat || !dat.checks) return;
+    var next = {};
+    Object.keys(dat.checks).forEach(function(k) {
+      var ni = mapFn(parseInt(k, 10));
+      if (ni === null || ni === undefined) return;
+      next[ni] = dat.checks[k];
+    });
+    dat.checks = next;
+  });
+}
+
+/* 曜日別業務（D.wd[曜日]）用。表示される項目は日付ごとに違うため、
+   対象曜日のページを1日ずつ「変更前後で表示される項目リスト」を作って本文で突き合わせる。
+   ※本文を変えるだけの編集（editWdly / 通知設定）は位置が動かないので呼ばなくてよい。 */
+function remapWdChecks(wdKey, oldArr, newArr) {
+  var base = D.dly.length;
+  Object.keys(D.pages || {}).forEach(function(ds) {
+    var dat = D.pages[ds];
+    if (!dat || !dat.checks) return;
+    if (WDL[new Date(ds).getDay()] !== wdKey) return;
+    var oldF = [], newF = [], a;
+    for (a = 0; a < oldArr.length; a++) if (wdApplies(ds, oldArr[a])) oldF.push(wdText(oldArr[a]));
+    for (a = 0; a < newArr.length; a++) if (wdApplies(ds, newArr[a])) newF.push(wdText(newArr[a]));
+    var next = {};
+    Object.keys(dat.checks).forEach(function(k) {
+      var idx = parseInt(k, 10);
+      if (idx < base) { next[idx] = dat.checks[k]; return; } /* 共通業務はそのまま */
+      var text = oldF[idx - base];
+      if (text === undefined) return;
+      var ni = newF.indexOf(text);
+      if (ni === -1) return;                                 /* その日に出なくなった項目 */
+      next[base + ni] = dat.checks[k];
+    });
+    dat.checks = next;
+  });
+}
+
 /* ===== CALENDAR ===== */
 function getPct(ds) {
   if (!D.pages[ds]) return 0;
@@ -5816,9 +5881,29 @@ function renderDlyList() {
   }
   document.getElementById('dly-ar').style.display = ok ? 'flex' : 'none';
 }
-function addDly() { if(!can('dm'))return; var v=document.getElementById('in-dly').value.trim(); if(!v)return; D.dly.push(v); document.getElementById('in-dly').value=''; renderDlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-dly').focus(); }
-function rmDly(i) { if(!can('dm'))return; D.dly.splice(i,1); renderDlyList(); saveD(); if(curDs)safeRenderPage(); }
-function mvDly(i,d) { if(!can('dm'))return; var j=i+d; if(j<0||j>=D.dly.length)return; var t=D.dly[i];D.dly[i]=D.dly[j];D.dly[j]=t; renderDlyList(); saveD(); }
+function addDly() {
+  if(!can('dm'))return;
+  var v=document.getElementById('in-dly').value.trim(); if(!v)return;
+  /* 曜日別業務は checks 上で D.dly.length のオフセットに載っているため、
+     共通業務が1つ増えると全ページの曜日別チェックが1つずれる。先に付け替える。 */
+  var oldLen=D.dly.length;
+  remapDlyChecks(function(k){ return k<oldLen ? k : k+1; });
+  D.dly.push(v);
+  document.getElementById('in-dly').value=''; renderDlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-dly').focus();
+}
+function rmDly(i) {
+  if(!can('dm'))return;
+  /* 削除位置より後ろの共通業務と、その後ろに続く曜日別業務がまとめて1つ前へ詰まる */
+  remapDlyChecks(function(k){ return k===i ? null : (k>i ? k-1 : k); });
+  D.dly.splice(i,1);
+  renderDlyList(); saveD(); if(curDs)safeRenderPage();
+}
+function mvDly(i,d) {
+  if(!can('dm'))return;
+  var j=i+d; if(j<0||j>=D.dly.length)return;
+  remapDlyChecks(function(k){ return k===i ? j : (k===j ? i : k); });
+  var t=D.dly[i];D.dly[i]=D.dly[j];D.dly[j]=t; renderDlyList(); saveD();
+}
 function editDly(i) {
   if(!can('dm'))return;
   _editModalState={type:'dly',index:i};
@@ -5933,8 +6018,21 @@ function togWdNotif(i, enabled) {
   arr[i]=Object.assign({t:text},weeks?{wk:weeks}:{},{notif:Object.assign({},oldN,{enabled:enabled})});
   D.wd[selWd]=arr; saveD();
 }
-function rmWdly(i) { if(!can('wm'))return; D.wd[selWd].splice(i,1); renderWdlyList(); saveD(); if(curDs)safeRenderPage(); }
-function mvWdly(i,d) { if(!can('wm'))return; var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return; var t=arr[i];arr[i]=arr[j];arr[j]=t; renderWdlyList(); saveD(); }
+function rmWdly(i) {
+  if(!can('wm'))return;
+  var oldArr=(D.wd[selWd]||[]).slice();
+  D.wd[selWd].splice(i,1);
+  remapWdChecks(selWd, oldArr, D.wd[selWd]);
+  renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+}
+function mvWdly(i,d) {
+  if(!can('wm'))return;
+  var arr=D.wd[selWd]||[]; var j=i+d; if(j<0||j>=arr.length)return;
+  var oldArr=arr.slice();
+  var t=arr[i];arr[i]=arr[j];arr[j]=t;
+  remapWdChecks(selWd, oldArr, arr);
+  renderWdlyList(); saveD();
+}
 function editWdly(i) {
   if(!can('wm'))return;
   var arr=D.wd[selWd]||[]; var item=arr[i];
@@ -5950,11 +6048,13 @@ function setWdWeeks(i, mode) {
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
   var text = wdText(arr[i]);
   var oldN = (arr[i] && typeof arr[i]==='object' && arr[i].notif) ? arr[i].notif : null;
+  var oldArr = arr.slice(); /* 週設定を変えると表示される日が変わり、その日の項目位置がずれる */
   var mk = function(base) { return oldN ? Object.assign({}, base, {notif: oldN}) : base; };
   if (mode==='all')       arr[i] = oldN ? {t:text, notif:oldN} : text;
   else if (mode==='odd')  arr[i] = mk({t:text, wk:[1,3,5]});
   else if (mode==='even') arr[i] = mk({t:text, wk:[2,4]});
   else if (mode==='last') arr[i] = mk({t:text, wk:[0]});
+  remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
 }
 /* 第N週チップの個別トグル */
@@ -5969,8 +6069,10 @@ function togWdWeek(i, wk) {
   if (pos===-1) weeks.push(wk); else weeks.splice(pos,1);
   weeks.sort(function(a,b){ return a-b; });
   if (!weeks.length) { toast('最低1つの週を選んでください', 'warn'); return; }
+  var oldArr = arr.slice(); /* 週設定を変えると表示される日が変わり、その日の項目位置がずれる */
   if (weeks.length>=6) arr[i] = oldN ? {t:text, notif:oldN} : text; /* 全6オプション → 毎週 */
   else { var item = {t:text, wk:weeks}; if(oldN) item.notif=oldN; arr[i]=item; }
+  remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
 }
 
@@ -6358,10 +6460,12 @@ function addEvtPrompt(ds) {
   var v = prompt('イベント名を入力してください');
   if (!v || !v.trim()) return;
   v = v.trim();
-  if (!D.pages[ds].events) D.pages[ds].events = [];
-  if (D.pages[ds].events.indexOf(v) === -1) D.pages[ds].events.push(v);
-  saveD();
-  renderPage(ds);
+  phiGuardText(v, function(){
+    if (!D.pages[ds].events) D.pages[ds].events = [];
+    if (D.pages[ds].events.indexOf(v) === -1) D.pages[ds].events.push(v);
+    saveD();
+    renderPage(ds);
+  }, function(){ addEvtPrompt(ds); });
 }
 function removeEvt(ds, evtName) {
   if(!can('pg')) return;
@@ -7244,7 +7348,8 @@ function renderPage(ds) {
   var h='<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
   h+='<div class="pi">⚙️</div>';
   h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
-  var _tblOut=(dat.tabletLogs||[]).filter(function(l){return !l.returnedAt;}).length;
+  /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
+  var _tblOut=(dat.tabletLogs||[]).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
   h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱 タブレット<span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️ 印刷</button>';
   h+='</div>';
@@ -7614,6 +7719,7 @@ function renderPage(ds) {
       });
     })(ds);
   }
+  autoGrowAll(document.getElementById('main')); /* 既に入っている長文が見切れないよう高さを合わせる */
 }
 
 /* ===== POOL ===== */
@@ -7654,16 +7760,18 @@ function addPoolStaffPrompt(ds, type) {
   var v = prompt(label + 'として当日勤務者一覧に追加するスタッフ名を入力してください');
   if (!v || !v.trim()) return;
   v = v.trim();
-  var adj = ensureStaffAdj(dat);
-  var addKey = type === 'oc' ? 'addOc' : 'addCe';
-  var removeKey = type === 'oc' ? 'removeOc' : 'removeCe';
-  var otherAddKey = type === 'oc' ? 'addCe' : 'addOc';
-  delete adj[removeKey][v];
-  adj[otherAddKey] = adj[otherAddKey].filter(function(name){ return name !== v; });
-  if (adj[addKey].indexOf(v) === -1) adj[addKey].push(v);
-  saveD();
-  renderPage(ds);
-  writeLog('当日勤務者追加', fmtJ(ds) + ' ' + label + ' → ' + v);
+  phiGuardText(v, function(){
+    var adj = ensureStaffAdj(dat);
+    var addKey = type === 'oc' ? 'addOc' : 'addCe';
+    var removeKey = type === 'oc' ? 'removeOc' : 'removeCe';
+    var otherAddKey = type === 'oc' ? 'addCe' : 'addOc';
+    delete adj[removeKey][v];
+    adj[otherAddKey] = adj[otherAddKey].filter(function(name){ return name !== v; });
+    if (adj[addKey].indexOf(v) === -1) adj[addKey].push(v);
+    saveD();
+    renderPage(ds);
+    writeLog('当日勤務者追加', fmtJ(ds) + ' ' + label + ' → ' + v);
+  }, function(){ addPoolStaffPrompt(ds, type); });
 }
 function removePoolStaff(ds, type, name) {
   var dat = D.pages[ds]; if(!dat || !name) return;
@@ -7690,7 +7798,7 @@ function poolAssign(ds,name) {
     /* extra_freeの空きも探す */
     if(dat.extra_free){
       for(var ef=0;ef<dat.extra_free.length;ef++){
-        if(!dat.extra_free[ef].name){dat.extra_free[ef].name=name;saveD();refreshPool(ds);renderExtraFrees(ds,dat,dat.extra_free,!can('duty'),!(D.lk&&D.lk.show_phs===true),lk('phs')&&!isAdmin);return;}
+        if(!dat.extra_free[ef].name){dat.extra_free[ef].name=name;saveD();refreshPool(ds);renderExtraFrees(ds,dat,dat.extra_free,!can('duty'),!(D.lk&&D.lk.show_phs===true),!can('phs'));return;}
       }
     }
     if(dat.ocData&&!dat.ocData.staff){
@@ -8277,6 +8385,22 @@ function showPHIPopup(opts) {
   _phiCtx = opts;
   document.getElementById('modal-phi').classList.remove('hd');
 }
+
+/* prompt() など #main の委譲監視が届かない自由入力向けの共通チェック。
+   問題なければそのまま onOk、検知したらポップアップで確認を取ってから onOk を呼ぶ。
+   患者IDや氏名などブロック対象を含む場合は onOk は呼ばれない（保存させない）。 */
+function phiGuardText(text, onOk, onFix) {
+  var res = detectPHI(text || '');
+  if (!res.red.length && !res.yellow.length) { onOk(); return; }
+  showPHIPopup({
+    result: res, mode: 'field',
+    onProceed: phiHasBlock(res) ? null : function(){
+      writeLog('PHI警告を確認して保存', '検知内容: ' + res.red.concat(res.yellow).join(', '));
+      onOk();
+    },
+    onFix: onFix || function(){}
+  });
+}
 function phiPopupFix() {
   document.getElementById('modal-phi').classList.add('hd');
   var c = _phiCtx; _phiCtx = null;
@@ -8288,10 +8412,98 @@ function phiPopupProceed() {
   if (c && c.onProceed) c.onProceed();
 }
 
+/* ===== テキストエリアの自動リサイズ =====
+   備考欄などは rows="2" 固定で、長く書くと途中が見切れて読み返せない。
+   内容に合わせて高さを伸ばす（上限を超えたらその中でスクロール）。 */
+var TA_MAX_H = 400;
+function autoGrowTA(ta) {
+  if (!ta || ta.tagName !== 'TEXTAREA') return;
+  if (ta.getAttribute('data-nogrow') === '1') return;
+  /* 非表示・未レイアウトの状態で測ると、折り返し行数が実際と違う高さで固定されてしまう。
+     測れる状態になってから（描画後・リサイズ後）改めて呼ばれるので、ここでは何もしない。 */
+  if (ta.offsetParent === null && ta.style.position !== 'fixed') return;
+  var prevH = ta.style.height, prevFlex = ta.style.flex, prevW = ta.style.width;
+  var w = ta.offsetWidth;
+  if (!w) return;
+  var cs = window.getComputedStyle(ta);
+  /* scrollHeight は「内容＋padding」。height に何を指定すべきかは box-sizing で変わり、
+     揃えないと最終行が数px切れる（border-box）／余白が余る（content-box）。 */
+  var adj = (cs.boxSizing === 'border-box')
+    ? (parseFloat(cs.borderTopWidth)||0) + (parseFloat(cs.borderBottomWidth)||0)
+    : -((parseFloat(cs.paddingTop)||0) + (parseFloat(cs.paddingBottom)||0));
+  /* 申し送り欄などは display:flex の子で flex:1 が効いており、そのままだと
+     scrollHeight が「引き伸ばされた枠の高さ」を返して測るたびに膨らみ続ける。
+     測っている間だけ flex を外し、高さを 0 にして内容そのものの高さを取る。
+     ただし flex を外すと今度は横幅まで内容幅に縮み、狭い幅で折り返した分だけ
+     高さが過大になるため、幅は現在の値で固定してから測る。 */
+  ta.style.width = w + 'px';
+  ta.style.flex = 'none';
+  ta.style.height = '0px';
+  var sh = ta.scrollHeight;
+  ta.style.flex = prevFlex;
+  ta.style.width = prevW;
+  if (!sh) { ta.style.height = prevH; return; } /* 非表示中は測れないので触らない */
+  var want = sh + adj;
+  ta.style.height = Math.min(want, TA_MAX_H) + 'px';
+  ta.style.overflowY = want > TA_MAX_H ? 'auto' : 'hidden';
+  ta.setAttribute('data-agw', String(w)); /* この幅で計算した、という記録 */
+}
+
+/* 横幅が変わったら測り直す。描画直後・サイドバー開閉・画面回転・非表示からの復帰など、
+   「測ったときの幅」と「実際に表示される幅」がずれる場面は多く、
+   一度きりの計算だと折り返し行数が合わないまま高さが固定されてしまうため。 */
+var _taRO = null;
+function taWatch(ta) {
+  if (!_taRO || !ta) return;
+  try { _taRO.observe(ta); } catch(e) {}
+}
+function autoGrowAll(root) {
+  var run = function(){
+    var list = (root || document).querySelectorAll('textarea');
+    for (var i = 0; i < list.length; i++) { autoGrowTA(list[i]); taWatch(list[i]); }
+  };
+  run();
+  setTimeout(run, 0); /* 描画直後は幅が確定していないことがあるので次のタイミングでも測る */
+}
+var _taResizeTimer = null;
+function initTextareaAutoGrow() {
+  if (window.ResizeObserver) {
+    _taRO = new ResizeObserver(function(entries){
+      for (var i = 0; i < entries.length; i++) {
+        var ta = entries[i].target, w = ta.offsetWidth;
+        if (!w) continue;
+        /* 自分で高さを変えたときにも発火するため、幅が変わったときだけ測り直す（無限ループ防止） */
+        if (ta.getAttribute('data-agw') === String(w)) continue;
+        autoGrowTA(ta);
+      }
+    });
+  }
+  /* 入力中とフォーカス時に伸ばす。描画直後の分は各 render 側から autoGrowAll() を呼ぶ */
+  document.addEventListener('input', function(e){
+    if (e.target && e.target.tagName === 'TEXTAREA') autoGrowTA(e.target);
+  });
+  document.addEventListener('focusin', function(e){
+    if (e.target && e.target.tagName === 'TEXTAREA') autoGrowTA(e.target);
+  });
+  /* 画面幅が変わると折り返し行数も変わる。画面回転などで高さがずれたままにならないよう測り直す */
+  window.addEventListener('resize', function(){
+    if (_taResizeTimer) clearTimeout(_taResizeTimer);
+    _taResizeTimer = setTimeout(function(){ autoGrowAll(); }, 150);
+  });
+}
+
 /* 全フリーテキスト欄の患者情報ガード（#main 内の input/textarea を委譲監視） */
 function initPHIGuard() {
   var main = document.getElementById('main');
   if (!main) return;
+  /* 欄に入った時点の内容を控えておく。読むためにタップしただけで警告が出ると
+     内容を確認できず邪魔になるため、実際に書き換えたときだけチェックする。 */
+  main.addEventListener('focusin', function(e) {
+    var el = e.target;
+    if (el && el.tagName && (el.tagName==='TEXTAREA' || el.tagName==='INPUT')) {
+      el.setAttribute('data-phi-base', el.value || '');
+    }
+  });
   main.addEventListener('focusout', function(e) {
     var el = e.target;
     if (!el || !el.tagName) return;
@@ -8300,6 +8512,8 @@ function initPHIGuard() {
     if (!isText) return;
     if (el.id === 'memo-new') return;      /* 申し送りは送信時にチェック */
     if (el.disabled || el.readOnly) return;
+    var base = el.getAttribute('data-phi-base');
+    if (base !== null && base === (el.value || '')) return; /* 無編集で離脱 → 警告しない */
     var text = (el.value||'').trim();
     if (!text) return;
     var result = detectPHI(text);
@@ -8597,6 +8811,7 @@ function openMoveMemoModal(ds, idx) {
   var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
   var defDs = tmr.getFullYear() + '-' + String(tmr.getMonth()+1).padStart(2,'0') + '-' + String(tmr.getDate()).padStart(2,'0');
   var ov = document.createElement('div'); ov.id = 'move-memo-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); }; /* 他のモーダルと同様に背景クリックで閉じる */
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '340px';
   md.innerHTML = '<h3>📅 申し送りを別の日へ移動</h3>'
     + '<div style="font-size:12px;font-weight:700;margin-bottom:4px">移動先の日付</div>'
@@ -8865,7 +9080,7 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
 function buildDG(ds, dat, locked) {
   var g = document.getElementById('dg');
   var showPhs = !(D.lk && D.lk.show_phs === true);
-  var phsLk = lk('phs') && !isAdmin;
+  var phsLk = !can('phs'); /* 個別付与された権限も効くよう can() で判定する */
 
   /* 当月担当回数キャッシュを更新（ドロップダウン件数表示に使用） */
   _dcCounts = buildMonthCounts(ds.slice(0,7));
@@ -9379,7 +9594,7 @@ function removeExtraFree(ds, idx) {
   D.pages[ds].extra_free.splice(idx, 1);
   saveD();
   renderExtraFrees(ds, D.pages[ds], D.pages[ds].extra_free,
-    !can('duty'), !(D.lk&&D.lk.show_phs===true), lk('phs')&&!isAdmin);
+    !can('duty'), !(D.lk&&D.lk.show_phs===true), !can('phs'));
 }
 
 /* ===== OPS ===== */
@@ -9907,17 +10122,23 @@ function buildOPS(ds,dat,locked) {
               supSel5.onchange = function(){
                 var v = this.value;
                 if (!v) return;
+                var append = function(val){
+                  /* 現在のテキストに追記 */
+                  var cur = supInp5.value.replace(/[,\s]+$/, '');
+                  supInp5.value = cur ? cur + ', ' + val : val;
+                  supInp5.focus();
+                  saveSup();
+                };
                 if (v === '__free__') {
                   v = prompt('使用物品を入力してください');
                   if (!v || !v.trim()) { this.value = ''; return; }
                   v = v.trim();
+                  this.value = ''; /* プルダウンを元に戻す */
+                  phiGuardText(v, function(){ append(v); }); /* 自由入力なのでPHIチェックを通す */
+                  return;
                 }
-                /* 現在のテキストに追記 */
-                var cur = supInp5.value.replace(/[,\s]+$/, '');
-                supInp5.value = cur ? cur + ', ' + v : v;
-                this.value = ''; /* プルダウンを元に戻す */
-                supInp5.focus();
-                saveSup();
+                this.value = '';
+                append(v);
               };
             })(idx, supInp, supSel);
           }
@@ -11163,7 +11384,10 @@ function taskDelete(id) {
 }
 /* ステータスをクリックでサイクル: 未着手→進行中→完了→未着手（Notion風） */
 function taskCycleStatus(id) {
-  var t = _tasksData[id]; if (!t || !taskCanStatus(t)) return;
+  var cur = _tasksData[id]; if (!cur || !taskCanStatus(cur)) return;
+  /* キャッシュ内のオブジェクトを直接書き換えると taskPersist のロールバック用スナップも
+     一緒に書き換わり、保存失敗時に画面が元に戻らない。必ずコピーしてから変更する。 */
+  var t = Object.assign({}, cur);
   var next = TASK_ST[(TASK_ST.indexOf(t.status||'todo') + 1) % 3];
   t.status = next;
   t.doneAt = next === 'done' ? Date.now() : 0;
@@ -11689,15 +11913,22 @@ function schedAddBlock(ds,staff,presetIdx,startMin){
   var dat=D.pages[ds]; if(!dat) return;
   if(!dat.schedule) dat.schedule=[];
   var p=getSchedPresets()[presetIdx]; if(!p) return;
-  var label=p.label;
-  if(p.custom){ label=prompt('業務名を入力してください'); if(!label||!label.trim()) return; label=label.trim(); }
-  var start=schedSnap(startMin);
-  var end=Math.min(SCHED_END,start+(p.dur||60));
-  if(end<=start) end=Math.min(SCHED_END,start+SCHED_SLOT);
-  dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
-  saveDPage(ds);
-  writeLog('スケジュール追加',fmtJ(ds)+' '+staff+' '+label+' '+schedMinToHM(start));
-  renderSched();
+  var add=function(label){
+    var start=schedSnap(startMin);
+    var end=Math.min(SCHED_END,start+(p.dur||60));
+    if(end<=start) end=Math.min(SCHED_END,start+SCHED_SLOT);
+    dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
+    saveDPage(ds);
+    writeLog('スケジュール追加',fmtJ(ds)+' '+staff+' '+label+' '+schedMinToHM(start));
+    renderSched();
+  };
+  if(p.custom){
+    var label=prompt('業務名を入力してください'); if(!label||!label.trim()) return; label=label.trim();
+    /* スケジュールは #main の外にあり委譲監視が届かないためここでPHIチェックする */
+    phiGuardText(label, function(){ add(label); }, function(){ schedAddBlock(ds,staff,presetIdx,startMin); });
+    return;
+  }
+  add(p.label);
 }
 
 function schedImportDuties(){
@@ -11837,10 +12068,36 @@ function tabletTodayStr(){ var n=new Date(); return n.getFullYear()+'-'+String(n
 function setTabletView(v){ _tabletView=v; if(curDs) renderTabletPanelBody(curDs); }
 
 /* ヘッダーの📱ボタンの貸出中バッジを更新 */
+/* 記録は id で特定する。添字だとモーダルを開いている間に他端末が前の記録を消したとき、
+   別のタブレットを返却・削除してしまう（申し送り移動が ts+uid で解決しているのと同じ問題）。 */
+function tabletFindLog(ds, id){
+  var dat=D.pages[ds]; if(!dat||!dat.tabletLogs) return null;
+  for(var i=0;i<dat.tabletLogs.length;i++){
+    if(dat.tabletLogs[i].id===id) return {log:dat.tabletLogs[i], idx:i};
+  }
+  return null;
+}
+
+/* 日をまたいで借りたままの記録を直近7日分から拾う（貸出は日付ページ配下に入るため、
+   金曜に借りて月曜に返すと、そのままでは月曜のパネルに出てこない） */
+var TABLET_CARRY_DAYS = 7;
+function tabletCarryOver(ds){
+  var out=[];
+  var base=new Date(ds+'T00:00:00');
+  for(var k=1;k<=TABLET_CARRY_DAYS;k++){
+    var d=new Date(base); d.setDate(d.getDate()-k);
+    var pds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    var pdat=D.pages[pds]; if(!pdat||!pdat.tabletLogs) continue;
+    pdat.tabletLogs.forEach(function(l){ if(!l.returnedAt) out.push({ds:pds, log:l}); });
+  }
+  return out;
+}
+
 function updateTabletBtnBadge(ds){
   var b=document.getElementById('tablet-btn-badge'); if(!b) return;
   var dat=D.pages[ds];
   var out=(dat&&dat.tabletLogs)?dat.tabletLogs.filter(function(l){return !l.returnedAt;}).length:0;
+  out+=tabletCarryOver(ds).length; /* 持ち越し分も未返却として数える */
   b.textContent=out; b.style.display=out?'inline-block':'none';
 }
 
@@ -11864,16 +12121,35 @@ function renderTabletPanelBody(ds){
   var logs=dat.tabletLogs=dat.tabletLogs||[];
   var tablets=D.tablets||[];
   var h='';
+  /* 古い記録は id を持たないことがあるため、ここで一度だけ採番して以降 id で扱えるようにする */
+  var backfilled=false;
+  logs.forEach(function(l,i){ if(!l.id){ l.id='tl_bf'+i+'_'+(l.lentAt||0)+'_'+(l.tablet||''); backfilled=true; } });
+  if(backfilled) saveDPage(ds);
+  var carry=tabletCarryOver(ds);
   /* 貸出中サマリ */
   var outLogs=logs.filter(function(l){return !l.returnedAt;});
+  var totalOut=outLogs.length+carry.length;
   h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
-  if(outLogs.length){
-    h+='<span style="font-weight:700;color:var(--rd)">🔴 現在貸出中: '+outLogs.length+'台</span>';
-    h+='<span style="font-size:11px;color:var(--txt3)">'+escH(outLogs.map(function(l){return l.tablet;}).join('・'))+'</span>';
+  if(totalOut){
+    h+='<span style="font-weight:700;color:var(--rd)">🔴 現在貸出中: '+totalOut+'台</span>';
+    h+='<span style="font-size:11px;color:var(--txt3)">'+escH(outLogs.concat(carry.map(function(c){return c.log;})).map(function(l){return l.tablet;}).join('・'))+'</span>';
   } else {
     h+='<span style="font-weight:700;color:var(--gr)">✅ 全台返却済み</span>';
   }
   h+='</div>';
+  /* 前日以前から借りたままの記録（返却ボタンは元の日付のページへ書き込む） */
+  if(carry.length){
+    h+='<div style="border:1px solid var(--or);border-radius:8px;padding:8px;margin-bottom:10px;background:var(--sur2)">';
+    h+='<div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:6px">⏳ 前日以前から貸出中（'+carry.length+'台）</div>';
+    carry.forEach(function(c){
+      h+='<div class="tbl-row out" style="margin-bottom:4px">';
+      h+='<span class="tbl-name">📱 '+escH(c.log.tablet)+'</span>';
+      h+='<span class="tbl-info">'+fmtJ(c.ds)+' '+schedMinToHM(c.log.lentAt)+' '+escH(c.log.borrower)+'が貸出</span>';
+      if(!locked) h+='<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+c.ds+'\',\''+escJs(c.log.id)+'\')">返却</button>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
   if(!tablets.length){
     h+='<div class="pool-empty" style="font-size:12px;padding:8px 0">タブレット台帳が未登録です（業務タブ →「📱 タブレット台帳」で登録）</div>';
     wrap.innerHTML=h; return;
@@ -11890,10 +12166,10 @@ function renderTabletPanelBody(ds){
 
 function buildTabletListView(ds, logs, locked){
   if(!logs.length) return '<div class="pool-empty" style="font-size:12px;padding:8px 0">まだ貸出記録がありません</div>';
-  var sorted = logs.map(function(l,i){ return {l:l,i:i}; }).sort(function(a,b){ return (a.l.lentAt||0)-(b.l.lentAt||0); });
+  var sorted = logs.slice().sort(function(a,b){ return (a.lentAt||0)-(b.lentAt||0); });
   var h = '<div class="tbl-list">';
-  sorted.forEach(function(o){
-    var l=o.l, i=o.i, returned=!!l.returnedAt;
+  sorted.forEach(function(l){
+    var returned=!!l.returnedAt;
     h += '<div class="tbl-row'+(returned?'':' out')+'">';
     h += '<span class="tbl-name">📱 '+escH(l.tablet)+'</span>';
     h += '<span class="tbl-info">'+schedMinToHM(l.lentAt)+' '+escH(l.borrower)+'が貸出</span>';
@@ -11902,9 +12178,9 @@ function buildTabletListView(ds, logs, locked){
       h += '<span class="tbl-info">'+schedMinToHM(l.returnedAt)+' '+escH(l.returnedBy)+'が返却</span>';
     } else {
       h += '<span class="tbl-out-badge">未返却</span>';
-      if(!locked) h += '<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+ds+'\','+i+')">返却</button>';
+      if(!locked) h += '<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+ds+'\',\''+escJs(l.id)+'\')">返却</button>';
     }
-    if(!locked) h += '<button class="tbl-del" onclick="tabletDelete(\''+ds+'\','+i+')" title="削除">✕</button>';
+    if(!locked) h += '<button class="tbl-del" onclick="tabletDelete(\''+ds+'\',\''+escJs(l.id)+'\')" title="削除">✕</button>';
     h += '</div>';
   });
   h += '</div>';
@@ -12012,10 +12288,10 @@ function _doSaveTabletLend(ds,name,borrower,timeStr){
   renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
 }
 
-function openTabletReturnModal(ds, idx){
+function openTabletReturnModal(ds, id){
   if(!can('tablet')) return;
-  var dat=D.pages[ds]; if(!dat||!dat.tabletLogs||!dat.tabletLogs[idx]) return;
-  var l=dat.tabletLogs[idx];
+  var found=tabletFindLog(ds, id); if(!found) return;
+  var l=found.log;
   var self=taskSelfName(); /* ログイン中の人がスタッフ登録されていれば初期選択、変更可 */
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
@@ -12030,9 +12306,9 @@ function openTabletReturnModal(ds, idx){
     +'<button class="btn btn-g" onclick="document.getElementById(\'tablet-md-ov\').remove()">キャンセル</button>'
     +'<button class="btn btn-p" id="tablet-md-retsave">返却</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
-  document.getElementById('tablet-md-retsave').addEventListener('click', function(){ saveTabletReturn(ds, idx); });
+  document.getElementById('tablet-md-retsave').addEventListener('click', function(){ saveTabletReturn(ds, id); });
 }
-function saveTabletReturn(ds, idx){
+function saveTabletReturn(ds, id){
   if(!can('tablet')) return;
   var retby=tabletNameValue('tablet-md-retby-sel','tablet-md-retby');
   var timeStr=document.getElementById('tablet-md-rettime').value;
@@ -12041,27 +12317,33 @@ function saveTabletReturn(ds, idx){
   var phi=detectPHI(retby);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
-      onProceed:function(){ _doSaveTabletReturn(ds,idx,retby,timeStr); },
+      onProceed:function(){ _doSaveTabletReturn(ds,id,retby,timeStr); },
       onFix:function(){ var inp=document.getElementById('tablet-md-retby'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-retby-sel'); if(e) e.focus(); } });
     return;
   }
-  _doSaveTabletReturn(ds,idx,retby,timeStr);
+  _doSaveTabletReturn(ds,id,retby,timeStr);
 }
-function _doSaveTabletReturn(ds,idx,retby,timeStr){
-  var dat=D.pages[ds]; if(!dat||!dat.tabletLogs||!dat.tabletLogs[idx]) return;
-  var l=dat.tabletLogs[idx];
+function _doSaveTabletReturn(ds,id,retby,timeStr){
+  /* 保存する瞬間に id で引き直す（モーダル表示中に他端末が記録を編集していても取り違えない） */
+  var found=tabletFindLog(ds, id);
+  if(!found){ toast('この貸出記録は既に削除されています', 'warn'); var o=document.getElementById('tablet-md-ov'); if(o) o.remove(); return; }
+  var l=found.log;
   l.returnedBy=retby; l.returnedAt=tabletHMToMin(timeStr);
   saveDPage(ds);
   writeLog('タブレット返却', fmtJ(ds)+' '+l.tablet+'（'+retby+'）');
   var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
-  renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
+  /* 持ち越し分の返却は別日のページを更新するため、パネルは現在開いている日で描き直す */
+  if(curDs){ renderTabletPanelBody(curDs); updateTabletBtnBadge(curDs); }
 }
-function tabletDelete(ds, idx){
+function tabletDelete(ds, id){
   if(!can('tablet')) return;
-  var dat=D.pages[ds]; if(!dat||!dat.tabletLogs||!dat.tabletLogs[idx]) return;
-  var l=dat.tabletLogs[idx];
+  var found=tabletFindLog(ds, id); if(!found) return;
+  var l=found.log;
   if(!confirm(l.tablet+'の貸出記録を削除しますか？')) return;
-  dat.tabletLogs.splice(idx,1);
+  /* 確認ダイアログの間に配列が変わっている可能性があるため、削除直前に引き直す */
+  var again=tabletFindLog(ds, id);
+  if(!again){ toast('この貸出記録は既に削除されています', 'warn'); renderTabletPanelBody(ds); return; }
+  D.pages[ds].tabletLogs.splice(again.idx,1);
   saveDPage(ds);
   writeLog('タブレット記録削除', fmtJ(ds)+' '+l.tablet);
   renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
@@ -13432,9 +13714,12 @@ function importBackup(file) {
       autoSaveSnapshot('ファイル復元前');
       saveFirebaseSnapshot('ファイル復元前');
       /* D の各フィールドを上書き（未知キーは保持） */
+      /* 復元キーはFirebaseスナップショット復元・自動バックアップ復元と必ず同一に保つこと。
+         ここが短いと、バックアップファイルには入っているのに復元されない設定が出る。 */
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
-       'opsCfg','oc','shift','evts','manual','schedPresets'].forEach(function(k){
+       'opsCfg','oc','shift','evts','manual','schedPresets',
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       saveD();

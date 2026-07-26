@@ -82,7 +82,7 @@ When adding a new top-level property to `D`, update **all five** of these locati
 2. `loadD()` — localStorage hydration (`D.newProp = s.newProp || default`)
 3. Firebase `/data` listener — hydration from Firebase (`D.newProp = d.newProp || default`)
 4. Logout reset block (`D.newProp = default`)
-5. Backup/restore key arrays — two `forEach` calls containing `'emailjsCfg','fcmCfg','stfLinks',...` (search for this pattern; appears twice)
+5. Backup/restore key arrays — **three** `forEach` calls containing `'emailjsCfg','fcmCfg','stfLinks',...`: Firebase snapshot restore, local auto-backup restore, and `importBackup()` (JSON file restore). All three must stay identical; `importBackup()` was previously missed and silently dropped 12 settings on restore.
 
 ### Persistence
 
