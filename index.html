@@ -4336,47 +4336,9 @@ function downloadDevMd() {
 var SLOT_ICONS = ['🔪','🩺','🫀','🏥','⚙','💉','🧪','💊','🩻','🔬','📋','⭐'];
 var SLOT_ID_CTR = Date.now();
 
-function openDutySlotEditor(ds, dat) {
-  var existing = getDutyCfg(dat);
-  var icon = prompt('アイコンを選んでください\n'+SLOT_ICONS.join(' '), '⭐');
-  if (!icon) return;
-  icon = icon.trim() || '⭐';
-  var label = prompt('担当枠の名前を入力してください\n例：ICU担当、PSG担当', '');
-  if (!label || !label.trim()) return;
-  label = label.trim();
-  var hasChecks = confirm('「HDプライミング」「PSG取り外し」のチェックボックスを付けますか？');
-  var hasFree   = confirm('役割プルダウン（フリー/PSG解析/自由記述）を付けますか？');
-
-  var newSlot = {
-    id:     'slot_' + (++SLOT_ID_CTR),
-    icon:   icon,
-    label:  label,
-    checks: hasChecks ? ['HDプライミング','PSG取り外し'] : [],
-    freeRole: hasFree
-  };
-
-  /* ページ個別設定にコピーしてスロットを追加 */
-  var newCfg = existing.map(function(x){ return Object.assign({},x); });
-  newCfg.push(newSlot);
-  if (!D.pages[ds]) return;
-  D.pages[ds].customDuties = newCfg;
-  saveD();
-  renderPage(ds);
-}
-
 /* 手動で担当を変更したらカレンダー緑ドット（自動割り当て未変更）フラグを落とす */
 function markDutyEdited(ds) {
   if (D.pages[ds] && D.pages[ds].autoAssigned) D.pages[ds].autoAssigned = false;
-}
-
-function removeDutySlot(ds, slotId) {
-  var dat = D.pages[ds]; if (!dat) return;
-  var cfg = getDutyCfg(dat).map(function(x){ return Object.assign({},x); });
-  cfg = cfg.filter(function(x){ return x.id !== slotId; });
-  dat.customDuties = cfg;
-  /* その枠の担当データもクリア */
-  if (dat.duties) delete dat.duties[slotId];
-  saveD(); renderPage(ds);
 }
 
 /* ===== 余剰人員エリア ===== */
@@ -5209,7 +5171,7 @@ function renderLogList() {
   });
   el.innerHTML = h;
 }
-function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 /* Firebase RTDBキーに使えない文字を除去（. # $ [ ] /） */
 function sanitizeManualKeys() {
@@ -6357,9 +6319,6 @@ function ensureStaffAdj(dat) {
 function poolHas(arr, name) {
   for (var i=0;i<arr.length;i++) if (arr[i].name === name) return true;
   return false;
-}
-function poolRemoveName(arr, name) {
-  for (var i=arr.length-1;i>=0;i--) if (arr[i].name === name) arr.splice(i,1);
 }
 function applyStaffAdjustments(ds, res) {
   var dat = D.pages && D.pages[ds];
@@ -12310,10 +12269,10 @@ function renderBoard() {
       html += '<span style="font-size:10px;font-weight:700;color:#fff;background:' + tg.color + ';border-radius:4px;padding:1px 6px">' + tg.emoji + ' ' + tg.label + '</span>';
     }
     if (p.resolved) html += '<span style="color:var(--gr);font-weight:700;font-size:10px">✅解決済み</span>';
-    html += '<span style="font-weight:600;color:var(--txt1)">' + esc(p.author || '匿名') + '</span>';
+    html += '<span style="font-weight:600;color:var(--txt1)">' + escH(p.author || '匿名') + '</span>';
     html += '<span>' + dt + '</span>';
     html += '</div>';
-    html += '<div class="brd-text">' + esc(p.text || '') + '</div>';
+    html += '<div class="brd-text">' + escH(p.text || '') + '</div>';
     /* 添付画像 */
     var pMedia = p.media ? (Array.isArray(p.media) ? p.media : Object.keys(p.media).map(function(k){ return p.media[k]; })) : [];
     if (pMedia.length) {
@@ -12322,12 +12281,12 @@ function renderBoard() {
         if (!med) return;
         /* 承認待ち：一般ユーザーにはプレースホルダーのみ */
         if (med.pending && !isAdmin) {
-          html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + esc(med.name || '') + '</span></div>';
+          html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + escH(med.name || '') + '</span></div>';
           return;
         }
-        var src = esc(med.url || med.data || '');
+        var src = escH(med.url || med.data || '');
         html += '<div class="media-cell">';
-        html += '<img src="' + src + '" alt="' + esc(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
+        html += '<img src="' + src + '" alt="' + escH(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
         if (med.pending) {
           html += '<span class="media-pend-badge">承認待ち</span>';
           if (isAdmin) {
@@ -12362,7 +12321,7 @@ function renderBoard() {
     html += '</div>';
     html += '<div id="brd-reads-' + p._id + '" style="display:none;font-size:11px;color:var(--txt3);margin-top:4px;padding:6px 8px;background:var(--sur);border-radius:6px;line-height:1.7">';
     html += readList.length
-      ? readList.map(function(r){ return esc(r.n) + '（' + fmtDT(r.ts) + '）'; }).join('<br>')
+      ? readList.map(function(r){ return escH(r.n) + '（' + fmtDT(r.ts) + '）'; }).join('<br>')
       : 'まだ既読はありません';
     html += '</div>';
     /* 返信 */
@@ -12374,10 +12333,10 @@ function renderBoard() {
       replies.forEach(function(r) {
         var rMine = currentUser && r.uid === currentUser.uid;
         html += '<div class="brd-reply">';
-        html += '<div class="brd-meta" style="margin-bottom:3px"><span style="font-weight:600;color:var(--txt1)">' + esc(r.author||'匿名') + '</span><span>' + fmtDT(r.ts) + '</span>';
+        html += '<div class="brd-meta" style="margin-bottom:3px"><span style="font-weight:600;color:var(--txt1)">' + escH(r.author||'匿名') + '</span><span>' + fmtDT(r.ts) + '</span>';
         if (isAdmin || rMine) html += '<button class="btn btn-d btn-sm" style="font-size:10px;padding:1px 6px;margin-left:auto" onclick="deleteReply(\'' + p._id + '\',\'' + r._rid + '\')">削除</button>';
         html += '</div>';
-        if (r.text) html += '<div class="brd-rtext">' + esc(r.text) + '</div>';
+        if (r.text) html += '<div class="brd-rtext">' + escH(r.text) + '</div>';
         /* 返信への添付画像 */
         var rMedia = _boardMediaArr(r);
         if (rMedia.length) {
@@ -12385,12 +12344,12 @@ function renderBoard() {
           rMedia.forEach(function(med, mi) {
             if (!med) return;
             if (med.pending && !isAdmin) {
-              html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + esc(med.name || '') + '</span></div>';
+              html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + escH(med.name || '') + '</span></div>';
               return;
             }
-            var src = esc(med.url || med.data || '');
+            var src = escH(med.url || med.data || '');
             html += '<div class="media-cell">';
-            html += '<img src="' + src + '" alt="' + esc(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
+            html += '<img src="' + src + '" alt="' + escH(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
             if (med.pending) {
               html += '<span class="media-pend-badge">承認待ち</span>';
               if (isAdmin) {
@@ -12426,10 +12385,6 @@ var _boardFilter = 'all';
 function setBoardFilter(f) {
   _boardFilter = f;
   renderBoard();
-}
-
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function fmtDT(ts) {
