@@ -3616,6 +3616,7 @@ var APP_CHANGELOG = [
     {t:'fix', d:'✅ チェックリストの項目を追加・削除・並べ替えすると、過去の連絡表のチェックが1つずつずれてしまう問題を修正。曜日別業務の週設定を変えたときも同様にずれないようにしました'},
     {t:'fix', d:'📱 タブレットの返却・削除画面を開いている間に他の端末が記録を消すと、別のタブレットを返却・削除してしまう可能性があった問題を修正'},
     {t:'new', d:'📱 前日以前から借りたままのタブレットが、その日のタブレット画面に「前日以前から貸出中」として表示され、そこから返却できるようになりました（日をまたぐ貸出に対応）'},
+    {t:'new', d:'📱 日をまたいで返却するときは「返却日」も記録できるようになりました。リストでは「7/27 08:20 ○○が返却」のように日付が併記され、タイムラインでは翌日以降に返した分をその日は終日貸出中として表示します'},
     {t:'imp', d:'🔒 患者情報の警告が、内容を読むために欄をタップしただけでも出ていたのを、実際に書き換えたときだけ出るよう変更'},
     {t:'imp', d:'📝 備考欄などのテキスト入力欄が、入力した文章の量に合わせて自動で広がるようになりました（長文が見切れなくなります）'},
     {t:'fix', d:'🔒 スケジュールの業務名・当日勤務者の追加・イベント名・使用物品の自由入力にも患者情報チェックがかかるようになりました'},
@@ -12064,6 +12065,10 @@ function tabletNowMin(){ var n=new Date(); return n.getHours()*60+n.getMinutes()
 function tabletNowHM(){ return schedMinToHM(tabletNowMin()); }
 function tabletHMToMin(hm){ if(!hm) return 0; var p=(''+hm).split(':'); return (parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0); }
 function tabletTodayStr(){ var n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0'); }
+/* 'YYYY-MM-DD' → 'M/D'（日跨ぎ表示用） */
+function tabletMD(dsStr){ var p=(dsStr||'').split('-'); return p.length===3 ? (parseInt(p[1],10)+'/'+parseInt(p[2],10)) : ''; }
+/* 貸出日と違う日に返却されたか（returnedDs は日を跨いだときだけ持つ） */
+function tabletCrossed(l, ds){ return !!(l && l.returnedDs && l.returnedDs !== ds); }
 
 function setTabletView(v){ _tabletView=v; if(curDs) renderTabletPanelBody(curDs); }
 
@@ -12089,6 +12094,20 @@ function tabletCarryOver(ds){
     var pds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
     var pdat=D.pages[pds]; if(!pdat||!pdat.tabletLogs) continue;
     pdat.tabletLogs.forEach(function(l){ if(!l.returnedAt) out.push({ds:pds, log:l}); });
+  }
+  return out;
+}
+
+/* 前日以前に借りて「この日」に返した分。記録は貸出日のページに残るため、
+   返した当日のパネルからは消えてしまい操作した結果が見えなくなる。それを補う。 */
+function tabletReturnedHere(ds){
+  var out=[];
+  var base=new Date(ds+'T00:00:00');
+  for(var k=1;k<=TABLET_CARRY_DAYS;k++){
+    var d=new Date(base); d.setDate(d.getDate()-k);
+    var pds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    var pdat=D.pages[pds]; if(!pdat||!pdat.tabletLogs) continue;
+    pdat.tabletLogs.forEach(function(l){ if(l.returnedDs===ds) out.push({ds:pds, log:l}); });
   }
   return out;
 }
@@ -12150,6 +12169,21 @@ function renderTabletPanelBody(ds){
     });
     h+='</div>';
   }
+  /* 前日以前に借りて今日返した分（記録は貸出日のページに残るので、ここに控えを出す） */
+  var retHere=tabletReturnedHere(ds);
+  if(retHere.length){
+    h+='<div style="border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:10px;background:var(--sur2)">';
+    h+='<div style="font-size:12px;font-weight:700;color:var(--gr);margin-bottom:6px">✅ この日に返却（前日以前の貸出分・'+retHere.length+'台）</div>';
+    retHere.forEach(function(c){
+      h+='<div class="tbl-row" style="margin-bottom:4px">';
+      h+='<span class="tbl-name">📱 '+escH(c.log.tablet)+'</span>';
+      h+='<span class="tbl-info">'+fmtJ(c.ds)+' '+schedMinToHM(c.log.lentAt)+' '+escH(c.log.borrower)+'が貸出</span>';
+      h+='<span class="tbl-arrow">→</span>';
+      h+='<span class="tbl-info">'+schedMinToHM(c.log.returnedAt)+' '+escH(c.log.returnedBy)+'が返却</span>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
   if(!tablets.length){
     h+='<div class="pool-empty" style="font-size:12px;padding:8px 0">タブレット台帳が未登録です（業務タブ →「📱 タブレット台帳」で登録）</div>';
     wrap.innerHTML=h; return;
@@ -12175,7 +12209,9 @@ function buildTabletListView(ds, logs, locked){
     h += '<span class="tbl-info">'+schedMinToHM(l.lentAt)+' '+escH(l.borrower)+'が貸出</span>';
     h += '<span class="tbl-arrow">→</span>';
     if(returned){
-      h += '<span class="tbl-info">'+schedMinToHM(l.returnedAt)+' '+escH(l.returnedBy)+'が返却</span>';
+      /* 日を跨いだ返却のみ日付を併記（同日返却は時刻だけ） */
+      var crossed=tabletCrossed(l, ds);
+      h += '<span class="tbl-info">'+(crossed?'<b style="color:var(--or)">'+tabletMD(l.returnedDs)+'</b> ':'')+schedMinToHM(l.returnedAt)+' '+escH(l.returnedBy)+'が返却</span>';
     } else {
       h += '<span class="tbl-out-badge">未返却</span>';
       if(!locked) h += '<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+ds+'\',\''+escJs(l.id)+'\')">返却</button>';
@@ -12191,7 +12227,9 @@ function buildTabletTimeline(ds, logs, tablets){
   var START=480, END=1080, PX=1.2; /* 8:00〜18:00、自動延長あり */
   logs.forEach(function(l){
     if(l.lentAt<START) START=Math.floor(l.lentAt/60)*60;
-    var e=l.returnedAt||l.lentAt; if(e>END) END=Math.ceil(e/60)*60;
+    /* 翌日以降に返した分はこの日の軸に収まらないので、軸の延長対象にしない */
+    var e=(l.returnedAt&&!tabletCrossed(l,ds))?l.returnedAt:l.lentAt;
+    if(e>END) END=Math.ceil(e/60)*60;
   });
   var isToday=(ds===tabletTodayStr());
   var nowMin=tabletNowMin();
@@ -12207,9 +12245,11 @@ function buildTabletTimeline(ds, logs, tablets){
     logs.forEach(function(l){
       if(l.tablet!==tb) return;
       var open=!l.returnedAt;
-      var end=l.returnedAt || (isToday ? Math.max(l.lentAt+5, Math.min(nowMin,END)) : END);
+      var crossed=tabletCrossed(l, ds); /* 翌日以降に返却＝この日は終日貸出中として描く */
+      var end=(l.returnedAt&&!crossed) ? l.returnedAt
+            : (crossed ? END : (isToday ? Math.max(l.lentAt+5, Math.min(nowMin,END)) : END));
       var top=(l.lentAt-START)*PX, hgt=Math.max(8,(end-l.lentAt)*PX);
-      h+='<div class="tbl-tl-block'+(open?' open':'')+'" style="top:'+top+'px;height:'+hgt+'px" title="'+escH(l.borrower)+' '+schedMinToHM(l.lentAt)+(open?'〜（貸出中）':'〜'+schedMinToHM(l.returnedAt))+'">';
+      h+='<div class="tbl-tl-block'+(open||crossed?' open':'')+'" style="top:'+top+'px;height:'+hgt+'px" title="'+escH(l.borrower)+' '+schedMinToHM(l.lentAt)+(open?'〜（貸出中）':'〜'+(crossed?tabletMD(l.returnedDs)+' ':'')+schedMinToHM(l.returnedAt))+'">';
       h+='<div class="tbl-tl-bt">'+schedMinToHM(l.lentAt)+'</div><div class="tbl-tl-bn">'+escH(l.borrower)+'</div>';
       h+='</div>';
     });
@@ -12293,13 +12333,19 @@ function openTabletReturnModal(ds, id){
   var found=tabletFindLog(ds, id); if(!found) return;
   var l=found.log;
   var self=taskSelfName(); /* ログイン中の人がスタッフ登録されていれば初期選択、変更可 */
+  /* 貸出日が今日でない＝日を跨いだ返却。そのときだけ返却日欄を出す（同日返却は時刻だけ） */
+  var today=tabletTodayStr();
+  var crossDay=(ds!==today);
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
   md.innerHTML='<h3>📱 '+escH(l.tablet)+' を返却</h3>'
-    +'<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">'+schedMinToHM(l.lentAt)+' '+escH(l.borrower)+'が貸出</div>'
+    +'<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">'+fmtJ(ds)+' '+schedMinToHM(l.lentAt)+' '+escH(l.borrower)+'が貸出</div>'
+    +(crossDay?'<div style="font-size:11px;color:var(--or);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:6px 8px;margin-bottom:8px">⚠️ 前日以前の貸出です。返却した日付を確認してください</div>':'')
     +'<div style="font-size:12px;font-weight:700;margin-bottom:4px">返した人<span style="color:var(--rd)">*</span></div>'
     +'<select id="tablet-md-retby-sel" class="ds2" style="width:100%" onchange="tabletToggleOther(\'tablet-md-retby-sel\',\'tablet-md-retby\')">'+tabletStfOptions(self)+'</select>'
     +'<input id="tablet-md-retby" class="fi" style="width:100%;box-sizing:border-box;margin-top:6px;margin-bottom:0;display:none" placeholder="名前を入力" autocomplete="off">'
+    +(crossDay?'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">返却日</div>'
+      +'<input type="date" id="tablet-md-retdate" class="fi" style="width:100%;box-sizing:border-box;margin:0" value="'+today+'" min="'+ds+'">':'')
     +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">返却時刻</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input type="time" id="tablet-md-rettime" class="fi" style="width:auto;margin:0" value="'+tabletNowHM()+'"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-md-rettime\').value=tabletNowHM()">今</button></div>'
     +'<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
@@ -12312,25 +12358,31 @@ function saveTabletReturn(ds, id){
   if(!can('tablet')) return;
   var retby=tabletNameValue('tablet-md-retby-sel','tablet-md-retby');
   var timeStr=document.getElementById('tablet-md-rettime').value;
+  var dEl=document.getElementById('tablet-md-retdate');
+  var retDs=dEl?dEl.value:'';
   if(!retby){ toast('返した人を入力してください', 'warn'); return; }
   if(!timeStr){ toast('返却時刻を入力してください', 'warn'); return; }
+  if(dEl&&!retDs){ toast('返却日を入力してください', 'warn'); return; }
+  if(retDs&&retDs<ds){ toast('返却日は貸出日（'+fmtJ(ds)+'）以降にしてください', 'warn'); return; }
   var phi=detectPHI(retby);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
-      onProceed:function(){ _doSaveTabletReturn(ds,id,retby,timeStr); },
+      onProceed:function(){ _doSaveTabletReturn(ds,id,retby,timeStr,retDs); },
       onFix:function(){ var inp=document.getElementById('tablet-md-retby'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-retby-sel'); if(e) e.focus(); } });
     return;
   }
-  _doSaveTabletReturn(ds,id,retby,timeStr);
+  _doSaveTabletReturn(ds,id,retby,timeStr,retDs);
 }
-function _doSaveTabletReturn(ds,id,retby,timeStr){
+function _doSaveTabletReturn(ds,id,retby,timeStr,retDs){
   /* 保存する瞬間に id で引き直す（モーダル表示中に他端末が記録を編集していても取り違えない） */
   var found=tabletFindLog(ds, id);
   if(!found){ toast('この貸出記録は既に削除されています', 'warn'); var o=document.getElementById('tablet-md-ov'); if(o) o.remove(); return; }
   var l=found.log;
   l.returnedBy=retby; l.returnedAt=tabletHMToMin(timeStr);
+  /* 貸出日と違う日に返した場合だけ日付を持たせる（同日返却はフィールドを持たない＝従来どおり） */
+  if(retDs&&retDs!==ds) l.returnedDs=retDs; else delete l.returnedDs;
   saveDPage(ds);
-  writeLog('タブレット返却', fmtJ(ds)+' '+l.tablet+'（'+retby+'）');
+  writeLog('タブレット返却', fmtJ(ds)+' '+l.tablet+'（'+retby+'）'+(l.returnedDs?' 返却日:'+fmtJ(l.returnedDs):''));
   var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
   /* 持ち越し分の返却は別日のページを更新するため、パネルは現在開いている日で描き直す */
   if(curDs){ renderTabletPanelBody(curDs); updateTabletBtnBadge(curDs); }
