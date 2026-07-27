@@ -1584,6 +1584,15 @@ var LATEST_DB_RULES = [
 '        "status": { ".validate": "newData.val() === \'todo\' || newData.val() === \'doing\' || newData.val() === \'done\'" }',
 '      }',
 '    },',
+'    "taskMemos": {',
+'      "$uid": {',
+'        ".read": "auth != null && auth.uid === $uid",',
+'        ".write": "auth != null && auth.uid === $uid",',
+'        "$memoId": {',
+'          "status": { ".validate": "newData.val() === \'todo\' || newData.val() === \'doing\' || newData.val() === \'done\'" }',
+'        }',
+'      }',
+'    },',
 '    "backups":       { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "backup_meta":   { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "recent_backup": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", ".write": "auth != null" },',
@@ -1705,6 +1714,8 @@ var _boardData = {}; /* Firebase /board のキャッシュ */
 var _tasksData = {};   /* Firebase /tasks のキャッシュ */
 var _taskView = null;  /* null=俯瞰ビュー / スタッフ名=個人詳細ビュー */
 var _taskFilter = 'all'; /* 俯瞰リストのフィルタ: all|todo|doing|done */
+var _memosData = {};   /* Firebase /taskMemos/{自分のuid} のキャッシュ（本人しか読めない自分専用メモ） */
+var _memoRef   = null; /* 上記のリスナー参照（ログアウト時に解除する） */
 var _taskGraphNames = []; /* 負荷グラフ行の名前（onclickでのindex参照用） */
 var FB_SNAP_KEY = 'ce2_lastfbsnap'; /* 最後にFirebaseスナップショットを取った日付 */
 var FB_SNAP_DAYS = 7; /* 保持日数 */
@@ -1933,9 +1944,11 @@ function fbInit() {
         _fbDataLoaded = false; /* 次のログインでFirebaseデータ受信まで書き込みをブロック */
         _fbLastPageCount = -1;
         if (_notifListenerRef) { _notifListenerRef.off(); _notifListenerRef = null; }
+        if (_memoRef) { _memoRef.off(); _memoRef = null; } /* 自分専用メモのリスナーも必ず解除する */
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
         _tasksData = {}; _taskView = null; _taskFilter = 'all';
+        _memosData = {}; /* 別の人がログインしたときに前の人のメモが残らないようにする */
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
         curDs = null;
@@ -2193,6 +2206,14 @@ function fbInit() {
             _tasksData = tsnap.val() || {};
             var tp = document.getElementById('subpane-task');
             if (tp && tp.style.display !== 'none') renderTasks();
+          });
+          /* 自分専用メモ（本人のUID配下のみ。セキュリティルールで他人は読めない） */
+          if (_memoRef) { _memoRef.off(); }
+          _memoRef = fbDB.ref('/taskMemos/' + user.uid);
+          _memoRef.on('value', function(msnap) {
+            _memosData = msnap.val() || {};
+            var mp = document.getElementById('subpane-task');
+            if (mp && mp.style.display !== 'none') renderTasks();
           });
         } else {
           /* トークン更新時：データは既に同期済みなのでUI表示だけ更新 */
@@ -3610,8 +3631,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/07/27-31';
+var APP_VERSION = 'Ver.2026/07/27-32';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/27-32', date:'2026-07-27', title:'タスク通知・自分専用メモ・集計の期間指定', items:[
+    {t:'new', d:'📋 タスクを他のスタッフに割り当てると、相手にポップアップでお知らせが届くようになりました。ログイン中ならその場で、ログアウト中なら次にログインしたときに表示されます'},
+    {t:'imp', d:'📋 自分自身に割り当てた場合や、もともと担当だった人にはお知らせは飛びません（担当者を新しく追加したときだけ通知）'},
+    {t:'new', d:'🔒 タスク画面に「＋ メモ」を追加。自分だけが見られるメモを作れます。他のスタッフはもちろん管理者からも見えません'},
+    {t:'new', d:'🗓 OC集計・業務集計に「月／年／期間指定」の切替を追加。年単位の集計や、開始日〜終了日を指定した集計ができるようになりました'},
+    {t:'imp', d:'📊 複数の月にまたがる集計では、月別の内訳表とグラフが表示されます（1か月だけのときは従来どおり週別）'},
+    {t:'imp', d:'📄 CSV出力も選択中の期間に合わせて出力されるようになりました'},
+    {t:'imp', d:'👑 Firebaseセキュリティルールに /taskMemos を追加（要:管理者がFirebase Console側で再適用。未適用だと自分専用メモの保存に失敗します）', admin:true}
+  ]},
   { ver:'Ver.2026/07/27-31', date:'2026-07-27', title:'記録のずれ・取り違えの修正と入力欄の使い勝手改善', items:[
     {t:'fix', d:'✅ チェックリストの項目を追加・削除・並べ替えすると、過去の連絡表のチェックが1つずつずれてしまう問題を修正。曜日別業務の週設定を変えたときも同様にずれないようにしました'},
     {t:'fix', d:'📱 タブレットの返却・削除画面を開いている間に他の端末が記録を消すと、別のタブレットを返却・削除してしまう可能性があった問題を修正'},
@@ -4652,41 +4682,132 @@ function swSubTab(id) {
 }
 
 /* ===== OC集計シート ===== */
+/* ===== 集計期間（OC集計・業務集計で共通） =====
+   月／年／期間指定の3モード。asY/asM は従来どおり「月」モードの対象月を指す。 */
+var _sumMode = 'month';  /* 'month' | 'year' | 'range' */
+var _sumFrom = '';       /* 期間指定の開始日 'YYYY-MM-DD' */
+var _sumTo   = '';       /* 期間指定の終了日 */
+
+function sumRange() {
+  if (_sumMode === 'year') {
+    return { from: asY+'-01-01', to: asY+'-12-31', label: asY+'年', multi: true };
+  }
+  if (_sumMode === 'range' && _sumFrom && _sumTo) {
+    var f = _sumFrom, t = _sumTo;
+    if (f > t) { var tmp = f; f = t; t = tmp; } /* 逆順に選ばれても集計できるようにする */
+    return { from: f, to: t, label: fmtJ(f)+' 〜 '+fmtJ(t), multi: f.slice(0,7) !== t.slice(0,7) };
+  }
+  var last = new Date(asY, asM+1, 0).getDate();
+  var mf = asY+'-'+pad(asM+1)+'-01', mt = asY+'-'+pad(asM+1)+'-'+pad(last);
+  return { from: mf, to: mt, label: asY+'年'+(asM+1)+'月', multi: false };
+}
+/* 期間内で実際に連絡表が存在する日付を昇順で返す（存在しない日は最初から見に行かない） */
+function sumDsList() {
+  var r = sumRange(), out = [];
+  Object.keys(D.pages || {}).forEach(function(ds){ if (ds >= r.from && ds <= r.to) out.push(ds); });
+  out.sort();
+  return out;
+}
+function setSumMode(m) {
+  _sumMode = m;
+  if (m === 'range' && (!_sumFrom || !_sumTo)) { var r0 = sumRange(); _sumFrom = r0.from; _sumTo = r0.to; }
+  renderOCSummary(); renderOpsSummary();
+}
+function applySumRange(pfx) {
+  var f = document.getElementById(pfx+'-sum-from'), t = document.getElementById(pfx+'-sum-to');
+  if (f) _sumFrom = f.value;
+  if (t) _sumTo   = t.value;
+  if (!_sumFrom || !_sumTo) { toast('開始日と終了日を選んでください', 'warn'); return; }
+  renderOCSummary(); renderOpsSummary();
+}
+/* 期間切替のコントロール。OC集計と業務集計の両方に同じものを出すので id は接頭辞で分ける */
+function sumCtlHTML(pfx) {
+  var r = sumRange();
+  var btn = function(mode, label){
+    return '<button class="btn btn-sm '+(_sumMode===mode?'btn-p':'btn-g')+'" style="font-size:11px" onclick="setSumMode(\''+mode+'\')">'+label+'</button>';
+  };
+  var h = '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
+    + btn('month','📅 月') + btn('year','🗓 年') + btn('range','📆 期間指定')
+    + '<span style="font-size:12px;font-weight:700;margin-left:4px">'+escH(r.label)+'</span>';
+  if (_sumMode === 'range') {
+    h += '<span style="display:flex;gap:4px;align-items:center;margin-left:4px">'
+      + '<input type="date" id="'+pfx+'-sum-from" class="fi" style="width:auto;margin:0;font-size:11px" value="'+escH(_sumFrom)+'">'
+      + '<span style="font-size:11px">〜</span>'
+      + '<input type="date" id="'+pfx+'-sum-to" class="fi" style="width:auto;margin:0;font-size:11px" value="'+escH(_sumTo)+'">'
+      + '<button class="btn btn-p btn-sm" style="font-size:11px" onclick="applySumRange(\''+pfx+'\')">表示</button></span>';
+  }
+  return h + '</div>';
+}
+/* 期間内の年月キー（'YYYY-MM'）を昇順で返す。年・期間指定のときの月別内訳に使う */
+function sumMonthKeys(dsList) {
+  var seen = {}, out = [];
+  dsList.forEach(function(ds){ var k = ds.slice(0,7); if (!seen[k]) { seen[k] = 1; out.push(k); } });
+  out.sort();
+  return out;
+}
+function sumMonthLabel(ym) { var p = ym.split('-'); return p[0]+'/'+parseInt(p[1],10); }
+
 function renderOCSummary() {
   var el = document.getElementById('oc-sum-body');
   if (!el) return;
-  var days = new Date(asY, asM+1, 0).getDate();
+  var rng = sumRange();
   var rows = [];
-  for (var d=1; d<=days; d++) {
-    var ds = asY+'-'+pad(asM+1)+'-'+pad(d);
+  sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
-    if (!pg || !pg.ocData || !pg.ocData.staff) continue;
+    if (!pg || !pg.ocData || !pg.ocData.staff) return;
     rows.push({ds:ds, pg:pg});
-  }
+  });
+  var h = sumCtlHTML('oc');
   if (!rows.length) {
-    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">この月にOC担当の記録がありません</div>';
+    el.innerHTML = h + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'にOC担当の記録がありません</div>';
     return;
   }
   /* 集計 */
   var totalDone   = rows.filter(function(r){return r.pg.ocData.done;}).length;
   var totalNenkyu = rows.filter(function(r){return r.pg.ocData.nenkyu;}).length;
-  var h = '';
   /* サマリーバッジ */
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">';
-  h += '<span style="font-size:13px;font-weight:700">'+asY+'年'+(asM+1)+'月　OC集計</span>';
+  h += '<span style="font-size:13px;font-weight:700">'+escH(rng.label)+'　OC集計</span>';
   h += '<span style="background:var(--oc-bg);color:var(--oc);border:1px solid var(--oc-bdr);border-radius:8px;padding:2px 10px;font-size:12px">対応件数: '+totalDone+'/'+rows.length+'件</span>';
   h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">年休取得: '+totalNenkyu+'件</span>';
   h += '</div>';
+  /* 複数月にまたがるときは月別の内訳を先に出す（年間集計で日別だけだと読み取れないため） */
+  if (rng.multi) {
+    var mk = sumMonthKeys(rows.map(function(r){ return r.ds; }));
+    var per = {};
+    mk.forEach(function(k){ per[k] = {n:0, done:0, nen:0, staff:{}}; });
+    rows.forEach(function(r){
+      var k = r.ds.slice(0,7), p = per[k];
+      p.n++; if (r.pg.ocData.done) p.done++; if (r.pg.ocData.nenkyu) p.nen++;
+      var s = r.pg.ocData.staff || ''; if (s) p.staff[s] = (p.staff[s]||0)+1;
+    });
+    h += '<div style="overflow-x:auto;margin-bottom:14px"><table class="spec-tbl" style="min-width:420px">';
+    h += '<thead><tr><th style="width:90px">月</th><th style="width:90px">OC担当日数</th><th style="width:90px">対応件数</th><th style="width:80px">年休</th><th>担当者内訳</th></tr></thead><tbody>';
+    mk.forEach(function(k){
+      var p = per[k];
+      var names = Object.keys(p.staff).sort(function(a,b){ return p.staff[b]-p.staff[a]; })
+        .map(function(n){ return escH(n)+' '+p.staff[n]; }).join('、');
+      h += '<tr><td style="white-space:nowrap"><strong>'+sumMonthLabel(k)+'</strong></td>'
+        + '<td style="text-align:center">'+p.n+'</td>'
+        + '<td style="text-align:center;font-weight:700;color:var(--oc)">'+p.done+'</td>'
+        + '<td style="text-align:center">'+(p.nen||'—')+'</td>'
+        + '<td style="font-size:11px">'+names+'</td></tr>';
+    });
+    h += '<tr style="background:var(--sur2);font-weight:700"><td>合計</td><td style="text-align:center">'+rows.length+'</td>'
+      + '<td style="text-align:center;color:var(--oc)">'+totalDone+'</td><td style="text-align:center">'+totalNenkyu+'</td><td></td></tr>';
+    h += '</tbody></table></div>';
+  }
   /* テーブル */
   h += '<div style="overflow-x:auto"><table class="spec-tbl" style="min-width:520px">';
-  h += '<thead><tr><th style="width:70px">日付</th><th style="width:80px">担当者</th><th>備考</th><th style="width:80px">対応</th><th style="width:110px">対応時間</th><th style="width:70px">年休</th></tr></thead><tbody>';
+  h += '<thead><tr><th style="width:'+(rng.multi?100:70)+'px">日付</th><th style="width:80px">担当者</th><th>備考</th><th style="width:80px">対応</th><th style="width:110px">対応時間</th><th style="width:70px">年休</th></tr></thead><tbody>';
   rows.forEach(function(r) {
     var oc = r.pg.ocData;
     var w  = new Date(r.ds).getDay();
     var wdCls = w===0?'color:var(--rd)':w===6?'color:var(--ac)':'';
-    var dn = parseInt(r.ds.split('-')[2]);
+    var pt = r.ds.split('-');
+    var dn = rng.multi ? (parseInt(pt[1],10)+'/'+parseInt(pt[2],10)) : (parseInt(pt[2],10)+'日');
     h += '<tr>';
-    h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'日</strong> '+WDL[w]+'</td>';
+    h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'</strong> '+WDL[w]+'</td>';
     h += '<td style="font-weight:700">'+escH(oc.staff||'')+'</td>';
     h += '<td style="white-space:pre-wrap;font-size:11px">'+escH(oc.note||'')+'</td>';
     h += '<td style="text-align:center">'+(oc.done?'<span style="color:var(--oc);font-weight:700">✔ 対応</span>':'<span style="color:var(--txt3)">—</span>')+'</td>';
@@ -4705,14 +4826,13 @@ function renderOCSummary() {
 function renderOpsSummary() {
   var el = document.getElementById('ops-sum-body');
   if (!el) return;
-  var days = new Date(asY, asM+1, 0).getDate();
+  var rng = sumRange();
   var rows = [];
   var totals = {ope:0, cath:0, mw:0, psg:0, free:0};
 
-  for (var d=1; d<=days; d++) {
-    var ds = asY+'-'+pad(asM+1)+'-'+pad(d);
+  sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
-    if (!pg) continue;
+    if (!pg) return;
     var ops = pg.ops || {};
     var cards = pg.ops_cards;
 
@@ -4735,7 +4855,7 @@ function renderOpsSummary() {
     /* フリー業務：free_* キーの数 */
     Object.keys(ops).forEach(function(k){ if(k.indexOf('free_')===0 && ops[k]){ freeN++; hasAny=true; } });
 
-    if (!hasAny && (!cards || !cards.length)) continue; /* 業務なし日はスキップ */
+    if (!hasAny && (!cards || !cards.length)) return; /* 業務なし日はスキップ */
 
     rows.push({ds:ds, opeN:opeN, cathN:cathN, mwN:mwN, psgN:psgN, freeN:freeN});
     totals.ope  += opeN;
@@ -4743,33 +4863,51 @@ function renderOpsSummary() {
     totals.mw   += mwN;
     totals.psg  += psgN;
     totals.free += freeN;
-  }
+  });
 
+  var ctl = sumCtlHTML('ops');
   if (!rows.length) {
-    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">この月に業務記録がありません</div>';
+    el.innerHTML = ctl + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'に業務記録がありません</div>';
     return;
   }
 
-  /* ===== 週別トレンドグラフ ===== */
-  var weeks = [{label:'第1週',days:[1,7]},{label:'第2週',days:[8,14]},{label:'第3週',days:[15,21]},{label:'第4週',days:[22,28]}];
-  var lastDay = new Date(asY, asM+1, 0).getDate();
-  if (lastDay > 28) weeks.push({label:'第5週',days:[29,lastDay]});
-
-  var wkTotals = weeks.map(function(w){
-    var t = {ope:0,cath:0,mw:0,psg:0};
-    rows.forEach(function(r){
-      var dn = parseInt(r.ds.split('-')[2]);
-      if (dn >= w.days[0] && dn <= w.days[1]) { t.ope+=r.opeN; t.cath+=r.cathN; t.mw+=r.mwN; t.psg+=r.psgN; }
+  /* ===== トレンドグラフ =====
+     1か月なら従来どおり週別、複数月にまたがるなら月別に集計する */
+  var weeks, wkTotals;
+  if (rng.multi) {
+    var mkeys = sumMonthKeys(rows.map(function(r){ return r.ds; }));
+    weeks = mkeys.map(function(k){ return {label: sumMonthLabel(k), ym: k}; });
+    wkTotals = weeks.map(function(w){
+      var t = {ope:0,cath:0,mw:0,psg:0};
+      rows.forEach(function(r){
+        if (r.ds.slice(0,7) !== w.ym) return;
+        t.ope+=r.opeN; t.cath+=r.cathN; t.mw+=r.mwN; t.psg+=r.psgN;
+      });
+      return t;
     });
-    return t;
-  });
+  } else {
+    weeks = [{label:'第1週',days:[1,7]},{label:'第2週',days:[8,14]},{label:'第3週',days:[15,21]},{label:'第4週',days:[22,28]}];
+    var lastDay = new Date(asY, asM+1, 0).getDate();
+    if (lastDay > 28) weeks.push({label:'第5週',days:[29,lastDay]});
+    wkTotals = weeks.map(function(w){
+      var t = {ope:0,cath:0,mw:0,psg:0};
+      rows.forEach(function(r){
+        var dn = parseInt(r.ds.split('-')[2]);
+        if (dn >= w.days[0] && dn <= w.days[1]) { t.ope+=r.opeN; t.cath+=r.cathN; t.mw+=r.mwN; t.psg+=r.psgN; }
+      });
+      return t;
+    });
+  }
 
   var maxVal = 1;
   wkTotals.forEach(function(t){ maxVal = Math.max(maxVal, t.ope, t.cath, t.mw, t.psg); });
 
   /* SVG グラフ: viewBox 400×130, 内部チャートエリア 340×80 (margin-left:40, top:10, bottom:30) */
-  var ML=40, MT=10, CW=340, CH=80, BW=7, BG=3; /* bar width / gap between bars in a group */
+  var ML=40, MT=10, CW=340, CH=80;
   var GW = CW / weeks.length; /* group width per week */
+  /* 年表示では最大12グループ並ぶので、グループ幅に収まるようバー幅を詰める */
+  var BG = GW < 40 ? 1 : 3;
+  var BW = Math.max(2, Math.min(7, (GW * 0.8 - BG * 3) / 4));
   var COLORS = ['#f0a030','#e05050','#4488dd','#8866cc'];
   var KEYS   = ['ope','cath','mw','psg'];
   var LABELS = ['OPE','カテ','6MW','PSG'];
@@ -4798,11 +4936,11 @@ function renderOpsSummary() {
       var by = MT + CH - bh;
       svg += '<rect x="'+bx+'" y="'+by+'" width="'+BW+'" height="'+bh+'" fill="'+COLORS[ki]+'" rx="1">';
       svg += '<title>'+LABELS[ki]+': '+v+'件</title></rect>';
-      if (v > 0) svg += '<text x="'+(bx+BW/2)+'" y="'+(by-2)+'" font-size="7" text-anchor="middle" fill="'+COLORS[ki]+'">'+v+'</text>';
+      if (v > 0 && BW >= 5) svg += '<text x="'+(bx+BW/2)+'" y="'+(by-2)+'" font-size="7" text-anchor="middle" fill="'+COLORS[ki]+'">'+v+'</text>';
     });
     /* X軸ラベル */
     var lx = ML + wi * GW + GW / 2;
-    svg += '<text x="'+lx+'" y="'+(MT+CH+12)+'" font-size="9" text-anchor="middle" fill="#666">'+weeks[wi].label+'</text>';
+    svg += '<text x="'+lx+'" y="'+(MT+CH+12)+'" font-size="'+(GW<40?7:9)+'" text-anchor="middle" fill="#666">'+escH(weeks[wi].label)+'</text>';
   });
 
   /* 凡例 */
@@ -4813,10 +4951,10 @@ function renderOpsSummary() {
   });
   svg += '</svg>';
 
-  var h = '';
+  var h = ctl;
   /* サマリーバッジ */
   h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
-  h += '<span style="font-size:13px;font-weight:700">'+asY+'年'+(asM+1)+'月　業務集計</span>';
+  h += '<span style="font-size:13px;font-weight:700">'+escH(rng.label)+'　業務集計</span>';
   [['🔪 オペ', totals.ope],['🫀 カテ', totals.cath],['🚶 6MW', totals.mw],['🌙 PSG', totals.psg]].forEach(function(pair){
     h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">'+pair[0]+': '+pair[1]+'件</span>';
   });
@@ -4824,20 +4962,21 @@ function renderOpsSummary() {
 
   /* 週別グラフ */
   h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px 8px;margin-bottom:12px">';
-  h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">週別件数</div>';
+  h += '<div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">'+(rng.multi?'月別件数':'週別件数')+'</div>';
   h += svg;
   h += '</div>';
 
   /* テーブル */
   h += '<div style="overflow-x:auto"><table class="spec-tbl" style="min-width:420px">';
-  h += '<thead><tr><th style="width:70px">日付</th><th style="width:70px">🔪 オペ</th><th style="width:70px">🫀 カテ</th><th style="width:70px">🚶 6MW</th><th style="width:70px">🌙 PSG</th><th style="width:60px">➕ フリー</th></tr></thead><tbody>';
+  h += '<thead><tr><th style="width:'+(rng.multi?100:70)+'px">日付</th><th style="width:70px">🔪 オペ</th><th style="width:70px">🫀 カテ</th><th style="width:70px">🚶 6MW</th><th style="width:70px">🌙 PSG</th><th style="width:60px">➕ フリー</th></tr></thead><tbody>';
 
   rows.forEach(function(r) {
     var w  = new Date(r.ds).getDay();
-    var dn = parseInt(r.ds.split('-')[2]);
+    var pt = r.ds.split('-');
+    var dn = rng.multi ? (parseInt(pt[1],10)+'/'+parseInt(pt[2],10)) : (parseInt(pt[2],10)+'日');
     var wdCls = w===0?'color:var(--rd)':w===6?'color:var(--ac)':'';
     h += '<tr style="cursor:pointer" onclick="openFromAT(\''+r.ds+'\')">';
-    h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'日</strong> '+WDL[w]+'</td>';
+    h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'</strong> '+WDL[w]+'</td>';
     h += '<td style="text-align:center">'+(r.opeN  ? '<strong>'+r.opeN+'</strong>'  : '<span style="color:var(--txt3)">—</span>')+'</td>';
     h += '<td style="text-align:center">'+(r.cathN ? '<strong>'+r.cathN+'</strong>' : '<span style="color:var(--txt3)">—</span>')+'</td>';
     h += '<td style="text-align:center">'+(r.mwN   ? '<strong>'+r.mwN+'</strong>'   : '<span style="color:var(--txt3)">—</span>')+'</td>';
@@ -11347,6 +11486,22 @@ function taskAssignees(t) {
     : Object.keys(t.assignees).map(function(k){ return t.assignees[k]; });
 }
 /* 自分のスタッフ名を解決（renderMySchedule の selfName 解決と同一ロジック） */
+/* タスクを割り当てられた人にポップアップ通知を送る。
+   /notifications/{uid} に積むと相手の startNotifListener が拾い、
+   ログイン中ならその場で、ログアウト中なら次回ログイン時にポップアップが出る。 */
+function notifyTaskAssigned(name, t) {
+  if (!FB_ON || !fbDB) return;
+  getUidByName(name, function(uid){
+    if (!uid) return;                                   /* アカウント未連携のスタッフには送れない */
+    if (currentUser && uid === currentUser.uid) return; /* 念のため自分宛は送らない */
+    var by = (currentUser && (currentUser.displayName || currentUser.email)) || '';
+    var body = (t.title || '')
+      + (t.due ? '（期限: ' + t.due.replace(/-/g,'/') + '）' : '')
+      + (by ? ' / 依頼: ' + by : '');
+    sendNotificationToUid(uid, name, '📋 新しいタスクが割り当てられました', body, 'task');
+  });
+}
+
 function taskSelfName() {
   if (!currentUser) return null;
   if (D.stf.indexOf(currentUser.displayName) >= 0) return currentUser.displayName;
@@ -11397,6 +11552,41 @@ function taskCycleStatus(id) {
   if (FB_ON) writeLog('タスク状態変更', (t.title||'').substring(0,20)+' → '+TASK_ST_LABEL[next]);
 }
 function setTaskFilter(f) { _taskFilter = f; renderTasks(); }
+
+/* ===== 自分専用メモ（/taskMemos/{自分のuid}） =====
+   タスクと違い担当者を持たず、本人以外は読み書きできない（Firebaseルールで保証）。
+   保存の流れ（楽観更新→失敗したらキャッシュを巻き戻す）はタスクと同じ。 */
+function memoPersist(id, m) {
+  var prev = _memosData[id];
+  _memosData[id] = m; renderTasks();
+  if (FB_ON && fbDB && currentUser) {
+    fbDB.ref('/taskMemos/' + currentUser.uid + '/' + id).set(m).catch(function(e){
+      if (prev === undefined) delete _memosData[id]; else _memosData[id] = prev;
+      renderTasks();
+      toast('保存エラー: ' + e.message, 'err');
+    });
+  }
+}
+function memoDelete(id) {
+  var m = _memosData[id]; if (!m) return;
+  if (!confirm('メモ「' + (m.title||'') + '」を削除しますか？')) return;
+  delete _memosData[id]; renderTasks();
+  if (FB_ON && fbDB && currentUser) {
+    fbDB.ref('/taskMemos/' + currentUser.uid + '/' + id).remove().catch(function(e){
+      _memosData[id] = m; renderTasks();
+      toast('削除エラー: ' + e.message, 'err');
+    });
+  }
+}
+function memoCycleStatus(id) {
+  var cur = _memosData[id]; if (!cur) return;
+  var m = Object.assign({}, cur); /* キャッシュを直接書き換えるとロールバックが効かない */
+  var next = TASK_ST[(TASK_ST.indexOf(m.status||'todo') + 1) % 3];
+  m.status = next;
+  m.doneAt = next === 'done' ? Date.now() : 0;
+  m.updatedTs = Date.now();
+  memoPersist(id, m);
+}
 function taskOpenPerson(i) { _taskView = _taskGraphNames[i] || null; renderTasks(); }
 function taskBackOverview() { _taskView = null; renderTasks(); }
 
@@ -11419,6 +11609,24 @@ function taskCardHTML(id, t, today) {
     + taskAssignees(t).map(function(n){ return '<span class="task-asg">👤 '+escH(n)+'</span>'; }).join('')
     + '<span style="margin-left:6px">作成: '+escH((t.createdBy&&t.createdBy.name)||'')+'</span></div></div>';
   return h;
+}
+
+/* 自分専用メモのカード。担当者・作成者は出さず、鍵アイコンで区別する */
+function memoCardHTML(id, m, today) {
+  var st = m.status || 'todo';
+  var tag = '<span class="task-tag task-tag-'+st+' clickable" title="クリックで状態変更" onclick="memoCycleStatus(\''+escJs(id)+'\')">'
+    + TASK_ST_ICON[st]+' '+TASK_ST_LABEL[st]+'</span>';
+  var over = m.due && st !== 'done' && m.due < today;
+  var dueH = m.due ? '<span style="font-size:11px;margin-left:8px" class="'+(over?'task-due-over':'')+'">'
+    + (over?'⚠️ ':'📅 ')+escH(m.due.replace(/-/g,'/'))+(over?' 期限超過':'')+'</span>' : '';
+  var h = '<div class="task-card st-'+st+'">'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    + tag + '<span style="font-weight:700;font-size:13px;flex:1;min-width:120px">🔒 '+escH(m.title||'')+'</span>' + dueH
+    + '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openTaskModal(\''+escJs(id)+'\',true)">✎ 編集</button>'
+    + '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rd)" onclick="memoDelete(\''+escJs(id)+'\')">🗑</button>'
+    + '</div>';
+  if (m.desc) h += '<div style="font-size:11px;color:var(--txt2);margin-top:4px;white-space:pre-wrap">'+escH(m.desc)+'</div>';
+  return h + '</div>';
 }
 
 function renderTasks() {
@@ -11448,9 +11656,10 @@ function renderTasks() {
   function taskBarH(v) { return v ? Math.max(TASK_BAR_MIN_H, Math.round(v / maxLoad * TASK_BAR_AREA_H)) : 0; }
 
   _taskGraphNames = names;
-  var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+  var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">'
     + '<span style="font-size:14px;font-weight:800">📋 タスク管理</span>'
-    + '<button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openTaskModal(null)">＋ タスクを追加</button></div>';
+    + '<button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openTaskModal(null)">＋ タスクを追加</button>'
+    + '<button class="btn btn-g btn-sm" onclick="openTaskModal(null,true)" title="自分だけが見られるメモ">🔒 ＋ メモ</button></div>';
 
   h += '<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin-bottom:12px">'
     + '<div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:8px">👥 スタッフ別タスク量'
@@ -11508,6 +11717,21 @@ function renderTasks() {
   if (done.length && _taskFilter === 'all')
     h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:14px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">✅ 完了（'+done.length+'件）</div>';
   done.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); });
+
+  /* --- 自分専用メモ（他の人には見えない） --- */
+  var mids = Object.keys(_memosData).filter(function(id){
+    var m = _memosData[id]; if (!m) return false;
+    return _taskFilter === 'all' || (m.status||'todo') === _taskFilter;
+  });
+  mids.sort(function(a,b){
+    var ma=_memosData[a], mb=_memosData[b];
+    var da = ma.due || '9999', db2 = mb.due || '9999';
+    return da !== db2 ? (da < db2 ? -1 : 1) : (mb.ts||0) - (ma.ts||0);
+  });
+  h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:18px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">'
+     + '🔒 自分専用メモ（'+mids.length+'件）<span style="font-weight:400;margin-left:6px">他の人には表示されません</span></div>';
+  if (!mids.length) h += '<div class="pool-empty" style="padding:10px 0;font-size:12px">メモはありません</div>';
+  mids.forEach(function(id){ h += memoCardHTML(id, _memosData[id], today); });
   el.innerHTML = h;
 }
 
@@ -11537,12 +11761,13 @@ function renderTaskPerson(el, name) {
   el.innerHTML = h;
 }
 
-function openTaskModal(id) {
-  var t = id ? _tasksData[id] : null;
+function openTaskModal(id, isMemo) {
+  /* isMemo=true なら自分専用メモ。担当者欄を出さず、保存先も /taskMemos になる */
+  var t = id ? (isMemo ? _memosData[id] : _tasksData[id]) : null;
   if (id && !t) return;
-  if (t && !taskCanEditAll(t)) return;
+  if (!isMemo && t && !taskCanEditAll(t)) return;
   var oldOv = document.getElementById('task-md-ov'); if (oldOv) oldOv.remove(); /* 二重表示防止 */
-  var cur = t ? taskAssignees(t) : [];
+  var cur = (t && !isMemo) ? taskAssignees(t) : [];
   var names = D.stf.filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
   var checks = names.map(function(n){
     return '<label class="dc-cb-item'+(cur.indexOf(n)!==-1?' checked':'')+'">'
@@ -11554,13 +11779,15 @@ function openTaskModal(id) {
   }).join('');
   var ov = document.createElement('div'); ov.id='task-md-ov'; ov.className='ov';
   var md = document.createElement('div'); md.className='md'; md.style.maxWidth='440px';
-  md.innerHTML = '<h3>'+(t?'✎ タスクを編集':'＋ タスクを追加')+'</h3>'
+  md.innerHTML = '<h3>'+(isMemo ? (t?'✎ メモを編集':'🔒 メモを追加') : (t?'✎ タスクを編集':'＋ タスクを追加'))+'</h3>'
+    + (isMemo ? '<div style="font-size:11px;color:var(--txt3);background:var(--sur2);border:1px solid var(--bdr);border-radius:6px;padding:6px 8px;margin-bottom:8px">🔒 このメモは自分だけが見られます。他のスタッフや管理者には表示されません</div>' : '')
     + '<div style="font-size:12px;font-weight:700;margin-bottom:4px">タイトル<span style="color:var(--rd)">*</span></div>'
     + '<input id="task-md-title" class="fi" style="width:100%;box-sizing:border-box" maxlength="100" value="'+escH(t?t.title:'')+'">'
     + '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">詳細メモ（任意）</div>'
     + '<textarea id="task-md-desc" class="fi" rows="3" style="width:100%;box-sizing:border-box;resize:vertical">'+escH(t?(t.desc||''):'')+'</textarea>'
-    + '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">担当者<span style="color:var(--rd)">*</span>（複数選択可）</div>'
-    + '<div id="task-md-asg" class="dc-cbs" style="max-height:160px;overflow-y:auto">'+checks+'</div>'
+    + (isMemo ? '' :
+        '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">担当者<span style="color:var(--rd)">*</span>（複数選択可）</div>'
+      + '<div id="task-md-asg" class="dc-cbs" style="max-height:160px;overflow-y:auto">'+checks+'</div>')
     + '<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">'
     + '<div style="flex:0 0 128px;min-width:0"><div style="font-size:12px;font-weight:700;margin-bottom:4px">期限（任意）</div><input type="date" id="task-md-due" class="fi" style="width:100%" value="'+escH(t?(t.due||''):'')+'"></div>'
     + '<div style="flex:1 1 140px;min-width:0"><div style="font-size:12px;font-weight:700;margin-bottom:4px">ステータス</div><select id="task-md-st" class="ds2" style="width:100%">'+stOpts+'</select></div></div>'
@@ -11568,27 +11795,48 @@ function openTaskModal(id) {
     + '<button class="btn btn-g" onclick="document.getElementById(\'task-md-ov\').remove()">キャンセル</button>'
     + '<button class="btn btn-p" id="task-md-save">保存</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
-  document.getElementById('task-md-save').addEventListener('click', function(){ saveTaskFromModal(id || null); });
+  document.getElementById('task-md-save').addEventListener('click', function(){ saveTaskFromModal(id || null, !!isMemo); });
 }
 
-function saveTaskFromModal(id) {
+function saveTaskFromModal(id, isMemo) {
   if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   var title = document.getElementById('task-md-title').value.trim();
   var desc  = document.getElementById('task-md-desc').value.trim();
   if (!title) { toast('タイトルを入力してください', 'warn'); return; }
   var asg = [];
-  document.querySelectorAll('#task-md-asg input[type=checkbox]:checked').forEach(function(cb){ asg.push(cb.value); });
-  if (!asg.length) { toast('担当者を1名以上選択してください', 'warn'); return; }
-  /* PHI検知（#main外なので明示呼び出し必須） */
+  if (!isMemo) {
+    document.querySelectorAll('#task-md-asg input[type=checkbox]:checked').forEach(function(cb){ asg.push(cb.value); });
+    if (!asg.length) { toast('担当者を1名以上選択してください', 'warn'); return; }
+  }
+  var save = function(){ isMemo ? _doSaveMemo(id, title, desc) : _doSaveTask(id, title, desc, asg); };
+  /* PHI検知（#main外なので明示呼び出し必須。自分専用メモでも患者情報は書かせない） */
   var phiRes = detectPHI(title + '\n' + desc);
   if (phiRes.red.length || phiRes.yellow.length) {
     showPHIPopup({ result: phiRes, mode: 'memo',
-      onProceed: function(){ _doSaveTask(id, title, desc, asg); },
+      onProceed: phiHasBlock(phiRes) ? null : save,
       onFix: function(){ var e = document.getElementById('task-md-title'); if (e) e.focus(); }
     });
     return;
   }
-  _doSaveTask(id, title, desc, asg);
+  save();
+}
+
+function _doSaveMemo(id, title, desc) {
+  var old = id ? _memosData[id] : null;
+  var st  = document.getElementById('task-md-st').value || 'todo';
+  var m = {
+    title: title, desc: desc || '', status: st,
+    due: document.getElementById('task-md-due').value || '',
+    ts: old ? (old.ts || Date.now()) : Date.now(),
+    updatedTs: Date.now(),
+    doneAt: st === 'done' ? ((old && old.doneAt) || Date.now()) : 0
+  };
+  var key = id || ((FB_ON && fbDB && currentUser)
+    ? fbDB.ref('/taskMemos/' + currentUser.uid).push().key
+    : 'localmemo_' + Date.now());
+  memoPersist(key, m);
+  var ovEl = document.getElementById('task-md-ov'); if (ovEl) ovEl.remove();
+  /* メモの中身はログに残さない（本人しか見られない情報のため） */
 }
 
 function _doSaveTask(id, title, desc, asg) {
@@ -11605,6 +11853,14 @@ function _doSaveTask(id, title, desc, asg) {
   };
   var key = id || ((FB_ON && fbDB) ? fbDB.ref('/tasks').push().key : 'local_' + Date.now());
   taskPersist(key, t);
+  /* 新しく担当になった人にだけ通知する（元から担当だった人・自分自身には出さない） */
+  var prevAsg = old ? taskAssignees(old) : [];
+  var selfNm = taskSelfName();
+  asg.forEach(function(n){
+    if (prevAsg.indexOf(n) !== -1) return;
+    if (selfNm && n === selfNm) return;
+    notifyTaskAssigned(n, t);
+  });
   var ovEl = document.getElementById('task-md-ov'); if (ovEl) ovEl.remove();
   if (FB_ON) writeLog(id ? 'タスク編集' : 'タスク作成', title.substring(0,30));
 }
@@ -11647,22 +11903,25 @@ function downloadCsv(filename, rows) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+/* CSVのファイル名に使う期間名（記号はファイル名に使えないので整える） */
+function sumFileLabel() { return sumRange().label.replace(/[\s〜\/]/g, function(c){ return c==='〜' ? '-' : (c==='/' ? '' : ''); }); }
+
 function exportOcCsv() {
-  var days = new Date(asY,asM+1,0).getDate(), rows = [['日付','曜日','担当者','備考','対応','対応時間','年休']];
-  for (var d=1; d<=days; d++) {
-    var ds = asY+'-'+pad(asM+1)+'-'+pad(d), pg = D.pages[ds];
-    if (!pg||!pg.ocData||!pg.ocData.staff) continue;
-    var oc = pg.ocData, w = new Date(ds).getDay();
-    rows.push([asY+'/'+(asM+1)+'/'+d, WDL[w], oc.staff||'', oc.note||'', oc.done?'✔':'', oc.time||'', oc.nenkyu?'✔':'']);
-  }
-  if (rows.length===1){toast('この月にOC担当の記録がありません', 'warn');return;}
-  downloadCsv('分院CE_OC集計_'+asY+'年'+(asM+1)+'月.csv', rows);
+  var rng = sumRange(), rows = [['日付','曜日','担当者','備考','対応','対応時間','年休']];
+  sumDsList().forEach(function(ds){
+    var pg = D.pages[ds];
+    if (!pg||!pg.ocData||!pg.ocData.staff) return;
+    var oc = pg.ocData, w = new Date(ds).getDay(), pt = ds.split('-');
+    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[w], oc.staff||'', oc.note||'', oc.done?'✔':'', oc.time||'', oc.nenkyu?'✔':'']);
+  });
+  if (rows.length===1){toast(rng.label+'にOC担当の記録がありません', 'warn');return;}
+  downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
 }
 function exportOpsCsv() {
-  var days = new Date(asY,asM+1,0).getDate(), rows = [['日付','曜日','オペ','カテ','6MW','PSG','フリー']];
-  for (var d=1; d<=days; d++) {
-    var ds = asY+'-'+pad(asM+1)+'-'+pad(d), pg = D.pages[ds];
-    if (!pg) continue;
+  var rng = sumRange(), rows = [['日付','曜日','オペ','カテ','6MW','PSG','フリー']];
+  sumDsList().forEach(function(ds){
+    var pg = D.pages[ds];
+    if (!pg) return;
     var ops = pg.ops||{};
     var opeN=0,cathN=0,mwN=0,psgN=0,freeN=0;
     if(ops.ope_items)  ops.ope_items.forEach(function(it){if(opsItemFilled(it))opeN++;});
@@ -11670,11 +11929,12 @@ function exportOpsCsv() {
     if(ops.mw_n) mwN=parseInt(ops.mw_n)||0;
     if(ops.psg_on) psgN=1;
     Object.keys(ops).forEach(function(k){if(k.indexOf('free_')===0&&ops[k])freeN++;});
-    if(!opeN&&!cathN&&!mwN&&!psgN&&!freeN) continue;
-    rows.push([asY+'/'+(asM+1)+'/'+d, WDL[new Date(ds).getDay()], opeN||'', cathN||'', mwN||'', psgN||'', freeN||'']);
-  }
-  if (rows.length===1){toast('この月に業務記録がありません', 'warn');return;}
-  downloadCsv('分院CE_業務集計_'+asY+'年'+(asM+1)+'月.csv', rows);
+    if(!opeN&&!cathN&&!mwN&&!psgN&&!freeN) return;
+    var pt = ds.split('-');
+    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], opeN||'', cathN||'', mwN||'', psgN||'', freeN||'']);
+  });
+  if (rows.length===1){toast(rng.label+'に業務記録がありません', 'warn');return;}
+  downloadCsv('分院CE_業務集計_'+sumFileLabel()+'.csv', rows);
 }
 /* サブタブ対応 印刷（現在のサブタブを印刷） */
 function printSubTab() {
