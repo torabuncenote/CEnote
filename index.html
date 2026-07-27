@@ -246,10 +246,61 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-staff-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:2px 4px 2px 8px}
 .ops-staff-chip-x{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:12px;padding:0 3px;line-height:1}
 .ops-staff-chip-x:hover{color:var(--rd)}
-.ops-staff-add{font-size:11px;border:1px dashed var(--bdr);border-radius:10px;padding:2px 8px;background:var(--sur);color:var(--txt2);cursor:pointer}
+.ops-staff-add{font-size:11px;border:1px dashed var(--bdr2);border-radius:10px;padding:3px 9px;background:var(--sur);color:var(--txt2);cursor:pointer;transition:all .15s}
+.ops-staff-add:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-bg)}
 .ops-end-time{font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:3px 6px;background:var(--sur2);color:var(--txt)}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
 .ops-add-btn:hover{background:var(--ac);color:#fff}
+
+/* ===== 集計画面（OC集計・業務集計）共通UI =====
+   期間・ビュー切替は同じ視覚言語の「セグメントコントロール」に統一し、バッジ・カード・
+   テーブルも共通クラス化する。5系列（オペ/カテ/6MW/PSG/フリー）の色は、担当表の
+   担当枠チップ（dutyColorFor）と同じ色相を再利用して画面をまたいだ一貫性を作る：
+   オペ=青(slot_ope)、カテ=バラ(slot_cath)、フリー=ティール(slot_free) と揃え、
+   6MW=緑・PSGはPSG外しバナーと同じ琥珀。 */
+:root{
+  --sum-ope:#1d4ed8;--sum-cath:#be185d;--sum-mw:#0e6e5e;--sum-psg:#b45309;--sum-free:#0f766e;
+}
+.sum-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-bottom:12px}
+.seg-group{display:inline-flex;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:2px;gap:2px;flex-wrap:wrap}
+.seg-btn{border:none;background:transparent;color:var(--txt2);font-size:11px;font-weight:700;padding:6px 12px;border-radius:4px;cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--fn);line-height:1.3}
+.seg-btn:hover{color:var(--txt)}
+.seg-btn.on{background:var(--sur);color:var(--ac);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.sum-period-label{font-size:13px;font-weight:800;color:var(--txt)}
+
+.sum-badges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.sum-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 13px 5px 8px;border-radius:20px;font-size:12px;font-weight:700;background:var(--sur);border:1px solid var(--bdr);color:var(--txt2)}
+.sum-badge-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sum-badge b{font-family:var(--mo);font-weight:800;font-size:13px}
+
+.sum-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r)}
+.flt-sel{font-size:12px;border:1px solid var(--bdr2);border-radius:var(--rs);padding:6px 9px;background:var(--sur2);color:var(--txt);cursor:pointer;font-family:var(--fn);max-width:190px;margin:0}
+.flt-check{font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--txt2);white-space:nowrap}
+.flt-clear{margin-left:auto}
+
+.sum-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}
+.sum-card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
+.sum-card-ttl{font-size:11px;font-weight:800;color:var(--txt2);margin-bottom:9px;display:flex;align-items:center;gap:6px;letter-spacing:.02em}
+.sum-card-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:4px 0;font-size:12.5px;color:var(--txt);border-bottom:1px solid var(--sur2)}
+.sum-card-row:last-of-type{border-bottom:none}
+.sum-card-row .lbl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sum-card-row .n{font-family:var(--mo);font-weight:700;color:var(--txt);flex-shrink:0;white-space:nowrap}
+.sum-card-note{font-size:10.5px;color:var(--txt3);margin-top:9px;padding-top:8px;border-top:1px dashed var(--bdr);line-height:1.5}
+.sum-card-empty{font-size:11px;color:var(--txt3);padding:2px 0}
+
+.data-wrap{overflow-x:auto;border:1px solid var(--bdr);border-radius:var(--r);background:var(--sur)}
+.data-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.data-tbl thead th{position:sticky;top:0;background:var(--sur2);color:var(--txt2);font-size:10.5px;font-weight:800;letter-spacing:.03em;padding:8px 10px;text-align:left;border-bottom:2px solid var(--bdr);white-space:nowrap;z-index:1}
+.data-tbl tbody td{padding:7px 10px;border-bottom:1px solid var(--sur2);vertical-align:middle}
+.data-tbl tbody tr:last-child td{border-bottom:none}
+.data-tbl tbody tr.clickable{cursor:pointer}
+.data-tbl tbody tr.clickable:hover td{background:var(--ac-bg)}
+.data-tbl tbody tr.total td{background:var(--sur2);font-weight:800;border-top:2px solid var(--bdr);border-bottom:none}
+.data-tbl tbody tr.group-hd td{background:var(--sur2);color:var(--txt2);font-size:11px;font-weight:800;padding:6px 10px}
+.data-tbl .num{text-align:center;font-family:var(--mo)}
+.data-tbl .muted{color:var(--txt3)}
+.status-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.status-pill.done{background:var(--gr-bg);color:var(--gr)}
 /* ===== 階層マスタ ===== */
 .tree-dept{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);margin-bottom:6px}
 .tree-dept-hd{display:flex;align-items:center;gap:5px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer}
@@ -4779,18 +4830,18 @@ function applySumRange(pfx) {
 /* 期間切替のコントロール。OC集計と業務集計の両方に同じものを出すので id は接頭辞で分ける */
 function sumCtlHTML(pfx) {
   var r = sumRange();
-  var btn = function(mode, label){
-    return '<button class="btn btn-sm '+(_sumMode===mode?'btn-p':'btn-g')+'" style="font-size:11px" onclick="setSumMode(\''+mode+'\')">'+label+'</button>';
+  var seg = function(mode, label){
+    return '<button class="seg-btn'+(_sumMode===mode?' on':'')+'" onclick="setSumMode(\''+mode+'\')">'+label+'</button>';
   };
-  var h = '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">'
-    + btn('month','📅 月') + btn('year','🗓 年') + btn('range','📆 期間指定')
-    + '<span style="font-size:12px;font-weight:700;margin-left:4px">'+escH(r.label)+'</span>';
+  var h = '<div class="sum-toolbar">'
+    + '<div class="seg-group">'+seg('month','📅 月')+seg('year','🗓 年')+seg('range','📆 期間指定')+'</div>'
+    + '<span class="sum-period-label">'+escH(r.label)+'</span>';
   if (_sumMode === 'range') {
-    h += '<span style="display:flex;gap:4px;align-items:center;margin-left:4px">'
+    h += '<span style="display:flex;gap:6px;align-items:center">'
       + '<input type="date" id="'+pfx+'-sum-from" class="fi" style="width:auto;margin:0;font-size:11px" value="'+escH(_sumFrom)+'">'
-      + '<span style="font-size:11px">〜</span>'
+      + '<span style="font-size:11px;color:var(--txt3)">〜</span>'
       + '<input type="date" id="'+pfx+'-sum-to" class="fi" style="width:auto;margin:0;font-size:11px" value="'+escH(_sumTo)+'">'
-      + '<button class="btn btn-p btn-sm" style="font-size:11px" onclick="applySumRange(\''+pfx+'\')">表示</button></span>';
+      + '<button class="btn btn-p btn-sm" onclick="applySumRange(\''+pfx+'\')">表示</button></span>';
   }
   return h + '</div>';
 }
@@ -4880,30 +4931,32 @@ function renderOpsDetailBody(allRows) {
 
   var h = '';
   /* フィルタ行 */
-  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:8px;background:var(--sur);border:1px solid var(--bdr);border-radius:8px">';
+  h += '<div class="sum-filter-bar">';
+  h += '<div class="seg-group">';
   [['all','全件'],['オペ','🔪オペ'],['カテ','🫀カテ']].forEach(function(c){
-    h += '<button class="btn btn-sm '+(f.kind===c[0]?'btn-p':'btn-g')+'" style="font-size:11px" onclick="setOpsDetFilter(\'kind\',\''+c[0]+'\')">'+c[1]+'</button>';
+    h += '<button class="seg-btn'+(f.kind===c[0]?' on':'')+'" onclick="setOpsDetFilter(\'kind\',\''+c[0]+'\')">'+c[1]+'</button>';
   });
-  h += '<select class="ds2" style="width:auto;font-size:11px" onchange="setOpsDetFilter(\'dept\',this.value)">';
+  h += '</div>';
+  h += '<select class="flt-sel" onchange="setOpsDetFilter(\'dept\',this.value)">';
   h += '<option value="">科：すべて</option>';
   opsFreqSortedKeys(deptFreq).forEach(function(d){ h += '<option value="'+escH(d)+'"'+(f.dept===d?' selected':'')+'>'+escH(d)+' ('+deptFreq[d]+')</option>'; });
   h += '</select>';
-  h += '<select class="ds2" style="width:auto;font-size:11px" onchange="setOpsDetFilter(\'staff\',this.value)">';
+  h += '<select class="flt-sel" onchange="setOpsDetFilter(\'staff\',this.value)">';
   h += '<option value="">担当者：すべて</option>';
   opsFreqSortedKeys(staffFreq).forEach(function(n){ h += '<option value="'+escH(n)+'"'+(f.staff===n?' selected':'')+'>'+escH(n)+' ('+staffFreq[n]+')</option>'; });
   h += '</select>';
-  h += '<select class="ds2" style="width:auto;font-size:11px" onchange="setOpsDetFilter(\'sup\',this.value)">';
+  h += '<select class="flt-sel" onchange="setOpsDetFilter(\'sup\',this.value)">';
   h += '<option value="">使用物品：すべて</option>';
   opsFreqSortedKeys(supFreq).forEach(function(s){ h += '<option value="'+escH(s)+'"'+(f.sup===s?' selected':'')+'>'+escH(s)+' ('+supFreq[s]+')</option>'; });
   h += '</select>';
-  h += '<label style="font-size:11px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" '+(f.doneOnly?'checked':'')+' onchange="setOpsDetFilter(\'doneOnly\',this.checked)">終了済のみ</label>';
-  h += '<select class="ds2" style="width:auto;font-size:11px;margin-left:auto" onchange="setOpsDetFilter(\'group\',this.value)">';
+  h += '<label class="flt-check"><input type="checkbox" '+(f.doneOnly?'checked':'')+' onchange="setOpsDetFilter(\'doneOnly\',this.checked)">終了済のみ</label>';
+  h += '<select class="flt-sel flt-clear" onchange="setOpsDetFilter(\'group\',this.value)">';
   [['none','グルーピング：なし'],['dept','科ごと'],['date','日付ごと'],['staff','担当者ごと']].forEach(function(g){
     h += '<option value="'+g[0]+'"'+(f.group===g[0]?' selected':'')+'>'+g[1]+'</option>';
   });
   h += '</select>';
   if (f.kind!=='all'||f.dept||f.staff||f.sup||f.doneOnly||f.group!=='none') {
-    h += '<button class="btn btn-g btn-sm" style="font-size:11px" onclick="_opsDetFilter={kind:\'all\',dept:\'\',staff:\'\',sup:\'\',doneOnly:false,group:\'none\'};renderOpsSummary();">✕ 条件クリア</button>';
+    h += '<button class="btn btn-g btn-sm" onclick="_opsDetFilter={kind:\'all\',dept:\'\',staff:\'\',sup:\'\',doneOnly:false,group:\'none\'};renderOpsSummary();">✕ 条件クリア</button>';
   }
   h += '</div>';
 
@@ -4917,35 +4970,40 @@ function renderOpsDetailBody(allRows) {
   var staffAgg = {}; rows.forEach(function(r){ r.staff.forEach(function(n){ if(!staffAgg[n]) staffAgg[n]={n:0,dur:0,durN:0}; staffAgg[n].n++; if(r.dur!=null){staffAgg[n].dur+=r.dur;staffAgg[n].durN++;} }); });
   var supAgg = {}; rows.forEach(function(r){ r.sup.forEach(function(s){ supAgg[s]=(supAgg[s]||0)+1; }); });
 
-  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px">';
+  h += '<div class="sum-card-grid">';
 
-  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">🏥 科別</div>';
-  Object.keys(deptAgg).sort(function(a,b){ return (deptAgg[b].ope+deptAgg[b].cath)-(deptAgg[a].ope+deptAgg[a].cath); }).forEach(function(d){
-    var a=deptAgg[d]; h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0"><span>'+escH(d)+'</span><span>オペ'+a.ope+'・カテ'+a.cath+'（計'+(a.ope+a.cath)+'）</span></div>';
+  h += '<div class="sum-card"><div class="sum-card-ttl">🏥 科別</div>';
+  var deptKeys = Object.keys(deptAgg).sort(function(a,b){ return (deptAgg[b].ope+deptAgg[b].cath)-(deptAgg[a].ope+deptAgg[a].cath); });
+  deptKeys.forEach(function(d){
+    var a=deptAgg[d];
+    h += '<div class="sum-card-row"><span class="lbl">'+escH(d)+'</span><span class="n">オペ'+a.ope+'・カテ'+a.cath+'（計'+(a.ope+a.cath)+'）</span></div>';
   });
+  if (!deptKeys.length) h += '<div class="sum-card-empty">記録がありません</div>';
   h += '</div>';
 
-  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">🔪 術式別 TOP10</div>';
+  h += '<div class="sum-card"><div class="sum-card-ttl">🔪 術式別 TOP10</div>';
   var nameKeys = Object.keys(nameAgg).sort(function(a,b){ return nameAgg[b]-nameAgg[a]; });
-  nameKeys.slice(0,10).forEach(function(k){ h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escH(k)+'</span><span style="flex-shrink:0;margin-left:6px">'+nameAgg[k]+'件</span></div>'; });
-  if (nameKeys.length>10) h += '<div style="font-size:11px;color:var(--txt3)">他 '+(nameKeys.length-10)+' 種</div>';
+  nameKeys.slice(0,10).forEach(function(k){ h += '<div class="sum-card-row"><span class="lbl">'+escH(k)+'</span><span class="n">'+nameAgg[k]+'件</span></div>'; });
+  if (!nameKeys.length) h += '<div class="sum-card-empty">記録がありません</div>';
+  if (nameKeys.length>10) h += '<div class="sum-card-note">他 '+(nameKeys.length-10)+' 種</div>';
   h += '</div>';
 
-  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">👤 担当者別</div>';
-  Object.keys(staffAgg).sort(function(a,b){ return staffAgg[b].n-staffAgg[a].n; }).forEach(function(n){
+  h += '<div class="sum-card"><div class="sum-card-ttl">👤 担当者別</div>';
+  var staffKeys = Object.keys(staffAgg).sort(function(a,b){ return staffAgg[b].n-staffAgg[a].n; });
+  staffKeys.forEach(function(n){
     var a=staffAgg[n], avg = a.durN ? Math.round(a.dur/a.durN) : null;
-    h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0"><span>'+escH(n)+'</span><span>'+a.n+'件'+(avg!=null?'・平均'+opsDurLabel(avg):'')+'</span></div>';
+    h += '<div class="sum-card-row"><span class="lbl">'+escH(n)+'</span><span class="n">'+a.n+'件'+(avg!=null?'・平均'+opsDurLabel(avg):'')+'</span></div>';
   });
-  if (!Object.keys(staffAgg).length) h += '<div style="font-size:11px;color:var(--txt3)">担当者の記録がありません</div>';
-  h += '<div style="font-size:10px;color:var(--txt3);margin-top:4px">※ 所要時間は入室時間と終了時刻が両方ある行のみ算入</div>';
+  if (!staffKeys.length) h += '<div class="sum-card-empty">担当者の記録がありません</div>';
+  h += '<div class="sum-card-note">※ 所要時間は入室時間と終了時刻が両方ある行のみ算入</div>';
   h += '</div>';
 
-  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">🧰 使用物品別</div>';
+  h += '<div class="sum-card"><div class="sum-card-ttl">🧰 使用物品別</div>';
   var supKeys = Object.keys(supAgg).sort(function(a,b){ return supAgg[b]-supAgg[a]; });
-  supKeys.slice(0,15).forEach(function(s){ h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0"><span>'+escH(s)+'</span><span>'+supAgg[s]+'件</span></div>'; });
-  if (supKeys.length>15) h += '<div style="font-size:11px;color:var(--txt3)">他 '+(supKeys.length-15)+' 種</div>';
-  if (!supKeys.length) h += '<div style="font-size:11px;color:var(--txt3)">使用物品の記録がありません</div>';
-  h += '<div style="font-size:10px;color:var(--txt3);margin-top:4px">※ 使用物品はオペのみ記録されます（カテには入力欄がありません）</div>';
+  supKeys.slice(0,15).forEach(function(s){ h += '<div class="sum-card-row"><span class="lbl">'+escH(s)+'</span><span class="n">'+supAgg[s]+'件</span></div>'; });
+  if (!supKeys.length) h += '<div class="sum-card-empty">使用物品の記録がありません</div>';
+  if (supKeys.length>15) h += '<div class="sum-card-note">他 '+(supKeys.length-15)+' 種</div>';
+  h += '<div class="sum-card-note">※ 使用物品はオペのみ記録されます（カテには入力欄がありません）</div>';
   h += '</div>';
 
   h += '</div>';
@@ -4958,22 +5016,21 @@ function renderOpsDetailBody(allRows) {
     return null;
   };
   var rowHTML = function(r){
-    var over = '<tr style="cursor:pointer" onclick="openFromAT(\''+r.ds+'\')">'
+    return '<tr class="clickable" onclick="openFromAT(\''+r.ds+'\')">'
       + '<td style="white-space:nowrap">'+fmtJ(r.ds).slice(5)+'</td>'
-      + '<td>'+(r.kind==='オペ'?'🔪':'🫀')+r.kind+'</td>'
+      + '<td style="white-space:nowrap">'+(r.kind==='オペ'?'🔪':'🫀')+r.kind+'</td>'
       + '<td>'+escH(r.dept)+'</td>'
       + '<td>'+escH(r.cat)+'</td>'
       + '<td>'+escH(r.name)+'</td>'
-      + '<td style="text-align:center">'+(r.startMin!=null?schedMinToHM(r.startMin):'—')+'</td>'
-      + '<td style="text-align:center">'+(r.endMin!=null?schedMinToHM(r.endMin):'—')+'</td>'
-      + '<td style="text-align:center">'+opsDurLabel(r.dur)+'</td>'
-      + '<td>'+(r.staff.length?escH(r.staff.join('・')):'<span style="color:var(--txt3)">—</span>')+'</td>'
+      + '<td class="num">'+(r.startMin!=null?schedMinToHM(r.startMin):'<span class="muted">—</span>')+'</td>'
+      + '<td class="num">'+(r.endMin!=null?schedMinToHM(r.endMin):'<span class="muted">—</span>')+'</td>'
+      + '<td class="num">'+(r.dur!=null?opsDurLabel(r.dur):'<span class="muted">—</span>')+'</td>'
+      + '<td>'+(r.staff.length?escH(r.staff.join('・')):'<span class="muted">—</span>')+'</td>'
       + '<td>'+opsSupLabel(r.sup)+'</td>'
-      + '<td style="text-align:center">'+(r.done?'✅':'')+'</td>'
+      + '<td class="num">'+(r.done?'<span class="status-pill done">済</span>':'<span class="muted">—</span>')+'</td>'
       + '</tr>';
-    return over;
   };
-  h += '<div style="overflow-x:auto"><table class="spec-tbl ops-det-tbl" style="min-width:900px">';
+  h += '<div class="data-wrap"><table class="data-tbl ops-det-tbl" style="min-width:900px">';
   h += '<thead><tr><th>日付</th><th>種別</th><th>科</th><th>中カテ</th><th>術式/種別</th><th>入室</th><th>終了</th><th>所要</th><th>担当者</th><th>使用物品</th><th>状態</th></tr></thead><tbody>';
   if (f.group === 'none') {
     rows.forEach(function(r){ h += rowHTML(r); });
@@ -4981,7 +5038,7 @@ function renderOpsDetailBody(allRows) {
     var groups = {}, order = [];
     rows.forEach(function(r){ var g = groupOf(r); if(!groups[g]){groups[g]=[];order.push(g);} groups[g].push(r); });
     order.forEach(function(g){
-      h += '<tr><td colspan="11" style="background:var(--ac-bg);color:var(--ac);font-weight:700;font-size:11px">'+escH(g)+'（'+groups[g].length+'件）</td></tr>';
+      h += '<tr class="group-hd"><td colspan="11">'+escH(g)+'（'+groups[g].length+'件）</td></tr>';
       groups[g].forEach(function(r){ h += rowHTML(r); });
     });
   }
@@ -5009,10 +5066,10 @@ function renderOCSummary() {
   var totalDone   = rows.filter(function(r){return r.pg.ocData.done;}).length;
   var totalNenkyu = rows.filter(function(r){return r.pg.ocData.nenkyu;}).length;
   /* サマリーバッジ */
-  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center">';
-  h += '<span style="font-size:13px;font-weight:700">'+escH(rng.label)+'　OC集計</span>';
-  h += '<span style="background:var(--oc-bg);color:var(--oc);border:1px solid var(--oc-bdr);border-radius:8px;padding:2px 10px;font-size:12px">対応件数: '+totalDone+'/'+rows.length+'件</span>';
-  h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">年休取得: '+totalNenkyu+'件</span>';
+  h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+escH(rng.label)+'　OC集計</span></div>';
+  h += '<div class="sum-badges">';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--oc)"></span>対応件数 <b style="color:var(--oc)">'+totalDone+'</b>/'+rows.length+'件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--ac)"></span>年休取得 <b style="color:var(--ac)">'+totalNenkyu+'</b>件</span>';
   h += '</div>';
   /* 複数月にまたがるときは月別の内訳を先に出す（年間集計で日別だけだと読み取れないため） */
   if (rng.multi) {
@@ -5024,24 +5081,24 @@ function renderOCSummary() {
       p.n++; if (r.pg.ocData.done) p.done++; if (r.pg.ocData.nenkyu) p.nen++;
       var s = r.pg.ocData.staff || ''; if (s) p.staff[s] = (p.staff[s]||0)+1;
     });
-    h += '<div style="overflow-x:auto;margin-bottom:14px"><table class="spec-tbl" style="min-width:420px">';
+    h += '<div class="data-wrap" style="margin-bottom:14px"><table class="data-tbl" style="min-width:420px">';
     h += '<thead><tr><th style="width:90px">月</th><th style="width:90px">OC担当日数</th><th style="width:90px">対応件数</th><th style="width:80px">年休</th><th>担当者内訳</th></tr></thead><tbody>';
     mk.forEach(function(k){
       var p = per[k];
       var names = Object.keys(p.staff).sort(function(a,b){ return p.staff[b]-p.staff[a]; })
         .map(function(n){ return escH(n)+' '+p.staff[n]; }).join('、');
       h += '<tr><td style="white-space:nowrap"><strong>'+sumMonthLabel(k)+'</strong></td>'
-        + '<td style="text-align:center">'+p.n+'</td>'
-        + '<td style="text-align:center;font-weight:700;color:var(--oc)">'+p.done+'</td>'
-        + '<td style="text-align:center">'+(p.nen||'—')+'</td>'
+        + '<td class="num">'+p.n+'</td>'
+        + '<td class="num" style="font-weight:700;color:var(--oc)">'+p.done+'</td>'
+        + '<td class="num">'+(p.nen||'<span class="muted">—</span>')+'</td>'
         + '<td style="font-size:11px">'+names+'</td></tr>';
     });
-    h += '<tr style="background:var(--sur2);font-weight:700"><td>合計</td><td style="text-align:center">'+rows.length+'</td>'
-      + '<td style="text-align:center;color:var(--oc)">'+totalDone+'</td><td style="text-align:center">'+totalNenkyu+'</td><td></td></tr>';
+    h += '<tr class="total"><td>合計</td><td class="num">'+rows.length+'</td>'
+      + '<td class="num" style="color:var(--oc)">'+totalDone+'</td><td class="num">'+totalNenkyu+'</td><td></td></tr>';
     h += '</tbody></table></div>';
   }
   /* テーブル */
-  h += '<div style="overflow-x:auto"><table class="spec-tbl" style="min-width:520px">';
+  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:520px">';
   h += '<thead><tr><th style="width:'+(rng.multi?100:70)+'px">日付</th><th style="width:80px">担当者</th><th>備考</th><th style="width:80px">対応</th><th style="width:110px">対応時間</th><th style="width:70px">年休</th></tr></thead><tbody>';
   rows.forEach(function(r) {
     var oc = r.pg.ocData;
@@ -5053,12 +5110,12 @@ function renderOCSummary() {
     h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'</strong> '+WDL[w]+'</td>';
     h += '<td style="font-weight:700">'+escH(oc.staff||'')+'</td>';
     h += '<td style="white-space:pre-wrap;font-size:11px">'+escH(oc.note||'')+'</td>';
-    h += '<td style="text-align:center">'+(oc.done?'<span style="color:var(--oc);font-weight:700">✔ 対応</span>':'<span style="color:var(--txt3)">—</span>')+'</td>';
+    h += '<td class="num">'+(oc.done?'<span class="status-pill done">✔ 対応</span>':'<span class="muted">—</span>')+'</td>';
     var ocTimeStr = '';
     if (oc.startTime || oc.endTime) { ocTimeStr = (oc.startTime||'--:--') + '〜' + (oc.endTime||'--:--'); }
     else if (oc.time) { ocTimeStr = oc.time; }
     h += '<td style="font-size:12px;white-space:pre-wrap">'+escH(ocTimeStr)+'</td>';
-    h += '<td style="text-align:center">'+(oc.nenkyu?'<span style="color:var(--ac);font-weight:700">✔ 年休</span>':'<span style="color:var(--txt3)">—</span>')+'</td>';
+    h += '<td class="num">'+(oc.nenkyu?'<span style="color:var(--ac);font-weight:700">✔ 年休</span>':'<span class="muted">—</span>')+'</td>';
     h += '</tr>';
   });
   h += '</tbody></table></div>';
@@ -5109,14 +5166,17 @@ function renderOpsSummary() {
   });
 
   var ctl = sumCtlHTML('ops');
-  var toggle = '<div style="display:flex;gap:6px;margin-bottom:10px">'
-    + '<button class="btn btn-sm '+(_opsSumView==='day'?'btn-p':'btn-g')+'" onclick="setOpsSumView(\'day\')">📅 日別</button>'
-    + '<button class="btn btn-sm '+(_opsSumView==='detail'?'btn-p':'btn-g')+'" onclick="setOpsSumView(\'detail\')">📋 明細</button>'
+  var toggle = '<div class="sum-toolbar" style="margin-bottom:12px">'
+    + '<div class="seg-group">'
+    + '<button class="seg-btn'+(_opsSumView==='day'?' on':'')+'" onclick="setOpsSumView(\'day\')">📅 日別</button>'
+    + '<button class="seg-btn'+(_opsSumView==='detail'?' on':'')+'" onclick="setOpsSumView(\'detail\')">📋 明細</button>'
+    + '</div>'
+    + '<span class="sum-period-label">'+escH(rng.label)+'　業務集計</span>'
     + '</div>';
-  var badge = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">'
-    + '<span style="font-size:13px;font-weight:700">'+escH(rng.label)+'　業務集計</span>'
-    + [['🔪 オペ', totals.ope],['🫀 カテ', totals.cath],['🚶 6MW', totals.mw],['🌙 PSG', totals.psg],['➕ フリー', totals.free]].map(function(pair){
-        return '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">'+pair[0]+': '+pair[1]+'件</span>';
+  /* バッジ色は担当表の担当枠チップ（dutyColorFor）と同系色に揃え、画面をまたいだ一貫性を作る */
+  var badge = '<div class="sum-badges">'
+    + [['sum-ope','🔪 オペ', totals.ope],['sum-cath','🫀 カテ', totals.cath],['sum-mw','🚶 6MW', totals.mw],['sum-psg','🌙 PSG', totals.psg],['sum-free','➕ フリー', totals.free]].map(function(t){
+        return '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--'+t[0]+')"></span>'+t[1]+' <b style="color:var(--'+t[0]+')">'+t[2]+'</b>件</span>';
       }).join('')
     + '</div>';
   if (!rows.length) {
@@ -5165,7 +5225,8 @@ function renderOpsSummary() {
   /* 年表示では最大12グループ並ぶので、グループ幅に収まるようバー幅を詰める */
   var BG = GW < 40 ? 1 : 3;
   var BW = Math.max(2, Math.min(7, (GW * 0.8 - BG * 4) / 5));
-  var COLORS = ['#f0a030','#e05050','#4488dd','#8866cc','#33aa88'];
+  /* サマリーバッジ・担当表の担当枠チップと同じ色（--sum-* トークン）に揃える */
+  var COLORS = ['#1d4ed8','#be185d','#0e6e5e','#b45309','#0f766e'];
   var KEYS   = ['ope','cath','mw','psg','free'];
   var LABELS = ['OPE','カテ','6MW','PSG','フリー'];
 
@@ -5217,7 +5278,7 @@ function renderOpsSummary() {
   h += '</div>';
 
   /* テーブル */
-  h += '<div style="overflow-x:auto"><table class="spec-tbl" style="min-width:420px">';
+  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:420px">';
   h += '<thead><tr><th style="width:'+(rng.multi?100:70)+'px">日付</th><th style="width:70px">🔪 オペ</th><th style="width:70px">🫀 カテ</th><th style="width:70px">🚶 6MW</th><th style="width:70px">🌙 PSG</th><th style="width:60px">➕ フリー</th></tr></thead><tbody>';
 
   rows.forEach(function(r) {
@@ -5225,24 +5286,24 @@ function renderOpsSummary() {
     var pt = r.ds.split('-');
     var dn = rng.multi ? (parseInt(pt[1],10)+'/'+parseInt(pt[2],10)) : (parseInt(pt[2],10)+'日');
     var wdCls = w===0?'color:var(--rd)':w===6?'color:var(--ac)':'';
-    h += '<tr style="cursor:pointer" onclick="openFromAT(\''+r.ds+'\')">';
+    h += '<tr class="clickable" onclick="openFromAT(\''+r.ds+'\')">';
     h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'</strong> '+WDL[w]+'</td>';
-    h += '<td style="text-align:center">'+(r.opeN  ? '<strong>'+r.opeN+'</strong>'  : '<span style="color:var(--txt3)">—</span>')+'</td>';
-    h += '<td style="text-align:center">'+(r.cathN ? '<strong>'+r.cathN+'</strong>' : '<span style="color:var(--txt3)">—</span>')+'</td>';
-    h += '<td style="text-align:center">'+(r.mwN   ? '<strong>'+r.mwN+'</strong>'   : '<span style="color:var(--txt3)">—</span>')+'</td>';
-    h += '<td style="text-align:center">'+(r.psgN  ? '<strong>'+r.psgN+'</strong>'  : '<span style="color:var(--txt3)">—</span>')+'</td>';
-    h += '<td style="text-align:center">'+(r.freeN ? '<strong>'+r.freeN+'</strong>' : '<span style="color:var(--txt3)">—</span>')+'</td>';
+    h += '<td class="num">'+(r.opeN  ? '<strong>'+r.opeN+'</strong>'  : '<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.cathN ? '<strong>'+r.cathN+'</strong>' : '<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.mwN   ? '<strong>'+r.mwN+'</strong>'   : '<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.psgN  ? '<strong>'+r.psgN+'</strong>'  : '<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.freeN ? '<strong>'+r.freeN+'</strong>' : '<span class="muted">—</span>')+'</td>';
     h += '</tr>';
   });
 
   /* 合計行 */
-  h += '<tr style="background:var(--ac-bg);font-weight:700">';
+  h += '<tr class="total">';
   h += '<td>合計</td>';
-  h += '<td style="text-align:center">'+totals.ope+'</td>';
-  h += '<td style="text-align:center">'+totals.cath+'</td>';
-  h += '<td style="text-align:center">'+totals.mw+'</td>';
-  h += '<td style="text-align:center">'+totals.psg+'</td>';
-  h += '<td style="text-align:center">'+totals.free+'</td>';
+  h += '<td class="num">'+totals.ope+'</td>';
+  h += '<td class="num">'+totals.cath+'</td>';
+  h += '<td class="num">'+totals.mw+'</td>';
+  h += '<td class="num">'+totals.psg+'</td>';
+  h += '<td class="num">'+totals.free+'</td>';
   h += '</tr>';
   h += '</tbody></table></div>';
   h += '<div style="font-size:11px;color:var(--txt3);margin-top:8px">※ 行をクリックすると連絡表を開きます。オペ・カテは入力した術式/種別の行数、6MWは入力した件数、PSGは装着欄に入力があれば1件と集計しています。</div>';
@@ -5305,10 +5366,10 @@ function renderFairness() {
 
   var h = '';
   /* サマリー */
-  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
-  h += '<span style="font-size:13px;font-weight:700">'+asY+'年'+(asM+1)+'月　担当の公平性</span>';
-  h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">対象スタッフ: '+names.length+'人</span>';
-  h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">総割当: '+totalAll+'件</span>';
+  h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+asY+'年'+(asM+1)+'月　担当の公平性</span></div>';
+  h += '<div class="sum-badges">';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--ac)"></span>対象スタッフ <b style="color:var(--ac)">'+names.length+'</b>人</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--ac)"></span>総割当 <b style="color:var(--ac)">'+totalAll+'</b>件</span>';
   h += '</div>';
 
   /* 偏り警告 */
@@ -5323,7 +5384,7 @@ function renderFairness() {
   }
 
   /* テーブル */
-  h += '<div style="overflow-x:auto"><table class="spec-tbl" style="min-width:480px">';
+  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:480px">';
   h += '<thead><tr><th style="width:90px;text-align:left">スタッフ</th>';
   labelsOrder.forEach(function(lb){
     var warn = stats[lb].gap >= FAIR_GAP_WARN;
