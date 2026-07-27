@@ -434,6 +434,32 @@ Independent Firebase path (like `/board`), not part of the `D` object — the "5
 - Completed tasks are kept (not deleted) but rendered dimmed (`.task-card.st-done`, `opacity:.45`) and excluded from the staff load graph.
 - `taskPersist(id, t)` follows the optimistic-update pattern: mutate `_tasksData` + re-render immediately, then `fbDB.ref('/tasks/'+id).set(t)` (local/preview mode skips the Firebase write, cache-only, same as `postBoard`). On write failure the `.catch` rolls the cache back to the previous value and re-renders (`taskDelete` likewise restores the deleted entry) so the UI never shows a phantom saved/deleted state.
 - Listener setup/teardown mirrors `/board`: `fbDB.ref('/tasks').on('value', ...)` inside `fbInit()`'s `if (!dataListenerOn)` block; `fbDB.ref('/tasks').off()` plus `_tasksData={}; _taskView=null; _taskFilter='all';` on logout.
+- **Assignment notification**: `_doSaveTask()` calls `notifyTaskAssigned(name, t)` for each name in `asg` that is **not** already in the previous `assignees` and is **not** `taskSelfName()`. That helper resolves the name via `getUidByName()` and pushes to `/notifications/{uid}` through the existing `sendNotificationToUid()` (which also fires FCM + EmailJS). The recipient's `startNotifListener()` → `showNotifPopup()` shows it in real time, or on next login if they're offline. Staff with no linked account are silently skipped.
+
+### Private Memos (`/taskMemos/{uid}`)
+
+Self-only notes shown at the bottom of the task subtab. **Separate Firebase path from `/tasks`, and unlike task permissions this one IS rule-enforced**: `/taskMemos/$uid` grants read+write only when `auth.uid === $uid`, so no other user (admin included) can read them. Adding the RTDB rule is mandatory — without it the writes fail.
+
+```js
+/taskMemos/{uid}/{memoId} = { title, desc, status, due, ts, updatedTs, doneAt }
+```
+
+- No `assignees` and no `createdBy` — ownership is the path itself.
+- Cached in `_memosData`; listener ref kept in `_memoRef` (set in `fbInit()`'s `if (!dataListenerOn)` block, `.off()`'d and `_memosData={}` on logout so the next user never sees the previous user's memos).
+- `memoPersist` / `memoDelete` / `memoCycleStatus` mirror the task equivalents including the optimistic-update rollback. `memoCycleStatus` copies the object before mutating (the task-side bug that made rollback a no-op).
+- The modal is shared: `openTaskModal(id, isMemo)` hides the assignee block and swaps the store; `saveTaskFromModal(id, isMemo)` branches to `_doSaveMemo`. PHI detection still runs (blocking categories are refused, same as tasks).
+- Memo contents are **never** written to `/logs`.
+
+### Summary Period (OC集計 / 業務集計)
+
+`renderOCSummary()` and `renderOpsSummary()` no longer iterate the days of `asY/asM` directly. Both go through:
+
+- `_sumMode` (`'month'|'year'|'range'`), `_sumFrom`, `_sumTo` — module-level state shared by both subtabs.
+- `sumRange()` → `{from, to, label, multi}` (`multi` = spans more than one calendar month).
+- `sumDsList()` → existing `D.pages` keys inside the range, sorted (string compare works for `YYYY-MM-DD`).
+- `sumCtlHTML(pfx)` renders the 月／年／期間指定 switcher; `pfx` (`'oc'`/`'ops'`) keeps the date-input ids unique because both subtabs are in the DOM at once.
+
+When `multi` is true both renderers add a per-month breakdown, the ops trend graph buckets by month instead of week (bar width shrinks via `BW`/`BG` so 12 groups still fit), and date cells show `M/D` instead of `D日`. `exportOcCsv()` / `exportOpsCsv()` follow the same range and name the file via `sumFileLabel()`.
 
 ### Memo Move-to-Another-Day
 
