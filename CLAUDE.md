@@ -339,12 +339,24 @@ All class names are abbreviated:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
 - `cath_note` — 備考
 
-**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`exportOpsCsv()` の4箇所すべてでこの共通ヘルパーを使用する。
+**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品、担当者、終了時刻など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`opsDetailRows()`・`exportOpsCsv()` すべてでこの共通ヘルパーを使用する。
 
-**業務終了フラグ**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
-- `opsToggleDone(items, idx)` — トグル時に終了行を配列末尾へ移動（解除時は未終了ブロックの末尾へ戻す）。データ自体の並びを変えるので全端末に同期される
+**業務終了フラグ・担当者・終了時刻**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
+- `opsToggleDone(items, idx)` — トグル時に終了行を配列末尾へ移動（解除時は未終了ブロックの末尾へ戻す）。終了にした瞬間、`item.endTime` が未設定なら現在時刻（0時からの分）を、`item.staff`（担当者名の配列）に誰もいなければ `opsSelfName()` で解決したログイン中スタッフ名を自動追加し `item.doneBy` にも記録する。取り消し時は `endTime`/`doneBy`/`staff` を全てクリアする（一部だけ残すと「隣の行を誤タップしただけで手動追加した担当者まで消えた」より分かりづらいと判断）。データ自体の並びを変えるので全端末に同期される
+- `item.staff` は行の「👤 担当者」行（常時表示、`buildItemMetaRows()` が Tree版・フラット版共通で描画）でチップの追加・削除が手動でも可能。候補は `opsStaffCandidates(ds)`（当日の `duties`/`extra_free`/`ocData.staff` を「本日の担当」、`D.stf` を「スタッフ」としてoptgroup分け）。Firebase の配列オブジェクト化対策として読み出しは必ず `opsItemStaff(it)` を通す
+- `item.endTime`（終了時刻、0時からの分）は `done || endTime != null` のときだけ「🏁 終了」行を表示し、`<input type="time">` で手動修正できる（`schedMinToHM`/`tabletHMToMin` を流用）。入室時間 `item.time` とは別物 — `item.time` は `'8:15'`/`'AMOC'`/`'PMOC'`/自由入力という予定を大づかみに入れる語彙で実時刻を表せないため、所要時間計算のために分単位で別途持たせている（`opsItemStartMin(it)` が入室時間を分に変換、表せない値は `null`）
 - `updateOpsCardDoneBadge(cardEl, items)` — 入力済み全行が終了ならカードタイトルに「✅ 本日終了」バッジ（`.ops-card-done-badge`）を表示
 - ヘッダーチップは終了数があると「🔪 オペ 2/3件終了」形式になり、全件終了で緑色+✅表示（`opsHeaderChips` の第6・7引数 `opeDone`/`cathDone`）
+
+**フリー業務カード**: `buildFreeCard(uid)` は本文 `ops['free_'+uid]`（単一文字列）に加え、`.ops-ttl` 内に業務名入力欄（`ops.freeNames[uid]`）を持つ。カードの走査（件数集計・削除）は必ず `opsFreeCards(pg)` / `opsFreeFilled(f)` を経由する — `ops` のキーを直接 `indexOf('free_')===0` で走査すると、`removeOpsCard()` でカードを消した後も本文が残って集計され続けるバグを再発させる（`opsFreeCards` は `pg.ops_cards` が配列ならそれを正として走査し、削除済みカードの残骸を数えない）。
+
+### 業務集計サブタブ（renderOpsSummary）
+
+`_opsSumView`（`'day'|'detail'`、既定 `'day'`）で日別ビュー（既存・週/月別グラフ＋日別テーブル・印刷対象）と明細ビューを切替。明細ビューは `opsDetailRows()`（期間内の全 `ope_items`/`cath_items` を `{ds,kind,dept,cat,name,startMin,endMin,dur,staff,sup,done}` に平坦化、`opsItemFilled` で採否を揃える）と `_opsDetFilter`（種別/科/担当者/使用物品/終了済/グルーピング）を `renderOpsDetailBody()` が描画。集計カードは科別・術式別TOP10・担当者別（所要時間の平均は入室と終了が両方揃った行のみ算入）・使用物品別（カテには使用物品欄が無いため常にオペのみ）の4枚。CSVは `exportOpsCsv()` が `_opsSumView` で `exportOpsDetailCsv()` に分岐する。
+
+### 担当表の色分け（dutyColorFor）
+
+担当枠の色はどこにも保存せず、`dutyColorFor(slot)` が呼ばれるたびに導出する（`DEF_DUTY_MASTER`/`D.dutyCfgMaster` に色を持たせると既存環境の保存済みデータに届かずマイグレーションが要るため）。既定枠（`slot_ope`〜`slot_late_free`）は `DUTY_COLOR_MAP` で旧 `.dc-*` と同じ色、カスタム枠は `id` の安定ハッシュで `DUTY_PALETTE` から選ぶ（並び順や `customDuties` の配列位置に依存させると同じ枠が日によって色が変わるため index は使わない）。凡例は静的HTMLではなく `renderAtLegend(adates)` が実際にその期間で使われている枠から生成し、`renderAT()` の早期return（連絡表が無い月）より前に呼ぶ。
 
 ### PSG外し Detection
 

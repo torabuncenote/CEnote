@@ -218,6 +218,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:4px;align-items:start}
 .ops-card{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:14px;box-shadow:var(--sh)}
 .ops-ttl{font-size:12px;font-weight:900;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px}
+.ops-free-name{flex:1;min-width:0;font-size:12px;font-weight:700;border:none;border-bottom:1px dashed var(--bdr);background:transparent;color:var(--txt1);padding:2px 0}
+.ops-free-name:focus{outline:none;border-bottom-color:var(--ac)}
+@media print{.ops-free-name{border:none;background:transparent}}
 .ops-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .ops-row:last-child{margin-bottom:0}
 .ops-lbl{font-size:12px;font-weight:700;color:var(--txt2);min-width:60px;flex-shrink:0}
@@ -238,6 +241,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-card-done-badge{display:inline-block;margin-left:8px;background:var(--gr);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:2px 8px;vertical-align:middle}
 .ops-done-btn.on{background:var(--gr);color:#fff}
 .ops-item-wrap.ops-item-done{opacity:.45;filter:grayscale(.6);transition:opacity .2s}
+.ops-meta-lbl{font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0}
+.ops-staff-row,.ops-end-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:2px 0 4px}
+.ops-staff-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:2px 4px 2px 8px}
+.ops-staff-chip-x{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:12px;padding:0 3px;line-height:1}
+.ops-staff-chip-x:hover{color:var(--rd)}
+.ops-staff-add{font-size:11px;border:1px dashed var(--bdr);border-radius:10px;padding:2px 8px;background:var(--sur);color:var(--txt2);cursor:pointer}
+.ops-end-time{font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:3px 6px;background:var(--sur2);color:var(--txt)}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
 .ops-add-btn:hover{background:var(--ac);color:#fff}
 /* ===== 階層マスタ ===== */
@@ -344,7 +354,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .atr{cursor:pointer}
 .atr:hover td{background:#f0f4ff!important}
 .atr:hover td.sc{background:#e4eafc!important}
-.dch{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.4;margin:1px}
+.dch{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.4;margin:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .dc-o{background:#dbeafe;color:#1d4ed8}
 .dc-os{background:#e0e7ff;color:#4338ca}
 .dc-c{background:#fce7f3;color:#be185d}
@@ -374,7 +384,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   #at-zoom-inner{zoom:1!important}
   .at{font-size:8px!important}
   .at th,.at td{padding:2px 3px!important;border:1px solid #ccc!important}
-  .dch{font-size:7px!important;padding:1px 3px!important}
+  .dch{font-size:7px!important;padding:1px 3px!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .at td,.at th{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .alg{display:flex!important} /* 凡例は担当表印刷でも見せる */
   .ph{display:block!important;font-size:12px;font-weight:700;margin-bottom:4px}
   body.printing-sub .ab{display:block!important;margin-top:0!important;height:auto!important}
   body.printing-sub .main{display:none!important}
@@ -388,6 +400,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   body[data-print-sub="oc"] #subpane-oc{display:block!important}
   body[data-print-sub="ops"] #subpane-ops{display:block!important}
   body[data-print-sub="fair"] #subpane-fair{display:block!important}
+  .ops-det-tbl tr{page-break-inside:avoid}
   @page{margin:10mm;size:A4 landscape}
 }
 @media(max-width:768px){
@@ -1291,16 +1304,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
       </div>
       <!-- 担当表 -->
       <div id="subpane-at">
-        <div class="alg">
-          <span style="font-weight:700;color:var(--txt2)">凡例：</span>
-          <div class="ali"><span class="dch dc-o">OPE</span></div>
-          <div class="ali"><span class="dch dc-os">OPEサブ</span></div>
-          <div class="ali"><span class="dch dc-c">カテ</span></div>
-          <div class="ali"><span class="dch dc-cs">カテサブ</span></div>
-          <div class="ali"><span class="dch dc-w">病棟外回り</span></div>
-          <div class="ali"><span class="dch dc-dv">機器管理</span></div>
-          <div class="ali" style="color:var(--txt3);font-size:11px">🔴左線=未完了　🔵左線=完了</div>
-        </div>
+        <div class="alg" id="at-legend"></div>
         <div class="at-zoom-bar">
           <button class="btn btn-g btn-sm" onclick="setAtZoom(_atZoom-0.1)" title="縮小">🔍−</button>
           <button class="btn btn-g btn-sm" onclick="setAtZoom(1)" title="等倍">等倍</button>
@@ -1530,6 +1534,45 @@ var LATE_DUTY_SLOTS = [
   {id:'slot_late_cath', icon:'🌙', label:'遅出カテ', checks:[], freeRole:false},
   {id:'slot_late_free', icon:'🌙', label:'遅出フリー', checks:[], freeRole:true}
 ];
+/* ===== 担当枠の色 =====
+   かつては固定配列 DUTIES（cls:'dc-o' 等）から色クラスを取っていたが、担当枠が
+   カスタマイズ可能な dutyCfgMaster/dutyCfg（cls を持たない）へ移行した際に色の
+   受け渡しが落ちた。DEF_DUTY_MASTER 自体に色を持たせても、既存環境で既に保存済みの
+   D.dutyCfgMaster には届かない（マイグレーションが要る）ため、保存はせず常に
+   導出する。既定枠は旧 .dc-* と同じ色、カスタム枠は id の安定ハッシュでパレットから
+   選ぶ（並び順や customDuties の配列位置に依存させると同じ枠が日によって色が変わる）。 */
+var DUTY_COLOR_MAP = {
+  slot_ope:     {bg:'#dbeafe',fg:'#1d4ed8'}, /* 旧 .dc-o  */
+  slot_sub:     {bg:'#e0e7ff',fg:'#4338ca'}, /* 旧 .dc-os */
+  slot_cath:    {bg:'#fce7f3',fg:'#be185d'}, /* 旧 .dc-c  */
+  slot_cathsub: {bg:'#fdf2f8',fg:'#9d174d'}, /* 旧 .dc-cs */
+  slot_ward:    {bg:'#d1fae5',fg:'#065f46'}, /* 旧 .dc-w  */
+  slot_device:  {bg:'#fef3c7',fg:'#92400e'}, /* 旧 .dc-dv */
+  slot_free:        {bg:'#ccfbf1',fg:'#0f766e'},
+  slot_late_ope:    {bg:'#ede9fe',fg:'#5b21b6'},
+  slot_late_cath:   {bg:'#f3e8ff',fg:'#7e22ce'},
+  slot_late_free:   {bg:'#fae8ff',fg:'#a21caf'},
+  __free:  {bg:'var(--sur2)', fg:'var(--txt2)'}, /* 当日勤務者一覧の「フリー」= extra_free */
+  __oc:    {bg:'#fff7ed', fg:'#b45309'}
+};
+var DUTY_PALETTE = [
+  {bg:'#e0f2fe',fg:'#0369a1'}, {bg:'#fee2e2',fg:'#b91c1c'}, {bg:'#ecfccb',fg:'#4d7c0f'},
+  {bg:'#fef9c3',fg:'#854d0e'}, {bg:'#e0e7ff',fg:'#3730a3'}, {bg:'#fce7f3',fg:'#9d174d'},
+  {bg:'#ccfbf1',fg:'#115e59'}, {bg:'#fde68a',fg:'#92400e'}
+];
+function dutyColorFor(slot) {
+  if (!slot) return DUTY_PALETTE[0];
+  if (slot.color && slot.color.bg) return slot.color; /* 将来、管理者が個別に色指定できるようにする場合の受け口 */
+  if (DUTY_COLOR_MAP[slot.id]) return DUTY_COLOR_MAP[slot.id];
+  var s = String(slot.id || slot.label || ''), h = 0;
+  for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
+  return DUTY_PALETTE[h % DUTY_PALETTE.length];
+}
+function dutyChipStyle(slot) {
+  var c = dutyColorFor(slot);
+  return 'background:'+c.bg+';color:'+c.fg+';border:1px solid '+c.fg+';padding:1px 5px;border-radius:8px;font-size:10px;white-space:nowrap';
+}
+
 function ensureLateDutySlots() {
   function addMissing(arr){
     if(!Array.isArray(arr)) return;
@@ -3631,8 +3674,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/07/27-32';
+var APP_VERSION = 'Ver.2026/07/28-33';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/07/28-33', date:'2026-07-28', title:'業務集計の明細化と担当表の色分け修正', items:[
+    {t:'new', d:'📈 業務集計に「明細」ビューを追加。期間内のオペ・カテを1件ずつ、科・術式・入室〜終了時刻・担当者・使用物品つきで一覧できます。科／担当者／使用物品での絞り込みや、科ごと・日付ごと・担当者ごとのグルーピング、科別/術式別/担当者別/物品別の集計カード、専用のCSV出力も追加しました'},
+    {t:'new', d:'🔪 オペ・カテの各行に担当者を記録できるように。「終了」ボタンを押すと押した人と時刻が自動で入り、あとから担当者の追加・削除や時刻の修正もできます（終了を取り消すと担当者・時刻もあわせてクリアされます）'},
+    {t:'imp', d:'➕ フリー業務にも業務名を付けられるように。集計のバッジ・グラフにもフリー業務が表示されるようになりました'},
+    {t:'fix', d:'📊 担当表のチップが担当枠の種類によらず全て同じ青色になっていた不具合を修正。凡例は実際に使われている担当枠から自動生成し、印刷でも色が出るようにしました'},
+    {t:'fix', d:'➕ フリー業務のカードを削除しても本文が残り、集計にカウントされ続けていた不具合を修正'}
+  ]},
   { ver:'Ver.2026/07/27-32', date:'2026-07-27', title:'タスク通知・自分専用メモ・集計の期間指定', items:[
     {t:'new', d:'📋 タスクを他のスタッフに割り当てると、相手にポップアップでお知らせが届くようになりました。ログイン中ならその場で、ログアウト中なら次にログインしたときに表示されます'},
     {t:'imp', d:'📋 自分自身に割り当てた場合や、もともと担当だった人にはお知らせは飛びません（担当者を新しく追加したときだけ通知）'},
@@ -4653,6 +4703,12 @@ function removeOpsCard(ds, cid) {
       }
     }
   }
+  /* フリーカードを消したら本文・業務名も消す（残すと削除済みカードの残骸が集計され続けるため） */
+  if (cid.indexOf('free_') === 0 && dat.ops) {
+    var uid = cid.slice(5);
+    delete dat.ops['free_'+uid];
+    if (dat.ops.freeNames) delete dat.ops.freeNames[uid];
+  }
   renderPage(ds); saveD(); /* renderPage先行でFirebaseエコー前に正しい画面を表示 */
 }
 
@@ -4746,6 +4802,193 @@ function sumMonthKeys(dsList) {
   return out;
 }
 function sumMonthLabel(ym) { var p = ym.split('-'); return p[0]+'/'+parseInt(p[1],10); }
+
+/* ===== 業務集計：明細ビュー =====
+   日別テーブル（既存・一望用途・印刷対象）とは切替式で併存させる。
+   既定は 'day'。フィルタ状態は明細ビューを開いている間だけ意味を持つが、
+   タブを行き来しても条件を覚えていた方が使いやすいのでモジュール変数に保持する。 */
+var _opsSumView = 'day'; /* 'day' | 'detail' */
+var _opsDetFilter = { kind:'all', dept:'', staff:'', sup:'', doneOnly:false, group:'none' };
+function setOpsSumView(v) { _opsSumView = v; renderOpsSummary(); }
+function setOpsDetFilter(key, val) { _opsDetFilter[key] = val; renderOpsSummary(); }
+
+/* 期間内の全オペ/カテ行を1件ずつ平坦化する。行の採否は opsItemFilled() をそのまま使い、
+   サマリーバッジ・日別テーブルの母数と一致させる（バッジ9件・明細10行のような食い違いを防ぐ）。 */
+function opsDetailRows() {
+  var out = [];
+  sumDsList().forEach(function(ds){
+    var pg = D.pages[ds];
+    if (!pg || !pg.ops) return;
+    [['ope_items','オペ'], ['cath_items','カテ']].forEach(function(pair){
+      var key = pair[0], kind = pair[1];
+      (pg.ops[key] || []).forEach(function(it){
+        if (!opsItemFilled(it)) return;
+        var dept = (it.dept && it.dept !== '__free__') ? it.dept : '（未分類）';
+        var name = it.sel || it.txt || '（無題）';
+        var startMin = opsItemStartMin(it);
+        var endMin = it.endTime != null ? it.endTime : null;
+        var dur = (startMin != null && endMin != null && endMin >= startMin) ? (endMin - startMin) : null;
+        out.push({
+          ds: ds, kind: kind, dept: dept, cat: it.cat || '', name: name,
+          startMin: startMin, endMin: endMin, dur: dur,
+          staff: opsItemStaff(it), sup: opsItemSup(it), done: !!it.done
+        });
+      });
+    });
+  });
+  out.sort(function(a,b){
+    if (a.ds !== b.ds) return a.ds < b.ds ? -1 : 1;
+    var as = a.startMin==null ? 9999 : a.startMin, bs = b.startMin==null ? 9999 : b.startMin;
+    return as - bs;
+  });
+  return out;
+}
+function opsDetailFiltered(rows) {
+  var f = _opsDetFilter;
+  return rows.filter(function(r){
+    if (f.kind !== 'all' && r.kind !== f.kind) return false;
+    if (f.dept && r.dept !== f.dept) return false;
+    if (f.staff && r.staff.indexOf(f.staff) === -1) return false;
+    if (f.sup && r.sup.indexOf(f.sup) === -1) return false;
+    if (f.doneOnly && !r.done) return false;
+    return true;
+  });
+}
+/* フィルタの選択肢を「実データに出現したものだけ・件数付き」で作るための頻度集計 */
+function opsFreqMap(rows, keyFn) {
+  var m = {};
+  rows.forEach(function(r){
+    var v = keyFn(r);
+    (Array.isArray(v) ? v : [v]).forEach(function(x){ if (x) m[x] = (m[x]||0) + 1; });
+  });
+  return m;
+}
+function opsFreqSortedKeys(m) { return Object.keys(m).sort(function(a,b){ return m[b]-m[a]; }); }
+function opsDurLabel(min) { return min == null ? '—' : (min >= 60 ? Math.floor(min/60)+'時間'+(min%60?(min%60)+'分':'') : min+'分'); }
+function opsSupLabel(sup) {
+  if (!sup.length) return '—';
+  if (sup.length <= 3) return escH(sup.join('、'));
+  return '<span title="'+escH(sup.join('、'))+'">'+escH(sup.slice(0,3).join('、'))+' 他'+(sup.length-3)+'件</span>';
+}
+
+function renderOpsDetailBody(allRows) {
+  var f = _opsDetFilter;
+  var rows = opsDetailFiltered(allRows);
+  var deptFreq = opsFreqMap(allRows, function(r){ return r.dept; });
+  var staffFreq = opsFreqMap(allRows, function(r){ return r.staff; });
+  var supFreq = opsFreqMap(allRows, function(r){ return r.sup; });
+
+  var h = '';
+  /* フィルタ行 */
+  h += '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:8px;background:var(--sur);border:1px solid var(--bdr);border-radius:8px">';
+  [['all','全件'],['オペ','🔪オペ'],['カテ','🫀カテ']].forEach(function(c){
+    h += '<button class="btn btn-sm '+(f.kind===c[0]?'btn-p':'btn-g')+'" style="font-size:11px" onclick="setOpsDetFilter(\'kind\',\''+c[0]+'\')">'+c[1]+'</button>';
+  });
+  h += '<select class="ds2" style="width:auto;font-size:11px" onchange="setOpsDetFilter(\'dept\',this.value)">';
+  h += '<option value="">科：すべて</option>';
+  opsFreqSortedKeys(deptFreq).forEach(function(d){ h += '<option value="'+escH(d)+'"'+(f.dept===d?' selected':'')+'>'+escH(d)+' ('+deptFreq[d]+')</option>'; });
+  h += '</select>';
+  h += '<select class="ds2" style="width:auto;font-size:11px" onchange="setOpsDetFilter(\'staff\',this.value)">';
+  h += '<option value="">担当者：すべて</option>';
+  opsFreqSortedKeys(staffFreq).forEach(function(n){ h += '<option value="'+escH(n)+'"'+(f.staff===n?' selected':'')+'>'+escH(n)+' ('+staffFreq[n]+')</option>'; });
+  h += '</select>';
+  h += '<select class="ds2" style="width:auto;font-size:11px" onchange="setOpsDetFilter(\'sup\',this.value)">';
+  h += '<option value="">使用物品：すべて</option>';
+  opsFreqSortedKeys(supFreq).forEach(function(s){ h += '<option value="'+escH(s)+'"'+(f.sup===s?' selected':'')+'>'+escH(s)+' ('+supFreq[s]+')</option>'; });
+  h += '</select>';
+  h += '<label style="font-size:11px;display:flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" '+(f.doneOnly?'checked':'')+' onchange="setOpsDetFilter(\'doneOnly\',this.checked)">終了済のみ</label>';
+  h += '<select class="ds2" style="width:auto;font-size:11px;margin-left:auto" onchange="setOpsDetFilter(\'group\',this.value)">';
+  [['none','グルーピング：なし'],['dept','科ごと'],['date','日付ごと'],['staff','担当者ごと']].forEach(function(g){
+    h += '<option value="'+g[0]+'"'+(f.group===g[0]?' selected':'')+'>'+g[1]+'</option>';
+  });
+  h += '</select>';
+  if (f.kind!=='all'||f.dept||f.staff||f.sup||f.doneOnly||f.group!=='none') {
+    h += '<button class="btn btn-g btn-sm" style="font-size:11px" onclick="_opsDetFilter={kind:\'all\',dept:\'\',staff:\'\',sup:\'\',doneOnly:false,group:\'none\'};renderOpsSummary();">✕ 条件クリア</button>';
+  }
+  h += '</div>';
+
+  if (!rows.length) {
+    return h + '<div class="pool-empty" style="padding:20px 0">条件に一致する記録がありません</div>';
+  }
+
+  /* 集計カード4枚 */
+  var deptAgg = {}; rows.forEach(function(r){ if(!deptAgg[r.dept]) deptAgg[r.dept]={ope:0,cath:0}; deptAgg[r.dept][r.kind==='オペ'?'ope':'cath']++; });
+  var nameAgg = {}; rows.forEach(function(r){ var k=r.dept+' > '+r.name; nameAgg[k]=(nameAgg[k]||0)+1; });
+  var staffAgg = {}; rows.forEach(function(r){ r.staff.forEach(function(n){ if(!staffAgg[n]) staffAgg[n]={n:0,dur:0,durN:0}; staffAgg[n].n++; if(r.dur!=null){staffAgg[n].dur+=r.dur;staffAgg[n].durN++;} }); });
+  var supAgg = {}; rows.forEach(function(r){ r.sup.forEach(function(s){ supAgg[s]=(supAgg[s]||0)+1; }); });
+
+  h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px">';
+
+  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">🏥 科別</div>';
+  Object.keys(deptAgg).sort(function(a,b){ return (deptAgg[b].ope+deptAgg[b].cath)-(deptAgg[a].ope+deptAgg[a].cath); }).forEach(function(d){
+    var a=deptAgg[d]; h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0"><span>'+escH(d)+'</span><span>オペ'+a.ope+'・カテ'+a.cath+'（計'+(a.ope+a.cath)+'）</span></div>';
+  });
+  h += '</div>';
+
+  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">🔪 術式別 TOP10</div>';
+  var nameKeys = Object.keys(nameAgg).sort(function(a,b){ return nameAgg[b]-nameAgg[a]; });
+  nameKeys.slice(0,10).forEach(function(k){ h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+escH(k)+'</span><span style="flex-shrink:0;margin-left:6px">'+nameAgg[k]+'件</span></div>'; });
+  if (nameKeys.length>10) h += '<div style="font-size:11px;color:var(--txt3)">他 '+(nameKeys.length-10)+' 種</div>';
+  h += '</div>';
+
+  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">👤 担当者別</div>';
+  Object.keys(staffAgg).sort(function(a,b){ return staffAgg[b].n-staffAgg[a].n; }).forEach(function(n){
+    var a=staffAgg[n], avg = a.durN ? Math.round(a.dur/a.durN) : null;
+    h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0"><span>'+escH(n)+'</span><span>'+a.n+'件'+(avg!=null?'・平均'+opsDurLabel(avg):'')+'</span></div>';
+  });
+  if (!Object.keys(staffAgg).length) h += '<div style="font-size:11px;color:var(--txt3)">担当者の記録がありません</div>';
+  h += '<div style="font-size:10px;color:var(--txt3);margin-top:4px">※ 所要時間は入室時間と終了時刻が両方ある行のみ算入</div>';
+  h += '</div>';
+
+  h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px"><div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">🧰 使用物品別</div>';
+  var supKeys = Object.keys(supAgg).sort(function(a,b){ return supAgg[b]-supAgg[a]; });
+  supKeys.slice(0,15).forEach(function(s){ h += '<div style="font-size:12px;display:flex;justify-content:space-between;padding:2px 0"><span>'+escH(s)+'</span><span>'+supAgg[s]+'件</span></div>'; });
+  if (supKeys.length>15) h += '<div style="font-size:11px;color:var(--txt3)">他 '+(supKeys.length-15)+' 種</div>';
+  if (!supKeys.length) h += '<div style="font-size:11px;color:var(--txt3)">使用物品の記録がありません</div>';
+  h += '<div style="font-size:10px;color:var(--txt3);margin-top:4px">※ 使用物品はオペのみ記録されます（カテには入力欄がありません）</div>';
+  h += '</div>';
+
+  h += '</div>';
+
+  /* 明細テーブル（グルーピングありなら見出し行を挟む） */
+  var groupOf = function(r){
+    if (f.group==='dept') return r.dept;
+    if (f.group==='date') return fmtJ(r.ds);
+    if (f.group==='staff') return r.staff.length ? r.staff.join('・') : '（担当者未記録）';
+    return null;
+  };
+  var rowHTML = function(r){
+    var over = '<tr style="cursor:pointer" onclick="openFromAT(\''+r.ds+'\')">'
+      + '<td style="white-space:nowrap">'+fmtJ(r.ds).slice(5)+'</td>'
+      + '<td>'+(r.kind==='オペ'?'🔪':'🫀')+r.kind+'</td>'
+      + '<td>'+escH(r.dept)+'</td>'
+      + '<td>'+escH(r.cat)+'</td>'
+      + '<td>'+escH(r.name)+'</td>'
+      + '<td style="text-align:center">'+(r.startMin!=null?schedMinToHM(r.startMin):'—')+'</td>'
+      + '<td style="text-align:center">'+(r.endMin!=null?schedMinToHM(r.endMin):'—')+'</td>'
+      + '<td style="text-align:center">'+opsDurLabel(r.dur)+'</td>'
+      + '<td>'+(r.staff.length?escH(r.staff.join('・')):'<span style="color:var(--txt3)">—</span>')+'</td>'
+      + '<td>'+opsSupLabel(r.sup)+'</td>'
+      + '<td style="text-align:center">'+(r.done?'✅':'')+'</td>'
+      + '</tr>';
+    return over;
+  };
+  h += '<div style="overflow-x:auto"><table class="spec-tbl ops-det-tbl" style="min-width:900px">';
+  h += '<thead><tr><th>日付</th><th>種別</th><th>科</th><th>中カテ</th><th>術式/種別</th><th>入室</th><th>終了</th><th>所要</th><th>担当者</th><th>使用物品</th><th>状態</th></tr></thead><tbody>';
+  if (f.group === 'none') {
+    rows.forEach(function(r){ h += rowHTML(r); });
+  } else {
+    var groups = {}, order = [];
+    rows.forEach(function(r){ var g = groupOf(r); if(!groups[g]){groups[g]=[];order.push(g);} groups[g].push(r); });
+    order.forEach(function(g){
+      h += '<tr><td colspan="11" style="background:var(--ac-bg);color:var(--ac);font-weight:700;font-size:11px">'+escH(g)+'（'+groups[g].length+'件）</td></tr>';
+      groups[g].forEach(function(r){ h += rowHTML(r); });
+    });
+  }
+  h += '</tbody></table></div>';
+  h += '<div style="font-size:11px;color:var(--txt3);margin-top:8px">※ 行をクリックすると連絡表を開きます。件数が多い期間の印刷は日別ビューを推奨します。</div>';
+  return h;
+}
 
 function renderOCSummary() {
   var el = document.getElementById('oc-sum-body');
@@ -4852,8 +5095,8 @@ function renderOpsSummary() {
     if (ops.mw_n) { mwN = parseInt(ops.mw_n)||0; if(mwN) hasAny=true; }
     /* PSG：装着欄に入力があれば1件（外しはカウントしない） */
     if (ops.psg_on) { psgN = 1; hasAny=true; }
-    /* フリー業務：free_* キーの数 */
-    Object.keys(ops).forEach(function(k){ if(k.indexOf('free_')===0 && ops[k]){ freeN++; hasAny=true; } });
+    /* フリー業務：削除済みカードの残骸を数えないよう opsFreeCards() 経由で走査する */
+    opsFreeCards(pg).forEach(function(f){ if(opsFreeFilled(f)){ freeN++; hasAny=true; } });
 
     if (!hasAny && (!cards || !cards.length)) return; /* 業務なし日はスキップ */
 
@@ -4866,8 +5109,22 @@ function renderOpsSummary() {
   });
 
   var ctl = sumCtlHTML('ops');
+  var toggle = '<div style="display:flex;gap:6px;margin-bottom:10px">'
+    + '<button class="btn btn-sm '+(_opsSumView==='day'?'btn-p':'btn-g')+'" onclick="setOpsSumView(\'day\')">📅 日別</button>'
+    + '<button class="btn btn-sm '+(_opsSumView==='detail'?'btn-p':'btn-g')+'" onclick="setOpsSumView(\'detail\')">📋 明細</button>'
+    + '</div>';
+  var badge = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">'
+    + '<span style="font-size:13px;font-weight:700">'+escH(rng.label)+'　業務集計</span>'
+    + [['🔪 オペ', totals.ope],['🫀 カテ', totals.cath],['🚶 6MW', totals.mw],['🌙 PSG', totals.psg],['➕ フリー', totals.free]].map(function(pair){
+        return '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">'+pair[0]+': '+pair[1]+'件</span>';
+      }).join('')
+    + '</div>';
   if (!rows.length) {
-    el.innerHTML = ctl + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'に業務記録がありません</div>';
+    el.innerHTML = ctl + toggle + badge + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'に業務記録がありません</div>';
+    return;
+  }
+  if (_opsSumView === 'detail') {
+    el.innerHTML = ctl + toggle + badge + renderOpsDetailBody(opsDetailRows());
     return;
   }
 
@@ -4878,10 +5135,10 @@ function renderOpsSummary() {
     var mkeys = sumMonthKeys(rows.map(function(r){ return r.ds; }));
     weeks = mkeys.map(function(k){ return {label: sumMonthLabel(k), ym: k}; });
     wkTotals = weeks.map(function(w){
-      var t = {ope:0,cath:0,mw:0,psg:0};
+      var t = {ope:0,cath:0,mw:0,psg:0,free:0};
       rows.forEach(function(r){
         if (r.ds.slice(0,7) !== w.ym) return;
-        t.ope+=r.opeN; t.cath+=r.cathN; t.mw+=r.mwN; t.psg+=r.psgN;
+        t.ope+=r.opeN; t.cath+=r.cathN; t.mw+=r.mwN; t.psg+=r.psgN; t.free+=r.freeN;
       });
       return t;
     });
@@ -4890,27 +5147,27 @@ function renderOpsSummary() {
     var lastDay = new Date(asY, asM+1, 0).getDate();
     if (lastDay > 28) weeks.push({label:'第5週',days:[29,lastDay]});
     wkTotals = weeks.map(function(w){
-      var t = {ope:0,cath:0,mw:0,psg:0};
+      var t = {ope:0,cath:0,mw:0,psg:0,free:0};
       rows.forEach(function(r){
         var dn = parseInt(r.ds.split('-')[2]);
-        if (dn >= w.days[0] && dn <= w.days[1]) { t.ope+=r.opeN; t.cath+=r.cathN; t.mw+=r.mwN; t.psg+=r.psgN; }
+        if (dn >= w.days[0] && dn <= w.days[1]) { t.ope+=r.opeN; t.cath+=r.cathN; t.mw+=r.mwN; t.psg+=r.psgN; t.free+=r.freeN; }
       });
       return t;
     });
   }
 
   var maxVal = 1;
-  wkTotals.forEach(function(t){ maxVal = Math.max(maxVal, t.ope, t.cath, t.mw, t.psg); });
+  wkTotals.forEach(function(t){ maxVal = Math.max(maxVal, t.ope, t.cath, t.mw, t.psg, t.free); });
 
   /* SVG グラフ: viewBox 400×130, 内部チャートエリア 340×80 (margin-left:40, top:10, bottom:30) */
   var ML=40, MT=10, CW=340, CH=80;
   var GW = CW / weeks.length; /* group width per week */
   /* 年表示では最大12グループ並ぶので、グループ幅に収まるようバー幅を詰める */
   var BG = GW < 40 ? 1 : 3;
-  var BW = Math.max(2, Math.min(7, (GW * 0.8 - BG * 3) / 4));
-  var COLORS = ['#f0a030','#e05050','#4488dd','#8866cc'];
-  var KEYS   = ['ope','cath','mw','psg'];
-  var LABELS = ['OPE','カテ','6MW','PSG'];
+  var BW = Math.max(2, Math.min(7, (GW * 0.8 - BG * 4) / 5));
+  var COLORS = ['#f0a030','#e05050','#4488dd','#8866cc','#33aa88'];
+  var KEYS   = ['ope','cath','mw','psg','free'];
+  var LABELS = ['OPE','カテ','6MW','PSG','フリー'];
 
   var svg = '<svg viewBox="0 0 400 130" style="width:100%;max-width:500px;display:block;margin:0 auto 12px" xmlns="http://www.w3.org/2000/svg">';
 
@@ -4925,9 +5182,9 @@ function renderOpsSummary() {
   svg += '<line x1="'+ML+'" y1="'+(MT+CH)+'" x2="'+(ML+CW)+'" y2="'+(MT+CH)+'" stroke="#bbb" stroke-width="1"/>';
 
   /* バー */
-  var groupW4 = BW * 4 + BG * 3;
+  var groupW5 = BW * 5 + BG * 4;
   wkTotals.forEach(function(t, wi){
-    var gx = ML + wi * GW + (GW - groupW4) / 2;
+    var gx = ML + wi * GW + (GW - groupW5) / 2;
     KEYS.forEach(function(k, ki){
       var v = t[k];
       if (!v) return;
@@ -4943,22 +5200,15 @@ function renderOpsSummary() {
     svg += '<text x="'+lx+'" y="'+(MT+CH+12)+'" font-size="'+(GW<40?7:9)+'" text-anchor="middle" fill="#666">'+escH(weeks[wi].label)+'</text>';
   });
 
-  /* 凡例 */
+  /* 凡例（5系列になった分、間隔を詰める） */
   var legX = ML, legY = MT + CH + 24;
   KEYS.forEach(function(k, ki){
-    svg += '<rect x="'+(legX+ki*72)+'" y="'+(legY-5)+'" width="8" height="8" fill="'+COLORS[ki]+'" rx="1"/>';
-    svg += '<text x="'+(legX+ki*72+10)+'" y="'+legY+'" font-size="9" fill="#666">'+LABELS[ki]+'</text>';
+    svg += '<rect x="'+(legX+ki*58)+'" y="'+(legY-5)+'" width="8" height="8" fill="'+COLORS[ki]+'" rx="1"/>';
+    svg += '<text x="'+(legX+ki*58+10)+'" y="'+legY+'" font-size="9" fill="#666">'+LABELS[ki]+'</text>';
   });
   svg += '</svg>';
 
-  var h = ctl;
-  /* サマリーバッジ */
-  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
-  h += '<span style="font-size:13px;font-weight:700">'+escH(rng.label)+'　業務集計</span>';
-  [['🔪 オペ', totals.ope],['🫀 カテ', totals.cath],['🚶 6MW', totals.mw],['🌙 PSG', totals.psg]].forEach(function(pair){
-    h += '<span style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:8px;padding:2px 10px;font-size:12px">'+pair[0]+': '+pair[1]+'件</span>';
-  });
-  h += '</div>';
+  var h = ctl + toggle + badge;
 
   /* 週別グラフ */
   h += '<div style="background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:10px 8px;margin-bottom:12px">';
@@ -7395,12 +7645,103 @@ function opsItemFilled(it){
   if (it.dept && it.dept !== '__free__') return true; /* __free__選択のみ（未入力）は除外 */
   if (it.time || it.timeTxt || it.order) return true;
   if (it.sup && it.sup.length) return true;
+  if (it.endTime != null || (it.staff && (Array.isArray(it.staff) ? it.staff.length : Object.keys(it.staff).length))) return true;
   return false;
 }
-/* 業務終了トグル：終了した行は末尾へ移動、解除した行は未終了ブロックの末尾へ戻す */
+/* ===== フリー業務カードの走査（唯一の入口） =====
+   removeOpsCard() でカードを消しても ops['free_'+uid] 本文は残っていたため、
+   削除済みカードの残骸が集計され続けるバグがあった。ops_cards（個別カード運用日）
+   が配列ならそれを正として走査し、無い日（テンプレ運用）だけ従来どおり ops の
+   キーを走査する。 */
+function opsFreeCards(pg){
+  var ops = (pg && pg.ops) || {}, names = ops.freeNames || {}, out = [];
+  if (Array.isArray(pg && pg.ops_cards)) {
+    pg.ops_cards.forEach(function(cid){
+      if (cid.indexOf('free_') !== 0) return;
+      var uid = cid.slice(5);
+      out.push({ uid: uid, name: names[uid] || '', text: ops['free_'+uid] || '' });
+    });
+  } else {
+    Object.keys(ops).forEach(function(k){
+      if (k.indexOf('free_') !== 0) return;
+      var uid = k.slice(5);
+      out.push({ uid: uid, name: names[uid] || '', text: ops[k] || '' });
+    });
+  }
+  return out;
+}
+function opsFreeFilled(f){ return !!(f && (f.text || f.name)); }
+
+/* ===== オペ/カテ行の担当者・終了時刻ヘルパー =====
+   Firebase は空配列を保存時に落とし、疎配列をオブジェクト化するため、
+   item.staff / item.sup を読むときは必ずこの正規化を通す（taskAssignees と同型）。 */
+function opsItemStaff(it){
+  if (!it || !it.staff) return [];
+  return Array.isArray(it.staff) ? it.staff : Object.keys(it.staff).map(function(k){ return it.staff[k]; });
+}
+function opsItemSup(it){
+  if (!it || !it.sup) return [];
+  return Array.isArray(it.sup) ? it.sup : Object.keys(it.sup).map(function(k){ return it.sup[k]; });
+}
+/* 入室時間（予定を大づかみに入れる語彙: '8:15'/'AMOC'/'PMOC'/自由入力）を分に変換。
+   表せない値（AM/PM単体・OC等）は null を返す＝所要時間の計算対象から外す。 */
+function opsItemStartMin(it){
+  if (!it) return null;
+  var t = it.time || '';
+  if (t === '__free__') {
+    var m0 = /(\d{1,2})\s*[:：時]\s*(\d{1,2})/.exec(it.timeTxt || '');
+    return m0 ? (parseInt(m0[1],10)*60 + parseInt(m0[2],10)) : null;
+  }
+  var m = /^(\d{1,2}):(\d{1,2})$/.exec(t);
+  return m ? (parseInt(m[1],10)*60 + parseInt(m[2],10)) : null;
+}
+function opsNowMin(){ var n = new Date(); return n.getHours()*60 + n.getMinutes(); }
+/* ログイン中のスタッフ名。D.stf/D.stfLinks に無い（アカウント未連携）場合は
+   表示名でフォールバックし、それも無ければ null（呼び出し側は担当者を自動で入れず警告する）。 */
+function opsSelfName(){
+  var n = taskSelfName();
+  if (n) return n;
+  if (currentUser && currentUser.displayName) return currentUser.displayName;
+  return null;
+}
+/* 担当者選択の候補。「本日の担当」（duties/extra_free/OC）と「スタッフ全員」を分けて返す */
+function opsStaffCandidates(ds){
+  var pg = D.pages[ds], duty = [];
+  if (pg && pg.duties) {
+    Object.keys(pg.duties).forEach(function(sid){
+      var nm = pg.duties[sid];
+      if (nm && duty.indexOf(nm) === -1) duty.push(nm);
+    });
+  }
+  if (pg && pg.extra_free) pg.extra_free.forEach(function(ef){ if (ef.name && duty.indexOf(ef.name) === -1) duty.push(ef.name); });
+  if (pg && pg.ocData && pg.ocData.staff && duty.indexOf(pg.ocData.staff) === -1) duty.push(pg.ocData.staff);
+  var all = (D.stf || []).filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
+  return { duty: duty, all: all };
+}
+
+/* 業務終了トグル：終了した行は末尾へ移動、解除した行は未終了ブロックの末尾へ戻す。
+   終了時：時刻が未設定なら今の時刻を、担当者が誰も居なければ自分を自動で追加する。
+   取り消し時：自動で入った情報も含めてすべてクリアする（一部だけ残すと「隣の行を
+   誤タップしただけなのに、手で足した担当者まで消えた」より分かりやすいと判断） */
 function opsToggleDone(items, idx) {
   var it = items[idx];
   it.done = !it.done;
+  if (it.done) {
+    if (it.endTime == null) it.endTime = opsNowMin();
+    var me = opsSelfName();
+    if (me) {
+      var st = opsItemStaff(it);
+      if (st.indexOf(me) === -1) st.push(me);
+      it.staff = st;
+      it.doneBy = it.doneBy || me;
+      toast('✅ 終了を記録しました（' + me + ' / ' + schedMinToHM(it.endTime) + '）', 'ok');
+    } else {
+      toast('✅ 終了時刻を記録しました（' + schedMinToHM(it.endTime) + '）。担当者は自動入力できなかったため手動で追加してください', 'warn');
+    }
+  } else {
+    delete it.endTime; delete it.doneBy; delete it.staff;
+    toast('↩ 終了を取り消しました（担当者と終了時刻もクリアしました）', 'warn');
+  }
   items.splice(idx, 1);
   if (it.done) { items.push(it); return; }
   var firstDone = -1;
@@ -9752,6 +10093,83 @@ function buildOPS(ds,dat,locked) {
     return c;
   }
 
+  /* ===== 行の担当者・終了時刻（オペ/カテ共通、Tree版・フラット版の両方から呼ぶ） =====
+     itemWrap（.ops-item-wrap）に「👤 担当者」行を常時、「🏁 終了」行を終了済みのときだけ追加する。
+     担当者チップの追加・削除、終了時刻の手動修正はここで直接 items[idx] を書き換えて
+     saveItems()/renderItems() を呼ぶ（両ビルダーの他の入力欄と同じパターン）。 */
+  function buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems) {
+    var item = items[idx];
+
+    var staffRow = document.createElement('div'); staffRow.className = 'ops-staff-row';
+    var staffLbl = document.createElement('span'); staffLbl.className = 'ops-meta-lbl'; staffLbl.textContent = '👤';
+    staffRow.appendChild(staffLbl);
+    var staffList = opsItemStaff(item);
+    staffList.forEach(function(nm){
+      var chip = document.createElement('span'); chip.className = 'ops-staff-chip';
+      chip.appendChild(document.createTextNode(nm));
+      if (!locked) {
+        var xBtn = document.createElement('button');
+        xBtn.type = 'button'; xBtn.className = 'ops-staff-chip-x'; xBtn.textContent = '×'; xBtn.title = 'この担当者を外す';
+        xBtn.onclick = (function(name2){ return function(){
+          items[idx].staff = opsItemStaff(items[idx]).filter(function(n){ return n !== name2; });
+          saveItems(); renderItems();
+        }; })(nm);
+        chip.appendChild(xBtn);
+      }
+      staffRow.appendChild(chip);
+    });
+    if (!locked) {
+      var addSel = document.createElement('select'); addSel.className = 'ops-staff-add';
+      var cands = opsStaffCandidates(ds);
+      var dutyOpts = cands.duty.filter(function(n){ return staffList.indexOf(n) === -1; });
+      var allOpts = cands.all.filter(function(n){ return staffList.indexOf(n) === -1 && dutyOpts.indexOf(n) === -1; });
+      var oh = '<option value="">＋ 担当者</option>';
+      if (dutyOpts.length) { oh += '<optgroup label="本日の担当">'; dutyOpts.forEach(function(n){ oh += '<option value="'+escH(n)+'">'+escH(n)+'</option>'; }); oh += '</optgroup>'; }
+      if (allOpts.length)  { oh += '<optgroup label="スタッフ">';   allOpts.forEach(function(n){ oh += '<option value="'+escH(n)+'">'+escH(n)+'</option>'; }); oh += '</optgroup>'; }
+      oh += '<option value="__free__">自由入力...</option>';
+      addSel.innerHTML = oh;
+      addSel.onchange = function(){
+        var v = this.value; this.value = '';
+        if (!v) return;
+        if (v === '__free__') {
+          var nameInput = prompt('担当者名を入力してください');
+          if (!nameInput || !nameInput.trim()) return;
+          nameInput = nameInput.trim();
+          /* prompt() の値は#main外相当のDOM経由でないため、initPHIGuardの委譲監視が効かない */
+          phiGuardText(nameInput, function(){
+            var st = opsItemStaff(items[idx]);
+            if (st.indexOf(nameInput) === -1) st.push(nameInput);
+            items[idx].staff = st; saveItems(); renderItems();
+          });
+          return;
+        }
+        var st2 = opsItemStaff(items[idx]);
+        if (st2.indexOf(v) === -1) st2.push(v);
+        items[idx].staff = st2; saveItems(); renderItems();
+      };
+      staffRow.appendChild(addSel);
+    }
+    itemWrap.appendChild(staffRow);
+
+    if (item.done || item.endTime != null) {
+      var endRow = document.createElement('div'); endRow.className = 'ops-end-row';
+      var endLbl = document.createElement('span'); endLbl.className = 'ops-meta-lbl'; endLbl.textContent = '🏁 終了';
+      endRow.appendChild(endLbl);
+      var endInp = document.createElement('input');
+      endInp.type = 'time'; endInp.className = 'ops-end-time'; endInp.disabled = !!locked;
+      endInp.value = item.endTime != null ? schedMinToHM(item.endTime) : '';
+      if (!locked) endInp.onchange = function(){ items[idx].endTime = this.value ? tabletHMToMin(this.value) : undefined; saveItems(); };
+      endRow.appendChild(endInp);
+      if (!locked) {
+        var nowBtn = document.createElement('button');
+        nowBtn.type = 'button'; nowBtn.className = 'btn btn-g btn-sm'; nowBtn.textContent = '今';
+        nowBtn.onclick = function(){ items[idx].endTime = opsNowMin(); endInp.value = schedMinToHM(items[idx].endTime); saveItems(); };
+        endRow.appendChild(nowBtn);
+      }
+      itemWrap.appendChild(endRow);
+    }
+  }
+
   /* ===== 入室時間の選択肢（カテのブリーフィングと同じ ○：△ 方式）
      ○（時）：8〜16 + AM / PM　　△（分）：0〜55を5分刻み + OC ===== */
   function makeTimeHourOpts(selH) {
@@ -9945,6 +10363,7 @@ function buildOPS(ds,dat,locked) {
         if(!locked) delBtn.onclick=(function(i2){return function(){if(items.length<=1){items[0]={dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]};}else{items.splice(i2,1);}saveItems();renderItems();};})(idx);
         row.appendChild(delBtn);
         itemWrap.appendChild(row);
+        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems);
 
         /* 使用物品行（オペのみ）- itemWrapに追加してD&Dで一緒に動く */
         if(withSup){
@@ -10301,6 +10720,7 @@ function buildOPS(ds,dat,locked) {
         row.appendChild(delBtn);
 
         itemWrap.appendChild(row);
+        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems);
         if (supRow) itemWrap.appendChild(supRow);
         wrap.appendChild(itemWrap);
 
@@ -10491,6 +10911,9 @@ function buildOPS(ds,dat,locked) {
   }
   function buildFreeCard(uid){
     var fc=card('📋 フリー業務');
+    /* 業務名を付けられるように .ops-ttl 内に入力欄を追加（無入力なら従来どおり「フリー業務」のまま集計される） */
+    var freeName = (ops.freeNames||{})[uid] || '';
+    fc.querySelector('.ops-ttl').innerHTML += ' <input type="text" class="ops-free-name" id="ops-freename-'+uid+'" placeholder="業務名（任意）" maxlength="40" value="'+escH(freeName)+'"'+dis+'>';
     fc.innerHTML+='<div class="ops-row"><textarea class="ops-txt" id="ops-free-'+uid+'" rows="2" placeholder="業務内容を入力..."'+dis+'>'+escH(ops['free_'+uid]||'')+'</textarea></div>';
     g.appendChild(fc);
   }
@@ -10564,6 +10987,24 @@ function buildOPS(ds,dat,locked) {
       };
     })(freeFlds[fi]);
   }
+  /* フリーカードの業務名入力（#main配下なのでPHIチェックはinitPHIGuardの委譲監視が自動で拾う） */
+  var freeNameFlds = document.querySelectorAll('[id^="ops-freename-"]');
+  for(var fni=0;fni<freeNameFlds.length;fni++){
+    (function(el3){
+      var uid3=el3.id.replace('ops-freename-','');
+      var save=function(){
+        if(!D.pages[ds].ops)D.pages[ds].ops={};
+        if(!D.pages[ds].ops.freeNames)D.pages[ds].ops.freeNames={};
+        D.pages[ds].ops.freeNames[uid3]=el3.value;
+        saveDPage(ds);
+      };
+      el3.oninput=function(){
+        clearTimeout(_bindTimers['freename_'+uid3]);
+        _bindTimers['freename_'+uid3]=setTimeout(save,600);
+      };
+      el3.onchange=save;
+    })(freeNameFlds[fni]);
+  }
 
   /* PSG付箋チェックボックス */
   var fusenCb = document.getElementById('ops-psg-fusen') || document.getElementById('ops-psg-fusen-');
@@ -10571,34 +11012,6 @@ function buildOPS(ds,dat,locked) {
     /* ops_cards使用時はIDなしで探す */
     fusenCb = document.querySelector('.psg-fusen-cb');
   }
-  if(fusenCb) {
-    fusenCb.onchange = function(){
-      if(!D.pages[ds].ops) D.pages[ds].ops={};
-      D.pages[ds].ops.psg_fusen = this.checked;
-      saveDPage(ds);
-      checkPsgFusen(ds);
-    };
-  }
-
-  /* フリー業務カードのbind */
-  var freeFlds = document.querySelectorAll('[id^="ops-free-"]');
-  for(var fi=0;fi<freeFlds.length;fi++){
-    (function(el2){
-      var uid2=el2.id.replace('ops-free-','');
-      el2.oninput=function(){
-        if(!D.pages[ds].ops)D.pages[ds].ops={};
-        D.pages[ds].ops['free_'+uid2]=this.value;
-        clearTimeout(_bindTimers['free_'+uid2]);
-        _bindTimers['free_'+uid2]=setTimeout(function(){saveDPage(ds);},600);
-      };
-      el2.onchange=function(){
-        if(!D.pages[ds].ops)D.pages[ds].ops={};
-        D.pages[ds].ops['free_'+uid2]=this.value;
-        saveDPage(ds);
-      };
-    })(freeFlds[fi]);
-  }
-  var psgOnEl = document.getElementById('ops-psg-on');
   if(fusenCb) {
     fusenCb.onchange = function(){
       if(!D.pages[ds].ops) D.pages[ds].ops={};
@@ -11405,11 +11818,33 @@ function renderMySchedule(overrideName) {
   html += '</div>';
   el.innerHTML = html;
 }
+/* 担当表の凡例。実際にその期間で使われている担当枠だけを、色分けと一致させて表示する
+   （固定6色を並べるだけの静的HTMLだと、カスタム枠が使われていても出てこない・
+   実際のチップ色とずれる、という2つの問題があったため実データから生成する） */
+function renderAtLegend(adates) {
+  var el = document.getElementById('at-legend');
+  if (!el) return;
+  var seen = {}, slots = [];
+  (adates||[]).forEach(function(ds){
+    getDutyCfg(D.pages[ds]).forEach(function(s){
+      if (seen[s.id]) return; seen[s.id]=true; slots.push(s);
+    });
+  });
+  var h = '<span style="font-weight:700;color:var(--txt2)">凡例：</span>';
+  slots.forEach(function(s){
+    h += '<div class="ali"><span class="dch" style="'+dutyChipStyle(s)+'">'+escH(s.label)+'</span></div>';
+  });
+  h += '<div class="ali"><span class="dch" style="'+dutyChipStyle({id:'__free'})+'">フリー</span></div>';
+  h += '<div class="ali"><span class="dch" style="'+dutyChipStyle({id:'__oc'})+'">OC</span></div>';
+  h += '<div class="ali" style="color:var(--txt3);font-size:11px">🔴左線=未完了　🔵左線=完了</div>';
+  el.innerHTML = h;
+}
 function renderAT() {
   document.getElementById('atml').textContent=asY+'年'+(asM+1)+'月';
   var wrap=document.getElementById('at-body');
   var days=new Date(asY,asM+1,0).getDate(), today=toDS(new Date()), adates=[];
   for(var d=1;d<=days;d++){var ds=asY+'-'+pad(asM+1)+'-'+pad(d);if(D.pages[ds])adates.push(ds);}
+  renderAtLegend(adates); /* 早期returnより前に呼ぶ（連絡表が無い月でも凡例だけは更新する） */
   if(!adates.length){wrap.innerHTML='<div class="ndm">📋 この月の連絡表がありません<br><br><button class="btn btn-p btn-sm" onclick="openGM()">📅 1ヶ月分生成する</button></div>';return;}
   var allS=D.stf.filter(function(n){return !(D.stfHidden&&D.stfHidden[n]);});
   var selfName=null;
@@ -11439,7 +11874,7 @@ function renderAT() {
         for(var ki=0;ki<pageDuties.length;ki++){
           var dobj=pageDuties[ki];
           if(dat.duties[dobj.id]===name){
-            chips.push('<span class="dch" style="background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);padding:1px 5px;border-radius:8px;font-size:10px;white-space:nowrap">'+dobj.label+'</span>');
+            chips.push('<span class="dch" style="'+dutyChipStyle(dobj)+'">'+escH(dobj.label)+'</span>');
           }
         }
       }
@@ -11447,13 +11882,13 @@ function renderAT() {
       if(dat&&dat.extra_free){
         for(var ef=0;ef<dat.extra_free.length;ef++){
           if(dat.extra_free[ef].name===name){
-            chips.push('<span class="dch" style="background:var(--sur2);color:var(--txt2);border:1px solid var(--bdr);padding:1px 5px;border-radius:8px;font-size:10px">フリー</span>');
+            chips.push('<span class="dch" style="'+dutyChipStyle({id:'__free'})+'">フリー</span>');
           }
         }
       }
       /* OC確認 */
       if(dat&&dat.ocData&&dat.ocData.staff===name){
-        chips.push('<span class="dch" style="background:#fff7ed;color:#b45309;border:1px solid #fcd34d;padding:1px 5px;border-radius:8px;font-size:10px">OC</span>');
+        chips.push('<span class="dch" style="'+dutyChipStyle({id:'__oc'})+'">OC</span>');
       }
       html+='<td'+(si===selfIdx?' class="self-col"':'')+' >'+(chips.length?chips.join(' '):'<span class="dc-n">—</span>')+'</td>';
     }
@@ -11918,6 +12353,7 @@ function exportOcCsv() {
   downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
 }
 function exportOpsCsv() {
+  if (_opsSumView === 'detail') { exportOpsDetailCsv(); return; }
   var rng = sumRange(), rows = [['日付','曜日','オペ','カテ','6MW','PSG','フリー']];
   sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
@@ -11928,13 +12364,28 @@ function exportOpsCsv() {
     if(ops.cath_items) ops.cath_items.forEach(function(it){if(opsItemFilled(it))cathN++;});
     if(ops.mw_n) mwN=parseInt(ops.mw_n)||0;
     if(ops.psg_on) psgN=1;
-    Object.keys(ops).forEach(function(k){if(k.indexOf('free_')===0&&ops[k])freeN++;});
+    opsFreeCards(pg).forEach(function(f){if(opsFreeFilled(f))freeN++;});
     if(!opeN&&!cathN&&!mwN&&!psgN&&!freeN) return;
     var pt = ds.split('-');
     rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], opeN||'', cathN||'', mwN||'', psgN||'', freeN||'']);
   });
   if (rows.length===1){toast(rng.label+'に業務記録がありません', 'warn');return;}
   downloadCsv('分院CE_業務集計_'+sumFileLabel()+'.csv', rows);
+}
+function exportOpsDetailCsv() {
+  var rng = sumRange();
+  var all = opsDetailRows(), rows = opsDetailFiltered(all);
+  if (!rows.length) { toast(rng.label+'に条件に一致する記録がありません', 'warn'); return; }
+  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','終了']];
+  rows.forEach(function(r){
+    var pt = r.ds.split('-');
+    out.push([
+      pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(r.ds).getDay()], r.kind, r.dept, r.cat, r.name,
+      r.startMin!=null?schedMinToHM(r.startMin):'', r.endMin!=null?schedMinToHM(r.endMin):'', r.dur!=null?r.dur:'',
+      r.staff.join('/'), r.sup.join('/'), r.done?'済':''
+    ]);
+  });
+  downloadCsv('分院CE_業務明細_'+sumFileLabel()+'.csv', out);
 }
 /* サブタブ対応 印刷（現在のサブタブを印刷） */
 function printSubTab() {
