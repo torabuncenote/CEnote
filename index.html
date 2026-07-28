@@ -1589,20 +1589,27 @@ var LATE_DUTY_SLOTS = [
    かつては固定配列 DUTIES（cls:'dc-o' 等）から色クラスを取っていたが、担当枠が
    カスタマイズ可能な dutyCfgMaster/dutyCfg（cls を持たない）へ移行した際に色の
    受け渡しが落ちた。DEF_DUTY_MASTER 自体に色を持たせても、既存環境で既に保存済みの
-   D.dutyCfgMaster には届かない（マイグレーションが要る）ため、保存はせず常に
-   導出する。既定枠は旧 .dc-* と同じ色、カスタム枠は id の安定ハッシュでパレットから
-   選ぶ（並び順や customDuties の配列位置に依存させると同じ枠が日によって色が変わる）。 */
-var DUTY_COLOR_MAP = {
-  slot_ope:     {bg:'#dbeafe',fg:'#1d4ed8'}, /* 旧 .dc-o  */
-  slot_sub:     {bg:'#e0e7ff',fg:'#4338ca'}, /* 旧 .dc-os */
-  slot_cath:    {bg:'#fce7f3',fg:'#be185d'}, /* 旧 .dc-c  */
-  slot_cathsub: {bg:'#fdf2f8',fg:'#9d174d'}, /* 旧 .dc-cs */
-  slot_ward:    {bg:'#d1fae5',fg:'#065f46'}, /* 旧 .dc-w  */
-  slot_device:  {bg:'#fef3c7',fg:'#92400e'}, /* 旧 .dc-dv */
-  slot_free:        {bg:'#ccfbf1',fg:'#0f766e'},
-  slot_late_ope:    {bg:'#ede9fe',fg:'#5b21b6'},
-  slot_late_cath:   {bg:'#f3e8ff',fg:'#7e22ce'},
-  slot_late_free:   {bg:'#fae8ff',fg:'#a21caf'},
+   D.dutyCfgMaster には届かない（マイグレーションが要る）ため、保存はせず常に導出する。
+
+   キーは「業務名（ラベル）」であって id ではない。カスタム枠は追加するたびに
+   `'slot_'+Date.now()` という一意なIDが振られるため、同じ「OPE担当」という
+   業務でも日によって（＝生成されたタイミングによって）IDが異なる。id をキーに
+   すると見た目上まったく同じ業務なのに日ごとに色がバラバラになり、凡例も
+   同じラベルが色違いで何行も並んでしまう（実際に起きた不具合）。色は「その
+   業務が何であるか」を表すものなので、ラベルで統一する。未知のカスタム業務名
+   （このマップに無いラベル）は安定ハッシュでパレットから選ぶが、ハッシュ対象も
+   ラベル文字列なので、同じ名前の業務は id が違っても常に同じ色になる。 */
+var DUTY_LABEL_COLOR_MAP = {
+  'OPE担当':    {bg:'#dbeafe',fg:'#1d4ed8'}, /* 旧 .dc-o  */
+  'OPEサブ':    {bg:'#e0e7ff',fg:'#4338ca'}, /* 旧 .dc-os */
+  'カテ担当':   {bg:'#fce7f3',fg:'#be185d'}, /* 旧 .dc-c  */
+  'カテサブ':   {bg:'#fdf2f8',fg:'#9d174d'}, /* 旧 .dc-cs */
+  '病棟外回り': {bg:'#d1fae5',fg:'#065f46'}, /* 旧 .dc-w  */
+  '機器管理':   {bg:'#fef3c7',fg:'#92400e'}, /* 旧 .dc-dv */
+  'フリー':         {bg:'#ccfbf1',fg:'#0f766e'},
+  '遅出OPE':        {bg:'#ede9fe',fg:'#5b21b6'},
+  '遅出カテ':       {bg:'#f3e8ff',fg:'#7e22ce'},
+  '遅出フリー':     {bg:'#fae8ff',fg:'#a21caf'},
   __free:  {bg:'var(--sur2)', fg:'var(--txt2)'}, /* 当日勤務者一覧の「フリー」= extra_free */
   __oc:    {bg:'#fff7ed', fg:'#b45309'}
 };
@@ -1614,8 +1621,12 @@ var DUTY_PALETTE = [
 function dutyColorFor(slot) {
   if (!slot) return DUTY_PALETTE[0];
   if (slot.color && slot.color.bg) return slot.color; /* 将来、管理者が個別に色指定できるようにする場合の受け口 */
-  if (DUTY_COLOR_MAP[slot.id]) return DUTY_COLOR_MAP[slot.id];
-  var s = String(slot.id || slot.label || ''), h = 0;
+  if (slot.id && DUTY_LABEL_COLOR_MAP[slot.id]) return DUTY_LABEL_COLOR_MAP[slot.id]; /* __free/__oc 用 */
+  var label = String(slot.label || '').trim();
+  if (DUTY_LABEL_COLOR_MAP[label]) return DUTY_LABEL_COLOR_MAP[label];
+  /* 未知のカスタム業務名は安定ハッシュで割り当てる。ラベル文字列そのものをハッシュするので、
+     同じ名前の業務は id が違っても常に同じ色になる（未知の業務名が1件もなければ通らない経路）。 */
+  var s = label || String(slot.id || ''), h = 0;
   for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
   return DUTY_PALETTE[h % DUTY_PALETTE.length];
 }
@@ -11885,10 +11896,13 @@ function renderMySchedule(overrideName) {
 function renderAtLegend(adates) {
   var el = document.getElementById('at-legend');
   if (!el) return;
+  /* 同じ業務名（ラベル）は1行にまとめる。カスタム枠は追加のたびに一意なIDが振られ、
+     id で重複判定すると同じ業務が日ごとに何行も並んでしまうため、ラベルで揃える。 */
   var seen = {}, slots = [];
   (adates||[]).forEach(function(ds){
     getDutyCfg(D.pages[ds]).forEach(function(s){
-      if (seen[s.id]) return; seen[s.id]=true; slots.push(s);
+      var key = String(s.label||'').trim() || s.id;
+      if (seen[key]) return; seen[key]=true; slots.push(s);
     });
   });
   var h = '<span style="font-weight:700;color:var(--txt2)">凡例：</span>';
