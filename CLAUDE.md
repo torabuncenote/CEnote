@@ -339,12 +339,24 @@ All class names are abbreviated:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
 - `cath_note` — 備考
 
-**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`exportOpsCsv()` の4箇所すべてでこの共通ヘルパーを使用する。
+**opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品、担当者、終了時刻など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`opsDetailRows()`・`exportOpsCsv()` すべてでこの共通ヘルパーを使用する。
 
-**業務終了フラグ**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
-- `opsToggleDone(items, idx)` — トグル時に終了行を配列末尾へ移動（解除時は未終了ブロックの末尾へ戻す）。データ自体の並びを変えるので全端末に同期される
+**業務終了フラグ・担当者・終了時刻**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
+- `opsToggleDone(items, idx)` — トグル時に終了行を配列末尾へ移動（解除時は未終了ブロックの末尾へ戻す）。終了にした瞬間、`item.endTime` が未設定なら現在時刻（0時からの分）を、`item.staff`（担当者名の配列）に誰もいなければ `opsSelfName()` で解決したログイン中スタッフ名を自動追加し `item.doneBy` にも記録する。取り消し時は `endTime`/`doneBy`/`staff` を全てクリアする（一部だけ残すと「隣の行を誤タップしただけで手動追加した担当者まで消えた」より分かりづらいと判断）。データ自体の並びを変えるので全端末に同期される
+- `item.staff` は行の「👤 担当者」行（常時表示、`buildItemMetaRows()` が Tree版・フラット版共通で描画）でチップの追加・削除が手動でも可能。候補は `opsStaffCandidates(ds)`（当日の `duties`/`extra_free`/`ocData.staff` を「本日の担当」、`D.stf` を「スタッフ」としてoptgroup分け）。Firebase の配列オブジェクト化対策として読み出しは必ず `opsItemStaff(it)` を通す
+- `item.endTime`（終了時刻、0時からの分）は `done || endTime != null` のときだけ「🏁 終了」行を表示し、`<input type="time">` で手動修正できる（`schedMinToHM`/`tabletHMToMin` を流用）。入室時間 `item.time` とは別物 — `item.time` は `'8:15'`/`'AMOC'`/`'PMOC'`/自由入力という予定を大づかみに入れる語彙で実時刻を表せないため、所要時間計算のために分単位で別途持たせている（`opsItemStartMin(it)` が入室時間を分に変換、表せない値は `null`）
 - `updateOpsCardDoneBadge(cardEl, items)` — 入力済み全行が終了ならカードタイトルに「✅ 本日終了」バッジ（`.ops-card-done-badge`）を表示
 - ヘッダーチップは終了数があると「🔪 オペ 2/3件終了」形式になり、全件終了で緑色+✅表示（`opsHeaderChips` の第6・7引数 `opeDone`/`cathDone`）
+
+**フリー業務カード**: `buildFreeCard(uid)` は本文 `ops['free_'+uid]`（単一文字列）に加え、`.ops-ttl` 内に業務名入力欄（`ops.freeNames[uid]`）を持つ。カードの走査（件数集計・削除）は必ず `opsFreeCards(pg)` / `opsFreeFilled(f)` を経由する — `ops` のキーを直接 `indexOf('free_')===0` で走査すると、`removeOpsCard()` でカードを消した後も本文が残って集計され続けるバグを再発させる（`opsFreeCards` は `pg.ops_cards` が配列ならそれを正として走査し、削除済みカードの残骸を数えない）。
+
+### 業務集計サブタブ（renderOpsSummary）
+
+`_opsSumView`（`'day'|'detail'`、既定 `'day'`）で日別ビュー（既存・週/月別グラフ＋日別テーブル・印刷対象）と明細ビューを切替。明細ビューは `opsDetailRows()`（期間内の全 `ope_items`/`cath_items` を `{ds,kind,dept,cat,name,startMin,endMin,dur,staff,sup,done}` に平坦化、`opsItemFilled` で採否を揃える）と `_opsDetFilter`（種別/科/担当者/使用物品/終了済/グルーピング）を `renderOpsDetailBody()` が描画。集計カードは科別・術式別TOP10・担当者別（所要時間の平均は入室と終了が両方揃った行のみ算入）・使用物品別（カテには使用物品欄が無いため常にオペのみ）の4枚。CSVは `exportOpsCsv()` が `_opsSumView` で `exportOpsDetailCsv()` に分岐する。
+
+### 担当表の色分け（dutyColorFor）
+
+担当枠の色はどこにも保存せず、`dutyColorFor(slot)` が呼ばれるたびに導出する（`DEF_DUTY_MASTER`/`D.dutyCfgMaster` に色を持たせると既存環境の保存済みデータに届かずマイグレーションが要るため）。既定枠（`slot_ope`〜`slot_late_free`）は `DUTY_COLOR_MAP` で旧 `.dc-*` と同じ色、カスタム枠は `id` の安定ハッシュで `DUTY_PALETTE` から選ぶ（並び順や `customDuties` の配列位置に依存させると同じ枠が日によって色が変わるため index は使わない）。凡例は静的HTMLではなく `renderAtLegend(adates)` が実際にその期間で使われている枠から生成し、`renderAT()` の早期return（連絡表が無い月）より前に呼ぶ。
 
 ### PSG外し Detection
 
@@ -434,6 +446,32 @@ Independent Firebase path (like `/board`), not part of the `D` object — the "5
 - Completed tasks are kept (not deleted) but rendered dimmed (`.task-card.st-done`, `opacity:.45`) and excluded from the staff load graph.
 - `taskPersist(id, t)` follows the optimistic-update pattern: mutate `_tasksData` + re-render immediately, then `fbDB.ref('/tasks/'+id).set(t)` (local/preview mode skips the Firebase write, cache-only, same as `postBoard`). On write failure the `.catch` rolls the cache back to the previous value and re-renders (`taskDelete` likewise restores the deleted entry) so the UI never shows a phantom saved/deleted state.
 - Listener setup/teardown mirrors `/board`: `fbDB.ref('/tasks').on('value', ...)` inside `fbInit()`'s `if (!dataListenerOn)` block; `fbDB.ref('/tasks').off()` plus `_tasksData={}; _taskView=null; _taskFilter='all';` on logout.
+- **Assignment notification**: `_doSaveTask()` calls `notifyTaskAssigned(name, t)` for each name in `asg` that is **not** already in the previous `assignees` and is **not** `taskSelfName()`. That helper resolves the name via `getUidByName()` and pushes to `/notifications/{uid}` through the existing `sendNotificationToUid()` (which also fires FCM + EmailJS). The recipient's `startNotifListener()` → `showNotifPopup()` shows it in real time, or on next login if they're offline. Staff with no linked account are silently skipped.
+
+### Private Memos (`/taskMemos/{uid}`)
+
+Self-only notes shown at the bottom of the task subtab. **Separate Firebase path from `/tasks`, and unlike task permissions this one IS rule-enforced**: `/taskMemos/$uid` grants read+write only when `auth.uid === $uid`, so no other user (admin included) can read them. Adding the RTDB rule is mandatory — without it the writes fail.
+
+```js
+/taskMemos/{uid}/{memoId} = { title, desc, status, due, ts, updatedTs, doneAt }
+```
+
+- No `assignees` and no `createdBy` — ownership is the path itself.
+- Cached in `_memosData`; listener ref kept in `_memoRef` (set in `fbInit()`'s `if (!dataListenerOn)` block, `.off()`'d and `_memosData={}` on logout so the next user never sees the previous user's memos).
+- `memoPersist` / `memoDelete` / `memoCycleStatus` mirror the task equivalents including the optimistic-update rollback. `memoCycleStatus` copies the object before mutating (the task-side bug that made rollback a no-op).
+- The modal is shared: `openTaskModal(id, isMemo)` hides the assignee block and swaps the store; `saveTaskFromModal(id, isMemo)` branches to `_doSaveMemo`. PHI detection still runs (blocking categories are refused, same as tasks).
+- Memo contents are **never** written to `/logs`.
+
+### Summary Period (OC集計 / 業務集計)
+
+`renderOCSummary()` and `renderOpsSummary()` no longer iterate the days of `asY/asM` directly. Both go through:
+
+- `_sumMode` (`'month'|'year'|'range'`), `_sumFrom`, `_sumTo` — module-level state shared by both subtabs.
+- `sumRange()` → `{from, to, label, multi}` (`multi` = spans more than one calendar month).
+- `sumDsList()` → existing `D.pages` keys inside the range, sorted (string compare works for `YYYY-MM-DD`).
+- `sumCtlHTML(pfx)` renders the 月／年／期間指定 switcher; `pfx` (`'oc'`/`'ops'`) keeps the date-input ids unique because both subtabs are in the DOM at once.
+
+When `multi` is true both renderers add a per-month breakdown, the ops trend graph buckets by month instead of week (bar width shrinks via `BW`/`BG` so 12 groups still fit), and date cells show `M/D` instead of `D日`. `exportOcCsv()` / `exportOpsCsv()` follow the same range and name the file via `sumFileLabel()`.
 
 ### Memo Move-to-Another-Day
 
