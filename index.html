@@ -361,6 +361,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .mdb{display:flex;gap:7px;justify-content:flex-end;margin-top:18px}
 .fi{width:100%;font-size:13px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 11px;margin-bottom:13px;outline:none;font-family:var(--fn);background:var(--sur2);color:var(--txt)}
 .fi:focus{border-color:var(--ac)}
+/* モーダル内で「期限」「ステータス」のように2つの入力を横に並べる行。
+   iOS Safari の input[type=date] は日付テキスト分の固有幅を持ち、狭い枠に入れても
+   その幅より縮まずに隣の要素へはみ出す（実機で期限欄がステータスに重なる不具合が出た）。
+   固定幅で並べず、収まらなければ折り返す・480px以下では必ず縦積みにする。 */
+.md-frow{display:flex;gap:14px;margin-top:10px;flex-wrap:wrap}
+.md-fcol{flex:1 1 150px;min-width:0}
+.md-fcol>.fi,.md-fcol>.ds2{width:100%;min-width:0;max-width:100%;margin-bottom:0}
+.md-flbl{font-size:12px;font-weight:700;margin-bottom:4px}
+@media(max-width:480px){.md-fcol{flex:1 1 100%}}
 .cr{display:flex;align-items:center;gap:7px;margin-bottom:13px;font-size:13px}
 .cr input{accent-color:var(--ac)}
 .sim-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);margin-bottom:5px}
@@ -1821,6 +1830,7 @@ var _taskView = null;  /* null=俯瞰ビュー / スタッフ名=個人詳細ビ
 var _taskFilter = 'all'; /* 俯瞰リストのフィルタ: all|todo|doing|done */
 var _memosData = {};   /* Firebase /taskMemos/{自分のuid} のキャッシュ（本人しか読めない自分専用メモ） */
 var _memoRef   = null; /* 上記のリスナー参照（ログアウト時に解除する） */
+var _memoDenied = false; /* /taskMemos の読み取りが権限拒否された（＝ルール未適用）か */
 var _taskGraphNames = []; /* 負荷グラフ行の名前（onclickでのindex参照用） */
 var FB_SNAP_KEY = 'ce2_lastfbsnap'; /* 最後にFirebaseスナップショットを取った日付 */
 var FB_SNAP_DAYS = 7; /* 保持日数 */
@@ -2053,7 +2063,7 @@ function fbInit() {
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
         _tasksData = {}; _taskView = null; _taskFilter = 'all';
-        _memosData = {}; /* 別の人がログインしたときに前の人のメモが残らないようにする */
+        _memosData = {}; _memoDenied = false; /* 別の人がログインしたときに前の人のメモが残らないようにする */
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
         curDs = null;
@@ -2317,8 +2327,16 @@ function fbInit() {
           _memoRef = fbDB.ref('/taskMemos/' + user.uid);
           _memoRef.on('value', function(msnap) {
             _memosData = msnap.val() || {};
+            _memoDenied = false;
             var mp = document.getElementById('subpane-task');
             if (mp && mp.style.display !== 'none') renderTasks();
+          }, function(err) {
+            /* /taskMemos のルールが未適用だと読み取りも拒否される。無言で空リストに
+               なると「メモが消えた」と誤解されるため、画面に理由を出せるよう記録する。 */
+            _memoDenied = String((err && (err.code || err.message)) || '').indexOf('PERMISSION_DENIED') !== -1;
+            _memosData = {};
+            var mp2 = document.getElementById('subpane-task');
+            if (mp2 && mp2.style.display !== 'none') renderTasks();
           });
         } else {
           /* トークン更新時：データは既に同期済みなのでUI表示だけ更新 */
@@ -12091,6 +12109,17 @@ function setTaskFilter(f) { _taskFilter = f; renderTasks(); }
 /* ===== 自分専用メモ（/taskMemos/{自分のuid}） =====
    タスクと違い担当者を持たず、本人以外は読み書きできない（Firebaseルールで保証）。
    保存の流れ（楽観更新→失敗したらキャッシュを巻き戻す）はタスクと同じ。 */
+
+/* /taskMemos は後から追加したパスなので、管理者がFirebase Consoleでルールを
+   再適用するまで読み書きが拒否される。生の "PERMISSION_DENIED" では利用者に
+   何をすればいいか伝わらないため、対処が分かる文面に翻訳する。 */
+function memoErrMsg(e, verb) {
+  var code = (e && (e.code || e.message)) || '';
+  if (String(code).indexOf('PERMISSION_DENIED') !== -1) {
+    return '🔒 メモ機能がまだ使える状態になっていません。管理者に「Firebaseのセキュリティルールを最新版に更新してください」とお伝えください（資料▾→管理者マニュアルに手順があります）。';
+  }
+  return verb + 'エラー: ' + ((e && e.message) || '不明なエラー');
+}
 function memoPersist(id, m) {
   var prev = _memosData[id];
   _memosData[id] = m; renderTasks();
@@ -12098,7 +12127,7 @@ function memoPersist(id, m) {
     fbDB.ref('/taskMemos/' + currentUser.uid + '/' + id).set(m).catch(function(e){
       if (prev === undefined) delete _memosData[id]; else _memosData[id] = prev;
       renderTasks();
-      toast('保存エラー: ' + e.message, 'err');
+      toast(memoErrMsg(e, '保存'), 'err');
     });
   }
 }
@@ -12109,7 +12138,7 @@ function memoDelete(id) {
   if (FB_ON && fbDB && currentUser) {
     fbDB.ref('/taskMemos/' + currentUser.uid + '/' + id).remove().catch(function(e){
       _memosData[id] = m; renderTasks();
-      toast('削除エラー: ' + e.message, 'err');
+      toast(memoErrMsg(e, '削除'), 'err');
     });
   }
 }
@@ -12265,7 +12294,13 @@ function renderTasks() {
   });
   h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:18px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">'
      + '🔒 自分専用メモ（'+mids.length+'件）<span style="font-weight:400;margin-left:6px">他の人には表示されません</span></div>';
-  if (!mids.length) h += '<div class="pool-empty" style="padding:10px 0;font-size:12px">メモはありません</div>';
+  if (_memoDenied) {
+    /* ルール未適用のときは空リストではなく理由と対処を出す（黙って空だと「消えた」と誤解される） */
+    h += '<div style="background:var(--or-bg);border:1px solid var(--or);border-radius:var(--rs);padding:9px 12px;font-size:12px;color:var(--or);line-height:1.7">'
+       + '🔒 メモ機能がまだ使える状態になっていません。<br>管理者に「Firebaseのセキュリティルールを最新版に更新してください」とお伝えください（資料▾→管理者マニュアルに手順があります）。</div>';
+  } else if (!mids.length) {
+    h += '<div class="pool-empty" style="padding:10px 0;font-size:12px">メモはありません</div>';
+  }
   mids.forEach(function(id){ h += memoCardHTML(id, _memosData[id], today); });
   el.innerHTML = h;
 }
@@ -12323,9 +12358,9 @@ function openTaskModal(id, isMemo) {
     + (isMemo ? '' :
         '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">担当者<span style="color:var(--rd)">*</span>（複数選択可）</div>'
       + '<div id="task-md-asg" class="dc-cbs" style="max-height:160px;overflow-y:auto">'+checks+'</div>')
-    + '<div style="display:flex;gap:14px;margin-top:10px;flex-wrap:wrap">'
-    + '<div style="flex:0 0 128px;min-width:0"><div style="font-size:12px;font-weight:700;margin-bottom:4px">期限（任意）</div><input type="date" id="task-md-due" class="fi" style="width:100%" value="'+escH(t?(t.due||''):'')+'"></div>'
-    + '<div style="flex:1 1 140px;min-width:0"><div style="font-size:12px;font-weight:700;margin-bottom:4px">ステータス</div><select id="task-md-st" class="ds2" style="width:100%">'+stOpts+'</select></div></div>'
+    + '<div class="md-frow">'
+    + '<div class="md-fcol"><div class="md-flbl">期限（任意）</div><input type="date" id="task-md-due" class="fi" value="'+escH(t?(t.due||''):'')+'"></div>'
+    + '<div class="md-fcol"><div class="md-flbl">ステータス</div><select id="task-md-st" class="ds2">'+stOpts+'</select></div></div>'
     + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
     + '<button class="btn btn-g" onclick="document.getElementById(\'task-md-ov\').remove()">キャンセル</button>'
     + '<button class="btn btn-p" id="task-md-save">保存</button></div>';
