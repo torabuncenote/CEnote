@@ -492,6 +492,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .tb-btns .btn{font-size:11px;padding:5px 8px}
   .btn-nm-text{display:none}
   .btn-gm-text{display:none}
+  .btn-um-text{display:none}
   .btn-at-text{display:none}
   .pend-txt{display:none}
   .at-hint{display:none}
@@ -937,6 +938,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
     <button class="pend-badge" id="pend-badge" onclick="openPendingModal()" title="承認待ちメディア"></button>
+    <button class="btn btn-g btn-sm ui-mode-btn" id="ui-mode-btn" onclick="toggleUiMode()" title="日ページの表示レイアウトを切り替える">⇄<span class="btn-um-text"> 旧画面</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -1877,7 +1879,16 @@ function getUiMode() { var v = localStorage.getItem(UI_MODE_KEY); return v === '
 function setUiMode(m) {
   localStorage.setItem(UI_MODE_KEY, m);
   _uiMode = m;
+  updateUiModeBtn();
   if (curDs && D.pages[curDs]) renderPage(curDs);
+}
+function toggleUiMode() { setUiMode(_uiMode === 'new' ? 'old' : 'new'); }
+/* トップバーのボタン表示を現在のモードに合わせる。押すと「どちらへ行くか」を示す文言にする */
+function updateUiModeBtn() {
+  var b = document.getElementById('ui-mode-btn'); if (!b) return;
+  var t = b.querySelector('.btn-um-text');
+  if (t) t.textContent = _uiMode === 'new' ? ' 旧画面' : ' 新画面';
+  b.title = _uiMode === 'new' ? '以前の画面表示に戻す' : '新しい画面表示に切り替える';
 }
 var _opsZoneOpen = false;    /* 新レイアウト：業務記録ゾーンの開閉状態（renderPageNew再呼出しを跨いで保持） */
 var _assignZoneOpen = false; /* 新レイアウト：割り当て作業ゾーンの開閉状態 */
@@ -1890,6 +1901,7 @@ function scrollMainTop() {
 /* ===== INIT ===== */
 function init() {
   _uiMode = getUiMode();
+  updateUiModeBtn();
   /* ?preview=1 → 管理者モード / ?preview=2 → 一般ユーザーモードでローカル動作確認 */
   var params = new URLSearchParams(window.location.search);
   var previewVal = params.get('preview');
@@ -8399,7 +8411,6 @@ function renderPageNew(ds) {
   var _tblOut=(dat.tabletLogs||[]).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
   h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱<span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️</button>';
-  h+='<button class="btn btn-g btn-sm" onclick="setUiMode(\'old\')" title="以前の画面表示に戻す">⇄ 旧画面</button>';
   h+='</div>';
 
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
