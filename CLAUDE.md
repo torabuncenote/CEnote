@@ -335,6 +335,8 @@ All class names are abbreviated:
 
 **入室時間ピッカー**: `withTime=true` の行は、カテのブリーフィング欄と同じ「○時：△分」の2セレクト方式（`makeTimeHourOpts`/`makeTimeMinuteOpts`）。○は8〜16時＋AM／PM、△は0〜55分（5分刻み）＋OC。値は `item.time` に単一文字列で保存（`combineItemTime(h,m)` で結合、`parseItemTime(t)` で復元。旧形式 `"8:15"` `"AMOC"` `"PMOC"` も読める）。「自由入力」ボタンで `item.time='__free__'` に切替えるとテキスト入力（`item.timeTxt`）に変わる。`buildItemList` / `buildItemListTree` の両方に実装。
 
+**科・中カテゴリ・術式の自由入力**: `buildItemListTree` の3セレクト（科/中カテゴリ/術式）はそれぞれ独立に「自由入力...」へ切り替えられる（入室時間と同じ`'__free__'`＋`*Txt`の型）。科は `item.dept==='__free__'` で `item.deptTxt`、中カテゴリは `item.cat==='__free__'` で `item.catTxt`。術式は既存の `item.sel`（マスタ選択値）とは別に `item.name==='__free__'` のときだけ `item.nameTxt` を使う（自由入力に切替えた瞬間 `item.sel` は空にするため、既存の「マスタから選んだ値」の読み出しには影響しない）。切替後は⌄ボタンで選択式に戻せる。フラット版 `buildItemList` は元々 `item.sel==='__free__'`→`item.txt` で自由記述に対応済みで、これも同じ枠組みで吸収する。表示・集計は必ず `opsItemDept(it)` / `opsItemCat(it)` / `opsItemName(it)` を経由し（`'__free__'`という内部値が画面・CSVに出ないようにする）、`opsItemFilled(it)` もこの3つのヘルパー経由に統一済み。tree導入前の生 `item.sel` のみのデータ・旧仕様で科全体を自由記述にしていたデータ（`item.dept==='__free__'`のまま`item.sel`に実データが残る旧形）は「（旧）」表示＋再選択ボタンで保護し、値を消さない。
+
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
 - `cath_note` — 備考
@@ -342,7 +344,7 @@ All class names are abbreviated:
 **opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品、担当者、終了時刻など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`opsDetailRows()`・`exportOpsCsv()` すべてでこの共通ヘルパーを使用する。
 
 **業務終了フラグ・担当者・終了時刻**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
-- `opsToggleDone(items, idx)` — トグル時に終了行を配列末尾へ移動（解除時は未終了ブロックの末尾へ戻す）。終了にした瞬間、`item.endTime` が未設定なら現在時刻（0時からの分）を、`item.staff`（担当者名の配列）に誰もいなければ `opsSelfName()` で解決したログイン中スタッフ名を自動追加し `item.doneBy` にも記録する。取り消し時は `endTime`/`doneBy`/`staff` を全てクリアする（一部だけ残すと「隣の行を誤タップしただけで手動追加した担当者まで消えた」より分かりづらいと判断）。データ自体の並びを変えるので全端末に同期される
+- `opsToggleDone(items, idx)` — 押した行は配列内の位置を変えずその場に残す（どれを押したか見失うため並べ替えはしない）。終了にした瞬間、`item.endTime` が未設定なら現在時刻（0時からの分）を、`item.staff`（担当者名の配列）に誰もいなければ `opsSelfName()` で解決したログイン中スタッフ名を自動追加し `item.doneBy` にも記録する。取り消し時は `endTime`/`staff` のどちらかに値があるときだけ `confirm()` で確認し、OKなら `endTime`/`doneBy`/`staff` を全てクリア、キャンセルなら `done` フラグだけ外して他は残す（値が無ければ確認なしでそのまま外す）
 - `item.staff` は行の「👤 担当者」行（常時表示、`buildItemMetaRows()` が Tree版・フラット版共通で描画）でチップの追加・削除が手動でも可能。候補は `opsStaffCandidates(ds)`（当日の `duties`/`extra_free`/`ocData.staff` を「本日の担当」、`D.stf` を「スタッフ」としてoptgroup分け）。Firebase の配列オブジェクト化対策として読み出しは必ず `opsItemStaff(it)` を通す
 - `item.endTime`（終了時刻、0時からの分）は `done || endTime != null` のときだけ「🏁 終了」行を表示し、`<input type="time">` で手動修正できる（`schedMinToHM`/`tabletHMToMin` を流用）。入室時間 `item.time` とは別物 — `item.time` は `'8:15'`/`'AMOC'`/`'PMOC'`/自由入力という予定を大づかみに入れる語彙で実時刻を表せないため、所要時間計算のために分単位で別途持たせている（`opsItemStartMin(it)` が入室時間を分に変換、表せない値は `null`）
 - `updateOpsCardDoneBadge(cardEl, items)` — 入力済み全行が終了ならカードタイトルに「✅ 本日終了」バッジ（`.ops-card-done-badge`）を表示

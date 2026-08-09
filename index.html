@@ -1911,10 +1911,10 @@ function scrollMainTop() {
    scrollIntoView は使わない：#main が overflow:auto を持つため、#main 自身がスクロールしない
    スマホ幅では「スクロール可能な祖先」の判定がそこで止まり、実際にスクロールする文書まで届かない。
    実際にスクロールする器を毎回判定し、固定トップバーの高さぶん手前で止める。 */
-function dashJump(sel) {
+/* クリック時・保険発火時の両方から呼ぶ、目標スクロール位置の計算。
+   呼ぶたびに要素位置とスクロールする器を測り直す（結果をキャッシュしない）。 */
+function dashJumpTop(el) {
   var mainEl = document.getElementById('main');
-  var el = mainEl ? mainEl.querySelector(sel) : null;
-  if (!el) return;
   var doc = document.scrollingElement || document.documentElement;
   var useMain = !!(mainEl && mainEl.scrollHeight > mainEl.clientHeight + 1);
   var cont = useMain ? mainEl : doc;
@@ -1924,12 +1924,22 @@ function dashJump(sel) {
   var tb = document.querySelector('.tb');
   var off = (tb ? tb.getBoundingClientRect().height : 0) + 8;
   top = Math.max(0, top - off);
-  if (cont.scrollTo) cont.scrollTo({top:top, behavior:'smooth'});
-  else cont.scrollTop = top;
+  return { cont: cont, top: top };
+}
+
+function dashJump(sel) {
+  var mainEl = document.getElementById('main');
+  var el = mainEl ? mainEl.querySelector(sel) : null;
+  if (!el) return;
+  var pos = dashJumpTop(el);
+  if (pos.cont.scrollTo) pos.cont.scrollTo({top:pos.top, behavior:'smooth'});
+  else pos.cont.scrollTop = pos.top;
   /* スムーススクロールが効かない環境（アニメーションが走らない/途中で止まる）でも
-     確実に目的地へ着かせる保険。400ms 後にまだ遠ければ即座に位置を合わせる */
+     確実に目的地へ着かせる保険。400ms 後にまだ遠ければ、その時点で位置を測り直して合わせる
+     （クリック時点の固定値のままだと、その間のレイアウト変化でズレるため） */
   setTimeout(function(){
-    if (Math.abs(cont.scrollTop - top) > 4) cont.scrollTop = top;
+    var freshPos = dashJumpTop(el);
+    if (Math.abs(freshPos.cont.scrollTop - freshPos.top) > 4) freshPos.cont.scrollTop = freshPos.top;
   }, 400);
   el.classList.add('dash-highlight');
   setTimeout(function(){ el.classList.remove('dash-highlight'); }, 2000);
@@ -4729,6 +4739,7 @@ function renderSurplusArea(ds, dat, locked) {
   html += '</div>'; /* #surplus-body */
 
   wrap.innerHTML = html;
+  updateStaffZoneBadge(ds);
 }
 
 function toggleSurplusArea(){
@@ -5017,13 +5028,13 @@ function opsDetailRows() {
       var key = pair[0], kind = pair[1];
       (pg.ops[key] || []).forEach(function(it){
         if (!opsItemFilled(it)) return;
-        var dept = (it.dept && it.dept !== '__free__') ? it.dept : '（未分類）';
-        var name = it.sel || it.txt || '（無題）';
+        var dept = opsItemDept(it) || '（未分類）';
+        var name = opsItemName(it) || '（無題）';
         var startMin = opsItemStartMin(it);
         var endMin = it.endTime != null ? it.endTime : null;
         var dur = (startMin != null && endMin != null && endMin >= startMin) ? (endMin - startMin) : null;
         out.push({
-          ds: ds, kind: kind, dept: dept, cat: it.cat || '', name: name,
+          ds: ds, kind: kind, dept: dept, cat: opsItemCat(it), name: name,
           startMin: startMin, endMin: endMin, dur: dur,
           staff: opsItemStaff(it), sup: opsItemSup(it), done: !!it.done
         });
@@ -8035,8 +8046,9 @@ function openPage(ds) {
    自由記述・入室時間・順番・使用物品など何らかの入力があれば1件と数える */
 function opsItemFilled(it){
   if (!it) return false;
-  if (it.sel || it.txt || it.cat) return true;
-  if (it.dept && it.dept !== '__free__') return true; /* __free__選択のみ（未入力）は除外 */
+  if (opsItemName(it)) return true;
+  if (opsItemDept(it)) return true;
+  if (opsItemCat(it)) return true; /* '__free__'選択のみ（未入力）は opsItemCat が空文字を返すため除外される */
   if (it.time || it.timeTxt || it.order) return true;
   if (it.sup && it.sup.length) return true;
   if (it.endTime != null || (it.staff && (Array.isArray(it.staff) ? it.staff.length : Object.keys(it.staff).length))) return true;
@@ -8078,6 +8090,24 @@ function opsItemSup(it){
   if (!it || !it.sup) return [];
   return Array.isArray(it.sup) ? it.sup : Object.keys(it.sup).map(function(k){ return it.sup[k]; });
 }
+/* 科・中カテゴリ・術式/種別の表示値。'__free__'（自由入力に切替中）のときは対応する
+   *Txt を返し、内部値の '__free__' が画面・CSVに出ないようにする（表示・集計はこの3つを必ず経由）。
+   opsItemName はツリー版（item.name/'nameTxt'）とフラット版（buildItemListの既存 item.sel==='__free__'/item.txt）の
+   両方を吸収する。 */
+function opsItemDept(it){
+  if (!it) return '';
+  return it.dept === '__free__' ? (it.deptTxt || '') : (it.dept || '');
+}
+function opsItemCat(it){
+  if (!it) return '';
+  return it.cat === '__free__' ? (it.catTxt || '') : (it.cat || '');
+}
+function opsItemName(it){
+  if (!it) return '';
+  if (it.name === '__free__') return it.nameTxt || '';
+  if (it.sel === '__free__') return it.txt || '';
+  return it.sel || '';
+}
 /* 入室時間（予定を大づかみに入れる語彙: '8:15'/'AMOC'/'PMOC'/自由入力）を分に変換。
    表せない値（AM/PM単体・OC等）は null を返す＝所要時間の計算対象から外す。 */
 function opsItemStartMin(it){
@@ -8114,10 +8144,11 @@ function opsStaffCandidates(ds){
   return { duty: duty, all: all };
 }
 
-/* 業務終了トグル：終了した行は末尾へ移動、解除した行は未終了ブロックの末尾へ戻す。
+/* 業務終了トグル：押した行はその場に残す（並べ替えはしない。終了時の見た目は
+   .ops-item-wrap.ops-item-done で薄く表示するのみ）。
    終了時：時刻が未設定なら今の時刻を、担当者が誰も居なければ自分を自動で追加する。
-   取り消し時：自動で入った情報も含めてすべてクリアする（一部だけ残すと「隣の行を
-   誤タップしただけなのに、手で足した担当者まで消えた」より分かりやすいと判断） */
+   取り消し時：終了時刻か担当者に値があるときだけ確認する。キャンセルすれば
+   doneフラグだけ外し、endTime/doneBy/staff は残す（何も入っていなければ確認なしで外す）。 */
 function opsToggleDone(items, idx) {
   var it = items[idx];
   it.done = !it.done;
@@ -8134,14 +8165,14 @@ function opsToggleDone(items, idx) {
       toast('✅ 終了時刻を記録しました（' + schedMinToHM(it.endTime) + '）。担当者は自動入力できなかったため手動で追加してください', 'warn');
     }
   } else {
+    var hasRecord = it.endTime != null || opsItemStaff(it).length > 0;
+    if (hasRecord && !confirm('終了時刻と担当者も消しますか？')) {
+      toast('↩ 終了を取り消しました（終了時刻・担当者は残しています）', 'warn');
+      return;
+    }
     delete it.endTime; delete it.doneBy; delete it.staff;
     toast('↩ 終了を取り消しました（担当者と終了時刻もクリアしました）', 'warn');
   }
-  items.splice(idx, 1);
-  if (it.done) { items.push(it); return; }
-  var firstDone = -1;
-  for (var i = 0; i < items.length; i++) { if (items[i].done) { firstDone = i; break; } }
-  if (firstDone === -1) items.push(it); else items.splice(firstDone, 0, it);
 }
 /* 入力済みの全行が終了ならカードタイトルに「✅ 本日終了」バッジを表示 */
 function updateOpsCardDoneBadge(cardEl, items) {
@@ -8194,6 +8225,23 @@ function updateOpsHeader(ds){
   var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone);
   el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
   updateCloseBar(ds);
+}
+/* 人員配置管理バッジ（当日N名／未割当N）の数え方。renderPage・updateStaffZoneBadge の両方から呼ぶ（数え方を2箇所に書かない） */
+function staffZoneCounts(ds){
+  var dat=D.pages[ds]; if(!dat) return {staffN:0,unassignedN:0};
+  var si=getShiftForDay(ds);
+  var staffN=si.ce.length+si.oc.length;
+  var duties=getDutyCfg(dat);
+  var unassignedN=duties.filter(function(d){ return !(dat.duties && dat.duties[d.id]); }).length;
+  return {staffN:staffN, unassignedN:unassignedN};
+}
+function updateStaffZoneBadge(ds){
+  var elStaff=document.getElementById('staffz-badge-staff');
+  var elUn=document.getElementById('staffz-badge-unassigned');
+  if(!elStaff&&!elUn) return;
+  var c=staffZoneCounts(ds);
+  if(elStaff) elStaff.textContent='当日'+c.staffN+'名';
+  if(elUn){ elUn.textContent='未割当'+c.unassignedN; elUn.style.display=c.unassignedN?'':'none'; }
 }
 function updatePsgRemovalBanner(ds){
   var el=document.getElementById('psg-removal-banner'); if(!el) return;
@@ -8272,14 +8320,12 @@ function renderPage(ds) {
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
   /* 人員配置管理（当日勤務者一覧＋余剰人員をまとめて開閉。中身のDOM構造は変えず外側にラッパを被せるだけ） */
-  var _staffN = si.ce.length + si.oc.length;
-  var _duties8 = getDutyCfg(dat);
-  var _unassignedN = _duties8.filter(function(d){ return !(dat.duties && dat.duties[d.id]); }).length;
+  var _szc = staffZoneCounts(ds);
   h+='<div class="staffz">';
   h+='<div class="staffz-hd" onclick="toggleStaffZone()">';
   h+='<span class="staffz-ttl">👥 人員配置管理</span>';
-  h+='<span class="staffz-badge">当日'+_staffN+'名</span>';
-  if(_unassignedN) h+='<span class="staffz-badge" style="color:var(--rd)">未割当'+_unassignedN+'</span>';
+  h+='<span class="staffz-badge" id="staffz-badge-staff">当日'+_szc.staffN+'名</span>';
+  h+='<span class="staffz-badge" id="staffz-badge-unassigned" style="color:var(--rd)'+(_szc.unassignedN?'':';display:none')+'">未割当'+_szc.unassignedN+'</span>';
   h+='<span class="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
   h+='</div>';
   h+='<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
@@ -8665,6 +8711,7 @@ function refreshPool(ds) {
       if(!done){var m=document.createElement('span');m.className='pool-empty pool-done-msg';m.textContent='✅ 全員の担当割り当てが完了しました！';pc.appendChild(m);}
     }else{if(done)done.remove();}
   }
+  updateStaffZoneBadge(ds);
 }
 function addPoolStaffPrompt(ds, type) {
   var dat = D.pages[ds]; if(!dat) return;
@@ -9893,18 +9940,16 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
 
   html += '<select class="ds2'+(sv?' set':'')+'"'+(locked?' disabled':'')+' id="sel-'+d.id+'">'+opts+'</select>';
 
-  /* PHS番号（編集可能かつ値が空のときは「＋PHS」リンクだけ出し、クリックで展開する） */
-  var _phsCollapsed = (!locked && showPhs && !svp);
+  /* PHS番号（常時入力欄を表示。show_phsロックによる表示/非表示の出し分けのみ維持） */
   if (showPhs) {
     var popts = '<option value="">PHS番号 —</option>';
     for (var j=0; j<D.phs.length; j++)
       popts += '<option value="'+D.phs[j]+'"'+(D.phs[j]===svp?' selected':'')+'>'+D.phs[j]+'</option>';
     popts += '<option value="__free__"'+(svp==='__free__'?' selected':'')+'>自由記述...</option>';
     var isCustomP = svp && svp!=='__free__' && D.phs.indexOf(svp)===-1;
-    html += '<div class="pl2" id="phs-lbl-'+d.id+'"'+(_phsCollapsed?' style="display:none"':'')+'>📞 PHS番号</div>';
-    html += '<select class="ps'+(svp?' set':'')+'"'+((locked||phsLk)?' disabled':'')+' id="psel-'+d.id+'"'+(_phsCollapsed?' style="display:none"':'')+'>'+popts+'</select>';
-    html += '<input type="text" class="ds2" id="ptxt-'+d.id+'" placeholder="PHS番号を入力..." value="'+(isCustomP?svp:'')+'"'+((locked||phsLk)?' disabled':'')+' style="margin-top:4px;'+((isCustomP||svp==='__free__')&&!_phsCollapsed?'':'display:none')+'">';
-    if (_phsCollapsed) html += '<button type="button" class="db-add-link" id="dc-add-phs-'+d.id+'" onclick="dcExpandField(\''+d.id+'\',\'phs\')">＋ PHS</button>';
+    html += '<div class="pl2" id="phs-lbl-'+d.id+'">📞 PHS番号</div>';
+    html += '<select class="ps'+(svp?' set':'')+'"'+((locked||phsLk)?' disabled':'')+' id="psel-'+d.id+'">'+popts+'</select>';
+    html += '<input type="text" class="ds2" id="ptxt-'+d.id+'" placeholder="PHS番号を入力..." value="'+(isCustomP?svp:'')+'"'+((locked||phsLk)?' disabled':'')+' style="margin-top:4px;'+((isCustomP||svp==='__free__')?'':'display:none')+'">';
   }
 
   /* 備考（同様に値が空なら「＋備考」リンク） */
@@ -9933,7 +9978,7 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
           if(_si!==-1) D.pages[ds].surplus.splice(_si,1);
         }
         markDutyEdited(ds);
-        saveD(); refreshPool(ds);
+        saveD(); refreshPool(ds); updateStaffZoneBadge(ds);
         maybeLateToast(D.pages[ds], did, this.value, _oldDuty);
         writeLog(this.value?'担当割り当て':'担当クリア', fmtJ(ds)+' '+did+(this.value?' → '+this.value:''));
       };
@@ -9996,23 +10041,12 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
       })(d.id);
     }
 
-    /* PHS番号／備考が空のまま、フォーカスがカードの外に出たら折り畳みに戻す
+    /* 備考が空のまま、フォーカスがカードの外に出たら折り畳みに戻す（PHSは常時表示のため対象外）
        （1文字でも入っていれば閉じない。値の取得はsetTimeoutでフォーカス移動確定後に行う） */
     (function(did, cardEl){
       cardEl.addEventListener('focusout', function(){
         setTimeout(function(){
           if (cardEl.contains(document.activeElement)) return;
-          var selP=document.getElementById('psel-'+did), txtP=document.getElementById('ptxt-'+did);
-          if (selP) {
-            var phsVal = (txtP && txtP.style.display!=='none') ? txtP.value : selP.value;
-            if (String(phsVal||'').trim().length===0) {
-              var lblP=document.getElementById('phs-lbl-'+did), linkP=document.getElementById('dc-add-phs-'+did);
-              if (lblP) lblP.style.display='none';
-              selP.style.display='none';
-              if (txtP) txtP.style.display='none';
-              if (linkP) linkP.style.display='';
-            }
-          }
           var noteEl=document.getElementById('note-'+did);
           if (noteEl && String(noteEl.value||'').trim().length===0) {
             var lblN=document.getElementById('note-lbl-'+did), linkN=document.getElementById('dc-add-note-'+did);
@@ -10316,7 +10350,7 @@ function buildDG(ds, dat, locked) {
             if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
             D.pages[_dragDs].duties[did] = _dragName;
             markDutyEdited(_dragDs);
-            saveD(); refreshPool(_dragDs);
+            saveD(); refreshPool(_dragDs); updateStaffZoneBadge(_dragDs);
             maybeLateToast(D.pages[_dragDs], did, _dragName, _oldDuty);
             writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
           }
@@ -10387,7 +10421,7 @@ function buildDG(ds, dat, locked) {
           if(!D.pages[dropDs].duties)D.pages[dropDs].duties={};
           D.pages[dropDs].duties[did]=name;
           markDutyEdited(dropDs);
-          saveD(); refreshPool(dropDs);
+          saveD(); refreshPool(dropDs); updateStaffZoneBadge(dropDs);
           maybeLateToast(D.pages[dropDs], did, name, _oldDuty);
           writeLog('担当割り当て', fmtJ(dropDs)+' '+did+' → '+name);
         }
@@ -10729,19 +10763,21 @@ function buildOPS(ds,dat,locked) {
     function makeDeptOpts(sel2) {
       var h='<option value="">-- 科 / カテゴリ --</option>';
       (masterTree||[]).forEach(function(d){ h+='<option value="'+escH(d.dept)+'"'+(sel2===d.dept?' selected':'')+'>'+escH(d.dept)+'</option>'; });
-      h+='<option value="__free__"'+(sel2==='__free__'?' selected':'')+'>自由記述...</option>';
+      h+='<option value="__free__">自由入力...</option>';
       return h;
     }
     function makeCatOpts(dept2,sel2){
       var h='<option value="">-- 中カテゴリ --</option>';
       var dObj=(masterTree||[]).filter(function(d){return d.dept===dept2;})[0];
       if(dObj)(dObj.cats||[]).forEach(function(c){ h+='<option value="'+escH(c.name)+'"'+(sel2===c.name?' selected':'')+'>'+escH(c.name)+'</option>'; });
+      h+='<option value="__free__">自由入力...</option>';
       return h;
     }
     function makeItemOpts(dept2,cat2,sel2){
       var h='<option value="">-- '+labelName+'を選択 --</option>';
       var dObj=(masterTree||[]).filter(function(d){return d.dept===dept2;})[0];
       if(dObj){var cObj=(dObj.cats||[]).filter(function(c){return c.name===cat2;})[0];if(cObj)(cObj.items||[]).forEach(function(it){ h+='<option value="'+escH(it)+'"'+(sel2===it?' selected':'')+'>'+escH(it)+'</option>'; });}
+      h+='<option value="__free__">自由入力...</option>';
       return h;
     }
     /* 使用物品ツリーセレクタ */
@@ -10779,8 +10815,10 @@ function buildOPS(ds,dat,locked) {
           itemWrap.setAttribute('data-item-idx', idx);
         }
         var row = document.createElement('div'); row.className='ops-item-row';
-        var isLegacy = (item.sel && !item.dept && !item.cat && item.sel!=='__free__');
-        var isFree = (item.dept==='__free__');
+        /* 旧データ（プレーンなsel保存＝tree導入前 or dept全体を自由記述に使っていた旧仕様）は
+           「（旧）」表示＋再選択ボタンで保護する（新スキーマの科レベル自由入力とは別物：
+           新規に科を自由入力にした行はcat/selを空にリセットするので、ここには来ない） */
+        var isLegacy = item.sel && item.sel!=='__free__' && !item.cat && (!item.dept || item.dept==='__free__');
 
         // Add drag handle if not locked
         if (!locked) {
@@ -10802,33 +10840,90 @@ function buildOPS(ds,dat,locked) {
           var resetBtn=document.createElement('button'); resetBtn.type='button'; resetBtn.disabled=!!locked;
           resetBtn.style.cssText='font-size:11px;padding:3px 8px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap';
           resetBtn.textContent='再選択';
-          if(!locked) resetBtn.onclick=(function(i2){return function(){items[i2].dept='';items[i2].cat='';items[i2].sel='';saveItems();renderItems();};})(idx);
+          if(!locked) resetBtn.onclick=(function(i2){return function(){items[i2].dept='';items[i2].deptTxt='';items[i2].cat='';items[i2].catTxt='';items[i2].sel='';items[i2].name='';items[i2].nameTxt='';saveItems();renderItems();};})(idx);
           legRow.appendChild(legSpan); legRow.appendChild(resetBtn); hierDiv.appendChild(legRow);
-        } else if(isFree){
-          /* 自由記述モード */
-          var freeRow=document.createElement('div'); freeRow.style.cssText='display:flex;gap:4px;align-items:center';
-          var freeInp=document.createElement('input'); freeInp.type='text'; freeInp.className='ops-sel'; freeInp.style.flex='1';
-          freeInp.placeholder=labelName+'を直接入力...'; freeInp.disabled=!!locked; freeInp.value=item.sel||'';
-          var toTreeBtn=document.createElement('button'); toTreeBtn.type='button'; toTreeBtn.disabled=!!locked;
-          toTreeBtn.style.cssText='font-size:11px;padding:3px 8px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap';
-          toTreeBtn.textContent='一覧から選択';
-          if(!locked){freeInp.oninput=(function(i2){return function(){items[i2].sel=this.value;saveItems();};})(idx);toTreeBtn.onclick=(function(i2){return function(){items[i2].dept='';items[i2].sel='';saveItems();renderItems();};})(idx);}
-          freeRow.appendChild(freeInp); freeRow.appendChild(toTreeBtn); hierDiv.appendChild(freeRow);
         } else {
-          /* 3段階カスケード選択 */
-          var deptSel=document.createElement('select'); deptSel.className='ops-sel'; deptSel.disabled=!!locked; deptSel.innerHTML=makeDeptOpts(item.dept); deptSel.style.cssText+='flex:1;min-width:0';
-          var catSel=document.createElement('select'); catSel.className='ops-sel'; catSel.disabled=!!locked; catSel.innerHTML=makeCatOpts(item.dept,item.cat); catSel.style.cssText+='flex:1;min-width:0'; catSel.style.display=(item.dept&&item.dept!=='__free__')?'':'none';
-          var itemSel=document.createElement('select'); itemSel.className='ops-sel'; itemSel.disabled=!!locked; itemSel.innerHTML=makeItemOpts(item.dept,item.cat,item.sel); itemSel.style.cssText+='flex:2;min-width:0'; itemSel.style.display=item.cat?'':'none';
-          var selRow=document.createElement('div'); selRow.style.cssText='display:flex;gap:3px;min-width:0';
-          selRow.appendChild(deptSel); selRow.appendChild(catSel); selRow.appendChild(itemSel);
-          hierDiv.appendChild(selRow);
-          if(!locked){
-            (function(i2,dS,cS,iS){
-              dS.onchange=function(){var v=this.value;items[i2].dept=v;items[i2].cat='';items[i2].sel='';if(v==='__free__'){saveItems();renderItems();}else{cS.innerHTML=makeCatOpts(v,'');iS.innerHTML=makeItemOpts(v,'','');cS.style.display=v?'':'none';iS.style.display='none';saveItems();}};
-              cS.onchange=function(){var v=this.value;items[i2].cat=v;items[i2].sel='';iS.innerHTML=makeItemOpts(items[i2].dept,v,'');iS.style.display=v?'':'none';saveItems();};
-              iS.onchange=function(){items[i2].sel=this.value;saveItems();};
-            })(idx,deptSel,catSel,itemSel);
+          /* 3段階カスケード選択。科・中カテゴリ・術式それぞれ独立に「自由入力...」へ切替でき、
+             切替後は⌄ボタンで選択式に戻せる（入室時間の自由入力ボタンと同じ考え方）。 */
+          var selRow=document.createElement('div'); selRow.style.cssText='display:flex;gap:3px;flex-wrap:wrap;min-width:0';
+
+          var makeFreeBackBtn=function(onClick2){
+            var b=document.createElement('button'); b.type='button'; b.disabled=!!locked; b.textContent='⌄'; b.title='選択に戻す';
+            b.style.cssText='font-size:11px;padding:3px 7px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);flex-shrink:0';
+            if(!locked) b.onclick=onClick2;
+            return b;
+          };
+
+          /* 科 */
+          var deptUnit=document.createElement('div'); deptUnit.style.cssText='display:flex;gap:2px;flex:1;min-width:100px';
+          if(item.dept!=='__free__'){
+            var deptSel=document.createElement('select'); deptSel.className='ops-sel'; deptSel.disabled=!!locked; deptSel.innerHTML=makeDeptOpts(item.dept); deptSel.style.flex='1';
+            deptUnit.appendChild(deptSel);
+            if(!locked) deptSel.onchange=(function(i2){return function(){
+              var v=this.value;
+              items[i2].dept=v; items[i2].deptTxt=''; items[i2].cat=''; items[i2].catTxt=''; items[i2].sel=''; items[i2].name=''; items[i2].nameTxt='';
+              saveItems(); renderItems();
+            };})(idx);
+          } else {
+            var deptInp=document.createElement('input'); deptInp.type='text'; deptInp.className='ops-sel'; deptInp.style.flex='1';
+            deptInp.placeholder='科を直接入力...'; deptInp.disabled=!!locked; deptInp.value=item.deptTxt||'';
+            if(!locked) deptInp.oninput=(function(i2){return function(){items[i2].deptTxt=this.value;saveItems();};})(idx);
+            deptUnit.appendChild(deptInp);
+            deptUnit.appendChild(makeFreeBackBtn((function(i2){return function(){
+              items[i2].dept=''; items[i2].deptTxt=''; items[i2].cat=''; items[i2].catTxt=''; items[i2].sel=''; items[i2].name=''; items[i2].nameTxt='';
+              saveItems(); renderItems();
+            };})(idx)));
           }
+          selRow.appendChild(deptUnit);
+
+          /* 中カテゴリ（科が選択・入力されているときだけ表示） */
+          if(item.dept){
+            var catUnit=document.createElement('div'); catUnit.style.cssText='display:flex;gap:2px;flex:1;min-width:100px';
+            if(item.cat!=='__free__'){
+              var catSel=document.createElement('select'); catSel.className='ops-sel'; catSel.disabled=!!locked; catSel.innerHTML=makeCatOpts(item.dept,item.cat); catSel.style.flex='1';
+              catUnit.appendChild(catSel);
+              if(!locked) catSel.onchange=(function(i2){return function(){
+                var v=this.value;
+                items[i2].cat=v; items[i2].catTxt=''; items[i2].sel=''; items[i2].name=''; items[i2].nameTxt='';
+                saveItems(); renderItems();
+              };})(idx);
+            } else {
+              var catInp=document.createElement('input'); catInp.type='text'; catInp.className='ops-sel'; catInp.style.flex='1';
+              catInp.placeholder='中カテゴリを直接入力...'; catInp.disabled=!!locked; catInp.value=item.catTxt||'';
+              if(!locked) catInp.oninput=(function(i2){return function(){items[i2].catTxt=this.value;saveItems();};})(idx);
+              catUnit.appendChild(catInp);
+              catUnit.appendChild(makeFreeBackBtn((function(i2){return function(){
+                items[i2].cat=''; items[i2].catTxt=''; items[i2].sel=''; items[i2].name=''; items[i2].nameTxt='';
+                saveItems(); renderItems();
+              };})(idx)));
+            }
+            selRow.appendChild(catUnit);
+          }
+
+          /* 術式/種別（中カテゴリが選択・入力されているときだけ表示） */
+          if(item.cat){
+            var nameUnit=document.createElement('div'); nameUnit.style.cssText='display:flex;gap:2px;flex:2;min-width:120px';
+            if(item.name!=='__free__'){
+              var itemSel=document.createElement('select'); itemSel.className='ops-sel'; itemSel.disabled=!!locked; itemSel.innerHTML=makeItemOpts(item.dept,item.cat,item.sel); itemSel.style.flex='1';
+              nameUnit.appendChild(itemSel);
+              if(!locked) itemSel.onchange=(function(i2){return function(){
+                var v=this.value;
+                if(v==='__free__'){ items[i2].name='__free__'; items[i2].sel=''; saveItems(); renderItems(); }
+                else { items[i2].sel=v; items[i2].name=''; items[i2].nameTxt=''; saveItems(); }
+              };})(idx);
+            } else {
+              var nameInp=document.createElement('input'); nameInp.type='text'; nameInp.className='ops-sel'; nameInp.style.flex='1';
+              nameInp.placeholder=labelName+'を直接入力...'; nameInp.disabled=!!locked; nameInp.value=item.nameTxt||'';
+              if(!locked) nameInp.oninput=(function(i2){return function(){items[i2].nameTxt=this.value;saveItems();};})(idx);
+              nameUnit.appendChild(nameInp);
+              nameUnit.appendChild(makeFreeBackBtn((function(i2){return function(){
+                items[i2].name=''; items[i2].nameTxt=''; items[i2].sel=''; saveItems(); renderItems();
+              };})(idx)));
+            }
+            selRow.appendChild(nameUnit);
+          }
+
+          hierDiv.appendChild(selRow);
         }
 
         /* 順番プルダウン（カテのみ） */
@@ -11364,10 +11459,13 @@ function buildOPS(ds,dat,locked) {
     } else {
       buildItemList(opeCard, 'ope_items', D.ope, '術式', 'ope', true, false, true, false);
     }
-    var opeNoteRow = document.createElement('div'); opeNoteRow.className='ops-row';
-    opeNoteRow.style.marginTop='6px';
-    opeNoteRow.innerHTML='<span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-ope-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.ope_note||'')+'</textarea>';
-    opeCard.appendChild(opeNoteRow);
+    /* カード全体の備考（旧仕様）は廃止。既存データがある場合のみ編集可能な形で残す（新規作成はさせない） */
+    if (ops.ope_note) {
+      var opeNoteRow = document.createElement('div'); opeNoteRow.className='ops-row';
+      opeNoteRow.style.marginTop='6px';
+      opeNoteRow.innerHTML='<span class="ops-lbl">📝 備考（旧・カード共通）</span><textarea class="ops-txt" id="ops-ope-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.ope_note||'')+'</textarea>';
+      opeCard.appendChild(opeNoteRow);
+    }
     g.appendChild(opeCard);
   }
   function buildCathCard(){
@@ -11388,10 +11486,13 @@ function buildOPS(ds,dat,locked) {
     } else {
       buildItemList(cathCard, 'cath_items', D.cath, '種別', 'cath', true, false, false, false);
     }
-    var cathNoteRow = document.createElement('div'); cathNoteRow.className='ops-row';
-    cathNoteRow.style.marginTop='6px';
-    cathNoteRow.innerHTML='<span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-cath-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.cath_note||'')+'</textarea>';
-    cathCard.appendChild(cathNoteRow);
+    /* カード全体の備考（旧仕様）は廃止。既存データがある場合のみ編集可能な形で残す（新規作成はさせない） */
+    if (ops.cath_note) {
+      var cathNoteRow = document.createElement('div'); cathNoteRow.className='ops-row';
+      cathNoteRow.style.marginTop='6px';
+      cathNoteRow.innerHTML='<span class="ops-lbl">📝 備考（旧・カード共通）</span><textarea class="ops-txt" id="ops-cath-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.cath_note||'')+'</textarea>';
+      cathCard.appendChild(cathNoteRow);
+    }
     g.appendChild(cathCard);
   }
   function buildMwCard(uid){
