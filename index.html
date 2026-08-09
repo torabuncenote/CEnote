@@ -8730,7 +8730,33 @@ function addPoolStaffPrompt(ds, type) {
     saveD();
     renderPage(ds);
     writeLog('当日勤務者追加', fmtJ(ds) + ' ' + label + ' → ' + v);
+    /* 既に担当や余剰に入っている人は refreshPool がチップを隠すため、追加しても画面上は何も起きない。
+       無言だと「追加できていない」と誤解されるので、隠れた理由を知らせる */
+    var why = poolHiddenReason(ds, v);
+    if (why) toast(v + ' さんは' + why + 'のため、一覧には表示されません', 'warn');
+    else toast(v + ' さんを当日勤務者一覧に追加しました', 'ok');
   }, function(){ addPoolStaffPrompt(ds, type); });
+}
+/* その名前が当日勤務者一覧から隠される理由を返す（隠されないなら null）。
+   判定の元は refreshPool の assigned と同じもの。増やすときは両方を直すこと */
+function poolHiddenReason(ds, name) {
+  var dat = D.pages[ds]; if (!dat || !name) return null;
+  if (dat.duties) {
+    var cfg = getDutyCfg(dat);
+    for (var i = 0; i < cfg.length; i++) {
+      if (dat.duties[cfg[i].id] === name) return '既に「' + (cfg[i].label || cfg[i].id) + '」に割り当て済み';
+    }
+    for (var k in dat.duties) { if (dat.duties[k] === name) return '既に担当に割り当て済み'; }
+  }
+  if (dat.extra_free) {
+    for (var e = 0; e < dat.extra_free.length; e++) { if (dat.extra_free[e] && dat.extra_free[e].name === name) return '既にフリー枠に割り当て済み'; }
+  }
+  if (dat.surplusStatus && dat.surplusStatus[name]) {
+    var z = SS_ZONES.filter(function(zz){ return zz.key === dat.surplusStatus[name]; })[0];
+    return '余剰人員の「' + (z ? z.label : dat.surplusStatus[name]) + '」に入っている';
+  }
+  if (dat.surplus && dat.surplus.indexOf(name) !== -1) return '余剰人員に入っている';
+  return null;
 }
 function removePoolStaff(ds, type, name) {
   var dat = D.pages[ds]; if(!dat || !name) return;
