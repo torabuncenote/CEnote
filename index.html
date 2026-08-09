@@ -155,6 +155,31 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .dash-chip:hover{opacity:.75}
 .dash-warn{color:var(--rd)}
 .dash-muted{color:var(--txt3)}
+.cbar{position:fixed;left:0;right:0;bottom:0;z-index:150;background:var(--sur);border-top:2px solid var(--bdr2);box-shadow:0 -2px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px}
+.cbar.warn{border-top-color:var(--rd)}
+.cbar.ok{border-top-color:var(--gr)}
+.cbar-main{display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:0;overflow:hidden}
+.cbar-txt{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cbar.warn .cbar-txt{color:var(--rd)}
+.cbar.ok .cbar-txt{color:var(--gr)}
+.cbar.ref .cbar-txt{color:var(--txt3)}
+.cbar-mine{font-size:11px;color:var(--txt3);white-space:nowrap}
+.cbar-toggle{font-size:11px;font-weight:700;padding:5px 10px;border-radius:14px;border:1.5px solid var(--bdr2);background:var(--sur);color:var(--txt2);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.cbar-toggle.active{background:var(--ac);border-color:var(--ac);color:#fff}
+.cbar-next{font-size:12px;font-weight:700;padding:6px 12px;border-radius:14px;border:none;background:var(--ac);color:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.cbar-detail{position:absolute;left:0;right:0;bottom:100%;background:var(--sur);border-top:1.5px solid var(--bdr2);box-shadow:0 -4px 10px rgba(0,0,0,.08);max-height:50vh;overflow-y:auto;padding:4px 10px}
+.cbar-row{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--bdr);cursor:pointer}
+.cbar-row:last-child{border-bottom:none}
+.cbar-row-label{flex:1;font-size:12px;min-width:0}
+.cbar-row-count{font-size:12px;font-weight:700;color:var(--rd);white-space:nowrap}
+.cbar-row-arrow{font-size:12px;color:var(--txt3)}
+.cbar-row-skip{font-size:10px;padding:3px 7px;border-radius:8px;border:1px solid var(--bdr2);background:var(--sur2);color:var(--txt3);cursor:pointer;white-space:nowrap;flex-shrink:0}
+.cbar-row.skipped{opacity:.55;cursor:default}
+@media(max-width:768px){
+  .cbar{padding:8px 10px;gap:6px;font-size:12px}
+  .cbar-mine{display:none}
+  .cbar-toggle,.cbar-next{padding:5px 8px;font-size:11px}
+}
 .st{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;margin:22px 0 9px;display:flex;align-items:center;gap:7px}
 .slb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
 hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
@@ -1434,6 +1459,18 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   </div>
 </div>
 
+<!-- 消し込みバー（日ページを開いているときだけ表示） -->
+<div class="cbar" id="cbar" style="display:none" data-ds="">
+  <div class="cbar-main" onclick="toggleCbarDetail()">
+    <span id="cbar-dot">🔴</span>
+    <span class="cbar-txt" id="cbar-txt">残り 0</span>
+    <span class="cbar-mine" id="cbar-mine">うち自分 0</span>
+  </div>
+  <button type="button" class="cbar-toggle" id="cbar-mine-toggle" onclick="toggleCbarMineOnly()">自分だけ</button>
+  <button type="button" class="cbar-next" onclick="closeBarNext()">▶ 次へ</button>
+  <div class="cbar-detail" id="cbar-detail" style="display:none"></div>
+</div>
+
 <!-- 1ヶ月生成 -->
 <div class="ov hd" id="modal-gm">
   <div class="md">
@@ -1837,6 +1874,9 @@ var _fbDataLoaded = false; /* Firebase /data リスナーが初回データを�
 var _hdPanelOpen = false; /* HD勤務者パネルの開閉状態（renderSurplusArea 再呼出しを跨いで保持） */
 var _surplusOpen = false; /* 余剰人員エリア本体の開閉状態 */
 var _staffZoneOpen = true; /* 人員配置管理（当日勤務者一覧＋余剰人員）セクションの開閉状態。既定で開く */
+var _cbarMineOnly = false; /* 消し込みバー：[自分だけ]トグルの状態 */
+var _cbarNextIdx = 0;      /* 消し込みバー：▶次へ の巡回位置（カテゴリ単位） */
+var _cbarInputFocused = false; /* 消し込みバー：入力欄フォーカス中は一時的に隠す */
 var _dcCounts = null; /* buildDutyCard 用担当回数キャッシュ（renderPage ごとに更新） */
 var _fbLastPageCount = -1; /* 最後にFirebaseから受信したページ数（不審な削減検出用） */
 var _boardData = {}; /* Firebase /board のキャッシュ */
@@ -1943,6 +1983,25 @@ function init() {
       btn.classList.toggle('show', mainEl.scrollTop > 250);
     });
   })();
+  /* 消し込みバー：入力欄フォーカス中は隠し、外れたら戻す */
+  document.addEventListener('focusin', function(e){
+    var t = e.target;
+    if (!t || (t.tagName!=='INPUT' && t.tagName!=='TEXTAREA')) return;
+    _cbarInputFocused = true;
+    var bar = document.getElementById('cbar');
+    if (bar && bar.getAttribute('data-ds')) bar.style.display = 'none';
+  });
+  document.addEventListener('focusout', function(e){
+    var t = e.target;
+    if (!t || (t.tagName!=='INPUT' && t.tagName!=='TEXTAREA')) return;
+    setTimeout(function(){
+      var active = document.activeElement;
+      if (active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA')) return; /* 別の入力欄へ移っただけ */
+      _cbarInputFocused = false;
+      var bar = document.getElementById('cbar');
+      if (bar && bar.getAttribute('data-ds')) bar.style.display = 'flex';
+    }, 0);
+  });
   if (isPreview) openDefaultPage();
 }
 
@@ -6075,6 +6134,171 @@ function getPct(ds) {
   return total===0?100:Math.round(done/total*100);
 }
 
+/* ===== 消し込みバー =====
+   数える対象は次の6種類に固定（増やさない）。カウントの唯一の入口が closeItems(ds) で、
+   バー本体・内訳・「▶次へ」巡回のすべてがここの結果だけを見る（別々に数え直さない）。
+   mine: この1件が自分に関係するか。
+     - メンション：抽出できた時点で自分あてなので常にtrue
+     - チェックリスト（共通/曜日別）：個人に紐付かないため常にfalse
+     - オペ/カテ：item.staff に自分の名前が入っているか
+     - タブレット：borrower が自分か
+     - オンコール未設定：「自分が担当している枠」＝当日いずれかの担当枠（dat.duties）に
+       自分が割り当てられていれば、未設定のOCも自分ごととして数える（担当外の日は数えない） */
+function closeItems(ds) {
+  var cats = [
+    {key:'mention',   label:'📝 自分あてメンション',   sel:'#memo-list',     items:[]},
+    {key:'checklist', label:'✅ チェックリスト未了',   sel:'.clg',           items:[]},
+    {key:'ope',       label:'🔪 オペ終了未チェック',   sel:'#ops-card-ope',  items:[]},
+    {key:'cath',      label:'🫀 カテ終了未チェック',   sel:'#ops-card-cath', items:[]},
+    {key:'tablet',    label:'📱 タブレット未返却',     sel:'#tablet-btn',    items:[]},
+    {key:'oc',        label:'📞 オンコール担当未設定', sel:'.oc-card',       items:[]}
+  ];
+  var dat = D.pages[ds];
+  if (!dat) return cats;
+  var self = taskSelfName();
+  var skip = dat.closeSkip || {};
+  var byKey = {};
+  cats.forEach(function(c){ c.skip = !!skip[c.key]; byKey[c.key] = c; });
+
+  /* 1. 自分あてメンションを含む未完了の申し送り */
+  if (self) {
+    (dat.memos||[]).forEach(function(m){
+      if (m.done) return;
+      if (extractMentions(m.text, m.name).indexOf(self) !== -1) byKey.mention.items.push({mine:true});
+    });
+  }
+
+  /* 2. チェックリスト未了（getPctと完全に同じ数え方：元のインデックスで走査しisDlyShownOnDateでスキップ） */
+  var wtl = wdItemsForDate(ds);
+  for (var i=0;i<D.dly.length;i++){
+    if (!isDlyShownOnDate(D.dly[i],ds)) continue;
+    if (!(dat.checks && dat.checks[i])) byKey.checklist.items.push({mine:false});
+  }
+  for (var j=0;j<wtl.length;j++){
+    if (!(dat.checks && dat.checks[D.dly.length+j])) byKey.checklist.items.push({mine:false});
+  }
+
+  /* 3/4. オペ・カテ：入力済み（opsItemFilled）なのに終了未チェックの行 */
+  var ops = dat.ops || {};
+  (ops.ope_items||[]).forEach(function(it){
+    if (opsItemFilled(it) && !it.done) byKey.ope.items.push({mine: !!(self && opsItemStaff(it).indexOf(self)!==-1)});
+  });
+  (ops.cath_items||[]).forEach(function(it){
+    if (opsItemFilled(it) && !it.done) byKey.cath.items.push({mine: !!(self && opsItemStaff(it).indexOf(self)!==-1)});
+  });
+
+  /* 5. タブレット未返却（ヘッダーバッジと同じ式：当日分＋前日以前からの持ち越し分） */
+  (dat.tabletLogs||[]).forEach(function(l){
+    if (!l.returnedAt) byKey.tablet.items.push({mine: !!(self && l.borrower===self)});
+  });
+  tabletCarryOver(ds).forEach(function(o){
+    byKey.tablet.items.push({mine: !!(self && o.log.borrower===self)});
+  });
+
+  /* 6. オンコール担当が未設定 */
+  if (!(dat.ocData && dat.ocData.staff)) {
+    var mineOc = false;
+    if (self && dat.duties) { for (var k in dat.duties) { if (dat.duties[k]===self) { mineOc = true; break; } } }
+    byKey.oc.items.push({mine: mineOc});
+  }
+
+  return cats;
+}
+
+/* バー本体の表示更新。updateOpsHeader(ds)/updateTabletBtnBadge(ds) と同じ場所（呼び出し元）から呼ぶ。
+   ds が未指定・該当ページ無しのときはバーごと非表示にする（日ページを開いているときだけ表示） */
+function updateCloseBar(ds) {
+  var bar = document.getElementById('cbar'); if (!bar) return;
+  if (!ds || !D.pages[ds]) {
+    bar.style.display = 'none';
+    bar.setAttribute('data-ds', '');
+    return;
+  }
+  bar.setAttribute('data-ds', ds);
+  if (!_cbarInputFocused) bar.style.display = 'flex';
+
+  var cats = closeItems(ds);
+  var isToday = (ds === toDS(new Date()));
+
+  var totalAll = 0, totalMine = 0;
+  cats.forEach(function(c){
+    if (c.skip) return;
+    totalAll += c.items.length;
+    totalMine += c.items.filter(function(it){ return it.mine; }).length;
+  });
+  var shown = _cbarMineOnly ? totalMine : totalAll;
+
+  bar.classList.remove('warn','ref','ok');
+  var dotEl=document.getElementById('cbar-dot'), txtEl=document.getElementById('cbar-txt'), mineEl=document.getElementById('cbar-mine');
+  if (shown === 0) {
+    bar.classList.add('ok');
+    if (dotEl) dotEl.textContent = '✅';
+    if (txtEl) txtEl.textContent = '残り 0 ── 本日ぶんは締められます';
+    if (mineEl) mineEl.style.display = 'none';
+  } else {
+    bar.classList.add(isToday ? 'warn' : 'ref');
+    if (dotEl) dotEl.textContent = isToday ? '🔴' : '⚪';
+    if (txtEl) txtEl.textContent = '残り ' + shown;
+    if (mineEl) { mineEl.style.display = ''; mineEl.textContent = 'うち自分 ' + totalMine; }
+  }
+  var toggleBtn = document.getElementById('cbar-mine-toggle');
+  if (toggleBtn) toggleBtn.classList.toggle('active', _cbarMineOnly);
+
+  var detail = document.getElementById('cbar-detail');
+  if (detail && detail.style.display !== 'none') renderCbarDetail(ds, cats);
+}
+function cbarDs(){ var bar=document.getElementById('cbar'); return bar ? bar.getAttribute('data-ds') : ''; }
+function toggleCbarDetail(){
+  var ds = cbarDs(); if (!ds) return;
+  var detail = document.getElementById('cbar-detail'); if (!detail) return;
+  if (detail.style.display === 'none') { renderCbarDetail(ds, closeItems(ds)); detail.style.display = 'block'; }
+  else detail.style.display = 'none';
+}
+function toggleCbarMineOnly(){
+  _cbarMineOnly = !_cbarMineOnly;
+  updateCloseBar(cbarDs());
+}
+function closeBarSkip(ds, key){
+  if (!D.pages[ds]) return;
+  if (!D.pages[ds].closeSkip) D.pages[ds].closeSkip = {};
+  D.pages[ds].closeSkip[key] = !D.pages[ds].closeSkip[key];
+  saveDPage(ds);
+  updateCloseBar(ds);
+}
+/* 未了の次のカテゴリへジャンプする（項目単位ではなくカテゴリ単位の巡回。最後まで行ったら先頭に戻る） */
+function closeBarNext(){
+  var ds = cbarDs(); if (!ds) return;
+  var pend = closeItems(ds).filter(function(c){
+    if (c.skip) return false;
+    var n = _cbarMineOnly ? c.items.filter(function(it){ return it.mine; }).length : c.items.length;
+    return n > 0;
+  });
+  if (!pend.length) return;
+  var idx = _cbarNextIdx % pend.length;
+  _cbarNextIdx++;
+  dashJump(pend[idx].sel);
+}
+function renderCbarDetail(ds, cats){
+  var detail = document.getElementById('cbar-detail'); if (!detail) return;
+  var h = '';
+  cats.forEach(function(c){
+    if (c.skip) {
+      h += '<div class="cbar-row skipped"><span class="cbar-row-label">'+c.label+'（今日は対象外）</span>'
+         + '<button type="button" class="cbar-row-skip" onclick="closeBarSkip(\''+ds+'\',\''+c.key+'\')">戻す</button></div>';
+      return;
+    }
+    var n = _cbarMineOnly ? c.items.filter(function(it){ return it.mine; }).length : c.items.length;
+    var mineN = c.items.filter(function(it){ return it.mine; }).length;
+    h += '<div class="cbar-row">';
+    h += '<span class="cbar-row-label" onclick="dashJump(\''+c.sel+'\')">'+c.label+'</span>';
+    h += '<span class="cbar-row-count" onclick="dashJump(\''+c.sel+'\')">'+n+'件'+(mineN?'<span style="color:var(--txt3);font-weight:400"> (自分'+mineN+')</span>':'')+'</span>';
+    h += '<span class="cbar-row-arrow" onclick="dashJump(\''+c.sel+'\')">→</span>';
+    h += '<button type="button" class="cbar-row-skip" onclick="closeBarSkip(\''+ds+'\',\''+c.key+'\')">対象外</button>';
+    h += '</div>';
+  });
+  detail.innerHTML = h;
+}
+
 function renderCal() {
   document.getElementById('ml').textContent = calY + '年' + (calM+1) + '月';
   var g = document.getElementById('cg'); g.innerHTML = '';
@@ -7726,6 +7950,7 @@ function doDelM() {
 }
 function showEmpty() {
   document.getElementById('main').innerHTML='<div class="es"><div class="es-ic">📋</div><div class="es-t">連絡表を選択または作成してください</div><p class="es-s">左のカレンダーから日付を選ぶか<br>「1ヶ月生成」で一括作成できます</p></div>';
+  updateCloseBar(null);
 }
 
 /* ===== PAGE ===== */
@@ -7777,6 +8002,7 @@ function openPage(ds) {
   /* 業務件数ヘッダーを常に最新化（renderPage skip時も含む） */
   if (D.pages[ds]) updateOpsHeader(ds);
   if (D.pages[ds]) updatePsgRemovalBanner(ds);
+  else updateCloseBar(null);
 }
 
 /* オペ・カテ行の件数カウント判定：
@@ -7942,6 +8168,7 @@ function updateOpsHeader(ds){
   var psgRemoval=!!(prevDatOH&&((prevDatOH.ops_cards&&prevDatOH.ops_cards.indexOf('psg')!==-1)||(prevDatOH.ops&&prevDatOH.ops.psg_on)));
   var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone);
   el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
+  updateCloseBar(ds);
 }
 function updatePsgRemovalBanner(ds){
   var el=document.getElementById('psg-removal-banner'); if(!el) return;
@@ -8244,7 +8471,7 @@ function renderPage(ds) {
   /* OC events */
   (function(ds){
     var os=document.getElementById('oc-staff'), on2=document.getElementById('oc-note');
-    if(os){os.onchange=function(){this.classList.toggle('set',!!this.value);D.pages[ds].ocData.staff=this.value;saveD();refreshPool(ds);};}
+    if(os){os.onchange=function(){this.classList.toggle('set',!!this.value);D.pages[ds].ocData.staff=this.value;saveD();refreshPool(ds);updateCloseBar(ds);};}
     if(on2){var t;on2.oninput=function(){var v=this.value;clearTimeout(t);t=setTimeout(function(){D.pages[ds].ocData.note=v;saveD();},600);};}
     /* OC対応チェック・時間・年休 */
     var ocDoneCb=document.getElementById('oc-done');
@@ -8363,6 +8590,7 @@ function renderPage(ds) {
     })(ds);
   }
   autoGrowAll(document.getElementById('main')); /* 既に入っている長文が見切れないよう高さを合わせる */
+  updateCloseBar(ds);
 }
 
 /* 値が空のときは「＋◯◯」リンクだけを出しておき、クリックでラベル欄と入力欄を展開するための共通処理。
@@ -8568,6 +8796,7 @@ function renderMemos(ds, dat, locked) {
       /* 投稿ボックスのクラスを即時切り替え（再描画なし） */
       var post = cb.closest('.memo-post');
       if (post) post.classList.toggle('memo-done', cb.checked);
+      updateCloseBar(bds);
     }
   });
 }
@@ -9282,6 +9511,7 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '送信'; }
   renderMemos(ds, D.pages[ds], !can('memo'));
   updatePendingBadge();
+  updateCloseBar(ds);
   if (entry.media && entry.media.some(function(m){return m.pending;})) {
     toast('画像/動画は管理者の承認後に表示されます。', 'ok');
     sendAdminNotification('🕓 承認依頼: ' + entry.name + 'さんが申し送り（' + fmtJ(ds) + '）に画像/動画を追加しました', entry.text ? entry.text.slice(0,50) : '');
@@ -9459,6 +9689,7 @@ function delMemo(ds, idx) {
   saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
+  updateCloseBar(ds);
 }
 
 function openMoveMemoModal(ds, idx) {
@@ -9509,6 +9740,7 @@ function moveMemo(ds, idx, targetDs) {
   writeLog('申し送り移動', fmtJ(ds) + '→' + fmtJ(targetDs) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
   renderCal();
+  updateCloseBar(ds);
   return true;
 }
 
@@ -11875,6 +12107,7 @@ function updProg(ds) {
   if(p){p.textContent=pct+'%';p.className='pgp'+(pct===100?' dn':'');}
   if(pr)pr.textContent=done+' / '+total+' 完了';
   renderCal();
+  updateCloseBar(ds);
 }
 
 /* ===== ASSIGN TABLE ===== */
@@ -13121,6 +13354,7 @@ function updateTabletBtnBadge(ds){
   var out=(dat&&dat.tabletLogs)?dat.tabletLogs.filter(function(l){return !l.returnedAt;}).length:0;
   out+=tabletCarryOver(ds).length; /* 持ち越し分も未返却として数える */
   b.textContent=out; b.style.display=out?'inline-block':'none';
+  updateCloseBar(ds);
 }
 
 /* ヘッダーの📱ボタンから呼び出すモーダルパネル */
@@ -13467,6 +13701,8 @@ function swTab(t) {
   if(t==='dev') { renderDev(); }
   if(t==='regs') { renderRegs(); }
   if(t==='changelog') { renderChangelog(); }
+  /* 消し込みバーは日ページ（#main）を表示しているときだけ出す */
+  updateCloseBar(hideMain ? null : curDs);
 }
 function toggleDocsMenu(){
   var menu=document.getElementById('docs-submenu');
