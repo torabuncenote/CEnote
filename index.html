@@ -151,13 +151,21 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .pv-d{background:var(--ac-bg);color:var(--ac)}
 .pv-w{background:var(--or-bg);color:var(--or)}
 .pv-p{background:var(--gr-bg);color:var(--gr)}
-.prp-jump{cursor:pointer;text-decoration:underline dotted}
-.prp-jump:hover{opacity:.75}
+.dash-chip{cursor:pointer}
+.dash-chip:hover{opacity:.75}
+.dash-warn{color:var(--rd)}
+.dash-muted{color:var(--txt3)}
 .st{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;margin:22px 0 9px;display:flex;align-items:center;gap:7px}
 .slb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
 hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .co{background:var(--ac-bg);border-left:3px solid var(--ac);border-radius:0 5px 5px 0;padding:9px 13px;font-size:12px;line-height:1.7;color:var(--txt2);margin-bottom:16px}
 .ln{background:var(--rd-bg);border-left:3px solid var(--rd);border-radius:0 5px 5px 0;padding:8px 13px;font-size:12px;color:var(--rd);margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.staffz{margin-bottom:10px}
+.staffz-hd{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)}
+.staffz-ttl{font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
+.staffz-badge{font-size:11px;font-weight:700;color:var(--txt3)}
+.staffz-arrow{font-size:11px;color:var(--txt3);margin-left:auto}
+#staffz-body{padding-top:10px}
 .pool-wrap{background:var(--sur);border:1.5px solid var(--oc-bdr);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;box-shadow:var(--sh)}
 .surplus-wrap{background:var(--sur);border:1.5px dashed var(--bdr2);border-radius:var(--r);padding:10px 14px;margin-bottom:10px}
 .surplus-ttl{font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:6px}
@@ -789,12 +797,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .srch-snip{font-size:12px;color:var(--txt2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .srch-empty{padding:20px;text-align:center;color:var(--txt3);font-size:13px}
 .db-add-link{font-size:11px;color:var(--ac);background:none;border:1px dashed var(--ac);border-radius:var(--rs);padding:2px 8px;cursor:pointer;margin-top:2px}
+.dash-highlight{outline:2px solid var(--ac);outline-offset:2px}
 /* ===== 印刷スタイル ===== */
 @media print{
-  .tb,.sb,.hbg,.pi,.pool-wrap,.surplus-wrap,.co,.ln,.oc-card .oc-row:last-child,.btn,.btn-p,.btn-g,.btn-d,.btn-logout,.pool-mini-btn,
+  .tb,.sb,.hbg,.pi,.staffz-hd,.pool-wrap,.surplus-wrap,.co,.ln,.oc-card .oc-row:last-child,.btn,.btn-p,.btn-g,.btn-d,.btn-logout,.pool-mini-btn,
   .pool-chip-x,.dg .dc-del,.dg .dc-drag,.dg .dc-edit,.oc-sel,.oc-txt,
   #evt-area button,#aa-trigger,.print-btn,.srch-btn,.stale-banner,
-  .db-add-link,.ops-now-btn{display:none!important}
+  .db-add-link,.ops-now-btn,.cbar{display:none!important}
   .ab{display:block!important}
   .main{margin:0!important;padding:0 8px!important;box-shadow:none!important;max-width:100%!important}
   .pt2{font-size:16px;font-weight:700;margin-bottom:8px}
@@ -1827,6 +1836,7 @@ var _lastCleanupDate = ''; /* cleanOldSnapshots の日次レート制限 */
 var _fbDataLoaded = false; /* Firebase /data リスナーが初回データを受信済み。trueになるまでFirebase書き込みを禁止（ログイン直後の空書き込みを防止） */
 var _hdPanelOpen = false; /* HD勤務者パネルの開閉状態（renderSurplusArea 再呼出しを跨いで保持） */
 var _surplusOpen = false; /* 余剰人員エリア本体の開閉状態 */
+var _staffZoneOpen = true; /* 人員配置管理（当日勤務者一覧＋余剰人員）セクションの開閉状態。既定で開く */
 var _dcCounts = null; /* buildDutyCard 用担当回数キャッシュ（renderPage ごとに更新） */
 var _fbLastPageCount = -1; /* 最後にFirebaseから受信したページ数（不審な削減検出用） */
 var _boardData = {}; /* Firebase /board のキャッシュ */
@@ -1847,6 +1857,17 @@ var _messaging = null; /* Firebase Messaging インスタンス */
 function scrollMainTop() {
   var m = document.getElementById('main');
   if (m) m.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ダッシュボードのチップや消し込みバーの内訳から、日ページ内の該当要素へスクロールし
+   2秒だけ枠線でハイライトする共通ヘルパー。#main の中から探す（同名IDが他所にあっても誤爆しないため）。 */
+function dashJump(sel) {
+  var mainEl = document.getElementById('main');
+  var el = mainEl ? mainEl.querySelector(sel) : null;
+  if (!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'start'});
+  el.classList.add('dash-highlight');
+  setTimeout(function(){ el.classList.remove('dash-highlight'); }, 2000);
 }
 
 /* ===== INIT ===== */
@@ -1920,13 +1941,6 @@ function init() {
     if (!mainEl || !btn) return;
     mainEl.addEventListener('scroll', function() {
       btn.classList.toggle('show', mainEl.scrollTop > 250);
-    });
-    /* ヘッダー進捗ボタンクリック → チェックリストへジャンプ */
-    mainEl.addEventListener('click', function(e) {
-      if (e.target.closest('.prp-jump')) {
-        var cl = mainEl.querySelector('.clg');
-        if (cl) cl.scrollIntoView({behavior:'smooth'});
-      }
     });
   })();
   if (isPreview) openDefaultPage();
@@ -4639,6 +4653,14 @@ function toggleSurplusArea(){
   if(body) body.style.display = _surplusOpen ? 'block' : 'none';
   var ttl = document.querySelector('#surplus-wrap .surplus-ttl span');
   if(ttl) ttl.textContent = _surplusOpen ? '▲' : '▼';
+}
+
+function toggleStaffZone(){
+  _staffZoneOpen = !_staffZoneOpen;
+  var body = document.getElementById('staffz-body');
+  if(body) body.style.display = _staffZoneOpen ? 'block' : 'none';
+  var ar = document.querySelector('.staffz-arrow');
+  if(ar) ar.textContent = _staffZoneOpen ? '▲' : '▼';
 }
 
 var SS_ZONES=[
@@ -7767,6 +7789,7 @@ function opsItemFilled(it){
   if (it.time || it.timeTxt || it.order) return true;
   if (it.sup && it.sup.length) return true;
   if (it.endTime != null || (it.staff && (Array.isArray(it.staff) ? it.staff.length : Object.keys(it.staff).length))) return true;
+  if (it.note && String(it.note).trim().length > 0) return true;
   return false;
 }
 /* ===== フリー業務カードの走査（唯一の入口） =====
@@ -7886,20 +7909,20 @@ function updateOpsCardDoneBadge(cardEl, items) {
 function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone){
   opeDone=opeDone||0; cathDone=cathDone||0;
   var s='';
-  var GR_CHIP='background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px';
-  if(psgRemoval) s+='<span style="background:#fff0f0;color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG外し</span> ';
+  var GR_CHIP='background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer';
+  if(psgRemoval) s+='<span style="background:#fff0f0;color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">🌙 PSG外し</span> ';
   if(opeN){
     var opeAll=(opeDone>=opeN);
     var opeTxt=opeDone>0?('🔪 オペ '+opeDone+'/'+opeN+'件終了'+(opeAll?' ✅':'')):('🔪 オペ '+opeN+'件');
-    s+='<span style="'+(opeAll?GR_CHIP:'background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px')+'">'+opeTxt+'</span> ';
+    s+='<span style="'+(opeAll?GR_CHIP:'background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer')+'" onclick="dashJump(\'#ops-card-ope\')">'+opeTxt+'</span> ';
   }
   if(cathN){
     var cathAll=(cathDone>=cathN);
     var cathTxt=cathDone>0?('🫀 カテ '+cathDone+'/'+cathN+'件終了'+(cathAll?' ✅':'')):('🫀 カテ '+cathN+'件');
-    s+='<span style="'+(cathAll?GR_CHIP:'background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px')+'">'+cathTxt+'</span> ';
+    s+='<span style="'+(cathAll?GR_CHIP:'background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer')+'" onclick="dashJump(\'#ops-card-cath\')">'+cathTxt+'</span> ';
   }
-  if(mwN)   s+='<span style="'+GR_CHIP+'">🚶 6MW '+mwN+'件</span> ';
-  if(psgN)  s+='<span style="background:var(--or-bg);color:var(--or);border:1px solid var(--or);border-radius:6px;padding:2px 8px;font-size:11px">🌙 PSG 1件</span> ';
+  if(mwN)   s+='<span style="'+GR_CHIP+'" onclick="dashJump(\'#ops-card-mw\')">🚶 6MW '+mwN+'件</span> ';
+  if(psgN)  s+='<span style="background:var(--or-bg);color:var(--or);border:1px solid var(--or);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">🌙 PSG 1件</span> ';
   return s;
 }
 function updateOpsHeader(ds){
@@ -7986,12 +8009,28 @@ function renderPage(ds) {
   var _psgRemoval=!!(_prevDatRP&&((_prevDatRP.ops_cards&&_prevDatRP.ops_cards.indexOf('psg')!==-1)||(_prevDatRP.ops&&_prevDatRP.ops.psg_on)));
   var _hasOps=_opeN||_cathN||_mwN||_psgN||_psgRemoval;
   h+='<div class="pp">';
-  h+='<div class="pr"><span class="pl">📅 日付</span><span class="pv pv-d">'+ds+'</span></div>';
-  h+='<div class="pr"><span class="pl">📆 曜日</span><span class="pv pv-w">'+wf+'</span></div>';
-  h+='<div class="pr"><span class="pl">✅ 進捗</span><span class="pv pv-p prp-jump" id="prp" title="チェックリストへジャンプ">'+done+' / '+total+' 完了</span></div>';
+  h+='<div class="pr dash-chip" onclick="dashJump(\'.clg\')" title="チェックリストへジャンプ"><span class="pl">✅ 進捗</span><span class="pv pv-p" id="prp">'+done+' / '+total+' 完了</span></div>';
   h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone)+'</span></div>' : '') +'</div>';
+  var _ocStaff = dat.ocData.staff || '';
+  var _ocCls = !_ocStaff ? ' dash-warn' : (dat.ocData.done ? ' pv-p' : '');
+  h+='<div class="pr dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅対応済':'')+'</span></div>';
+  var _memoUndone = (dat.memos||[]).filter(function(m){return !m.done;}).length;
+  h+='<div class="pr dash-chip" onclick="dashJump(\'#memo-list\')" title="申し送りへジャンプ"><span class="pl">📝 申し送り</span><span class="pv'+(_memoUndone?'':' dash-muted')+'">'+_memoUndone+'件</span></div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
+
+  /* 人員配置管理（当日勤務者一覧＋余剰人員をまとめて開閉。中身のDOM構造は変えず外側にラッパを被せるだけ） */
+  var _staffN = si.ce.length + si.oc.length;
+  var _duties8 = getDutyCfg(dat);
+  var _unassignedN = _duties8.filter(function(d){ return !(dat.duties && dat.duties[d.id]); }).length;
+  h+='<div class="staffz">';
+  h+='<div class="staffz-hd" onclick="toggleStaffZone()">';
+  h+='<span class="staffz-ttl">👥 人員配置管理</span>';
+  h+='<span class="staffz-badge">当日'+_staffN+'名</span>';
+  if(_unassignedN) h+='<span class="staffz-badge" style="color:var(--rd)">未割当'+_unassignedN+'</span>';
+  h+='<span class="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
+  h+='</div>';
+  h+='<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
 
   /* 勤務者プール */
   h+='<div class="pool-wrap">';
@@ -8030,6 +8069,8 @@ function renderPage(ds) {
   h+='</div></div>';
   h+='<div id="surplus-wrap" class="surplus-wrap"></div>';
   h+='<div class="co">💡 勤務者一覧の名前をタップすると担当に自動入力されます。勤務交代時は「＋CE」「＋OC」で当日だけ追加、各名前の「×」で当日だけ除外できます。割り当て済みの人は消えます。</div>';
+  h+='</div>'; /* #staffz-body */
+  h+='</div>'; /* .staffz */
 
   /* 担当割り当て */
   h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
@@ -8324,23 +8365,20 @@ function renderPage(ds) {
   autoGrowAll(document.getElementById('main')); /* 既に入っている長文が見切れないよう高さを合わせる */
 }
 
+/* 値が空のときは「＋◯◯」リンクだけを出しておき、クリックでラベル欄と入力欄を展開するための共通処理。
+   担当カードのPHS番号／備考（dcExpandField）と、オペ・カテ症例行の備考（buildOPS内）の両方から使う。 */
+function expandField(lblId, fieldId, linkId){
+  var lbl = document.getElementById(lblId);
+  var field = document.getElementById(fieldId);
+  var link = document.getElementById(linkId);
+  if (link) link.style.display = 'none';
+  if (lbl) lbl.style.display = '';
+  if (field) { field.style.display = ''; field.focus(); }
+}
 /* buildDutyCard：値が空のPHS番号／備考の折り畳みリンクをクリックして展開する（編集可能かつ値が空のときのみ） */
 function dcExpandField(did, kind){
-  if (kind === 'phs') {
-    var lbl = document.getElementById('phs-lbl-'+did);
-    var sel = document.getElementById('psel-'+did);
-    var link = document.getElementById('dc-add-phs-'+did);
-    if (link) link.style.display = 'none';
-    if (lbl) lbl.style.display = '';
-    if (sel) { sel.style.display = ''; sel.focus(); }
-  } else {
-    var lblN = document.getElementById('note-lbl-'+did);
-    var ta = document.getElementById('note-'+did);
-    var linkN = document.getElementById('dc-add-note-'+did);
-    if (linkN) linkN.style.display = 'none';
-    if (lblN) lblN.style.display = '';
-    if (ta) { ta.style.display = ''; ta.focus(); }
-  }
+  if (kind === 'phs') expandField('phs-lbl-'+did, 'psel-'+did, 'dc-add-phs-'+did);
+  else expandField('note-lbl-'+did, 'note-'+did, 'dc-add-note-'+did);
 }
 
 /* ===== POOL ===== */
@@ -10266,11 +10304,13 @@ function buildOPS(ds,dat,locked) {
     return c;
   }
 
-  /* ===== 行の担当者・終了時刻（オペ/カテ共通、Tree版・フラット版の両方から呼ぶ） =====
-     itemWrap（.ops-item-wrap）に「👤 担当者」行を常時、「🏁 終了」行を終了済みのときだけ追加する。
-     担当者チップの追加・削除、終了時刻の手動修正はここで直接 items[idx] を書き換えて
-     saveItems()/renderItems() を呼ぶ（両ビルダーの他の入力欄と同じパターン）。 */
-  function buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems) {
+  /* ===== 行の担当者・終了時刻・備考（オペ/カテ共通、Tree版・フラット版の両方から呼ぶ） =====
+     itemWrap（.ops-item-wrap）に「👤 担当者」行を常時、「🏁 終了」行を終了済みのときだけ、
+     「📝 備考」行を常時（値が空なら「＋備考」リンクだけ）追加する。
+     担当者チップの追加・削除、終了時刻・備考の手動修正はここで直接 items[idx] を書き換えて
+     saveItems()/renderItems() を呼ぶ（両ビルダーの他の入力欄と同じパターン）。
+     itemId（'ope'/'cath'）はDOM ID（担当カードのdc-add-note-等と衝突しないための接頭辞）に使う。 */
+  function buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId) {
     var item = items[idx];
 
     var staffRow = document.createElement('div'); staffRow.className = 'ops-staff-row';
@@ -10341,6 +10381,42 @@ function buildOPS(ds,dat,locked) {
       }
       itemWrap.appendChild(endRow);
     }
+
+    /* 症例ごとの備考：カード全体の備考（ops.ope_note/cath_note）とは別物。
+       値が1文字でもあれば開いたまま、空なら「＋備考」リンクだけ（担当カードのdcExpandFieldと同じ考え方）。 */
+    var noteVal = item.note || '';
+    var noteCollapsed = !locked && String(noteVal).trim().length === 0;
+    var noteDomId = itemId + '-' + idx;
+    var noteLblId = 'ops-note-lbl-' + noteDomId, noteFieldId = 'ops-note-' + noteDomId, noteLinkId = 'ops-note-add-' + noteDomId;
+    var noteRow = document.createElement('div'); noteRow.className = 'ops-staff-row';
+    var noteLbl = document.createElement('span'); noteLbl.className = 'ops-meta-lbl'; noteLbl.id = noteLblId; noteLbl.textContent = '📝';
+    if (noteCollapsed) noteLbl.style.display = 'none';
+    noteRow.appendChild(noteLbl);
+    var noteTa = document.createElement('textarea'); noteTa.className = 'ops-txt'; noteTa.id = noteFieldId;
+    noteTa.rows = 1; noteTa.style.flex = '1'; noteTa.placeholder = '備考...'; noteTa.disabled = !!locked;
+    noteTa.value = noteVal;
+    if (noteCollapsed) noteTa.style.display = 'none';
+    if (!locked) {
+      noteTa.oninput = function(){ items[idx].note = this.value; saveItems(); };
+      noteTa.addEventListener('focusout', function(){
+        setTimeout(function(){
+          if (String(noteTa.value||'').trim().length === 0) {
+            var lbl2 = document.getElementById(noteLblId), link2 = document.getElementById(noteLinkId);
+            if (lbl2) lbl2.style.display = 'none';
+            noteTa.style.display = 'none';
+            if (link2) link2.style.display = '';
+          }
+        }, 0);
+      });
+    }
+    noteRow.appendChild(noteTa);
+    if (noteCollapsed) {
+      var noteLink = document.createElement('button'); noteLink.type = 'button'; noteLink.className = 'db-add-link'; noteLink.id = noteLinkId;
+      noteLink.textContent = '＋備考';
+      noteLink.onclick = function(){ expandField(noteLblId, noteFieldId, noteLinkId); };
+      noteRow.appendChild(noteLink);
+    }
+    itemWrap.appendChild(noteRow);
   }
 
   /* ===== 入室時間の選択肢（カテのブリーフィングと同じ ○：△ 方式）
@@ -10548,7 +10624,7 @@ function buildOPS(ds,dat,locked) {
         if(!locked) delBtn.onclick=(function(i2){return function(){if(items.length<=1){items[0]={dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]};}else{items.splice(i2,1);}saveItems();renderItems();};})(idx);
         row.appendChild(delBtn);
         itemWrap.appendChild(row);
-        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems);
+        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId);
 
         /* 使用物品行（オペのみ）- itemWrapに追加してD&Dで一緒に動く */
         if(withSup){
@@ -10911,7 +10987,7 @@ function buildOPS(ds,dat,locked) {
         row.appendChild(delBtn);
 
         itemWrap.appendChild(row);
-        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems);
+        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId);
         if (supRow) itemWrap.appendChild(supRow);
         wrap.appendChild(itemWrap);
 
@@ -11025,6 +11101,7 @@ function buildOPS(ds,dat,locked) {
 
   function buildOpeCard(){
     var opeCard = card('🔪 オペ');
+    opeCard.id = 'ops-card-ope';
     if (D.opeTree && D.opeTree.length) {
       buildItemListTree(opeCard, 'ope_items', D.opeTree, '術式', 'ope', true, false, true);
     } else {
@@ -11038,6 +11115,7 @@ function buildOPS(ds,dat,locked) {
   }
   function buildCathCard(){
     var cathCard = card('🫀 カテ');
+    cathCard.id = 'ops-card-cath';
     var bh=ops.cath_briefing_h||'', bm=ops.cath_briefing_m||'';
     var hOpts='', mOpts='';
     for(var bhi=8;bhi<=16;bhi++){hOpts+='<option value="'+bhi+'"'+(String(bh)===String(bhi)?' selected':'')+'>'+bhi+'時</option>';}
@@ -11061,6 +11139,7 @@ function buildOPS(ds,dat,locked) {
   }
   function buildMwCard(uid){
     var c2=card('🚶 6MW（6分間歩行）');
+    if (!uid) c2.id = 'ops-card-mw';
     var sfx=uid?'-'+uid:'';
     c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">件数</span><input type="number" class="ops-num" id="ops-mw-n'+sfx+'" min="0" value="'+(ops.mw_n||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span></div>'
       +'<div class="ops-row"><span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-mw-note'+sfx+'" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.mw_note||'')+'</textarea></div>';
@@ -11068,6 +11147,7 @@ function buildOPS(ds,dat,locked) {
   }
   function buildPsgCard(uid, removalOnly){
     var c3=card('🌙 PSG（睡眠検査）');
+    if (!uid) c3.id = 'ops-card-psg';
     var sfx=uid?'-'+uid:'';
     var fusenChecked=!!(ops.psg_fusen);
     /* 装着行：外し専用日（前日装着分の外しのみを表示する日）には不要なので非表示 */
