@@ -144,8 +144,10 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .es-s{font-size:13px;line-height:1.7}
 .pi{font-size:38px;margin-bottom:5px}
 .pt2{font-size:21px;font-weight:900;margin-bottom:14px;line-height:1.3;letter-spacing:-.02em}
-.pp{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 16px;margin-bottom:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;box-shadow:var(--sh)}
-.pr{display:flex;flex-direction:column;gap:4px}
+/* ダッシュボード：項目数が可変なので3列グリッドをやめ、内容幅で横に詰める。
+   ラベルと値も縦積みではなく横並びにして高さを半分にする */
+.pp{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;box-shadow:var(--sh)}
+.pr{display:flex;flex-direction:row;align-items:center;gap:7px;min-width:0}
 .pl{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em}
 .pv{font-size:13px;font-weight:700;padding:4px 10px;border-radius:5px;display:inline-flex;align-items:center;gap:4px;width:fit-content}
 .pv-d{background:var(--ac-bg);color:var(--ac)}
@@ -505,7 +507,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .ops-grid{grid-template-columns:1fr}
   .ops-item-row{flex-wrap:wrap}
   .ops-item-row>div{flex:1 1 100%!important;min-width:0}
-  .pp{grid-template-columns:repeat(2,1fr)}
+  .pp{gap:7px 14px;padding:9px 11px}
+  /* スマホではタイトルとボタンを同じ行に並べると、タイトルが4行に折り返して読めなくなる。
+     タイトルを1行目いっぱいに使い、ボタンは次の行へ回す */
+  .pg-hd{flex-wrap:wrap}
+  .pg-hd .pt2{flex:1 1 100%!important;order:-1;margin-bottom:8px}
   .hbg{display:flex}
   /* スマホではサイドバーをfixedで全画面表示 */
   .sb{position:fixed;top:var(--th);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th))!important;overflow-y:auto}
@@ -532,7 +538,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 }
 @media(max-width:480px){
   .dg{grid-template-columns:1fr}
-  .pp{grid-template-columns:1fr 1fr}
+  .pp{gap:6px 12px}
   .pt2{font-size:17px}
 }
 
@@ -1901,11 +1907,30 @@ function scrollMainTop() {
 
 /* ダッシュボードのチップや消し込みバーの内訳から、日ページ内の該当要素へスクロールし
    2秒だけ枠線でハイライトする共通ヘルパー。#main の中から探す（同名IDが他所にあっても誤爆しないため）。 */
+/* ダッシュボード／消し込みバーからのジャンプ。
+   scrollIntoView は使わない：#main が overflow:auto を持つため、#main 自身がスクロールしない
+   スマホ幅では「スクロール可能な祖先」の判定がそこで止まり、実際にスクロールする文書まで届かない。
+   実際にスクロールする器を毎回判定し、固定トップバーの高さぶん手前で止める。 */
 function dashJump(sel) {
   var mainEl = document.getElementById('main');
   var el = mainEl ? mainEl.querySelector(sel) : null;
   if (!el) return;
-  el.scrollIntoView({behavior:'smooth', block:'start'});
+  var doc = document.scrollingElement || document.documentElement;
+  var useMain = !!(mainEl && mainEl.scrollHeight > mainEl.clientHeight + 1);
+  var cont = useMain ? mainEl : doc;
+  var top = useMain
+    ? (el.getBoundingClientRect().top - mainEl.getBoundingClientRect().top + mainEl.scrollTop)
+    : (el.getBoundingClientRect().top + (window.pageYOffset || doc.scrollTop || 0));
+  var tb = document.querySelector('.tb');
+  var off = (tb ? tb.getBoundingClientRect().height : 0) + 8;
+  top = Math.max(0, top - off);
+  if (cont.scrollTo) cont.scrollTo({top:top, behavior:'smooth'});
+  else cont.scrollTop = top;
+  /* スムーススクロールが効かない環境（アニメーションが走らない/途中で止まる）でも
+     確実に目的地へ着かせる保険。400ms 後にまだ遠ければ即座に位置を合わせる */
+  setTimeout(function(){
+    if (Math.abs(cont.scrollTop - top) > 4) cont.scrollTop = top;
+  }, 400);
   el.classList.add('dash-highlight');
   setTimeout(function(){ el.classList.remove('dash-highlight'); }, 2000);
 }
@@ -8197,7 +8222,7 @@ function renderPage(ds) {
   var dlk=!can('duty'), clk=!can('cl'), mlk=!can('memo'), olk=!can('ops');
   var si=getShiftForDay(ds);
 
-  var h='<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
+  var h='<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
   h+='<div class="pi">⚙️</div>';
   h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
