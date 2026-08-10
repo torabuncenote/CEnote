@@ -39,10 +39,14 @@
   --sh:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
   --shl:0 8px 32px rgba(0,0,0,.14);
   --sw:290px;--th:52px;
+  /* viewport-fit=cover により画面が端末のふちまで広がるため、
+     上のステータスバー/ノッチぶんを変数にしてトップバーとその下の要素で共有する */
+  --sat:env(safe-area-inset-top, 0px);
+  --th-all:calc(var(--th) + var(--sat));
 }
 html{font-size:14px}
 body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100vh;-webkit-font-smoothing:antialiased}
-.tb{position:fixed;top:0;left:0;right:0;height:var(--th);background:var(--sur);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;padding:0 16px;z-index:300}
+.tb{position:fixed;top:0;left:0;right:0;height:var(--th-all);box-sizing:border-box;background:var(--sur);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;padding:var(--sat) 16px 0;z-index:300}
 .tb-logo{font-size:15px;font-weight:900}
 .tb-sep{color:var(--bdr2);font-size:18px}
 .tb-sub{font-size:12px;color:var(--txt2);font-weight:500}
@@ -56,7 +60,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .tb-logo{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .btn-logout,.hbg,.pend-badge{flex-shrink:0}
 .hbg{display:none;background:none;border:1px solid var(--bdr);border-radius:var(--rs);padding:5px 9px;cursor:pointer;font-size:16px;color:var(--txt)}
-.ab{display:flex;flex-direction:row;margin-top:var(--th);height:calc(100vh - var(--th));overflow:hidden}
+.ab{display:flex;flex-direction:row;margin-top:var(--th-all);height:calc(100vh - var(--th-all));overflow:hidden}
 .sb{width:var(--sw);min-width:var(--sw);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden;transition:width .25s,min-width .25s,opacity .2s}
 .sb.hm{width:0!important;min-width:0!important;opacity:0;pointer-events:none}
 .stabs{display:flex;border-bottom:1px solid var(--bdr);flex-shrink:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
@@ -539,17 +543,20 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .pg-hd .print-btn{display:none}
   .hbg{display:flex}
   /* スマホではサイドバーをfixedで全画面表示 */
-  .sb{position:fixed;top:var(--th);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th))!important;overflow-y:auto}
+  .sb{position:fixed;top:var(--th-all);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th-all))!important;overflow-y:auto}
   .sb.hm{transform:translateX(-100%)}
   /* スマホではpane-assign/pane-schedをfixedで全画面表示（sbと同様） */
-  #pane-assign,#pane-sched{position:fixed;top:var(--th);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
+  #pane-assign,#pane-sched{position:fixed;top:var(--th-all);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
   .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
   .at-zoom-bar{display:flex}
   .tb-sub,.tb-sep,.sl{display:none}
   #month-size{display:none!important}
-  .tb{gap:6px;padding:0 10px}
+  /* 上の余白は必ず --sat（ステータスバー/ノッチぶん）を残す。
+     ここを padding:0 10px にすると、viewport-fit=cover のぶんバーが
+     ステータスバーの下に潜り込んでボタンが押せなくなる */
+  .tb{gap:6px;padding:var(--sat) 10px 0}
   /* 狭い画面ではアプリ名を隠し、操作ボタンを優先（本文冒頭に日付付きタイトルがあるため情報は失われない） */
   .tb-logo{display:none}
   .tb-btns{gap:4px;margin-left:auto}
