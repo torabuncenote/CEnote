@@ -847,6 +847,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 @keyframes notifSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
 /* ===== 操作フィードバックのトースト（alert の置き換え） ===== */
 .fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:#fff;background:#1e293b;box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
+/* 消し込みバーが出ている間は、その高さぶん上へ逃がす（下端で重なると残り件数が読めなくなる） */
+body.has-cbar .fb-toast{bottom:70px}
+body.has-cbar #idle-warn{bottom:70px}
+body.has-cbar .notif-toast{bottom:126px}
+body.has-cbar #scroll-top-btn{bottom:126px}
 .fb-toast.ok{background:#15803d}
 .fb-toast.warn{background:#b45309}
 .fb-toast.err{background:#b91c1c}
@@ -3866,8 +3871,26 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/07/28-33';
+var APP_VERSION = 'Ver.2026/08/09-34';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/09-34', date:'2026-08-09', title:'日ページの動線改善と消し込みバー', items:[
+    {t:'new', d:'✅ 画面下に「消し込みバー」を追加。今日まだ終わっていないもの（チェックリスト・オペ/カテの終了・タブレット未返却・オンコール未設定・自分あての申し送り）をまとめて数えます。「▶ 次へ」で未了の場所へ順に移動でき、「自分だけ」で自分の分に絞れます。全部終わると「残り 0 ── 本日ぶんは締められます」に変わります'},
+    {t:'new', d:'🎯 日ページ上部のダッシュボードから、タップ1回でその場所へ移動できるように。進捗→チェックリスト、オペ/カテのチップ→それぞれの業務カード、オンコール→OC欄、申し送り→申し送り欄へ飛びます'},
+    {t:'new', d:'📝 オペ・カテの1症例ごとに備考を書けるように。空のときは「＋備考」のリンクだけ、書き込むと出したままになります'},
+    {t:'new', d:'✏️ 科・中カテゴリ・術式のそれぞれで自由入力できるように。マスタに無い症例もその場で記録でき、「⌄」で選択式に戻せます'},
+    {t:'new', d:'👥 「当日勤務者一覧」と「余剰人員」を『人員配置管理』としてまとめ、折りたためるようにしました。見出しに当日の人数と未割当の枠数が出ます'},
+    {t:'imp', d:'⏱ オペ・カテの入室時刻に「今」ボタンを追加。5分刻みで現在時刻が入ります'},
+    {t:'imp', d:'🔍 横断検索で、術式に加えて科・中カテゴリ・症例ごとの備考・担当の備考も探せるようになりました'},
+    {t:'imp', d:'🔪 「終了」を押しても症例の並び順が変わらなくなりました。終了を取り消すときは、終了時刻と担当者も消してよいか確認します'},
+    {t:'imp', d:'📞 担当カードのPHS番号は常に表示、備考は入力があるときだけ表示するようにして、画面の見通しを良くしました'},
+    {t:'imp', d:'🗂 日ページ上部から日付・曜日の重複表示をなくし、オンコール担当と申し送りの件数に置き換えました'},
+    {t:'imp', d:'👤 「＋CE」で追加した人がすでに担当や余剰に入っているときは、一覧に出ない理由をその場で知らせるようにしました'},
+    {t:'fix', d:'ダッシュボードからのジャンプが動かない・位置がずれる不具合を修正'},
+    {t:'fix', d:'担当を割り当てても「未割当」の件数が更新されない不具合を修正'},
+    {t:'fix', d:'スマホでページ先頭がトップバーに隠れる・タイトルが4行に折り返す問題を修正'},
+    {t:'fix', admin:true, d:'⚠️ 「1ヶ月分を全削除」を生成ボタンの隣から分離し、対象年月の手入力を必須にしました（誤操作防止）'},
+    {t:'fix', admin:true, d:'PWAのキャッシュ名を更新（cenote-v5）。更新後は各端末で一度リロードしてください'}
+  ]},
   { ver:'Ver.2026/07/28-33', date:'2026-07-28', title:'業務集計の明細化と担当表の色分け修正', items:[
     {t:'new', d:'📈 業務集計に「明細」ビューを追加。期間内のオペ・カテを1件ずつ、科・術式・入室〜終了時刻・担当者・使用物品つきで一覧できます。科／担当者／使用物品での絞り込みや、科ごと・日付ごと・担当者ごとのグルーピング、科別/術式別/担当者別/物品別の集計カード、専用のCSV出力も追加しました'},
     {t:'new', d:'🔪 オペ・カテの各行に担当者を記録できるように。「終了」ボタンを押すと押した人と時刻が自動で入り、あとから担当者の追加・削除や時刻の修正もできます（終了を取り消すと担当者・時刻もあわせてクリアされます）'},
@@ -6245,13 +6268,17 @@ function closeItems(ds) {
    ds が未指定・該当ページ無しのときはバーごと非表示にする（日ページを開いているときだけ表示） */
 function updateCloseBar(ds) {
   var bar = document.getElementById('cbar'); if (!bar) return;
+  /* バーが出ている間はトーストと自動ログアウト警告を上へ逃がす（画面下端で重なるため） */
+  function markBody(on){ document.body.classList[on ? 'add' : 'remove']('has-cbar'); }
   if (!ds || !D.pages[ds]) {
     bar.style.display = 'none';
     bar.setAttribute('data-ds', '');
+    markBody(false);
     return;
   }
   bar.setAttribute('data-ds', ds);
   if (!_cbarInputFocused) bar.style.display = 'flex';
+  markBody(!_cbarInputFocused);
 
   var cats = closeItems(ds);
   var isToday = (ds === toDS(new Date()));
@@ -14609,16 +14636,32 @@ function _doSearch(q) {
           snippets.push(slot.label + ': ' + name);
       });
     }
-    /* OPE/カテ術式 */
+    /* OPE/カテの術式・科・中カテゴリ・症例ごとの備考。
+       item.name / item.sel を直接読むと、マスタから選んだ術式（ツリー版は item.sel）も
+       自由入力（item.name==='__free__' で実体は item.nameTxt）も拾えないため、
+       表示用ヘルパー（opsItemName/opsItemDept/opsItemCat）を必ず経由する */
     ['ope_items','cath_items'].forEach(function(key) {
       var arr = pg.ops && pg.ops[key];
       if (!Array.isArray(arr)) return;
       arr.forEach(function(item) {
-        var t = typeof item === 'string' ? item : (item.name||'');
-        if (t && t.toLowerCase().indexOf(q) !== -1)
-          snippets.push('術式: ' + t.slice(0, 50));
+        if (typeof item === 'string') {
+          if (item.toLowerCase().indexOf(q) !== -1) snippets.push('術式: ' + item.slice(0, 50));
+          return;
+        }
+        [['術式', opsItemName(item)], ['科', opsItemDept(item)], ['中カテゴリ', opsItemCat(item)], ['症例の備考', item.note || '']]
+          .forEach(function(pair) {
+            var v = pair[1];
+            if (v && String(v).toLowerCase().indexOf(q) !== -1) snippets.push(pair[0] + ': ' + String(v).slice(0, 50));
+          });
       });
     });
+    /* 担当カードの備考 */
+    if (pg.dutyNotes) {
+      for (var dnk in pg.dutyNotes) {
+        var dnv = pg.dutyNotes[dnk];
+        if (dnv && String(dnv).toLowerCase().indexOf(q) !== -1) snippets.push('担当の備考: ' + String(dnv).slice(0, 50));
+      }
+    }
     /* OC担当 */
     if (pg.ocData && pg.ocData.staff && pg.ocData.staff.toLowerCase().indexOf(q) !== -1)
       snippets.push('OC担当: ' + pg.ocData.staff);
