@@ -157,7 +157,11 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .dash-chip:hover{opacity:.75}
 .dash-warn{color:var(--rd)}
 .dash-muted{color:var(--txt3)}
-.cbar{position:fixed;left:0;right:0;bottom:0;z-index:150;background:var(--sur);border-top:2px solid var(--bdr2);box-shadow:0 -2px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:10px;padding:9px 14px;font-size:13px}
+/* 左右の余白は広めに取る（スマホで端の文字とボタンが画面のふちに触れて見切れるため）。
+   画面下の丸みや端末のふち（セーフエリア）も足して逃がす */
+.cbar{position:fixed;left:0;right:0;bottom:0;z-index:150;background:var(--sur);border-top:2px solid var(--bdr2);box-shadow:0 -2px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:12px;font-size:13px;
+  padding:9px calc(20px + env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
+  box-sizing:border-box}
 .cbar.warn{border-top-color:var(--rd)}
 .cbar.ok{border-top-color:var(--gr)}
 .cbar-main{display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:0;overflow:hidden}
@@ -178,9 +182,11 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .cbar-row-skip{font-size:10px;padding:3px 7px;border-radius:8px;border:1px solid var(--bdr2);background:var(--sur2);color:var(--txt3);cursor:pointer;white-space:nowrap;flex-shrink:0}
 .cbar-row.skipped{opacity:.55;cursor:default}
 @media(max-width:768px){
-  .cbar{padding:8px 10px;gap:6px;font-size:12px}
+  /* スマホでも左右の余白は詰めない（端で見切れるのを防ぐ）。縦だけ少し詰める */
+  .cbar{gap:8px;font-size:12px;
+    padding:8px calc(16px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))}
   .cbar-mine{display:none}
-  .cbar-toggle,.cbar-next{padding:5px 8px;font-size:11px}
+  .cbar-toggle,.cbar-next{padding:5px 10px;font-size:11px}
 }
 .st{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.08em;margin:22px 0 9px;display:flex;align-items:center;gap:7px}
 .slb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
@@ -512,6 +518,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
      タイトルを1行目いっぱいに使い、ボタンは次の行へ回す */
   .pg-hd{flex-wrap:wrap}
   .pg-hd .pt2{flex:1 1 100%!important;order:-1;margin-bottom:8px}
+  /* スマホから印刷することは無いのでボタンごと隠す。
+     そのぶんの幅で「タブレット」「掲示板」は文字を出したまま1行に収める */
+  .pg-hd .print-btn{display:none}
   .hbg{display:flex}
   /* スマホではサイドバーをfixedで全画面表示 */
   .sb{position:fixed;top:var(--th);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th))!important;overflow-y:auto}
@@ -1884,7 +1893,9 @@ var _lastCleanupDate = ''; /* cleanOldSnapshots の日次レート制限 */
 var _fbDataLoaded = false; /* Firebase /data リスナーが初回データを受信済み。trueになるまでFirebase書き込みを禁止（ログイン直後の空書き込みを防止） */
 var _hdPanelOpen = false; /* HD勤務者パネルの開閉状態（renderSurplusArea 再呼出しを跨いで保持） */
 var _surplusOpen = false; /* 余剰人員エリア本体の開閉状態 */
-var _staffZoneOpen = true; /* 人員配置管理（当日勤務者一覧＋余剰人員）セクションの開閉状態。既定で開く */
+var _staffZoneOpen = false; /* 人員配置管理（当日勤務者一覧＋余剰人員）セクションの開閉状態。
+  既定は閉じる。見出しの「当日N名」「未割当N」バッジで中身の状況が分かるため、
+  毎日開いたままだとチェックリストや申し送りが遠くなる */
 var _cbarMineOnly = false; /* 消し込みバー：[自分だけ]トグルの状態 */
 var _cbarNextIdx = 0;      /* 消し込みバー：▶次へ の巡回位置（カテゴリ単位） */
 var _cbarInputFocused = false; /* 消し込みバー：入力欄フォーカス中は一時的に隠す */
@@ -8367,8 +8378,12 @@ function renderPage(ds) {
   h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
   var _tblOut=(dat.tabletLogs||[]).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
-  h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱 タブレット<span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
-  h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️ 印刷</button>';
+  h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
+  /* 掲示板はタブだと気づかれにくいので、連絡表からも直接開けるようにする。
+     未読数は updateBoardBadge が boardUnreadCount を元にタブと同時に更新する */
+  var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
+  h+='<button class="btn btn-g btn-sm" id="board-btn" onclick="swTab(\'board\')" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"'+(_brdN?'':' style="display:none"')+'>'+(_brdN>99?'99+':_brdN)+'</span></button>';
+  h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h+='</div>';
   /* イベント表示エリア */
   var allEvts = si.evts || [];
@@ -14006,9 +14021,8 @@ function markBoardRead() {
   updateBoardBadge();
 }
 
-function updateBoardBadge() {
-  var tab = document.getElementById('tab-board');
-  if (!tab) return;
+/* 未読件数の唯一の数え元。タブのバッジと日ページの掲示板ボタンの両方がこれを使う */
+function boardUnreadCount() {
   var readTs = getBoardReadTs();
   var count = 0;
   Object.keys(_boardData).forEach(function(id) {
@@ -14019,6 +14033,20 @@ function updateBoardBadge() {
       if ((replies[rid].ts || 0) > readTs) count++;
     });
   });
+  return count;
+}
+/* 日ページヘッダーの📢掲示板ボタンのバッジ（タブレットの📱バッジと同じ作り） */
+function updateBoardBtnBadge() {
+  var b = document.getElementById('board-btn-badge'); if (!b) return;
+  var n = boardUnreadCount();
+  b.textContent = n > 99 ? '99+' : String(n);
+  b.style.display = n ? '' : 'none';
+}
+function updateBoardBadge() {
+  updateBoardBtnBadge();
+  var tab = document.getElementById('tab-board');
+  if (!tab) return;
+  var count = boardUnreadCount();
   var existing = tab.querySelector('.tab-badge');
   if (count > 0) {
     if (!existing) {
