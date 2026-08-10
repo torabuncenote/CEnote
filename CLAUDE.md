@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 This is a **single-file web app**: all HTML, CSS, and JavaScript lives in `index.html` (~480KB). There is no build system, no bundler, no package manager, and no test framework.
 
 Additional files:
-- `manifest.json` / `sw.js` — PWA support (offline caching, cache name `cenote-v4`)
+- `manifest.json` / `sw.js` — PWA support (offline caching, cache name `cenote-v5`)
 - `icon-192.svg` / `icon-512.svg` — PWA icons
 - `.github/scripts/validate.mjs` — lightweight syntax checker (run after every change)
 - `AGENTS.md` — pointer file for other AI agents (Codex etc.): it references this CLAUDE.md as the single source of truth. Do **not** duplicate rules there — update only CLAUDE.md.
@@ -288,6 +288,9 @@ All class names are abbreviated:
 | `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
 | `toggleBoardReads(id)` / `setBoardFilter(f)` | Board: 既読者一覧の開閉／フィルタチップ切替（`_boardFilter`） |
 | `renderSurplusArea(ds, dat, locked)` | 余剰人員エリア（デフォルト折りたたみ: `_surplusOpen = false`） |
+| `staffZoneCounts(ds)` / `updateStaffZoneBadge(ds)` | 「👥 人員配置管理」見出しの「当日N名」「未割当N」バッジの唯一の集計元／DOM部分更新 |
+| `dashJump(sel)` / `dashJumpTop(el)` | ダッシュボードカード・消し込みバーからの共通ジャンプ＋2秒ハイライト（詳細は下記 Dashboard Jump 節） |
+| `closeItems(ds)` / `updateCloseBar(ds)` | 消し込みバー（`.cbar`）の6カテゴリ集計の唯一の入口／バー本体の再描画（詳細は下記 消し込みバー 節） |
 | `renderOpsSummary()` | 業務集計サブタブ — monthly OPE/cath/6MW/PSG counts |
 | `renderOCSummary()` | OC集計サブタブ — on-call response log |
 | `updatePendingBadge()` | Media approval badge (debounced 200ms) |
@@ -326,6 +329,10 @@ All class names are abbreviated:
 
 **Staff visibility**: `D.stfHidden[name] = true` hides staff from `renderAT()` columns, `renderFairness()` names, and duty dropdown options. Hidden staff who are already assigned show as `（非表示）` in the dropdown. HD workers (from shift data) are unaffected.
 
+### 人員配置管理バッジ（`staffZoneCounts` / `updateStaffZoneBadge`）
+
+「当日勤務者一覧」と「余剰人員」は `.staffz` 1セクションにまとめられ（中身のDOM構造・IDは変えていない）、見出し（`.staffz-hd`, `toggleStaffZone()`）クリックで開閉する（`_staffZoneOpen`、既定 `true`）。`staffZoneCounts(ds)` が見出しバッジの唯一の集計元：`staffN`（`getShiftForDay(ds)` の当日勤務者数）と `unassignedN`（`getDutyCfg(dat)` の枠のうち `dat.duties` に未割当のもの）。`updateStaffZoneBadge(ds)` は2つの `<span>`（`#staffz-badge-staff` / `#staffz-badge-unassigned`）だけを差し替える部分更新で、フルページ再描画を避ける。**両方のカウントが変わりうる箇所すべてから呼ぶこと**：担当割り当ての3経路（下記）、`refreshPool(ds)`、`renderSurplusArea(ds, ...)` の末尾。
+
 ### OPE / カテカード（buildOPS内）
 
 `buildItemList(card, key, masterList, labelName, itemId, withTime, withOrder, withSup, withDept)` and `buildItemListTree(card, key, masterTree, labelName, itemId, withTime, withOrder, withSup)` build per-item rows inside an ops card.
@@ -335,7 +342,9 @@ All class names are abbreviated:
 
 **入室時間ピッカー**: `withTime=true` の行は、カテのブリーフィング欄と同じ「○時：△分」の2セレクト方式（`makeTimeHourOpts`/`makeTimeMinuteOpts`）。○は8〜16時＋AM／PM、△は0〜55分（5分刻み）＋OC。値は `item.time` に単一文字列で保存（`combineItemTime(h,m)` で結合、`parseItemTime(t)` で復元。旧形式 `"8:15"` `"AMOC"` `"PMOC"` も読める）。「自由入力」ボタンで `item.time='__free__'` に切替えるとテキスト入力（`item.timeTxt`）に変わる。`buildItemList` / `buildItemListTree` の両方に実装。
 
-**科・中カテゴリ・術式の自由入力**: `buildItemListTree` の3セレクト（科/中カテゴリ/術式）はそれぞれ独立に「自由入力...」へ切り替えられる（入室時間と同じ`'__free__'`＋`*Txt`の型）。科は `item.dept==='__free__'` で `item.deptTxt`、中カテゴリは `item.cat==='__free__'` で `item.catTxt`。術式は既存の `item.sel`（マスタ選択値）とは別に `item.name==='__free__'` のときだけ `item.nameTxt` を使う（自由入力に切替えた瞬間 `item.sel` は空にするため、既存の「マスタから選んだ値」の読み出しには影響しない）。切替後は⌄ボタンで選択式に戻せる。フラット版 `buildItemList` は元々 `item.sel==='__free__'`→`item.txt` で自由記述に対応済みで、これも同じ枠組みで吸収する。表示・集計は必ず `opsItemDept(it)` / `opsItemCat(it)` / `opsItemName(it)` を経由し（`'__free__'`という内部値が画面・CSVに出ないようにする）、`opsItemFilled(it)` もこの3つのヘルパー経由に統一済み。tree導入前の生 `item.sel` のみのデータ・旧仕様で科全体を自由記述にしていたデータ（`item.dept==='__free__'`のまま`item.sel`に実データが残る旧形）は「（旧）」表示＋再選択ボタンで保護し、値を消さない。
+**科・中カテゴリ・術式の自由入力**: `buildItemListTree` の3セレクト（科/中カテゴリ/術式）はそれぞれ独立に「自由入力...」へ切り替えられる（入室時間と同じ`'__free__'`＋`*Txt`の型）。科は `item.dept==='__free__'` で `item.deptTxt`、中カテゴリは `item.cat==='__free__'` で `item.catTxt`。術式は既存の `item.sel`（マスタ選択値）とは別に `item.name==='__free__'` のときだけ `item.nameTxt` を使う（自由入力に切替えた瞬間 `item.sel` は空にするため、既存の「マスタから選んだ値」の読み出しには影響しない）。切替後は⌄ボタンで選択式に戻せる。フラット版 `buildItemList` は元々 `item.sel==='__free__'`→`item.txt` で自由記述に対応済みで、これも同じ枠組みで吸収する。表示・集計は必ず `opsItemDept(it)` / `opsItemCat(it)` / `opsItemName(it)` を経由し（`'__free__'`という内部値が画面・CSVに出ないようにする）、`opsItemFilled(it)` もこの3つのヘルパー経由に統一済み。横断検索（`_doSearch`）も同じ3ヘルパーを経由してヒット判定する — `item.sel`/`item.name` を生のまま文字列比較すると自由入力とマスタ選択のどちらか一方を取りこぼす。tree導入前の生 `item.sel` のみのデータ・旧仕様で科全体を自由記述にしていたデータ（`item.dept==='__free__'`のまま`item.sel`に実データが残る旧形）は「（旧）」表示＋再選択ボタンで保護し、値を消さない。
+
+**症例ごとの備考**: `item.note`（1症例=1行ごとの備考、`buildItemList`/`buildItemListTree` 共通）。値が空なら「＋備考」リンクのみ表示し、1文字でも入っていれば開いたまま（担当カードの備考欄と同じ開閉パターン）。カード全体で1つだけの旧仕様（`ops.ope_note`/`ops.cath_note`）は新規作成不可になったが、既存値があるカードだけ「📝 備考（旧・カード共通）」として表示・編集を残す（値は消さない）。横断検索も `item.note` を対象に含む。
 
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
@@ -373,6 +382,14 @@ var isPsgRemoval = !!(prevDat && (
 
 Used in: `buildDG` (duty card checkbox), `updateOpsHeader` (header chip), `updatePsgRemovalBanner` (persistent banner). The banner shows only when `ds === todayStr` and `nowMin` is within `[psgBannerStart, psgBannerEnd)`. Called every minute via `runPsgFusenCheck()`.
 
+### Dashboard Jump（`dashJump(sel)` / `dashJumpTop(el)`）
+
+Used by the day-page dashboard cards (✅進捗/📊業務/📞オンコール/📝申し送り, each `.dash-chip`) and the 消し込みバーの各行・「▶ 次へ」ボタン to scroll to and 2-second-highlight (`.dash-highlight`) a target element inside `#main`.
+
+**Why not `scrollIntoView`**: `#main` has `overflow:auto`, so on narrow (mobile) viewports the browser's "nearest scrollable ancestor" search for `scrollIntoView` stops at `#main` and never reaches the container that actually needs to scroll. `dashJumpTop(el)` instead re-measures on every call which container is truly scrollable (`mainEl.scrollHeight > mainEl.clientHeight` → use `#main`, else `document.scrollingElement`) and computes the target offset itself (element position minus the fixed `.tb` top-bar height).
+
+`dashJump(sel)` queries `sel` inside `#main` only (avoids false hits from same-selector elements elsewhere in the DOM), scrolls via `scrollTo({behavior:'smooth'})`, then re-measures and snaps to the exact position 400ms later — a safety net for environments where smooth-scroll doesn't animate or stops short, since layout can shift mid-animation and the click-time offset would otherwise be stale.
+
 ### 担当表ピンチズーム
 
 Structure: `.ato#ato-wrap` > `#at-zoom-inner` > `#at-body` (table content).
@@ -404,6 +421,16 @@ for (var j = 0; j < wtl.length; j++) {
   if (dat.checks && dat.checks[D.dly.length + j]) done++;
 }
 ```
+
+### 消し込みバー（`.cbar` / `closeItems(ds)` / `updateCloseBar(ds)`）
+
+Fixed bar at the bottom of the screen, shown only while a day page is open — `updateCloseBar(ds)` hides it and clears `body.has-cbar` when `ds` is falsy or `!D.pages[ds]` (e.g. via `showEmpty()`).
+
+`closeItems(ds)` is the **single counting source** for 6 categories of "not finished today": ①自分あてメンションを含む未完了の申し送り（`extractMentions` に自分の名前が含まれ `m.done` でない `memos`） ②チェックリスト未了（`isDlyShownOnDate` でスキップしつつ原インデックスで走査 — **`getPct(ds)` と完全に同じ数え方でなければならない**。ずれるとダッシュボードの進捗チップと消し込みバーの件数が食い違う） ③オペ終了未チェック（`opsItemFilled(it) && !it.done`） ④カテ終了未チェック（同上） ⑤タブレット未返却（当日分＋`tabletCarryOver(ds)` の前日以前持ち越し分） ⑥オンコール担当未設定（`!dat.ocData.staff`）。各カテゴリは `{mine:boolean}` を持つ `items[]` を返し、`mine` の判定は `taskSelfName()`（表示名がスタッフ名簿と完全一致→その名前／一致しなければ `D.stfLinks` で逆引き）。**アカウントが未紐づけのユーザーは常に `mine:false`**。
+
+`D.pages[ds].closeSkip[key]`（`key` はカテゴリの `key`、`saveDPage(ds)` で保存）で「今日は対象外」をカテゴリ単位・その日限りで持てる。`closeBarSkip(ds, key)` がトグル、`renderCbarDetail()` の「対象外」／「戻す」ボタンから呼ぶ。
+
+`updateCloseBar(ds)` は `closeItems(ds)` を集計し、`.warn`（🔴 今日・未了あり）/`.ref`（⚪ 今日以外を開いている・グレーの参照表示）/`.ok`（✅ 残り0）の3状態を切り替える。`body.classList.add('has-cbar')` は CSS 側で `.fb-toast`（`toast()` の一般トースト）・`#idle-warn`（自動ログアウトのカウントダウン警告）・`.notif-toast`・`#scroll-top-btn` の `bottom` をバーの高さぶん押し上げ、画面下端での重なりを防ぐ。`updateCloseBar(ds)` に単独の集中呼び出し口はなく、`updateOpsHeader(ds)`/`updateTabletBtnBadge(ds)` と同じ箇所（担当割り当て・OPS入力・タブレット貸出返却・申し送り投稿など）から都度呼ぶ。
 
 ### Shift Import
 
@@ -497,6 +524,7 @@ The day page does **not** show an inline tablet section (it would occupy too muc
 `APP_VERSION` (string) and `APP_CHANGELOG` (array, newest release first) live near line 3480, hand-maintained — there is no build step that generates them. Each release is `{ ver, date, title, items:[{t, d, admin?}] }` where `t` is `'new'|'fix'|'imp'`.
 
 - **`admin` flag**: optional on each item; omit for general-audience items (default), set `admin:true` for entries that only matter to admins (master-data editing, backups, EmailJS/FCM config, user management, `/logs`, monthly bulk auto-assign, etc.). `filterChangelogForGeneral(changelog)` strips `admin:true` items and drops any release left with zero items.
+- **`fix` items are always hidden from general users, regardless of `admin`**: `filterChangelogForGeneral` also strips every `t:'fix'` item (`it.t !== 'fix'`) — a bug fix has no "here's what you can now do" framing for someone who never knew the bug existed, so surfacing it is just noise. General users only ever see `new`/`imp`; the admin-only `renderChangelog()` view still shows all types including `fix`. When writing a new release entry, phrase every non-`admin` item as something the user can now *do* (`new`/`imp`), and keep actual bug-fix wording under `t:'fix'` even if the fix is user-facing.
 - **Version format**: new releases use `formatVerString('YYYY-MM-DD', nextChangelogSeq())` → `'Ver.YYYY/MM/DD-N'` where N is the all-time cumulative release count (`nextChangelogSeq()` scans existing `Ver.*-N` entries and returns max+1, defaulting to 24 as the base since the pre-existing 24 releases used the old `'2026.06y'`-style string and are never renumbered). `verDisplay(ver)` renders old-style strings with a `v` prefix and new-style strings as-is, so both eras display correctly side by side.
 - **Two render paths, one HTML builder**: `buildChangelogHTML(changelog, opts)` is shared. `renderChangelog()` (admin-only, sidebar `資料▾→変更履歴` / `pane-changelog`) calls it with the full unfiltered `APP_CHANGELOG` — output is unchanged from before this system existed. `renderChangelogPublic()` (all users, opened via the "📝 変更履歴" button in the top-right of the 使い方 guide tab → `openChangelogPublic()`/`closeChangelogPublic()`, modal `#modal-changelog-public`) calls it with `filterChangelogForGeneral(APP_CHANGELOG)` and `{heading:false}` since the modal's own `<h3>` already provides the title.
 - When adding a new release entry: prepend it to `APP_CHANGELOG` (array is newest-first), update `APP_VERSION` to match, and judge each item's `admin` flag by who the change is actually relevant to — not by whether the *setting* lives on an admin screen (e.g. EmailJS notifications are admin-configured but the resulting emails land in general users' inboxes, so that kind of item is left general).
