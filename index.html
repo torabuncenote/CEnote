@@ -982,7 +982,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
       <div class="stab"     id="tab-sched"  onclick="swTab('sched')">⏰ スケジュール</div>
-      <div class="stab"     id="tab-board"  onclick="swTab('board')">📢 掲示板</div>
       <div class="stab"     id="tab-guide"  onclick="swTab('guide')">📘 使い方</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
@@ -1277,24 +1276,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
     </div>
 
     <!-- 掲示板パネル -->
-    <div id="pane-board" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div style="flex:1;overflow-y:auto;padding:10px 12px" id="board-list">
-        <div style="font-size:12px;color:var(--txt3);text-align:center;padding:20px">読み込み中...</div>
-      </div>
-      <div class="brd-compose">
-        <div class="memo-media-preview" id="board-media-preview"></div>
-        <textarea id="board-input" placeholder="お知らせ・連絡を投稿…" rows="2"></textarea>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <select id="board-tag-sel" style="font-size:12px;padding:4px 6px;border-radius:var(--rs);border:1.5px solid var(--bdr2);background:var(--sur2);color:var(--txt2)">
-            <option value="etc" selected>💬 その他</option>
-            <option value="info">📢 お知らせ</option>
-            <option value="req">🙏 依頼</option>
-          </select>
-          <label class="memo-media-btn">📎 画像<input type="file" id="board-media-input" accept="image/*" multiple style="display:none" onchange="onBoardMediaAdd(this)"></label>
-          <button class="btn btn-p btn-sm" id="board-post-btn" onclick="postBoard()">投稿</button>
-        </div>
-      </div>
-    </div>
 
     <!-- 使い方パネル（全ユーザー対象） -->
     <div id="pane-guide" style="display:none;flex-direction:column;flex:1;overflow:hidden">
@@ -1492,6 +1473,34 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 </div>
 
 <!-- 1ヶ月生成 -->
+<!-- 掲示板パネル。サイドバーのタブは廃止し、連絡表ヘッダーの📢ボタンから開く。
+     #pane-board の中身と id は元のまま移設しているので renderBoard/postBoard はそのまま動く -->
+<div class="ov hd" id="board-panel-ov" onclick="if(event.target===this)closeBoardPanel()">
+  <div class="md" id="board-panel-md" style="max-width:720px;width:100%;height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--bdr);flex-shrink:0">
+      <span style="font-size:15px;font-weight:700">📢 掲示板</span>
+      <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="closeBoardPanel()">✕</button>
+    </div>
+    <div id="pane-board" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+    <div style="flex:1;overflow-y:auto;padding:10px 12px" id="board-list">
+      <div style="font-size:12px;color:var(--txt3);text-align:center;padding:20px">読み込み中...</div>
+    </div>
+    <div class="brd-compose">
+      <div class="memo-media-preview" id="board-media-preview"></div>
+      <textarea id="board-input" placeholder="お知らせ・連絡を投稿…" rows="2"></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <select id="board-tag-sel" style="font-size:12px;padding:4px 6px;border-radius:var(--rs);border:1.5px solid var(--bdr2);background:var(--sur2);color:var(--txt2)">
+          <option value="etc" selected>💬 その他</option>
+          <option value="info">📢 お知らせ</option>
+          <option value="req">🙏 依頼</option>
+        </select>
+        <label class="memo-media-btn">📎 画像<input type="file" id="board-media-input" accept="image/*" multiple style="display:none" onchange="onBoardMediaAdd(this)"></label>
+        <button class="btn btn-p btn-sm" id="board-post-btn" onclick="postBoard()">投稿</button>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
 <div class="ov hd" id="modal-gm">
   <div class="md">
     <h3>📅 1ヶ月分まとめて生成</h3>
@@ -3088,7 +3097,7 @@ function renderSpec() {
   // 3-2. 追加機能（掲示板・スケジュール・集計）
   S += '<div class="spec-h1">3-2. 追加機能の詳細</div>';
   S += '<div class="spec-h2">📢 掲示板</div>';
-  S += '<div class="spec-p">連絡表とは独立した部門内の掲示板。Firebase <code>/board</code> に保存（連絡表データ <code>/data</code> とは別系統）。全員が投稿・返信でき、自分の投稿は自分で削除、管理者は全員分を削除・ピン留め可。未読の投稿数はタブに赤バッジで表示され、開くと既読になります（既読時刻は端末の localStorage <code>ce2_boardread</code> に保持）。</div>';
+  S += '<div class="spec-p">連絡表とは独立した部門内の掲示板。Firebase <code>/board</code> に保存（連絡表データ <code>/data</code> とは別系統）。全員が投稿・返信でき、自分の投稿は自分で削除、管理者は全員分を削除・ピン留め可。サイドバーのタブは廃止し、日ページのヘッダーにある「📢 掲示板」ボタン（<code>openBoardPanel()</code>）からモーダルで開きます。未読の投稿数はそのボタンの赤バッジに出て、開くと既読になります（既読時刻は端末の localStorage <code>ce2_boardread</code> に保持。未読の数え元は <code>boardUnreadCount()</code> 1つ）。</div>';
   S += '<div class="spec-h2">⏰ スケジュール（タイムテーブル）</div>';
   S += '<div class="spec-p">日付ごとに、勤務者を列にした縦型タイムテーブル（8:00〜21:00／15分刻み）。プリセットブロック（業務マスタで編集可）をタップ選択→列タップ、またはドラッグ＆ドロップで配置。ブロックはドラッグで移動／下端ハンドルでリサイズ。<code>D.pages[ds].schedule</code> に保存。担当割り当てから一括取り込みも可能。duty がロックされている場合、一般ユーザーは閲覧のみ。</div>';
   S += '<div class="spec-h2">📞 OC集計 / 📈 業務集計 / ⚖️ 公平性（担当表のサブタブ）</div>';
@@ -3441,8 +3450,8 @@ function renderManual() {
 
   // ===== 第11章　掲示板 =====
   S += h1('第11章　掲示板');
-  S += '<div class="mn-p">「📢 掲示板」タブは、連絡表とは別の部門内お知らせ板です。日付に関係ない連絡（勉強会・物品・全体周知など）に使います。</div>';
-  S += step(1,'「📢 掲示板」タブをクリック','未読があるとタブに赤い数字が出ます。開くと既読になります。');
+  S += '<div class="mn-p">掲示板は、連絡表とは別の部門内お知らせ板です。日付に関係ない連絡（勉強会・物品・全体周知など）に使います。連絡表の日ページを開き、上部の「📢 掲示板」ボタンから開きます。</div>';
+  S += step(1,'日ページ上部の「📢 掲示板」ボタンを押す','未読があるとボタンに赤い数字が出ます。開くと既読になります。');
   S += step(2,'投稿する','下の入力欄に書いて「投稿」をクリック。全員に表示されます。');
   S += step(3,'返信する','各投稿の「返信」から短いコメントを付けられます。');
   S += '<div class="mn-p">自分の投稿は自分で削除できます。他の人の投稿の削除や、重要な投稿のピン留め（上部固定）は管理者が行えます。</div>';
@@ -3911,8 +3920,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/09-34';
+var APP_VERSION = 'Ver.2026/08/10-35';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/10-35', date:'2026-08-10', title:'掲示板を連絡表から開けるように', items:[
+    {t:'new', d:'📢 掲示板を連絡表の日ページから直接開けるようにしました。上部の「📢 掲示板」ボタンを押すと、広いポップアップで開きます。未読があるとボタンに赤い数字が出て、開くと既読になります。サイドバーの掲示板タブは廃止しました'},
+    {t:'imp', d:'👥 「人員配置管理」を既定で閉じた状態にしました。見出しの「当日N名」「未割当N」で中の状況は分かるので、その下のチェックリストと申し送りにすぐ届きます'},
+    {t:'imp', d:'✅ 画面下の消し込みバーの左右に余白を足し、スマホの画面のふちで文字やボタンが切れないようにしました'},
+    {t:'imp', d:'🖨️ スマホでは印刷ボタンを隠しました（パソコンでは今までどおり出ます）。そのぶんの幅で「タブレット」「掲示板」のボタンが1行に収まります'}
+  ]},
   { ver:'Ver.2026/08/09-34', date:'2026-08-09', title:'日ページの動線改善と消し込みバー', items:[
     {t:'new', d:'✅ 画面下に「消し込みバー」を追加。今日まだ終わっていないもの（チェックリスト・オペ/カテの終了・タブレット未返却・オンコール未設定・自分あての申し送り）をまとめて数えます。「▶ 次へ」で未了の場所へ順に移動でき、「自分だけ」で自分の分に絞れます。全部終わると「残り 0 ── 本日ぶんは締められます」に変わります'},
     {t:'new', d:'🎯 日ページ上部のダッシュボードから、タップ1回でその場所へ移動できるように。進捗→チェックリスト、オペ/カテのチップ→それぞれの業務カード、オンコール→OC欄、申し送り→申し送り欄へ飛びます'},
@@ -5840,7 +5855,7 @@ function renderGuide() {
   S += step(3,'ブロックをドラッグで移動・伸縮','下端を引っぱると時間（長さ）を変えられます。');
 
   S += h1('📢 掲示板');
-  S += '<div class="gd-p">「📢 掲示板」タブは、日付に関係ない部門内のお知らせ板です。未読があるとタブに赤い数字が出ます。</div>';
+  S += '<div class="gd-p">掲示板は、日付に関係ない部門内のお知らせ板です。連絡表を開いて、上部の「📢 掲示板」ボタンから開きます。未読があるとボタンに赤い数字が出ます。</div>';
   S += step(1,'下の入力欄に書いて「投稿」','全員に表示されます。返信もできます。');
   S += step(2,'自分の投稿は自分で削除できます','他の人の投稿の削除・ピン留めは管理者のみ。');
   S += warn('掲示板もクラウドに保存されます。患者氏名・病室番号・診断名・カルテ番号は書かないでください。');
@@ -8382,7 +8397,7 @@ function renderPage(ds) {
   /* 掲示板はタブだと気づかれにくいので、連絡表からも直接開けるようにする。
      未読数は updateBoardBadge が boardUnreadCount を元にタブと同時に更新する */
   var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
-  h+='<button class="btn btn-g btn-sm" id="board-btn" onclick="swTab(\'board\')" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"'+(_brdN?'':' style="display:none"')+'>'+(_brdN>99?'99+':_brdN)+'</span></button>';
+  h+='<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"'+(_brdN?'':' style="display:none"')+'>'+(_brdN>99?'99+':_brdN)+'</span></button>';
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h+='</div>';
   /* イベント表示エリア */
@@ -13900,10 +13915,10 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','sched','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群（担当表・スケジュールも含む） */
-  var contentPanes=['assign','sched','board','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var contentPanes=['assign','sched','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -13942,7 +13957,6 @@ function swTab(t) {
 
   if(t==='assign'){ swSubTab('at'); renderAT(); }
   if(t==='sched'){ renderSched(); }
-  if(t==='board'){renderBoard();markBoardRead();}
   if(t==='master'){
     renderWdlyList();renderDlyList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
@@ -14041,6 +14055,18 @@ function updateBoardBtnBadge() {
   var n = boardUnreadCount();
   b.textContent = n > 99 ? '99+' : String(n);
   b.style.display = n ? '' : 'none';
+}
+/* 掲示板パネル。サイドバーのタブは廃止したので、開く手段はここだけ（連絡表ヘッダーの📢ボタン）。
+   #pane-board の要素をそのままモーダル内へ移設してあるため、renderBoard/postBoard は変更不要 */
+function openBoardPanel() {
+  var ov = document.getElementById('board-panel-ov'); if (!ov) return;
+  ov.classList.remove('hd');
+  renderBoard();
+  markBoardRead();
+}
+function closeBoardPanel() {
+  var ov = document.getElementById('board-panel-ov'); if (!ov) return;
+  ov.classList.add('hd');
 }
 function updateBoardBadge() {
   updateBoardBtnBadge();
