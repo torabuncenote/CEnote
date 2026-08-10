@@ -2,7 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<!-- viewport-fit=cover が無いと env(safe-area-inset-*) が常に0になり、
+     画面下端に固定した消し込みバーが Android のナビゲーションバーに隠れる -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>分院CE連絡表</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
@@ -157,11 +159,15 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .dash-chip:hover{opacity:.75}
 .dash-warn{color:var(--rd)}
 .dash-muted{color:var(--txt3)}
-/* 左右の余白は広めに取る（スマホで端の文字とボタンが画面のふちに触れて見切れるため）。
-   画面下の丸みや端末のふち（セーフエリア）も足して逃がす */
-.cbar{position:fixed;left:0;right:0;bottom:0;z-index:150;background:var(--sur);border-top:2px solid var(--bdr2);box-shadow:0 -2px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:12px;font-size:13px;
-  padding:9px calc(20px + env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left));
-  box-sizing:border-box}
+/* 左右は広めに取る（端の文字とボタンが画面のふちで見切れるため）。
+   下は「端末のセーフエリア」＋「--vv-bottom」を足す。後者は Android のように
+   env(safe-area-inset-bottom) が0でもブラウザ下部のUIやナビゲーションバーに
+   隠れる端末向けに、実際の可視領域から JS（syncCbarInset）が実測して入れる。 */
+.cbar{position:fixed;left:0;right:0;bottom:0;z-index:150;background:var(--sur);border-top:2px solid var(--bdr2);box-shadow:0 -2px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:12px;font-size:13px;box-sizing:border-box;
+  padding-top:9px;
+  padding-left:calc(22px + env(safe-area-inset-left));
+  padding-right:calc(22px + env(safe-area-inset-right));
+  padding-bottom:calc(9px + env(safe-area-inset-bottom) + var(--vv-bottom, 0px))}
 .cbar.warn{border-top-color:var(--rd)}
 .cbar.ok{border-top-color:var(--gr)}
 .cbar-main{display:flex;align-items:center;gap:8px;cursor:pointer;flex:1;min-width:0;overflow:hidden}
@@ -182,9 +188,12 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .cbar-row-skip{font-size:10px;padding:3px 7px;border-radius:8px;border:1px solid var(--bdr2);background:var(--sur2);color:var(--txt3);cursor:pointer;white-space:nowrap;flex-shrink:0}
 .cbar-row.skipped{opacity:.55;cursor:default}
 @media(max-width:768px){
-  /* スマホでも左右の余白は詰めない（端で見切れるのを防ぐ）。縦だけ少し詰める */
+  /* スマホでも左右は詰めない（端で見切れるのを防ぐ）。縦だけ少し詰める */
   .cbar{gap:8px;font-size:12px;
-    padding:8px calc(16px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))}
+    padding-top:8px;
+    padding-left:calc(20px + env(safe-area-inset-left));
+    padding-right:calc(20px + env(safe-area-inset-right));
+    padding-bottom:calc(8px + env(safe-area-inset-bottom) + var(--vv-bottom, 0px))}
   .cbar-mine{display:none}
   .cbar-toggle,.cbar-next{padding:5px 10px;font-size:11px}
 }
@@ -513,6 +522,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .ops-grid{grid-template-columns:1fr}
   .ops-item-row{flex-wrap:wrap}
   .ops-item-row>div{flex:1 1 100%!important;min-width:0}
+  /* 科・中カテゴリ・術式を横に3つ並べると画面幅に収まらず、右が見切れて
+     横スクロールしないと読めなくなる。スマホでは縦に積んで全幅で見せる */
+  .ops-hier-row{flex-direction:column;flex-wrap:nowrap}
+  .ops-hier-unit{flex:1 1 auto!important;min-width:0!important;width:100%}
+  /* 業務カードの中身が親より広くならないようにする（横スクロールの発生源をふさぐ） */
+  .ops-item-wrap,.ops-item-wrap *{max-width:100%}
+  .ops-item-wrap select,.ops-item-wrap input,.ops-item-wrap textarea{min-width:0}
   .pp{gap:7px 14px;padding:9px 11px}
   /* スマホではタイトルとボタンを同じ行に並べると、タイトルが4行に折り返して読めなくなる。
      タイトルを1行目いっぱいに使い、ボタンは次の行へ回す */
@@ -1972,6 +1988,7 @@ function dashJump(sel) {
 
 /* ===== INIT ===== */
 function init() {
+  syncCbarInset();
   /* ?preview=1 → 管理者モード / ?preview=2 → 一般ユーザーモードでローカル動作確認 */
   var params = new URLSearchParams(window.location.search);
   var previewVal = params.get('preview');
@@ -10993,7 +11010,7 @@ function buildOPS(ds,dat,locked) {
         } else {
           /* 3段階カスケード選択。科・中カテゴリ・術式それぞれ独立に「自由入力...」へ切替でき、
              切替後は⌄ボタンで選択式に戻せる（入室時間の自由入力ボタンと同じ考え方）。 */
-          var selRow=document.createElement('div'); selRow.style.cssText='display:flex;gap:3px;flex-wrap:wrap;min-width:0';
+          var selRow=document.createElement('div'); selRow.className='ops-hier-row'; selRow.style.cssText='display:flex;gap:3px;flex-wrap:wrap;min-width:0';
 
           var makeFreeBackBtn=function(onClick2){
             var b=document.createElement('button'); b.type='button'; b.disabled=!!locked; b.textContent='⌄'; b.title='選択に戻す';
@@ -11003,7 +11020,7 @@ function buildOPS(ds,dat,locked) {
           };
 
           /* 科 */
-          var deptUnit=document.createElement('div'); deptUnit.style.cssText='display:flex;gap:2px;flex:1;min-width:100px';
+          var deptUnit=document.createElement('div'); deptUnit.className='ops-hier-unit'; deptUnit.style.cssText='display:flex;gap:2px;flex:1;min-width:100px';
           if(item.dept!=='__free__'){
             var deptSel=document.createElement('select'); deptSel.className='ops-sel'; deptSel.disabled=!!locked; deptSel.innerHTML=makeDeptOpts(item.dept); deptSel.style.flex='1';
             deptUnit.appendChild(deptSel);
@@ -11026,7 +11043,7 @@ function buildOPS(ds,dat,locked) {
 
           /* 中カテゴリ（科が選択・入力されているときだけ表示） */
           if(item.dept){
-            var catUnit=document.createElement('div'); catUnit.style.cssText='display:flex;gap:2px;flex:1;min-width:100px';
+            var catUnit=document.createElement('div'); catUnit.className='ops-hier-unit'; catUnit.style.cssText='display:flex;gap:2px;flex:1;min-width:100px';
             if(item.cat!=='__free__'){
               var catSel=document.createElement('select'); catSel.className='ops-sel'; catSel.disabled=!!locked; catSel.innerHTML=makeCatOpts(item.dept,item.cat); catSel.style.flex='1';
               catUnit.appendChild(catSel);
@@ -11050,7 +11067,7 @@ function buildOPS(ds,dat,locked) {
 
           /* 術式/種別（中カテゴリが選択・入力されているときだけ表示） */
           if(item.cat){
-            var nameUnit=document.createElement('div'); nameUnit.style.cssText='display:flex;gap:2px;flex:2;min-width:120px';
+            var nameUnit=document.createElement('div'); nameUnit.className='ops-hier-unit'; nameUnit.style.cssText='display:flex;gap:2px;flex:2;min-width:120px';
             if(item.name!=='__free__'){
               var itemSel=document.createElement('select'); itemSel.className='ops-sel'; itemSel.disabled=!!locked; itemSel.innerHTML=makeItemOpts(item.dept,item.cat,item.sel); itemSel.style.flex='1';
               nameUnit.appendChild(itemSel);
@@ -14056,6 +14073,26 @@ function updateBoardBtnBadge() {
   b.textContent = n > 99 ? '99+' : String(n);
   b.style.display = n ? '' : 'none';
 }
+/* 画面下端に固定した消し込みバーが、ブラウザ下部のUIや端末のナビゲーションバーに
+   隠れないよう、実際に見えている高さとの差を測って CSS 変数 --vv-bottom に入れる。
+   env(safe-area-inset-bottom) は Android では0になることが多く、それだけでは足りない。
+   キーボードが出たときは差が大きくなるが、そのときバー自体を隠しているので影響しない。 */
+function syncCbarInset() {
+  var vv = window.visualViewport;
+  var px = 0;
+  if (vv) {
+    /* レイアウト高さのうち、下端で見えていない量。キーボード表示中は大きくなるので上限を設ける */
+    px = Math.round(window.innerHeight - vv.height - vv.offsetTop);
+    if (!(px > 0) || px > 120) px = 0;
+  }
+  document.documentElement.style.setProperty('--vv-bottom', px + 'px');
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncCbarInset);
+  window.visualViewport.addEventListener('scroll', syncCbarInset);
+}
+window.addEventListener('orientationchange', function(){ setTimeout(syncCbarInset, 300); });
+
 /* 掲示板パネル。サイドバーのタブは廃止したので、開く手段はここだけ（連絡表ヘッダーの📢ボタン）。
    #pane-board の要素をそのままモーダル内へ移設してあるため、renderBoard/postBoard は変更不要 */
 function openBoardPanel() {
