@@ -46,7 +46,9 @@
 }
 html{font-size:14px}
 body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100vh;-webkit-font-smoothing:antialiased}
-.tb{position:fixed;top:0;left:0;right:0;height:var(--th-all);box-sizing:border-box;background:var(--sur);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;padding:var(--sat) 16px 0;z-index:300}
+/* 横向きにするとノッチが左右に来るため、上だけでなく左右のセーフエリアも足す */
+.tb{position:fixed;top:0;left:0;right:0;height:var(--th-all);box-sizing:border-box;background:var(--sur);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;z-index:300;
+  padding:var(--sat) calc(16px + env(safe-area-inset-right,0px)) 0 calc(16px + env(safe-area-inset-left,0px))}
 .tb-logo{font-size:15px;font-weight:900}
 .tb-sep{color:var(--bdr2);font-size:18px}
 .tb-sub{font-size:12px;color:var(--txt2);font-weight:500}
@@ -556,7 +558,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   /* 上の余白は必ず --sat（ステータスバー/ノッチぶん）を残す。
      ここを padding:0 10px にすると、viewport-fit=cover のぶんバーが
      ステータスバーの下に潜り込んでボタンが押せなくなる */
-  .tb{gap:6px;padding:var(--sat) 10px 0}
+  .tb{gap:6px;padding:var(--sat) calc(10px + env(safe-area-inset-right,0px)) 0 calc(10px + env(safe-area-inset-left,0px))}
   /* 狭い画面ではアプリ名を隠し、操作ボタンを優先（本文冒頭に日付付きタイトルがあるため情報は失われない） */
   .tb-logo{display:none}
   .tb-btns{gap:4px;margin-left:auto}
@@ -679,7 +681,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* ===== サイドピーク ===== */
 .sp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1800;opacity:0;transition:opacity .2s;pointer-events:none}
 .sp-overlay.open{opacity:1;pointer-events:auto}
-.sp-panel{position:fixed;top:0;right:0;bottom:0;width:min(480px,92vw);background:var(--sur);box-shadow:-8px 0 32px rgba(0,0,0,.18);z-index:1801;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.sp-panel{position:fixed;top:0;right:0;bottom:0;width:min(480px,92vw);padding-top:var(--sat);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;background:var(--sur);box-shadow:-8px 0 32px rgba(0,0,0,.18);z-index:1801;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
 .sp-panel.open{transform:translateX(0)}
 .sp-hd{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--bdr);flex-shrink:0}
 .sp-title{font-size:15px;font-weight:800;color:var(--txt);flex:1;line-height:1.3}
@@ -895,7 +897,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 </style>
 </head>
 <body>
-<div id="psg-removal-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#fff3cd;color:#856404;border-bottom:2px solid #ffc107;padding:10px 16px;font-size:14px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">🌙 PSG取り外しがあります<button onclick="document.getElementById('psg-removal-banner').style.display='none'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:#856404;line-height:1">✕</button></div>
+<div id="psg-removal-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#fff3cd;color:#856404;border-bottom:2px solid #ffc107;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;font-size:14px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">🌙 PSG取り外しがあります<button onclick="document.getElementById('psg-removal-banner').style.display='none'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:#856404;line-height:1">✕</button></div>
 <!-- ===== 表示名変更モーダル ===== -->
 <div id="modal-name" class="hd">
   <div class="name-box">
@@ -2326,7 +2328,7 @@ function fbInit() {
                   if (!existing) {
                     var b = document.createElement('div');
                     b.id = bid;
-                    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#e53e3e;color:#fff;font-size:13px;font-weight:700;padding:8px 14px;text-align:center;cursor:pointer';
+                    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#e53e3e;color:#fff;font-size:13px;font-weight:700;padding:calc(8px + env(safe-area-inset-top,0px)) 14px 8px;text-align:center;cursor:pointer';
                     b.innerHTML = '⚠️ 別のセッションが古いデータを書き込もうとしました。自動で修正しています。このバナーをタップして閉じる';
                     b.onclick = function(){ b.remove(); };
                     document.body.appendChild(b);
@@ -2361,7 +2363,7 @@ function fbInit() {
                 if (!document.getElementById(bid)) {
                   var b = document.createElement('div');
                   b.id = bid;
-                  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#7c3aed;color:#fff;font-size:13px;font-weight:700;padding:8px 14px;text-align:center;cursor:pointer';
+                  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#7c3aed;color:#fff;font-size:13px;font-weight:700;padding:calc(8px + env(safe-area-inset-top,0px)) 14px 8px;text-align:center;cursor:pointer';
                   b.innerHTML = '⚠️ データが別セッションによって全削除されました。管理者ログを確認してください。タップして閉じる';
                   b.onclick = function(){ b.remove(); };
                   document.body.appendChild(b);
