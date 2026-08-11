@@ -8275,20 +8275,21 @@ function opsTextWidth(text, px) {
 function opsFitFont(el) {
   if (!el) return;
   var BASE = 12, MIN = 7;
-  el.style.fontSize = BASE + 'px';
   var txt = (el.tagName === 'SELECT')
     ? (el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '')
     : (el.value || '');
-  if (!txt) return;
+  if (!txt) { el.style.fontSize = BASE + 'px'; return; }
   /* 実際に使える幅＝内側の幅 −（左右の余白）−（セレクトの矢印ぶん）。
-     余白は画面幅で変わるので決め打ちにせず computed から取る */
+     余白は画面幅で変わるので決め打ちにせず computed から取る。
+     枠の幅は grid で決まるので、文字サイズを変えなくても測れる。 */
   var cs = getComputedStyle(el);
   var pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
   var avail = el.clientWidth - pad - (el.tagName === 'SELECT' ? 14 : 0) - 2; /* 端数で1pxはみ出すのを防ぐ余裕 */
-  if (avail <= 0) return;
+  /* 幅が測れない瞬間（非表示中など）に触ると、せっかく縮めた値を戻してしまう */
+  if (!(avail > 0)) return;
   var w = opsTextWidth(txt, BASE);
-  if (w <= avail) return;
-  el.style.fontSize = Math.max(MIN, Math.floor(BASE * avail / w)) + 'px';
+  /* 短い語に変えたときは 12px へ戻す。毎回ここで決め直すので長短どちらにも追従する */
+  el.style.fontSize = (w <= avail ? BASE : Math.max(MIN, Math.floor(BASE * avail / w))) + 'px';
 }
 /* 業務カードの中の選択ボックス・自由入力をまとめて調整する。
    幅が確定してからでないと測れないので、呼び出し側は描画後に実行すること */
@@ -8312,6 +8313,16 @@ function opsScheduleFit() {
 }
 window.addEventListener('resize', function(){ opsScheduleFit(); });
 window.addEventListener('orientationchange', function(){ setTimeout(opsScheduleFit, 300); });
+/* 選択を変えた瞬間にその枠だけ測り直す。再描画を伴わない経路でも必ず追従させるため、
+   #ops-grid ごと作り直されても効くよう document に一度だけ委譲で仕掛ける */
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if (t && t.closest && t.closest('.ops-hier-unit')) opsFitFont(t);
+});
+document.addEventListener('input', function(e){
+  var t = e.target;
+  if (t && t.closest && t.closest('.ops-hier-unit')) opsFitFont(t);
+});
 /* 入室時間（予定を大づかみに入れる語彙: '8:15'/'AMOC'/'PMOC'/自由入力）を分に変換。
    表せない値（AM/PM単体・OC等）は null を返す＝所要時間の計算対象から外す。 */
 function opsItemStartMin(it){
