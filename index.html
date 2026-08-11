@@ -10853,7 +10853,7 @@ function buildOPS(ds,dat,locked) {
      担当者チップの追加・削除、終了時刻・備考の手動修正はここで直接 items[idx] を書き換えて
      saveItems()/renderItems() を呼ぶ（両ビルダーの他の入力欄と同じパターン）。
      itemId（'ope'/'cath'）はDOM ID（担当カードのdc-add-note-等と衝突しないための接頭辞）に使う。 */
-  function buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId) {
+  function buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn) {
     var item = items[idx];
 
     var staffRow = document.createElement('div'); staffRow.className = 'ops-staff-row';
@@ -10907,9 +10907,12 @@ function buildOPS(ds,dat,locked) {
     }
     itemWrap.appendChild(staffRow);
 
+    /* 終了行：終了トグル・終了時刻・行削除を1行にまとめる。
+       時刻は終了にした行だけに出すので、未終了の行は［終了］と［×］だけになる */
+    var endRow = document.createElement('div'); endRow.className = 'ops-end-row';
+    if (doneBtn) endRow.appendChild(doneBtn);
     if (item.done || item.endTime != null) {
-      var endRow = document.createElement('div'); endRow.className = 'ops-end-row';
-      var endLbl = document.createElement('span'); endLbl.className = 'ops-meta-lbl'; endLbl.textContent = '🏁 終了';
+      var endLbl = document.createElement('span'); endLbl.className = 'ops-meta-lbl'; endLbl.textContent = '🏁';
       endRow.appendChild(endLbl);
       var endInp = document.createElement('input');
       endInp.type = 'time'; endInp.className = 'ops-end-time'; endInp.disabled = !!locked;
@@ -10922,8 +10925,9 @@ function buildOPS(ds,dat,locked) {
         nowBtn.onclick = function(){ items[idx].endTime = opsNowMin(); endInp.value = schedMinToHM(items[idx].endTime); saveItems(); };
         endRow.appendChild(nowBtn);
       }
-      itemWrap.appendChild(endRow);
     }
+    if (delBtn) { delBtn.style.marginLeft = 'auto'; endRow.appendChild(delBtn); }
+    if (endRow.children.length) itemWrap.appendChild(endRow);
 
     /* 症例ごとの備考：カード全体の備考（ops.ope_note/cath_note）とは別物。
        値が1文字でもあれば開いたまま、空なら「＋備考」リンクだけ（担当カードのdcExpandFieldと同じ考え方）。 */
@@ -11223,14 +11227,13 @@ function buildOPS(ds,dat,locked) {
         var doneBtn=document.createElement('button'); doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
         doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
         if(!locked) doneBtn.onclick=(function(i2){return function(){opsToggleDone(items,i2);saveItems();renderItems();};})(idx);
-        row.appendChild(doneBtn);
 
         /* 削除ボタン */
         var delBtn=document.createElement('button'); delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除'; delBtn.type='button'; delBtn.disabled=!!locked;
         if(!locked) delBtn.onclick=(function(i2){return function(){if(items.length<=1){items[0]={dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]};}else{items.splice(i2,1);}saveItems();renderItems();};})(idx);
-        row.appendChild(delBtn);
         itemWrap.appendChild(row);
-        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId);
+        /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
+        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
 
         /* 使用物品行（オペのみ）- itemWrapに追加してD&Dで一緒に動く */
         if(withSup){
@@ -11586,16 +11589,15 @@ function buildOPS(ds,dat,locked) {
         doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
         doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
         if(!locked) doneBtn.onclick=(function(i2){return function(){opsToggleDone(items,i2);saveItems();renderItems();};})(idx);
-        row.appendChild(doneBtn);
 
         /* 削除ボタン */
         var delBtn = document.createElement('button');
         delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除';
         delBtn.type='button'; delBtn.disabled=!!locked;
-        row.appendChild(delBtn);
 
         itemWrap.appendChild(row);
-        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId);
+        /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
+        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
         if (supRow) itemWrap.appendChild(supRow);
         wrap.appendChild(itemWrap);
 
