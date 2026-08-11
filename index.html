@@ -528,13 +528,22 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .ops-grid{grid-template-columns:1fr}
   .ops-item-row{flex-wrap:wrap}
   .ops-item-row>div{flex:1 1 100%!important;min-width:0}
-  /* 科・中カテゴリ・術式を横に3つ並べると画面幅に収まらず、右が見切れて
-     横スクロールしないと読めなくなる。スマホでは縦に積んで全幅で見せる */
-  .ops-hier-row{flex-direction:column;flex-wrap:nowrap}
-  .ops-hier-unit{flex:1 1 auto!important;min-width:0!important;width:100%}
-  /* 業務カードの中身が親より広くならないようにする（横スクロールの発生源をふさぐ） */
+  /* 科・中カテゴリ・術式は横に3つ並べる。grid の 1fr は中身の長さに関係なく
+     必ず等分されるので、どんなに長い術式名でも枠が画面幅を超えない
+     （flex だと中身の最小幅に押し広げられて横スクロールが出る）。
+     はみ出す文字は opsFitFont が文字サイズを縮めて収める */
+  /* 科と中カテゴリは短い語が多く、術式名だけが長い。等分にすると術式が読めなく
+     なるので、術式に約2倍の幅を配る。minmax(0,..) が中身による押し広げを止める */
+  .ops-hier-row{display:grid!important;grid-template-columns:minmax(0,5fr) minmax(0,5fr) minmax(0,12fr);gap:3px;flex-wrap:nowrap}
+  .ops-hier-unit{min-width:0!important;width:auto!important;flex:none!important}
+  .ops-hier-unit>*{min-width:0}
+  /* 業務カードの中身が親より広くならないようにする（横スクロールの最後の砦） */
   .ops-item-wrap,.ops-item-wrap *{max-width:100%}
+  .ops-item-wrap{overflow-x:hidden}
   .ops-item-wrap select,.ops-item-wrap input,.ops-item-wrap textarea{min-width:0}
+  .ops-item-row{max-width:100%}
+  /* 3枠を横に並べる関係で1枠が狭い。内側の余白を詰めて文字に幅を回す */
+  .ops-hier-unit .ops-sel{padding-left:4px;padding-right:2px}
   .pp{gap:7px 14px;padding:9px 11px}
   /* スマホではタイトルとボタンを同じ行に並べると、タイトルが4行に折り返して読めなくなる。
      タイトルを1行目いっぱいに使い、ボタンは次の行へ回す */
@@ -8252,6 +8261,57 @@ function opsItemName(it){
   if (it.sel === '__free__') return it.txt || '';
   return it.sel || '';
 }
+
+/* ===== 選択ボックスの文字を枠内に収める =====
+   科・中カテゴリ・術式は横に3つ並ぶため1枠が狭く、「膀胱腫瘍切除術 (TUR-Bt)」のような
+   長い名前は枠からはみ出す。枠を広げると画面幅を超えて横スクロールになるので、
+   枠は固定のまま文字サイズだけ縮めて収める。 */
+var _opsFitCanvas = null;
+function opsTextWidth(text, px) {
+  if (!_opsFitCanvas) _opsFitCanvas = document.createElement('canvas').getContext('2d');
+  _opsFitCanvas.font = px + 'px ' + (getComputedStyle(document.body).fontFamily || 'sans-serif');
+  return _opsFitCanvas.measureText(text).width;
+}
+function opsFitFont(el) {
+  if (!el) return;
+  var BASE = 12, MIN = 7;
+  el.style.fontSize = BASE + 'px';
+  var txt = (el.tagName === 'SELECT')
+    ? (el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '')
+    : (el.value || '');
+  if (!txt) return;
+  /* 実際に使える幅＝内側の幅 −（左右の余白）−（セレクトの矢印ぶん）。
+     余白は画面幅で変わるので決め打ちにせず computed から取る */
+  var cs = getComputedStyle(el);
+  var pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  var avail = el.clientWidth - pad - (el.tagName === 'SELECT' ? 14 : 0) - 2; /* 端数で1pxはみ出すのを防ぐ余裕 */
+  if (avail <= 0) return;
+  var w = opsTextWidth(txt, BASE);
+  if (w <= avail) return;
+  el.style.fontSize = Math.max(MIN, Math.floor(BASE * avail / w)) + 'px';
+}
+/* 業務カードの中の選択ボックス・自由入力をまとめて調整する。
+   幅が確定してからでないと測れないので、呼び出し側は描画後に実行すること */
+function opsFitAll(root) {
+  var scope = root || document.getElementById('ops-grid');
+  if (!scope) return;
+  [].forEach.call(scope.querySelectorAll('.ops-hier-unit select, .ops-hier-unit input'), opsFitFont);
+}
+/* 描画のたびに何度も呼ばれるので、まとめて1回だけ実行する。
+   幅が確定していないうちに測ると効かないため、次フレームと少し後の2段構えにする */
+var _opsFitTimer = null;
+function opsScheduleFit() {
+  if (_opsFitTimer) return;
+  /* requestAnimationFrame は環境によって進まないことがあるので使わない。
+     幅が確定した直後と、遅れて確定した場合に備えた2回で合わせる */
+  _opsFitTimer = setTimeout(function(){
+    _opsFitTimer = null;
+    opsFitAll();
+    setTimeout(opsFitAll, 200);
+  }, 0);
+}
+window.addEventListener('resize', function(){ opsScheduleFit(); });
+window.addEventListener('orientationchange', function(){ setTimeout(opsScheduleFit, 300); });
 /* 入室時間（予定を大づかみに入れる語彙: '8:15'/'AMOC'/'PMOC'/自由入力）を分に変換。
    表せない値（AM/PM単体・OC等）は null を返す＝所要時間の計算対象から外す。 */
 function opsItemStartMin(it){
@@ -8684,6 +8744,8 @@ function renderPage(ds) {
   buildDG(ds, dat, dlk);
   renderSurplusArea(ds, dat, dlk);
   buildOPS(ds, dat, olk);
+  /* 幅が確定してから測る必要があるので、描画後にまとめて文字サイズを調整する */
+  opsScheduleFit();
   buildCL(ds, dat, wtl, all, clk);
   refreshPool(ds);
 
@@ -10979,6 +11041,8 @@ function buildOPS(ds,dat,locked) {
 
     function renderItems() {
       wrap.innerHTML = '';
+      /* 描画のたびに、枠に収まらない文字サイズを調整し直す */
+      opsScheduleFit();
       items.forEach(function(item, idx) {
         /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
         var itemWrap = document.createElement('div');
@@ -11296,6 +11360,8 @@ function buildOPS(ds,dat,locked) {
 
     function renderItems() {
       wrap.innerHTML = '';
+      /* 描画のたびに、枠に収まらない文字サイズを調整し直す */
+      opsScheduleFit();
       items.forEach(function(item, idx) {
         /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
         var itemWrap = document.createElement('div');
