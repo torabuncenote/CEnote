@@ -1354,7 +1354,13 @@ body.has-cbar #scroll-top-btn{bottom:126px}
     <!-- メーカー担当者連絡先パネル -->
     <div id="pane-makers" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp">
-        <div class="pt">🏭 メーカー担当者連絡先</div>
+        <div class="pt" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span>🏭 メーカー担当者連絡先</span>
+          <span id="mk-hd-btns" style="display:none;gap:6px">
+            <button class="btn btn-p btn-sm" onclick="openMakerModal()">＋ 追加</button>
+            <button class="btn btn-g btn-sm" onclick="openMakerCatModal()">⚙️ カテゴリ</button>
+          </span>
+        </div>
         <div class="mk-bar">
           <input type="text" id="mk-q" class="mk-search" placeholder="メーカー・担当者・番号・備考で検索">
           <select id="mk-cat-sel" class="flt-sel"></select>
@@ -8332,6 +8338,7 @@ function mkCatName(id) {
   var c = mkCats().filter(function(x){return x.id===id;})[0];
   return c ? c.name : '未分類';
 }
+function mkCountByCat(catId) { return mkList().filter(function(r){ return r.cat === catId; }).length; }
 function mkNewId(prefix) {
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
 }
@@ -8347,6 +8354,8 @@ function mkNorm(s) {
 }
 function renderMakers() {
   if (!document.getElementById('pane-makers')) return;
+  var hdBtns = document.getElementById('mk-hd-btns');
+  if (hdBtns) hdBtns.style.display = can('maker') ? 'inline-flex' : 'none';
   var sel = document.getElementById('mk-cat-sel');
   if (sel) {
     var cats = mkCats();
@@ -8433,8 +8442,175 @@ function mkClearFilter() {
   var sel = document.getElementById('mk-cat-sel'); if (sel) sel.value = '';
   renderMakersList();
 }
-function mkEdit(id) { /* P4で実装 */ }
-function mkDel(id) { /* P4で実装 */ }
+function mkEdit(id) { openMakerModal(id); }
+function mkDel(id) {
+  if (!can('maker')) return;
+  var r = mkFind(id); if (!r) return;
+  if (!confirm('「' + (r.maker || '（メーカー名未設定）') + '」を削除しますか？')) return;
+  var list = mkList();
+  var idx = list.map(function(x){return x.id;}).indexOf(id);
+  if (idx === -1) return;
+  list.splice(idx, 1);
+  D.makers = { cats: mkCats(), list: list };
+  renderMakersList();
+  saveD();
+  writeLog('メーカー連絡先を削除', r.maker || '（メーカー名未設定）');
+  toast('削除しました', 'ok');
+}
+
+/* ===== メーカー連絡先の追加・編集モーダル ===== */
+function openMakerModal(id) {
+  if (!can('maker')) return;
+  var r = id ? mkFind(id) : null;
+  if (id && !r) return;
+  var oldOv = document.getElementById('mk-md-ov'); if (oldOv) oldOv.remove();
+  var catOpts = '<option value="">未分類</option>' + mkCats().map(function(c){
+    return '<option value="' + escH(c.id) + '"' + ((r && r.cat) === c.id ? ' selected' : '') + '>' + escH(c.name) + '</option>';
+  }).join('');
+  var ov = document.createElement('div'); ov.id = 'mk-md-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '460px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  md.innerHTML = '<h3>' + (r ? '✎ メーカー連絡先を編集' : '＋ メーカー連絡先を追加') + '</h3>'
+    + '<div class="md-flbl">カテゴリ</div>'
+    + '<select id="mk-md-cat" class="ds2" style="width:100%;box-sizing:border-box">' + catOpts + '</select>'
+    + '<div class="md-frow">'
+    + '<div class="md-fcol"><div class="md-flbl">メーカー</div><input type="text" id="mk-md-maker" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(r ? r.maker : '') + '"></div>'
+    + '<div class="md-fcol"><div class="md-flbl">担当者</div><input type="text" id="mk-md-person" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(r ? r.person : '') + '"></div>'
+    + '</div>'
+    + '<div class="md-frow">'
+    + '<div class="md-fcol"><div class="md-flbl">電話番号1</div><input type="text" id="mk-md-tel1" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(r ? r.tel1 : '') + '"></div>'
+    + '<div class="md-fcol"><div class="md-flbl">電話番号2</div><input type="text" id="mk-md-tel2" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(r ? r.tel2 : '') + '"></div>'
+    + '</div>'
+    + '<div class="md-flbl" style="margin-top:10px">メール</div>'
+    + '<input type="email" id="mk-md-mail" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(r ? r.mail : '') + '">'
+    + '<div class="md-flbl" style="margin-top:10px">備考</div>'
+    + '<textarea id="mk-md-note" class="fi" rows="3" style="width:100%;box-sizing:border-box;resize:vertical">' + escH(r ? r.note : '') + '</textarea>'
+    + '<div class="md-flbl" style="margin-top:10px">更新日</div>'
+    + '<input type="date" id="mk-md-upd" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(r ? (r.upd || tabletTodayStr()) : tabletTodayStr()) + '">'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'mk-md-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" id="mk-md-save">保存</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('mk-md-save').addEventListener('click', function(){ saveMakerFromModal(id || null); });
+}
+function saveMakerFromModal(id) {
+  if (!can('maker')) return;
+  var maker  = document.getElementById('mk-md-maker').value.trim();
+  var person = document.getElementById('mk-md-person').value.trim();
+  if (!maker && !person) { toast('メーカー名か担当者名のどちらかを入力してください', 'warn'); return; }
+  var cat  = document.getElementById('mk-md-cat').value || '';
+  var tel1 = document.getElementById('mk-md-tel1').value.trim();
+  var tel2 = document.getElementById('mk-md-tel2').value.trim();
+  var mail = document.getElementById('mk-md-mail').value.trim();
+  var note = document.getElementById('mk-md-note').value.trim();
+  var upd  = document.getElementById('mk-md-upd').value || tabletTodayStr();
+  var save = function(){
+    var list = mkList();
+    var rec;
+    if (id) {
+      rec = list.filter(function(x){ return x.id === id; })[0];
+      if (!rec) return;
+    } else {
+      rec = { id: mkNewId('mk') };
+      list.push(rec);
+    }
+    rec.cat = cat; rec.maker = maker; rec.person = person;
+    rec.tel1 = tel1; rec.tel2 = tel2; rec.mail = mail; rec.note = note; rec.upd = upd;
+    rec.ts = Date.now();
+    rec.by = currentUser ? (currentUser.displayName || currentUser.email || '') : '';
+    D.makers = { cats: mkCats(), list: list };
+    renderMakersList();
+    saveD();
+    writeLog('メーカー連絡先を編集', (maker || '（メーカー名未設定）') + '（' + mkCatName(cat) + '）');
+    var ovEl = document.getElementById('mk-md-ov'); if (ovEl) ovEl.remove();
+    toast('保存しました', 'ok');
+  };
+  /* PHIチェックは備考欄だけにかける。メーカー・担当者・電話番号・メールは対象外にしている。
+     この欄はメーカー社員の氏名・連絡先を入れることが目的で、detectPHIは苗字＋漢字パターンで
+     氏名を検知してハードブロックするため、正当な入力が保存できなくなってしまう。意図的に除外している */
+  phiGuardText(note, save, function(){ var e = document.getElementById('mk-md-note'); if (e) e.focus(); });
+}
+
+/* ===== カテゴリ管理モーダル =====
+   並び替え・名前変更・削除・追加は、開いている間 D.makers を直接編集するだけでsaveD()を呼ばない
+   （147件規模のフル書き込みが操作のたびに連発しないように）。[閉じる]でまとめて1回だけ保存する。 */
+function openMakerCatModal() {
+  if (!can('maker')) return;
+  var oldOv = document.getElementById('mk-cat-md-ov'); if (oldOv) oldOv.remove();
+  D.makers = { cats: mkCats(), list: mkList() }; /* 疎配列/欠損フィールドを正規化した実体をD側に確定させる */
+  var ov = document.createElement('div'); ov.id = 'mk-cat-md-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) mkCatModalClose(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  md.innerHTML = '<h3>⚙️ カテゴリ管理</h3>'
+    + '<div id="mk-cat-rows"></div>'
+    + '<div style="display:flex;gap:6px;margin-top:10px">'
+    + '<input type="text" id="mk-cat-new" class="fi" style="flex:1;min-width:0;box-sizing:border-box" placeholder="新しいカテゴリ名">'
+    + '<button class="btn btn-g btn-sm" onclick="mkCatAdd()">＋ カテゴリを追加</button></div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end">'
+    + '<button class="btn btn-p" onclick="mkCatModalClose()">閉じる</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  mkCatRowsRender();
+}
+function mkCatRowsRender() {
+  var box = document.getElementById('mk-cat-rows'); if (!box) return;
+  var cats = D.makers.cats;
+  var h = '';
+  cats.forEach(function(c, i){
+    h += '<div class="ri" style="align-items:center;gap:6px">'
+      + '<button class="btn btn-g btn-sm" onclick="mkCatMove(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
+      + '<button class="btn btn-g btn-sm" onclick="mkCatMove(' + i + ',1)"' + (i === cats.length - 1 ? ' disabled' : '') + '>↓</button>'
+      + '<input type="text" class="fi" style="flex:1;min-width:0;box-sizing:border-box" value="' + escH(c.name) + '" onblur="mkCatRename(' + i + ',this.value)">'
+      + '<span style="font-size:11px;color:var(--txt3);white-space:nowrap">' + mkCountByCat(c.id) + '件</span>'
+      + '<button class="btn btn-d btn-sm" onclick="mkCatDel(' + i + ')">🗑</button>'
+      + '</div>';
+  });
+  if (!cats.length) h = '<div class="mk-empty">カテゴリがありません</div>';
+  box.innerHTML = h;
+}
+function mkCatMove(i, dir) {
+  if (!can('maker')) return;
+  var cats = D.makers.cats;
+  var j = i + dir;
+  if (j < 0 || j >= cats.length) return;
+  var tmp = cats[i]; cats[i] = cats[j]; cats[j] = tmp;
+  mkCatRowsRender();
+}
+function mkCatRename(i, val) {
+  if (!can('maker')) return;
+  var cats = D.makers.cats;
+  if (!cats[i]) return;
+  var v = (val || '').trim();
+  if (v) cats[i].name = v;
+  mkCatRowsRender();
+}
+function mkCatDel(i) {
+  if (!can('maker')) return;
+  var cats = D.makers.cats;
+  var c = cats[i]; if (!c) return;
+  var n = mkCountByCat(c.id);
+  if (n > 0 && !confirm('このカテゴリには' + n + '件登録されています。削除すると' + n + '件は「未分類」に移動します。よろしいですか？')) return;
+  if (n > 0) {
+    D.makers.list.forEach(function(r){ if (r.cat === c.id) r.cat = ''; });
+  }
+  cats.splice(i, 1);
+  mkCatRowsRender();
+}
+function mkCatAdd() {
+  if (!can('maker')) return;
+  var el = document.getElementById('mk-cat-new'); if (!el) return;
+  var name = el.value.trim();
+  if (!name) return;
+  D.makers.cats.push({ id: mkNewId('mc'), name: name });
+  el.value = '';
+  mkCatRowsRender();
+}
+function mkCatModalClose() {
+  var n = D.makers.cats.length;
+  renderMakers();
+  saveD();
+  writeLog('メーカー連絡先のカテゴリを編集', n + '個');
+  var ov = document.getElementById('mk-cat-md-ov'); if (ov) ov.remove();
+}
 function mkCopyTel(id, which) {
   var r = mkFind(id); if (!r) return;
   var t = (which === 2 ? r.tel2 : r.tel1) || '';
