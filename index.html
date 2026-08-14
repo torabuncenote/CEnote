@@ -1021,14 +1021,15 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
       <div class="stab"     id="tab-sched"  onclick="swTab('sched')">⏰ スケジュール</div>
-      <div class="stab"     id="tab-guide"  onclick="swTab('guide')">📘 使い方</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
       <div class="stab"     id="tab-logs"   onclick="swTab('logs')"   style="display:none">📋 ログ</div>
-      <div class="stab"     id="tab-docs"   onclick="toggleDocsMenu()" style="display:none">📚 資料 ▾</div>
+      <div class="stab"     id="tab-docs"   onclick="toggleDocsMenu()" style="display:none">🔑 管理資料 ▾</div>
+      <!-- 全ユーザー向け資料タブ（使い方・メーカー）。管理者専用の tab-docs とは別枠 -->
+      <div class="stab"     id="tab-lib"    onclick="toggleLibMenu()">📚 資料 ▾</div>
     </div>
-    <!-- 資料サブメニュー（折りたたみ） -->
+    <!-- 管理資料サブメニュー（折りたたみ、管理者専用） -->
     <div id="docs-submenu" style="display:none;flex-shrink:0;background:var(--sur2);border-bottom:1px solid var(--bdr);padding:6px 8px;gap:6px;flex-wrap:wrap">
       <button class="btn btn-g btn-sm" onclick="swTab('spec')">📖 仕様書</button>
       <button class="btn btn-g btn-sm" onclick="swTab('manual')">📘 マニュアル</button>
@@ -1036,6 +1037,11 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       <button class="btn btn-g btn-sm" onclick="swTab('dev')">🔧 引き継ぎ</button>
       <button class="btn btn-g btn-sm" onclick="swTab('regs')">⚖️ 法令・GL</button>
       <button class="btn btn-g btn-sm" onclick="swTab('changelog')">📝 変更履歴</button>
+    </div>
+    <!-- 資料サブメニュー（折りたたみ、全ユーザー向け） -->
+    <div id="lib-submenu" style="display:none;flex-shrink:0;background:var(--sur2);border-bottom:1px solid var(--bdr);padding:6px 8px;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-g btn-sm" onclick="swTab('guide')">📘 使い方</button>
+      <button class="btn btn-g btn-sm" onclick="swTab('makers')">🏭 メーカー</button>
     </div>
 
     <!-- 予定タブ -->
@@ -1324,6 +1330,14 @@ body.has-cbar #scroll-top-btn{bottom:126px}
           <button class="btn btn-g btn-sm" onclick="openChangelogPublic()">📝 変更履歴</button>
         </div>
         <div id="guide-body"></div>
+      </div>
+    </div>
+
+    <!-- メーカー担当者連絡先パネル（P3で実装。今はプレースホルダ） -->
+    <div id="pane-makers" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp">
+        <div class="pt">🏭 メーカー担当者連絡先</div>
+        <p style="color:var(--txt3);font-size:13px">準備中です。</p>
       </div>
     </div>
 
@@ -2262,6 +2276,7 @@ function fbInit() {
           var el = document.getElementById('tab-'+id);
           if(el) el.style.display = 'none';
         });
+        openSubmenu(null);
         var fairBtn0 = document.getElementById('subtab-fair');
         if (fairBtn0) fairBtn0.style.display = 'none';
         return;
@@ -2301,8 +2316,7 @@ function fbInit() {
         updateTabVisibility();
         /* 前セッションで開いていた資料ペインを閉じてカレンダービューに戻す */
         swTab('cal');
-        var docsMenu = document.getElementById('docs-submenu');
-        if (docsMenu) docsMenu.style.display = 'none';
+        openSubmenu(null);
         updatePendingBadge();
 
         /* 自動ログアウトタイマー開始 */
@@ -14025,10 +14039,11 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','sched','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','sched','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
+  var libTabs=['guide','makers'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群（担当表・スケジュールも含む） */
-  var contentPanes=['assign','sched','guide','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var contentPanes=['assign','sched','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -14064,6 +14079,10 @@ function swTab(t) {
   }
   var docsTab=document.getElementById('tab-docs');
   if(docsTab) docsTab.classList.toggle('on', docsTabs.indexOf(t)!==-1);
+  var libTab=document.getElementById('tab-lib');
+  if(libTab) libTab.classList.toggle('on', libTabs.indexOf(t)!==-1);
+  /* どちらのサブメニューにも属さないタブへ移動したら、開いていたサブメニューを畳む */
+  if(docsTabs.indexOf(t)===-1 && libTabs.indexOf(t)===-1) openSubmenu(null);
 
   if(t==='assign'){ swSubTab('at'); renderAT(); }
   if(t==='sched'){ renderSched(); }
@@ -14078,6 +14097,7 @@ function swTab(t) {
   if(t==='logs'){loadLogs();}
   if(t==='lock') { renderLockList(); loadAutoDelSettings(); }
   if(t==='guide') { renderGuide(); }
+  if(t==='makers') { /* P3で renderMakers() を実装するまでは何もしない（プレースホルダのまま） */ }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
   if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); renderFirebaseSnapshots(); }
@@ -14087,12 +14107,16 @@ function swTab(t) {
   /* 消し込みバーは日ページ（#main）を表示しているときだけ出す */
   updateCloseBar(hideMain ? null : curDs);
 }
-function toggleDocsMenu(){
-  var menu=document.getElementById('docs-submenu');
-  if(!menu) return;
-  var isOpen = menu.style.display==='flex';
-  menu.style.display = isOpen ? 'none' : 'flex';
+/* 管理資料（docs-submenu）と資料（lib-submenu）は排他で開閉する。
+   id が null なら両方閉じる（ログアウト時・他タブへの移動時に使う） */
+function openSubmenu(id){
+  ['docs-submenu','lib-submenu'].forEach(function(k){
+    var el=document.getElementById(k); if(!el) return;
+    el.style.display = (k===id && el.style.display!=='flex') ? 'flex' : 'none';
+  });
 }
+function toggleDocsMenu(){ openSubmenu('docs-submenu'); }
+function toggleLibMenu(){ openSubmenu('lib-submenu'); }
 function togSB(){
   var sb=document.getElementById('sb');
   /* 担当表/スケジュールが全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
