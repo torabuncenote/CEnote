@@ -1800,7 +1800,8 @@ var LOCK_DEFS = [
   {id:'memo',    icon:'📝', label:'業務連絡・申し送りの編集'},
   {id:'pg',      icon:'🗑', label:'連絡表の生成・削除'},
   {id:'show_phs', icon:'📞', label:'PHS番号欄の表示切替'},
-  {id:'tablet',  icon:'📱', label:'タブレット貸出の記録'}
+  {id:'tablet',  icon:'📱', label:'タブレット貸出の記録'},
+  {id:'maker',   icon:'🏭', label:'メーカー連絡先の編集'}
 ];
 var WDL = ['日','月','火','水','木','金','土'];
 var WDF = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
@@ -1943,7 +1944,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:''};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -2156,6 +2157,7 @@ function loadD() {
     D.autoDelCfg = s.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
     D.tablets = s.tablets || [];
     D.ocFlow = s.ocFlow || '';
+    D.makers = normMakers(s.makers);
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -2262,7 +2264,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow='';
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]};
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -2433,6 +2435,7 @@ function fbInit() {
             D.autoDelCfg = d.autoDelCfg || {enabled:false,period:365,interval:30,lastClean:0};
             D.tablets = d.tablets || [];
             D.ocFlow = d.ocFlow || '';
+            D.makers = normMakers(d.makers);
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -8250,6 +8253,45 @@ function opsFreeCards(pg){
   return out;
 }
 function opsFreeFilled(f){ return !!(f && (f.text || f.name)); }
+
+/* ===== メーカー連絡先 D.makers の読み出しヘルパー =====
+   Firebase は空配列を保存時に落とし、疎配列をオブジェクト化するため、
+   読み出しは必ずこの正規化を通す（opsItemStaff/taskAssignees と同型）。 */
+function normMakers(x) {
+  var cats = (x && x.cats) || [];
+  cats = Array.isArray(cats) ? cats : Object.keys(cats).map(function(k){ return cats[k]; });
+  var catIds = {};
+  cats.forEach(function(c){ catIds[c.id] = true; });
+  var list = (x && x.list) || [];
+  list = Array.isArray(list) ? list : Object.keys(list).map(function(k){ return list[k]; });
+  list = list.map(function(r){
+    return {
+      id: r.id || '',
+      cat: (r.cat && catIds[r.cat]) ? r.cat : '',
+      maker: r.maker || '',
+      person: r.person || '',
+      tel1: r.tel1 || '',
+      tel2: r.tel2 || '',
+      mail: r.mail || '',
+      note: r.note || '',
+      upd: r.upd || '',
+      ts: r.ts || 0,
+      by: r.by || ''
+    };
+  });
+  return { cats: cats, list: list };
+}
+function mkCats() { return normMakers(D.makers).cats; }
+function mkList() { return normMakers(D.makers).list; }
+function mkFind(id) { return mkList().filter(function(r){return r.id===id;})[0] || null; }
+function mkCatName(id) {
+  if (!id) return '未分類';
+  var c = mkCats().filter(function(x){return x.id===id;})[0];
+  return c ? c.name : '未分類';
+}
+function mkNewId(prefix) {
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+}
 
 /* ===== オペ/カテ行の担当者・終了時刻ヘルパー =====
    Firebase は空配列を保存時に落とし、疎配列をオブジェクト化するため、
@@ -15354,7 +15396,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -15422,7 +15464,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
@@ -15478,7 +15520,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       saveD();
