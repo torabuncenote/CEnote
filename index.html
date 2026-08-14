@@ -867,6 +867,24 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .tbl-tl-block.open{background:repeating-linear-gradient(45deg,var(--rd),var(--rd) 6px,#e06666 6px,#e06666 12px)}
 .tbl-tl-bt{font-family:var(--mo);font-weight:700}
 .tbl-tl-bn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ===== メーカー担当者連絡先 ===== */
+.mk-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.mk-search{font-size:13px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 11px;outline:none;font-family:var(--fn);background:var(--sur2);color:var(--txt)}
+#mk-q{flex:1 1 160px;min-width:0}
+.mk-count{font-size:12px;color:var(--txt3);white-space:nowrap}
+.mk-cat-head{position:sticky;top:0;z-index:2;background:var(--sur);font-size:12px;font-weight:700;color:var(--txt2);padding:6px 2px;margin-top:4px}
+.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:10px;margin-bottom:14px}
+.mk-card{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--r);padding:12px;min-width:0;overflow-wrap:anywhere}
+.mk-card-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}
+.mk-maker{font-weight:700;font-size:14px;color:var(--txt)}
+.mk-person{font-size:12px;color:var(--txt2)}
+.mk-acts{display:flex;gap:4px;flex-shrink:0}
+.mk-row{display:flex;align-items:center;gap:6px;font-size:12px;margin-top:4px;min-width:0}
+.mk-row .mk-ic{flex-shrink:0;color:var(--txt3)}
+.mk-tel,.mk-mail{font-family:var(--mo);background:none;border:1px solid var(--bdr2);border-radius:var(--rs);padding:2px 8px;color:var(--ac);cursor:pointer;min-width:0;overflow-wrap:anywhere;text-align:left}
+.mk-note{font-size:12px;color:var(--txt2);white-space:pre-wrap;margin-top:6px;min-width:0}
+.mk-upd{font-size:10px;color:var(--txt3);margin-top:6px}
+.mk-empty{padding:20px;text-align:center;color:var(--txt3);font-size:13px}
 /* ===== 検索モーダル ===== */
 .srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
 .srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
@@ -1333,11 +1351,17 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       </div>
     </div>
 
-    <!-- メーカー担当者連絡先パネル（P3で実装。今はプレースホルダ） -->
+    <!-- メーカー担当者連絡先パネル -->
     <div id="pane-makers" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp">
         <div class="pt">🏭 メーカー担当者連絡先</div>
-        <p style="color:var(--txt3);font-size:13px">準備中です。</p>
+        <div class="mk-bar">
+          <input type="text" id="mk-q" class="mk-search" placeholder="メーカー・担当者・番号・備考で検索">
+          <select id="mk-cat-sel" class="flt-sel"></select>
+          <span id="mk-count" class="mk-count"></span>
+          <button class="btn btn-g btn-sm" id="mk-clear" onclick="mkClearFilter()" style="display:none">✕ 条件クリア</button>
+        </div>
+        <div id="mk-list"></div>
       </div>
     </div>
 
@@ -8093,6 +8117,25 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.key === 'Escape') closePoolStaffModal();
     });
   }
+  var mkQ = document.getElementById('mk-q');
+  if (mkQ) {
+    var _mkQTimer = null;
+    mkQ.addEventListener('input', function() {
+      var v = this.value;
+      clearTimeout(_mkQTimer);
+      _mkQTimer = setTimeout(function() {
+        _mkFilter.q = v;
+        renderMakersList();
+      }, 120);
+    });
+  }
+  var mkCatSel = document.getElementById('mk-cat-sel');
+  if (mkCatSel) {
+    mkCatSel.addEventListener('change', function() {
+      _mkFilter.cat = this.value;
+      renderMakersList();
+    });
+  }
 });
 
 function _autoSetOcForDay(ds) {
@@ -8291,6 +8334,134 @@ function mkCatName(id) {
 }
 function mkNewId(prefix) {
   return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+}
+
+/* ===== メーカー担当者連絡先パネル（閲覧のみ。追加・編集・削除・カテゴリ管理・Excel取り込みはP4/P5） ===== */
+var _mkFilter = { q:'', cat:'' };
+/* 検索用正規化：全角英数記号→半角、小文字化、空白/-/()を除去（表記ゆれ吸収） */
+function mkNorm(s) {
+  return String(s || '')
+    .replace(/[！-～]/g, function(ch){ return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0); })
+    .toLowerCase()
+    .replace(/[\s\-()]/g, '');
+}
+function renderMakers() {
+  if (!document.getElementById('pane-makers')) return;
+  var sel = document.getElementById('mk-cat-sel');
+  if (sel) {
+    var cats = mkCats();
+    var cnt = {};
+    mkList().forEach(function(r){ var k = r.cat || '__none'; cnt[k] = (cnt[k] || 0) + 1; });
+    var h = '<option value="">カテゴリ：すべて</option>';
+    cats.forEach(function(c){
+      h += '<option value="' + escH(c.id) + '"' + (_mkFilter.cat === c.id ? ' selected' : '') + '>' + escH(c.name) + ' (' + (cnt[c.id] || 0) + ')</option>';
+    });
+    if (cnt.__none) {
+      h += '<option value="__none"' + (_mkFilter.cat === '__none' ? ' selected' : '') + '>未分類 (' + cnt.__none + ')</option>';
+    }
+    sel.innerHTML = h;
+  }
+  renderMakersList();
+}
+function mkCardHTML(r) {
+  var acts = can('maker')
+    ? ('<div class="mk-acts"><button class="btn btn-g btn-sm" onclick="mkEdit(\'' + r.id + '\')">✏️</button><button class="btn btn-d btn-sm" onclick="mkDel(\'' + r.id + '\')">🗑</button></div>')
+    : '';
+  var h = '<div class="mk-card">';
+  h += '<div class="mk-card-hd"><div><div class="mk-maker">' + escH(r.maker || '（メーカー名未設定）') + '</div>';
+  if (r.person) h += '<div class="mk-person">' + escH(r.person) + '</div>';
+  h += '</div>' + acts + '</div>';
+  if (r.tel1) h += '<div class="mk-row"><span class="mk-ic">📞</span><button class="mk-tel" onclick="mkCopyTel(\'' + r.id + '\',1)">' + escH(r.tel1) + '</button></div>';
+  if (r.tel2) h += '<div class="mk-row"><span class="mk-ic">📞</span><button class="mk-tel" onclick="mkCopyTel(\'' + r.id + '\',2)">' + escH(r.tel2) + '</button></div>';
+  if (r.mail) h += '<div class="mk-row"><span class="mk-ic">✉️</span><button class="mk-mail" onclick="mkCopyMail(\'' + r.id + '\')">' + escH(r.mail) + '</button></div>';
+  if (r.note) h += '<div class="mk-note">' + escH(r.note) + '</div>';
+  if (r.upd) h += '<div class="mk-upd">更新 ' + escH(r.upd) + '</div>';
+  h += '</div>';
+  return h;
+}
+function renderMakersList() {
+  var box = document.getElementById('mk-list');
+  if (!box) return;
+  var all = mkList();
+  var cats = mkCats();
+  var q = mkNorm(_mkFilter.q);
+  var rows = all.filter(function(r){
+    if (_mkFilter.cat) {
+      if (_mkFilter.cat === '__none') { if (r.cat) return false; }
+      else if (r.cat !== _mkFilter.cat) return false;
+    }
+    if (q) {
+      var hay = mkNorm(r.maker) + ' ' + mkNorm(r.person) + ' ' + mkNorm(r.note) + ' ' + mkNorm(r.tel1) + ' ' + mkNorm(r.tel2);
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+
+  var cntEl = document.getElementById('mk-count');
+  if (cntEl) cntEl.textContent = all.length + '件中 ' + rows.length + '件を表示';
+  var clearBtn = document.getElementById('mk-clear');
+  if (clearBtn) clearBtn.style.display = (_mkFilter.q || _mkFilter.cat) ? '' : 'none';
+
+  if (!rows.length) {
+    box.innerHTML = '<div class="mk-empty">該当する連絡先がありません</div>';
+    return;
+  }
+
+  var groups = {}; var noneGroup = [];
+  cats.forEach(function(c){ groups[c.id] = []; });
+  rows.forEach(function(r){
+    if (r.cat && groups[r.cat]) groups[r.cat].push(r);
+    else noneGroup.push(r);
+  });
+
+  var h = '';
+  cats.forEach(function(c){
+    var list = groups[c.id];
+    if (!list.length) return;
+    h += '<div class="mk-cat-head">' + escH(c.name) + '（' + list.length + '）</div>';
+    h += '<div class="mk-grid">' + list.map(mkCardHTML).join('') + '</div>';
+  });
+  if (noneGroup.length) {
+    h += '<div class="mk-cat-head">未分類（' + noneGroup.length + '）</div>';
+    h += '<div class="mk-grid">' + noneGroup.map(mkCardHTML).join('') + '</div>';
+  }
+  box.innerHTML = h;
+}
+function mkClearFilter() {
+  _mkFilter = { q:'', cat:'' };
+  var q = document.getElementById('mk-q'); if (q) q.value = '';
+  var sel = document.getElementById('mk-cat-sel'); if (sel) sel.value = '';
+  renderMakersList();
+}
+function mkEdit(id) { /* P4で実装 */ }
+function mkDel(id) { /* P4で実装 */ }
+function mkCopyTel(id, which) {
+  var r = mkFind(id); if (!r) return;
+  var t = (which === 2 ? r.tel2 : r.tel1) || '';
+  if (!t) return;
+  mkCopyText(t, '電話番号をコピーしました');
+}
+function mkCopyMail(id) {
+  var r = mkFind(id); if (!r || !r.mail) return;
+  mkCopyText(r.mail, 'メールアドレスをコピーしました');
+}
+function mkCopyText(t, msg) {
+  function ok(){ toast(msg, 'ok'); }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(t).then(ok, function(){ mkCopyFallback(t, ok); });
+  } else {
+    mkCopyFallback(t, ok);
+  }
+}
+function mkCopyFallback(t, ok) {
+  var ta = document.createElement('textarea');
+  ta.value = t;
+  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.setSelectionRange(0, t.length);
+  try { document.execCommand('copy'); ok(); } catch(e) {}
+  document.body.removeChild(ta);
 }
 
 /* ===== オペ/カテ行の担当者・終了時刻ヘルパー =====
@@ -14139,7 +14310,7 @@ function swTab(t) {
   if(t==='logs'){loadLogs();}
   if(t==='lock') { renderLockList(); loadAutoDelSettings(); }
   if(t==='guide') { renderGuide(); }
-  if(t==='makers') { /* P3で renderMakers() を実装するまでは何もしない（プレースホルダのまま） */ }
+  if(t==='makers') { renderMakers(); }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
   if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); renderFirebaseSnapshots(); }
