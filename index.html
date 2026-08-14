@@ -1359,6 +1359,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
           <span id="mk-hd-btns" style="display:none;gap:6px">
             <button class="btn btn-p btn-sm" onclick="openMakerModal()">＋ 追加</button>
             <button class="btn btn-g btn-sm" onclick="openMakerCatModal()">⚙️ カテゴリ</button>
+            <button class="btn btn-g btn-sm" id="mk-imp-btn" onclick="openMkImpModal()" style="display:none">📥 Excel取込</button>
           </span>
         </div>
         <div class="mk-bar">
@@ -8356,6 +8357,8 @@ function renderMakers() {
   if (!document.getElementById('pane-makers')) return;
   var hdBtns = document.getElementById('mk-hd-btns');
   if (hdBtns) hdBtns.style.display = can('maker') ? 'inline-flex' : 'none';
+  var impBtn = document.getElementById('mk-imp-btn');
+  if (impBtn) impBtn.style.display = isAdmin ? '' : 'none'; /* Excel取込は一括置換で影響範囲が大きいため管理者限定（can('maker')ではない） */
   var sel = document.getElementById('mk-cat-sel');
   if (sel) {
     var cats = mkCats();
@@ -8638,6 +8641,335 @@ function mkCopyFallback(t, ok) {
   ta.setSelectionRange(0, t.length);
   try { document.execCommand('copy'); ok(); } catch(e) {}
   document.body.removeChild(ta);
+}
+
+/* ===== メーカー連絡先のExcel取り込み（管理者限定） =====
+   parseShiftSheet と同じ流れ（パース→一時変数→プレビュー→保存で初めてDへ反映）だが、
+   シート選択ロジックは流用しない。workbook.xml の activeTab を優先すると1シートしか
+   読めないため、wb.SheetNames を全件ループする。 */
+
+/* セルのふりがな除去。SheetJS 0.18.5では実測上 cell.v にふりがなは混入しないが、
+   将来のライブラリ挙動変化に備えた保険。cell.r（リッチテキストXML）から <rPh> 部分を
+   取り除いた文字列がcell.vより短くなるときだけ採用する（cell.vが既に綺麗なら何も変わらない）。 */
+function mkCellText(cell) {
+  if (!cell || cell.v == null) return '';
+  var v = cell.v;
+  if (typeof v !== 'string') return String(v);
+  if (cell.r && /<(?:\w+:)?rPh[\s>]/.test(cell.r)) {
+    var clean = cell.r
+      .replace(/<(?:\w+:)?rPh[\s\S]*?<\/(?:\w+:)?rPh>/g, '')
+      .replace(/<(?:\w+:)?phoneticPr[^>]*\/?>/g, '')
+      .replace(/<[^>]*>/g, '');
+    clean = clean.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+    if (clean && clean.length < v.length) v = clean;
+  }
+  return v.replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/　/g,' ').trim();
+}
+
+/* 更新日セルのパース。数値はExcelシリアル値（UTCゲッターでYYYY-MM-DDへ。ローカルゲッターだとJSTで1日ずれる）、
+   文字列は年月日パターンを分解、それ以外は読めた文字列として extra に退避し備考へ回す（値を捨てない）。 */
+function mkParseUpd(cell) {
+  if (!cell || cell.v == null || cell.v === '') return { upd: '', extra: '' };
+  if (typeof cell.v === 'number' && cell.v >= 20000 && cell.v <= 60000) {
+    var d = new Date(Date.UTC(1899, 11, 30) + cell.v * 86400000);
+    return { upd: d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()), extra: '' };
+  }
+  var raw = mkCellText(cell);
+  if (!raw) return { upd: '', extra: '' };
+  var m = raw.match(/^(\d{4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})日?$/);
+  if (m) return { upd: m[1] + '-' + pad(parseInt(m[2],10)) + '-' + pad(parseInt(m[3],10)), extra: '' };
+  return { upd: '', extra: '（更新日欄の記載: ' + raw + '）' };
+}
+
+/* ワークブック全体を解析してプレビュー用の中間データを返す（Dへは書き込まない）。
+   見出し行はB列が「メーカー」に一致する行。1シート内に2つ以上あれば、2つ目以降は
+   その最初のデータ行のA列をカテゴリ名候補にする（例: 「カテ」シートの2表目=PM）。 */
+function parseMakerBook(wb, fileName) {
+  var groups = [];
+  var warnings = [];
+  var mailExtractCount = 0, carriedCount = 0, updUnreadableCount = 0;
+
+  wb.SheetNames.forEach(function(sheetName) {
+    var ws = wb.Sheets[sheetName];
+    if (!ws || !ws['!ref']) return;
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    var maxRow = range.e.r, maxCol = range.e.c;
+    var grid = [];
+    for (var r = 0; r <= maxRow; r++) {
+      grid[r] = [];
+      for (var c = 0; c <= maxCol; c++) {
+        grid[r][c] = ws[XLSX.utils.encode_cell({r:r, c:c})] || null;
+      }
+    }
+
+    var headRows = [];
+    for (var r2 = 0; r2 <= maxRow; r2++) {
+      if (mkCellText(grid[r2][1]) === 'メーカー') headRows.push(r2);
+    }
+    if (!headRows.length) return;
+    if (headRows.length > 1) warnings.push({ type:'multihead', sheet: sheetName, count: headRows.length });
+
+    headRows.forEach(function(hRow, gi) {
+      var headCells = grid[hRow];
+      var colMap = { maker:-1, person:-1, tel1:-1, tel2:-1, upd:-1, note:-1, note2:-1 };
+      var noteHits = 0;
+      for (var c2 = 0; c2 < headCells.length; c2++) {
+        var t = mkCellText(headCells[c2]);
+        if (!t) continue;
+        if (colMap.maker === -1 && /メーカー|会社/.test(t)) colMap.maker = c2;
+        else if (colMap.person === -1 && /担当/.test(t)) colMap.person = c2;
+        else if (colMap.tel1 === -1 && /(電話|連絡先|TEL).*(1|１)/.test(t)) colMap.tel1 = c2;
+        else if (colMap.tel2 === -1 && /(電話|連絡先|TEL).*(2|２)/.test(t)) colMap.tel2 = c2;
+        else if (colMap.upd === -1 && /更新/.test(t)) colMap.upd = c2;
+        else if (/備考|メモ/.test(t)) {
+          noteHits++;
+          if (noteHits === 1) colMap.note = c2;
+          else if (noteHits === 2) colMap.note2 = c2;
+        }
+      }
+      if (colMap.maker === -1) colMap.maker = 1;  /* B */
+      if (colMap.person === -1) colMap.person = 2; /* C */
+      if (colMap.tel1 === -1) colMap.tel1 = 3;    /* D */
+      if (colMap.tel2 === -1) colMap.tel2 = 4;    /* E */
+      if (colMap.note === -1) colMap.note = 5;    /* F */
+      if (colMap.upd === -1) colMap.upd = 6;      /* G */
+      if (colMap.note2 === -1) colMap.note2 = 7;  /* H */
+
+      var endRow = (gi + 1 < headRows.length) ? headRows[gi + 1] - 1 : maxRow;
+
+      var catName;
+      if (gi === 0) {
+        catName = sheetName;
+      } else {
+        var firstDataRow = null;
+        for (var fr = hRow + 1; fr <= endRow; fr++) {
+          if (mkCellText(grid[fr][colMap.maker]) || mkCellText(grid[fr][colMap.person]) ||
+              mkCellText(grid[fr][colMap.tel1]) || mkCellText(grid[fr][colMap.tel2])) { firstDataRow = fr; break; }
+        }
+        var aText = firstDataRow != null ? mkCellText(grid[firstDataRow][0]) : '';
+        catName = aText || (sheetName + '（' + (gi + 1) + '）');
+      }
+
+      var rows = [];
+      var lastMaker = '';
+      for (var rr = hRow + 1; rr <= endRow; rr++) {
+        var makerT = mkCellText(grid[rr][colMap.maker]);
+        var personT = mkCellText(grid[rr][colMap.person]);
+        var tel1T = mkCellText(grid[rr][colMap.tel1]);
+        var tel2T = mkCellText(grid[rr][colMap.tel2]);
+        if (!makerT && !personT && !tel1T && !tel2T) continue;
+
+        var carried = false;
+        if (!makerT && lastMaker) { makerT = lastMaker; carried = true; carriedCount++; }
+        if (makerT) lastMaker = makerT;
+
+        var noteT = mkCellText(grid[rr][colMap.note]);
+        var note2T = mkCellText(grid[rr][colMap.note2]);
+        var noteCombined = [noteT, note2T].filter(function(x){ return !!x; }).join('\n');
+
+        var mail = '';
+        var mailM = noteCombined.match(/[\w.+-]+@[\w.-]+\.\w+/);
+        if (mailM) {
+          mail = mailM[0];
+          noteCombined = (noteCombined.slice(0, mailM.index) + noteCombined.slice(mailM.index + mailM[0].length))
+            .replace(/[ \t]*\n[ \t]*/g, '\n').replace(/^\n+|\n+$/g, '').trim();
+          mailExtractCount++;
+        }
+
+        var updResult = mkParseUpd(grid[rr][colMap.upd]);
+        if (updResult.extra) {
+          noteCombined = (noteCombined ? noteCombined + '\n' : '') + updResult.extra;
+          updUnreadableCount++;
+        }
+
+        rows.push({
+          maker: makerT.replace(/\n/g, ' '),
+          person: personT.replace(/\n/g, ' '),
+          tel1: tel1T, tel2: tel2T, mail: mail, note: noteCombined, upd: updResult.upd, carried: carried
+        });
+      }
+
+      groups.push({ catName: catName, sheet: sheetName, rows: rows });
+    });
+  });
+
+  return { groups: groups, warnings: warnings, mailExtractCount: mailExtractCount, carriedCount: carriedCount, updUnreadableCount: updUnreadableCount, fileName: fileName };
+}
+
+var _mkImpParsed = null; /* parseMakerBook()の結果。保存ボタンを押すまでDには一切触れない */
+
+function openMkImpModal() {
+  if (!isAdmin) return;
+  var oldOv = document.getElementById('mk-imp-ov'); if (oldOv) oldOv.remove();
+  _mkImpParsed = null;
+  var defaultMode = mkList().length === 0 ? 'replace' : 'append';
+  var ov = document.createElement('div'); ov.id = 'mk-imp-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeMkImpModal(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '520px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  md.innerHTML = '<h3>🏭 Excelからメーカー担当者連絡先を読み込む</h3>'
+    + '<div style="font-size:12px;color:var(--txt3);line-height:1.6;margin-bottom:10px">'
+    + 'シート名がそのままカテゴリ名になります（1シート内に見出し行が複数あれば、2つ目以降は別カテゴリとして分けます）。B〜H列（メーカー・担当者・電話1・電話2・備考・更新日・備考2）を読み取り、備考2は備考に統合されます。'
+    + '</div>'
+    + '<div id="mk-imp-drop" style="border:1.5px dashed var(--bdr2);border-radius:var(--r);padding:18px;text-align:center;font-size:13px;color:var(--txt2);cursor:pointer" onclick="document.getElementById(\'mk-imp-file\').click()">'
+    + '📄 タップしてExcelファイル（.xlsx / .xlsm）を選択'
+    + '<div id="mk-imp-fname" style="font-size:11px;color:var(--txt3);margin-top:6px"></div>'
+    + '</div>'
+    + '<input type="file" id="mk-imp-file" accept=".xlsx,.xlsm" style="display:none">'
+    + '<div class="md-flbl" style="margin-top:12px">取り込みモード</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px">'
+    + '<label><input type="radio" name="mk-imp-mode" value="replace" onchange="mkImpModeChange()"' + (defaultMode === 'replace' ? ' checked' : '') + '> 全入れ替え（既存を削除して置き換え）</label>'
+    + '<label><input type="radio" name="mk-imp-mode" value="append" onchange="mkImpModeChange()"' + (defaultMode === 'append' ? ' checked' : '') + '> 追記（既存に追加）</label>'
+    + '<label><input type="radio" name="mk-imp-mode" value="update" onchange="mkImpModeChange()"> 更新（同名メーカー・担当者は上書き）</label>'
+    + '</div>'
+    + '<div id="mk-imp-preview" style="margin-top:12px"></div>'
+    + '<div id="mk-imp-replace-warn" style="display:none;color:var(--rd);font-size:12px;margin-top:8px">⚠ 全入れ替えを選ぶと、現在登録されている連絡先はすべて削除されます。</div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="closeMkImpModal()">キャンセル</button>'
+    + '<button class="btn btn-p" id="mk-imp-save-btn" style="display:none" onclick="doSaveMkImp()">✅ この内容で保存する</button>'
+    + '</div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('mk-imp-file').addEventListener('change', mkImpFileChange);
+  mkImpModeChange();
+}
+function closeMkImpModal() {
+  var ov = document.getElementById('mk-imp-ov'); if (ov) ov.remove();
+  _mkImpParsed = null;
+}
+function mkImpGetMode() {
+  var els = document.getElementsByName('mk-imp-mode');
+  for (var i = 0; i < els.length; i++) if (els[i].checked) return els[i].value;
+  return 'append';
+}
+function mkImpModeChange() {
+  var w = document.getElementById('mk-imp-replace-warn');
+  if (w) w.style.display = mkImpGetMode() === 'replace' ? '' : 'none';
+}
+function mkImpFileChange(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var fnEl = document.getElementById('mk-imp-fname'); if (fnEl) fnEl.textContent = file.name;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var wb = XLSX.read(ev.target.result, {type:'array', bookVBA:true, cellDates:false});
+      _mkImpParsed = parseMakerBook(wb, file.name);
+      mkImpRenderPreview();
+    } catch(err) {
+      _mkImpParsed = null;
+      var pv = document.getElementById('mk-imp-preview');
+      if (pv) pv.innerHTML = '<div style="color:var(--rd);font-size:12px">❌ ファイルの読み込みに失敗しました：' + escH(err.message) + '</div>';
+      var saveBtn = document.getElementById('mk-imp-save-btn'); if (saveBtn) saveBtn.style.display = 'none';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function mkImpRenderPreview() {
+  var pv = document.getElementById('mk-imp-preview');
+  var saveBtn = document.getElementById('mk-imp-save-btn');
+  if (!pv) return;
+  var parsed = _mkImpParsed;
+  if (!parsed || !parsed.groups.length) {
+    pv.innerHTML = '<div class="mk-empty">見出し行（B列が「メーカー」）が見つかりませんでした</div>';
+    if (saveBtn) saveBtn.style.display = 'none';
+    return;
+  }
+  var total = 0;
+  var h = '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+    + '<tr><th style="text-align:left;padding:4px">カテゴリ</th><th style="text-align:right;padding:4px">件数</th></tr>';
+  parsed.groups.forEach(function(g, i){
+    total += g.rows.length;
+    h += '<tr><td style="padding:4px"><input type="text" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(g.catName) + '" oninput="_mkImpParsed.groups[' + i + '].catName=this.value"></td>'
+      + '<td style="text-align:right;padding:4px;white-space:nowrap">' + g.rows.length + '件</td></tr>';
+  });
+  h += '</table>';
+  h += '<div style="font-size:12px;color:var(--txt2);margin-top:6px">合計 ' + total + '件（' + parsed.groups.length + 'カテゴリ）</div>';
+
+  var warnLines = [];
+  if (parsed.carriedCount) warnLines.push('メーカー欄を直前行から補完：' + parsed.carriedCount + '行');
+  var multiSheets = parsed.warnings.filter(function(w){ return w.type === 'multihead'; }).map(function(w){ return w.sheet; });
+  if (multiSheets.length) warnLines.push('見出し行を複数検出したシート：' + multiSheets.join('、'));
+  if (parsed.updUnreadableCount) warnLines.push('更新日を読み取れなかった行：' + parsed.updUnreadableCount + '行（備考へ退避）');
+  if (parsed.mailExtractCount) warnLines.push('備考からメールアドレスを抽出：' + parsed.mailExtractCount + '行');
+  if (warnLines.length) h += '<div style="font-size:11px;color:var(--or);margin-top:8px;line-height:1.6">⚠ ' + warnLines.map(escH).join('<br>') + '</div>';
+
+  var sample = [];
+  parsed.groups.forEach(function(g){ g.rows.slice(0, 3).forEach(function(r){ sample.push({cat:g.catName, r:r}); }); });
+  sample = sample.slice(0, 8);
+  if (sample.length) {
+    h += '<div class="md-flbl" style="margin-top:10px">抜粋</div><div style="font-size:11px;color:var(--txt2);line-height:1.8">';
+    sample.forEach(function(s){
+      h += escH(s.cat) + '：' + escH(s.r.maker || '-') + ' / ' + escH(s.r.person || '-') + ' / ' + escH(s.r.tel1 || '-') + ' / ' + escH(s.r.upd || '-') + '<br>';
+    });
+    h += '</div>';
+  }
+
+  pv.innerHTML = h;
+  if (saveBtn) saveBtn.style.display = '';
+}
+function doSaveMkImp() {
+  if (!isAdmin) return;
+  var parsed = _mkImpParsed;
+  if (!parsed || !parsed.groups.length) { toast('先にExcelファイルを読み込んでください', 'warn'); return; }
+  var mode = mkImpGetMode();
+  var totalRows = 0;
+  parsed.groups.forEach(function(g){ totalRows += g.rows.length; });
+
+  if (mode === 'replace') {
+    var curN = mkList().length;
+    if (!confirm('現在の' + curN + '件をすべて削除して' + totalRows + '件で置き換えます。よろしいですか？')) return;
+  }
+
+  autoSaveSnapshot('メーカー連絡先取込前');
+  saveFirebaseSnapshot('メーカー連絡先取込前');
+
+  var now = Date.now();
+  var by = currentUser ? (currentUser.displayName || currentUser.email || '') : '';
+  function buildRecord(catId, r) {
+    return { id: mkNewId('mk'), cat: catId, maker: r.maker, person: r.person, tel1: r.tel1, tel2: r.tel2, mail: r.mail, note: r.note, upd: r.upd, ts: now, by: by };
+  }
+
+  var newCats, newList;
+  if (mode === 'replace') {
+    newCats = []; newList = [];
+    parsed.groups.forEach(function(g){
+      var catId = mkNewId('mc');
+      newCats.push({ id: catId, name: g.catName });
+      g.rows.forEach(function(r){ newList.push(buildRecord(catId, r)); });
+    });
+  } else if (mode === 'update') {
+    newCats = mkCats().slice(); newList = mkList().slice();
+    parsed.groups.forEach(function(g){
+      var existing = newCats.filter(function(c){ return c.name === g.catName; })[0];
+      var catId = existing ? existing.id : mkNewId('mc');
+      if (!existing) newCats.push({ id: catId, name: g.catName });
+      g.rows.forEach(function(r){
+        var key = mkNorm(r.maker) + ' ' + mkNorm(r.person);
+        var hit = newList.filter(function(x){ return (mkNorm(x.maker) + ' ' + mkNorm(x.person)) === key; })[0];
+        if (hit) {
+          hit.tel1 = r.tel1; hit.tel2 = r.tel2; hit.mail = r.mail; hit.note = r.note; hit.upd = r.upd;
+          hit.ts = now; hit.by = by;
+        } else {
+          newList.push(buildRecord(catId, r));
+        }
+      });
+    });
+  } else { /* append */
+    newCats = mkCats().slice(); newList = mkList().slice();
+    parsed.groups.forEach(function(g){
+      var existing = newCats.filter(function(c){ return c.name === g.catName; })[0];
+      var catId = existing ? existing.id : mkNewId('mc');
+      if (!existing) newCats.push({ id: catId, name: g.catName });
+      g.rows.forEach(function(r){ newList.push(buildRecord(catId, r)); });
+    });
+  }
+
+  D.makers = { cats: newCats, list: newList };
+  saveD();
+  var modeLabel = { replace:'全入れ替え', append:'追記', update:'更新' }[mode] || mode;
+  writeLog('メーカー連絡先を取り込み', modeLabel + ' ' + totalRows + '件 / ' + parsed.groups.length + 'カテゴリ');
+  renderMakers();
+  toast(totalRows + '件を取り込みました', 'ok');
+  closeMkImpModal();
 }
 
 /* ===== オペ/カテ行の担当者・終了時刻ヘルパー =====
