@@ -68,6 +68,7 @@ var D = {
   autoDelCfg: { enabled:false, period:365, interval:30, lastClean:0 }, // 自動削除設定（旧: localStorage個別キー、_migVer 4で移行）
   tablets: [],      // タブレット台帳（貸出対象名の配列）— 日々の貸出ログは D.pages[ds].tabletLogs
   ocFlow: '',       // OC対応フローチャート本文（複数行テキスト。OC集計タブのボタン→openOcFlowModal で全員閲覧、業務マスタの mst セクションで編集）
+  makers: { cats: [], list: [] }, // メーカー担当者連絡先。cats:[{id,name}]（表示順）、list:[{id,cat,maker,person,tel1,tel2,mail,note,upd,ts,by}]。詳細は下記「メーカー担当者連絡先」節
   _migVer: 4        // data migration version flag (increment when running one-time migrations)
 };
 ```
@@ -157,6 +158,7 @@ function can(id) {
 | `pg` | 連絡表の生成・削除 | |
 | `show_phs` | PHS番号欄の表示切替 | 反転ロジック（ON=表示、OFF=非表示） |
 | `tablet` | タブレット貸出の記録 | 貸出/返却/削除の操作をゲート。台帳マスタ編集は `mst` |
+| `maker` | メーカー連絡先の編集 | 閲覧・検索・コピーは常に全員可。追加/編集/削除のみゲート。既定は未ロック。Excel一括取り込みはこのロックと無関係に常に管理者限定（`isAdmin` 判定） |
 
 #### Tab Visibility
 
@@ -242,6 +244,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
     pane-sched  — daily timetable (⏰ スケジュール)
     pane-board  — 掲示板 (department bulletin board)
     pane-guide  — user guide
+    pane-makers — 🏭 メーカー担当者連絡先 (all users; see メーカー担当者連絡先 section below)
     pane-staff / pane-master / pane-lock / pane-logs — admin-only
     pane-spec / pane-manual / pane-adminm / pane-dev / pane-regs / pane-changelog — docs sub-tabs
   .main   — day detail view (right, scrollable)
@@ -315,6 +318,12 @@ All class names are abbreviated:
 | `renderTabletList()` / `addTablet()` / `rmTablet()` | タブレット台帳マスタ（`D.tablets`、`mst`権限、PHSマスタと同型） |
 | `openOcFlowModal()` / `saveOcFlow()` | OC対応フローチャートの閲覧モーダル（OC集計サブタブ上部の常設ボタンから、全ユーザー可）／マスタ保存（`mst`権限。textareaの値投入は `renderDlyList` 内） |
 | `openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` | 貸出/返却の記録モーダル（datalistでスタッフ選択＋手入力、`saveDPage`使用） |
+| `renderMakers()` / `renderMakersList()` | メーカー担当者連絡先パネル全体（ヘッダーボタン・カテゴリ`<select>`）／一覧のみ（`#mk-list`）を再描画。検索欄自体は静的HTMLで作り直さない |
+| `openMakerModal(id)` / `saveMakerFromModal(id)` | 追加・編集モーダル（`id`省略で新規）／保存（備考欄だけ`phiGuardText`を通し`saveD()`） |
+| `mkCopyTel(id, which)` / `mkCopyMail(id)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック） |
+| `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
+| `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
+| `openSubmenu(id)` | `docs-submenu`（🔑 管理資料）と`lib-submenu`（📚 資料）を相互排他で開閉。`id`が`null`なら両方閉じる |
 
 ### Duty/Assignment System
 
@@ -444,6 +453,7 @@ Fixed bar at the bottom of the screen, shown only while a day page is open — `
 - **`#main` free-text fields**: `initPHIGuard()` attaches a delegated `focusout` listener on `#main` — covers all `textarea`/`input[type=text]` added under `#main` automatically.
 - **Board (`#pane-board`)**: Outside `#main` — `postBoard()` and `postBoardReply()` call `detectPHI` explicitly. Any new board input fields must do the same.
 - **Tasks (`#pane-assign` task subtab)**: Outside `#main` — `saveTaskFromModal()` calls `detectPHI` on `title+'\n'+desc` explicitly before persisting.
+- **Makers (`#pane-makers`)**: Outside `#main`, so `initPHIGuard` does not cover its modals either. Only the 備考 field is guarded — `saveMakerFromModal()` calls `phiGuardText(note, ...)` explicitly. メーカー名・担当者名・電話番号・メールには**意図的に** `detectPHI` をかけない: `detectPHI` detects 姓＋漢字 patterns as a personal name and hard-blocks the save, but the 担当者 field's whole purpose is to hold a manufacturer employee's name, so applying it there would permanently block legitimate input.
 
 ### Media Approval
 
@@ -518,6 +528,28 @@ Digitizes the paper tablet loan log. Two data pieces:
 The day page does **not** show an inline tablet section (it would occupy too much space). Instead, `renderPage` adds a compact `📱 タブレット` button (`#tablet-btn`) to the page header next to 印刷, carrying a red `#tablet-btn-badge` showing the current unreturned count (glanceable 揃い確認; hidden when 0). Clicking it calls `openTabletPanel(ds)`, a modal `.ov`/`.md` (`#tablet-panel-ov`, max-height 85vh scroll, click-outside/✕ closes) whose body is filled by `renderTabletPanelBody(ds)`. That body shows the "現在貸出中: N台" summary (red when N>0), a record button, and a list/timeline toggle (`_tabletView`, `setTabletView` → re-renders the panel body). The **list** view shows each loan (green/red left-border by returned state) with 返却/削除 buttons; the **timeline** view (`buildTabletTimeline`) reuses the schedule grid structure — vertical time axis × one column per tablet — with returned loans as solid blocks and unreturned ones as red-striped blocks extending to the current time (today only, else axis end). Timeline is view-only; editing happens in the list. After any lend/return/delete, the handlers call `renderTabletPanelBody(ds)` **and** `updateTabletBtnBadge(ds)` so both the open panel and the header badge stay current.
 
 `openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` are dynamic `.ov`/`.md` modals (appended to `document.body`, click-outside closes) with a tablet `<select>`, a borrower/returner `<input list=…>` backed by a `<datalist>` of `D.stf` (staff-pick **plus** free text for other-department people), and an `<input type="time">` defaulting to now with a 「今」button. Because the modals live **outside `#main`**, `initPHIGuard` does not cover them — `saveTabletLend`/`saveTabletReturn` call `detectPHI` on the free-text name explicitly (mirrors `saveTaskFromModal`). All record/return/delete operations are gated by `can('tablet')` (new lock, default unlocked = everyone can record). **No Firebase rule change needed** — both `D.tablets` and `tabletLogs` live under `/data`, unlike `/tasks`.
+
+### メーカー担当者連絡先 (`D.makers`)
+
+Independent of any day page — a flat lookup table for manufacturer support contacts (機器トラブル時にすぐ電話できるように), reachable from `pane-guide`'s sibling tab `pane-makers` (📚 資料 → 🏭 メーカー, visible to all users).
+
+```js
+D.makers = {
+  cats: [ { id:'mc_xxxxx', name:'...' }, ... ],   // array order = display order
+  list: [ {
+    id:'mk_xxxxx', cat:'mc_xxxxx',                // cat:'' means 未分類 (uncategorized)
+    maker:'', person:'', tel1:'', tel2:'', mail:'', note:'',
+    upd:'',                                        // 'YYYY-MM-DD'
+    ts:0, by:''                                    // last-edit epoch ms / editor display name
+  }, ... ]
+};
+```
+
+- **Always read through the accessors** — `mkCats()` / `mkList()` / `mkFind(id)` — never `D.makers.list.forEach` directly (except inside the category-modal editing flow, which deliberately mutates `D.makers` in place before a single batched `saveD()`; see below). Firebase turns sparse arrays into objects, so all three accessors funnel through `normMakers(x)`, which normalizes `cats`/`list` to real arrays and fills in missing fields — same pattern as `taskAssignees`/`opsItemStaff`.
+- **`onclick` handlers pass only the record `id`, never inline field values** (`mkEdit('mk_xxx')`, `mkCopyTel('mk_xxx', 1)`, etc. — never e.g. `onclick="mkEdit('${r.maker}')"`). A manufacturer name containing an apostrophe would otherwise break the generated `onclick` string (this class of bug has bitten this codebase before — see the `changelog` entry for staff/duty names with `'`). Card text itself still goes through `escH()`.
+- **Excel bulk import (`openMkImpModal`/`doSaveMkImp`) is admin-only** (`isAdmin`, not `can('maker')`) — a single import can replace or delete on the order of a hundred records in one action, a blast radius roughly two orders of magnitude larger than editing one record, so it is deliberately not covered by the `maker` lock/per-user-permission model that governs individual add/edit/delete.
+- **Category deletion never deletes records.** `mkCatDel(i)` in the category-management modal: if the category being removed still has records (`mkCountByCat`), it prompts for confirmation, then sets `cat:''` on every record that referenced it (moving them to the virtual "未分類" bucket, which only appears in the UI when it has ≥1 member) before splicing the category out of `cats`. The modal batches all category add/rename/reorder/delete edits into a single `saveD()` on close (`mkCatModalClose()`) rather than saving on every keystroke/click, since a ~150-record dataset makes a full-`D` write on every micro-edit expensive.
+- Manufacturer/person/phone/email fields are intentionally excluded from `detectPHI` (see PHI Detection section above); only `note` is guarded.
 
 ### Changelog System
 
