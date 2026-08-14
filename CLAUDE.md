@@ -318,9 +318,10 @@ All class names are abbreviated:
 | `renderTabletList()` / `addTablet()` / `rmTablet()` | タブレット台帳マスタ（`D.tablets`、`mst`権限、PHSマスタと同型） |
 | `openOcFlowModal()` / `saveOcFlow()` | OC対応フローチャートの閲覧モーダル（OC集計サブタブ上部の常設ボタンから、全ユーザー可）／マスタ保存（`mst`権限。textareaの値投入は `renderDlyList` 内） |
 | `openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` | 貸出/返却の記録モーダル（datalistでスタッフ選択＋手入力、`saveDPage`使用） |
-| `renderMakers()` / `renderMakersList()` | メーカー担当者連絡先パネル全体（ヘッダーボタン・カテゴリ`<select>`）／一覧のみ（`#mk-list`）を再描画。検索欄自体は静的HTMLで作り直さない |
+| `renderMakers()` / `renderMakersList()` | メーカー担当者連絡先パネル全体（ヘッダーボタン・`#mk-catnav`のカテゴリチップ）／一覧のみ（`#mk-list`）を再描画。検索欄自体は静的HTMLで作り直さない |
+| `mkCatColor(catId)` | カテゴリIDをハッシュして`MK_PALETTE`（アプリ既存の7色 --ac/--gr/--or/--pu/--rd/--oc/--gd を再利用、新規hexは定義しない）から固定色を返す。並べ替え・改名しても同じカテゴリは常に同じ色。カテゴリチップ・セクション見出し・カード左帯・電話アイコンの4箇所で同じ値を使い回して視覚的に連動させる |
 | `openMakerModal(id)` / `saveMakerFromModal(id)` | 追加・編集モーダル（`id`省略で新規）／保存（備考欄だけ`phiGuardText`を通し`saveD()`） |
-| `mkCopyTel(id, which)` / `mkCopyMail(id)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック） |
+| `mkCopyTel(id, which)` / `mkCopyMail(id)` / `mkFlashCopied(el)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック）。コピー成功時はトーストに加え、押したボタン自体のアイコンを`data-ic`属性の元絵文字から一瞬✓に変える（`mkFlashCopied`）。ボタンDOM idは`mk-tel-{id}-{1|2}` / `mk-mail-{id}`で固定 |
 | `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
 | `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
 | `openSubmenu(id)` | `docs-submenu`（🔑 管理資料）と`lib-submenu`（📚 資料）を相互排他で開閉。`id`が`null`なら両方閉じる |
