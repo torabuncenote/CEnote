@@ -6449,22 +6449,36 @@ function remapWdChecks(wdKey, oldArr, newArr) {
   });
 }
 
+/* チェックリストの集計はここが唯一の入口。getPct / renderPage / updProg / closeItems は
+   すべてこれを呼ぶ。以前は同じ数え方が4箇所に複製されており、条件を1つ足すたびに
+   食い違う危険があった（コメントで「getPctと完全に同じ数え方でなければならない」と
+   警告されていたのはこの状態）。dat が存在しないときは exists:false を返す —
+   getPct の「ページが無ければ0%」という判定と「ページはあるが項目0件なら100%」という
+   判定を区別するために必要（total===0 だけでは両者を見分けられない）。 */
+function clStatus(ds) {
+  var dat = D.pages[ds];
+  if (!dat) return { done:0, total:0, undone:[], exists:false };
+  var out = { done:0, total:0, undone:[], exists:true };
+  for (var i = 0; i < D.dly.length; i++) {
+    if (!isDlyShownOnDate(D.dly[i], ds)) continue;
+    out.total++;
+    if (dat.checks && dat.checks[i]) out.done++;
+    else out.undone.push({ label: dlyText(D.dly[i]) });
+  }
+  var wtl = wdItemsForDate(ds);
+  for (var j = 0; j < wtl.length; j++) {
+    out.total++;
+    if (dat.checks && dat.checks[D.dly.length + j]) out.done++;
+    else out.undone.push({ label: wtl[j] });
+  }
+  return out;
+}
+
 /* ===== CALENDAR ===== */
 function getPct(ds) {
-  if (!D.pages[ds]) return 0;
-  var d = D.pages[ds];
-  var wtl=wdItemsForDate(ds);
-  var done=0, total=0;
-  for(var i=0;i<D.dly.length;i++){
-    if(!isDlyShownOnDate(D.dly[i],ds)) continue;
-    total++;
-    if(d.checks&&d.checks[i]) done++;
-  }
-  for(var j=0;j<wtl.length;j++){
-    total++;
-    if(d.checks&&d.checks[D.dly.length+j]) done++;
-  }
-  return total===0?100:Math.round(done/total*100);
+  var s = clStatus(ds);
+  if (!s.exists) return 0;
+  return s.total===0?100:Math.round(s.done/s.total*100);
 }
 
 /* ===== 消し込みバー =====
@@ -6501,15 +6515,8 @@ function closeItems(ds) {
     });
   }
 
-  /* 2. チェックリスト未了（getPctと完全に同じ数え方：元のインデックスで走査しisDlyShownOnDateでスキップ） */
-  var wtl = wdItemsForDate(ds);
-  for (var i=0;i<D.dly.length;i++){
-    if (!isDlyShownOnDate(D.dly[i],ds)) continue;
-    if (!(dat.checks && dat.checks[i])) byKey.checklist.items.push({mine:false});
-  }
-  for (var j=0;j<wtl.length;j++){
-    if (!(dat.checks && dat.checks[D.dly.length+j])) byKey.checklist.items.push({mine:false});
-  }
+  /* 2. チェックリスト未了（clStatusがgetPctと同じ数え方の唯一の集計元） */
+  clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:false}); });
 
   /* 3/4. オペ・カテ：入力済み（opsItemFilled）なのに終了未チェックの行 */
   var ops = dat.ops || {};
@@ -9371,9 +9378,7 @@ function renderPage(ds) {
   if(!dat.ops)dat.ops={}; if(!dat.ocData)dat.ocData={};
   var w=new Date(ds).getDay(), ws=WDL[w], wf=WDF[w];
   var wtl=wdItemsForDate(ds), all=D.dly.concat(wtl);
-  var done=0, total=0;
-  for(var i=0;i<D.dly.length;i++){if(!isDlyShownOnDate(D.dly[i],ds))continue;total++;if(dat.checks&&dat.checks[i])done++;}
-  for(var j=0;j<wtl.length;j++){total++;if(dat.checks&&dat.checks[D.dly.length+j])done++;}
+  var _cls=clStatus(ds), done=_cls.done, total=_cls.total;
   var pct=total===0?100:Math.round(done/total*100);
   var dlk=!can('duty'), clk=!can('cl'), mlk=!can('memo'), olk=!can('ops');
   var si=getShiftForDay(ds);
@@ -9592,7 +9597,7 @@ function renderPage(ds) {
   }
 
   /* 進捗 */
-  h+='<div class="pgw"><div class="pgi"><div class="pgt" id="pgt">進捗：'+pct+'%（'+done+' / '+all.length+' 完了）</div>';
+  h+='<div class="pgw"><div class="pgi"><div class="pgt" id="pgt">進捗：'+pct+'%（'+done+' / '+total+' 完了）</div>';
   h+='<div class="pgtr"><div class="pgf" id="pgf" style="width:'+pct+'%"></div></div></div>';
   h+='<div class="pgp'+(pct===100?' dn':'')+'" id="pgp">'+pct+'%</div></div>';
   /* ページ容量表示 */
@@ -13368,11 +13373,8 @@ function mkCk(ds,idx,task,dat,locked) {
   div.appendChild(cb); div.appendChild(lb); div.appendChild(peekBtn); return div;
 }
 function updProg(ds) {
-  var pct=getPct(ds), dat=D.pages[ds];
-  var wtl=wdItemsForDate(ds);
-  var done=0, total=0;
-  for(var i=0;i<D.dly.length;i++){if(!isDlyShownOnDate(D.dly[i],ds))continue;total++;if(dat.checks&&dat.checks[i])done++;}
-  for(var j=0;j<wtl.length;j++){total++;if(dat.checks&&dat.checks[D.dly.length+j])done++;}
+  var _cls=clStatus(ds), done=_cls.done, total=_cls.total;
+  var pct=total===0?100:Math.round(done/total*100);
   var f=document.getElementById('pgf'), t=document.getElementById('pgt'), p=document.getElementById('pgp'), pr=document.getElementById('prp');
   if(f)f.style.width=pct+'%';
   if(t)t.textContent='進捗：'+pct+'%（'+done+' / '+total+' 完了）';
