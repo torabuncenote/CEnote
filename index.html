@@ -393,6 +393,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .cli label{font-size:13px;cursor:pointer;color:var(--txt);line-height:1.5;user-select:none}
 .cli.lki label{cursor:default;color:var(--txt2)}
 .cli.dn label{text-decoration:line-through;color:var(--txt3)}
+/* 月内1回でよい項目が、別の対象日で既に実施済み扱いになっている行。
+   .lki（ロック中）と紛らわしくならないよう別クラスにし、緑のノートで理由を添える */
+.cli.onced{flex-wrap:wrap}
+.cli.onced label{text-decoration:line-through;color:var(--txt3)}
+.cli.onced input[type=checkbox]{opacity:.6;cursor:default}
+.cli-note{flex-basis:100%;margin-left:24px;font-size:10px;color:var(--gr);background:var(--gr-bg);border-radius:10px;padding:1px 7px;width:fit-content}
 .cle{font-size:12px;color:var(--txt3);padding:4px}
 .mo{width:100%;min-height:90px;font-size:13px;color:var(--txt);background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;resize:vertical;outline:none;font-family:var(--fn);line-height:1.8;box-shadow:var(--sh)}
 .mo:focus{border-color:var(--ac)}
@@ -6396,6 +6402,7 @@ function wdWeeks(it){
   if (it && typeof it === 'object' && Array.isArray(it.wk) && it.wk.length && it.wk.length < 6) return it.wk.slice();
   return null;
 }
+function wdOnce(it){ return !!(it && typeof it === 'object' && it.once); }
 function nthWk(ds){ var day = parseInt((ds||'').split('-')[2], 10) || 1; return Math.floor((day - 1) / 7) + 1; }
 function isLastWeek(ds){
   var pt=ds.split('-'); var y=+pt[0],m=+pt[1]-1,d=+pt[2];
@@ -6412,12 +6419,37 @@ function wdApplies(ds, it){
   }
   return false;
 }
-/* 指定日に表示すべき曜日別項目を「本文文字列の配列」で返す（描画は全箇所これを使う＝index整合） */
-function wdItemsForDate(ds){
+/* 指定日に表示すべき曜日別項目を「本文＋マスタ項目そのもの」で返す。wdItemsForDate（本文だけ）
+   はこれに委譲する。once（月内1回でよい）のようにマスタ項目自身のフラグを見たい集計側から
+   参照できるようにするための追加で、返す本文の並び・件数はwdItemsForDateと完全に同一。 */
+function wdEntriesForDate(ds){
   var w = new Date(ds).getDay(), ws = WDL[w];
   var arr = D.wd[ws] || [], out = [];
-  for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push(wdText(arr[i])); }
+  for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push({ t: wdText(arr[i]), it: arr[i] }); }
   return out;
+}
+/* 指定日に表示すべき曜日別項目を「本文文字列の配列」で返す（描画は全箇所これを使う＝index整合） */
+function wdItemsForDate(ds){
+  return wdEntriesForDate(ds).map(function(e){ return e.t; });
+}
+/* once 指定の項目が、同じ月の「自分より前」の該当日で既に実施済みならその日付を返す。
+   未来方向は見ない — 見てしまうと過去の点検記録が後の操作で塗り替わって見える事故になる
+   （第2月曜のページが、後で第4月曜をチェックした瞬間に緑へ変わるのは点検記録として事故）。
+   第2は常に第4より先に来るので、過去方向だけでユーザーの要件（「どちらかで済ませればOK」）
+   は満たせる。昇順に見て最初に見つかった日を返すため、複数回実施していても表示日は安定する。 */
+function wdOnceDoneOn(ds, ent) {
+  var it = ent.it;
+  if (!it || typeof it !== 'object' || !it.once) return null;
+  var ym = ds.slice(0, 7), dow = new Date(ds).getDay(), day = +ds.split('-')[2];
+  for (var d = 1; d < day; d++) {
+    var other = ym + '-' + pad(d);
+    if (new Date(other).getDay() !== dow) continue;
+    if (!wdApplies(other, it)) continue;
+    var pg = D.pages[other]; if (!pg || !pg.checks) continue;
+    var idx = wdItemsForDate(other).indexOf(ent.t);   // 添字は日ごとに変わるため引き直す
+    if (idx !== -1 && pg.checks[D.dly.length + idx]) return other;
+  }
+  return null;
 }
 
 /* ===== チェックリスト添字の付け替え =====
@@ -6483,11 +6515,11 @@ function clStatus(ds) {
     if (dat.checks && dat.checks[i]) out.done++;
     else out.undone.push({ label: dlyText(D.dly[i]) });
   }
-  var wtl = wdItemsForDate(ds);
-  for (var j = 0; j < wtl.length; j++) {
+  var ents = wdEntriesForDate(ds);
+  for (var j = 0; j < ents.length; j++) {
     out.total++;
-    if (dat.checks && dat.checks[D.dly.length + j]) out.done++;
-    else out.undone.push({ label: wtl[j] });
+    if ((dat.checks && dat.checks[D.dly.length + j]) || wdOnceDoneOn(ds, ents[j])) out.done++;
+    else out.undone.push({ label: ents[j].t });
   }
   return out;
 }
@@ -7070,9 +7102,9 @@ function renderWdlyList() {
   if (!ts.length) { l.innerHTML = '<p class="cle">「' + selWd + '曜日」の追加業務はありません</p>'; }
   else {
     for (var i = 0; i < ts.length; i++) {
-      var it = ts[i], text = wdText(it), weeks = wdWeeks(it);
+      var it = ts[i], text = wdText(it), weeks = wdWeeks(it), once = wdOnce(it);
       var wkLabels = weeks ? weeks.map(function(w){ return w===0?'最終':'第'+w; }) : null;
-      var summary = wkLabels ? wkLabels.join('・')+'週' : '毎週';
+      var summary = (wkLabels ? wkLabels.join('・')+'週' : '毎週') + (once ? '・月内1回' : '');
       var el = document.createElement('div');
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
@@ -7098,6 +7130,10 @@ function renderWdlyList() {
         freq += '<button onclick="setWdWeeks('+i+',\'even\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第2・4</button>';
         freq += '<button onclick="setWdWeeks('+i+',\'last\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">最終のみ</button>';
         freq += '</div>';
+        if (weeks) {
+          freq += '<label style="display:flex;align-items:center;gap:5px;font-size:10px;color:var(--txt2);cursor:pointer;padding-left:2px">'
+            + '<input type="checkbox" onchange="togWdOnce('+i+')" '+(once?'checked':'')+'> 月内どれか1回でよい（'+wkLabels.join('・')+'週のどれかで済ませればOK）</label>';
+        }
       } else {
         freq += '<div style="font-size:10px;color:var(--txt3);padding-left:2px">頻度: ' + summary + '</div>';
       }
@@ -7167,10 +7203,17 @@ function setWdWeeks(i, mode) {
   if (mode==='odd')       weeks=[1,3,5];
   else if (mode==='even') weeks=[2,4];
   else if (mode==='last') weeks=[0];
-  /* mode==='all' はweeks=nullのまま → itemRebuildがwkを削除する */
-  arr[i] = itemRebuild(arr[i], {wk: weeks});
+  /* mode==='all' はweeks=nullのまま → itemRebuildがwkを削除する。
+     毎週に戻すと「月内1回」は意味を持たなくなるので、一緒に解除する。
+     patchにonceキーを含めなければitemRebuildは触らない（値をundefinedにするのではなく
+     キー自体を足さない ―— itemRebuildはpatchにキーが存在する限りundefinedでも削除実行するため） */
+  var wasOnce = wdOnce(arr[i]);
+  var patch = { wk: weeks };
+  if (!weeks) patch.once = null;
+  arr[i] = itemRebuild(arr[i], patch);
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
 }
 /* 第N週チップの個別トグル */
 function togWdWeek(i, wk) {
@@ -7183,9 +7226,22 @@ function togWdWeek(i, wk) {
   weeks.sort(function(a,b){ return a-b; });
   if (!weeks.length) { toast('最低1つの週を選んでください', 'warn'); return; }
   var oldArr = arr.slice(); /* 週設定を変えると表示される日が変わり、その日の項目位置がずれる */
-  arr[i] = itemRebuild(arr[i], {wk: weeks.length>=6 ? null : weeks}); /* 全6オプション → 毎週 */
+  var collapsed = weeks.length>=6; /* 全6オプション → 毎週 */
+  var wasOnce = wdOnce(arr[i]);
+  var patch = { wk: collapsed ? null : weeks };
+  if (collapsed) patch.once = null;
+  arr[i] = itemRebuild(arr[i], patch);
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+}
+/* 月内1回でよいトグル。毎週の項目には意味がないため、週指定がある項目にのみ許可する */
+function togWdOnce(i) {
+  if(!can('wm'))return;
+  var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
+  if (!wdWeeks(arr[i])) { toast('「毎週」の業務には設定できません。先に第N週を指定してください', 'warn'); return; }
+  arr[i] = itemRebuild(arr[i], { once: wdOnce(arr[i]) ? null : true });
+  renderWdlyList(); saveD(); if(curDs)safeRenderPage(); renderCal();
 }
 
 /* ===== OPE/CATH/SUP ツリーマスタ ===== */
@@ -12933,6 +12989,7 @@ function checkTimeNotifs() {
   for (var j = 0; j < wdArr.length; j++) {
     var wit = wdArr[j];
     if (!wdApplies(ds, wit)) continue;
+    if (wdOnceDoneOn(ds, {t:wdText(wit), it:wit})) continue; /* 月内1回でよい項目が既に実施済みなら通知しない */
     var wn = (wit && typeof wit === 'object' && wit.notif) ? wit.notif : null;
     if (!wn || !wn.enabled || !wn.time) continue;
     if (wn.time !== hhmm) continue;
@@ -13338,16 +13395,20 @@ function fixBrokenLink(idx) {
 function buildCL(ds,dat,wtl,all,locked) {
   for(var i=0;i<D.dly.length;i++){
     if(!isDlyShownOnDate(D.dly[i],ds)) continue;
-    document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked));
+    document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked,null));
   }
   var we=document.getElementById('wcl');
   if(!wtl.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
-  for(var j=0;j<wtl.length;j++) we.appendChild(mkCk(ds,D.dly.length+j,wtl[j],dat,locked));
+  var ents = wdEntriesForDate(ds);
+  for(var j=0;j<ents.length;j++) we.appendChild(mkCk(ds,D.dly.length+j,ents[j].t,dat,locked,ents[j].it));
 }
-function mkCk(ds,idx,task,dat,locked) {
-  var ck=!!(dat.checks&&dat.checks[idx]);
-  var div=document.createElement('div'); div.className='cli'+(ck?' dn':'')+(locked?' lki':'');
-  var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=ck; cb.disabled=locked;
+/* it は曜日別業務のマスタ項目（once判定に使う）。共通業務からの呼び出しはnull。 */
+function mkCk(ds,idx,task,dat,locked,it) {
+  var own=!!(dat.checks&&dat.checks[idx]);
+  var onceDs = own ? null : wdOnceDoneOn(ds, {t:task, it:it});
+  var ck=own||!!onceDs;
+  var div=document.createElement('div'); div.className='cli'+(ck?' dn':'')+(locked?' lki':'')+(onceDs?' onced':'');
+  var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=ck; cb.disabled=locked||!!onceDs;
   var lb=document.createElement('label'); lb.textContent=task;
 
   /* サイドピークボタン */
@@ -13358,7 +13419,7 @@ function mkCk(ds,idx,task,dat,locked) {
   peekBtn.textContent='···';
   peekBtn.type='button';
 
-  if(!locked){
+  if(!locked && !onceDs){
     (function(ds,idx,div,cb){
       function toggle(){
         cb.checked=!cb.checked;
@@ -13383,7 +13444,17 @@ function mkCk(ds,idx,task,dat,locked) {
   }
   peekBtn.onclick=function(e){ e.stopPropagation(); openSP(task); };
 
-  div.appendChild(cb); div.appendChild(lb); div.appendChild(peekBtn); return div;
+  div.appendChild(cb); div.appendChild(lb);
+  /* 月内1回でよい項目が、別の対象日で既に実施済みのときの案内。
+     チェックボックスをdisabledにしているのは、押しても兄弟日の実績は消えないため
+     （有効にすると「押しても何も変わらない」ボタンになる）。やり直すなら実施した日を
+     開いて外す、という導線のほうが誤解がない。 */
+  if (onceDs) {
+    var note=document.createElement('span'); note.className='cli-note';
+    note.textContent='✓ '+fmtMD(onceDs)+'に実施済み（月内1回）';
+    div.appendChild(note);
+  }
+  div.appendChild(peekBtn); return div;
 }
 function updProg(ds) {
   var _cls=clStatus(ds), done=_cls.done, total=_cls.total;
@@ -15026,6 +15097,7 @@ function toDS(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDat
 function toMS(d){return d.getFullYear()+'-'+pad(d.getMonth()+1);}
 function pad(n){return n<10?'0'+n:''+n;}
 function fmtJ(ds){var p=ds.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日';}
+function fmtMD(ds){var p=ds.split('-');return parseInt(p[1])+'/'+parseInt(p[2]);}
 
 document.addEventListener('click',function(e){
   if(window.innerWidth<=768&&sbOpen){
