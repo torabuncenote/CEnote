@@ -6136,6 +6136,10 @@ function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').r
    先に \ と ' をJSエスケープしてから escH に通す。 */
 function escJs(s) { return escH(String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
 
+/* Firebase RTDBキーに使えない文字（. # $ [ ] /）を _ に置換する共通ヘルパー。
+   sanitizeManualKeys はD.manualの既存キーの後始末、こちらは保存前に弾く用途。 */
+function fbSafeKey(s) { return String(s).replace(/[.#$\[\]/]/g, '_'); }
+
 /* Firebase RTDBキーに使えない文字を除去（. # $ [ ] /） */
 function sanitizeManualKeys() {
   if (!D.manual) return;
@@ -6403,6 +6407,14 @@ function wdWeeks(it){
   return null;
 }
 function wdOnce(it){ return !!(it && typeof it === 'object' && it.once); }
+/* 設置部署リスト。Firebaseは空配列を保存時に消すため、必ずこのアクセサ経由で読む
+   （wdText等の既存アクセサと同じ流儀。D.opeTree等のnormTreeが対処しているのと同じ問題）。 */
+function wdSubs(it){
+  if (it && typeof it === 'object' && Array.isArray(it.subs) && it.subs.length) return it.subs.slice();
+  return null;
+}
+function wdSid(it){ return (it && typeof it === 'object' && it.sid) ? it.sid : null; }
+function newSid(){ return 's' + Date.now().toString(36) + Math.floor(Math.random()*46656).toString(36); }
 function nthWk(ds){ var day = parseInt((ds||'').split('-')[2], 10) || 1; return Math.floor((day - 1) / 7) + 1; }
 function isLastWeek(ds){
   var pt=ds.split('-'); var y=+pt[0],m=+pt[1]-1,d=+pt[2];
@@ -7102,13 +7114,14 @@ function renderWdlyList() {
   if (!ts.length) { l.innerHTML = '<p class="cle">「' + selWd + '曜日」の追加業務はありません</p>'; }
   else {
     for (var i = 0; i < ts.length; i++) {
-      var it = ts[i], text = wdText(it), weeks = wdWeeks(it), once = wdOnce(it);
+      var it = ts[i], text = wdText(it), weeks = wdWeeks(it), once = wdOnce(it), subs = wdSubs(it);
       var wkLabels = weeks ? weeks.map(function(w){ return w===0?'最終':'第'+w; }) : null;
       var summary = (wkLabels ? wkLabels.join('・')+'週' : '毎週') + (once ? '・月内1回' : '');
       var el = document.createElement('div');
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
-      var btns = ok ? '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>' : '';
+      var subsBadge = '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openWdSubsModal('+i+')">🏥 部署'+(subs?' ('+subs.length+')':'')+'</button>';
+      var btns = ok ? (subsBadge + '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>') : '';
       var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
                + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
       var freq = '';
@@ -7242,6 +7255,51 @@ function togWdOnce(i) {
   if (!wdWeeks(arr[i])) { toast('「毎週」の業務には設定できません。先に第N週を指定してください', 'warn'); return; }
   arr[i] = itemRebuild(arr[i], { once: wdOnce(arr[i]) ? null : true });
   renderWdlyList(); saveD(); if(curDs)safeRenderPage(); renderCal();
+}
+
+/* ===== 曜日別業務：設置部署リストの編集モーダル =====
+   点検対象を「その場で自由入力」ではなく事前登録したリストから消し込む方式にするための
+   マスタ編集。1行1部署のtextarea。sidはリストを初めて登録した時に採番し、以後は不変
+   （業務名を変えても部署名を変えても実績が切れないようにするため。D.manualが業務名を
+   キーにしていてリネームで紐づけが切れる弱点を繰り返さない）。 */
+function openWdSubsModal(i) {
+  if (!can('wm')) return;
+  var arr = D.wd[selWd] || []; var item = arr[i]; if (item === undefined) return;
+  var oldOv = document.getElementById('wd-subs-md-ov'); if (oldOv) oldOv.remove();
+  var ov = document.createElement('div'); ov.id = 'wd-subs-md-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  var subs = wdSubs(item) || [];
+  md.innerHTML = '<h3>🏥 設置部署（' + escH(wdText(item)) + '）</h3>'
+    + '<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">1行に1部署。空行は無視されます。全部削除しても実績は消えません。</div>'
+    + '<textarea id="wd-subs-input" class="fi" rows="8" style="width:100%;box-sizing:border-box;resize:vertical">' + escH(subs.join('\n')) + '</textarea>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'wd-subs-md-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" id="wd-subs-save">保存</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('wd-subs-save').addEventListener('click', function(){ saveWdSubs(i); });
+}
+function saveWdSubs(i) {
+  if (!can('wm')) return;
+  var arr = D.wd[selWd] || []; var item = arr[i]; if (item === undefined) return;
+  var raw = document.getElementById('wd-subs-input').value;
+  var seen = {}, subs = [], rewritten = false;
+  raw.split('\n').forEach(function(line){
+    var trimmed = line.trim(); if (!trimmed) return;
+    var safe = fbSafeKey(trimmed);
+    if (safe !== trimmed) rewritten = true;
+    if (seen[safe]) return;
+    seen[safe] = true; subs.push(safe);
+  });
+  /* 部署が0件になってもsidは残す。空にしてから再登録したとき過去の消し込み実績と再接続するため */
+  var patch = subs.length ? { subs: subs } : { subs: null };
+  if (subs.length && !wdSid(item)) patch.sid = newSid();
+  arr[i] = itemRebuild(item, patch);
+  D.wd[selWd] = arr;
+  renderWdlyList(); saveD();
+  writeLog('曜日別業務の設置部署を編集', wdText(arr[i]) + '（' + subs.length + '件）');
+  var ov = document.getElementById('wd-subs-md-ov'); if (ov) ov.remove();
+  toast(rewritten ? '一部の部署名の記号を置き換えて保存しました' : '保存しました', 'ok');
 }
 
 /* ===== OPE/CATH/SUP ツリーマスタ ===== */
