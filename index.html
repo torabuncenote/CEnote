@@ -735,6 +735,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .cli-peek:hover{background:var(--sur2);color:var(--ac)}
 .cli-peek.has-manual{opacity:.5;color:var(--ac)}
 .cli:hover .cli-peek.has-manual{opacity:1}
+/* 設置部署の消し込み（曜日別業務のみ）。.cli自体は他の行と完全に同じ形を保ち、
+   部署リストを持つ項目だけ.cli-wrapで包んで下にパネルを足す */
+.cli-wrap{border-radius:4px}
+.cli-subbtn{flex-shrink:0;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;font-size:10px;padding:1px 7px;cursor:pointer;color:var(--txt2);align-self:center;font-family:var(--fn)}
+.cli-subbtn:hover{border-color:var(--ac);color:var(--ac)}
+.cli-subs{display:none;padding:2px 0 6px 24px}
+.cli-wrap.open .cli-subs{display:block}
+.dc-cb-item.subdone{font-size:10px}
 /* 担当カード内チェックボックス */
 .dc-cbs{display:flex;gap:8px;margin-bottom:7px;flex-wrap:wrap}
 .dc-cb-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2);background:var(--sur2);border:1.5px solid var(--bdr);border-radius:20px;padding:3px 9px;cursor:pointer;user-select:none;transition:all .15s}
@@ -6462,6 +6470,23 @@ function wdOnceDoneOn(ds, ent) {
     if (idx !== -1 && pg.checks[D.dly.length + idx]) return other;
   }
   return null;
+}
+/* 設置部署の消し込み進捗。同じ月（YYYY-MM）のページを走査して、部署ごとに
+   最初に実施された日を集める。実績は実施した日のページに残るだけで、どこにも
+   コピーしない——月が変われば走査対象から外れて自動的に0件へ戻る（これが月次
+   リセットの仕組みの全て）。新しいトップレベルDプロパティは作らない。 */
+function wdSubProgress(ds, sid) {
+  var ym = ds.slice(0, 7), doneMap = {};
+  Object.keys(D.pages || {}).forEach(function(pds) {
+    if (pds.slice(0, 7) !== ym) return;
+    var sc = D.pages[pds] && D.pages[pds].subChecks && D.pages[pds].subChecks[sid];
+    if (!sc) return;
+    Object.keys(sc).forEach(function(name) {
+      if (!sc[name]) return;
+      if (!doneMap[name] || pds < doneMap[name]) doneMap[name] = pds; // 最初に実施した日を採る
+    });
+  });
+  return doneMap; // { 'ICU': '2026-08-16', ... }
 }
 
 /* ===== チェックリスト添字の付け替え =====
@@ -13477,6 +13502,12 @@ function mkCk(ds,idx,task,dat,locked,it) {
   peekBtn.textContent='···';
   peekBtn.type='button';
 
+  /* 設置部署を持つ項目だけ、行の右端に進捗チップを足す（subBtn）。div.onclickの
+     クリック判定に含める必要があるため、IIFEより前に変数だけ確保しておく。 */
+  var subs = it ? wdSubs(it) : null;
+  var subBtn = null;
+  if (subs) { subBtn=document.createElement('button'); subBtn.type='button'; subBtn.className='cli-subbtn'; }
+
   if(!locked && !onceDs){
     (function(ds,idx,div,cb){
       function toggle(){
@@ -13495,7 +13526,7 @@ function mkCk(ds,idx,task,dat,locked,it) {
         writeLog(cb.checked?'チェック完了':'チェック解除', fmtJ(ds)+' '+task);
       };
       div.onclick=function(e){
-        if(e.target===cb||e.target===peekBtn) return;
+        if(e.target===cb||e.target===peekBtn||e.target===subBtn) return;
         toggle();
       };
     })(ds,idx,div,cb);
@@ -13512,7 +13543,63 @@ function mkCk(ds,idx,task,dat,locked,it) {
     note.textContent='✓ '+fmtMD(onceDs)+'に実施済み（月内1回）';
     div.appendChild(note);
   }
-  div.appendChild(peekBtn); return div;
+  /* 設置部署の消し込み（曜日別業務のみ、subsを持つ項目だけ）。
+     onceによる無効化はcb/div.onclickにしか効かせない——第3週側で部署を消し込んでいる
+     途中に親がonceで満たされても、部署パネルはそのまま操作できる必要があるため。 */
+  if (subs) div.appendChild(subBtn);
+  div.appendChild(peekBtn);
+
+  if (!subs) return div;
+
+  var wrap=document.createElement('div'); wrap.className='cli-wrap'+(_subOpen[wdSid(it)]?' open':'');
+  var subsEl=document.createElement('div'); subsEl.className='cli-subs';
+  wrap.appendChild(div); wrap.appendChild(subsEl);
+  renderSubPanel(ds, it, wrap);
+  subBtn.onclick=function(e){
+    e.stopPropagation();
+    var sid=wdSid(it); wrap.classList.toggle('open'); _subOpen[sid]=wrap.classList.contains('open');
+  };
+  subsEl.addEventListener('change', function(e){
+    var cb2=e.target; if(cb2.tagName!=='INPUT') return;
+    var name=cb2.getAttribute('data-dep'); var sid=wdSid(it); if(!sid) return;
+    if (cb2.checked) {
+      if(!D.pages[ds].subChecks) D.pages[ds].subChecks={};
+      if(!D.pages[ds].subChecks[sid]) D.pages[ds].subChecks[sid]={};
+      D.pages[ds].subChecks[sid][name]={by:(typeof taskSelfName==='function'?(taskSelfName()||''):''),ts:Date.now()};
+      saveDPage(ds);
+      writeLog('設置部署を消し込み', fmtJ(ds)+' '+task+' '+name);
+    } else {
+      var owner=wdSubProgress(ds, sid)[name];
+      if (owner && D.pages[owner] && D.pages[owner].subChecks && D.pages[owner].subChecks[sid]) {
+        delete D.pages[owner].subChecks[sid][name];
+        saveDPage(owner);
+        writeLog('設置部署の消し込みを解除', fmtJ(owner)+' '+task+' '+name);
+      }
+    }
+    renderSubPanel(ds, it, wrap);
+  });
+  return wrap;
+}
+/* 部署パネルの開閉状態。sidキーで持ち、renderPage/safeRenderPageで再描画しても
+   開いたままになるようにする（_treeOpenと同じ考え方）。 */
+var _subOpen = {};
+/* wrapEl内の .cli-subbtn（進捗チップ）と .cli-subs（部署ピル一覧）だけを差し替える。
+   safeRenderPage相当のフルページ再描画をしないのは、開閉状態や他の操作中の入力を
+   巻き込みたくないため。 */
+function renderSubPanel(ds, it, wrapEl) {
+  var chipBtn = wrapEl.querySelector('.cli-subbtn');
+  var subsEl = wrapEl.querySelector('.cli-subs');
+  var subs = wdSubs(it) || [];
+  var sid = wdSid(it);
+  var progress = sid ? wdSubProgress(ds, sid) : {};
+  var doneN = 0;
+  var html = subs.map(function(name){
+    var doneDs = progress[name];
+    if (doneDs) doneN++;
+    return '<label class="dc-cb-item'+(doneDs?' checked':'')+'"><input type="checkbox" data-dep="'+escH(name)+'"'+(doneDs?' checked':'')+'>'+escH(name)+(doneDs?'（'+fmtMD(doneDs)+'）':'')+'</label>';
+  }).join('');
+  if (chipBtn) chipBtn.textContent = '🏥 '+doneN+'/'+subs.length+' ▾';
+  if (subsEl) subsEl.innerHTML = '<div class="dc-cbs">'+html+'</div>';
 }
 function updProg(ds) {
   var _cls=clStatus(ds), done=_cls.done, total=_cls.total;
