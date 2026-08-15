@@ -6359,6 +6359,24 @@ function can(id) {
 function wdText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
 function dlyText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
 function dlyNotif(it){ return (it && typeof it === 'object' && it.notif) ? it.notif : null; }
+/* 曜日別業務（D.wd）・共通業務（D.dly）どちらの項目の組み直しにも使う共通ヘルパー。
+   t 以外の全プロパティ（notif / skip_wd / skip_sat / skip_sun / wk / once / subs / sid …）を
+   保持したまま、patch で渡したキーだけを更新する（値に null/undefined を渡すとそのキーを削除）。
+   t だけが残れば従来互換の素の文字列に戻す。
+   これを使わずその場で {t:...,notif:...} のように組み立て直すと、そこに書かれていない
+   プロパティが黙って消える——実際に setWdNotif/togWdNotif/setWdWeeks/togWdWeek の4関数と
+   共通業務のリネーム保存がこの形で壊れていた（週チップを押しただけで通知設定が消えるなど）。
+   曜日別・共通業務の書き込み経路は必ずこれを経由すること。 */
+function itemRebuild(oldIt, patch) {
+  var o = (oldIt && typeof oldIt === 'object') ? Object.assign({}, oldIt) : { t: dlyText(oldIt) };
+  Object.keys(patch).forEach(function(k) {
+    if (patch[k] === null || patch[k] === undefined) delete o[k];
+    else o[k] = patch[k];
+  });
+  var keys = Object.keys(o).filter(function(k){ return o[k] !== undefined; });
+  if (keys.length === 1 && keys[0] === 't') return o.t;
+  return o;
+}
 /* skip_wd/skip_sat/skip_sun フラグ。旧 wd_only:true は skip_sat+skip_sun として扱う */
 function _getDlySkip(it,key){
   if(!it||typeof it!=='object') return false;
@@ -6825,8 +6843,7 @@ function confirmEditModal() {
     writeLog('マスタ編集', oldValue + ' → ' + newValue);
   } else if (state.type === 'dly') {
     if(!can('dm'))return;
-    var _oldDly = D.dly[state.index], _dlyNotif = dlyNotif(_oldDly);
-    D.dly[state.index] = _dlyNotif ? { t: newValue, notif: _dlyNotif } : newValue;
+    D.dly[state.index] = itemRebuild(D.dly[state.index], {t: newValue});
     renderDlyList(); saveD(); if(curDs)safeRenderPage();
   } else if (state.type === 'wdly') {
     if(!can('wm'))return;
@@ -7012,14 +7029,14 @@ function editDly(i) {
 }
 function setDlyNotif(i, time) {
   if(!can('dm'))return;
-  var it = D.dly[i], text = dlyText(it), oldNotif = dlyNotif(it) || {};
-  D.dly[i] = { t: text, notif: Object.assign({}, oldNotif, { time: time }) };
+  var oldNotif = dlyNotif(D.dly[i]) || {};
+  D.dly[i] = itemRebuild(D.dly[i], { notif: Object.assign({}, oldNotif, { time: time }) });
   saveD();
 }
 function togDlyNotif(i, enabled) {
   if(!can('dm'))return;
-  var it = D.dly[i], text = dlyText(it), oldNotif = dlyNotif(it) || {};
-  D.dly[i] = { t: text, notif: Object.assign({}, oldNotif, { enabled: enabled }) };
+  var oldNotif = dlyNotif(D.dly[i]) || {};
+  D.dly[i] = itemRebuild(D.dly[i], { notif: Object.assign({}, oldNotif, { enabled: enabled }) });
   saveD();
 }
 function togDlyDay(i,key){
@@ -7106,15 +7123,15 @@ function addWdly() { if(!can('wm'))return; var v=document.getElementById('in-wdl
 function setWdNotif(i, time) {
   if(!can('wm'))return;
   var arr=D.wd[selWd]||[]; var it=arr[i]; if(it===undefined)return;
-  var text=wdText(it); var weeks=wdWeeks(it); var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
-  arr[i]=Object.assign({t:text},weeks?{wk:weeks}:{},{notif:Object.assign({},oldN,{time:time})});
+  var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
+  arr[i]=itemRebuild(it, {notif:Object.assign({},oldN,{time:time})});
   D.wd[selWd]=arr; saveD();
 }
 function togWdNotif(i, enabled) {
   if(!can('wm'))return;
   var arr=D.wd[selWd]||[]; var it=arr[i]; if(it===undefined)return;
-  var text=wdText(it); var weeks=wdWeeks(it); var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
-  arr[i]=Object.assign({t:text},weeks?{wk:weeks}:{},{notif:Object.assign({},oldN,{enabled:enabled})});
+  var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
+  arr[i]=itemRebuild(it, {notif:Object.assign({},oldN,{enabled:enabled})});
   D.wd[selWd]=arr; saveD();
 }
 function rmWdly(i) {
@@ -7145,14 +7162,13 @@ function editWdly(i) {
 function setWdWeeks(i, mode) {
   if(!can('wm'))return;
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
-  var text = wdText(arr[i]);
-  var oldN = (arr[i] && typeof arr[i]==='object' && arr[i].notif) ? arr[i].notif : null;
   var oldArr = arr.slice(); /* 週設定を変えると表示される日が変わり、その日の項目位置がずれる */
-  var mk = function(base) { return oldN ? Object.assign({}, base, {notif: oldN}) : base; };
-  if (mode==='all')       arr[i] = oldN ? {t:text, notif:oldN} : text;
-  else if (mode==='odd')  arr[i] = mk({t:text, wk:[1,3,5]});
-  else if (mode==='even') arr[i] = mk({t:text, wk:[2,4]});
-  else if (mode==='last') arr[i] = mk({t:text, wk:[0]});
+  var weeks = null;
+  if (mode==='odd')       weeks=[1,3,5];
+  else if (mode==='even') weeks=[2,4];
+  else if (mode==='last') weeks=[0];
+  /* mode==='all' はweeks=nullのまま → itemRebuildがwkを削除する */
+  arr[i] = itemRebuild(arr[i], {wk: weeks});
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
 }
@@ -7160,8 +7176,6 @@ function setWdWeeks(i, mode) {
 function togWdWeek(i, wk) {
   if(!can('wm'))return;
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
-  var text = wdText(arr[i]);
-  var oldN = (arr[i] && typeof arr[i]==='object' && arr[i].notif) ? arr[i].notif : null;
   var cur = wdWeeks(arr[i]);
   var weeks = cur ? cur.slice() : [0,1,2,3,4,5]; /* null=毎週 → 全6オプションに展開 */
   var pos = weeks.indexOf(wk);
@@ -7169,8 +7183,7 @@ function togWdWeek(i, wk) {
   weeks.sort(function(a,b){ return a-b; });
   if (!weeks.length) { toast('最低1つの週を選んでください', 'warn'); return; }
   var oldArr = arr.slice(); /* 週設定を変えると表示される日が変わり、その日の項目位置がずれる */
-  if (weeks.length>=6) arr[i] = oldN ? {t:text, notif:oldN} : text; /* 全6オプション → 毎週 */
-  else { var item = {t:text, wk:weeks}; if(oldN) item.notif=oldN; arr[i]=item; }
+  arr[i] = itemRebuild(arr[i], {wk: weeks.length>=6 ? null : weeks}); /* 全6オプション → 毎週 */
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
 }
