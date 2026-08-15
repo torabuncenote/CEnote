@@ -69,6 +69,7 @@ var D = {
   tablets: [],      // タブレット台帳（貸出対象名の配列）— 日々の貸出ログは D.pages[ds].tabletLogs
   ocFlow: '',       // OC対応フローチャート本文（複数行テキスト。OC集計タブのボタン→openOcFlowModal で全員閲覧、業務マスタの mst セクションで編集）
   makers: { cats: [], list: [] }, // メーカー担当者連絡先。cats:[{id,name}]（表示順）、list:[{id,cat,maker,person,tel1,tel2,mail,note,upd,ts,by}]。詳細は下記「メーカー担当者連絡先」節
+  wdDepts: [],      // 設置部署マスタ（D.wd項目のsubsで選ぶ部署名の共通リスト。PHSマスタ/tabletsと同型の単純な文字列配列）
   _migVer: 4        // data migration version flag (increment when running one-time migrations)
 };
 ```
@@ -286,6 +287,13 @@ All class names are abbreviated:
 | `buildCL(ds, dat, wtl, all, locked)` | Checklist section |
 | `buildOPS(ds, dat, locked)` | OPE/cath/ops record section |
 | `renderMemos(ds, dat, locked)` | Memo/comment thread |
+| `clStatus(ds)` | Single done/total counting entry point for the checklist (`{done,total,undone,exists}`); `getPct`/dashboard/`closeItems` all call it |
+| `itemRebuild(oldIt, patch)` | Merges `patch` into a `D.dly`/`D.wd` item without dropping unmentioned keys (`null`/`undefined` in patch deletes that key); all writes to those items go through this |
+| `wdEntriesForDate(ds)` / `wdOnce(it)` / `wdSubs(it)` / `wdSid(it)` | Accessors for weekday-item flags (`{t,it}` pairs for a date / once flag / installed-location array / stable id) |
+| `wdOnceDoneOn(ds, ent)` | Returns the earlier date this month (if any) an `once` item was already done — only scans backward, never forward |
+| `wdSubProgress(ds, sid)` | `{locationName: doneDs}` map for a `subs`-bearing item, scanning only pages in `ds`'s calendar month (monthly reset) |
+| `renderWdDeptList()` / `addWdDept()` / `rmWdDept(i)` / `mvWdDept(i,d)` | `D.wdDepts` master list editor (add/reorder/remove) in the 曜日別業務 master section, gated by `can('wm')` |
+| `openWdSubsModal(i)` / `renderWdSubsModalBody(i)` / `addWdDeptFromModal(i)` / `saveWdSubs(i)` | Per-item department picker modal — checkboxes sourced from `D.wdDepts`; `addWdDeptFromModal` adds to the master inline without closing the modal |
 | `renderSched()` | Per-day timetable for `curDs` |
 | `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board (also handles read-receipt marking, tag/resolved rendering, pin-expiry sort/cleanup, filter chips) |
 | `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
@@ -415,22 +423,31 @@ Vertical time axis 8:00–21:00 in 15-min steps, one column per on-duty staff. B
 
 ### Checklist Items & Week-of-Month Filtering
 
-`wdItemsForDate(ds)` returns the weekday items applicable to the given date, filtered by `wdApplies(ds, it)` (week-of-month). `dat.checks[]` is indexed against the **original** `D.dly` array positions, not filtered positions.
+`wdItemsForDate(ds)` returns the weekday items applicable to the given date (text only), filtered by `wdApplies(ds, it)` (week-of-month). `wdEntriesForDate(ds)` returns the same set as `{t, it}` pairs (text + the raw master item) — `wdItemsForDate` just maps it to `.t` — so code that needs to inspect item flags (`once`, `subs`, ...) should call `wdEntriesForDate` instead of re-deriving the list. `dat.checks[]` is indexed against the **original** `D.dly` array positions, not filtered positions.
 
-**Critical**: When computing done/total counts, iterate `D.dly` with original index `i` and skip hidden items via `isDlyShownOnDate()` — do NOT use a filtered array's sequential index. `getPct(ds)` is the canonical reference implementation.
+**`clStatus(ds)` is the single counting entry point** for done/total. It returns `{done, total, undone, exists}` (`exists:false` when `D.pages[ds]` doesn't exist, distinguishing "no page → 0%" from "page exists but 0 items → 100%"). `getPct(ds)`, the dashboard progress chip, and `closeItems(ds)`'s checklist category all call it — none of them re-implement the counting loop. Previously the same counting logic was duplicated across ~4 call sites, and one of them silently ignored `skip_wd`/`skip_sat`/`skip_sun` (weekday-exclusion settings on common tasks), making the progress bar and its text disagree on the denominator on days affected by those settings. When writing new code that needs done/total, call `clStatus(ds)` — do not re-iterate `D.dly`/`D.wd` by hand.
 
 ```js
-// Correct pattern (matches getPct):
+// clStatus's internal pattern (do not duplicate elsewhere — call clStatus instead):
 for (var i = 0; i < D.dly.length; i++) {
   if (!isDlyShownOnDate(D.dly[i], ds)) continue;
   total++;
   if (dat.checks && dat.checks[i]) done++;
 }
-for (var j = 0; j < wtl.length; j++) {
+var ents = wdEntriesForDate(ds);
+for (var j = 0; j < ents.length; j++) {
   total++;
-  if (dat.checks && dat.checks[D.dly.length + j]) done++;
+  if ((dat.checks && dat.checks[D.dly.length + j]) || wdOnceDoneOn(ds, ents[j])) done++;
 }
 ```
+
+#### `once` / `subs` / `sid` — per-item fields on `D.wd[曜日]` entries
+
+Weekday-master items (`D.wd[曜日][i]`) are either a plain string (legacy) or an object `{t, wk, once, subs, sid, notif, ...}`. **All writes to these items (and to `D.dly[i]`) must go through `itemRebuild(oldIt, patch)`** — it merges `patch` into a copy of the existing item (a `null`/`undefined` value in `patch` deletes that key) and collapses back to a plain string if only `t` remains. Building the replacement object inline (e.g. `{t:..., notif:...}`) instead silently drops any key not mentioned — this exact bug previously wiped `once`/`wk`/`subs` when only toggling notifications, and vice versa.
+
+- **`once:true`** ("月内どれか1回でよい" — only one occurrence in the month needs doing) is only allowed when `wk` (week-of-month restriction) is set; going back to "毎週" auto-clears it. `wdOnceDoneOn(ds, ent)` looks for whether the item was already checked on an earlier applicable date **in the same month** — it only scans backward (`d < day`), never forward, so checking a later occurrence can never retroactively flip an earlier day's display (that would look like a past inspection record being rewritten after the fact). Notification firing (`checkTimeNotifs()`'s weekday-item loop, not `runPsgFusenCheck`) also skips items already satisfied via `wdOnceDoneOn`.
+- **`subs`** is an array of installed-location names (e.g. department names) for items that need per-location sign-off (e.g. "各部署の生体情報モニタ点検"), selected via checkboxes from the shared **`D.wdDepts`** master (not free-typed per item — an earlier free-text-per-item design was replaced after real-world feedback, since retyping the same ward names on every item invites spelling drift). `openWdSubsModal`/`renderWdSubsModalBody` render one checkbox per `D.wdDepts` entry; `addWdDeptFromModal` lets an admin add a missing department to the master inline (saved immediately) without leaving the modal — but, like the other checkboxes, whether it ends up in *this item's* `subs` is only decided when `saveWdSubs` is clicked. **`sid`** is a stable id assigned once (`newSid()`) when the list is first saved, and is deliberately kept even if `subs` is later emptied — signoff progress is looked up by `sid`, not by item text, so renaming the item or removing/renaming a department in `D.wdDepts` never breaks the link (mirrors — and is a deliberate fix for — the weakness where `D.manual` keys by task name and breaks on rename). Per-location signoffs live in `D.pages[ds].subChecks[sid][name] = {by, ts}` (a page-scoped field, not a new top-level `D` property — this makes the monthly reset automatic, since `wdSubProgress(ds, sid)` only scans pages within the current calendar month). The parent checklist item itself is **not** auto-checked when all locations are signed off — that requires a manual check.
+- The **`once` checkbox is always rendered** in `renderWdlyList()` once `can('wm')`, even when the item has no week restriction (`wk` unset = 毎週) — it's shown `disabled` with an explanatory label/title rather than omitted entirely. It was originally hidden outright when `!weeks`, but the seed data's `月一BSM点検（第二 or 第四）` item is actually stored as a plain string (`wk` unset) despite its name, and with `weeks=null` every week-chip renders as "selected" — so an admin looking at that item saw no obvious next step to reach the `once` option. Showing it disabled-with-reason fixed the discoverability gap.
 
 ### 消し込みバー（`.cbar` / `closeItems(ds)` / `updateCloseBar(ds)`）
 

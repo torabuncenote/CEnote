@@ -393,6 +393,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .cli label{font-size:13px;cursor:pointer;color:var(--txt);line-height:1.5;user-select:none}
 .cli.lki label{cursor:default;color:var(--txt2)}
 .cli.dn label{text-decoration:line-through;color:var(--txt3)}
+/* 月内1回でよい項目が、別の対象日で既に実施済み扱いになっている行。
+   .lki（ロック中）と紛らわしくならないよう別クラスにし、緑のノートで理由を添える */
+.cli.onced{flex-wrap:wrap}
+.cli.onced label{text-decoration:line-through;color:var(--txt3)}
+.cli.onced input[type=checkbox]{opacity:.6;cursor:default}
+.cli-note{flex-basis:100%;margin-left:24px;font-size:10px;color:var(--gr);background:var(--gr-bg);border-radius:10px;padding:1px 7px;width:fit-content}
 .cle{font-size:12px;color:var(--txt3);padding:4px}
 .mo{width:100%;min-height:90px;font-size:13px;color:var(--txt);background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;resize:vertical;outline:none;font-family:var(--fn);line-height:1.8;box-shadow:var(--sh)}
 .mo:focus{border-color:var(--ac)}
@@ -729,6 +735,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .cli-peek:hover{background:var(--sur2);color:var(--ac)}
 .cli-peek.has-manual{opacity:.5;color:var(--ac)}
 .cli:hover .cli-peek.has-manual{opacity:1}
+/* 設置部署の消し込み（曜日別業務のみ）。.cli自体は他の行と完全に同じ形を保ち、
+   部署リストを持つ項目だけ.cli-wrapで包んで下にパネルを足す */
+.cli-wrap{border-radius:4px}
+.cli-subbtn{flex-shrink:0;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;font-size:10px;padding:1px 7px;cursor:pointer;color:var(--txt2);align-self:center;font-family:var(--fn)}
+.cli-subbtn:hover{border-color:var(--ac);color:var(--ac)}
+.cli-subs{display:none;padding:2px 0 6px 24px}
+.cli-wrap.open .cli-subs{display:block}
+.dc-cb-item.subdone{font-size:10px}
 /* 担当カード内チェックボックス */
 .dc-cbs{display:flex;gap:8px;margin-bottom:7px;flex-wrap:wrap}
 .dc-cb-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2);background:var(--sur2);border:1.5px solid var(--bdr);border-radius:20px;padding:3px 9px;cursor:pointer;user-select:none;transition:all .15s}
@@ -1161,6 +1175,13 @@ body.has-cbar #scroll-top-btn{bottom:126px}
           <div class="ar" id="wdly-ar">
             <input type="text" id="in-wdly" placeholder="業務内容を入力…">
             <button onclick="addWdly()">追加</button>
+          </div>
+          <div class="pt" style="margin-top:14px">🏥 設置部署マスタ</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">各業務の「🏥 部署」で選ぶ設置部署（病棟名など）の共通リストです。ここに登録しておくと、業務ごとに毎回入力し直す必要がありません。</div>
+          <div class="rl" id="wd-dept-list"></div>
+          <div class="ar" id="wd-dept-ar">
+            <input type="text" id="in-wd-dept" placeholder="部署名を入力…">
+            <button onclick="addWdDept()">追加</button>
           </div>
         </div>
         <div data-perm="mst">
@@ -2007,7 +2028,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[]};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -2135,7 +2156,7 @@ function init() {
   if (!isPreview) fbInit();
   renderCal();
   renderStfList(); renderPhsList(); renderTabletList();
-  renderDlyList(); renderWdlyList();
+  renderDlyList(); renderWdlyList(); renderWdDeptList();
   renderOpeList(); renderCathList();
   renderLockList();
   initPHIGuard();
@@ -2221,6 +2242,7 @@ function loadD() {
     D.tablets = s.tablets || [];
     D.ocFlow = s.ocFlow || '';
     D.makers = normMakers(s.makers);
+    D.wdDepts = s.wdDepts || [];
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -2327,7 +2349,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[];
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -2499,6 +2521,7 @@ function fbInit() {
             D.tablets = d.tablets || [];
             D.ocFlow = d.ocFlow || '';
             D.makers = normMakers(d.makers);
+            D.wdDepts = d.wdDepts || [];
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -2546,7 +2569,7 @@ function fbInit() {
             checkAutoDelTiming();
             renderCal();
             renderStfList(); renderPhsList(); renderTabletList();
-            renderDlyList(); renderWdlyList();
+            renderDlyList(); renderWdlyList(); renderWdDeptList();
             renderOpeList(); renderCathList();
             renderLockList(); renderAutoAssignModeSetting();
             updateTabVisibility();
@@ -3267,6 +3290,7 @@ function renderSpec() {
   S += '<div class="spec-p">オペ・カテの各行（<code>ops.ope_items</code> / <code>ops.cath_items</code>）は、科・中カテゴリ・術式のそれぞれで自由入力に切替可能（内部値は <code>dept</code>/<code>cat</code>/<code>name</code> が <code>\'__free__\'</code> のとき、実体は <code>deptTxt</code>/<code>catTxt</code>/<code>nameTxt</code>）。行ごとの備考は <code>item.note</code>。カード1枚にまとめて1つだけの備考（<code>ops.ope_note</code> / <code>ops.cath_note</code>）は新規作成できなくなり、既存値がある場合のみ編集可能な旧項目として残る。表示・集計・CSV出力・横断検索は必ず <code>opsItemDept(it)</code> / <code>opsItemCat(it)</code> / <code>opsItemName(it)</code> を経由し、内部の <code>\'__free__\'</code> という値が画面に出ないようにしている。</div>';
   S += '<div class="spec-h2">4-5. 業務チェックリスト</div>';
   S += '<div class="spec-p">共通業務（毎日）＋曜日別業務を自動表示。行全体またはチェックボックスをクリックでON/OFF。各業務の右端「···」でサイドピークを開きマニュアルを参照・編集（画像・動画の添付可）。</div>';
+  S += '<div class="spec-p">曜日別業務（<code>D.wd[曜日]</code>）の各項目はテキストのみの旧形式、または <code>{t, wk, once, subs, sid, notif}</code> 等を持つオブジェクト形式（更新は必ず <code>itemRebuild(oldIt, patch)</code> 経由。patchに無いキーは保持される）。<code>wk</code> は週指定配列（0=最終週、1〜5=第N週、未指定なら毎週）。<code>once:true</code> は週指定がある項目にのみ許可され、「同じ月内でその項目が該当する対象日のうち、いずれか1日で実施していれば他の対象日もチェック済み扱いにする」フラグ。判定は <code>wdOnceDoneOn(ds, ent)</code> が同月の <strong>ds より前</strong> の対象日だけを昇順に走査して行う（未来方向は見ない＝後の操作で過去の記録が書き換わって見える事故を避ける設計）。<code>subs</code> は設置部署名の配列、<code>sid</code> は初回登録時に採番される安定ID（部署リストを空にしても保持され、業務名や部署名を変えても実績との紐付けが切れない）。部署ごとの消し込み実績は <code>D.pages[ds].subChecks[sid][部署名] = {by, ts}</code> に保存され、<code>wdSubProgress(ds, sid)</code> が同じ暦月のページだけを走査して集計する（月が変われば自動的に0件へ戻る＝月次リセット）。チェックリストの done/total 集計は <code>clStatus(ds)</code> が唯一の入口で、進捗％（<code>getPct</code>）・ダッシュボード・消し込みバー（<code>closeItems</code>）はすべてこれを呼ぶ。</div>';
   S += '<div class="spec-h2">4-6. 業務連絡・申し送り</div>';
   S += '<div class="spec-p">投稿リスト形式。名前・日時を自動記録。画像・動画を添付可（画像は自動圧縮1280px/JPEG80%）。動画は50MBまで。Ctrl+Enterで送信。自分の投稿は自分で削除可、管理者は全員分削除可。</div>';
   S += '<div class="spec-p"><strong>患者情報検知機能</strong>：送信ボタン押下時に本文を自動スキャン。フルネーム・8桁患者IDを検知すると送信ブロック（是正案を提示）。カルテ番号・生年月日・病室番号・病名文脈・姓＋敬称・下4桁ID・姓＋イニシャルは警告表示後に確認送信可。</div>';
@@ -3299,9 +3323,9 @@ function renderSpec() {
   S += '<div class="spec-h1">6. データ管理・容量</div>';
   S += '<div class="spec-h2">データ構造（Firebase /data/）</div>';
   S += '<table class="spec-tbl"><tr><th>キー</th><th>内容</th></tr>';
-  [['pages','連絡表データ {YYYY-MM-DD: {duties,phsNums,dutyNotes,dutyRoles,dutyChecks,customDuties,ops_cards,checks,memos,ops,ocData,surplus,closeSkip}}'],
+  [['pages','連絡表データ {YYYY-MM-DD: {duties,phsNums,dutyNotes,dutyRoles,dutyChecks,customDuties,ops_cards,checks,memos,ops,ocData,surplus,closeSkip,subChecks}}'],
    ['stf','スタッフ名配列'],['phs','PHS番号配列'],['dly','共通業務配列'],
-   ['wd','曜日別業務 {月:[], 火:[], ...}'],['ope','オペ術式配列'],['cath','カテ種別配列'],
+   ['wd','曜日別業務 {月:[{t,wk,once,subs,sid,notif}], 火:[], ...}（旧形式は文字列のみの配列要素）'],['ope','オペ術式配列'],['cath','カテ種別配列'],
    ['dutyCfgMaster','担当枠マスタ定義配列'],['dutyCfg','担当枠テンプレート配列'],
    ['opsCfg','業務カードテンプレート配列（デフォルト[]）'],
    ['shift','勤務表データ {YYYY-MM: {名前: {日: {shift,oc}}}}'],
@@ -3792,6 +3816,25 @@ function renderAdminManual() {
   S += '<div class="a-h2">maker ロックの使いどころ</div>';
   S += '<div class="a-p">誰でも編集できる仕様のため、入力の乱れや誤操作が目立つようになったら「🔒 ロック」タブで <code>maker</code>（メーカー連絡先の編集）をロックしてください。ロック中も閲覧・検索・コピーは全員可能なままで、追加・編集・削除だけが管理者限定になります。特定のスタッフにだけ編集を許可したい場合は、ロックした上で「🔑 管理者設定 → 👑 ユーザー管理」の編集権限からその人に <code>maker</code> 権限を個別付与できます。</div>';
 
+  // 第18章: 曜日別業務の「月内1回」「設置部署」設定
+  S += '<div class="a-h1">18. 曜日別業務の「月内どれか1回でよい」「設置部署の消し込み」を設定する</div>';
+  S += '<div class="a-p">「📋 業務」タブ→「📅 曜日別業務」で、週指定（第1〜5週・最終週のチップ）がある項目にのみ設定できます。「毎週」の項目には設定できません。</div>';
+  S += '<div class="a-h2">月内どれか1回でよい（once）</div>';
+  S += '<div class="a-p">「第2・第4月曜のどちらかで実施すればOK」のような業務向けの設定です。</div>';
+  S += '<div class="a-step"><div class="a-num">1</div><div>対象の曜日別業務で「頻度」の週チップ（第1〜5・最終）を選び、「毎週」から切り替える</div></div>';
+  S += '<div class="a-step"><div class="a-num">2</div><div>表示された「月内どれか1回でよい」チェックボックスをON</div></div>';
+  S += '<div class="a-ok">✅ 設定後は、どちらかの対象日で実施すれば、もう一方の対象日のチェックリストにも「✓ ○月○日に実施済み（月内1回）」と表示され、チェック済み扱いになります（チェックボックス自体はグレーアウトして押せなくなります。押しても実施した日の記録は消えないためです）。通知（🔔）も、月内ですでに実施済みなら送られなくなります。</div>';
+  S += '<div class="a-warn">⚠ 先に実施した日の記録は、後で別の対象日をチェックしても変わりません。「点検記録が後の操作で書き換わって見える」事故を防ぐため、常に「その月の自分より前の日」だけを見て判定する設計です。</div>';
+  S += '<div class="a-p">頻度を「毎週」に戻すと、この設定は自動的に解除されます（トーストで通知）。</div>';
+  S += '<div class="a-h2">設置部署の消し込み（subs）</div>';
+  S += '<div class="a-p">「第3週・第4週の土曜で機器点検を部署ごとに分担する」のような業務向けの設定です。部署名は先に「設置部署マスタ」へ登録しておき、各業務ではそこからチェックで選びます（自由入力の積み重ねによる表記ゆれを避けるため）。</div>';
+  S += '<div class="a-step"><div class="a-num">1</div><div>「📅 曜日別業務」の下にある「🏥 設置部署マスタ」に、点検対象の部署名（病棟名など）を1件ずつ登録しておく</div></div>';
+  S += '<div class="a-step"><div class="a-num">2</div><div>対象の曜日別業務の「🏥 部署」ボタンをタップし、その業務で点検する部署にチェックを入れて保存</div></div>';
+  S += '<div class="a-p">モーダル内に無い部署は、下の「＋ マスタに追加」からその場でマスタへ追加してチェック済みにできます（マスタ画面まで戻る必要はありません）。</div>';
+  S += '<div class="a-p">登録すると、日ページのチェックリストにその項目の進捗チップ「🏥 3/8 ▾」が表示されます。タップするとその場で部署ごとのチェック欄が開閉し、実施済みの部署には実施日が表示されます。進捗は暦月ごとに集計され、月が変わると自動的に0件に戻ります。</div>';
+  S += '<div class="a-warn">⚠ 部署ごとにチェックしても、親のチェックリスト項目自体（「各部署 生体情報モニタ点検」など）は自動でチェックされません。全部署の実施が終わったら、通常のチェックリスト操作で親の項目も手動でチェックしてください。</div>';
+  S += '<div class="a-p">業務ごとの部署リストを全部解除しても、それまでの消し込み実績と紐付けIDは残ります。同じ部署を再度チェックすれば、過去の実施記録と再びつながります。マスタから部署自体を削除した場合も、過去の実施記録は消えません（その部署が選べなくなるだけです）。</div>';
+
   el.innerHTML = S;
 }
 
@@ -4071,8 +4114,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/14-36';
+var APP_VERSION = 'Ver.2026/08/15-37';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/15-37', date:'2026-08-15', title:'曜日別業務に「月内1回」「設置部署の消し込み」を追加', items:[
+    {t:'new', d:'📅 曜日別業務に「月内どれか1回でよい」を設定できるようになりました。第2・第4月曜のどちらかで実施すればOK、のような業務向けです。一方の対象日で実施すると、もう一方の対象日にも「✓ 実施済み（月内1回）」と表示され、通知も送られなくなります。先に実施した日の記録は、後で別の対象日をチェックしても変わりません'},
+    {t:'new', d:'🏥 部署ごとに分担する曜日別業務に「設置部署の消し込み」を追加。「🏥 設置部署マスタ」に部署名を登録しておくと、各業務ではチェックで選ぶだけで済みます。チェックリストの項目に「🏥 3/8 ▾」の進捗チップが表示され、タップすると部署ごとのチェック欄がその場で開閉します。進捗は月が変わると自動でリセットされます'},
+    {t:'fix', d:'特定の曜日を除外する設定をした共通業務がある日で、進捗バーと進捗テキストの分母が食い違って見えることがあった不具合を修正'},
+    {t:'fix', d:'📢 掲示板の既読一覧の人数と、開いたときに並ぶ名前の数がずれることがあった不具合を修正。既読一覧の表示も日時なしの名前だけに整理しました'}
+  ]},
   { ver:'Ver.2026/08/14-36', date:'2026-08-14', title:'メーカー担当者連絡先を追加', items:[
     {t:'new', d:'🏭 メーカー担当者の連絡先をアプリで見られるようになりました。メーカー名・担当者名・電話番号・備考で横断検索でき、カテゴリでも絞り込めます'},
     {t:'new', d:'📞 電話番号・メールアドレスはタップでコピーできます'},
@@ -4644,6 +4693,23 @@ function renderDev() {
   S += '<div class="d-p">元データの「カテ」シートは、1つの表（カテ本体）の下に別の表（PM=ペースメーカー）が28行目あたりから続けて入っており、見出し行（B列が「メーカー」）が1シートに2つある。<span class="d-code">parseMakerBook()</span> はシート内の見出し行をすべて検出し、2つ目以降の見出し行が見つかった時点で新しいグループとして区切る。カテゴリ名は、1つ目のグループはシート名そのもの、2つ目以降はその表の最初のデータ行のA列の値（この例では「PM」）を使う。見出し行自体はデータとして取り込まない。この構造を見落とすと、2表目の見出し行が1件のデータとして混入し、PM分のレコードがカテのカテゴリに吸収されてしまう。</div>';
   S += '<div class="d-h2">openSubmenu() によるサブメニューの相互排他</div>';
   S += '<div class="d-p">管理者専用の <span class="d-code">docs-submenu</span>（🔑 管理資料）と全員向けの <span class="d-code">lib-submenu</span>（📚 資料）は、共通ヘルパー <span class="d-code">openSubmenu(id)</span> で開閉する。<span class="d-code">id</span> に指定した方だけ表示を <span class="d-code">flex</span> ⇄ <span class="d-code">none</span> でトグルし、もう一方は常に <span class="d-code">none</span> に強制するため、両方が同時に開くことはない。<span class="d-code">openSubmenu(null)</span> を呼ぶと両方閉じる（ログアウト時・他タブへの遷移時に使用）。<span class="d-code">toggleDocsMenu()</span> / <span class="d-code">toggleLibMenu()</span> はそれぞれ <span class="d-code">openSubmenu(\'docs-submenu\')</span> / <span class="d-code">openSubmenu(\'lib-submenu\')</span> を呼ぶだけの薄いラッパー。</div>';
+
+  // チェックリスト集計の一本化・曜日別業務 once/subs の実装メモ
+  S += '<div class="d-h1">チェックリスト集計の一本化と曜日別業務「once」「subs」（実装メモ）</div>';
+  S += '<div class="d-h2">clStatus(ds) を集計の唯一の入口にした理由</div>';
+  S += '<div class="d-p">進捗％（<span class="d-code">getPct</span>）・ダッシュボードの進捗表示・消し込みバー（<span class="d-code">closeItems</span>）が、それぞれ独自に <span class="d-code">D.dly</span>/<span class="d-code">D.wd</span> を数え直していた。条件を1つ足すたびに複数箇所を同時に直す必要があり、実際に「曜日スキップ設定（skip_sat等）を無視して分母を数える」バグが一部の箇所にだけ残っていた。<span class="d-code">clStatus(ds)</span> 1関数に数え方を集約し、<span class="d-code">getPct</span>・ダッシュボード・<span class="d-code">closeItems</span> はすべてこれを呼ぶだけにした。</div>';
+  S += '<div class="d-h2">itemRebuild(oldIt, patch) を導入した理由</div>';
+  S += '<div class="d-p"><span class="d-code">D.dly</span>/<span class="d-code">D.wd</span> の各項目はテキストのみの旧形式と、<span class="d-code">{t, wk, once, subs, sid, notif, skip_*}</span> を持つオブジェクト形式が混在する。週チップの切替や通知トグルの保存箇所がそれぞれ <span class="d-code">{t:...,notif:...}</span> のように個別に組み立て直しており、その場のpatchに書かれていないプロパティ（<span class="d-code">once</span>/<span class="d-code">subs</span> 等）が黙って消えるバグが複数の保存経路にあった（週チップを押しただけで通知設定が消える、等）。<span class="d-code">itemRebuild</span> はpatchで指定したキーだけを更新し、それ以外は保持する共通ヘルパーで、曜日別・共通業務の書き込みは全てこれを経由するよう統一した。</div>';
+  S += '<div class="d-h2">wdOnceDoneOn が過去方向にしか探さない理由</div>';
+  S += '<div class="d-p">「月内どれか1回」の判定を前後どちらの対象日も見る実装にすると、例えば第2月曜のページを開いた時点では未達だったのに、後で第4月曜をチェックした瞬間に第2月曜側の表示が緑に変わってしまう。点検記録としては「後の操作で過去の実績が書き換わって見える」事故になる。<span class="d-code">wdOnceDoneOn(ds, ent)</span> は同じ月の「dsより前」の対象日だけを昇順に探し、最初に見つかった実施日を返す。第2週は常に第4週より先に来るため、過去方向だけを見ても「どちらかで済ませればOK」という要件は満たせる。</div>';
+  S += '<div class="d-h2">subs を項目テキストではなく sid（安定ID）で紐づける理由</div>';
+  S += '<div class="d-p"><span class="d-code">D.manual</span> が業務名（テキスト）をキーにしているため、業務名をリネームするとマニュアルの紐付けが切れるという既知の弱点がある。設置部署の消し込み実績（<span class="d-code">subChecks</span>）も、項目テキストで紐づけると同じ問題を再発させる。<span class="d-code">sid</span> は部署リストを初めて登録した時に1回だけ採番し（<span class="d-code">newSid()</span>）、以後は項目名や部署名を変えても不変にすることで、この弱点の再発を避けている。部署リストを全部削除しても <span class="d-code">sid</span> 自体は残す実装にしているのも同じ理由（空にしてから再登録したときに過去の実績と再接続するため）。</div>';
+  S += '<div class="d-h2">subChecks を新規トップレベルDプロパティではなく D.pages[ds].subChecks に置いた理由</div>';
+  S += '<div class="d-p">部署の消し込み進捗は暦月でリセットする必要がある。ページ単位（<span class="d-code">D.pages[ds].subChecks[sid][部署名]</span>）に持たせれば、<span class="d-code">wdSubProgress(ds, sid)</span> が当月のページだけを走査するだけで月次リセットが自動的に成立する（新しいページには実績が存在しないので0件から始まる）。加えて、新規トップレベル <span class="d-code">D</span> プロパティを増やすと「Dへのプロパティ追加ルール」の5箇所（初期化・<span class="d-code">loadD</span>・Firebaseリスナー・ログアウトリセット・バックアップ復元3箇所の配列）を全て触る必要があるが、既存の <span class="d-code">pages</span> 配下に追加するだけならその手当は不要。</div>';
+  S += '<div class="d-h2">once チェックボックスは「消す」のではなく disabled で常に見せる（実機フィードバックによる修正）</div>';
+  S += '<div class="d-p">当初は <span class="d-code">weeks</span>（週指定）が無い項目では「月内どれか1回でよい」のチェックボックス自体を描画していなかった。ところが既定データの「月一BSM点検（第二 or 第四）」は名前に反して実データ上は <span class="d-code">wk</span> 未設定＝毎週扱いの素の文字列で、この状態のままマスタ画面を開くと週チップが全て選択済みに見える（<span class="d-code">weeks=null</span> のとき全チップが active 判定になるため）にもかかわらず、once の入り口が影も形もない——「機能が無い」と誤解される。<span class="d-code">renderWdlyList()</span> は現在、<span class="d-code">weeks</span> の有無にかかわらずチェックボックスを常に描画し、無いときだけ <span class="d-code">disabled</span> ＋ 理由付きラベル（「毎週以外の頻度にすると設定できます」）にする。</div>';
+  S += '<div class="d-h2">設置部署はフリー入力ではなく D.wdDepts（共通マスタ）から選ぶ方式に変更（実機フィードバックによる修正）</div>';
+  S += '<div class="d-p">当初は <span class="d-code">openWdSubsModal</span> が1行1部署のtextareaで、業務項目ごとに部署名を都度入力させていた。表記ゆれ（全角半角・別名）を招きやすく、同じ部署を複数の業務で使う場合に何度も入力し直す手間があるとのフィードバックを受け、<span class="d-code">D.wdDepts</span>（PHSマスタ・タブレット台帳と同型の単純な文字列配列、Dの5箇所ルール＋バックアップ3配列に登録済み）を新設。モーダルは <span class="d-code">D.wdDepts</span> からのチェックボックス選択に変更し、マスタに無い部署はモーダル内の「＋ マスタに追加」からその場で <span class="d-code">D.wdDepts</span> に追加できる（保存はモーダルを閉じずに即時 <span class="d-code">saveD()</span>。ただし追加した部署がこの業務項目の <span class="d-code">subs</span> に入るかどうかは、他のチェックボックスと同様「保存」を押すまで確定しない——チェック状態だけ画面上でONにし、<span class="d-code">item.subs</span> 自体は書き換えない）。<span class="d-code">D.wdDepts</span> から部署を削除しても、各業務の <span class="d-code">subs</span> や過去の <span class="d-code">subChecks</span> 実績はそのまま残る（選べなくなるだけ）。</div>';
 
   // デフォルトデータ
   S += '<div class="d-h1">デフォルトデータ</div>';
@@ -5983,6 +6049,16 @@ function renderGuide() {
   S += '<div class="gd-p">連絡表の下部「業務チェックリスト」の項目をタップするとチェックが入ります。もう一度タップで解除。</div>';
   S += ok('全項目チェック完了 → カレンダーに🔵青ドットが表示されます。');
   S += '<div class="gd-p">連絡表上部の進捗バー（緑のゲージ）をタップするとチェックリスト欄へ自動スクロールします。画面右下の「TOP」ボタンで最上部に戻れます。</div>';
+  S += h2('📅 「月内どれか1回でよい」業務');
+  S += '<div class="gd-p">曜日別業務の中には「第2・第4月曜のどちらかで実施すればOK」のように、月に一度だけ実施すればよい業務があります。この設定がされた業務は、どちらか一方の対象日で実施済みにすると、もう一方の対象日のチェックリストにも自動でチェック済みとして表示されます（実施済みの日には「✓ 8/10に実施済み（月内1回）」のように表示され、チェックボックスはグレーアウトして押せなくなります。押しても実施した日の記録は消えないためです）。</div>';
+  S += ok('先に実施した日の記録は、後で別の対象日をチェックしても変わりません。点検記録として過去の日付が書き換わることはない設計です。');
+  S += '<div class="gd-p">通知（🔔）も、月内ですでに実施済みなら送られなくなります。</div>';
+  S += h2('🏥 設置部署ごとの消し込み');
+  S += '<div class="gd-p">「各部署の生体情報モニタ点検」のように部署ごとに分担して実施する曜日別業務には、チェックリストの項目に「🏥 3/8 ▾」のような進捗チップが付きます。タップするとその場で部署ごとのチェック欄が開閉し（別画面には移りません）、実施した部署にチェックを入れられます。</div>';
+  S += '<div class="gd-p">チェックした部署には「ICU（8/16）」のように実施日が表示されます。進捗は暦月ごとにリセットされ、月が変わると自動的に0件に戻ります。</div>';
+  S += warn('部署ごとにチェックしても、親のチェックリスト項目（「各部署 生体情報モニタ点検」など）は自動ではチェックされません。全部署の実施が終わったら、親の項目も手動でチェックしてください。');
+  S += '<div class="gd-p">部署の進捗（3/8など）は、進捗％やダッシュボード、画面下の消し込みバーの集計には含まれません。それらの集計では親の項目1件だけが対象になります。</div>';
+  S += warn('「月内どれか1回でよい」「設置部署」の設定自体は管理者が「業務」タブの「📅 曜日別業務」で行います。一般ユーザーは日ページ側での操作のみです。');
 
   S += h1('💬 申し送りを書く');
   S += step(1,'入力欄をタップして文字を入力','「申し送りを入力...」と書かれている欄。');
@@ -6129,6 +6205,10 @@ function escH(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').r
    escH だけでは名前に ' が含まれるとJSの文字列が閉じてしまう。
    先に \ と ' をJSエスケープしてから escH に通す。 */
 function escJs(s) { return escH(String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'")); }
+
+/* Firebase RTDBキーに使えない文字（. # $ [ ] /）を _ に置換する共通ヘルパー。
+   sanitizeManualKeys はD.manualの既存キーの後始末、こちらは保存前に弾く用途。 */
+function fbSafeKey(s) { return String(s).replace(/[.#$\[\]/]/g, '_'); }
 
 /* Firebase RTDBキーに使えない文字を除去（. # $ [ ] /） */
 function sanitizeManualKeys() {
@@ -6359,6 +6439,24 @@ function can(id) {
 function wdText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
 function dlyText(it){ return (it && typeof it === 'object') ? (it.t || '') : (it || ''); }
 function dlyNotif(it){ return (it && typeof it === 'object' && it.notif) ? it.notif : null; }
+/* 曜日別業務（D.wd）・共通業務（D.dly）どちらの項目の組み直しにも使う共通ヘルパー。
+   t 以外の全プロパティ（notif / skip_wd / skip_sat / skip_sun / wk / once / subs / sid …）を
+   保持したまま、patch で渡したキーだけを更新する（値に null/undefined を渡すとそのキーを削除）。
+   t だけが残れば従来互換の素の文字列に戻す。
+   これを使わずその場で {t:...,notif:...} のように組み立て直すと、そこに書かれていない
+   プロパティが黙って消える——実際に setWdNotif/togWdNotif/setWdWeeks/togWdWeek の4関数と
+   共通業務のリネーム保存がこの形で壊れていた（週チップを押しただけで通知設定が消えるなど）。
+   曜日別・共通業務の書き込み経路は必ずこれを経由すること。 */
+function itemRebuild(oldIt, patch) {
+  var o = (oldIt && typeof oldIt === 'object') ? Object.assign({}, oldIt) : { t: dlyText(oldIt) };
+  Object.keys(patch).forEach(function(k) {
+    if (patch[k] === null || patch[k] === undefined) delete o[k];
+    else o[k] = patch[k];
+  });
+  var keys = Object.keys(o).filter(function(k){ return o[k] !== undefined; });
+  if (keys.length === 1 && keys[0] === 't') return o.t;
+  return o;
+}
 /* skip_wd/skip_sat/skip_sun フラグ。旧 wd_only:true は skip_sat+skip_sun として扱う */
 function _getDlySkip(it,key){
   if(!it||typeof it!=='object') return false;
@@ -6378,6 +6476,15 @@ function wdWeeks(it){
   if (it && typeof it === 'object' && Array.isArray(it.wk) && it.wk.length && it.wk.length < 6) return it.wk.slice();
   return null;
 }
+function wdOnce(it){ return !!(it && typeof it === 'object' && it.once); }
+/* 設置部署リスト。Firebaseは空配列を保存時に消すため、必ずこのアクセサ経由で読む
+   （wdText等の既存アクセサと同じ流儀。D.opeTree等のnormTreeが対処しているのと同じ問題）。 */
+function wdSubs(it){
+  if (it && typeof it === 'object' && Array.isArray(it.subs) && it.subs.length) return it.subs.slice();
+  return null;
+}
+function wdSid(it){ return (it && typeof it === 'object' && it.sid) ? it.sid : null; }
+function newSid(){ return 's' + Date.now().toString(36) + Math.floor(Math.random()*46656).toString(36); }
 function nthWk(ds){ var day = parseInt((ds||'').split('-')[2], 10) || 1; return Math.floor((day - 1) / 7) + 1; }
 function isLastWeek(ds){
   var pt=ds.split('-'); var y=+pt[0],m=+pt[1]-1,d=+pt[2];
@@ -6394,12 +6501,54 @@ function wdApplies(ds, it){
   }
   return false;
 }
-/* 指定日に表示すべき曜日別項目を「本文文字列の配列」で返す（描画は全箇所これを使う＝index整合） */
-function wdItemsForDate(ds){
+/* 指定日に表示すべき曜日別項目を「本文＋マスタ項目そのもの」で返す。wdItemsForDate（本文だけ）
+   はこれに委譲する。once（月内1回でよい）のようにマスタ項目自身のフラグを見たい集計側から
+   参照できるようにするための追加で、返す本文の並び・件数はwdItemsForDateと完全に同一。 */
+function wdEntriesForDate(ds){
   var w = new Date(ds).getDay(), ws = WDL[w];
   var arr = D.wd[ws] || [], out = [];
-  for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push(wdText(arr[i])); }
+  for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push({ t: wdText(arr[i]), it: arr[i] }); }
   return out;
+}
+/* 指定日に表示すべき曜日別項目を「本文文字列の配列」で返す（描画は全箇所これを使う＝index整合） */
+function wdItemsForDate(ds){
+  return wdEntriesForDate(ds).map(function(e){ return e.t; });
+}
+/* once 指定の項目が、同じ月の「自分より前」の該当日で既に実施済みならその日付を返す。
+   未来方向は見ない — 見てしまうと過去の点検記録が後の操作で塗り替わって見える事故になる
+   （第2月曜のページが、後で第4月曜をチェックした瞬間に緑へ変わるのは点検記録として事故）。
+   第2は常に第4より先に来るので、過去方向だけでユーザーの要件（「どちらかで済ませればOK」）
+   は満たせる。昇順に見て最初に見つかった日を返すため、複数回実施していても表示日は安定する。 */
+function wdOnceDoneOn(ds, ent) {
+  var it = ent.it;
+  if (!it || typeof it !== 'object' || !it.once) return null;
+  var ym = ds.slice(0, 7), dow = new Date(ds).getDay(), day = +ds.split('-')[2];
+  for (var d = 1; d < day; d++) {
+    var other = ym + '-' + pad(d);
+    if (new Date(other).getDay() !== dow) continue;
+    if (!wdApplies(other, it)) continue;
+    var pg = D.pages[other]; if (!pg || !pg.checks) continue;
+    var idx = wdItemsForDate(other).indexOf(ent.t);   // 添字は日ごとに変わるため引き直す
+    if (idx !== -1 && pg.checks[D.dly.length + idx]) return other;
+  }
+  return null;
+}
+/* 設置部署の消し込み進捗。同じ月（YYYY-MM）のページを走査して、部署ごとに
+   最初に実施された日を集める。実績は実施した日のページに残るだけで、どこにも
+   コピーしない——月が変われば走査対象から外れて自動的に0件へ戻る（これが月次
+   リセットの仕組みの全て）。新しいトップレベルDプロパティは作らない。 */
+function wdSubProgress(ds, sid) {
+  var ym = ds.slice(0, 7), doneMap = {};
+  Object.keys(D.pages || {}).forEach(function(pds) {
+    if (pds.slice(0, 7) !== ym) return;
+    var sc = D.pages[pds] && D.pages[pds].subChecks && D.pages[pds].subChecks[sid];
+    if (!sc) return;
+    Object.keys(sc).forEach(function(name) {
+      if (!sc[name]) return;
+      if (!doneMap[name] || pds < doneMap[name]) doneMap[name] = pds; // 最初に実施した日を採る
+    });
+  });
+  return doneMap; // { 'ICU': '2026-08-16', ... }
 }
 
 /* ===== チェックリスト添字の付け替え =====
@@ -6449,22 +6598,36 @@ function remapWdChecks(wdKey, oldArr, newArr) {
   });
 }
 
+/* チェックリストの集計はここが唯一の入口。getPct / renderPage / updProg / closeItems は
+   すべてこれを呼ぶ。以前は同じ数え方が4箇所に複製されており、条件を1つ足すたびに
+   食い違う危険があった（コメントで「getPctと完全に同じ数え方でなければならない」と
+   警告されていたのはこの状態）。dat が存在しないときは exists:false を返す —
+   getPct の「ページが無ければ0%」という判定と「ページはあるが項目0件なら100%」という
+   判定を区別するために必要（total===0 だけでは両者を見分けられない）。 */
+function clStatus(ds) {
+  var dat = D.pages[ds];
+  if (!dat) return { done:0, total:0, undone:[], exists:false };
+  var out = { done:0, total:0, undone:[], exists:true };
+  for (var i = 0; i < D.dly.length; i++) {
+    if (!isDlyShownOnDate(D.dly[i], ds)) continue;
+    out.total++;
+    if (dat.checks && dat.checks[i]) out.done++;
+    else out.undone.push({ label: dlyText(D.dly[i]) });
+  }
+  var ents = wdEntriesForDate(ds);
+  for (var j = 0; j < ents.length; j++) {
+    out.total++;
+    if ((dat.checks && dat.checks[D.dly.length + j]) || wdOnceDoneOn(ds, ents[j])) out.done++;
+    else out.undone.push({ label: ents[j].t });
+  }
+  return out;
+}
+
 /* ===== CALENDAR ===== */
 function getPct(ds) {
-  if (!D.pages[ds]) return 0;
-  var d = D.pages[ds];
-  var wtl=wdItemsForDate(ds);
-  var done=0, total=0;
-  for(var i=0;i<D.dly.length;i++){
-    if(!isDlyShownOnDate(D.dly[i],ds)) continue;
-    total++;
-    if(d.checks&&d.checks[i]) done++;
-  }
-  for(var j=0;j<wtl.length;j++){
-    total++;
-    if(d.checks&&d.checks[D.dly.length+j]) done++;
-  }
-  return total===0?100:Math.round(done/total*100);
+  var s = clStatus(ds);
+  if (!s.exists) return 0;
+  return s.total===0?100:Math.round(s.done/s.total*100);
 }
 
 /* ===== 消し込みバー =====
@@ -6501,15 +6664,8 @@ function closeItems(ds) {
     });
   }
 
-  /* 2. チェックリスト未了（getPctと完全に同じ数え方：元のインデックスで走査しisDlyShownOnDateでスキップ） */
-  var wtl = wdItemsForDate(ds);
-  for (var i=0;i<D.dly.length;i++){
-    if (!isDlyShownOnDate(D.dly[i],ds)) continue;
-    if (!(dat.checks && dat.checks[i])) byKey.checklist.items.push({mine:false});
-  }
-  for (var j=0;j<wtl.length;j++){
-    if (!(dat.checks && dat.checks[D.dly.length+j])) byKey.checklist.items.push({mine:false});
-  }
+  /* 2. チェックリスト未了（clStatusがgetPctと同じ数え方の唯一の集計元） */
+  clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:false}); });
 
   /* 3/4. オペ・カテ：入力済み（opsItemFilled）なのに終了未チェックの行 */
   var ops = dat.ops || {};
@@ -6818,8 +6974,7 @@ function confirmEditModal() {
     writeLog('マスタ編集', oldValue + ' → ' + newValue);
   } else if (state.type === 'dly') {
     if(!can('dm'))return;
-    var _oldDly = D.dly[state.index], _dlyNotif = dlyNotif(_oldDly);
-    D.dly[state.index] = _dlyNotif ? { t: newValue, notif: _dlyNotif } : newValue;
+    D.dly[state.index] = itemRebuild(D.dly[state.index], {t: newValue});
     renderDlyList(); saveD(); if(curDs)safeRenderPage();
   } else if (state.type === 'wdly') {
     if(!can('wm'))return;
@@ -7005,14 +7160,14 @@ function editDly(i) {
 }
 function setDlyNotif(i, time) {
   if(!can('dm'))return;
-  var it = D.dly[i], text = dlyText(it), oldNotif = dlyNotif(it) || {};
-  D.dly[i] = { t: text, notif: Object.assign({}, oldNotif, { time: time }) };
+  var oldNotif = dlyNotif(D.dly[i]) || {};
+  D.dly[i] = itemRebuild(D.dly[i], { notif: Object.assign({}, oldNotif, { time: time }) });
   saveD();
 }
 function togDlyNotif(i, enabled) {
   if(!can('dm'))return;
-  var it = D.dly[i], text = dlyText(it), oldNotif = dlyNotif(it) || {};
-  D.dly[i] = { t: text, notif: Object.assign({}, oldNotif, { enabled: enabled }) };
+  var oldNotif = dlyNotif(D.dly[i]) || {};
+  D.dly[i] = itemRebuild(D.dly[i], { notif: Object.assign({}, oldNotif, { enabled: enabled }) });
   saveD();
 }
 function togDlyDay(i,key){
@@ -7046,13 +7201,14 @@ function renderWdlyList() {
   if (!ts.length) { l.innerHTML = '<p class="cle">「' + selWd + '曜日」の追加業務はありません</p>'; }
   else {
     for (var i = 0; i < ts.length; i++) {
-      var it = ts[i], text = wdText(it), weeks = wdWeeks(it);
+      var it = ts[i], text = wdText(it), weeks = wdWeeks(it), once = wdOnce(it), subs = wdSubs(it);
       var wkLabels = weeks ? weeks.map(function(w){ return w===0?'最終':'第'+w; }) : null;
-      var summary = wkLabels ? wkLabels.join('・')+'週' : '毎週';
+      var summary = (wkLabels ? wkLabels.join('・')+'週' : '毎週') + (once ? '・月内1回' : '');
       var el = document.createElement('div');
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
-      var btns = ok ? '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>' : '';
+      var subsBadge = '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openWdSubsModal('+i+')">🏥 部署'+(subs?' ('+subs.length+')':'')+'</button>';
+      var btns = ok ? (subsBadge + '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>') : '';
       var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
                + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
       var freq = '';
@@ -7074,6 +7230,16 @@ function renderWdlyList() {
         freq += '<button onclick="setWdWeeks('+i+',\'even\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第2・4</button>';
         freq += '<button onclick="setWdWeeks('+i+',\'last\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">最終のみ</button>';
         freq += '</div>';
+        /* weeks=null（＝毎週）のときはonceが意味を持たないため、消すのではなく
+           disabled+理由付きで常に見せる。既定データの項目がそもそも「毎週」（wkが
+           未設定）のまま名前だけ「第二 or 第四」と書かれているケースがあり、
+           チェックボックスが完全に消えると「機能が無い」ように見えて気づけない。 */
+        freq += '<label style="display:flex;align-items:center;gap:5px;font-size:10px;padding-left:2px;'
+          + (weeks ? 'color:var(--txt2);cursor:pointer' : 'color:var(--txt3);cursor:not-allowed') + '"'
+          + (weeks ? '' : ' title="頻度を「毎週」以外（第N週や最終週）に変えると設定できます"') + '>'
+          + '<input type="checkbox" onchange="togWdOnce('+i+')" '+(once?'checked':'')+(weeks?'':' disabled')+'> 月内どれか1回でよい'
+          + (weeks ? '（'+wkLabels.join('・')+'週のどれかで済ませればOK）' : '（毎週以外の頻度にすると設定できます）')
+          + '</label>';
       } else {
         freq += '<div style="font-size:10px;color:var(--txt3);padding-left:2px">頻度: ' + summary + '</div>';
       }
@@ -7099,15 +7265,15 @@ function addWdly() { if(!can('wm'))return; var v=document.getElementById('in-wdl
 function setWdNotif(i, time) {
   if(!can('wm'))return;
   var arr=D.wd[selWd]||[]; var it=arr[i]; if(it===undefined)return;
-  var text=wdText(it); var weeks=wdWeeks(it); var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
-  arr[i]=Object.assign({t:text},weeks?{wk:weeks}:{},{notif:Object.assign({},oldN,{time:time})});
+  var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
+  arr[i]=itemRebuild(it, {notif:Object.assign({},oldN,{time:time})});
   D.wd[selWd]=arr; saveD();
 }
 function togWdNotif(i, enabled) {
   if(!can('wm'))return;
   var arr=D.wd[selWd]||[]; var it=arr[i]; if(it===undefined)return;
-  var text=wdText(it); var weeks=wdWeeks(it); var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
-  arr[i]=Object.assign({t:text},weeks?{wk:weeks}:{},{notif:Object.assign({},oldN,{enabled:enabled})});
+  var oldN=(it&&typeof it==='object'&&it.notif)?it.notif:{};
+  arr[i]=itemRebuild(it, {notif:Object.assign({},oldN,{enabled:enabled})});
   D.wd[selWd]=arr; saveD();
 }
 function rmWdly(i) {
@@ -7138,23 +7304,27 @@ function editWdly(i) {
 function setWdWeeks(i, mode) {
   if(!can('wm'))return;
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
-  var text = wdText(arr[i]);
-  var oldN = (arr[i] && typeof arr[i]==='object' && arr[i].notif) ? arr[i].notif : null;
   var oldArr = arr.slice(); /* 週設定を変えると表示される日が変わり、その日の項目位置がずれる */
-  var mk = function(base) { return oldN ? Object.assign({}, base, {notif: oldN}) : base; };
-  if (mode==='all')       arr[i] = oldN ? {t:text, notif:oldN} : text;
-  else if (mode==='odd')  arr[i] = mk({t:text, wk:[1,3,5]});
-  else if (mode==='even') arr[i] = mk({t:text, wk:[2,4]});
-  else if (mode==='last') arr[i] = mk({t:text, wk:[0]});
+  var weeks = null;
+  if (mode==='odd')       weeks=[1,3,5];
+  else if (mode==='even') weeks=[2,4];
+  else if (mode==='last') weeks=[0];
+  /* mode==='all' はweeks=nullのまま → itemRebuildがwkを削除する。
+     毎週に戻すと「月内1回」は意味を持たなくなるので、一緒に解除する。
+     patchにonceキーを含めなければitemRebuildは触らない（値をundefinedにするのではなく
+     キー自体を足さない ―— itemRebuildはpatchにキーが存在する限りundefinedでも削除実行するため） */
+  var wasOnce = wdOnce(arr[i]);
+  var patch = { wk: weeks };
+  if (!weeks) patch.once = null;
+  arr[i] = itemRebuild(arr[i], patch);
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
 }
 /* 第N週チップの個別トグル */
 function togWdWeek(i, wk) {
   if(!can('wm'))return;
   var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
-  var text = wdText(arr[i]);
-  var oldN = (arr[i] && typeof arr[i]==='object' && arr[i].notif) ? arr[i].notif : null;
   var cur = wdWeeks(arr[i]);
   var weeks = cur ? cur.slice() : [0,1,2,3,4,5]; /* null=毎週 → 全6オプションに展開 */
   var pos = weeks.indexOf(wk);
@@ -7162,10 +7332,130 @@ function togWdWeek(i, wk) {
   weeks.sort(function(a,b){ return a-b; });
   if (!weeks.length) { toast('最低1つの週を選んでください', 'warn'); return; }
   var oldArr = arr.slice(); /* 週設定を変えると表示される日が変わり、その日の項目位置がずれる */
-  if (weeks.length>=6) arr[i] = oldN ? {t:text, notif:oldN} : text; /* 全6オプション → 毎週 */
-  else { var item = {t:text, wk:weeks}; if(oldN) item.notif=oldN; arr[i]=item; }
+  var collapsed = weeks.length>=6; /* 全6オプション → 毎週 */
+  var wasOnce = wdOnce(arr[i]);
+  var patch = { wk: collapsed ? null : weeks };
+  if (collapsed) patch.once = null;
+  arr[i] = itemRebuild(arr[i], patch);
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+}
+/* 月内1回でよいトグル。毎週の項目には意味がないため、週指定がある項目にのみ許可する */
+function togWdOnce(i) {
+  if(!can('wm'))return;
+  var arr = D.wd[selWd]; if(!arr || arr[i]===undefined) return;
+  if (!wdWeeks(arr[i])) { toast('「毎週」の業務には設定できません。先に第N週を指定してください', 'warn'); return; }
+  arr[i] = itemRebuild(arr[i], { once: wdOnce(arr[i]) ? null : true });
+  renderWdlyList(); saveD(); if(curDs)safeRenderPage(); renderCal();
+}
+
+/* ===== 設置部署マスタ（曜日別業務の「設置部署の消し込み」で使う共通リスト） =====
+   部署名を業務ごとに毎回自由入力させると、表記ゆれ（「ICU」「I.C.U」等）で
+   同じ場所が別集計になったり、単純な入力の手間が積み重なる。病棟名などは
+   そう頻繁に変わらないため、共通マスタに1回登録すればどの業務からもチェックで
+   選べるようにする（PHSマスタ・タブレット台帳と同じ、単純な文字列配列）。 */
+function renderWdDeptList() {
+  var l = document.getElementById('wd-dept-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('wm');
+  var depts = D.wdDepts || [];
+  if (!depts.length) { l.innerHTML = '<p class="cle">まだ部署が登録されていません</p>'; }
+  else {
+    for (var i = 0; i < depts.length; i++) {
+      var el = document.createElement('div'); el.className = 'ri';
+      var btns = ok ? '<button class="ru" onclick="mvWdDept('+i+',-1)"'+(i===0?' disabled':'')+'>↑</button><button class="rdw" onclick="mvWdDept('+i+',1)"'+(i===depts.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="rmWdDept('+i+')">×</button>' : '';
+      el.innerHTML = '<span class="rn">🏥 ' + escH(depts[i]) + '</span>' + btns;
+      l.appendChild(el);
+    }
+  }
+  var ar = document.getElementById('wd-dept-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addWdDept() {
+  if (!can('wm')) return;
+  var el = document.getElementById('in-wd-dept'); var v = fbSafeKey(el.value.trim()); if (!v) return;
+  D.wdDepts = D.wdDepts || [];
+  if (D.wdDepts.indexOf(v) !== -1) { toast('すでに登録されています', 'warn'); return; }
+  D.wdDepts.push(v); el.value = ''; renderWdDeptList(); saveD();
+}
+function rmWdDept(i) {
+  if (!can('wm')) return;
+  D.wdDepts.splice(i, 1); renderWdDeptList(); saveD();
+  /* マスタから削除しても、既に各業務のsubsに入っている名前や過去のsubChecks実績はそのまま
+     残す（点検記録を消さないため）。表示上はマスタに無い部署として選べなくなるだけ。 */
+}
+function mvWdDept(i, d) {
+  if (!can('wm')) return;
+  var arr = D.wdDepts || []; var j = i + d; if (j < 0 || j >= arr.length) return;
+  var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  renderWdDeptList(); saveD();
+}
+
+/* ===== 曜日別業務：設置部署の選択モーダル =====
+   点検対象を「その場で自由入力」ではなく設置部署マスタ（D.wdDepts）からチェックで選ぶ
+   方式にしている。sidはリストを初めて保存した時に採番し、以後は不変（業務名を変えても
+   部署の選び直しをしても実績が切れないようにするため。D.manualが業務名をキーにしていて
+   リネームで紐づけが切れる弱点を繰り返さない）。 */
+function openWdSubsModal(i) {
+  if (!can('wm')) return;
+  var arr = D.wd[selWd] || []; var item = arr[i]; if (item === undefined) return;
+  var oldOv = document.getElementById('wd-subs-md-ov'); if (oldOv) oldOv.remove();
+  var ov = document.createElement('div'); ov.id = 'wd-subs-md-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.id = 'wd-subs-md'; md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderWdSubsModalBody(i);
+}
+function renderWdSubsModalBody(i) {
+  var md = document.getElementById('wd-subs-md'); if (!md) return;
+  var arr = D.wd[selWd] || []; var item = arr[i]; if (item === undefined) return;
+  var selected = wdSubs(item) || [];
+  var depts = D.wdDepts || [];
+  var checksHTML = depts.map(function(name){
+    var checked = selected.indexOf(name) !== -1;
+    return '<label class="dc-cb-item'+(checked?' checked':'')+'"><input type="checkbox" data-dept="'+escH(name)+'"'+(checked?' checked':'')+'>'+escH(name)+'</label>';
+  }).join('');
+  md.innerHTML = '<h3>🏥 設置部署（' + escH(wdText(item)) + '）</h3>'
+    + (depts.length
+        ? '<div class="dc-cbs" id="wd-subs-checks">' + checksHTML + '</div>'
+        : '<div class="pool-empty" style="padding:10px 0">まだ設置部署マスタが登録されていません。下から追加してください。</div>')
+    + '<div style="display:flex;gap:6px;margin-top:12px">'
+    + '<input type="text" id="wd-subs-new" class="fi" style="flex:1;min-width:0;box-sizing:border-box" placeholder="マスタに無い部署を追加…">'
+    + '<button class="btn btn-g btn-sm" onclick="addWdDeptFromModal('+i+')">＋ マスタに追加</button></div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'wd-subs-md-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" onclick="saveWdSubs('+i+')">保存</button></div>';
+}
+/* モーダルを閉じずにその場で部署マスタへ追加し、追加した部署をチェック済みにする
+   （いったんキャンセルしてマスタ画面まで戻る手間を省く） */
+function addWdDeptFromModal(i) {
+  if (!can('wm')) return;
+  var el = document.getElementById('wd-subs-new'); if (!el) return;
+  var v = fbSafeKey(el.value.trim()); if (!v) return;
+  D.wdDepts = D.wdDepts || [];
+  if (D.wdDepts.indexOf(v) === -1) D.wdDepts.push(v);
+  saveD();
+  /* この項目のsubs（保存対象）はチェックボックスの状態がそのまま反映されるまで未確定
+     （＝「保存」を押すまで確定しない、既存チェックと同じ挙動）。マスタへの追加自体は
+     即時saveDするが、item.subsは書き換えず、追加した部署だけ画面上でON表示にする。 */
+  renderWdSubsModalBody(i);
+  var cb = document.querySelector('#wd-subs-checks input[data-dept="' + v.replace(/"/g,'') + '"]');
+  if (cb) cb.checked = true;
+}
+function saveWdSubs(i) {
+  if (!can('wm')) return;
+  var arr = D.wd[selWd] || []; var item = arr[i]; if (item === undefined) return;
+  var checked = [];
+  document.querySelectorAll('#wd-subs-checks input:checked').forEach(function(cb){ checked.push(cb.getAttribute('data-dept')); });
+  /* 部署が0件になってもsidは残す。空にしてから再登録したとき過去の消し込み実績と再接続するため */
+  var patch = checked.length ? { subs: checked } : { subs: null };
+  if (checked.length && !wdSid(item)) patch.sid = newSid();
+  arr[i] = itemRebuild(item, patch);
+  D.wd[selWd] = arr;
+  renderWdlyList(); saveD();
+  writeLog('曜日別業務の設置部署を編集', wdText(arr[i]) + '（' + checked.length + '件）');
+  var ov = document.getElementById('wd-subs-md-ov'); if (ov) ov.remove();
+  toast('保存しました', 'ok');
 }
 
 /* ===== OPE/CATH/SUP ツリーマスタ ===== */
@@ -7466,7 +7756,7 @@ function togLk(id, v) {
   } else {
     D.lk[id] = v;
   }
-  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList();
+  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
   if(curDs&&D.pages[curDs])safeRenderPage();
   var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
 }
@@ -9371,9 +9661,7 @@ function renderPage(ds) {
   if(!dat.ops)dat.ops={}; if(!dat.ocData)dat.ocData={};
   var w=new Date(ds).getDay(), ws=WDL[w], wf=WDF[w];
   var wtl=wdItemsForDate(ds), all=D.dly.concat(wtl);
-  var done=0, total=0;
-  for(var i=0;i<D.dly.length;i++){if(!isDlyShownOnDate(D.dly[i],ds))continue;total++;if(dat.checks&&dat.checks[i])done++;}
-  for(var j=0;j<wtl.length;j++){total++;if(dat.checks&&dat.checks[D.dly.length+j])done++;}
+  var _cls=clStatus(ds), done=_cls.done, total=_cls.total;
   var pct=total===0?100:Math.round(done/total*100);
   var dlk=!can('duty'), clk=!can('cl'), mlk=!can('memo'), olk=!can('ops');
   var si=getShiftForDay(ds);
@@ -9592,7 +9880,7 @@ function renderPage(ds) {
   }
 
   /* 進捗 */
-  h+='<div class="pgw"><div class="pgi"><div class="pgt" id="pgt">進捗：'+pct+'%（'+done+' / '+all.length+' 完了）</div>';
+  h+='<div class="pgw"><div class="pgi"><div class="pgt" id="pgt">進捗：'+pct+'%（'+done+' / '+total+' 完了）</div>';
   h+='<div class="pgtr"><div class="pgf" id="pgf" style="width:'+pct+'%"></div></div></div>';
   h+='<div class="pgp'+(pct===100?' dn':'')+'" id="pgp">'+pct+'%</div></div>';
   /* ページ容量表示 */
@@ -12915,6 +13203,7 @@ function checkTimeNotifs() {
   for (var j = 0; j < wdArr.length; j++) {
     var wit = wdArr[j];
     if (!wdApplies(ds, wit)) continue;
+    if (wdOnceDoneOn(ds, {t:wdText(wit), it:wit})) continue; /* 月内1回でよい項目が既に実施済みなら通知しない */
     var wn = (wit && typeof wit === 'object' && wit.notif) ? wit.notif : null;
     if (!wn || !wn.enabled || !wn.time) continue;
     if (wn.time !== hhmm) continue;
@@ -13320,16 +13609,20 @@ function fixBrokenLink(idx) {
 function buildCL(ds,dat,wtl,all,locked) {
   for(var i=0;i<D.dly.length;i++){
     if(!isDlyShownOnDate(D.dly[i],ds)) continue;
-    document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked));
+    document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked,null));
   }
   var we=document.getElementById('wcl');
   if(!wtl.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
-  for(var j=0;j<wtl.length;j++) we.appendChild(mkCk(ds,D.dly.length+j,wtl[j],dat,locked));
+  var ents = wdEntriesForDate(ds);
+  for(var j=0;j<ents.length;j++) we.appendChild(mkCk(ds,D.dly.length+j,ents[j].t,dat,locked,ents[j].it));
 }
-function mkCk(ds,idx,task,dat,locked) {
-  var ck=!!(dat.checks&&dat.checks[idx]);
-  var div=document.createElement('div'); div.className='cli'+(ck?' dn':'')+(locked?' lki':'');
-  var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=ck; cb.disabled=locked;
+/* it は曜日別業務のマスタ項目（once判定に使う）。共通業務からの呼び出しはnull。 */
+function mkCk(ds,idx,task,dat,locked,it) {
+  var own=!!(dat.checks&&dat.checks[idx]);
+  var onceDs = own ? null : wdOnceDoneOn(ds, {t:task, it:it});
+  var ck=own||!!onceDs;
+  var div=document.createElement('div'); div.className='cli'+(ck?' dn':'')+(locked?' lki':'')+(onceDs?' onced':'');
+  var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=ck; cb.disabled=locked||!!onceDs;
   var lb=document.createElement('label'); lb.textContent=task;
 
   /* サイドピークボタン */
@@ -13340,7 +13633,13 @@ function mkCk(ds,idx,task,dat,locked) {
   peekBtn.textContent='···';
   peekBtn.type='button';
 
-  if(!locked){
+  /* 設置部署を持つ項目だけ、行の右端に進捗チップを足す（subBtn）。div.onclickの
+     クリック判定に含める必要があるため、IIFEより前に変数だけ確保しておく。 */
+  var subs = it ? wdSubs(it) : null;
+  var subBtn = null;
+  if (subs) { subBtn=document.createElement('button'); subBtn.type='button'; subBtn.className='cli-subbtn'; }
+
+  if(!locked && !onceDs){
     (function(ds,idx,div,cb){
       function toggle(){
         cb.checked=!cb.checked;
@@ -13358,21 +13657,84 @@ function mkCk(ds,idx,task,dat,locked) {
         writeLog(cb.checked?'チェック完了':'チェック解除', fmtJ(ds)+' '+task);
       };
       div.onclick=function(e){
-        if(e.target===cb||e.target===peekBtn) return;
+        if(e.target===cb||e.target===peekBtn||e.target===subBtn) return;
         toggle();
       };
     })(ds,idx,div,cb);
   }
   peekBtn.onclick=function(e){ e.stopPropagation(); openSP(task); };
 
-  div.appendChild(cb); div.appendChild(lb); div.appendChild(peekBtn); return div;
+  div.appendChild(cb); div.appendChild(lb);
+  /* 月内1回でよい項目が、別の対象日で既に実施済みのときの案内。
+     チェックボックスをdisabledにしているのは、押しても兄弟日の実績は消えないため
+     （有効にすると「押しても何も変わらない」ボタンになる）。やり直すなら実施した日を
+     開いて外す、という導線のほうが誤解がない。 */
+  if (onceDs) {
+    var note=document.createElement('span'); note.className='cli-note';
+    note.textContent='✓ '+fmtMD(onceDs)+'に実施済み（月内1回）';
+    div.appendChild(note);
+  }
+  /* 設置部署の消し込み（曜日別業務のみ、subsを持つ項目だけ）。
+     onceによる無効化はcb/div.onclickにしか効かせない——第3週側で部署を消し込んでいる
+     途中に親がonceで満たされても、部署パネルはそのまま操作できる必要があるため。 */
+  if (subs) div.appendChild(subBtn);
+  div.appendChild(peekBtn);
+
+  if (!subs) return div;
+
+  var wrap=document.createElement('div'); wrap.className='cli-wrap'+(_subOpen[wdSid(it)]?' open':'');
+  var subsEl=document.createElement('div'); subsEl.className='cli-subs';
+  wrap.appendChild(div); wrap.appendChild(subsEl);
+  renderSubPanel(ds, it, wrap);
+  subBtn.onclick=function(e){
+    e.stopPropagation();
+    var sid=wdSid(it); wrap.classList.toggle('open'); _subOpen[sid]=wrap.classList.contains('open');
+  };
+  subsEl.addEventListener('change', function(e){
+    var cb2=e.target; if(cb2.tagName!=='INPUT') return;
+    var name=cb2.getAttribute('data-dep'); var sid=wdSid(it); if(!sid) return;
+    if (cb2.checked) {
+      if(!D.pages[ds].subChecks) D.pages[ds].subChecks={};
+      if(!D.pages[ds].subChecks[sid]) D.pages[ds].subChecks[sid]={};
+      D.pages[ds].subChecks[sid][name]={by:(typeof taskSelfName==='function'?(taskSelfName()||''):''),ts:Date.now()};
+      saveDPage(ds);
+      writeLog('設置部署を消し込み', fmtJ(ds)+' '+task+' '+name);
+    } else {
+      var owner=wdSubProgress(ds, sid)[name];
+      if (owner && D.pages[owner] && D.pages[owner].subChecks && D.pages[owner].subChecks[sid]) {
+        delete D.pages[owner].subChecks[sid][name];
+        saveDPage(owner);
+        writeLog('設置部署の消し込みを解除', fmtJ(owner)+' '+task+' '+name);
+      }
+    }
+    renderSubPanel(ds, it, wrap);
+  });
+  return wrap;
+}
+/* 部署パネルの開閉状態。sidキーで持ち、renderPage/safeRenderPageで再描画しても
+   開いたままになるようにする（_treeOpenと同じ考え方）。 */
+var _subOpen = {};
+/* wrapEl内の .cli-subbtn（進捗チップ）と .cli-subs（部署ピル一覧）だけを差し替える。
+   safeRenderPage相当のフルページ再描画をしないのは、開閉状態や他の操作中の入力を
+   巻き込みたくないため。 */
+function renderSubPanel(ds, it, wrapEl) {
+  var chipBtn = wrapEl.querySelector('.cli-subbtn');
+  var subsEl = wrapEl.querySelector('.cli-subs');
+  var subs = wdSubs(it) || [];
+  var sid = wdSid(it);
+  var progress = sid ? wdSubProgress(ds, sid) : {};
+  var doneN = 0;
+  var html = subs.map(function(name){
+    var doneDs = progress[name];
+    if (doneDs) doneN++;
+    return '<label class="dc-cb-item'+(doneDs?' checked':'')+'"><input type="checkbox" data-dep="'+escH(name)+'"'+(doneDs?' checked':'')+'>'+escH(name)+(doneDs?'（'+fmtMD(doneDs)+'）':'')+'</label>';
+  }).join('');
+  if (chipBtn) chipBtn.textContent = '🏥 '+doneN+'/'+subs.length+' ▾';
+  if (subsEl) subsEl.innerHTML = '<div class="dc-cbs">'+html+'</div>';
 }
 function updProg(ds) {
-  var pct=getPct(ds), dat=D.pages[ds];
-  var wtl=wdItemsForDate(ds);
-  var done=0, total=0;
-  for(var i=0;i<D.dly.length;i++){if(!isDlyShownOnDate(D.dly[i],ds))continue;total++;if(dat.checks&&dat.checks[i])done++;}
-  for(var j=0;j<wtl.length;j++){total++;if(dat.checks&&dat.checks[D.dly.length+j])done++;}
+  var _cls=clStatus(ds), done=_cls.done, total=_cls.total;
+  var pct=total===0?100:Math.round(done/total*100);
   var f=document.getElementById('pgf'), t=document.getElementById('pgt'), p=document.getElementById('pgp'), pr=document.getElementById('prp');
   if(f)f.style.width=pct+'%';
   if(t)t.textContent='進捗：'+pct+'%（'+done+' / '+total+' 完了）';
@@ -14961,7 +15323,7 @@ function swTab(t) {
   if(t==='assign'){ swSubTab('at'); renderAT(); }
   if(t==='sched'){ renderSched(); }
   if(t==='master'){
-    renderWdlyList();renderDlyList();
+    renderWdlyList();renderDlyList();renderWdDeptList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
     document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
       var perm=sec.getAttribute('data-perm');
@@ -15011,6 +15373,7 @@ function toDS(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDat
 function toMS(d){return d.getFullYear()+'-'+pad(d.getMonth()+1);}
 function pad(n){return n<10?'0'+n:''+n;}
 function fmtJ(ds){var p=ds.split('-');return p[0]+'年'+parseInt(p[1])+'月'+parseInt(p[2])+'日';}
+function fmtMD(ds){var p=ds.split('-');return parseInt(p[1])+'/'+parseInt(p[2]);}
 
 document.addEventListener('click',function(e){
   if(window.innerWidth<=768&&sbOpen){
@@ -15235,15 +15598,17 @@ function renderBoard() {
       });
       html += '</div>';
     }
-    /* 既読リスト（投稿者本人はカウントに含めない） */
+    /* 既読リスト（投稿者本人はカウント・一覧のどちらにも含めない。以前はcountだけ本人を除外し
+       listには含めていたため「👀 2」を開くと3人分の名前が並ぶズレがあった） */
     var readList = [];
     var readCount = 0;
     if (p.reads) {
       Object.keys(p.reads).forEach(function(uid) {
         var r = p.reads[uid];
         if (!r) return;
+        if (p.uid && uid === p.uid) return;
         readList.push({ uid: uid, n: r.n, ts: r.ts });
-        if (!(p.uid && uid === p.uid)) readCount++;
+        readCount++;
       });
       readList.sort(function(a, b){ return (a.ts || 0) - (b.ts || 0); });
     }
@@ -15256,7 +15621,7 @@ function renderBoard() {
     html += '</div>';
     html += '<div id="brd-reads-' + p._id + '" style="display:none;font-size:11px;color:var(--txt3);margin-top:4px;padding:6px 8px;background:var(--sur);border-radius:6px;line-height:1.7">';
     html += readList.length
-      ? readList.map(function(r){ return escH(r.n) + '（' + fmtDT(r.ts) + '）'; }).join('<br>')
+      ? readList.map(function(r){ return escH(r.n); }).join('<br>')
       : 'まだ既読はありません';
     html += '</div>';
     /* 返信 */
@@ -16228,14 +16593,14 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
     saveD();
     writeLog('Firebaseスナップショットから復元', dateStr);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
     renderFirebaseSnapshots();
@@ -16296,13 +16661,13 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
     if(FB_ON) writeLog('自動バックアップから復元', dt+' '+s.label);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
     renderAutoBackups();
@@ -16352,13 +16717,13 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       saveD();
       if(FB_ON) writeLog('バックアップインポート', file.name);
       renderCal(); safeRenderPage();
-      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList();
+      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
       renderOpeList(); renderCathList(); renderLockList(); renderAT();
       var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
       if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';
