@@ -15237,15 +15237,17 @@ function renderBoard() {
       });
       html += '</div>';
     }
-    /* 既読リスト（投稿者本人はカウントに含めない） */
+    /* 既読リスト（投稿者本人はカウント・一覧のどちらにも含めない。以前はcountだけ本人を除外し
+       listには含めていたため「👀 2」を開くと3人分の名前が並ぶズレがあった） */
     var readList = [];
     var readCount = 0;
     if (p.reads) {
       Object.keys(p.reads).forEach(function(uid) {
         var r = p.reads[uid];
         if (!r) return;
+        if (p.uid && uid === p.uid) return;
         readList.push({ uid: uid, n: r.n, ts: r.ts });
-        if (!(p.uid && uid === p.uid)) readCount++;
+        readCount++;
       });
       readList.sort(function(a, b){ return (a.ts || 0) - (b.ts || 0); });
     }
@@ -15258,7 +15260,7 @@ function renderBoard() {
     html += '</div>';
     html += '<div id="brd-reads-' + p._id + '" style="display:none;font-size:11px;color:var(--txt3);margin-top:4px;padding:6px 8px;background:var(--sur);border-radius:6px;line-height:1.7">';
     html += readList.length
-      ? readList.map(function(r){ return escH(r.n) + '（' + fmtDT(r.ts) + '）'; }).join('<br>')
+      ? readList.map(function(r){ return escH(r.n); }).join('<br>')
       : 'まだ既読はありません';
     html += '</div>';
     /* 返信 */
