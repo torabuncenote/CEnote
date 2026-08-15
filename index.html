@@ -3281,6 +3281,7 @@ function renderSpec() {
   S += '<div class="spec-p">オペ・カテの各行（<code>ops.ope_items</code> / <code>ops.cath_items</code>）は、科・中カテゴリ・術式のそれぞれで自由入力に切替可能（内部値は <code>dept</code>/<code>cat</code>/<code>name</code> が <code>\'__free__\'</code> のとき、実体は <code>deptTxt</code>/<code>catTxt</code>/<code>nameTxt</code>）。行ごとの備考は <code>item.note</code>。カード1枚にまとめて1つだけの備考（<code>ops.ope_note</code> / <code>ops.cath_note</code>）は新規作成できなくなり、既存値がある場合のみ編集可能な旧項目として残る。表示・集計・CSV出力・横断検索は必ず <code>opsItemDept(it)</code> / <code>opsItemCat(it)</code> / <code>opsItemName(it)</code> を経由し、内部の <code>\'__free__\'</code> という値が画面に出ないようにしている。</div>';
   S += '<div class="spec-h2">4-5. 業務チェックリスト</div>';
   S += '<div class="spec-p">共通業務（毎日）＋曜日別業務を自動表示。行全体またはチェックボックスをクリックでON/OFF。各業務の右端「···」でサイドピークを開きマニュアルを参照・編集（画像・動画の添付可）。</div>';
+  S += '<div class="spec-p">曜日別業務（<code>D.wd[曜日]</code>）の各項目はテキストのみの旧形式、または <code>{t, wk, once, subs, sid, notif}</code> 等を持つオブジェクト形式（更新は必ず <code>itemRebuild(oldIt, patch)</code> 経由。patchに無いキーは保持される）。<code>wk</code> は週指定配列（0=最終週、1〜5=第N週、未指定なら毎週）。<code>once:true</code> は週指定がある項目にのみ許可され、「同じ月内でその項目が該当する対象日のうち、いずれか1日で実施していれば他の対象日もチェック済み扱いにする」フラグ。判定は <code>wdOnceDoneOn(ds, ent)</code> が同月の <strong>ds より前</strong> の対象日だけを昇順に走査して行う（未来方向は見ない＝後の操作で過去の記録が書き換わって見える事故を避ける設計）。<code>subs</code> は設置部署名の配列、<code>sid</code> は初回登録時に採番される安定ID（部署リストを空にしても保持され、業務名や部署名を変えても実績との紐付けが切れない）。部署ごとの消し込み実績は <code>D.pages[ds].subChecks[sid][部署名] = {by, ts}</code> に保存され、<code>wdSubProgress(ds, sid)</code> が同じ暦月のページだけを走査して集計する（月が変われば自動的に0件へ戻る＝月次リセット）。チェックリストの done/total 集計は <code>clStatus(ds)</code> が唯一の入口で、進捗％（<code>getPct</code>）・ダッシュボード・消し込みバー（<code>closeItems</code>）はすべてこれを呼ぶ。</div>';
   S += '<div class="spec-h2">4-6. 業務連絡・申し送り</div>';
   S += '<div class="spec-p">投稿リスト形式。名前・日時を自動記録。画像・動画を添付可（画像は自動圧縮1280px/JPEG80%）。動画は50MBまで。Ctrl+Enterで送信。自分の投稿は自分で削除可、管理者は全員分削除可。</div>';
   S += '<div class="spec-p"><strong>患者情報検知機能</strong>：送信ボタン押下時に本文を自動スキャン。フルネーム・8桁患者IDを検知すると送信ブロック（是正案を提示）。カルテ番号・生年月日・病室番号・病名文脈・姓＋敬称・下4桁ID・姓＋イニシャルは警告表示後に確認送信可。</div>';
@@ -3313,9 +3314,9 @@ function renderSpec() {
   S += '<div class="spec-h1">6. データ管理・容量</div>';
   S += '<div class="spec-h2">データ構造（Firebase /data/）</div>';
   S += '<table class="spec-tbl"><tr><th>キー</th><th>内容</th></tr>';
-  [['pages','連絡表データ {YYYY-MM-DD: {duties,phsNums,dutyNotes,dutyRoles,dutyChecks,customDuties,ops_cards,checks,memos,ops,ocData,surplus,closeSkip}}'],
+  [['pages','連絡表データ {YYYY-MM-DD: {duties,phsNums,dutyNotes,dutyRoles,dutyChecks,customDuties,ops_cards,checks,memos,ops,ocData,surplus,closeSkip,subChecks}}'],
    ['stf','スタッフ名配列'],['phs','PHS番号配列'],['dly','共通業務配列'],
-   ['wd','曜日別業務 {月:[], 火:[], ...}'],['ope','オペ術式配列'],['cath','カテ種別配列'],
+   ['wd','曜日別業務 {月:[{t,wk,once,subs,sid,notif}], 火:[], ...}（旧形式は文字列のみの配列要素）'],['ope','オペ術式配列'],['cath','カテ種別配列'],
    ['dutyCfgMaster','担当枠マスタ定義配列'],['dutyCfg','担当枠テンプレート配列'],
    ['opsCfg','業務カードテンプレート配列（デフォルト[]）'],
    ['shift','勤務表データ {YYYY-MM: {名前: {日: {shift,oc}}}}'],
@@ -3806,6 +3807,24 @@ function renderAdminManual() {
   S += '<div class="a-h2">maker ロックの使いどころ</div>';
   S += '<div class="a-p">誰でも編集できる仕様のため、入力の乱れや誤操作が目立つようになったら「🔒 ロック」タブで <code>maker</code>（メーカー連絡先の編集）をロックしてください。ロック中も閲覧・検索・コピーは全員可能なままで、追加・編集・削除だけが管理者限定になります。特定のスタッフにだけ編集を許可したい場合は、ロックした上で「🔑 管理者設定 → 👑 ユーザー管理」の編集権限からその人に <code>maker</code> 権限を個別付与できます。</div>';
 
+  // 第18章: 曜日別業務の「月内1回」「設置部署」設定
+  S += '<div class="a-h1">18. 曜日別業務の「月内どれか1回でよい」「設置部署の消し込み」を設定する</div>';
+  S += '<div class="a-p">「📋 業務」タブ→「📅 曜日別業務」で、週指定（第1〜5週・最終週のチップ）がある項目にのみ設定できます。「毎週」の項目には設定できません。</div>';
+  S += '<div class="a-h2">月内どれか1回でよい（once）</div>';
+  S += '<div class="a-p">「第2・第4月曜のどちらかで実施すればOK」のような業務向けの設定です。</div>';
+  S += '<div class="a-step"><div class="a-num">1</div><div>対象の曜日別業務で「頻度」の週チップ（第1〜5・最終）を選び、「毎週」から切り替える</div></div>';
+  S += '<div class="a-step"><div class="a-num">2</div><div>表示された「月内どれか1回でよい」チェックボックスをON</div></div>';
+  S += '<div class="a-ok">✅ 設定後は、どちらかの対象日で実施すれば、もう一方の対象日のチェックリストにも「✓ ○月○日に実施済み（月内1回）」と表示され、チェック済み扱いになります（チェックボックス自体はグレーアウトして押せなくなります。押しても実施した日の記録は消えないためです）。通知（🔔）も、月内ですでに実施済みなら送られなくなります。</div>';
+  S += '<div class="a-warn">⚠ 先に実施した日の記録は、後で別の対象日をチェックしても変わりません。「点検記録が後の操作で書き換わって見える」事故を防ぐため、常に「その月の自分より前の日」だけを見て判定する設計です。</div>';
+  S += '<div class="a-p">頻度を「毎週」に戻すと、この設定は自動的に解除されます（トーストで通知）。</div>';
+  S += '<div class="a-h2">設置部署の消し込み（subs）</div>';
+  S += '<div class="a-p">「第3週・第4週の土曜で機器点検を部署ごとに分担する」のような業務向けの設定です。</div>';
+  S += '<div class="a-step"><div class="a-num">1</div><div>対象の曜日別業務の「🏥 部署」ボタンをタップ</div></div>';
+  S += '<div class="a-step"><div class="a-num">2</div><div>開いたモーダルのテキストエリアに、点検対象の部署名を1行1部署で入力して保存</div></div>';
+  S += '<div class="a-p">登録すると、日ページのチェックリストにその項目の進捗チップ「🏥 3/8 ▾」が表示されます。タップするとその場で部署ごとのチェック欄が開閉し、実施済みの部署には実施日が表示されます。進捗は暦月ごとに集計され、月が変わると自動的に0件に戻ります。</div>';
+  S += '<div class="a-warn">⚠ 部署ごとにチェックしても、親のチェックリスト項目自体（「各部署 生体情報モニタ点検」など）は自動でチェックされません。全部署の実施が終わったら、通常のチェックリスト操作で親の項目も手動でチェックしてください。</div>';
+  S += '<div class="a-p">部署リストを全部削除しても、それまでの消し込み実績と紐付けIDは残ります。同じ部署名を再登録すれば、過去の実施記録と再びつながります。</div>';
+
   el.innerHTML = S;
 }
 
@@ -4085,8 +4104,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/14-36';
+var APP_VERSION = 'Ver.2026/08/15-37';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/15-37', date:'2026-08-15', title:'曜日別業務に「月内1回」「設置部署の消し込み」を追加', items:[
+    {t:'new', d:'📅 曜日別業務に「月内どれか1回でよい」を設定できるようになりました。第2・第4月曜のどちらかで実施すればOK、のような業務向けです。一方の対象日で実施すると、もう一方の対象日にも「✓ 実施済み（月内1回）」と表示され、通知も送られなくなります。先に実施した日の記録は、後で別の対象日をチェックしても変わりません'},
+    {t:'new', d:'🏥 部署ごとに分担する曜日別業務に「設置部署の消し込み」を追加。チェックリストの項目に「🏥 3/8 ▾」の進捗チップが表示され、タップすると部署ごとのチェック欄がその場で開閉します。進捗は月が変わると自動でリセットされます'},
+    {t:'fix', d:'特定の曜日を除外する設定をした共通業務がある日で、進捗バーと進捗テキストの分母が食い違って見えることがあった不具合を修正'},
+    {t:'fix', d:'📢 掲示板の既読一覧の人数と、開いたときに並ぶ名前の数がずれることがあった不具合を修正。既読一覧の表示も日時なしの名前だけに整理しました'}
+  ]},
   { ver:'Ver.2026/08/14-36', date:'2026-08-14', title:'メーカー担当者連絡先を追加', items:[
     {t:'new', d:'🏭 メーカー担当者の連絡先をアプリで見られるようになりました。メーカー名・担当者名・電話番号・備考で横断検索でき、カテゴリでも絞り込めます'},
     {t:'new', d:'📞 電話番号・メールアドレスはタップでコピーできます'},
@@ -4658,6 +4683,19 @@ function renderDev() {
   S += '<div class="d-p">元データの「カテ」シートは、1つの表（カテ本体）の下に別の表（PM=ペースメーカー）が28行目あたりから続けて入っており、見出し行（B列が「メーカー」）が1シートに2つある。<span class="d-code">parseMakerBook()</span> はシート内の見出し行をすべて検出し、2つ目以降の見出し行が見つかった時点で新しいグループとして区切る。カテゴリ名は、1つ目のグループはシート名そのもの、2つ目以降はその表の最初のデータ行のA列の値（この例では「PM」）を使う。見出し行自体はデータとして取り込まない。この構造を見落とすと、2表目の見出し行が1件のデータとして混入し、PM分のレコードがカテのカテゴリに吸収されてしまう。</div>';
   S += '<div class="d-h2">openSubmenu() によるサブメニューの相互排他</div>';
   S += '<div class="d-p">管理者専用の <span class="d-code">docs-submenu</span>（🔑 管理資料）と全員向けの <span class="d-code">lib-submenu</span>（📚 資料）は、共通ヘルパー <span class="d-code">openSubmenu(id)</span> で開閉する。<span class="d-code">id</span> に指定した方だけ表示を <span class="d-code">flex</span> ⇄ <span class="d-code">none</span> でトグルし、もう一方は常に <span class="d-code">none</span> に強制するため、両方が同時に開くことはない。<span class="d-code">openSubmenu(null)</span> を呼ぶと両方閉じる（ログアウト時・他タブへの遷移時に使用）。<span class="d-code">toggleDocsMenu()</span> / <span class="d-code">toggleLibMenu()</span> はそれぞれ <span class="d-code">openSubmenu(\'docs-submenu\')</span> / <span class="d-code">openSubmenu(\'lib-submenu\')</span> を呼ぶだけの薄いラッパー。</div>';
+
+  // チェックリスト集計の一本化・曜日別業務 once/subs の実装メモ
+  S += '<div class="d-h1">チェックリスト集計の一本化と曜日別業務「once」「subs」（実装メモ）</div>';
+  S += '<div class="d-h2">clStatus(ds) を集計の唯一の入口にした理由</div>';
+  S += '<div class="d-p">進捗％（<span class="d-code">getPct</span>）・ダッシュボードの進捗表示・消し込みバー（<span class="d-code">closeItems</span>）が、それぞれ独自に <span class="d-code">D.dly</span>/<span class="d-code">D.wd</span> を数え直していた。条件を1つ足すたびに複数箇所を同時に直す必要があり、実際に「曜日スキップ設定（skip_sat等）を無視して分母を数える」バグが一部の箇所にだけ残っていた。<span class="d-code">clStatus(ds)</span> 1関数に数え方を集約し、<span class="d-code">getPct</span>・ダッシュボード・<span class="d-code">closeItems</span> はすべてこれを呼ぶだけにした。</div>';
+  S += '<div class="d-h2">itemRebuild(oldIt, patch) を導入した理由</div>';
+  S += '<div class="d-p"><span class="d-code">D.dly</span>/<span class="d-code">D.wd</span> の各項目はテキストのみの旧形式と、<span class="d-code">{t, wk, once, subs, sid, notif, skip_*}</span> を持つオブジェクト形式が混在する。週チップの切替や通知トグルの保存箇所がそれぞれ <span class="d-code">{t:...,notif:...}</span> のように個別に組み立て直しており、その場のpatchに書かれていないプロパティ（<span class="d-code">once</span>/<span class="d-code">subs</span> 等）が黙って消えるバグが複数の保存経路にあった（週チップを押しただけで通知設定が消える、等）。<span class="d-code">itemRebuild</span> はpatchで指定したキーだけを更新し、それ以外は保持する共通ヘルパーで、曜日別・共通業務の書き込みは全てこれを経由するよう統一した。</div>';
+  S += '<div class="d-h2">wdOnceDoneOn が過去方向にしか探さない理由</div>';
+  S += '<div class="d-p">「月内どれか1回」の判定を前後どちらの対象日も見る実装にすると、例えば第2月曜のページを開いた時点では未達だったのに、後で第4月曜をチェックした瞬間に第2月曜側の表示が緑に変わってしまう。点検記録としては「後の操作で過去の実績が書き換わって見える」事故になる。<span class="d-code">wdOnceDoneOn(ds, ent)</span> は同じ月の「dsより前」の対象日だけを昇順に探し、最初に見つかった実施日を返す。第2週は常に第4週より先に来るため、過去方向だけを見ても「どちらかで済ませればOK」という要件は満たせる。</div>';
+  S += '<div class="d-h2">subs を項目テキストではなく sid（安定ID）で紐づける理由</div>';
+  S += '<div class="d-p"><span class="d-code">D.manual</span> が業務名（テキスト）をキーにしているため、業務名をリネームするとマニュアルの紐付けが切れるという既知の弱点がある。設置部署の消し込み実績（<span class="d-code">subChecks</span>）も、項目テキストで紐づけると同じ問題を再発させる。<span class="d-code">sid</span> は部署リストを初めて登録した時に1回だけ採番し（<span class="d-code">newSid()</span>）、以後は項目名や部署名を変えても不変にすることで、この弱点の再発を避けている。部署リストを全部削除しても <span class="d-code">sid</span> 自体は残す実装にしているのも同じ理由（空にしてから再登録したときに過去の実績と再接続するため）。</div>';
+  S += '<div class="d-h2">subChecks を新規トップレベルDプロパティではなく D.pages[ds].subChecks に置いた理由</div>';
+  S += '<div class="d-p">部署の消し込み進捗は暦月でリセットする必要がある。ページ単位（<span class="d-code">D.pages[ds].subChecks[sid][部署名]</span>）に持たせれば、<span class="d-code">wdSubProgress(ds, sid)</span> が当月のページだけを走査するだけで月次リセットが自動的に成立する（新しいページには実績が存在しないので0件から始まる）。加えて、新規トップレベル <span class="d-code">D</span> プロパティを増やすと「Dへのプロパティ追加ルール」の5箇所（初期化・<span class="d-code">loadD</span>・Firebaseリスナー・ログアウトリセット・バックアップ復元3箇所の配列）を全て触る必要があるが、既存の <span class="d-code">pages</span> 配下に追加するだけならその手当は不要。</div>';
 
   // デフォルトデータ
   S += '<div class="d-h1">デフォルトデータ</div>';
@@ -5997,6 +6035,16 @@ function renderGuide() {
   S += '<div class="gd-p">連絡表の下部「業務チェックリスト」の項目をタップするとチェックが入ります。もう一度タップで解除。</div>';
   S += ok('全項目チェック完了 → カレンダーに🔵青ドットが表示されます。');
   S += '<div class="gd-p">連絡表上部の進捗バー（緑のゲージ）をタップするとチェックリスト欄へ自動スクロールします。画面右下の「TOP」ボタンで最上部に戻れます。</div>';
+  S += h2('📅 「月内どれか1回でよい」業務');
+  S += '<div class="gd-p">曜日別業務の中には「第2・第4月曜のどちらかで実施すればOK」のように、月に一度だけ実施すればよい業務があります。この設定がされた業務は、どちらか一方の対象日で実施済みにすると、もう一方の対象日のチェックリストにも自動でチェック済みとして表示されます（実施済みの日には「✓ 8/10に実施済み（月内1回）」のように表示され、チェックボックスはグレーアウトして押せなくなります。押しても実施した日の記録は消えないためです）。</div>';
+  S += ok('先に実施した日の記録は、後で別の対象日をチェックしても変わりません。点検記録として過去の日付が書き換わることはない設計です。');
+  S += '<div class="gd-p">通知（🔔）も、月内ですでに実施済みなら送られなくなります。</div>';
+  S += h2('🏥 設置部署ごとの消し込み');
+  S += '<div class="gd-p">「各部署の生体情報モニタ点検」のように部署ごとに分担して実施する曜日別業務には、チェックリストの項目に「🏥 3/8 ▾」のような進捗チップが付きます。タップするとその場で部署ごとのチェック欄が開閉し（別画面には移りません）、実施した部署にチェックを入れられます。</div>';
+  S += '<div class="gd-p">チェックした部署には「ICU（8/16）」のように実施日が表示されます。進捗は暦月ごとにリセットされ、月が変わると自動的に0件に戻ります。</div>';
+  S += warn('部署ごとにチェックしても、親のチェックリスト項目（「各部署 生体情報モニタ点検」など）は自動ではチェックされません。全部署の実施が終わったら、親の項目も手動でチェックしてください。');
+  S += '<div class="gd-p">部署の進捗（3/8など）は、進捗％やダッシュボード、画面下の消し込みバーの集計には含まれません。それらの集計では親の項目1件だけが対象になります。</div>';
+  S += warn('「月内どれか1回でよい」「設置部署」の設定自体は管理者が「業務」タブの「📅 曜日別業務」で行います。一般ユーザーは日ページ側での操作のみです。');
 
   S += h1('💬 申し送りを書く');
   S += step(1,'入力欄をタップして文字を入力','「申し送りを入力...」と書かれている欄。');
