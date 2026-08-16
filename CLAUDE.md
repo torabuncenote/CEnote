@@ -473,9 +473,9 @@ Fixed bar at the bottom of the screen, shown only while a day page is open — `
 - **Tasks (`#pane-assign` task subtab)**: Outside `#main` — `saveTaskFromModal()` calls `detectPHI` on `title+'\n'+desc` explicitly before persisting.
 - **Makers (`#pane-makers`)**: Outside `#main`, so `initPHIGuard` does not cover its modals either. Only the 備考 field is guarded — `saveMakerFromModal()` calls `phiGuardText(note, ...)` explicitly. メーカー名・担当者名・電話番号・メールには**意図的に** `detectPHI` をかけない: `detectPHI` detects 姓＋漢字 patterns as a personal name and hard-blocks the save, but the 担当者 field's whole purpose is to hold a manufacturer employee's name, so applying it there would permanently block legitimate input.
 
-### Media Approval
+### Media Uploads
 
-Uploads by non-admins get `pending: true`. In `renderMemos`, non-admins see a placeholder; admins see approve/reject buttons. `approveMemoMedia()` / `rejectMemoMedia()` flip the flag. `listPendingMedia()` scans all pages+manual; called via debounced `updatePendingBadge()`.
+All image/video uploads (memo, board post, board reply, manual) display immediately regardless of uploader — there is no admin approval gate. This was removed after real-world feedback that the review step was unnecessary friction; the earlier `pending: true` flag, the approve/reject UI, and the toolbar's pending-count badge were deleted outright rather than left dormant, since nothing sets `pending` anymore and no legacy `pending:true` records are known to exist in production. If a stray `pending:true` value is ever found on an old record, it is simply inert — no code reads that field anymore, so the media just displays like any other.
 
 ### Fairness Check
 

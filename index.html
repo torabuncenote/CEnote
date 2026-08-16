@@ -60,7 +60,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .tb{overflow:hidden}
 .tb .btn,.tb-logo,.tb-sub,.tb-sep,.sl,.btn-logout,.uc-name,.hbg{white-space:nowrap}
 .tb-logo{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.btn-logout,.hbg,.pend-badge{flex-shrink:0}
+.btn-logout,.hbg{flex-shrink:0}
 .hbg{display:none;background:none;border:1px solid var(--bdr);border-radius:var(--rs);padding:5px 9px;cursor:pointer;font-size:16px;color:var(--txt)}
 .ab{display:flex;flex-direction:row;margin-top:var(--th-all);height:calc(100vh - var(--th-all));overflow:hidden}
 .sb{width:var(--sw);min-width:var(--sw);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden;transition:width .25s,min-width .25s,opacity .2s}
@@ -733,7 +733,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .cli-peek{margin-left:auto;flex-shrink:0;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:2px 4px;border-radius:4px;opacity:0;transition:opacity .15s;line-height:1}
 .cli:hover .cli-peek{opacity:1}
 .cli-peek:hover{background:var(--sur2);color:var(--ac)}
-.cli-peek.has-manual{opacity:.5;color:var(--ac)}
+.cli-peek.has-manual{opacity:.9;color:var(--ac);background:var(--ac-bg);border-radius:8px}
 .cli:hover .cli-peek.has-manual{opacity:1}
 /* 設置部署の消し込み（曜日別業務のみ）。.cli自体は他の行と完全に同じ形を保ち、
    部署リストを持つ項目だけ.cli-wrapで包んで下にパネルを足す */
@@ -805,19 +805,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .sched-block .bh::after{content:'';position:absolute;left:50%;bottom:2px;width:18px;height:2px;background:rgba(255,255,255,.7);border-radius:2px;transform:translateX(-50%)}
 .sb-o{background:var(--or)}.sb-c{background:#0891b2}.sb-g{background:var(--gr)}.sb-pu{background:var(--pu)}.sb-ac{background:var(--ac)}.sb-gd{background:var(--gd)}.sb-gray{background:#64748b}.sb-rd{background:var(--rd)}
 .sched-empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px}
-/* ===== メディア承認 ===== */
+/* ===== メディア表示 ===== */
 .media-cell{position:relative;display:inline-block}
-.media-pending{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-width:120px;min-height:80px;padding:10px;border:1.5px dashed var(--or);border-radius:8px;background:var(--or-bg);color:var(--or);font-size:12px;font-weight:700}
-.media-pend-badge{position:absolute;top:4px;left:4px;background:var(--or);color:#fff;font-size:9px;font-weight:700;border-radius:4px;padding:1px 5px}
-.media-actions{position:absolute;bottom:4px;left:4px;right:4px;display:flex;gap:4px;justify-content:center}
-.media-appr,.media-rej{border:none;border-radius:5px;font-size:11px;font-weight:700;padding:3px 7px;cursor:pointer;color:#fff}
-.media-appr{background:var(--gr)}.media-rej{background:var(--rd)}
-.sp-media-item .media-appr,.sp-media-item .media-rej{position:static;font-size:13px;padding:2px 5px;margin:0}
-.pend-badge{display:none;align-items:center;gap:3px;background:var(--or);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;margin-right:4px;white-space:nowrap;flex-shrink:0}
-.pend-badge.show{display:inline-flex}
-.pend-list{max-height:60vh;overflow-y:auto}
-.pend-row{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--bdr);font-size:12px}
-.pend-row .pr-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* ===== 変更履歴 ===== */
 .cl-h1{font-size:17px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:6px;margin:20px 0 10px}
 .cl-h2{font-size:13px;font-weight:800;margin:16px 0 6px;padding:4px 0 4px 10px;border-left:4px solid var(--ac);color:var(--txt)}
@@ -1063,7 +1052,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
   <span class="tb-sep">|</span>
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
-    <button class="pend-badge" id="pend-badge" onclick="openPendingModal()" title="承認待ちメディア"></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -1717,17 +1705,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 </div>
 
 <!-- スタッフ選択モーダル -->
-<!-- ===== 承認待ちメディアモーダル ===== -->
-<div class="ov hd" id="modal-pending">
-  <div class="md" style="max-width:520px">
-    <h3>🕓 承認待ちメディア</h3>
-    <div style="font-size:12px;color:var(--txt3);margin-bottom:8px">一般ユーザーがアップロードした画像/動画です。承認すると連絡表・マニュアルに表示されます。</div>
-    <div class="pend-list" id="pend-list"></div>
-    <div class="mdb" style="margin-top:10px">
-      <button class="btn btn-g" onclick="closePendingModal()">閉じる</button>
-    </div>
-  </div>
-</div>
 <!-- ===== 横断検索モーダル ===== -->
 <!-- ===== 変更履歴（一般公開・フィルタ済み）モーダル ===== -->
 <div class="ov hd" id="modal-changelog-public" onclick="if(event.target===this)closeChangelogPublic()">
@@ -2404,7 +2381,6 @@ function fbInit() {
         /* 前セッションで開いていた資料ペインを閉じてカレンダービューに戻す */
         swTab('cal');
         openSubmenu(null);
-        updatePendingBadge();
 
         /* 自動ログアウトタイマー開始 */
         resetIdleTimer();
@@ -2573,7 +2549,6 @@ function fbInit() {
             renderOpeList(); renderCathList();
             renderLockList(); renderAutoAssignModeSetting();
             updateTabVisibility();
-            updatePendingBadge();
             /* 入力フォーカス中はページを再描画しない（入力内容が消えるのを防ぐ） */
             var focused = document.activeElement;
             var mainEl  = document.getElementById('main');
@@ -2594,7 +2569,6 @@ function fbInit() {
             var bp = document.getElementById('pane-board');
             if (bp && bp.style.display !== 'none') renderBoard();
             updateBoardBadge();
-            updatePendingBadge();
           });
           /* タスクリスナー（初回ログイン時に一度だけ設定） */
           fbDB.ref('/tasks').on('value', function(tsnap) {
@@ -2797,14 +2771,6 @@ function renderSPMedia(mediaArr) {
   if (!grid) return;
   grid.innerHTML = '';
   (mediaArr||[]).forEach(function(m, idx) {
-    /* 承認待ち：一般ユーザーには非表示でプレースホルダーのみ */
-    if (m.pending && !isAdmin) {
-      var ph = document.createElement('div');
-      ph.className = 'sp-media-item media-pending';
-      ph.innerHTML = '🕓 承認待ち';
-      grid.appendChild(ph);
-      return;
-    }
     var item = document.createElement('div'); item.className='sp-media-item';
     var mSrc = m.url || m.data || '';
     if (m.type === 'image') {
@@ -2816,20 +2782,6 @@ function renderSPMedia(mediaArr) {
       var vid = document.createElement('video');
       vid.src = mSrc; vid.controls = true; vid.preload = 'metadata';
       item.appendChild(vid);
-    }
-    if (m.pending) {
-      var badge = document.createElement('span');
-      badge.className = 'media-pend-badge'; badge.textContent = '承認待ち';
-      item.appendChild(badge);
-      if (isAdmin) {
-        var actions = document.createElement('div'); actions.className = 'media-actions';
-        var ap = document.createElement('button'); ap.className='media-appr'; ap.textContent='✅'; ap.title='承認';
-        ap.onclick = function(e){ e.stopPropagation(); approveSPMedia(idx); };
-        var rj = document.createElement('button'); rj.className='media-rej'; rj.textContent='🗑'; rj.title='却下';
-        rj.onclick = function(e){ e.stopPropagation(); rejectSPMedia(idx); };
-        actions.appendChild(ap); actions.appendChild(rj);
-        item.appendChild(actions);
-      }
     }
     var del = document.createElement('button');
     del.className='sp-media-del'; del.textContent='×'; del.title='削除';
@@ -2874,15 +2826,10 @@ function onSPMediaAdd(input) {
           name: file.name,
           url:  url || fallback,
           storagePath: url ? path : null,
-          data: url ? null : fallback,
-          pending: !isAdmin            /* 非管理者の投稿は管理者承認待ち */
+          data: url ? null : fallback
         });
         pending--;
-        if (pending === 0) {
-          saveSPEntry(entry); renderSPMedia(entry.media);
-          if (entry.media.some(function(m){ return m.pending; }))
-            sendAdminNotification('🕓 承認依頼: マニュアル「' + _spTask + '」に画像/動画が追加されました', '');
-        }
+        if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); }
       });
     };
     if (isVideo) {
@@ -2922,7 +2869,6 @@ function saveSPEntry(entry) {
   D.manual[_spTask] = entry;
   saveD();
   if(curDs&&D.pages[curDs]) safeRenderPage();
-  updatePendingBadge();
 }
 
 function closeSP() {
@@ -4114,8 +4060,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/15-37';
+var APP_VERSION = 'Ver.2026/08/16-38';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/16-38', date:'2026-08-16', title:'画像・動画の承認待ちを廃止、チェックリストのマニュアルアイコンを見やすく', items:[
+    {t:'new', d:'📎 申し送り・掲示板・業務マニュアルに添付した画像/動画は、これまでの「管理者の承認待ち」を経由せず、投稿してすぐ全員に表示されるようになりました'},
+    {t:'imp', d:'✅ 業務チェックリストの「···」ボタンは、マニュアル（手順・画像など）が登録されている項目だけ背景が薄く色付き、目立つようになりました'}
+  ]},
   { ver:'Ver.2026/08/15-37', date:'2026-08-15', title:'曜日別業務に「月内1回」「設置部署の消し込み」を追加', items:[
     {t:'new', d:'📅 曜日別業務に「月内どれか1回でよい」を設定できるようになりました。第2・第4月曜のどちらかで実施すればOK、のような業務向けです。一方の対象日で実施すると、もう一方の対象日にも「✓ 実施済み（月内1回）」と表示され、通知も送られなくなります。先に実施した日の記録は、後で別の対象日をチェックしても変わりません'},
     {t:'new', d:'🏥 部署ごとに分担する曜日別業務に「設置部署の消し込み」を追加。「🏥 設置部署マスタ」に部署名を登録しておくと、各業務ではチェックで選ぶだけで済みます。チェックリストの項目に「🏥 3/8 ▾」の進捗チップが表示され、タップすると部署ごとのチェック欄がその場で開閉します。進捗は月が変わると自動でリセットされます'},
@@ -10240,25 +10190,11 @@ function renderMemos(ds, dat, locked) {
       for (var mi = 0; mi < m.media.length; mi++) {
         var med = m.media[mi];
         var mediaSrc = escH(med.url || med.data || '');
-        /* 承認待ち：一般ユーザーには非表示でプレースホルダーのみ */
-        if (med.pending && !isAdmin) {
-          h += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + escH(med.name||'') + '</span></div>';
-          continue;
-        }
         h += '<div class="media-cell">';
         if (med.type === 'image') {
           h += '<img src="' + mediaSrc + '" alt="' + escH(med.name) + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
         } else {
           h += '<video src="' + mediaSrc + '" controls preload="metadata" onerror="this.insertAdjacentHTML(\'afterend\',\'<span style=\"font-size:11px;color:var(--rd)\">動画を読み込めませんでした</span>\')"></video>';
-        }
-        if (med.pending) {
-          h += '<span class="media-pend-badge">承認待ち</span>';
-          if (isAdmin) {
-            h += '<div class="media-actions">'
-               + '<button class="media-appr" onclick="approveMemoMedia(\'' + ds + '\',' + i + ',' + mi + ')">✅承認</button>'
-               + '<button class="media-rej" onclick="rejectMemoMedia(\'' + ds + '\',' + i + ',' + mi + ')">🗑却下</button>'
-               + '</div>';
-          }
         }
         h += '</div>';
       }
@@ -10991,8 +10927,7 @@ function _doPostMemo(ds) {
         name:        m.name,
         url:         url || fallback,     /* StorageURL or base64 */
         storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
-        data:        url ? null : fallback, /* base64フォールバック時 */
-        pending:     !isAdmin             /* 非管理者の投稿は管理者承認待ち */
+        data:        url ? null : fallback /* base64フォールバック時 */
       });
       pending--;
       if (pending === 0) _finishPostMemo(ds, entry, text, sendBtn);
@@ -11010,12 +10945,7 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   renderMemoMediaPreview();
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '送信'; }
   renderMemos(ds, D.pages[ds], !can('memo'));
-  updatePendingBadge();
   updateCloseBar(ds);
-  if (entry.media && entry.media.some(function(m){return m.pending;})) {
-    toast('画像/動画は管理者の承認後に表示されます。', 'ok');
-    sendAdminNotification('🕓 承認依頼: ' + entry.name + 'さんが申し送り（' + fmtJ(ds) + '）に画像/動画を追加しました', entry.text ? entry.text.slice(0,50) : '');
-  }
   /* @メンション通知 */
   var mentioned = extractMentions(text, entry.name);
   if (mentioned.length) {
@@ -11029,150 +10959,6 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   }
 }
 
-/* ===== メディア承認（管理者のみ） ===== */
-function approveMemoMedia(ds, i, mi) {
-  if (!isAdmin) return;
-  var m = D.pages[ds] && D.pages[ds].memos && D.pages[ds].memos[i];
-  if (!m || !m.media || !m.media[mi]) return;
-  m.media[mi].pending = false;
-  saveD();
-  writeLog('メディア承認', fmtJ(ds) + ' ' + (m.media[mi].name || ''));
-  renderMemos(ds, D.pages[ds], !can('memo'));
-  updatePendingBadge();
-}
-function rejectMemoMedia(ds, i, mi) {
-  if (!isAdmin) return;
-  var m = D.pages[ds] && D.pages[ds].memos && D.pages[ds].memos[i];
-  if (!m || !m.media || !m.media[mi]) return;
-  if (!confirm('このメディアを却下（削除）しますか？')) return;
-  var med = m.media[mi];
-  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
-  m.media.splice(mi, 1);
-  saveD();
-  writeLog('メディア却下', fmtJ(ds) + ' ' + (med.name || ''));
-  renderMemos(ds, D.pages[ds], !can('memo'));
-  updatePendingBadge();
-}
-function approveSPMedia(idx, task) {
-  if (!isAdmin) return;
-  task = task || _spTask;
-  var e = D.manual && D.manual[task];
-  if (!e || !e.media || !e.media[idx]) return;
-  e.media[idx].pending = false;
-  saveD();
-  writeLog('メディア承認', '業務マニュアル: ' + task + ' / ' + (e.media[idx].name || ''));
-  if (_spTask === task) renderSPMedia(e.media);
-  updatePendingBadge();
-}
-function rejectSPMedia(idx, task) {
-  if (!isAdmin) return;
-  task = task || _spTask;
-  var e = D.manual && D.manual[task];
-  if (!e || !e.media || !e.media[idx]) return;
-  if (!confirm('このメディアを却下（削除）しますか？')) return;
-  var med = e.media[idx];
-  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
-  e.media.splice(idx, 1);
-  saveD();
-  writeLog('メディア却下', '業務マニュアル: ' + task + ' / ' + (med.name || ''));
-  if (_spTask === task) renderSPMedia(e.media);
-  updatePendingBadge();
-}
-
-/* 承認待ちメディアを全て収集 */
-function listPendingMedia() {
-  var out = [];
-  Object.keys(D.pages || {}).forEach(function(ds) {
-    var pg = D.pages[ds]; if (!pg || !pg.memos) return;
-    pg.memos.forEach(function(m, i) {
-      (m.media || []).forEach(function(med, mi) {
-        if (med.pending) out.push({ kind:'memo', ds:ds, i:i, mi:mi, name:med.name||'', type:med.type, by:m.name||'' });
-      });
-    });
-  });
-  Object.keys(D.manual || {}).forEach(function(task) {
-    var e = D.manual[task]; if (!e || !e.media) return;
-    e.media.forEach(function(med, idx) {
-      if (med.pending) out.push({ kind:'manual', task:task, idx:idx, name:med.name||'', type:med.type });
-    });
-  });
-  Object.keys(_boardData || {}).forEach(function(id) {
-    var p = _boardData[id]; if (!p) return;
-    _boardMediaArr(p).forEach(function(med, mi) {
-      if (med && med.pending) out.push({ kind:'board', id:id, mi:mi, name:med.name||'', type:med.type, by:p.author||'' });
-    });
-    if (p.replies) {
-      Object.keys(p.replies).forEach(function(rid) {
-        var r = p.replies[rid]; if (!r) return;
-        _boardMediaArr(r).forEach(function(med, mi) {
-          if (med && med.pending) out.push({ kind:'boardReply', id:id, rid:rid, mi:mi, name:med.name||'', type:med.type, by:r.author||'' });
-        });
-      });
-    }
-  });
-  return out;
-}
-var _badgeDebounce = null;
-function updatePendingBadge() {
-  clearTimeout(_badgeDebounce);
-  _badgeDebounce = setTimeout(function() {
-    var b = document.getElementById('pend-badge'); if (!b) return;
-    if (!isAdmin) { b.classList.remove('show'); return; }
-    var n = listPendingMedia().length;
-    if (n > 0) { b.classList.add('show'); b.innerHTML = '🕓 <span class="pend-txt">承認待ち </span>' + n; }
-    else b.classList.remove('show');
-  }, 200);
-}
-function openPendingModal() {
-  if (!isAdmin) return;
-  var m = document.getElementById('modal-pending'); if (!m) return;
-  m.classList.remove('hd');
-  renderPendingList();
-}
-function closePendingModal() {
-  var m = document.getElementById('modal-pending'); if (m) m.classList.add('hd');
-}
-function renderPendingList() {
-  var el = document.getElementById('pend-list'); if (!el) return;
-  var items = listPendingMedia();
-  if (!items.length) {
-    el.innerHTML = '<div class="srch-empty">承認待ちのメディアはありません</div>';
-    updatePendingBadge();
-    return;
-  }
-  el.innerHTML = items.map(function(it, k) {
-    var loc = it.kind === 'memo'
-      ? (escH(fmtJ(it.ds)) + ' の申し送り' + (it.by ? '（' + escH(it.by) + '）' : ''))
-      : it.kind === 'board'
-      ? ('掲示板' + (it.by ? '（' + escH(it.by) + '）' : ''))
-      : it.kind === 'boardReply'
-      ? ('掲示板の返信' + (it.by ? '（' + escH(it.by) + '）' : ''))
-      : ('業務マニュアル: ' + escH(it.task));
-    var icon = it.type === 'video' ? '🎬' : '🖼️';
-    return '<div class="pend-row">'
-      + '<span>' + icon + '</span>'
-      + '<span class="pr-name">' + escH(it.name || '(名称なし)') + '<br><span style="font-size:10px;color:var(--txt3)">' + loc + '</span></span>'
-      + '<button class="media-appr" onclick="pendApprove(' + k + ')">✅承認</button>'
-      + '<button class="media-rej" onclick="pendReject(' + k + ')">🗑却下</button>'
-      + '</div>';
-  }).join('');
-}
-function pendApprove(k) {
-  var it = listPendingMedia()[k]; if (!it) return;
-  if (it.kind === 'memo') approveMemoMedia(it.ds, it.i, it.mi);
-  else if (it.kind === 'board') approveBoardMedia(it.id, it.mi);
-  else if (it.kind === 'boardReply') approveBoardReplyMedia(it.id, it.rid, it.mi);
-  else approveSPMedia(it.idx, it.task);
-  renderPendingList();
-}
-function pendReject(k) {
-  var it = listPendingMedia()[k]; if (!it) return;
-  if (it.kind === 'memo') rejectMemoMedia(it.ds, it.i, it.mi);
-  else if (it.kind === 'board') rejectBoardMedia(it.id, it.mi);
-  else if (it.kind === 'boardReply') rejectBoardReplyMedia(it.id, it.rid, it.mi);
-  else rejectSPMedia(it.idx, it.task);
-  renderPendingList();
-}
 
 function delMemo(ds, idx) {
   if (!D.pages[ds] || !D.pages[ds].memos) return;
@@ -15577,23 +15363,9 @@ function renderBoard() {
       html += '<div class="brd-media">';
       pMedia.forEach(function(med, mi) {
         if (!med) return;
-        /* 承認待ち：一般ユーザーにはプレースホルダーのみ */
-        if (med.pending && !isAdmin) {
-          html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + escH(med.name || '') + '</span></div>';
-          return;
-        }
         var src = escH(med.url || med.data || '');
         html += '<div class="media-cell">';
         html += '<img src="' + src + '" alt="' + escH(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
-        if (med.pending) {
-          html += '<span class="media-pend-badge">承認待ち</span>';
-          if (isAdmin) {
-            html += '<div class="media-actions">'
-              + '<button class="media-appr" onclick="approveBoardMedia(\'' + p._id + '\',' + mi + ')">✅承認</button>'
-              + '<button class="media-rej" onclick="rejectBoardMedia(\'' + p._id + '\',' + mi + ')">🗑却下</button>'
-              + '</div>';
-          }
-        }
         html += '</div>';
       });
       html += '</div>';
@@ -15643,22 +15415,9 @@ function renderBoard() {
           html += '<div class="brd-media">';
           rMedia.forEach(function(med, mi) {
             if (!med) return;
-            if (med.pending && !isAdmin) {
-              html += '<div class="media-pending">🕓 管理者の承認待ち<br><span style="font-size:10px;font-weight:400">' + escH(med.name || '') + '</span></div>';
-              return;
-            }
             var src = escH(med.url || med.data || '');
             html += '<div class="media-cell">';
             html += '<img src="' + src + '" alt="' + escH(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
-            if (med.pending) {
-              html += '<span class="media-pend-badge">承認待ち</span>';
-              if (isAdmin) {
-                html += '<div class="media-actions">'
-                  + '<button class="media-appr" onclick="approveBoardReplyMedia(\'' + p._id + '\',\'' + r._rid + '\',' + mi + ')">✅承認</button>'
-                  + '<button class="media-rej" onclick="rejectBoardReplyMedia(\'' + p._id + '\',\'' + r._rid + '\',' + mi + ')">🗑却下</button>'
-                  + '</div>';
-              }
-            }
             html += '</div>';
           });
           html += '</div>';
@@ -15821,8 +15580,7 @@ function _doPostBoard(text) {
         name:        m.name,
         url:         url || fallback,     /* StorageURL or base64 */
         storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
-        data:        null,
-        pending:     !isAdmin             /* 非管理者の投稿は管理者承認待ち */
+        data:        null
       });
       pending--;
       if (pending === 0) _finishPostBoard(post, text, btn);
@@ -15847,11 +15605,6 @@ function _finishPostBoard(post, text, btn) {
   renderBoardMediaPreview();
   if (btn) { btn.disabled = false; btn.textContent = '投稿'; }
   if(FB_ON) writeLog('掲示板投稿', (text || '[画像]').substring(0,30));
-  updatePendingBadge();
-  if (post.media && post.media.some(function(m){ return m.pending; })) {
-    toast('画像は管理者の承認後に表示されます。', 'ok');
-    sendAdminNotification('🕓 承認依頼: ' + post.author + 'さんが掲示板に画像を投稿しました', (text || '').slice(0,50));
-  }
 }
 
 function postBoard() {
@@ -15872,42 +15625,9 @@ function postBoard() {
   _doPostBoard(text);
 }
 
-/* ===== 掲示板メディア承認（管理者のみ） ===== */
 function _boardMediaArr(p) {
   if (!p || !p.media) return [];
   return Array.isArray(p.media) ? p.media : Object.keys(p.media).map(function(k){ return p.media[k]; });
-}
-function approveBoardMedia(id, mi) {
-  if (!isAdmin) return;
-  var p = _boardData[id]; if (!p) return;
-  var media = _boardMediaArr(p);
-  if (!media[mi]) return;
-  media[mi].pending = false;
-  if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ toast('エラー: '+e.message, 'err'); });
-  } else {
-    renderBoard();
-  }
-  writeLog('メディア承認', '掲示板 ' + (media[mi].name || ''));
-  updatePendingBadge();
-}
-function rejectBoardMedia(id, mi) {
-  if (!isAdmin) return;
-  var p = _boardData[id]; if (!p) return;
-  var media = _boardMediaArr(p);
-  if (!media[mi]) return;
-  if (!confirm('この画像を却下（削除）しますか？')) return;
-  var med = media[mi];
-  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
-  media.splice(mi, 1);
-  if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + id + '/media').set(media).catch(function(e){ toast('エラー: '+e.message, 'err'); });
-  } else {
-    p.media = media;
-    renderBoard();
-  }
-  writeLog('メディア却下', '掲示板 ' + (med.name || ''));
-  updatePendingBadge();
 }
 
 function _doPostBoardReply(postId, text) {
@@ -15935,8 +15655,7 @@ function _doPostBoardReply(postId, text) {
         name:        m.name,
         url:         url || fallback,
         storagePath: url ? path : null,
-        data:        null,
-        pending:     !isAdmin
+        data:        null
       });
       pending--;
       if (pending === 0) _finishPostBoardReply(postId, reply, btn);
@@ -15959,11 +15678,6 @@ function _finishPostBoardReply(postId, reply, btn) {
   if (f) f.style.display = 'none';
   if (btn) { btn.disabled = false; btn.textContent = '返信'; }
   if(FB_ON) writeLog('掲示板返信', (reply.text || '[画像]').substring(0,30));
-  updatePendingBadge();
-  if (reply.media && reply.media.some(function(m){ return m.pending; })) {
-    toast('画像は管理者の承認後に表示されます。', 'ok');
-    sendAdminNotification('🕓 承認依頼: ' + reply.author + 'さんが掲示板に画像を投稿しました', (reply.text || '').slice(0,50));
-  }
 }
 function postBoardReply(postId) {
   var inp = document.getElementById('brd-ri-' + postId);
@@ -15982,41 +15696,6 @@ function postBoardReply(postId) {
     }
   }
   _doPostBoardReply(postId, text);
-}
-
-/* ===== 掲示板返信メディア承認（管理者のみ） ===== */
-function approveBoardReplyMedia(postId, rid, mi) {
-  if (!isAdmin) return;
-  var p = _boardData[postId]; if (!p || !p.replies || !p.replies[rid]) return;
-  var media = _boardMediaArr(p.replies[rid]);
-  if (!media[mi]) return;
-  media[mi].pending = false;
-  if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ toast('エラー: '+e.message, 'err'); });
-  } else {
-    p.replies[rid].media = media;
-    renderBoard();
-  }
-  writeLog('メディア承認', '掲示板返信 ' + (media[mi].name || ''));
-  updatePendingBadge();
-}
-function rejectBoardReplyMedia(postId, rid, mi) {
-  if (!isAdmin) return;
-  var p = _boardData[postId]; if (!p || !p.replies || !p.replies[rid]) return;
-  var media = _boardMediaArr(p.replies[rid]);
-  if (!media[mi]) return;
-  if (!confirm('この画像を却下（削除）しますか？')) return;
-  var med = media[mi];
-  if (med.storagePath && fbST) { fbST.ref(med.storagePath).delete().catch(function(){}); }
-  media.splice(mi, 1);
-  if (FB_ON && fbDB) {
-    fbDB.ref('/board/' + postId + '/replies/' + rid + '/media').set(media).catch(function(e){ toast('エラー: '+e.message, 'err'); });
-  } else {
-    p.replies[rid].media = media;
-    renderBoard();
-  }
-  writeLog('メディア却下', '掲示板返信 ' + (med.name || ''));
-  updatePendingBadge();
 }
 
 function deleteBoard(id) {
