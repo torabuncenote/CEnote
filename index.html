@@ -171,8 +171,10 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 /* 左右は広めに取る（端の文字とボタンが画面のふちで見切れるため）。
    下は「端末のセーフエリア」＋「--vv-bottom」を足す。後者は Android のように
    env(safe-area-inset-bottom) が0でもブラウザ下部のUIやナビゲーションバーに
-   隠れる端末向けに、実際の可視領域から JS（syncCbarInset）が実測して入れる。 */
-.cbar{position:fixed;left:0;right:0;bottom:0;z-index:150;background:var(--sur);border-top:2px solid var(--bdr2);box-shadow:0 -2px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:12px;font-size:13px;box-sizing:border-box;
+   隠れる端末向けに、実際の可視領域から JS（syncCbarInset）が実測して入れる。
+   z-index:250 はスマホの全画面サイドバー/パネル（.sb=200、#pane-assign=201）より
+   上に置くため。以前は150で、サイドバーを開くとその裏に完全に隠れていた。 */
+.cbar{position:fixed;left:0;right:0;bottom:0;z-index:250;background:var(--sur);border-top:2px solid var(--bdr2);box-shadow:0 -2px 10px rgba(0,0,0,.08);display:flex;align-items:center;gap:12px;font-size:13px;box-sizing:border-box;
   padding-top:9px;
   padding-left:calc(22px + env(safe-area-inset-left));
   padding-right:calc(22px + env(safe-area-inset-right));
@@ -6648,6 +6650,12 @@ function closeItems(ds) {
    ds が未指定・該当ページ無しのときはバーごと非表示にする（日ページを開いているときだけ表示） */
 function updateCloseBar(ds) {
   var bar = document.getElementById('cbar'); if (!bar) return;
+  /* _cbarInputFocused の自己修復：入力欄にフォーカス中に renderPage() が #main を
+     丸ごと差し替えると、フォーカス中の要素がDOMごと消えて focusout が発火しない。
+     すると true のまま固まり、リロードするまでバーが二度と出なくなる。
+     フラグを信用せず、呼ばれるたびに実際の focus 状態で上書きする。 */
+  var _ae = document.activeElement;
+  if (!(_ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA'))) _cbarInputFocused = false;
   /* バーが出ている間はトーストと自動ログアウト警告を上へ逃がす（画面下端で重なるため） */
   function markBody(on){ document.body.classList[on ? 'add' : 'remove']('has-cbar'); }
   if (!ds || !D.pages[ds]) {
@@ -15216,14 +15224,19 @@ function updateBoardBtnBadge() {
 /* 画面下端に固定した消し込みバーが、ブラウザ下部のUIや端末のナビゲーションバーに
    隠れないよう、実際に見えている高さとの差を測って CSS 変数 --vv-bottom に入れる。
    env(safe-area-inset-bottom) は Android では0になることが多く、それだけでは足りない。
-   キーボードが出たときは差が大きくなるが、そのときバー自体を隠しているので影響しない。 */
+   キーボードが出たときは差が大きくなるが、そのときバー自体を隠しているので影響しない。
+   以前は120px超を一律0（＝補正なし）に捨てていたが、ナビゲーションバー＋ブラウザUIが
+   厚い端末では平常時でもこれを超え、バーがナビゲーションバーの裏に沈む機種があった。
+   キーボード（200px超級）と単に厚いUI（120〜200px）を分け、後者は捨てずに上限で止める。 */
 function syncCbarInset() {
   var vv = window.visualViewport;
   var px = 0;
   if (vv) {
-    /* レイアウト高さのうち、下端で見えていない量。キーボード表示中は大きくなるので上限を設ける */
+    /* レイアウト高さのうち、下端で見えていない量 */
     px = Math.round(window.innerHeight - vv.height - vv.offsetTop);
-    if (!(px > 0) || px > 120) px = 0;
+    if (!(px > 0)) px = 0;
+    else if (px > 200) px = 0;   /* キーボード表示中とみなし補正しない */
+    else if (px > 160) px = 160; /* 想定より厚いUI。捨てずに上限でクランプ */
   }
   document.documentElement.style.setProperty('--vv-bottom', px + 'px');
 }
