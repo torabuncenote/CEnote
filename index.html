@@ -6582,16 +6582,30 @@ function getPct(ds) {
   return s.total===0?100:Math.round(s.done/s.total*100);
 }
 
+/* その日、自分が持っている担当枠のラベル一覧。スロットのidは「追加」のたびに
+   'slot_'+Date.now() で採番し直される（日をまたいで同じidが続く保証がない）ため、
+   dutyColorFor/FAIR_MERGE と同じくラベル文字列で照合する。 */
+function myDutyLabels(ds) {
+  var dat = D.pages[ds], self = taskSelfName();
+  if (!dat || !self) return [];
+  var out = [];
+  getDutyCfg(dat).forEach(function(s){
+    if (dat.duties && dat.duties[s.id] === self) out.push(s.label || s.id);
+  });
+  return out;
+}
 /* ===== 消し込みバー =====
    数える対象は次の6種類に固定（増やさない）。カウントの唯一の入口が closeItems(ds) で、
    バー本体・内訳・「▶次へ」巡回のすべてがここの結果だけを見る（別々に数え直さない）。
    mine: この1件が自分に関係するか。
      - メンション：抽出できた時点で自分あてなので常にtrue
-     - チェックリスト（共通/曜日別）：個人に紐付かないため常にfalse
-     - オペ/カテ：item.staff に自分の名前が入っているか
+     - チェックリスト（共通/曜日別）：オペ・カテいずれの担当枠も持たないとき true
+       （担当が無い＝フリー・機器管理などの人が共通業務の担い手になるという実際の運用に合わせる）
+     - オペ/カテ：item.staff に自分の名前が入っている、または自分がオペ/カテ系の担当枠を持つ
+       （症例行が未入力でも、担当者としてやるべき仕事があると分かるようにする）
      - タブレット：borrower が自分か
-     - オンコール未設定：「自分が担当している枠」＝当日いずれかの担当枠（dat.duties）に
-       自分が割り当てられていれば、未設定のOCも自分ごととして数える（担当外の日は数えない） */
+     - オンコール未設定：当日いずれかの担当枠（dat.duties）に自分が割り当てられていれば、
+       未設定のOCも自分ごととして数える（担当外の日は数えない） */
 function closeItems(ds) {
   var cats = [
     {key:'mention',   label:'📝 自分あてメンション',   sel:'#memo-list',     items:[]},
@@ -6608,6 +6622,11 @@ function closeItems(ds) {
   var byKey = {};
   cats.forEach(function(c){ c.skip = !!skip[c.key]; byKey[c.key] = c; });
 
+  /* 担当枠ラベルは1回だけ求めて使い回す（症例行ごとに getDutyCfg を回さない） */
+  var myLabels = myDutyLabels(ds);
+  var myOpe  = myLabels.some(function(l){ return /オペ|OPE/.test(l); });
+  var myCath = myLabels.some(function(l){ return /カテ/.test(l); });
+
   /* 1. 自分あてメンションを含む未完了の申し送り */
   if (self) {
     (dat.memos||[]).forEach(function(m){
@@ -6616,16 +6635,21 @@ function closeItems(ds) {
     });
   }
 
-  /* 2. チェックリスト未了（clStatusがgetPctと同じ数え方の唯一の集計元） */
-  clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:false}); });
+  /* 2. チェックリスト未了（clStatusがgetPctと同じ数え方の唯一の集計元）。
+     オペ/カテいずれの担当枠も無い人（フリー・機器管理など、または担当なし）が
+     共通業務の担い手という実際の運用に合わせ、その場合だけ自分ごとにする */
+  var checklistMine = !!self && !myOpe && !myCath;
+  clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:checklistMine}); });
 
-  /* 3/4. オペ・カテ：入力済み（opsItemFilled）なのに終了未チェックの行 */
+  /* 3/4. オペ・カテ：入力済み（opsItemFilled）なのに終了未チェックの行。
+     症例行に自分の名前が入っている場合に加え、まだ誰も入力していなくても
+     自分がオペ/カテ系の担当枠を持っていればその日の自分の仕事として数える */
   var ops = dat.ops || {};
   (ops.ope_items||[]).forEach(function(it){
-    if (opsItemFilled(it) && !it.done) byKey.ope.items.push({mine: !!(self && opsItemStaff(it).indexOf(self)!==-1)});
+    if (opsItemFilled(it) && !it.done) byKey.ope.items.push({mine: myOpe || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
   });
   (ops.cath_items||[]).forEach(function(it){
-    if (opsItemFilled(it) && !it.done) byKey.cath.items.push({mine: !!(self && opsItemStaff(it).indexOf(self)!==-1)});
+    if (opsItemFilled(it) && !it.done) byKey.cath.items.push({mine: myCath || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
   });
 
   /* 5. タブレット未返却（ヘッダーバッジと同じ式：当日分＋前日以前からの持ち越し分） */
@@ -10149,7 +10173,7 @@ function poolAssign(ds,name) {
     if(dat.ocData&&!dat.ocData.staff){
       dat.ocData.staff=name; saveD();
       var os=document.getElementById('oc-staff');if(os){os.value=name;os.classList.add('set');}
-      refreshPool(ds); return;
+      refreshPool(ds); updateCloseBar(ds); return;
     }
     toast(name+'さん：全スロットが埋まっています。手動で割り当ててください。', 'warn'); return;
   }
@@ -10158,7 +10182,7 @@ function poolAssign(ds,name) {
   dat.duties[target]=name; markDutyEdited(ds); saveD();
   maybeLateToast(dat, target, name, _oldTgt);
   var sel=document.getElementById('sel-'+target);if(sel){sel.value=name;sel.classList.add('set');}
-  refreshPool(ds);
+  refreshPool(ds); updateCloseBar(ds);
 }
 
 /* ===== MEMO POSTS ===== */
@@ -11200,7 +11224,7 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
           if(_si!==-1) D.pages[ds].surplus.splice(_si,1);
         }
         markDutyEdited(ds);
-        saveD(); refreshPool(ds); updateStaffZoneBadge(ds);
+        saveD(); refreshPool(ds); updateStaffZoneBadge(ds); updateCloseBar(ds);
         maybeLateToast(D.pages[ds], did, this.value, _oldDuty);
         writeLog(this.value?'担当割り当て':'担当クリア', fmtJ(ds)+' '+did+(this.value?' → '+this.value:''));
       };
@@ -11572,7 +11596,7 @@ function buildDG(ds, dat, locked) {
             if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
             D.pages[_dragDs].duties[did] = _dragName;
             markDutyEdited(_dragDs);
-            saveD(); refreshPool(_dragDs); updateStaffZoneBadge(_dragDs);
+            saveD(); refreshPool(_dragDs); updateStaffZoneBadge(_dragDs); updateCloseBar(_dragDs);
             maybeLateToast(D.pages[_dragDs], did, _dragName, _oldDuty);
             writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
           }
@@ -11643,7 +11667,7 @@ function buildDG(ds, dat, locked) {
           if(!D.pages[dropDs].duties)D.pages[dropDs].duties={};
           D.pages[dropDs].duties[did]=name;
           markDutyEdited(dropDs);
-          saveD(); refreshPool(dropDs); updateStaffZoneBadge(dropDs);
+          saveD(); refreshPool(dropDs); updateStaffZoneBadge(dropDs); updateCloseBar(dropDs);
           maybeLateToast(D.pages[dropDs], did, name, _oldDuty);
           writeLog('担当割り当て', fmtJ(dropDs)+' '+did+' → '+name);
         }
