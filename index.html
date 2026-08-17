@@ -153,7 +153,6 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .es-ic{font-size:48px}
 .es-t{font-size:15px;font-weight:700;color:var(--txt2)}
 .es-s{font-size:13px;line-height:1.7}
-.pi{font-size:38px;margin-bottom:5px}
 .pt2{font-size:21px;font-weight:900;margin-bottom:14px;line-height:1.3;letter-spacing:-.02em}
 /* ダッシュボード：項目数が可変なので3列グリッドをやめ、内容幅で横に詰める。
    ラベルと値も縦積みではなく横並びにして高さを半分にする */
@@ -569,8 +568,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   /* スマホではサイドバーをfixedで全画面表示 */
   .sb{position:fixed;top:var(--th-all);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th-all))!important;overflow-y:auto}
   .sb.hm{transform:translateX(-100%)}
-  /* スマホではpane-assign/pane-schedをfixedで全画面表示（sbと同様） */
-  #pane-assign,#pane-sched{position:fixed;top:var(--th-all);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
+  /* スマホではpane-assignをfixedで全画面表示（sbと同様）。スケジュールはモーダル化したため対象外 */
+  #pane-assign{position:fixed;top:var(--th-all);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
   .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
@@ -591,6 +590,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .pend-txt{display:none}
   .at-hint{display:none}
   .uc-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+/* 320px前後では タブレット/掲示板/スケジュール の3つにラベルまで出すと折り返す。
+   ラベルを畳んでアイコン+バッジだけにし、1行に収める（375pxでは折り返さないため
+   768pxの基準では狭すぎ、専用の閾値を設ける） */
+@media(max-width:360px){
+  .pg-hd .hd-btn-text{display:none}
 }
 @media(max-width:480px){
   .dg{grid-template-columns:1fr}
@@ -1071,7 +1076,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
     <div class="stabs">
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
-      <div class="stab"     id="tab-sched"  onclick="swTab('sched')">⏰ スケジュール</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
@@ -1560,18 +1564,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
     </div>
   </div>
 
-  <!-- スケジュール（タイムテーブル）パネル -->
-  <div id="pane-sched" style="display:none;flex:1;overflow-y:auto">
-    <div class="sched-wrap">
-      <button id="sched-back-btn" class="btn btn-g btn-sm" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
-      <div class="sched-head">
-        <div class="sched-title" id="sched-title">⏰ スケジュール</div>
-        <div class="sched-tools" id="sched-tools"></div>
-      </div>
-      <div id="sched-body"></div>
-    </div>
-  </div>
-
   </div><!-- /sb -->
 
   <!-- スクロールトップボタン -->
@@ -1597,6 +1589,24 @@ body.has-cbar #scroll-top-btn{bottom:126px}
   <button type="button" class="cbar-toggle" id="cbar-mine-toggle" onclick="toggleCbarMineOnly()">自分だけ</button>
   <button type="button" class="cbar-next" onclick="closeBarNext()">▶ 次へ</button>
   <div class="cbar-detail" id="cbar-detail" style="display:none"></div>
+</div>
+
+<!-- スケジュールパネル。サイドバーのタブは廃止し、連絡表ヘッダーの⏰ボタンから開く。
+     #sched-title/#sched-tools/#sched-body の中身と id は元のまま移設しているので
+     renderSched()/schedImportDuties()/schedClear() は無改造で動く -->
+<div class="ov hd" id="sched-panel-ov" onclick="if(event.target===this)closeSchedPanel()">
+  <div class="md" id="sched-panel-md" style="max-width:900px;width:100%;height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+    <div class="sched-head" style="padding:12px 16px;margin-bottom:0;border-bottom:1px solid var(--bdr);flex-shrink:0">
+      <div class="sched-title" id="sched-title">⏰ スケジュール</div>
+      <div class="sched-tools" id="sched-tools"></div>
+      <button class="btn btn-g btn-sm" onclick="closeSchedPanel()">✕</button>
+    </div>
+    <div style="flex:1;min-height:0;overflow-y:auto">
+      <div class="sched-wrap">
+        <div id="sched-body"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- 1ヶ月生成 -->
@@ -7740,7 +7750,7 @@ function togLk(id, v) {
   }
   saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
   if(curDs&&D.pages[curDs])safeRenderPage();
-  var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
+  var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
 }
 
 /* ===== SHIFT DATA ===== */
@@ -8607,16 +8617,15 @@ function openPage(ds) {
   if (prev !== ds || !document.getElementById('main').querySelector('.pt2')) {
     renderPage(ds);
   }
-  /* スケジュールタブが開いている場合は選択日のタイムテーブルを更新 */
-  var ps=document.getElementById('pane-sched');
-  if(ps && ps.style.display!=='none') renderSched();
+  /* スケジュールパネルが開いている場合は選択日のタイムテーブルを更新 */
+  var sov=document.getElementById('sched-panel-ov');
+  if(sov && !sov.classList.contains('hd')) renderSched();
   /* スマホでは日付選択後にサイドバーを閉じて連絡表を見せる */
   if(window.innerWidth<=768){
-    /* 担当表/スケジュールの全画面paneが表示中なら、まず正規に閉じてmainを表示する。
-       これらはsb内のfixed要素なので、直接.hmを付けるとtransformで巻き込まれ画面が真っ白になる */
+    /* 担当表の全画面paneが表示中なら、まず正規に閉じてmainを表示する。
+       sb内のfixed要素なので、直接.hmを付けるとtransformで巻き込まれ画面が真っ白になる */
     var ap=document.getElementById('pane-assign');
-    var sp=document.getElementById('pane-sched');
-    if((ap&&ap.style.display==='flex')||(sp&&sp.style.display==='flex')){
+    if(ap&&ap.style.display==='flex'){
       swTab('cal'); /* paneを隠し#mainを表示・タブもcalに */
     }
     if(sbOpen){
@@ -9649,7 +9658,6 @@ function renderPage(ds) {
   var si=getShiftForDay(ds);
 
   var h='<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
-  h+='<div class="pi">⚙️</div>';
   h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
   var _tblOut=(dat.tabletLogs||[]).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
@@ -9658,6 +9666,9 @@ function renderPage(ds) {
      未読数は updateBoardBadge が boardUnreadCount を元にタブと同時に更新する */
   var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
   h+='<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"'+(_brdN?'':' style="display:none"')+'>'+(_brdN>99?'99+':_brdN)+'</span></button>';
+  /* サイドバーのタブに置いていると活用されないため、タブレット・掲示板と同じ並びで
+     連絡表ヘッダーから直接開けるようにする（サイドバー側のスケジュールタブは廃止） */
+  h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="スケジュールを開く">⏰<span class="hd-btn-text"> スケジュール</span></button>';
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h+='</div>';
   /* イベント表示エリア */
@@ -15096,11 +15107,12 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','sched','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   var libTabs=['guide','makers'];
-  /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群（担当表・スケジュールも含む） */
-  var contentPanes=['assign','sched','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群。
+     スケジュールはモーダル化したためここには含まれない（openSchedPanel/closeSchedPanel） */
+  var contentPanes=['assign','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -15110,24 +15122,24 @@ function swTab(t) {
     var pn=document.getElementById('pane-'+id);
     if(pn){ pn.style.display=id===t?'flex':'none'; }
   }
-  /* 担当表・スケジュールのスマホ用「← 戻る」ボタン（スマホで該当タブ表示中のみ） */
-  ['assign','sched'].forEach(function(id){
+  /* 担当表のスマホ用「← 戻る」ボタン（スマホで該当タブ表示中のみ） */
+  ['assign'].forEach(function(id){
     var bb=document.getElementById(id+'-back-btn');
     if(bb) bb.style.display=(isSP && t===id)?'':'none';
   });
   /* メインエリア（連絡表詳細）の表示制御：コンテンツタブ選択時は非表示 */
-  var hideMain = (t==='assign'||t==='sched') || (!isSP && contentPanes.indexOf(t)!==-1);
+  var hideMain = (t==='assign') || (!isSP && contentPanes.indexOf(t)!==-1);
   mn.style.display = hideMain ? 'none' : '';
   /* PCではコンテンツタブ選択時にサイドバーを全幅に拡張 */
   var ab = document.getElementById('ab');
   if(ab) ab.classList.toggle('sb-expanded', !isSP && contentPanes.indexOf(t)!==-1);
-  /* スマホ：担当表・スケジュールはfixed全画面paneがサイドバーを覆う。
+  /* スマホ：担当表はfixed全画面paneがサイドバーを覆う。
      paneはsb内にあるため.hmのtransformで巻き込まれないようhmは付けない（覆うだけ）。
      それ以外のタブはサイドバーを再表示 */
   if(!isSP){
     /* PCでは.hm（width:0!important）が残っていると全幅コンテンツpaneが消えるため必ず解除 */
     if(sb2) sb2.classList.remove('hm');
-  } else if(t==='assign'||t==='sched'){
+  } else if(t==='assign'){
     if(sb2){ sb2.classList.remove('hm'); }
     sbOpen=true;
   } else if(sb2 && !sbOpen){
@@ -15142,7 +15154,6 @@ function swTab(t) {
   if(docsTabs.indexOf(t)===-1 && libTabs.indexOf(t)===-1) openSubmenu(null);
 
   if(t==='assign'){ swSubTab('at'); renderAT(); }
-  if(t==='sched'){ renderSched(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
@@ -15176,11 +15187,10 @@ function toggleDocsMenu(){ openSubmenu('docs-submenu'); }
 function toggleLibMenu(){ openSubmenu('lib-submenu'); }
 function togSB(){
   var sb=document.getElementById('sb');
-  /* 担当表/スケジュールが全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
-     これらのpaneはsb内のfixed要素なので、.hmのtransformで巻き込まれないよう必ずcal経由で戻す */
+  /* 担当表が全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
+     このpaneはsb内のfixed要素なので、.hmのtransformで巻き込まれないよう必ずcal経由で戻す */
   var ap=document.getElementById('pane-assign');
-  var sp=document.getElementById('pane-sched');
-  if((ap && ap.style.display==='flex') || (sp && sp.style.display==='flex')){
+  if(ap && ap.style.display==='flex'){
     sbOpen=false; /* swTab内のサイドバー再表示ロジックを働かせる */
     swTab('cal');
     return;
@@ -15285,6 +15295,25 @@ function closeBoardPanel() {
   var ov = document.getElementById('board-panel-ov'); if (!ov) return;
   ov.classList.add('hd');
 }
+/* スケジュールパネル。サイドバーのタブは廃止したので、開く手段はここだけ
+   （連絡表ヘッダーの⏰ボタン）。#sched-title/#sched-tools/#sched-body の要素を
+   そのままモーダル内へ移設してあるため、renderSched() は curDs を見るだけで変更不要 */
+function openSchedPanel() {
+  var ov = document.getElementById('sched-panel-ov'); if (!ov) return;
+  ov.classList.remove('hd');
+  renderSched();
+}
+function closeSchedPanel() {
+  var ov = document.getElementById('sched-panel-ov'); if (!ov) return;
+  ov.classList.add('hd');
+}
+/* 掲示板・タブレットの既存モーダルにはEscape対応が無いが、ここでは付けておく。
+   開いているモーダルが無ければ何もしない */
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape') return;
+  var ov = document.getElementById('sched-panel-ov');
+  if (ov && !ov.classList.contains('hd')) closeSchedPanel();
+});
 function updateBoardBadge() {
   updateBoardBtnBadge();
   var tab = document.getElementById('tab-board');
@@ -16321,7 +16350,7 @@ function restoreFirebaseSnapshot(dateStr) {
     renderCal(); safeRenderPage();
     renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
-    var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
+    var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
     renderFirebaseSnapshots();
     var stEl=document.getElementById('fb-snap-status');
     if(stEl) stEl.textContent='✅ 復元しました（'+dateStr+'・'+pageCount+'ページ）';
@@ -16388,7 +16417,7 @@ function restoreAutoBackup(i) {
     renderCal(); safeRenderPage();
     renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
-    var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
+    var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
     renderAutoBackups();
     var stEl = document.getElementById('auto-backup-status');
     if (stEl) stEl.textContent = '✅ 復元しました（'+dt+'）';
@@ -16444,7 +16473,7 @@ function importBackup(file) {
       renderCal(); safeRenderPage();
       renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
       renderOpeList(); renderCathList(); renderLockList(); renderAT();
-      var ps=document.getElementById('pane-sched'); if(ps&&ps.style.display!=='none') renderSched();
+      var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
       if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';
     } catch(err) {
       toast('読み込みエラー: ' + err.message, 'err');
