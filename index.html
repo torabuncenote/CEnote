@@ -1277,7 +1277,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
         </div>
         <div data-perm="mst">
           <div class="pt">📞 OC対応フローチャート</div>
-          <div class="pn" style="margin-bottom:8px">OC集計タブの「OC対応フローチャート」ボタンで全員が閲覧できる内容です。改行・字下げ・矢印（→ ↓）はそのまま表示されます。</div>
+          <div class="pn" style="margin-bottom:8px">OC集計タブの「OC対応フローチャート」ボタン、または連絡表ページのオンコール（OC）担当枠にある「📄 対応フロー」ボタンで全員が閲覧できる内容です。改行・字下げ・矢印（→ ↓）はそのまま表示されます。</div>
           <textarea id="oc-flow-text" rows="10" style="width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur2);color:var(--txt)" placeholder="例:&#10;1. OC携帯が鳴ったら病棟名・用件を確認&#10;2. 機器トラブル → 現地へ&#10;   ↓解決しない場合&#10;3. リーダーへ連絡"></textarea>
           <div style="margin-top:6px;text-align:right"><button class="btn btn-p btn-sm" onclick="saveOcFlow()">保存</button></div>
         </div>
@@ -3183,8 +3183,6 @@ function renderSpec() {
   S += '<table class="spec-tbl"><tr><th>タブ</th><th>権限</th><th>機能</th></tr>';
   [['📅 予定','全員','カレンダー表示。日付クリックで連絡表を開く/作成。🔴未完了・🔵完了ドット'],
    ['📊 担当表','全員','縦:日付/横:スタッフ の担当マトリックス表。サブタブで OC集計・業務集計・公平性チェックも表示。CSV出力・印刷ボタン付き'],
-   ['⏰ スケジュール','全員','当日の勤務者ごとのタイムテーブル（8:00–21:00）。プリセットブロックをドラッグ配置（duty非ロック時のみ編集可）'],
-   ['📢 掲示板','全員','部門内のお知らせ・連絡板。全員が投稿・返信可、自分の投稿は自分で削除（管理者は全員分）。未読バッジ表示'],
    ['📚 資料','全員','使い方ガイド・🏭メーカー担当者連絡先（サブメニュー）'],
    ['👥 スタッフ','管理者','スタッフ一覧・PHS番号の追加/削除/並び替え、勤務表Excelインポート'],
    ['📋 業務','管理者','共通業務・曜日別業務・オペ/カテ術式・担当枠・スケジュールプリセットのマスタ管理'],
@@ -3194,14 +3192,14 @@ function renderSpec() {
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td><span class="spec-badge '+(r[1]==='全員'?'spec-user':'spec-admin')+'">'+r[1]+'</span></td><td>'+r[2]+'</td></tr>';});
   S += '</table>';
   S += '<div class="spec-box">🔀 「📚 資料 ▾」（全員向け：使い方・メーカー）と「🔑 管理資料 ▾」（管理者専用：仕様書・マニュアル等）はそれぞれ独立したサブメニューで、片方を開くともう片方は自動的に閉じます。以前は独立タブだった「📘 使い方」は「📚 資料 ▾」の中に移動しました。</div>';
-  S += '<div class="spec-box">💻 PCでは、サイドバーのタブを選ぶと内容がメインエリア全幅に広がって表示されます（担当表・スケジュール・掲示板・各資料を含む）。スマホでは全画面表示＋「← 戻る」。</div>';
+  S += '<div class="spec-box">💻 PCでは、サイドバーのタブを選ぶと内容がメインエリア全幅に広がって表示されます（担当表・各資料を含む）。スマホでは全画面表示＋「← 戻る」。「📢 掲示板」「⏰ スケジュール」はサイドバーのタブではなく、連絡表ページのヘッダーボタンから開くモーダルです（活用されやすいよう、他のヘッダーボタンと同じ並びに置いています）。</div>';
 
   // 3-2. 追加機能（掲示板・スケジュール・集計）
   S += '<div class="spec-h1">3-2. 追加機能の詳細</div>';
   S += '<div class="spec-h2">📢 掲示板</div>';
   S += '<div class="spec-p">連絡表とは独立した部門内の掲示板。Firebase <code>/board</code> に保存（連絡表データ <code>/data</code> とは別系統）。全員が投稿・返信でき、自分の投稿は自分で削除、管理者は全員分を削除・ピン留め可。サイドバーのタブは廃止し、日ページのヘッダーにある「📢 掲示板」ボタン（<code>openBoardPanel()</code>）からモーダルで開きます。未読の投稿数はそのボタンの赤バッジに出て、開くと既読になります（既読時刻は端末の localStorage <code>ce2_boardread</code> に保持。未読の数え元は <code>boardUnreadCount()</code> 1つ）。</div>';
   S += '<div class="spec-h2">⏰ スケジュール（タイムテーブル）</div>';
-  S += '<div class="spec-p">日付ごとに、勤務者を列にした縦型タイムテーブル（8:00〜21:00／15分刻み）。プリセットブロック（業務マスタで編集可）をタップ選択→列タップ、またはドラッグ＆ドロップで配置。ブロックはドラッグで移動／下端ハンドルでリサイズ。<code>D.pages[ds].schedule</code> に保存。担当割り当てから一括取り込みも可能。duty がロックされている場合、一般ユーザーは閲覧のみ。</div>';
+  S += '<div class="spec-p">日付ごとに、勤務者を列にした縦型タイムテーブル（8:00〜21:00／15分刻み）。プリセットブロック（業務マスタで編集可）をタップ選択→列タップ、またはドラッグ＆ドロップで配置。ブロックはドラッグで移動／下端ハンドルでリサイズ。<code>D.pages[ds].schedule</code> に保存。担当割り当てから一括取り込みも可能。duty がロックされている場合、一般ユーザーは閲覧のみ。掲示板と同じくサイドバーのタブは廃止し、日ページのヘッダーにある「⏰ スケジュール」ボタン（<code>openSchedPanel()</code>）からモーダルで開きます。</div>';
   S += '<div class="spec-h2">📞 OC集計 / 📈 業務集計 / ⚖️ 公平性（担当表のサブタブ）</div>';
   S += '<table class="spec-tbl"><tr><th>サブタブ</th><th>内容</th></tr>';
   S += '<tr><td>OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>';
@@ -3555,8 +3553,8 @@ function renderManual() {
 
   // ===== 第10章　スケジュール =====
   S += h1('第10章　スケジュール（タイムテーブル）');
-  S += '<div class="mn-p">「⏰ スケジュール」タブで、その日の勤務者ごとの時間割（8:00〜21:00）を作れます。</div>';
-  S += step(1,'「⏰ スケジュール」タブをクリック','勤務者が縦の列、時間が縦軸で表示されます。');
+  S += '<div class="mn-p">連絡表ページのヘッダーにある「⏰ スケジュール」ボタンで、その日の勤務者ごとの時間割（8:00〜21:00）を作れます。</div>';
+  S += step(1,'連絡表ページ上部の「⏰ スケジュール」ボタンをクリック','勤務者が縦の列、時間が縦軸で表示されます。');
   S += step(2,'予定ブロックを置く','上のプリセット（業務名）をタップ → 置きたい人の列をタップ。パソコンではドラッグ＆ドロップもできます。');
   S += step(3,'時間や担当を調整','ブロックをドラッグで移動、下端をドラッグで長さ（時間）を変更できます。');
   S += tip('「担当から取り込み」を使うと、その日の担当割り当てから自動で予定ブロックを作れます。');
@@ -4072,8 +4070,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/16-38';
+var APP_VERSION = 'Ver.2026/08/16-39';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/16-39', date:'2026-08-16', title:'消し込みバーの担当連動・スケジュールのボタン化・OC対応フローの導線追加', items:[
+    {t:'new', d:'📞 オンコール（OC）担当枠に「📄 対応フロー」ボタンを追加。連絡表ページから直接、対応フローチャートを確認できます'},
+    {t:'new', d:'⏰ スケジュールを、サイドバーのタブから連絡表ヘッダーの「⏰ スケジュール」ボタンに変更しました（📱タブレット・📢掲示板と同じ並び）。ヘッダーの飾りだった歯車アイコンは削除しています'},
+    {t:'imp', d:'✅ 消し込みバーの「自分だけ」が、その日の担当割り当てと連動するようになりました。オペ/カテ担当なら症例が未入力でも終了チェック待ちに含まれ、担当のない日は共通のチェックリストが自分ごとになります'},
+    {t:'fix', d:'📱 Androidの一部端末で消し込みバーが表示されない・表示されたりされなかったりすることがあった不具合を修正（入力中の再描画でバーが固まる問題、サイドバーの裏に隠れる問題、下端の余白計算が過大に切り捨てられる問題の3点）'}
+  ]},
   { ver:'Ver.2026/08/16-38', date:'2026-08-16', title:'画像・動画の承認待ちを廃止、チェックリストのマニュアルアイコンを見やすく', items:[
     {t:'new', d:'📎 申し送り・掲示板・業務マニュアルに添付した画像/動画は、これまでの「管理者の承認待ち」を経由せず、投稿してすぐ全員に表示されるようになりました'},
     {t:'imp', d:'✅ 業務チェックリストの「···」ボタンは、マニュアル（手順・画像など）が登録されている項目だけ背景が薄く色付き、目立つようになりました'}
@@ -4591,7 +4595,7 @@ function renderDev() {
   [['init()','初期化・loadD・fbInit呼び出し'],
    ['fbInit()','Firebase Auth監視→ログイン時に /data・/board リスナー開始'],
    ['saveD()','Firebase(/data) or localStorage(ce2)に保存'],
-   ['swTab(t)','サイドバータブ切替。contentPanes はPCで .sb-expanded によりメインエリア全幅表示（担当表・スケジュール・掲示板・各資料を含む）'],
+   ['swTab(t)','サイドバータブ切替。contentPanes はPCで .sb-expanded によりメインエリア全幅表示（担当表・各資料を含む）。掲示板・スケジュールはモーダル化済みでcontentPanesには含まれない'],
    ['renderSched()','スケジュール（タイムテーブル）描画。schedImportDuties()で担当から取込'],
    ['renderBoard()/postBoard()/postBoardReply()/deleteBoard()/pinBoard()','掲示板（/board）。updateBoardBadge()で未読バッジ'],
    ['renderFairness()','担当表サブタブ：公平性マトリックス（FAIR_GAP_WARN）'],
@@ -4672,6 +4676,20 @@ function renderDev() {
   S += '<div class="d-p">当初は <span class="d-code">weeks</span>（週指定）が無い項目では「月内どれか1回でよい」のチェックボックス自体を描画していなかった。ところが既定データの「月一BSM点検（第二 or 第四）」は名前に反して実データ上は <span class="d-code">wk</span> 未設定＝毎週扱いの素の文字列で、この状態のままマスタ画面を開くと週チップが全て選択済みに見える（<span class="d-code">weeks=null</span> のとき全チップが active 判定になるため）にもかかわらず、once の入り口が影も形もない——「機能が無い」と誤解される。<span class="d-code">renderWdlyList()</span> は現在、<span class="d-code">weeks</span> の有無にかかわらずチェックボックスを常に描画し、無いときだけ <span class="d-code">disabled</span> ＋ 理由付きラベル（「毎週以外の頻度にすると設定できます」）にする。</div>';
   S += '<div class="d-h2">設置部署はフリー入力ではなく D.wdDepts（共通マスタ）から選ぶ方式に変更（実機フィードバックによる修正）</div>';
   S += '<div class="d-p">当初は <span class="d-code">openWdSubsModal</span> が1行1部署のtextareaで、業務項目ごとに部署名を都度入力させていた。表記ゆれ（全角半角・別名）を招きやすく、同じ部署を複数の業務で使う場合に何度も入力し直す手間があるとのフィードバックを受け、<span class="d-code">D.wdDepts</span>（PHSマスタ・タブレット台帳と同型の単純な文字列配列、Dの5箇所ルール＋バックアップ3配列に登録済み）を新設。モーダルは <span class="d-code">D.wdDepts</span> からのチェックボックス選択に変更し、マスタに無い部署はモーダル内の「＋ マスタに追加」からその場で <span class="d-code">D.wdDepts</span> に追加できる（保存はモーダルを閉じずに即時 <span class="d-code">saveD()</span>。ただし追加した部署がこの業務項目の <span class="d-code">subs</span> に入るかどうかは、他のチェックボックスと同様「保存」を押すまで確定しない——チェック状態だけ画面上でONにし、<span class="d-code">item.subs</span> 自体は書き換えない）。<span class="d-code">D.wdDepts</span> から部署を削除しても、各業務の <span class="d-code">subs</span> や過去の <span class="d-code">subChecks</span> 実績はそのまま残る（選べなくなるだけ）。</div>';
+
+  S += '<div class="d-h1">消し込みバーの担当連動とAndroid表示修正、スケジュールのモーダル化（実装メモ）</div>';
+  S += '<div class="d-h2">myDutyLabels がスロットidではなくlabelで照合する理由</div>';
+  S += '<div class="d-p">担当枠の <span class="d-code">id</span> は「追加」ボタンを押すたびに <span class="d-code">\'slot_\'+Date.now()</span> で採番し直され、日をまたいで同じidが続く保証がない。<span class="d-code">dutyColorFor()</span> や公平性集計の <span class="d-code">FAIR_MERGE</span> が既にこの理由で <span class="d-code">label</span> 文字列を照合キーにしており、<span class="d-code">myDutyLabels(ds)</span> も同じ流儀に合わせた。カテゴリ判定は <span class="d-code">/オペ|OPE/</span> / <span class="d-code">/カテ/</span> の部分一致で、既定のOPEサブ・カテサブ・遅出OPE・遅出カテも自動で拾う。</div>';
+  S += '<div class="d-h2">checklist の mine を「担当なし」で反転させた理由</div>';
+  S += '<div class="d-p">オペ/カテ担当を持つ人にとって、その日の共通業務チェックリストは自分の主業務ではない。逆にフリー・機器管理・担当なしの人にとっては、チェックリストの実施こそがその日の担当業務になる、という実際の運用に合わせた。「自分だけ」を押したとき、担当のある人には自分の症例、担当のない人には共通業務が出るようにするための分岐で、症例行に自分の名前が無くても担当枠さえ持っていればope/cathが自分ごとになる点とセットで理解する必要がある。</div>';
+  S += '<div class="d-h2">_cbarInputFocused をフラグではなく毎回 activeElement から求め直す理由</div>';
+  S += '<div class="d-p">元々は <span class="d-code">focusin</span>/<span class="d-code">focusout</span> リスナーだけでフラグを管理していたが、<span class="d-code">renderPage()</span> が <span class="d-code">#main</span> を丸ごと差し替えるため、入力欄にフォーカス中に再描画が走るとフォーカス中の要素がDOMごと消え、<span class="d-code">focusout</span> が発火しない。するとフラグが <span class="d-code">true</span> のまま固まり、リロードするまで消し込みバーが二度と出なくなる（実機フィードバックの「バーが表示されない人がいる」の原因）。<span class="d-code">updateCloseBar(ds)</span> の冒頭で <span class="d-code">document.activeElement</span> の実態から毎回上書きし直す自己修復に変えた。</div>';
+  S += '<div class="d-h2">.cbar の z-index を150→250に上げた理由</div>';
+  S += '<div class="d-p">スマホの全画面サイドバー（<span class="d-code">.sb</span>=200）や担当表パネル（<span class="d-code">#pane-assign</span>=201）より <span class="d-code">.cbar</span>（当時150）の方が下にあり、サイドバーを開くとその裏に完全に隠れていた（実機フィードバックの「出たり出なかったりする」の原因）。<span class="d-code">.tb</span>（300）・<span class="d-code">.ov</span>（400）より下、サイドバー/全画面パネルより上という階層に収めた。</div>';
+  S += '<div class="d-h2">syncCbarInset の上限を120pxから分離した理由</div>';
+  S += '<div class="d-p">実測した下端インセットを120px超で一律0（補正なし）に捨てていたが、ナビゲーションバー＋ブラウザUIが厚い端末では平常時でもこれを超え、バーがナビゲーションバーの裏に沈んでいた。キーボード表示（200px超）と単に厚いUI（120〜200px）を分け、後者は160pxで捨てずにクランプするよう変更した。</div>';
+  S += '<div class="d-h2">スケジュールをサイドバータブからヘッダーボタン＋モーダルへ変更した理由</div>';
+  S += '<div class="d-p">サイドバーのタブに置いていると活用されないというフィードバックを受け、既に同じ変更を済ませていた掲示板（<span class="d-code">openBoardPanel</span>/<span class="d-code">closeBoardPanel</span>）と同じ <span class="d-code">.ov</span>/<span class="d-code">.hd</span> パターンに変換した。<span class="d-code">#pane-sched</span> は元々 <span class="d-code">.sb</span>（サイドバー）の内側にあり、スマホで <span class="d-code">.sb</span> の <span class="d-code">transform:translateX(-100%)</span> に巻き込まれて真っ白になる不具合を避ける防御コードが <span class="d-code">openPage</span>/<span class="d-code">togSB</span>/<span class="d-code">swTab</span> の複数箇所に積み重なっていたが、モーダル化によりその防御コードごと削除できた。中身の要素id（<span class="d-code">#sched-title</span>/<span class="d-code">#sched-tools</span>/<span class="d-code">#sched-body</span>）はそのまま移設しているため <span class="d-code">renderSched()</span> は無改造で動く。ボタンを1つ増やすため、クリック不可の飾りだった歯車（<span class="d-code">.pi</span>）も削除してスペースを確保した。320pxではラベル付きの3ボタンが折り返すため、専用のブレークポイント（360px）でラベルを畳む対応を追加した。</div>';
 
   // デフォルトデータ
   S += '<div class="d-h1">デフォルトデータ</div>';
@@ -6050,14 +6068,14 @@ function renderGuide() {
     + '<tr><td>📞 オンコール担当未設定</td><td>その日のオンコール担当が空欄</td></tr>'
     + '</table>';
   S += '<div class="gd-p">数字をタップすると内訳が開き、種類ごとの件数と「→」でその場所へジャンプできます。「▶ 次へ」ボタンは、残っている種類を順番に1つずつジャンプして回れます。</div>';
-  S += '<div class="gd-p">「自分だけ」ボタンを押すと、上の6種類のうち自分に関係するもの（自分あての申し送り・自分が担当のオペ/カテ・自分が借りたタブレット・自分が入っているオンコール担当欄）だけに数を絞り込めます。</div>';
+  S += '<div class="gd-p">「自分だけ」ボタンを押すと、上の6種類のうち自分に関係するものだけに数を絞り込めます。オペ/カテ担当に割り当てられていれば症例がまだ未入力でも「終了未チェック」に含まれ、逆にどちらの担当でもない日（フリー・機器管理など）は「チェックリスト未了」が自分ごとになります。ほかは自分あての申し送り・自分が借りたタブレット・自分が入っているオンコール担当欄です。</div>';
   S += warn('「自分だけ」で数える「うち自分」がいつも0のままの場合は、あなたのアカウントとスタッフ名簿の名前がまだ紐付いていません。管理者に紐付けを依頼してください。');
   S += ok('全部終わると緑色になり「残り 0 ── 本日ぶんは締められます」と表示されます。');
   S += '<div class="gd-p">「今日は対応できない」項目は、内訳の「対象外」ボタンでその日だけ数から外せます（「戻す」でいつでも元に戻せます）。</div>';
   S += '<div class="gd-p">今日以外の日を開いているときはバーがグレー表示になり、あくまで参照用（その日の記録の状態を振り返るためのもの）になります。</div>';
 
   S += h1('⏰ スケジュール');
-  S += '<div class="gd-p">「⏰ スケジュール」タブで、その日の勤務者ごとの時間割を作れます。</div>';
+  S += '<div class="gd-p">連絡表ページ上部の「⏰ スケジュール」ボタンで、その日の勤務者ごとの時間割を作れます。</div>';
   S += step(1,'上のプリセット（業務名）をタップ','置きたい予定を選びます。');
   S += step(2,'予定を置きたい人の列をタップ','PCではドラッグ＆ドロップでも置けます。');
   S += step(3,'ブロックをドラッグで移動・伸縮','下端を引っぱると時間（長さ）を変えられます。');

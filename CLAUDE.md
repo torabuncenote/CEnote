@@ -242,8 +242,6 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
     pane-cal    — calendar with month navigation
     pane-assign — assignment table (月次担当一覧) with subtabs:
                   at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性) / my (マイ担当) / task (タスク)
-    pane-sched  — daily timetable (⏰ スケジュール)
-    pane-board  — 掲示板 (department bulletin board)
     pane-guide  — user guide
     pane-makers — 🏭 メーカー担当者連絡先 (all users; see メーカー担当者連絡先 section below)
     pane-staff / pane-master / pane-lock / pane-logs — admin-only
@@ -252,7 +250,9 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
   .es     — empty-state placeholder (shown when no page is selected)
 ```
 
-Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` and `#pane-sched` are `position:fixed` full-screen overlays on mobile.
+`pane-board`（掲示板）と `pane-sched`（⏰ スケジュール）はどちらも元々サイドバーのタブだったが、タブに置いていると活用されないため連絡表ヘッダーのボタン（📢/⏰、`openBoardPanel()`/`openSchedPanel()`）から開くモーダルに変換済み——`.ov`/`.hd` トグルで開閉する `#board-panel-ov`/`#sched-panel-ov` が `<body>` 直下にあり、中身の要素 id（`#pane-board`、`#sched-title`/`#sched-tools`/`#sched-body`）は元のまま移設しているため `renderBoard()`/`renderSched()` は無改造で動く。`#pane-sched` は以前 `.sb` の内側にあり、スマホで `.sb` の `transform:translateX(-100%)` に巻き込まれて真っ白になる不具合を避ける防御コードが複数箇所に必要だったが、モーダル化によりその防御コードごと不要になった。
+
+Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` is a `position:fixed` full-screen overlay on mobile.
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
@@ -453,11 +453,15 @@ Weekday-master items (`D.wd[曜日][i]`) are either a plain string (legacy) or a
 
 Fixed bar at the bottom of the screen, shown only while a day page is open — `updateCloseBar(ds)` hides it and clears `body.has-cbar` when `ds` is falsy or `!D.pages[ds]` (e.g. via `showEmpty()`).
 
-`closeItems(ds)` is the **single counting source** for 6 categories of "not finished today": ①自分あてメンションを含む未完了の申し送り（`extractMentions` に自分の名前が含まれ `m.done` でない `memos`） ②チェックリスト未了（`isDlyShownOnDate` でスキップしつつ原インデックスで走査 — **`getPct(ds)` と完全に同じ数え方でなければならない**。ずれるとダッシュボードの進捗チップと消し込みバーの件数が食い違う） ③オペ終了未チェック（`opsItemFilled(it) && !it.done`） ④カテ終了未チェック（同上） ⑤タブレット未返却（当日分＋`tabletCarryOver(ds)` の前日以前持ち越し分） ⑥オンコール担当未設定（`!dat.ocData.staff`）。各カテゴリは `{mine:boolean}` を持つ `items[]` を返し、`mine` の判定は `taskSelfName()`（表示名がスタッフ名簿と完全一致→その名前／一致しなければ `D.stfLinks` で逆引き）。**アカウントが未紐づけのユーザーは常に `mine:false`**。
+`closeItems(ds)` is the **single counting source** for 6 categories of "not finished today": ①自分あてメンションを含む未完了の申し送り（`extractMentions` に自分の名前が含まれ `m.done` でない `memos`） ②チェックリスト未了（`clStatus(ds).undone`） ③オペ終了未チェック（`opsItemFilled(it) && !it.done`） ④カテ終了未チェック（同上） ⑤タブレット未返却（当日分＋`tabletCarryOver(ds)` の前日以前持ち越し分） ⑥オンコール担当未設定（`!dat.ocData.staff`）。各カテゴリは `{mine:boolean}` を持つ `items[]` を返し、`mine` の判定は `taskSelfName()`（表示名がスタッフ名簿と完全一致→その名前／一致しなければ `D.stfLinks` で逆引き）。**アカウントが未紐づけのユーザーは常に `mine:false`**。
+
+**`mine` はその日の担当枠と連動する**（`myDutyLabels(ds)`、`closeItems` 内で1回だけ呼ぶ）。スロットの `id` は「追加」のたびに `'slot_'+Date.now()` で再採番されるため、`dutyColorFor`/`FAIR_MERGE` と同じくスロットの `label` 文字列（部分一致：`オペ|OPE` → ope、`カテ` → cath）で照合する。オペ/カテ担当枠を持つ人は、症例行に自分の名前がまだ無くてもその日の ope/cath が `mine:true`。逆にどちらの枠も持たない人（フリー・機器管理・担当なしなど）は checklist が `mine:true` になる——共通業務の担い手という実際の運用に合わせたもの。担当枠の割り当て（`<select>` onchange・タッチ/マウスドロップ・`poolAssign`）は必ず `updateCloseBar(ds)` も呼び、割り当て直後に `mine` の再評価を反映させる。
 
 `D.pages[ds].closeSkip[key]`（`key` はカテゴリの `key`、`saveDPage(ds)` で保存）で「今日は対象外」をカテゴリ単位・その日限りで持てる。`closeBarSkip(ds, key)` がトグル、`renderCbarDetail()` の「対象外」／「戻す」ボタンから呼ぶ。
 
 `updateCloseBar(ds)` は `closeItems(ds)` を集計し、`.warn`（🔴 今日・未了あり）/`.ref`（⚪ 今日以外を開いている・グレーの参照表示）/`.ok`（✅ 残り0）の3状態を切り替える。`body.classList.add('has-cbar')` は CSS 側で `.fb-toast`（`toast()` の一般トースト）・`#idle-warn`（自動ログアウトのカウントダウン警告）・`.notif-toast`・`#scroll-top-btn` の `bottom` をバーの高さぶん押し上げ、画面下端での重なりを防ぐ。`updateCloseBar(ds)` に単独の集中呼び出し口はなく、`updateOpsHeader(ds)`/`updateTabletBtnBadge(ds)` と同じ箇所（担当割り当て・OPS入力・タブレット貸出返却・申し送り投稿など）から都度呼ぶ。
+
+**Android対策3点**（実機フィードバックで判明した「バーが出ない／出たり出なかったりする」不具合の修正）：①`updateCloseBar(ds)` の冒頭で `_cbarInputFocused` を `document.activeElement` の実態から毎回上書きする自己修復を入れている——`focusin`/`focusout` リスナー（入力欄フォーカス中はバーを隠す）は、フォーカス中の要素が `renderPage()` の `#main` 丸ごと差し替えで DOM ごと消えると `focusout` が発火せず、フラグが `true` のまま固まってリロードするまでバーが出なくなるため。②`.cbar` の `z-index` は `250`——スマホの全画面サイドバー（`.sb`=200）や `#pane-assign`（201）より上に置かないと、サイドバーを開くたびにその裏へ完全に隠れる。③`syncCbarInset()` は実測した下端インセットを、以前は120px超で一律0（補正なし）に捨てていたが、ナビゲーションバー＋ブラウザUIが厚い端末では平常時でもこれを超えてバーが沈む機種があったため、キーボード（200px超）と単に厚いUI（120〜200px）を分け、後者は160pxで捨てずにクランプするよう変更した。
 
 ### Shift Import
 
