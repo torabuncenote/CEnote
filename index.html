@@ -297,6 +297,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-item-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .ops-item-row .ops-sel{flex:1}
 .ops-item-row .ops-txt{flex:1}
+/* 使用物品の折り返し表示（<input>の下に添える読み取り用ビュー）。
+   コンテナは通常どおり折り返すが、品目名（.sup-tok）はnowrapで途中改行させない。 */
+.ops-sup-view{width:100%;margin-top:4px;font-size:11px;color:var(--txt2);line-height:1.7}
+.ops-sup-view .sup-tok{white-space:nowrap;overflow-wrap:break-word}
+.ops-sup-view .sup-sep{color:var(--txt3)}
 .ops-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:0 2px;line-height:1;flex-shrink:0}
 .ops-item-del:hover{color:var(--rd)}
 .ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
@@ -4070,8 +4075,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/16-39';
+var APP_VERSION = 'Ver.2026/08/18-40';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/18-40', date:'2026-08-18', title:'オペ使用物品の折り返し表示、申し送りの日付移動を全員に開放', items:[
+    {t:'imp', d:'🧰 オペカードの使用物品を多く入力しても、途中で品目名が切れず折り返して全体が見えるようになりました。品目の名前自体は途中で改行されず、品目とカンマの間でだけ折り返します'},
+    {t:'imp', d:'📅 申し送りの「別日へ移動」ボタンを、書いた本人・管理者以外でも押せるようになりました。移動しても元の投稿者名は変わらず、移動先には「◯月◯日から移動」と表示されるので、誰が書いたか・どこから来たかは引き続き分かります'}
+  ]},
   { ver:'Ver.2026/08/16-39', date:'2026-08-16', title:'消し込みバーの担当連動・スケジュールのボタン化・OC対応フローの導線追加', items:[
     {t:'new', d:'📞 オンコール（OC）担当枠に「📄 対応フロー」ボタンを追加。連絡表ページから直接、対応フローチャートを確認できます'},
     {t:'new', d:'⏰ スケジュールを、サイドバーのタブから連絡表ヘッダーの「⏰ スケジュール」ボタンに変更しました（📱タブレット・📢掲示板と同じ並び）。ヘッダーの飾りだった歯車アイコンは削除しています'},
@@ -9435,6 +9444,16 @@ function opsItemSup(it){
   if (!it || !it.sup) return [];
   return Array.isArray(it.sup) ? it.sup : Object.keys(it.sup).map(function(k){ return it.sup[k]; });
 }
+/* 使用物品の折り返し表示。<input>は1行しか見えず、件数が多いと未フォーカス時に
+   枠外が見切れるため、入力欄の下に読み取り用のビューを添える。品目名の内部
+   （.sup-tok）は white-space:nowrap で改行させず、品目と品目の間（カンマの後）
+   だけで折り返す。 */
+function supViewHTML(supArr){
+  if (!supArr || !supArr.length) return '';
+  return '<div class="ops-sup-view">' + supArr.map(function(s){
+    return '<span class="sup-tok">' + escH(s) + '</span>';
+  }).join('<span class="sup-sep">, </span>') + '</div>';
+}
 /* 科・中カテゴリ・術式/種別の表示値。'__free__'（自由入力に切替中）のときは対応する
    *Txt を返し、内部値の '__free__' が画面・CSVに出ないようにする（表示・集計はこの3つを必ず経由）。
    opsItemName はツリー版（item.name/'nameTxt'）とフラット版（buildItemListの既存 item.sel==='__free__'/item.txt）の
@@ -10233,7 +10252,10 @@ function renderMemos(ds, dat, locked) {
     var isDone = !!m.done;
     h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
     /* 済チェックボックス：削除・移動ボタンの有無で右位置を調整 */
-    var canMove = canDel && !isDone;
+    /* 移動は削除と違い元の投稿を書き換えない（movedFrom記録のみ）ため、書いた本人以外・管理者以外でも
+       memo権限があれば移動できるようにしている。誰が書いたかは m.name が常に元投稿者のまま保たれる
+       （move側では書き換えない）ので、権限を広げても「元の文章は誰が書いたか」の表示は変わらない */
+    var canMove = !locked && !isDone;
     var doneRight = canMove ? '64px' : (canDel ? '36px' : '9px');
     h += '<label class="memo-done-label" style="right:' + doneRight + '" title="既読・完了">'
        + '<input type="checkbox" class="memo-done-cb"'
@@ -12270,25 +12292,30 @@ function buildOPS(ds,dat,locked) {
           var supTreeRow=makeSupTreeRow(function(v){
             var cur=(item.sup&&item.sup.length)?item.sup.join(', '):'';
             item.sup=(cur?cur+', '+v:v).split(',').map(function(s){return s.trim();}).filter(Boolean);
-            supInpEl.value=item.sup.join(', '); saveItems();
+            supInpEl.value=item.sup.join(', '); supViewEl2.innerHTML=supViewHTML(item.sup); saveItems();
           });
           supRow2.appendChild(supTreeRow);
           /* テキスト入力（直接入力・カンマ区切り） */
           var supInpEl=document.createElement('input'); supInpEl.type='text'; supInpEl.className='ops-txt'; supInpEl.style.cssText='width:100%;font-size:12px';
           supInpEl.placeholder='または直接入力（カンマ区切りで複数可）'; supInpEl.disabled=!!locked;
           supInpEl.value=(item.sup&&item.sup.length)?item.sup.join(', '):'';
+          /* 入力欄は1行しか見えず未フォーカス時に枠外が見切れるため、下に折り返し表示を添える */
+          var supViewEl2=document.createElement('div'); supViewEl2.innerHTML=supViewHTML(item.sup);
           if(!locked){
             supInpEl.oninput=(function(i2,el2){return function(){
               items[i2].sup=el2.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+              supViewEl2.innerHTML=supViewHTML(items[i2].sup);
               saveItems();
             };})(idx,supInpEl);
             supInpEl.onblur=(function(i2){return function(){
               this.value=this.value.replace(/[,\s]+$/,'');
               items[i2].sup=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+              supViewEl2.innerHTML=supViewHTML(items[i2].sup);
               saveItems();
             };})(idx);
           }
           supRow2.appendChild(supInpEl);
+          supRow2.appendChild(supViewEl2);
           itemWrap.appendChild(supRow2);
         }
         wrap.appendChild(itemWrap);
@@ -12520,6 +12547,7 @@ function buildOPS(ds,dat,locked) {
 
         /* 使用物品（withSup=trueのとき術式行の下に1行追加） */
         var supRow = null;
+        var supViewEl = null;
         if (withSup) {
           supRow = document.createElement('div');
           supRow.className = 'ops-item-row ops-sup-row';
@@ -12546,6 +12574,9 @@ function buildOPS(ds,dat,locked) {
           supInp.disabled = !!locked;
           /* 保存値を「カンマ区切り文字列」として復元 */
           supInp.value = (item.sup && item.sup.length) ? item.sup.join(', ') : '';
+          /* 入力欄は1行しか見えず未フォーカス時に枠外が見切れるため、下に折り返し表示を添える */
+          supViewEl = document.createElement('div');
+          supViewEl.innerHTML = supViewHTML(item.sup);
 
           /* プルダウン（選ぶたびにテキスト欄に追記） */
           var supSel = document.createElement('select');
@@ -12558,7 +12589,7 @@ function buildOPS(ds,dat,locked) {
           supSel.innerHTML = supSelOpts;
 
           if (!locked) {
-            (function(idx5, supInp5, supSel5){
+            (function(idx5, supInp5, supSel5, supViewEl5){
               var saveT5 = null;
 
               function parseSup(val) {
@@ -12566,12 +12597,14 @@ function buildOPS(ds,dat,locked) {
               }
               function saveSup() {
                 items[idx5].sup = parseSup(supInp5.value);
+                supViewEl5.innerHTML = supViewHTML(items[idx5].sup);
                 saveItems();
               }
 
               /* テキスト欄の直接入力 */
               supInp5.oninput = function(){
                 items[idx5].sup = parseSup(this.value);
+                supViewEl5.innerHTML = supViewHTML(items[idx5].sup);
                 clearTimeout(saveT5);
                 saveT5 = setTimeout(saveItems, 600);
               };
@@ -12603,7 +12636,7 @@ function buildOPS(ds,dat,locked) {
                 this.value = '';
                 append(v);
               };
-            })(idx, supInp, supSel);
+            })(idx, supInp, supSel, supViewEl);
           }
 
           supRow.appendChild(supSel);
@@ -12625,6 +12658,7 @@ function buildOPS(ds,dat,locked) {
         /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
         buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
         if (supRow) itemWrap.appendChild(supRow);
+        if (supViewEl) itemWrap.appendChild(supViewEl);
         wrap.appendChild(itemWrap);
 
         if(!locked) {

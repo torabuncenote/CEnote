@@ -364,6 +364,8 @@ All class names are abbreviated:
 
 **症例ごとの備考**: `item.note`（1症例=1行ごとの備考、`buildItemList`/`buildItemListTree` 共通）。値が空なら「＋備考」リンクのみ表示し、1文字でも入っていれば開いたまま（担当カードの備考欄と同じ開閉パターン）。カード全体で1つだけの旧仕様（`ops.ope_note`/`ops.cath_note`）は新規作成不可になったが、既存値があるカードだけ「📝 備考（旧・カード共通）」として表示・編集を残す（値は消さない）。横断検索も `item.note` を対象に含む。
 
+**使用物品の折り返し表示**: `item.sup`（カンマ区切りで直接入力する `<input>`）は仕様上1行しか見えず、品目を入れすぎると未フォーカス時に枠外が見切れる。`supViewHTML(supArr)`（`opsItemSup` の直後で定義）が入力欄の下に読み取り専用の折り返しビュー（`.ops-sup-view`）を生成する — 各品目を `.sup-tok`（`white-space:nowrap`）で包むことで、品目名の途中では改行させず、品目とカンマの間でだけ折り返す。`buildItemList`/`buildItemListTree` 双方の入力（`oninput`/`onblur`/カスケード選択の追記）が値を変えるたびに `supViewEl.innerHTML = supViewHTML(...)` で更新する。
+
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
 - `cath_note` — 備考
@@ -536,7 +538,7 @@ When `multi` is true both renderers add a per-month breakdown, the ops trend gra
 
 ### Memo Move-to-Another-Day
 
-Incomplete memo posts show a 📅 button (`.mp-move`, same `canDel` gate as the existing delete button) next to the 済 checkbox in `renderMemos()`. Clicking it opens `openMoveMemoModal(ds, idx)` (dynamic `.ov`/`.md` with a date input, defaulting to tomorrow), which calls `moveMemo(ds, idx, targetDs)`.
+Incomplete memo posts show a 📅 button (`.mp-move`) next to the 済 checkbox in `renderMemos()`, gated by `can('memo')` (`!locked`) — **not** `canDel`. Unlike delete, moving never rewrites `m.name`/`m.uid`, so it's safe to let anyone with memo edit permission relocate a post (not just the original author or an admin); the original author stays correctly attributed regardless of who performed the move. Clicking it opens `openMoveMemoModal(ds, idx)` (dynamic `.ov`/`.md` with a date input, defaulting to tomorrow), which calls `moveMemo(ds, idx, targetDs)`.
 
 `moveMemo` splices the memo out of `D.pages[ds].memos`, tags it with `movedFrom: ds`, and pushes it into `D.pages[targetDs].memos` (auto-creating the target page via the same minimal structure as `_doPostMemo` if it doesn't exist yet, gated by `can('pg')`). **Because this mutates two different pages, it must use full `saveD()` — not `saveDPage()`** (per the page-scoped-only rule above). Moved memos display a small "(M/DDから移動)" annotation in `.mp-meta` when `m.movedFrom` is set.
 
