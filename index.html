@@ -4110,6 +4110,8 @@ var APP_VERSION = 'Ver.2026/08/19-41';
 var APP_CHANGELOG = [
   { ver:'Ver.2026/08/19-41', date:'2026-08-19', title:'タスクをタブに昇格・画像添付、申し送りの返信、OCの対応済み自動判定', items:[
     {t:'new', d:'📋 タスクがサイドバーの独立タブになりました（「担当表」の右隣）。これまでは担当表タブの中のサブタブだったため見つけにくかったものを、一階層上げています'},
+    {t:'imp', d:'📋 タスクタブを開くと、まず自分の担当タスクだけのページが表示されるようになりました（全員のタスク一覧は「← 全体へ戻る」でいつでも見られます）'},
+    {t:'imp', d:'🔒 自分専用メモの一覧を、画面の一番上（タスク一覧より先）に表示するようにしました'},
     {t:'new', d:'📷 タスク・自分専用メモに画像を添付できるようになりました。機器のどの部分かを写真で伝えられます（カードのサムネイルをタップすると拡大表示）'},
     {t:'new', d:'💬 申し送りに返信できるようになりました。返信はその申し送りの中に入れ子で表示されるので、どれへの返事か一目で分かります。返信にも画像を添付できます'},
     {t:'imp', d:'📞 オンコールの対応時間欄が常に表示されるようになり、開始と退勤の両方を入力すると自動で「対応」にチェックが付きます。チェックを押してから時間を入れる手順が不要になりました'},
@@ -6068,6 +6070,7 @@ function renderGuide() {
 
   S += h1('📋 タスク管理');
   S += '<div class="gd-p">サイドバーの「📋 タスク」タブ（「📊 担当表」の右隣）で、日付にひもづかない仕事（機器の手配、書類の作成など）をスタッフ間で割り振れます。</div>';
+  S += ok('タブを開くと、まず自分の担当タスクだけのページが表示されます。全員分を見たいときは「← 全体へ戻る」をタップしてください。');
   S += step(1,'「＋ タスクを追加」をタップ','タイトル・内容・担当者（複数人可）・期限を入力します。');
   S += step(2,'状態のタグをタップして進める','タップするたびに 未着手 → 進行中 → 完了 → 未着手 と切り替わります。担当者本人も切り替えられます。');
   S += step(3,'名前をタップすると個人ページ','その人のタスクだけをまとめて確認できます。');
@@ -14552,6 +14555,9 @@ function renderTasks() {
     + '<button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openTaskModal(null)">＋ タスクを追加</button>'
     + '<button class="btn btn-g btn-sm" onclick="openTaskModal(null,true)" title="自分だけが見られるメモ">🔒 ＋ メモ</button></div>';
 
+  /* 自分専用メモは一番目につく場所（画面の一番上）に出す */
+  h += taskMemoListHTML(today);
+
   h += '<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin-bottom:12px">'
     + '<div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:8px">👥 スタッフ別タスク量'
     + '<span style="font-weight:400;color:var(--txt3);margin-left:8px;font-size:11px">'
@@ -14609,17 +14615,25 @@ function renderTasks() {
     h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:14px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">✅ 完了（'+done.length+'件）</div>';
   done.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); });
 
-  /* --- 自分専用メモ（他の人には見えない） --- */
+  el.innerHTML = h;
+}
+
+/* 自分専用メモの一覧HTML。俯瞰ビュー・個人ページの両方から呼ぶ共通ヘルパー。
+   opts.filter=false なら俯瞰の状態フィルタ（_taskFilter）を無視して全件出す
+   （個人ページは元々タスク側もフィルタしていないため、メモだけ絞るのは不自然） */
+function taskMemoListHTML(today, opts) {
+  var filterOn = !opts || opts.filter !== false;
   var mids = Object.keys(_memosData).filter(function(id){
     var m = _memosData[id]; if (!m) return false;
-    return _taskFilter === 'all' || (m.status||'todo') === _taskFilter;
+    return !filterOn || _taskFilter === 'all' || (m.status||'todo') === _taskFilter;
   });
   mids.sort(function(a,b){
     var ma=_memosData[a], mb=_memosData[b];
     var da = ma.due || '9999', db2 = mb.due || '9999';
     return da !== db2 ? (da < db2 ? -1 : 1) : (mb.ts||0) - (ma.ts||0);
   });
-  h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:18px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">'
+  var h = '<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px dashed var(--bdr)">';
+  h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin-bottom:6px">'
      + '🔒 自分専用メモ（'+mids.length+'件）<span style="font-weight:400;margin-left:6px">他の人には表示されません</span></div>';
   if (_memoDenied) {
     /* ルール未適用のときは空リストではなく理由と対処を出す（黙って空だと「消えた」と誤解される） */
@@ -14627,9 +14641,11 @@ function renderTasks() {
        + '🔒 メモ機能がまだ使える状態になっていません。<br>管理者に「Firebaseのセキュリティルールを最新版に更新してください」とお伝えください（資料▾→管理者マニュアルに手順があります）。</div>';
   } else if (!mids.length) {
     h += '<div class="pool-empty" style="padding:10px 0;font-size:12px">メモはありません</div>';
+  } else {
+    mids.forEach(function(id){ h += memoCardHTML(id, _memosData[id], today); });
   }
-  mids.forEach(function(id){ h += memoCardHTML(id, _memosData[id], today); });
-  el.innerHTML = h;
+  h += '</div>';
+  return h;
 }
 
 function renderTaskPerson(el, name) {
@@ -14649,6 +14665,10 @@ function renderTaskPerson(el, name) {
   var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
     + '<button class="btn btn-g btn-sm" onclick="taskBackOverview()">← 全体へ戻る</button>'
     + '<span style="font-size:14px;font-weight:800">👤 '+escH(name)+' のタスク</span></div>';
+
+  /* 自分自身のページを開いているときだけ、自分専用メモも一番上に出す
+     （他の人の個人ページでは、その人の担当タスクだけを見せる） */
+  if (name === taskSelfName()) h += taskMemoListHTML(today, {filter:false});
 
   if (!mine.length) { h += '<div class="pool-empty" style="padding:20px 0">タスクはありません</div>'; el.innerHTML = h; return; }
 
@@ -15724,7 +15744,7 @@ function swTab(t) {
   if(docsTabs.indexOf(t)===-1 && libTabs.indexOf(t)===-1) openSubmenu(null);
 
   if(t==='assign'){ swSubTab('at'); renderAT(); }
-  if(t==='task'){ renderTasks(); }
+  if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}

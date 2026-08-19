@@ -515,6 +515,8 @@ All image/video uploads (memo, memo reply, board post, board reply, manual, task
 
 Independent Firebase path (like `/board`), not part of the `D` object — the "5 locations" rule for `D` properties does not apply. Cached client-side in `_tasksData` (mirrors `_boardData`'s pattern), rendered by `renderTasks()` (overview) / `renderTaskPerson(el, name)` (per-staff detail, toggled via module-level `_taskView`).
 
+`swTab('task')` resets `_taskView = taskSelfName() || null` on every entry — the tab opens straight to the current user's own page when their account is linked to a staff name (same "always reset to a default sub-view on entry" convention as `swTab('assign')` resetting to the `at` subtab), falling back to the overview when unlinked. `taskMemoListHTML(today, opts)` renders the 🔒自分専用メモ block and is shared by both views, placed at the very top of the content (`opts.filter:false` skips the `_taskFilter` status filter for the personal page, since that page doesn't filter its task lists either). It only appears in `renderTaskPerson` when `name === taskSelfName()` — the memo data is always the viewer's own, so showing it while looking at someone else's task page would be misleading.
+
 ```js
 /tasks/{taskId} = {
   title:     '...',                 // required, PHI-checked
