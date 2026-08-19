@@ -275,6 +275,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .oc-sel.set{border-color:var(--oc);background:var(--oc-bg);color:var(--oc);font-weight:700}
 .oc-txt{flex:1;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn)}
 .oc-txt:focus{border-color:var(--oc)}
+.oc-done-row{flex-wrap:nowrap;justify-content:space-between}
+.oc-done-lbl{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:var(--oc);white-space:nowrap;flex-shrink:0}
+.oc-flow-btn{flex-shrink:0;white-space:nowrap}
+.oc-hint{font-size:11px;color:var(--txt3);margin:-3px 0 7px;line-height:1.4}
 /* minmax(0,1fr) にしないと、グリッドの列は「中身の最小幅」まで押し広げられる。
    長い行が1つあるだけでカードが画面幅を超え、ページ全体が横スクロールになる */
 .ops-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:4px;align-items:start}
@@ -4106,8 +4110,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/19-41';
+var APP_VERSION = 'Ver.2026/08/19-42';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/19-42', date:'2026-08-19', title:'オンコール「対応」欄のスマホ表示を修正', items:[
+    {t:'fix', d:'📞 オンコールの「対応」チェックと「対応フロー」ボタンが、スマホ幅で縦に崩れて表示される問題を修正。常に横並びで表示されます'}
+  ]},
   { ver:'Ver.2026/08/19-41', date:'2026-08-19', title:'タスクをタブに昇格・画像添付、申し送りの返信、OCの対応済み自動判定', items:[
     {t:'new', d:'📋 タスクがサイドバーの独立タブになりました（「担当表」の右隣）。これまでは担当表タブの中のサブタブだったため見つけにくかったものを、一階層上げています'},
     {t:'imp', d:'📋 タスクタブを開くと、まず自分の担当タスクだけのページが表示されるようになりました（全員のタスク一覧は「← 全体へ戻る」でいつでも見られます）'},
@@ -9877,16 +9884,18 @@ function renderPage(ds) {
   for(var i=0;i<D.stf.length;i++) h+='<option value="'+D.stf[i]+'"'+(dat.ocData.staff===D.stf[i]?' selected':'')+'>'+D.stf[i]+'</option>';
   h+='</select></div>';
   h+='<div class="oc-row"><span class="oc-lbl">備考</span><textarea class="oc-txt" id="oc-note" placeholder="備考など..." rows="2"'+(dlk?' disabled':'')+'>'+(dat.ocData.note||'')+'</textarea></div>';
-  /* 対応チェックボックス */
+  /* 対応チェックボックス。狭い画面でも「対応」チェックと「対応フロー」ボタンが横並びのまま
+     崩れないよう、幅の読めない補足テキストは別行（.oc-hint）に逃がす（同じ行に入れて
+     flex-shrinkに任せると、チェックのラベルやボタンの文字自体が折り返ってしまっていた） */
   var ocDone = !!(dat.ocData.done);
   h+='<div class="oc-row oc-done-row">';
-  h+='<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:var(--oc)">';
+  h+='<label class="oc-done-lbl">';
   h+='<input type="checkbox" id="oc-done"'+(ocDone?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
   h+='対応</label>';
-  h+='<span style="font-size:11px;color:var(--txt3)">開始と退勤が揃うと自動でチェックが付きます</span>';
   /* 対応フローは閲覧のみのため、担当ロック中でも押せるようにする（disabledにしない） */
-  h+='<button type="button" class="btn btn-g btn-sm" style="margin-left:auto" onclick="openOcFlowModal()">📄 対応フロー</button>';
+  h+='<button type="button" class="btn btn-g btn-sm oc-flow-btn" onclick="openOcFlowModal()">📄 対応フロー</button>';
   h+='</div>';
+  h+='<div class="oc-hint">開始と退勤が揃うと自動でチェックが付きます</div>';
   /* 対応時間・年休。「退勤時間を入れたら対応済み」を成立させるため、チェックの有無に関わらず常時表示する
      （以前はチェックONのときだけ展開していたので、時間を入れる前にチェックを押す必要があった） */
   h+='<div id="oc-done-detail" style="margin-top:4px;display:flex;flex-direction:column;gap:6px">';
