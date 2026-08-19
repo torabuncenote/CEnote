@@ -641,7 +641,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .btn-logout{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--bdr2);background:var(--sur2);color:var(--txt2);cursor:pointer;font-family:var(--fn)}
 .btn-logout:hover{background:var(--rd-bg);border-color:var(--rd);color:var(--rd)}
 /* ===== MEMO POSTS ===== */
-.memo-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:260px;overflow-y:auto}
+.memo-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:360px;overflow-y:auto}
 .memo-mention-popup{position:absolute;background:var(--sur);border:1.5px solid var(--ac);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:500;max-height:180px;overflow-y:auto;min-width:140px}
 .memo-mention-item{padding:7px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
 .memo-mention-item:hover,.memo-mention-item.active{background:var(--ac-bg);color:var(--ac)}
@@ -658,6 +658,23 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-post .mp-del:hover{color:var(--rd)}
 .memo-post .mp-move{position:absolute;top:7px;right:34px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
 .memo-post .mp-move:hover{color:var(--ac)}
+/* 申し送りの返信スレッド（掲示板の .brd-replies と同じ「左の縦線で入れ子」表現） */
+.mp-replies{margin-top:8px;padding-left:10px;border-left:2px solid var(--ac);border-radius:0}
+.mp-reply{padding:5px 0;border-bottom:1px solid var(--bdr);font-size:12px}
+.mp-reply:last-child{border-bottom:none}
+.mp-rmeta{font-size:10px;color:var(--txt3);display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap}
+.mp-rname{font-weight:700;color:var(--txt1)}
+.mp-rdel{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:11px;padding:0;margin-left:auto}
+.mp-rdel:hover{color:var(--rd)}
+.mp-rtext{color:var(--txt1);white-space:pre-wrap;word-break:break-word;line-height:1.55}
+.mp-rmedia{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.mp-rmedia img{max-width:100px;max-height:76px;border-radius:5px;border:1px solid var(--bdr);cursor:pointer;object-fit:cover;display:block}
+.mp-acts{display:flex;gap:8px;align-items:center;margin-top:7px}
+.mp-rcount{font-size:11px;color:var(--txt3)}
+.memo-post.memo-done .mp-replies{opacity:.9}
+.mp-reply-form{margin-top:6px;padding-left:10px;border-left:2px solid var(--ac);border-radius:0}
+.mp-ri{width:100%;box-sizing:border-box;font-size:12px;padding:5px 8px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt1);resize:vertical;font-family:var(--fn)}
+.mp-ri:focus{outline:none;border-color:var(--ac)}
 .memo-input-row{display:flex;gap:8px}
 .memo-input-row textarea{flex:1;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;font-size:13px;font-family:var(--fn);resize:vertical;min-height:52px;outline:none}
 .memo-input-row textarea:focus{border-color:var(--ac);background:var(--ac-bg)}
@@ -841,6 +858,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .task-tag-done{background:var(--gr-bg);color:var(--gr);border-color:var(--gr)}
 .task-due-over{color:var(--rd);font-weight:700}
 .task-asg{display:inline-block;font-size:10px;background:var(--sur);border:1px solid var(--bdr);border-radius:20px;padding:1px 7px;margin-right:3px}
+.task-media{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.task-media img{max-width:110px;max-height:84px;border-radius:5px;border:1px solid var(--bdr);cursor:pointer;object-fit:cover;display:block}
+.task-md-media{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px}
+.task-md-media .tmm{position:relative;border-radius:5px;overflow:hidden;border:1px solid var(--bdr)}
+.task-md-media .tmm img{width:72px;height:56px;object-fit:cover;display:block}
+.task-md-media .tmm button{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
 .task-graph-wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:10px 8px;align-items:end}
 .task-cluster{display:flex;flex-direction:column;align-items:center;padding:8px 4px 6px;border-radius:8px;cursor:pointer}
 .task-cluster:hover{background:var(--ac-bg)}
@@ -1081,6 +1104,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
     <div class="stabs">
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
+      <div class="stab"     id="tab-task"   onclick="swTab('task')">📋 タスク</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
@@ -1511,6 +1535,13 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       </div>
     </div>
 
+    <!-- タスク管理パネル（全ユーザー対象。旧・担当表のサブタブから一階層上げた） -->
+    <div id="pane-task" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div id="task-body"></div>
+      </div>
+    </div>
+
   <!-- 担当表パネル（PC: サイドバー全幅拡張でメインエリア表示 / スマホ: fixed全画面表示） -->
   <div id="pane-assign" style="display:none;flex:1;overflow-y:auto">
     <div class="atw">
@@ -1533,7 +1564,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
         <button id="subtab-ops" class="btn btn-g btn-sm" onclick="swSubTab('ops')" style="border-radius:6px 6px 0 0">📈 業務集計</button>
         <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0;display:none">⚖️ 公平性</button>
         <button id="subtab-my" class="btn btn-g btn-sm" onclick="swSubTab('my')" style="border-radius:6px 6px 0 0">👤 マイ担当</button>
-        <button id="subtab-task" class="btn btn-g btn-sm" onclick="swSubTab('task')" style="border-radius:6px 6px 0 0">📋 タスク</button>
       </div>
       <!-- 担当表 -->
       <div id="subpane-at">
@@ -1561,10 +1591,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       <!-- マイ担当 -->
       <div id="subpane-my" style="display:none;padding:10px 4px">
         <div id="my-body"></div>
-      </div>
-      <!-- タスク管理 -->
-      <div id="subpane-task" style="display:none;padding:10px 4px">
-        <div id="task-body"></div>
       </div>
     </div>
   </div>
@@ -2590,7 +2616,7 @@ function fbInit() {
           /* タスクリスナー（初回ログイン時に一度だけ設定） */
           fbDB.ref('/tasks').on('value', function(tsnap) {
             _tasksData = tsnap.val() || {};
-            var tp = document.getElementById('subpane-task');
+            var tp = document.getElementById('pane-task');
             if (tp && tp.style.display !== 'none') renderTasks();
           });
           /* 自分専用メモ（本人のUID配下のみ。セキュリティルールで他人は読めない） */
@@ -2599,14 +2625,14 @@ function fbInit() {
           _memoRef.on('value', function(msnap) {
             _memosData = msnap.val() || {};
             _memoDenied = false;
-            var mp = document.getElementById('subpane-task');
+            var mp = document.getElementById('pane-task');
             if (mp && mp.style.display !== 'none') renderTasks();
           }, function(err) {
             /* /taskMemos のルールが未適用だと読み取りも拒否される。無言で空リストに
                なると「メモが消えた」と誤解されるため、画面に理由を出せるよう記録する。 */
             _memoDenied = String((err && (err.code || err.message)) || '').indexOf('PERMISSION_DENIED') !== -1;
             _memosData = {};
-            var mp2 = document.getElementById('subpane-task');
+            var mp2 = document.getElementById('pane-task');
             if (mp2 && mp2.style.display !== 'none') renderTasks();
           });
         } else {
@@ -3188,6 +3214,7 @@ function renderSpec() {
   S += '<table class="spec-tbl"><tr><th>タブ</th><th>権限</th><th>機能</th></tr>';
   [['📅 予定','全員','カレンダー表示。日付クリックで連絡表を開く/作成。🔴未完了・🔵完了ドット'],
    ['📊 担当表','全員','縦:日付/横:スタッフ の担当マトリックス表。サブタブで OC集計・業務集計・公平性チェックも表示。CSV出力・印刷ボタン付き'],
+   ['📋 タスク','全員','日付にひもづかない仕事の割り振り（<code>/tasks</code>）と自分専用メモ（<code>/taskMemos/{uid}</code>）。画像添付可。以前は担当表のサブタブだったが、埋もれて気づかれないため独立タブに昇格'],
    ['📚 資料','全員','使い方ガイド・🏭メーカー担当者連絡先（サブメニュー）'],
    ['👥 スタッフ','管理者','スタッフ一覧・PHS番号の追加/削除/並び替え、勤務表Excelインポート'],
    ['📋 業務','管理者','共通業務・曜日別業務・オペ/カテ術式・担当枠・スケジュールプリセットのマスタ管理'],
@@ -3206,6 +3233,7 @@ function renderSpec() {
   S += '<div class="spec-h2">⏰ スケジュール（タイムテーブル）</div>';
   S += '<div class="spec-p">日付ごとに、勤務者を列にした縦型タイムテーブル（8:00〜21:00／15分刻み）。プリセットブロック（業務マスタで編集可）をタップ選択→列タップ、またはドラッグ＆ドロップで配置。ブロックはドラッグで移動／下端ハンドルでリサイズ。<code>D.pages[ds].schedule</code> に保存。担当割り当てから一括取り込みも可能。duty がロックされている場合、一般ユーザーは閲覧のみ。掲示板と同じくサイドバーのタブは廃止し、日ページのヘッダーにある「⏰ スケジュール」ボタン（<code>openSchedPanel()</code>）からモーダルで開きます。</div>';
   S += '<div class="spec-h2">📞 OC集計 / 📈 業務集計 / ⚖️ 公平性（担当表のサブタブ）</div>';
+  S += '<div class="spec-box">📋 タスクは以前ここのサブタブだったが、サイドバーの独立タブ（<code>#pane-task</code>）へ移した。担当表のサブタブは at / oc / ops / fair / my の5つ。</div>';
   S += '<table class="spec-tbl"><tr><th>サブタブ</th><th>内容</th></tr>';
   S += '<tr><td>OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>';
   S += '<tr><td>業務集計</td><td>オペ・カテ等の件数を集計</td></tr>';
@@ -3256,6 +3284,7 @@ function renderSpec() {
   S += '<div class="spec-p">投稿リスト形式。名前・日時を自動記録。画像・動画を添付可（画像は自動圧縮1280px/JPEG80%）。動画は50MBまで。Ctrl+Enterで送信。自分の投稿は自分で削除可、管理者は全員分削除可。</div>';
   S += '<div class="spec-p"><strong>患者情報検知機能</strong>：送信ボタン押下時に本文を自動スキャン。フルネーム・8桁患者IDを検知すると送信ブロック（是正案を提示）。カルテ番号・生年月日・病室番号・病名文脈・姓＋敬称・下4桁ID・姓＋イニシャルは警告表示後に確認送信可。</div>';
   S += '<div class="spec-box">⚠️ 入力欄上部の注意書き「患者氏名・病室番号・診断名・カルテ番号は入力しないでください」は常時表示。</div>';
+  S += '<div class="spec-p"><strong>返信</strong>：各投稿は <code>m.replies</code>（キー付きオブジェクト <code>{rid: {uid,name,isAdmin,text,media,ts}}</code>）に返信を持つ。memos が配列のため返信まで配列にすると同時投稿でインデックスが競合する＝掲示板の <code>replies</code> と同じ形にしている。親投稿の特定は配列インデックスではなく <code>memoKeyOf</code>（ts+uid）。読み出しは <code>memoReplies</code> / <code>memoReplyMediaArr</code> 経由。返信の添付は画像のみ（<code>memo/{ds}/reply_{ts}_{idx}_{file}</code>）。返信内の @メンションは通知は飛ぶが消し込みバーには数えない（返信には個別の「済」が無いため）。</div>';
   S += '<div class="spec-h2">4-7. 横断検索</div>';
   S += '<div class="spec-p">画面上部の🔍ボタン（Ctrl/Cmd+K）から全日付を対象に検索。対象：スタッフ名・申し送り本文・担当・オペ/カテの科・中カテゴリ・術式／種別・症例ごとの備考（<code>item.note</code>）・担当カードの備考（<code>dutyNotes</code>）。オペ/カテの表示は必ず <code>opsItemDept</code> / <code>opsItemCat</code> / <code>opsItemName</code> を経由するため、自由入力・マスタ選択のどちらも同じ条件でヒットする。</div>';
   S += '<div class="spec-h2">4-8. 消し込みバー</div>';
@@ -3531,8 +3560,10 @@ function renderManual() {
   S += step(1,'「📎 画像/動画」ボタンをクリック','入力欄の下にあります。');
   S += step(2,'ファイルを選択する','複数同時選択可。動画は50MBまで。画像は自動圧縮されます。');
   S += step(3,'プレビュー確認後「送信」','サムネイルが表示されるので確認して送信します。');
+  S += h2('返信する');
+  S += '<div class="mn-p">各投稿の下の「💬 返信」ボタンで、その申し送りに対する返信を書けます。返信は投稿の中に一段下げて表示されます。<br>返信にも画像を添付できます（画像のみ・動画は不可）。返信の削除は本人と管理者ができます。</div>';
   S += h2('投稿を削除する');
-  S += '<div class="mn-p">投稿の右上「✕」ボタンをクリック。<br>自分の投稿は自分で削除できます。他の人の投稿は管理者のみ削除できます。</div>';
+  S += '<div class="mn-p">投稿の右上「✕」ボタンをクリック。<br>自分の投稿は自分で削除できます。他の人の投稿は管理者のみ削除できます。<br>親の投稿を消すと、その返信と返信に付いた画像もまとめて消えます。</div>';
 
   // ===== 第8章 =====
   S += h1('第8章　勤務表を読み込む（Excelインポート）');
@@ -4075,8 +4106,19 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/18-40';
+var APP_VERSION = 'Ver.2026/08/19-41';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/19-41', date:'2026-08-19', title:'タスクをタブに昇格・画像添付、申し送りの返信、OCの対応済み自動判定', items:[
+    {t:'new', d:'📋 タスクがサイドバーの独立タブになりました（「担当表」の右隣）。これまでは担当表タブの中のサブタブだったため見つけにくかったものを、一階層上げています'},
+    {t:'new', d:'📷 タスク・自分専用メモに画像を添付できるようになりました。機器のどの部分かを写真で伝えられます（カードのサムネイルをタップすると拡大表示）'},
+    {t:'new', d:'💬 申し送りに返信できるようになりました。返信はその申し送りの中に入れ子で表示されるので、どれへの返事か一目で分かります。返信にも画像を添付できます'},
+    {t:'imp', d:'📞 オンコールの対応時間欄が常に表示されるようになり、開始と退勤の両方を入力すると自動で「対応」にチェックが付きます。チェックを押してから時間を入れる手順が不要になりました'},
+    {t:'imp', d:'📞 オンコールの「対応」チェックを手動で外すときに、入力済みの対応時間を消すかどうか確認するようにしました（これまでは確認なしで消えていました）'},
+    {t:'fix', d:'📞 OC集計のCSVで「対応時間」の列がいつも空になっていた問題を修正'},
+    {t:'fix', d:'📞 オンコールの対応済み表示が、画面上部のダッシュボードにすぐ反映されない問題を修正'},
+    {t:'fix', d:'📝 申し送りの一覧を描き直すたびにクリック処理が重複登録され、削除の確認が何度も出ることがある問題を修正'},
+    {t:'fix', d:'🌙 OC対応完了の管理者通知が、時間を入力する前に送られるため中身が薄くなっていた問題を修正（開始・退勤が揃ってから送るようにしました）', admin:true}
+  ]},
   { ver:'Ver.2026/08/18-40', date:'2026-08-18', title:'オペ使用物品の折り返し表示、申し送りの日付移動を全員に開放', items:[
     {t:'imp', d:'🧰 オペカードの使用物品を多く入力しても、途中で品目名が切れず折り返して全体が見えるようになりました。品目の名前自体は途中で改行されず、品目とカンマの間でだけ折り返します'},
     {t:'imp', d:'📅 申し送りの「別日へ移動」ボタンを、書いた本人・管理者以外でも押せるようになりました。移動しても元の投稿者名は変わらず、移動先には「◯月◯日から移動」と表示されるので、誰が書いたか・どこから来たかは引き続き分かります'}
@@ -4584,7 +4626,7 @@ function renderDev() {
     '      ope_note, cath_note, mw_n, mw_note,',
     '      psg_on, psg_off, psg_rest, psg_fusen',
     '    },',
-    '    ocData: {staff, note},',
+    '    ocData: {staff, note, done, startTime, endTime, nenkyu},',
     '    staffAdj: {addCe:[], addOc:[], removeCe:{名前:true}, removeOc:{名前:true}}',
     '  }},',
     '  stf, phs, dly, wd, lk, ope, cath, sup, opeTree, cathTree, supTree,',
@@ -4608,6 +4650,9 @@ function renderDev() {
    ['renderSched()','スケジュール（タイムテーブル）描画。schedImportDuties()で担当から取込'],
    ['renderBoard()/postBoard()/postBoardReply()/deleteBoard()/pinBoard()','掲示板（/board）。updateBoardBadge()で未読バッジ'],
    ['renderFairness()','担当表サブタブ：公平性マトリックス（FAIR_GAP_WARN）'],
+   ['renderTasks()/openTaskModal(id,isMemo)/_doSaveTask()/_doSaveMemo()','タスク管理（/tasks・/taskMemos）。サイドバー独立タブ #pane-task。画像添付があるため保存は非同期（_uploadTaskMedia でアップロード完了後に persist→モーダルclose）。添付の読み出しは taskMediaArr 経由'],
+   ['renderMemos()/postMemoReply()/delMemoReply()','申し送りと返信。返信は m.replies のキー付きオブジェクト、親の特定は memoKeyOf(ts+uid)。#memo-list のクリック処理は bindMemoListEvents で一度だけ登録する（毎回 addEventListener すると多重発火する）'],
+   ['ocSetDone(ds,val)/updateOcDashChip(ds)','OC対応済みフラグの唯一の書き換え口。開始＋退勤が揃うと自動でtrue。保存・チェックボックス同期・翌日ルール通知・ダッシュボード更新・管理者通知をここに集約'],
    ['exportBackup()/importBackup()','手動JSONバックアップ（保存/復元）'],
    ['autoSaveSnapshot()/renderAutoBackups()/restoreAutoBackup()','PCローカル自動BK（ce2_autobk・PCのみ・5件）'],
    ['saveFirebaseSnapshot()/renderFirebaseSnapshots()/restoreFirebaseSnapshot()/cleanOldSnapshots()','Firebase時間別スナップ（/backups/YYYY-MM-DD_HH・7日×24h保持）。保存ごとに /recent_backup も更新'],
@@ -4772,7 +4817,7 @@ function downloadDevMd() {
     '      ope_note, cath_note, mw_n, mw_note,',
     '      psg_on, psg_off, psg_rest, psg_fusen',
     '    },',
-    '    ocData: {staff, note}',
+    '    ocData: {staff, note, done, startTime, endTime, nenkyu}',
     '  }},',
     '  stf, phs, dly, wd, lk, ope, cath,',
     '  shift: {\'YYYY-MM\': {\'氏名\': {1:{shift,oc}}}},',
@@ -5222,7 +5267,7 @@ function removeOpsCard(ds, cid) {
 var _curSubTab = 'at';
 function swSubTab(id) {
   _curSubTab = id;
-  var ids = ['at','oc','ops','fair','my','task'];
+  var ids = ['at','oc','ops','fair','my'];
   ids.forEach(function(sid){
     var pane = document.getElementById('subpane-'+sid);
     if (pane) pane.style.display = sid===id ? '' : 'none';
@@ -5234,13 +5279,12 @@ function swSubTab(id) {
   /* CSV/印刷ボタンの有無をサブタブに合わせて切り替え */
   var csvBtn   = document.getElementById('btn-sub-csv');
   var printBtn = document.getElementById('btn-sub-print');
-  if (csvBtn)   csvBtn.style.display   = (id==='fair'||id==='my'||id==='task') ? 'none' : '';
-  if (printBtn) printBtn.style.display = (id==='my'||id==='task') ? 'none' : '';
+  if (csvBtn)   csvBtn.style.display   = (id==='fair'||id==='my') ? 'none' : '';
+  if (printBtn) printBtn.style.display = (id==='my') ? 'none' : '';
   if (id==='oc')   renderOCSummary();
   if (id==='ops')  renderOpsSummary();
   if (id==='fair') renderFairness();
   if (id==='my')   renderMySchedule();
-  if (id==='task') renderTasks();
 }
 
 /* ===== OC集計シート ===== */
@@ -6023,11 +6067,12 @@ function renderGuide() {
   S += warn('使用物品はオペのみ記録されます（カテの入力欄には使用物品がありません）。');
 
   S += h1('📋 タスク管理');
-  S += '<div class="gd-p">「📊 担当表」タブの中の「📋 タスク」で、日付にひもづかない仕事（機器の手配、書類の作成など）をスタッフ間で割り振れます。</div>';
+  S += '<div class="gd-p">サイドバーの「📋 タスク」タブ（「📊 担当表」の右隣）で、日付にひもづかない仕事（機器の手配、書類の作成など）をスタッフ間で割り振れます。</div>';
   S += step(1,'「＋ タスクを追加」をタップ','タイトル・内容・担当者（複数人可）・期限を入力します。');
   S += step(2,'状態のタグをタップして進める','タップするたびに 未着手 → 進行中 → 完了 → 未着手 と切り替わります。担当者本人も切り替えられます。');
   S += step(3,'名前をタップすると個人ページ','その人のタスクだけをまとめて確認できます。');
   S += '<div class="gd-p">上部のグラフでスタッフごとの持ち仕事の量が分かります（完了したタスクは数えません）。期限を過ぎたタスクは赤く表示されます。</div>';
+  S += ok('タイトルの下の「📎 画像を追加」から、写真を添付できます。カードのサムネイルをタップすると拡大表示されます（自分専用メモにも添付できます）。');
   S += ok('完了したタスクは消えず、薄い表示で残ります。あとから見返せます。');
   S += ok('新しく担当者に加わると、その人にポップアップでお知らせが届きます（ログイン中はその場で、ログアウト中は次のログイン時に）。自分自身を担当に加えたときや、もともと担当だった人には届きません。');
   S += warn('タスクの削除と、担当者・期限などの全項目の編集ができるのは、作ったご本人と管理者だけです。');
@@ -6059,6 +6104,13 @@ function renderGuide() {
   S += step(2,'ファイルを選択して送信','動画は50MBまで。');
   S += h2('済チェック');
   S += '<div class="gd-p">各投稿の右上に「済 □」チェックボックスがあります。確認した申し送りにチェックを入れると投稿がグレーアウトして確認済みと分かります。</div>';
+  S += h2('返信する');
+  S += '<div class="gd-p">各申し送りの下の <strong>💬 返信</strong> をタップすると入力欄が開きます。返信はその申し送りの中に一段下げて表示されるので、どの申し送りへの返事かが一目で分かります。</div>';
+  S += step(1,'「💬 返信」をタップ','入力欄が開きます。');
+  S += step(2,'本文を入力（画像も添付できます）','「📎 画像」から写真を添付できます（返信は画像のみ・動画は本文の投稿でどうぞ）。');
+  S += step(3,'「返信」をタップ','投稿者名と時刻が自動で記録されます。');
+  S += ok('返信の中でも @ でメンションできます。メンションされた人にはお知らせが届きます。');
+  S += ok('自分の返信は返信の右上「✕」で削除できます（管理者は全員分を削除できます）。');
   S += h2('別の日へ移動する');
   S += '<div class="gd-p">「今日は対応できないので明日に回したい」というときは、投稿の右上・済チェックの右隣にある <strong>📅</strong> ボタンから申し送りを別の日へ移せます（「済」が付いた投稿には出ません）。</div>';
   S += step(1,'📅 ボタンをタップ','日付を選ぶ画面が開きます（初期値は翌日）。');
@@ -6082,6 +6134,14 @@ function renderGuide() {
   S += ok('全部終わると緑色になり「残り 0 ── 本日ぶんは締められます」と表示されます。');
   S += '<div class="gd-p">「今日は対応できない」項目は、内訳の「対象外」ボタンでその日だけ数から外せます（「戻す」でいつでも元に戻せます）。</div>';
   S += '<div class="gd-p">今日以外の日を開いているときはバーがグレー表示になり、あくまで参照用（その日の記録の状態を振り返るためのもの）になります。</div>';
+
+  S += h1('📞 オンコール（OC）の記録');
+  S += '<div class="gd-p">連絡表の担当割り当ての下にある「📞 オンコール（OC）担当」欄で、その日のOC担当者と対応内容を記録します。</div>';
+  S += step(1,'担当者を選ぶ','勤務表を読み込んでいれば自動で入っていることもあります。');
+  S += step(2,'対応したら開始と退勤の時刻を入れる','この2つが揃うと「対応」チェックが自動で付きます。チェックを押しに行く必要はありません。');
+  S += ok('時刻を入れる前に「対応」チェックを手動で付けることもできます（先にチェックして、後から時刻を入れる使い方も残しています）。');
+  S += ok('退勤が深夜0時以降なら翌日休み取得可、21時より後なら遅出出勤、といった翌日の出勤ルールが自動で表示されます。');
+  S += warn('「対応」チェックを手動で外すときは、入力済みの対応時間を消すかどうか確認が出ます。「キャンセル」を選べば時刻は残ります。');
 
   S += h1('⏰ スケジュール');
   S += '<div class="gd-p">連絡表ページ上部の「⏰ スケジュール」ボタンで、その日の勤務者ごとの時間割を作れます。</div>';
@@ -9743,7 +9803,7 @@ function renderPage(ds) {
   h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone)+'</span></div>' : '') +'</div>';
   var _ocStaff = dat.ocData.staff || '';
   var _ocCls = !_ocStaff ? ' dash-warn' : (dat.ocData.done ? ' pv-p' : '');
-  h+='<div class="pr dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅対応済':'')+'</span></div>';
+  h+='<div class="pr dash-chip" id="oc-dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'" id="oc-dash-val">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅対応済':'')+'</span></div>';
   var _memoUndone = (dat.memos||[]).filter(function(m){return !m.done;}).length;
   h+='<div class="pr dash-chip" onclick="dashJump(\'#memo-list\')" title="申し送りへジャンプ"><span class="pl">📝 申し送り</span><span class="pv'+(_memoUndone?'':' dash-muted')+'">'+_memoUndone+'件</span></div>';
   h+='</div>';
@@ -9820,11 +9880,13 @@ function renderPage(ds) {
   h+='<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:var(--oc)">';
   h+='<input type="checkbox" id="oc-done"'+(ocDone?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
   h+='対応</label>';
+  h+='<span style="font-size:11px;color:var(--txt3)">開始と退勤が揃うと自動でチェックが付きます</span>';
   /* 対応フローは閲覧のみのため、担当ロック中でも押せるようにする（disabledにしない） */
   h+='<button type="button" class="btn btn-g btn-sm" style="margin-left:auto" onclick="openOcFlowModal()">📄 対応フロー</button>';
   h+='</div>';
-  /* 対応時間・年休（チェック時に展開） */
-  h+='<div id="oc-done-detail" style="'+(ocDone?'':'display:none;')+'margin-top:4px;display:'+(ocDone?'flex':'none')+';flex-direction:column;gap:6px">';
+  /* 対応時間・年休。「退勤時間を入れたら対応済み」を成立させるため、チェックの有無に関わらず常時表示する
+     （以前はチェックONのときだけ展開していたので、時間を入れる前にチェックを押す必要があった） */
+  h+='<div id="oc-done-detail" style="margin-top:4px;display:flex;flex-direction:column;gap:6px">';
   h+='<div class="oc-row"><span class="oc-lbl">対応時間</span>';
   h+='<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">';
   h+='<label style="font-size:12px;color:var(--txt3)">開始</label>';
@@ -9979,35 +10041,40 @@ function renderPage(ds) {
     var os=document.getElementById('oc-staff'), on2=document.getElementById('oc-note');
     if(os){os.onchange=function(){this.classList.toggle('set',!!this.value);D.pages[ds].ocData.staff=this.value;saveD();refreshPool(ds);updateCloseBar(ds);};}
     if(on2){var t;on2.oninput=function(){var v=this.value;clearTimeout(t);t=setTimeout(function(){D.pages[ds].ocData.note=v;saveD();},600);};}
-    /* OC対応チェック・時間・年休 */
+    /* OC対応チェック・時間・年休。
+       done の書き換えは必ず ocSetDone(ds,val) を通す（保存・チェックボックス同期・翌日ルール通知・
+       ダッシュボードチップ更新・管理者通知が1か所にまとまる） */
     var ocDoneCb=document.getElementById('oc-done');
-    var ocDetail=document.getElementById('oc-done-detail');
     var ocStartTime=document.getElementById('oc-start-time');
     var ocEndTime=document.getElementById('oc-end-time');
     var ocNenkyu=document.getElementById('oc-nenkyu');
     if(ocDoneCb){
       ocDoneCb.onchange=function(){
-        D.pages[ds].ocData.done=this.checked;
-        if(!this.checked){D.pages[ds].ocData.startTime='';D.pages[ds].ocData.endTime='';D.pages[ds].ocData.nenkyu=false;}
-        saveD();
-        if(ocDetail) ocDetail.style.display=this.checked?'flex':'none';
-        if(ocStartTime&&!this.checked) ocStartTime.value='';
-        if(ocEndTime&&!this.checked) ocEndTime.value='';
-        if(ocNenkyu&&!this.checked) ocNenkyu.checked=false;
-        notifyOcRule(ds);
+        var od=D.pages[ds].ocData;
         if(this.checked){
-          var od=D.pages[ds].ocData;
-          var lines=[ds.replace(/-/g,'/')+'  OC対応完了'];
-          if(od.staff)     lines.push('担当：'+od.staff);
-          if(od.startTime) lines.push('開始：'+od.startTime);
-          if(od.endTime)   lines.push('終了：'+od.endTime);
-          if(od.note)      lines.push('備考：'+od.note);
-          sendAdminNotification('🌙 OC対応完了', lines.join('\n'));
+          /* 時間未入力でも手動で対応済みにできる（先にチェックして後から時間を入れる運用を残す） */
+          ocSetDone(ds,true);
+          return;
         }
+        /* 手動でOFF：入力済みの時間を巻き添えで消さないよう確認してから消す */
+        if(od.startTime||od.endTime||od.nenkyu){
+          if(confirm('入力済みの対応時間・年休も消しますか？\n（キャンセルすると時間はそのまま残ります）')){
+            od.startTime=''; od.endTime=''; od.nenkyu=false;
+            if(ocStartTime) ocStartTime.value='';
+            if(ocEndTime)   ocEndTime.value='';
+            if(ocNenkyu)    ocNenkyu.checked=false;
+          }
+        }
+        ocSetDone(ds,false);
       };
     }
-    if(ocStartTime){ocStartTime.onchange=function(){D.pages[ds].ocData.startTime=this.value;saveD();};}
-    if(ocEndTime){ocEndTime.onchange=function(){D.pages[ds].ocData.endTime=this.value;saveD();notifyOcRule(ds);};}
+    /* 開始と退勤が両方そろったら対応済み、片方でも空なら対応済みを外す */
+    function ocSyncFromTimes(){
+      var od=D.pages[ds].ocData;
+      ocSetDone(ds, !!(od.startTime && od.endTime));
+    }
+    if(ocStartTime){ocStartTime.onchange=function(){D.pages[ds].ocData.startTime=this.value;saveD();ocSyncFromTimes();};}
+    if(ocEndTime){ocEndTime.onchange=function(){D.pages[ds].ocData.endTime=this.value;saveD();ocSyncFromTimes();};}
     if(ocNenkyu){ocNenkyu.onchange=function(){D.pages[ds].ocData.nenkyu=this.checked;saveD();};}
   })(ds);
 
@@ -10237,9 +10304,43 @@ function poolAssign(ds,name) {
 }
 
 /* ===== MEMO POSTS ===== */
+/* 申し送りの media / replies は Firebase を経由すると疎な配列がオブジェクト化されるため、
+   読み出しは必ずこのアクセサを通す（掲示板側の _boardMediaArr と同じ対策） */
+function memoMediaArr(m) {
+  if (!m || !m.media) return [];
+  if (Array.isArray(m.media)) return m.media.filter(Boolean);
+  return Object.keys(m.media).map(function(k){ return m.media[k]; }).filter(Boolean);
+}
+/* 返信は配列ではなくキー付きオブジェクト。申し送り本体が memos 配列なので、
+   返信まで配列にすると多端末の同時投稿でインデックスが競合する（掲示板の replies と同じ形） */
+function memoReplies(m) {
+  if (!m || !m.replies) return [];
+  return Object.keys(m.replies).map(function(rid){
+    return Object.assign({ _rid: rid }, m.replies[rid]);
+  }).filter(function(r){ return r && (r.text || (r.media && r.media.length)); })
+    .sort(function(a,b){ return (a.ts||0)-(b.ts||0); });
+}
+function memoReplyMediaArr(r) {
+  if (!r || !r.media) return [];
+  if (Array.isArray(r.media)) return r.media.filter(Boolean);
+  return Object.keys(r.media).map(function(k){ return r.media[k]; }).filter(Boolean);
+}
+/* 申し送り1件を指す安定キー。Firebaseのエコーで memos の並びが変わっても
+   同じ投稿を指し続けられるよう、インデックスではなく ts+uid で特定する
+   （moveMemo が対象を再特定しているのと同じ考え方） */
+function memoKeyOf(m) { return String(m && m.ts || 0) + '_' + String((m && m.uid) || ''); }
+function findMemoByKey(ds, key) {
+  var memos = (D.pages[ds] && D.pages[ds].memos) ? D.pages[ds].memos : [];
+  for (var i = 0; i < memos.length; i++) {
+    if (memoKeyOf(memos[i]) === key) return { idx: i, m: memos[i] };
+  }
+  return null;
+}
+
 function renderMemos(ds, dat, locked) {
   var el = document.getElementById('memo-list');
   if (!el) return;
+  bindMemoListEvents(el);
   var memos = (dat && dat.memos) ? dat.memos : [];
   if (!memos.length) {
     el.innerHTML = '<div class="pool-empty" style="font-size:12px;padding:6px 0">申し送りはまだありません</div>';
@@ -10248,6 +10349,7 @@ function renderMemos(ds, dat, locked) {
   var h = '';
   for (var i = memos.length - 1; i >= 0; i--) {
     var m = memos[i];
+    var mkey = memoKeyOf(m);
     var canDel = !locked && (isAdmin || (currentUser && currentUser.uid === m.uid));
     var isDone = !!m.done;
     h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
@@ -10271,10 +10373,11 @@ function renderMemos(ds, dat, locked) {
     h += '</div>';
     if (m.text) h += '<div class="mp-body" style="white-space:pre-wrap">' + highlightMention(escH(m.text)) + '</div>';
     /* 画像・動画 */
-    if (m.media && m.media.length) {
+    var mArr = memoMediaArr(m);
+    if (mArr.length) {
       h += '<div class="memo-post-media">';
-      for (var mi = 0; mi < m.media.length; mi++) {
-        var med = m.media[mi];
+      for (var mi = 0; mi < mArr.length; mi++) {
+        var med = mArr[mi];
         var mediaSrc = escH(med.url || med.data || '');
         h += '<div class="media-cell">';
         if (med.type === 'image') {
@@ -10286,24 +10389,65 @@ function renderMemos(ds, dat, locked) {
       }
       h += '</div>';
     }
+    /* 返信スレッド（この申し送りへの返事であることが分かるよう入れ子で表示する） */
+    var reps = memoReplies(m);
+    if (reps.length) {
+      h += '<div class="mp-replies">';
+      reps.forEach(function(r) {
+        var canDelR = !locked && (isAdmin || (currentUser && currentUser.uid === r.uid));
+        h += '<div class="mp-reply">';
+        h += '<div class="mp-rmeta"><span class="mp-rname">' + escH(r.name || '不明') + '</span><span>' + (r.ts ? fmtTS(r.ts) : '') + '</span>';
+        if (r.isAdmin) h += '<span style="font-size:9px;background:var(--gd-bg);color:var(--gd);border-radius:4px;padding:1px 5px;border:1px solid var(--gd-bdr)">管理者</span>';
+        if (canDelR) h += '<button class="mp-rdel" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '" data-rid="' + escH(r._rid) + '" data-action="delMemoReply" title="返信を削除">✕</button>';
+        h += '</div>';
+        if (r.text) h += '<div class="mp-rtext">' + highlightMention(escH(r.text)) + '</div>';
+        var rArr = memoReplyMediaArr(r);
+        if (rArr.length) {
+          h += '<div class="mp-rmedia">';
+          rArr.forEach(function(med2){
+            var src2 = escH(med2.url || med2.data || '');
+            h += '<div class="media-cell"><img src="' + src2 + '" alt="' + escH(med2.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'"></div>';
+          });
+          h += '</div>';
+        }
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+    /* 返信ボタン＋件数（返信の投稿は memo 権限に連動） */
+    if (!locked || reps.length) {
+      h += '<div class="mp-acts">';
+      if (!locked) h += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" data-action="toggleMemoReply" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '">💬 返信</button>';
+      if (reps.length) h += '<span class="mp-rcount">返信 ' + reps.length + '件</span>';
+      h += '</div>';
+    }
+    /* 返信入力欄（既定は非表示） */
+    if (!locked) {
+      h += '<div class="mp-reply-form" id="mp-rf-' + escH(mkey) + '" style="display:none">';
+      h += '<div class="memo-media-preview" id="mp-rprev-' + escH(mkey) + '"></div>';
+      h += '<textarea class="mp-ri" rows="2" placeholder="この申し送りに返信…" id="mp-ri-' + escH(mkey) + '"></textarea>';
+      h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">';
+      h += '<label class="memo-media-btn">📎 画像<input type="file" accept="image/*" multiple style="display:none" data-action="memoReplyFile" data-mkey="' + escH(mkey) + '"></label>';
+      h += '<button class="btn btn-p btn-sm" style="font-size:11px" data-action="postMemoReply" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '" id="mp-rsend-' + escH(mkey) + '">返信</button>';
+      h += '</div></div>';
+    }
     if (canMove) h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
     if (canDel) h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
     h += '</div>';
   }
   el.innerHTML = h;
-  el.addEventListener('click', function(e) {
-    /* 削除ボタン */
-    var btn = e.target.closest('[data-action="delMemo"]');
-    if (btn) {
-      delMemo(btn.getAttribute('data-ds'), parseInt(btn.getAttribute('data-idx')));
-      return;
-    }
-    /* 別日へ移動ボタン */
-    var mvBtn = e.target.closest('[data-action="moveMemo"]');
-    if (mvBtn) {
-      openMoveMemoModal(mvBtn.getAttribute('data-ds'), parseInt(mvBtn.getAttribute('data-idx')));
-      return;
-    }
+}
+
+/* #memo-list は renderMemos のたびに innerHTML を差し替えるだけの永続DOMなので、
+   ここで addEventListener すると呼ぶたびにリスナーが積み増しされる（削除の確認が
+   何度も出るなどの原因になる）。フラグで一度きりの登録に固定する。 */
+function bindMemoListEvents(el) {
+  if (el._memoBound) return;
+  el._memoBound = true;
+  el.addEventListener('change', function(e) {
+    /* 返信のファイル選択 */
+    var fi = e.target.closest('[data-action="memoReplyFile"]');
+    if (fi) { onMemoReplyMediaAdd(fi, fi.getAttribute('data-mkey')); return; }
     /* 済チェックボックス */
     var cb = e.target.closest('[data-action="doneMemo"]');
     if (cb) {
@@ -10321,6 +10465,186 @@ function renderMemos(ds, dat, locked) {
       updateCloseBar(bds);
     }
   });
+  el.addEventListener('click', function(e) {
+    /* 削除ボタン */
+    var btn = e.target.closest('[data-action="delMemo"]');
+    if (btn) {
+      delMemo(btn.getAttribute('data-ds'), parseInt(btn.getAttribute('data-idx')));
+      return;
+    }
+    /* 別日へ移動ボタン */
+    var mvBtn = e.target.closest('[data-action="moveMemo"]');
+    if (mvBtn) {
+      openMoveMemoModal(mvBtn.getAttribute('data-ds'), parseInt(mvBtn.getAttribute('data-idx')));
+      return;
+    }
+    /* 返信フォームの開閉 */
+    var tg = e.target.closest('[data-action="toggleMemoReply"]');
+    if (tg) { toggleMemoReply(tg.getAttribute('data-mkey')); return; }
+    /* 返信の送信 */
+    var sd = e.target.closest('[data-action="postMemoReply"]');
+    if (sd) { postMemoReply(sd.getAttribute('data-ds'), sd.getAttribute('data-mkey')); return; }
+    /* 返信の削除 */
+    var rd = e.target.closest('[data-action="delMemoReply"]');
+    if (rd) { delMemoReply(rd.getAttribute('data-ds'), rd.getAttribute('data-mkey'), rd.getAttribute('data-rid')); return; }
+  });
+}
+
+/* ===== 申し送りへの返信 =====
+   親メモは memoKeyOf(ts+uid) で特定する（memos は配列なのでインデックスは Firebase の
+   エコーでずれうる）。返信自体は m.replies のキー付きオブジェクトに入れ、1ページに
+   閉じた変更なので saveDPage(ds) で保存する。 */
+
+/* 返信の一時画像バッファ（親メモキー → バッファ配列） */
+var _memoReplyMediaBuf = {};
+
+function toggleMemoReply(mkey) {
+  var f = document.getElementById('mp-rf-' + mkey);
+  if (!f) return;
+  var open = f.style.display === 'none';
+  f.style.display = open ? 'block' : 'none';
+  /* 開閉のたびに選択済み画像は捨てる（閉じたフォームに画像が残っていると次に開いたとき驚く） */
+  _memoReplyMediaBuf[mkey] = [];
+  renderMemoReplyPreview(mkey);
+  if (open) { var ta = document.getElementById('mp-ri-' + mkey); if (ta) ta.focus(); }
+}
+
+function onMemoReplyMediaAdd(input, mkey) {
+  var files = Array.prototype.slice.call(input.files);
+  input.value = '';
+  if (!files.length) return;
+  if (!_memoReplyMediaBuf[mkey]) _memoReplyMediaBuf[mkey] = [];
+  var pending = files.length;
+  files.forEach(function(file) {
+    if (!file.type || file.type.indexOf('image/') !== 0) {
+      toast('返信に添付できるのは画像だけです', 'warn');
+      pending--; if (pending === 0) renderMemoReplyPreview(mkey);
+      return;
+    }
+    compressImage(file, function(dataUrl, blob) {
+      var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
+      _memoReplyMediaBuf[mkey].push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
+      pending--;
+      if (pending === 0) renderMemoReplyPreview(mkey);
+    });
+  });
+}
+
+function renderMemoReplyPreview(mkey) {
+  mediaBufPreview(document.getElementById('mp-rprev-' + mkey), _memoReplyMediaBuf[mkey] || [], function(){
+    renderMemoReplyPreview(mkey);
+  });
+}
+
+function postMemoReply(ds, mkey) {
+  var ta = document.getElementById('mp-ri-' + mkey);
+  if (!ta) return;
+  var text = ta.value.trim();
+  var buf = _memoReplyMediaBuf[mkey] || [];
+  if (!text && !buf.length) return;
+  if (!can('memo')) { toast('🔒 申し送りの編集はロックされています', 'warn'); return; }
+  /* 患者情報チェック。#main 内なので focusout ガードも効くが、送信時は postMemo と同じく
+     明示的に見る（ブロック級は続行させない＝掲示板側とは違い phiHasBlock を尊重する） */
+  if (text) {
+    var result = detectPHI(text);
+    if (result.red.length || result.yellow.length) {
+      showPHIPopup({
+        result: result,
+        mode: 'memo',
+        onFix: function(){ var t = document.getElementById('mp-ri-' + mkey); if (t) t.focus(); },
+        onProceed: phiHasBlock(result) ? null : function(){
+          writeLog('PHI警告を確認して送信', '検知内容: ' + result.red.concat(result.yellow).join(', '));
+          _doPostMemoReply(ds, mkey, text);
+        }
+      });
+      return;
+    }
+  }
+  _doPostMemoReply(ds, mkey, text);
+}
+
+function _doPostMemoReply(ds, mkey, text) {
+  if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
+  var hit = findMemoByKey(ds, mkey);
+  if (!hit) { toast('返信先の申し送りが見つかりません（再読み込みしてください）', 'warn'); return; }
+  var sendBtn = document.getElementById('mp-rsend-' + mkey);
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '送信中...'; }
+  var buf = (_memoReplyMediaBuf[mkey] || []).slice();
+  var ts  = Date.now();
+  var reply = {
+    uid:     currentUser.uid,
+    name:    currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : '不明'),
+    isAdmin: currentUser.isAdmin,
+    text:    text,
+    media:   [],
+    ts:      ts
+  };
+  if (!buf.length) { _finishPostMemoReply(ds, mkey, reply, text, sendBtn); return; }
+  var pending = buf.length;
+  buf.forEach(function(mm, idx) {
+    var path = 'memo/' + ds + '/reply_' + ts + '_' + idx + '_' + mm.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    uploadToStorage(path, mm.blob || mm.data, function(url, fallback) {
+      if (!url && !fallback) { /* Storage未接続かつ大きすぎ → この画像はあきらめる */
+        pending--; if (pending === 0) _finishPostMemoReply(ds, mkey, reply, text, sendBtn);
+        return;
+      }
+      reply.media.push({
+        type: 'image', name: mm.name,
+        url: url || fallback,
+        storagePath: url ? path : null,
+        data: url ? null : fallback
+      });
+      pending--;
+      if (pending === 0) _finishPostMemoReply(ds, mkey, reply, text, sendBtn);
+    });
+  });
+}
+
+function _finishPostMemoReply(ds, mkey, reply, text, sendBtn) {
+  /* アップロード待ちの間に Firebase のエコーで memos が入れ替わっている可能性があるので
+     ここで改めて親メモを引き直す（閉じ込めた参照は使わない） */
+  var hit = findMemoByKey(ds, mkey);
+  if (!hit) {
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '返信'; }
+    toast('返信先の申し送りが見つかりません（再読み込みしてください）', 'warn');
+    return;
+  }
+  var m = hit.m;
+  if (!m.replies) m.replies = {};
+  m.replies['r' + reply.ts + '_' + String(reply.uid || '').slice(0, 8)] = reply;
+  saveDPage(ds);
+  writeLog('申し送り返信', fmtJ(ds) + ' 「' + (text || '[画像]').slice(0, 30) + (text.length > 30 ? '...' : '') + '」');
+  var ta = document.getElementById('mp-ri-' + mkey); if (ta) ta.value = '';
+  _memoReplyMediaBuf[mkey] = [];
+  if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '返信'; }
+  renderMemos(ds, D.pages[ds], !can('memo'));
+  /* @メンション通知は返信でも飛ばす。ただし消し込みバー（closeItems の mention）には
+     入れない — あちらは「未完了の申し送り」を数えており、返信には個別の「済」が無いため */
+  var mentioned = extractMentions(text, reply.name);
+  if (mentioned.length) {
+    var mTitle = '💬 ' + reply.name + 'さんから返信でメンション';
+    var mBody = (text || '').slice(0, 50) + (text && text.length > 50 ? '…' : '') + '（' + fmtJ(ds) + '）';
+    mentioned.forEach(function(name) {
+      var uid = D.stfLinks && D.stfLinks[name];
+      if (uid) sendNotificationToUid(uid, name, mTitle, mBody, 'mention');
+      else sendNotification(name, mTitle, mBody, 'mention');
+    });
+  }
+}
+
+function delMemoReply(ds, mkey, rid) {
+  var hit = findMemoByKey(ds, mkey);
+  if (!hit || !hit.m.replies || !hit.m.replies[rid]) return;
+  var r = hit.m.replies[rid];
+  if (!(isAdmin || (currentUser && currentUser.uid === r.uid))) return;
+  if (!confirm('この返信を削除しますか？')) return;
+  memoReplyMediaArr(r).forEach(function(med) {
+    if (med.storagePath && fbST) fbST.ref(med.storagePath).delete().catch(function(){});
+  });
+  delete hit.m.replies[rid];
+  saveDPage(ds);
+  writeLog('申し送り返信削除', fmtJ(ds) + ' ' + (r.name || ''));
+  renderMemos(ds, D.pages[ds], !can('memo'));
 }
 
 /* 申し送り用の一時メディアバッファ */
@@ -10537,6 +10861,27 @@ function onMemoMediaAdd(input) {
     }
   });
   input.value = '';
+}
+
+/* 送信前の画像バッファのサムネイル表示。今回追加した2か所（申し送りの返信・タスク）で共有する。
+   既存の renderMemoMediaPreview / renderBoardMediaPreview 等は同じことを個別に書いているが、
+   挙動を変えるリスクを避けて今回は移行していない。 */
+function mediaBufPreview(wrap, buf, onChange) {
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  (buf || []).forEach(function(m, idx) {
+    var item = document.createElement('div'); item.className = 'memo-media-prev-item';
+    var img = document.createElement('img'); img.src = m.previewSrc || m.data || m.url; item.appendChild(img);
+    var del = document.createElement('button'); del.className = 'memo-media-prev-del'; del.textContent = '×';
+    del.type = 'button';
+    del.onclick = function() {
+      if (m.previewSrc && m.previewSrc.indexOf('blob:') === 0) URL.revokeObjectURL(m.previewSrc);
+      buf.splice(idx, 1);
+      if (onChange) onChange();
+    };
+    item.appendChild(del);
+    wrap.appendChild(item);
+  });
 }
 
 function renderMemoMediaPreview() {
@@ -11052,9 +11397,15 @@ function delMemo(ds, idx) {
   if (!m) return;
   if (!confirm('この申し送りを削除しますか？')) return;
   /* Storageファイルも削除 */
-  if (m.media && fbST) {
-    m.media.forEach(function(med) {
+  if (fbST) {
+    memoMediaArr(m).forEach(function(med) {
       if (med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){});
+    });
+    /* 返信に付いた画像も一緒に消す（親を消しても Storage に孤児が残らないように） */
+    memoReplies(m).forEach(function(r) {
+      memoReplyMediaArr(r).forEach(function(med) {
+        if (med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){});
+      });
     });
   }
   D.pages[ds].memos.splice(idx, 1);
@@ -13046,6 +13397,45 @@ function ocAlertFor(ds) {
   if (!rule || rule.type === 'normal') return null;
   return { staff: pdat.ocData.staff||'', rule: rule, endTime: pdat.ocData.endTime, sourceDs: getPrevDs(ds) };
 }
+/* OC「対応済み」フラグを書き換える唯一の入口。
+   done は「対応チェックの手動操作」と「開始＋退勤の入力」の2経路から変わるため、
+   保存・DOM同期・翌日ルール通知・ダッシュボード更新をここに集約する。
+   管理者への完了通知は false→true の遷移でだけ送る（時間が揃ってから送られるので、
+   以前のようにチェック直後＝時間未入力のまま中身の薄い通知が飛ぶことがない）。 */
+function ocSetDone(ds, val) {
+  var dat = D.pages[ds]; if (!dat) return;
+  if (!dat.ocData) dat.ocData = {};
+  var od = dat.ocData;
+  var was = !!od.done;
+  val = !!val;
+  if (was === val) { updateOcDashChip(ds); return; }
+  od.done = val;
+  saveD();
+  var cb = document.getElementById('oc-done');
+  if (cb) cb.checked = val;
+  updateOcDashChip(ds);
+  updateCloseBar(ds);
+  notifyOcRule(ds);
+  if (val) {
+    var lines = [ds.replace(/-/g,'/') + '  OC対応完了'];
+    if (od.staff)     lines.push('担当：' + od.staff);
+    if (od.startTime) lines.push('開始：' + od.startTime);
+    if (od.endTime)   lines.push('退勤：' + od.endTime);
+    if (od.nenkyu)    lines.push('年休取得あり');
+    if (od.note)      lines.push('備考：' + od.note);
+    sendAdminNotification('🌙 OC対応完了', lines.join('\n'));
+  }
+}
+/* ダッシュボードの📞オンコールチップだけを部分更新する（フルページ再描画を避ける） */
+function updateOcDashChip(ds) {
+  var el = document.getElementById('oc-dash-val');
+  if (!el || ds !== curDs) return;
+  var dat = D.pages[ds]; if (!dat) return;
+  var od = dat.ocData || {};
+  var staff = od.staff || '';
+  el.className = 'pv' + (!staff ? ' dash-warn' : (od.done ? ' pv-p' : ''));
+  el.textContent = (staff || '未設定') + (od.done ? ' ✅対応済' : '');
+}
 /* OCデータ確定時のトースト通知（翌日バナーは ocAlertFor で都度算出するため保存しない） */
 function notifyOcRule(ds) {
   var dat = D.pages[ds]; if (!dat || !dat.ocData) return;
@@ -13946,6 +14336,31 @@ function taskAssignees(t) {
   return Array.isArray(t.assignees) ? t.assignees
     : Object.keys(t.assignees).map(function(k){ return t.assignees[k]; });
 }
+/* タスク・自分専用メモの添付画像。Firebase が疎な配列をオブジェクト化するため、
+   表示・保存・削除はすべてこのアクセサ経由にする（taskAssignees と同じ対策） */
+function taskMediaArr(t) {
+  if (!t || !t.media) return [];
+  if (Array.isArray(t.media)) return t.media.filter(Boolean);
+  return Object.keys(t.media).map(function(k){ return t.media[k]; }).filter(Boolean);
+}
+/* 添付画像のサムネイル行（タスクカード・メモカード共通） */
+function taskMediaHTML(t) {
+  var arr = taskMediaArr(t);
+  if (!arr.length) return '';
+  var h = '<div class="task-media">';
+  arr.forEach(function(med){
+    var src = escH(med.url || med.data || '');
+    h += '<img src="' + src + '" alt="' + escH(med.name || '') + '" onclick="openLightbox(this.src)" onerror="this.style.opacity=\'0.3\';this.title=\'画像を読み込めませんでした\'">';
+  });
+  return h + '</div>';
+}
+/* Storage 上の添付を消す（タスク・メモの削除、編集での添付外しから呼ぶ） */
+function taskMediaCleanup(list) {
+  if (!fbST || !list) return;
+  list.forEach(function(med){
+    if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){});
+  });
+}
 /* 自分のスタッフ名を解決（renderMySchedule の selfName 解決と同一ロジック） */
 /* タスクを割り当てられた人にポップアップ通知を送る。
    /notifications/{uid} に積むと相手の startNotifListener が拾い、
@@ -13992,6 +14407,7 @@ function taskPersist(id, t) {
 function taskDelete(id) {
   var t = _tasksData[id]; if (!t || !taskCanDelete(t)) return;
   if (!confirm('タスク「'+(t.title||'')+'」を削除しますか？')) return;
+  taskMediaCleanup(taskMediaArr(t));
   delete _tasksData[id]; renderTasks();
   if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).remove().catch(function(e){
     _tasksData[id] = t; renderTasks(); /* 削除失敗 → 復元 */
@@ -14042,6 +14458,7 @@ function memoPersist(id, m) {
 function memoDelete(id) {
   var m = _memosData[id]; if (!m) return;
   if (!confirm('メモ「' + (m.title||'') + '」を削除しますか？')) return;
+  taskMediaCleanup(taskMediaArr(m));
   delete _memosData[id]; renderTasks();
   if (FB_ON && fbDB && currentUser) {
     fbDB.ref('/taskMemos/' + currentUser.uid + '/' + id).remove().catch(function(e){
@@ -14077,6 +14494,7 @@ function taskCardHTML(id, t, today) {
   if (canDel) h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rd)" onclick="taskDelete(\''+id+'\')">🗑</button>';
   h += '</div>';
   if (t.desc) h += '<div style="font-size:11px;color:var(--txt2);margin-top:4px;white-space:pre-wrap">'+escH(t.desc)+'</div>';
+  h += taskMediaHTML(t);
   h += '<div style="margin-top:5px;font-size:10px;color:var(--txt3)">'
     + taskAssignees(t).map(function(n){ return '<span class="task-asg">👤 '+escH(n)+'</span>'; }).join('')
     + '<span style="margin-left:6px">作成: '+escH((t.createdBy&&t.createdBy.name)||'')+'</span></div></div>';
@@ -14098,6 +14516,7 @@ function memoCardHTML(id, m, today) {
     + '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rd)" onclick="memoDelete(\''+escJs(id)+'\')">🗑</button>'
     + '</div>';
   if (m.desc) h += '<div style="font-size:11px;color:var(--txt2);margin-top:4px;white-space:pre-wrap">'+escH(m.desc)+'</div>';
+  h += taskMediaHTML(m);
   return h + '</div>';
 }
 
@@ -14239,12 +14658,20 @@ function renderTaskPerson(el, name) {
   el.innerHTML = h;
 }
 
+/* タスク／メモモーダルの添付状態。モーダルを開くたびにリセットする。
+   _taskMediaBuf   … これから追加する画像（未アップロード）
+   _taskMediaKeep  … 既存の添付のうち残すもの（× を押した分だけ _taskMediaDrop へ移す）
+   _taskMediaDrop  … 保存時に Storage からも消す既存の添付 */
+var _taskMediaBuf = [], _taskMediaKeep = [], _taskMediaDrop = [];
+
 function openTaskModal(id, isMemo) {
   /* isMemo=true なら自分専用メモ。担当者欄を出さず、保存先も /taskMemos になる */
   var t = id ? (isMemo ? _memosData[id] : _tasksData[id]) : null;
   if (id && !t) return;
   if (!isMemo && t && !taskCanEditAll(t)) return;
   var oldOv = document.getElementById('task-md-ov'); if (oldOv) oldOv.remove(); /* 二重表示防止 */
+  _taskMediaBuf = []; _taskMediaDrop = [];
+  _taskMediaKeep = t ? taskMediaArr(t).slice() : [];
   var cur = (t && !isMemo) ? taskAssignees(t) : [];
   var names = D.stf.filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
   var checks = names.map(function(n){
@@ -14263,6 +14690,10 @@ function openTaskModal(id, isMemo) {
     + '<input id="task-md-title" class="fi" style="width:100%;box-sizing:border-box" maxlength="100" value="'+escH(t?t.title:'')+'">'
     + '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">詳細メモ（任意）</div>'
     + '<textarea id="task-md-desc" class="fi" rows="3" style="width:100%;box-sizing:border-box;resize:vertical">'+escH(t?(t.desc||''):'')+'</textarea>'
+    + '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">画像（任意）</div>'
+    + '<div class="task-md-media" id="task-md-keep"></div>'
+    + '<div class="memo-media-preview" id="task-md-media-preview"></div>'
+    + '<label class="memo-media-btn">📎 画像を追加<input type="file" id="task-md-file" accept="image/*" multiple style="display:none" onchange="onTaskMediaAdd(this)"></label>'
     + (isMemo ? '' :
         '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">担当者<span style="color:var(--rd)">*</span>（複数選択可）</div>'
       + '<div id="task-md-asg" class="dc-cbs" style="max-height:160px;overflow-y:auto">'+checks+'</div>')
@@ -14273,7 +14704,46 @@ function openTaskModal(id, isMemo) {
     + '<button class="btn btn-g" onclick="document.getElementById(\'task-md-ov\').remove()">キャンセル</button>'
     + '<button class="btn btn-p" id="task-md-save">保存</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
+  renderTaskMediaKeep();
+  renderTaskMediaPreview();
   document.getElementById('task-md-save').addEventListener('click', function(){ saveTaskFromModal(id || null, !!isMemo); });
+}
+
+/* 既存の添付（残す／外す）の表示。× を押した分は保存時に Storage からも消す */
+function renderTaskMediaKeep() {
+  var wrap = document.getElementById('task-md-keep');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  _taskMediaKeep.forEach(function(med, idx){
+    var cell = document.createElement('div'); cell.className = 'tmm';
+    var img = document.createElement('img'); img.src = med.url || med.data || ''; cell.appendChild(img);
+    var del = document.createElement('button'); del.type = 'button'; del.textContent = '×';
+    del.onclick = function(){ _taskMediaDrop.push(med); _taskMediaKeep.splice(idx,1); renderTaskMediaKeep(); };
+    cell.appendChild(del);
+    wrap.appendChild(cell);
+  });
+}
+function renderTaskMediaPreview() {
+  mediaBufPreview(document.getElementById('task-md-media-preview'), _taskMediaBuf, renderTaskMediaPreview);
+}
+function onTaskMediaAdd(input) {
+  var files = Array.prototype.slice.call(input.files);
+  input.value = '';
+  if (!files.length) return;
+  var pending = files.length;
+  files.forEach(function(file){
+    if (!file.type || file.type.indexOf('image/') !== 0) {
+      toast('添付できるのは画像だけです', 'warn');
+      pending--; if (pending === 0) renderTaskMediaPreview();
+      return;
+    }
+    compressImage(file, function(dataUrl, blob){
+      var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
+      _taskMediaBuf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
+      pending--;
+      if (pending === 0) renderTaskMediaPreview();
+    });
+  });
 }
 
 function saveTaskFromModal(id, isMemo) {
@@ -14286,7 +14756,14 @@ function saveTaskFromModal(id, isMemo) {
     document.querySelectorAll('#task-md-asg input[type=checkbox]:checked').forEach(function(cb){ asg.push(cb.value); });
     if (!asg.length) { toast('担当者を1名以上選択してください', 'warn'); return; }
   }
-  var save = function(){ isMemo ? _doSaveMemo(id, title, desc) : _doSaveTask(id, title, desc, asg); };
+  /* 画像アップロードで保存が非同期になるため、モーダルのDOMから読む値はここで全部取り出しておく
+     （保存関数の中で読むと、モーダルを閉じたあとに参照して落ちる） */
+  var form = {
+    title: title, desc: desc, asg: asg,
+    due: document.getElementById('task-md-due').value || '',
+    st:  document.getElementById('task-md-st').value || 'todo'
+  };
+  var save = function(){ isMemo ? _doSaveMemo(id, form) : _doSaveTask(id, form); };
   /* PHI検知（#main外なので明示呼び出し必須。自分専用メモでも患者情報は書かせない） */
   var phiRes = detectPHI(title + '\n' + desc);
   if (phiRes.red.length || phiRes.yellow.length) {
@@ -14299,48 +14776,86 @@ function saveTaskFromModal(id, isMemo) {
   save();
 }
 
-function _doSaveMemo(id, title, desc) {
+/* 添付画像を Storage に上げてから onDone(media) を呼ぶ。
+   画像が無ければ即座に呼ぶので、添付なしの保存はこれまでどおり同期的に終わる。 */
+function _uploadTaskMedia(pathPrefix, onDone) {
+  var media = _taskMediaKeep.slice();
+  var buf = _taskMediaBuf.slice();
+  if (!buf.length) { onDone(media); return; }
+  var btn = document.getElementById('task-md-save');
+  if (btn) { btn.disabled = true; btn.textContent = '保存中...'; }
+  var ts = Date.now(), pending = buf.length;
+  buf.forEach(function(mm, idx){
+    var path = pathPrefix + ts + '_' + idx + '_' + mm.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    uploadToStorage(path, mm.blob || mm.data, function(url, fallback){
+      if (url || fallback) {
+        media.push({
+          type: 'image', name: mm.name,
+          url: url || fallback,
+          storagePath: url ? path : null,
+          data: url ? null : fallback
+        });
+      }
+      pending--;
+      if (pending === 0) {
+        if (btn) { btn.disabled = false; btn.textContent = '保存'; }
+        onDone(media);
+      }
+    });
+  });
+}
+
+function _doSaveMemo(id, form) {
   var old = id ? _memosData[id] : null;
-  var st  = document.getElementById('task-md-st').value || 'todo';
-  var m = {
-    title: title, desc: desc || '', status: st,
-    due: document.getElementById('task-md-due').value || '',
-    ts: old ? (old.ts || Date.now()) : Date.now(),
-    updatedTs: Date.now(),
-    doneAt: st === 'done' ? ((old && old.doneAt) || Date.now()) : 0
-  };
   var key = id || ((FB_ON && fbDB && currentUser)
     ? fbDB.ref('/taskMemos/' + currentUser.uid).push().key
     : 'localmemo_' + Date.now());
-  memoPersist(key, m);
-  var ovEl = document.getElementById('task-md-ov'); if (ovEl) ovEl.remove();
-  /* メモの中身はログに残さない（本人しか見られない情報のため） */
+  /* パスにタイトルは入れない（Storage は認証済みなら全員読めるため、パスから中身を推測させない） */
+  _uploadTaskMedia('taskMemo/' + (currentUser ? currentUser.uid : 'local') + '/' + key + '/', function(media){
+    var st = form.st;
+    var m = {
+      title: form.title, desc: form.desc || '', status: st,
+      due: form.due,
+      media: media,
+      ts: old ? (old.ts || Date.now()) : Date.now(),
+      updatedTs: Date.now(),
+      doneAt: st === 'done' ? ((old && old.doneAt) || Date.now()) : 0
+    };
+    taskMediaCleanup(_taskMediaDrop); _taskMediaDrop = [];
+    memoPersist(key, m);
+    var ovEl = document.getElementById('task-md-ov'); if (ovEl) ovEl.remove();
+    /* メモの中身はログに残さない（本人しか見られない情報のため） */
+  });
 }
 
-function _doSaveTask(id, title, desc, asg) {
+function _doSaveTask(id, form) {
   var old = id ? _tasksData[id] : null;
-  var st  = document.getElementById('task-md-st').value || 'todo';
-  var t = {
-    title: title, desc: desc || '',
-    assignees: asg, status: st,
-    due: document.getElementById('task-md-due').value || '',
-    createdBy: old ? old.createdBy : { uid: currentUser.uid, name: currentUser.displayName || currentUser.email || '' },
-    ts: old ? (old.ts || Date.now()) : Date.now(),
-    updatedTs: Date.now(),
-    doneAt: st === 'done' ? ((old && old.doneAt) || Date.now()) : 0
-  };
   var key = id || ((FB_ON && fbDB) ? fbDB.ref('/tasks').push().key : 'local_' + Date.now());
-  taskPersist(key, t);
-  /* 新しく担当になった人にだけ通知する（元から担当だった人・自分自身には出さない） */
-  var prevAsg = old ? taskAssignees(old) : [];
-  var selfNm = taskSelfName();
-  asg.forEach(function(n){
-    if (prevAsg.indexOf(n) !== -1) return;
-    if (selfNm && n === selfNm) return;
-    notifyTaskAssigned(n, t);
+  _uploadTaskMedia('task/' + key + '/', function(media){
+    var st = form.st;
+    var t = {
+      title: form.title, desc: form.desc || '',
+      assignees: form.asg, status: st,
+      due: form.due,
+      media: media,
+      createdBy: old ? old.createdBy : { uid: currentUser.uid, name: currentUser.displayName || currentUser.email || '' },
+      ts: old ? (old.ts || Date.now()) : Date.now(),
+      updatedTs: Date.now(),
+      doneAt: st === 'done' ? ((old && old.doneAt) || Date.now()) : 0
+    };
+    taskMediaCleanup(_taskMediaDrop); _taskMediaDrop = [];
+    taskPersist(key, t);
+    /* 新しく担当になった人にだけ通知する（元から担当だった人・自分自身には出さない） */
+    var prevAsg = old ? taskAssignees(old) : [];
+    var selfNm = taskSelfName();
+    form.asg.forEach(function(n){
+      if (prevAsg.indexOf(n) !== -1) return;
+      if (selfNm && n === selfNm) return;
+      notifyTaskAssigned(n, t);
+    });
+    var ovEl = document.getElementById('task-md-ov'); if (ovEl) ovEl.remove();
+    if (FB_ON) writeLog(id ? 'タスク編集' : 'タスク作成', form.title.substring(0,30));
   });
-  var ovEl = document.getElementById('task-md-ov'); if (ovEl) ovEl.remove();
-  if (FB_ON) writeLog(id ? 'タスク編集' : 'タスク作成', title.substring(0,30));
 }
 
 function openFromAT(ds){swTab('cal');var pt=ds.split('-');calY=parseInt(pt[0]);calM=parseInt(pt[1])-1;openPage(ds);}
@@ -14390,7 +14905,10 @@ function exportOcCsv() {
     var pg = D.pages[ds];
     if (!pg||!pg.ocData||!pg.ocData.staff) return;
     var oc = pg.ocData, w = new Date(ds).getDay(), pt = ds.split('-');
-    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[w], oc.staff||'', oc.note||'', oc.done?'✔':'', oc.time||'', oc.nenkyu?'✔':'']);
+    /* 対応時間は画面表示（renderOCSummary）と同じ式で出す。
+       旧 oc.time はどこからも書き込まれないレガシー項目で、これだけを見ると列が常に空になる */
+    var ocT = (oc.startTime||oc.endTime) ? ((oc.startTime||'--:--')+'〜'+(oc.endTime||'--:--')) : (oc.time||'');
+    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[w], oc.staff||'', oc.note||'', oc.done?'✔':'', ocT, oc.nenkyu?'✔':'']);
   });
   if (rows.length===1){toast(rng.label+'にOC担当の記録がありません', 'warn');return;}
   downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
@@ -15159,12 +15677,12 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   var libTabs=['guide','makers'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群。
      スケジュールはモーダル化したためここには含まれない（openSchedPanel/closeSchedPanel） */
-  var contentPanes=['assign','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var contentPanes=['assign','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -15206,6 +15724,7 @@ function swTab(t) {
   if(docsTabs.indexOf(t)===-1 && libTabs.indexOf(t)===-1) openSubmenu(null);
 
   if(t==='assign'){ swSubTab('at'); renderAT(); }
+  if(t==='task'){ renderTasks(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}

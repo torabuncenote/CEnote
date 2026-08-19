@@ -241,7 +241,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
     .stabs — tab strip
     pane-cal    — calendar with month navigation
     pane-assign — assignment table (月次担当一覧) with subtabs:
-                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性) / my (マイ担当) / task (タスク)
+                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性) / my (マイ担当)
+    pane-task   — 📋 タスク管理 (all users; was a subtab of pane-assign until it was promoted to a top-level tab — it was too easy to miss in there)
     pane-guide  — user guide
     pane-makers — 🏭 メーカー担当者連絡先 (all users; see メーカー担当者連絡先 section below)
     pane-staff / pane-master / pane-lock / pane-logs — admin-only
@@ -256,7 +257,9 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
-`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair` / `my` / `task`). Each subtab has a matching `subpane-{id}` div.
+`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair` / `my`). Each subtab has a matching `subpane-{id}` div.
+
+**Adding a top-level sidebar tab** touches six places, and the last one is the easy miss: the `.stabs` button (`tab-{id}`), the `pane-{id}` div, `swTab`'s `tabs` array, `swTab`'s `contentPanes` array (PC full-width), the per-tab render call in `swTab`, and **any Firebase listener that re-renders only while that pane is visible**. When `task` was promoted out of `pane-assign`, the three `/tasks` + `/taskMemos` listeners still queried `#subpane-task`; leaving them would have silently stopped real-time updates.
 
 ### CSS Conventions
 
@@ -286,7 +289,14 @@ All class names are abbreviated:
 | `buildDG(ds, dat, locked)` | Duty card grid |
 | `buildCL(ds, dat, wtl, all, locked)` | Checklist section |
 | `buildOPS(ds, dat, locked)` | OPE/cath/ops record section |
-| `renderMemos(ds, dat, locked)` | Memo/comment thread |
+| `renderMemos(ds, dat, locked)` | Memo/comment thread (incl. nested replies) |
+| `memoKeyOf(m)` / `findMemoByKey(ds, key)` | 申し送り1件を指す安定キー（`ts+uid`）と逆引き。配列インデックスは Firebase のエコーでずれるので返信はこちらで親を特定する |
+| `memoReplies(m)` / `memoMediaArr(m)` / `memoReplyMediaArr(r)` | 申し送りの返信・添付の正規化アクセサ（Firebase の配列→オブジェクト化対策） |
+| `postMemoReply(ds, mkey)` / `delMemoReply(ds, mkey, rid)` / `toggleMemoReply(mkey)` | 申し送りへの返信の投稿・削除・入力欄の開閉 |
+| `bindMemoListEvents(el)` | `#memo-list` のクリック/change を**一度だけ**登録する（下記参照） |
+| `mediaBufPreview(wrap, buf, onChange)` | 送信前の画像バッファのサムネイル表示（申し送り返信・タスクで共有） |
+| `ocSetDone(ds, val)` / `updateOcDashChip(ds)` | OC「対応済み」の唯一の書き換え口／ダッシュボードチップの部分更新 |
+| `taskMediaArr(t)` / `taskMediaHTML(t)` / `taskMediaCleanup(list)` | タスク・自分専用メモの添付画像の正規化・表示・Storage削除 |
 | `clStatus(ds)` | Single done/total counting entry point for the checklist (`{done,total,undone,exists}`); `getPct`/dashboard/`closeItems` all call it |
 | `itemRebuild(oldIt, patch)` | Merges `patch` into a `D.dly`/`D.wd` item without dropping unmentioned keys (`null`/`undefined` in patch deletes that key); all writes to those items go through this |
 | `wdEntriesForDate(ds)` / `wdOnce(it)` / `wdSubs(it)` / `wdSid(it)` | Accessors for weekday-item flags (`{t,it}` pairs for a date / once flag / installed-location array / stable id) |
@@ -389,6 +399,17 @@ All class names are abbreviated:
 
 担当枠の色はどこにも保存せず、`dutyColorFor(slot)` が呼ばれるたびに導出する（`DEF_DUTY_MASTER`/`D.dutyCfgMaster` に色を持たせると既存環境の保存済みデータに届かずマイグレーションが要るため）。既定枠（`slot_ope`〜`slot_late_free`）は `DUTY_COLOR_MAP` で旧 `.dc-*` と同じ色、カスタム枠は `id` の安定ハッシュで `DUTY_PALETTE` から選ぶ（並び順や `customDuties` の配列位置に依存させると同じ枠が日によって色が変わるため index は使わない）。凡例は静的HTMLではなく `renderAtLegend(adates)` が実際にその期間で使われている枠から生成し、`renderAT()` の早期return（連絡表が無い月）より前に呼ぶ。
 
+### On-Call (OC) 対応済み判定
+
+`D.pages[ds].ocData` is a single object (one OC record per day): `{staff, note, done, startTime, endTime, nenkyu}` (plus a dead legacy `time` that nothing writes).
+
+`done` is written from two places — the 対応 checkbox and the 開始/退勤 time inputs — so **every write goes through `ocSetDone(ds, val)`**, which updates `ocData.done`, `saveD()`s, syncs the checkbox DOM, refreshes the dashboard chip (`updateOcDashChip`), calls `updateCloseBar` and `notifyOcRule`, and fires the admin notification **only on the false→true edge**.
+
+- The 対応時間/年休 block (`#oc-done-detail`) is now **always visible**. It used to be revealed only when the checkbox was ticked, which made "enter the leave time and it's done" impossible.
+- Entering both `startTime` and `endTime` sets `done`; clearing either one clears it. Ticking the checkbox by hand still works with no times entered (the tick-first-fill-later workflow is intact).
+- Un-ticking by hand `confirm()`s before wiping `startTime`/`endTime`/`nenkyu`; cancelling keeps the times. Previously they were destroyed silently.
+- `exportOcCsv` must format the time column from `startTime`/`endTime` the same way `renderOCSummary` does — reading the legacy `oc.time` alone leaves the column permanently blank.
+
 ### PSG外し Detection
 
 ```js
@@ -476,12 +497,15 @@ Fixed bar at the bottom of the screen, shown only while a day page is open — `
 - **Memos**: `postMemo(ds)` calls `detectPHI` explicitly.
 - **`#main` free-text fields**: `initPHIGuard()` attaches a delegated `focusout` listener on `#main` — covers all `textarea`/`input[type=text]` added under `#main` automatically.
 - **Board (`#pane-board`)**: Outside `#main` — `postBoard()` and `postBoardReply()` call `detectPHI` explicitly. Any new board input fields must do the same.
-- **Tasks (`#pane-assign` task subtab)**: Outside `#main` — `saveTaskFromModal()` calls `detectPHI` on `title+'\n'+desc` explicitly before persisting.
+- **Memo replies**: Inside `#main`, but `postMemoReply()` still calls `detectPHI` explicitly on send, honouring `phiHasBlock` exactly like `postMemo`.
+- **Tasks (`#pane-task`)**: Outside `#main` — `saveTaskFromModal()` calls `detectPHI` on `title+'\n'+desc` explicitly before persisting.
 - **Makers (`#pane-makers`)**: Outside `#main`, so `initPHIGuard` does not cover its modals either. Only the 備考 field is guarded — `saveMakerFromModal()` calls `phiGuardText(note, ...)` explicitly. メーカー名・担当者名・電話番号・メールには**意図的に** `detectPHI` をかけない: `detectPHI` detects 姓＋漢字 patterns as a personal name and hard-blocks the save, but the 担当者 field's whole purpose is to hold a manufacturer employee's name, so applying it there would permanently block legitimate input.
 
 ### Media Uploads
 
-All image/video uploads (memo, board post, board reply, manual) display immediately regardless of uploader — there is no admin approval gate. This was removed after real-world feedback that the review step was unnecessary friction; the earlier `pending: true` flag, the approve/reject UI, and the toolbar's pending-count badge were deleted outright rather than left dormant, since nothing sets `pending` anymore and no legacy `pending:true` records are known to exist in production. If a stray `pending:true` value is ever found on an old record, it is simply inert — no code reads that field anymore, so the media just displays like any other.
+Storage paths: `manual/{taskName}/…`, `memo/{ds}/…`, `memo/{ds}/reply_…`, `board/…`, `board/reply_…`, `task/{taskId}/…`, `taskMemo/{uid}/{memoId}/…`. Everything except memos and manuals is images only. `uploadToStorage(path, blobOrData, cb)` and `compressImage(file, cb)` are the shared primitives; `mediaBufPreview(wrap, buf, onChange)` renders the pre-send thumbnails for the newer call sites (memo replies, tasks) — the four older per-feature preview renderers were left alone deliberately rather than migrated.
+
+All image/video uploads (memo, memo reply, board post, board reply, manual, task) display immediately regardless of uploader — there is no admin approval gate. This was removed after real-world feedback that the review step was unnecessary friction; the earlier `pending: true` flag, the approve/reject UI, and the toolbar's pending-count badge were deleted outright rather than left dormant, since nothing sets `pending` anymore and no legacy `pending:true` records are known to exist in production. If a stray `pending:true` value is ever found on an old record, it is simply inert — no code reads that field anymore, so the media just displays like any other.
 
 ### Fairness Check
 
@@ -498,10 +522,15 @@ Independent Firebase path (like `/board`), not part of the `D` object — the "5
   assignees: ['松野 敏宏', ...],    // D.stf names, 1+ required
   status:    'todo',                // 'todo' | 'doing' | 'done'
   due:       '2026-07-20',          // optional, '' if unset
+  media:     [{type:'image', name, url, storagePath, data}],  // images only
   createdBy: { uid, name },
   ts: 0, updatedTs: 0, doneAt: 0    // doneAt is 0 while not done
 }
 ```
+
+- **Attachments** are images only (no video) and live at `task/{taskId}/{ts}_{idx}_{file}` in Storage. Read them through `taskMediaArr(t)` — same Firebase array→object normalization as `taskAssignees`. `taskMediaHTML(t)` renders the card thumbnails; `taskMediaCleanup(list)` deletes the `storagePath`s and is called from `taskDelete`/`memoDelete` and from the save path for attachments removed while editing.
+- Because uploads are async, **`saveTaskFromModal` reads every modal DOM value up front** into a `form` object and hands it to `_doSaveTask(id, form)` / `_doSaveMemo(id, form)`; those call `_uploadTaskMedia(prefix, cb)` and only persist + close the modal in the callback. Reading `task-md-st`/`task-md-due` inside the save function (as the old synchronous version did) breaks the moment the modal closes first. `_uploadTaskMedia` short-circuits when nothing new was picked, so attachment-free saves stay effectively synchronous.
+- Modal-scoped attachment state is three module-level arrays reset by `openTaskModal`: `_taskMediaBuf` (newly picked, not yet uploaded), `_taskMediaKeep` (existing attachments still wanted), `_taskMediaDrop` (existing attachments the user removed — deleted from Storage on save, not on click, so cancelling the modal doesn't destroy anything).
 
 - `assignees` is stored by **staff name**, not uid, so the load graph and per-staff view can key off `D.stf` directly. `taskAssignees(t)` normalizes Firebase's array→object coercion (same shape as `_boardMediaArr`).
 - **Permission model is app-side, not Firebase-rule-enforced** (RTDB rules cannot inspect array membership against `auth.uid`): everyone can create/edit; `taskCanStatus(t)` additionally allows any assignee to cycle status; `taskCanDelete(t)` / `taskCanEditAll(t)` restrict to the creator or an admin. The `/tasks` RTDB rule hard-enforces two boundaries: the delete permission, and `createdBy.uid` immutability via `.validate` (must be a string on create, must equal the existing value on update — otherwise anyone could rewrite `createdBy` to themselves and then delete). See `database.rules.json` / `LATEST_DB_RULES`.
@@ -513,11 +542,13 @@ Independent Firebase path (like `/board`), not part of the `D` object — the "5
 
 ### Private Memos (`/taskMemos/{uid}`)
 
-Self-only notes shown at the bottom of the task subtab. **Separate Firebase path from `/tasks`, and unlike task permissions this one IS rule-enforced**: `/taskMemos/$uid` grants read+write only when `auth.uid === $uid`, so no other user (admin included) can read them. Adding the RTDB rule is mandatory — without it the writes fail.
+Self-only notes shown at the bottom of the タスク tab (`#pane-task`). **Separate Firebase path from `/tasks`, and unlike task permissions this one IS rule-enforced**: `/taskMemos/$uid` grants read+write only when `auth.uid === $uid`, so no other user (admin included) can read them. Adding the RTDB rule is mandatory — without it the writes fail.
 
 ```js
-/taskMemos/{uid}/{memoId} = { title, desc, status, due, ts, updatedTs, doneAt }
+/taskMemos/{uid}/{memoId} = { title, desc, status, due, media, ts, updatedTs, doneAt }
 ```
+
+- Memos take the same image attachments as tasks, stored at `taskMemo/{uid}/{memoId}/{ts}_{idx}_{file}`. **The RTDB record is private but the Storage object is not** — `storage.rules` grants read to any authenticated user — so the path deliberately carries no title or other content, only ids.
 
 - No `assignees` and no `createdBy` — ownership is the path itself.
 - Cached in `_memosData`; listener ref kept in `_memoRef` (set in `fbInit()`'s `if (!dataListenerOn)` block, `.off()`'d and `_memosData={}` on logout so the next user never sees the previous user's memos).
@@ -541,6 +572,18 @@ When `multi` is true both renderers add a per-month breakdown, the ops trend gra
 Incomplete memo posts show a 📅 button (`.mp-move`) next to the 済 checkbox in `renderMemos()`, gated by `can('memo')` (`!locked`) — **not** `canDel`. Unlike delete, moving never rewrites `m.name`/`m.uid`, so it's safe to let anyone with memo edit permission relocate a post (not just the original author or an admin); the original author stays correctly attributed regardless of who performed the move. Clicking it opens `openMoveMemoModal(ds, idx)` (dynamic `.ov`/`.md` with a date input, defaulting to tomorrow), which calls `moveMemo(ds, idx, targetDs)`.
 
 `moveMemo` splices the memo out of `D.pages[ds].memos`, tags it with `movedFrom: ds`, and pushes it into `D.pages[targetDs].memos` (auto-creating the target page via the same minimal structure as `_doPostMemo` if it doesn't exist yet, gated by `can('pg')`). **Because this mutates two different pages, it must use full `saveD()` — not `saveDPage()`** (per the page-scoped-only rule above). Moved memos display a small "(M/DDから移動)" annotation in `.mp-meta` when `m.movedFrom` is set.
+
+### Memo Replies (申し送りの返信)
+
+Each memo carries `m.replies = { [rid]: {uid, name, isAdmin, text, media, ts} }` — **a keyed object, not an array**. `memos` itself is an array under `/data/pages/{ds}`, so a nested array would collide on index whenever two people reply at once; this mirrors the board's `/board/{id}/replies`. The key is `'r' + ts + '_' + uid.slice(0,8)`.
+
+- Read replies through `memoReplies(m)` (sorted by `ts`, each entry tagged `_rid`) and their images through `memoReplyMediaArr(r)`.
+- The parent memo is located by `memoKeyOf(m)` (`ts + '_' + uid`) via `findMemoByKey(ds, key)` — never by array index, and `_finishPostMemoReply` **re-looks-up the parent after the upload finishes** rather than closing over it, since the Firebase echo can reorder `memos` mid-upload.
+- Replies take images only (`memo/{ds}/reply_{ts}_{idx}_{file}`); video stays on the top-level post. `delMemo` sweeps reply attachments too, so deleting a parent leaves no orphans in Storage.
+- PHI detection follows `postMemo`'s contract — `phiHasBlock(result)` blocks the send. (`postBoardReply` does *not* honour `phiHasBlock`; do not copy that behaviour into new code.)
+- **Mentions inside a reply send a notification but are not counted by the 消し込みバー.** `closeItems`'s `mention` category counts *unfinished memos*, and a reply has no individual 済 checkbox to clear.
+
+`renderMemos` re-fills `#memo-list` with `innerHTML`, but `#memo-list` itself is a persistent element — `addEventListener` on it inside `renderMemos` accumulated one more handler on every render (this is why a single delete click could raise several confirms). Handlers now go through `bindMemoListEvents(el)`, which guards on an `el._memoBound` flag. Any new memo-list interaction belongs in that one delegated listener.
 
 ### Tablet Lending/Return (タブレット貸出・返却)
 
