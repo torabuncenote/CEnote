@@ -231,6 +231,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
 .pchip.sp{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2)}
+.pchip.pchip-zone-hd   {background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
+.pchip.pchip-zone-maint{background:var(--or-bg);color:var(--or);border:1.5px solid var(--or)}
+.pchip.pchip-zone-off  {background:var(--gr-bg,#f0fff4);color:var(--gr);border:1.5px solid var(--gr)}
+.pchip.pchip-zone-other{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2)}
 .ss-zones-wrap{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)}
 .ss-zone{border:2px dashed var(--bdr2);border-radius:8px;padding:5px 8px;min-height:36px;display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start;width:100%;box-sizing:border-box;transition:border-color .15s,background .15s;margin-bottom:4px}
 .ss-zone.drag-over{border-color:var(--ac)!important;background:var(--ac-bg)}
@@ -5050,7 +5054,7 @@ function renderSurplusArea(ds, dat, locked) {
       + (dlk?'':' ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ondragleave="this.classList.remove(\'drag-over\')" ondrop="dropToStatusZone(event,\''+ds+'\',\''+zone.key+'\')"')+'>';
     html += '<div class="ss-zone-lbl" style="color:'+zone.color+'">'+zone.icon+' '+zone.label+'</div>';
     for (var wi=0; wi<zWorkers.length; wi++) {
-      html += '<div class="pchip" style="background:'+zone.bg+';color:'+zone.color+';border:1.5px solid '+zone.border+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(zWorkers[wi])+'" data-from="status" data-ds="'+ds+'" title="ドラッグして担当枠へ">'
+      html += '<div class="pchip pchip-zone-'+zone.key+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(zWorkers[wi])+'" data-from="status" data-ds="'+ds+'" title="ドラッグして担当枠へ">'
         + escH(zWorkers[wi]);
       if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromStatus(\''+ds+'\',\''+escJs(zWorkers[wi])+'\')">×</button>';
       html += '</div>';
@@ -5059,7 +5063,7 @@ function renderSurplusArea(ds, dat, locked) {
       var hdN = zHdWorkers[hi];
       var hdInf = hd.filter(function(x){ return x.name===hdN; })[0];
       var isNt = hdInf && hdInf.night;
-      html += '<div class="pchip hd'+(isNt?' night':'')+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdN)+'" data-from="hd" data-ds="'+ds+'" title="ドラッグして移動">'+escH(hdN);
+      html += '<div class="pchip pchip-zone-'+zone.key+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdN)+'" data-from="hd" data-ds="'+ds+'" title="ドラッグして移動">'+escH(hdN);
       if(hdInf) html += '<span class="cs">'+escH(isNt?'準':hdInf.shift)+'</span>';
       if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromHdStatus(\''+ds+'\',\''+escJs(hdN)+'\')">×</button>';
       html += '</div>';
