@@ -984,7 +984,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .dg{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
   .dc{min-width:140px;font-size:11px!important}
   #staffz-body{display:block!important}
-  #surplus-body{display:block!important}
   #hd-worker-panel{display:flex!important}
   .pchip{font-size:11px!important;padding:3px 8px!important}
 }
@@ -2072,7 +2071,7 @@ var _sessionId = Math.random().toString(36).slice(2, 9); /* セッション識�
 var _lastCleanupDate = ''; /* cleanOldSnapshots の日次レート制限 */
 var _fbDataLoaded = false; /* Firebase /data リスナーが初回データを受信済み。trueになるまでFirebase書き込みを禁止（ログイン直後の空書き込みを防止） */
 var _hdPanelOpen = false; /* HD勤務者パネルの開閉状態（renderSurplusArea 再呼出しを跨いで保持） */
-var _surplusOpen = false; /* 余剰人員エリア本体の開閉状態 */
+var _hdPanelUserOverride = null; /* このセッション中にユーザーが明示操作したか（true=手動オープン、false=手動クローズ、null=未操作＝自動判定に従う） */
 var _staffZoneOpen = false; /* 人員配置管理（当日勤務者一覧＋余剰人員）セクションの開閉状態。
   既定は閉じる。見出しの「当日N名」「未割当N」バッジで中身の状況が分かるため、
   毎日開いたままだとチェックリストや申し送りが遠くなる */
@@ -5035,14 +5034,15 @@ function renderSurplusArea(ds, dat, locked) {
   var hdDay   = hd.filter(function(x){ return !x.night; });
   var hdNight = hd.filter(function(x){ return  x.night; });
 
-  /* ヘッダー：タイトル（左、クリックで本体トグル）＋ HD勤務者トグルボタン（右） */
+  /* 未分類のHD勤務者がいる間は自動的にパネルを開く（ユーザーが明示操作していない限り） */
+  var hasUnclassifiedHd = hd.some(function(x){ return !sz.hd[x.name]; });
+  if (_hdPanelUserOverride === null) _hdPanelOpen = hasUnclassifiedHd;
+
+  /* ヘッダー：タイトル＋ HD勤務者トグルボタン（右） */
   var html = '<div class="surplus-hd">';
-  html += '<div class="surplus-ttl" style="cursor:pointer;user-select:none" onclick="toggleSurplusArea()" title="クリックで折りたたみ">🔄 余剰人員 <span style="font-size:10px;opacity:.6">'+(_surplusOpen?'▲':'▼')+'</span></div>';
+  html += '<div class="surplus-ttl">🔄 余剰人員</div>';
   html += '<button type="button" class="hd-toggle-btn'+ (_hdPanelOpen?' active':'')+'" id="hd-toggle" onclick="toggleHDPanel()">🩸 HD勤務者 ('+hd.length+')</button>';
   html += '</div>';
-
-  /* 本体：折りたたみ対象 */
-  html += '<div id="surplus-body" style="display:'+(_surplusOpen?'block':'none')+'">';
 
   /* 余剰人員チップ（ゾーン配置済みはスキップ、ゾーンカードに表示） */
   var _freeChips = Object.keys(sz.ce).filter(function(n){ return !sz.ce[n]; });
@@ -5116,18 +5116,9 @@ function renderSurplusArea(ds, dat, locked) {
     }
   }
   html += '</div>'; /* #hd-worker-panel */
-  html += '</div>'; /* #surplus-body */
 
   wrap.innerHTML = html;
   updateStaffZoneBadge(ds);
-}
-
-function toggleSurplusArea(){
-  _surplusOpen = !_surplusOpen;
-  var body = document.getElementById('surplus-body');
-  if(body) body.style.display = _surplusOpen ? 'block' : 'none';
-  var ttl = document.querySelector('#surplus-wrap .surplus-ttl span');
-  if(ttl) ttl.textContent = _surplusOpen ? '▲' : '▼';
 }
 
 function toggleStaffZone(){
@@ -5177,11 +5168,11 @@ function dropToStatusZone(e,ds,status){
   classifyStaff(ds, name, from==='hd' ? 'hd' : 'ce', status);
 }
 function toggleHDPanel(){
-  var p=document.getElementById('hd-worker-panel'), b=document.getElementById('hd-toggle');
-  if(!p) return;
-  _hdPanelOpen = p.style.display === 'none';
-  p.style.display = _hdPanelOpen ? 'flex' : 'none';
-  if(b) b.classList.toggle('active', _hdPanelOpen);
+  _hdPanelOpen = !_hdPanelOpen;
+  _hdPanelUserOverride = _hdPanelOpen;
+  var p = document.getElementById('hd-worker-panel'), b = document.getElementById('hd-toggle');
+  if (p) p.style.display = _hdPanelOpen ? 'flex' : 'none';
+  if (b) b.classList.toggle('active', _hdPanelOpen);
 }
 
 function dropToSurplus(e, ds) {
