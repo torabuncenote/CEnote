@@ -70,11 +70,11 @@ var D = {
   ocFlow: '',       // OC対応フローチャート本文（複数行テキスト。OC集計タブのボタン→openOcFlowModal で全員閲覧、業務マスタの mst セクションで編集）
   makers: { cats: [], list: [] }, // メーカー担当者連絡先。cats:[{id,name}]（表示順）、list:[{id,cat,maker,person,tel1,tel2,mail,note,upd,ts,by}]。詳細は下記「メーカー担当者連絡先」節
   wdDepts: [],      // 設置部署マスタ（D.wd項目のsubsで選ぶ部署名の共通リスト。PHSマスタ/tabletsと同型の単純な文字列配列）
-  _migVer: 4        // data migration version flag (increment when running one-time migrations)
+  _migVer: 5        // data migration version flag (increment when running one-time migrations)
 };
 ```
 
-Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, `surplus`, `surplusStatus`, `hdStatus`, `ops_cards`, `tabletLogs`, etc.
+Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, `staffZone`, `ops_cards`, `tabletLogs`, etc.
 
 ### Adding New D Properties
 
@@ -308,7 +308,7 @@ All class names are abbreviated:
 | `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board (also handles read-receipt marking, tag/resolved rendering, pin-expiry sort/cleanup, filter chips) |
 | `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
 | `toggleBoardReads(id)` / `setBoardFilter(f)` | Board: 既読者一覧の開閉／フィルタチップ切替（`_boardFilter`） |
-| `renderSurplusArea(ds, dat, locked)` | 余剰人員エリア（デフォルト折りたたみ: `_surplusOpen = false`） |
+| `renderSurplusArea(ds, dat, locked)` | 余剰人員・HD勤務者ゾーンエリア（`ensureStaffZone(dat)`ベース。開閉は`.staffz`本体のみ、中身は常時表示） |
 | `staffZoneCounts(ds)` / `updateStaffZoneBadge(ds)` | 「👥 人員配置管理」見出しの「当日N名」「未割当N」バッジの唯一の集計元／DOM部分更新 |
 | `dashJump(sel)` / `dashJumpTop(el)` | ダッシュボードカード・消し込みバーからの共通ジャンプ＋2秒ハイライト（詳細は下記 Dashboard Jump 節） |
 | `closeItems(ds)` / `updateCloseBar(ds)` | 消し込みバー（`.cbar`）の6カテゴリ集計の唯一の入口／バー本体の再描画（詳細は下記 消し込みバー 節） |
@@ -348,7 +348,7 @@ All class names are abbreviated:
 
 `DUTIES` defines fixed slot types. `DEF_DUTY_MASTER` is the admin-editable master. Each day stores assignments as `{ ope: "name", cath: "name", ... }` plus a pool of unassigned staff for drag-and-drop.
 
-**Pool ↔ Surplus**: `refreshPool(ds)` only touches `#pool-chips .pchip:not(.hd)` — do not broaden this selector or surplus zone chips will be hidden. `surplusStatus[name] = zoneKey` places staff in a zone (hd/maint/off/other).
+**Pool ↔ Surplus**: `refreshPool(ds)` only touches `#pool-chips .pchip:not(.hd)` — do not broaden this selector or surplus zone chips will be hidden. Surplus/HD-zone membership lives in `dat.staffZone = { ce:{}, hd:{} }` (`ensureStaffZone(dat)` lazily initializes it and absorbs the legacy `dat.surplus`/`dat.surplusStatus`/`dat.hdStatus` fields on first read — those legacy fields are never deleted, so old exported backups restore correctly). `ce[name]` existing as a key means the person is in the CE surplus pool; an empty-string value means unclassified, a non-empty value (`hd`/`maint`/`off`/`other`) means classified into that zone. `hd[name]` existing means an HD-shift worker is classified into that zone (HD workers with no key are still unclassified, since HD membership itself is always derived from shift data, never stored). `classifyStaff(ds, name, kind, zoneKey)` / `unclassifyStaff(ds, name, kind)` (`kind` is `'ce'|'hd'`) are the single entry points for zone assignment/removal and also write to `/logs`. `removeFromZoneSource(ds, name, from)` is the drop-onto-duty-slot cleanup-only helper (no `saveD()`/log — the caller's duty-write covers persistence).
 
 **Duty assignment paths** (3 total — all must call `maybeLateToast` and `writeLog`):
 1. `<select>` onchange in `buildDutyCard`
@@ -359,7 +359,11 @@ All class names are abbreviated:
 
 ### 人員配置管理バッジ（`staffZoneCounts` / `updateStaffZoneBadge`）
 
-「当日勤務者一覧」と「余剰人員」は `.staffz` 1セクションにまとめられ（中身のDOM構造・IDは変えていない）、見出し（`.staffz-hd`, `toggleStaffZone()`）クリックで開閉する（`_staffZoneOpen`、既定 `true`）。`staffZoneCounts(ds)` が見出しバッジの唯一の集計元：`staffN`（`getShiftForDay(ds)` の当日勤務者数）と `unassignedN`（`getDutyCfg(dat)` の枠のうち `dat.duties` に未割当のもの）。`updateStaffZoneBadge(ds)` は2つの `<span>`（`#staffz-badge-staff` / `#staffz-badge-unassigned`）だけを差し替える部分更新で、フルページ再描画を避ける。**両方のカウントが変わりうる箇所すべてから呼ぶこと**：担当割り当ての3経路（下記）、`refreshPool(ds)`、`renderSurplusArea(ds, ...)` の末尾。
+「当日勤務者一覧」と「余剰人員」は `.staffz` 1セクションにまとめられ（中身のDOM構造・IDは変えていない）、見出し（`.staffz-hd`, `toggleStaffZone()`）クリックで開閉する（`_staffZoneOpen`、既定 `false`）。`staffZoneCounts(ds)` が見出しバッジの唯一の集計元：`staffN`（`getShiftForDay(ds)` の当日勤務者数）と `unassignedN`（`getDutyCfg(dat)` の枠のうち `dat.duties` に未割当のもの）。`updateStaffZoneBadge(ds)` は2つの `<span>`（`#staffz-badge-staff` / `#staffz-badge-unassigned`）だけを差し替える部分更新で、フルページ再描画を避ける。**両方のカウントが変わりうる箇所すべてから呼ぶこと**：担当割り当ての3経路（下記）、`refreshPool(ds)`、`renderSurplusArea(ds, ...)` の末尾。
+
+開閉は2段階（3段階から統合済み）：①`_staffZoneOpen`（`.staffz`本体、既定`false`）②`_hdPanelOpen`（HD勤務者パネル、`#hd-worker-panel`）。旧`_surplusOpen`（余剰人員チップ・ゾーンカード本体の折りたたみ、`#surplus-body`）は廃止し、`.staffz`が開いていれば余剰人員チップ・ゾーンカードは常時表示する。`_hdPanelOpen`は「未分類のHD勤務者が1人でもいる」間は`renderSurplusArea`が自動でtrueにする（`_hdPanelUserOverride`が`null`＝そのセッションでユーザーが未操作の間だけ）。`toggleHDPanel()`をユーザーが押すと`_hdPanelUserOverride`にその時の開閉状態を記録し、以降そのセッション中は自動判定より優先される。
+
+分類・解除の監査ログ：`classifyStaff`/`unclassifyStaff`が`writeLog('余剰人員分類'|'HD勤務者分類'|'余剰人員分類解除'|'HD勤務者分類解除', ...)`を、`dropToSurplus`/`removeFromSurplus`が`writeLog('余剰人員へ移動'|'余剰人員から削除', ...)`をそれぞれ呼ぶ。
 
 ### OPE / カテカード（buildOPS内）
 
@@ -641,6 +645,6 @@ Since everything is in one file, search for function names or CSS classes to loc
 - After mutating `D`, call `saveD()`.
 - For rendering, call the targeted function (e.g., `renderStfList()`) rather than `renderPage()` to avoid full re-renders.
 - `renderPage()` must sometimes be called **before** `saveD()` to avoid the Firebase echo overwriting the new UI state.
-- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **4** (v4: migrates auto-delete settings from per-PC `localStorage` keys `autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean` into `D.autoDelCfg`, applied in both `loadD()` and the Firebase `/data` listener).
+- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **5** (v4: migrates auto-delete settings from per-PC `localStorage` keys `autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean` into `D.autoDelCfg`, applied in both `loadD()` and the Firebase `/data` listener. v5: migrates each page's `surplus`/`surplusStatus`/`hdStatus` fields into `dat.staffZone={ce,hd}` via `ensureStaffZone(pg)`, applied the same way in both locations — this migration is a convenience only, not the safety net; the legacy fields are never deleted, so `ensureStaffZone()` keeps absorbing them lazily on read even for pages the migration never touched, e.g. pages restored from a pre-v5 backup via `importBackup()`, which does not re-run `_migVer` gating).
 - Stale closure bug: closures that capture `dat` become stale after Firebase updates `D`. Always reference `D.pages[ds]` (live) inside async callbacks, not the closed-over `dat`.
 - When changing `currentUser.perms` (e.g., in `saveUserPerm`), call `updateTabVisibility()` if the change affects the currently logged-in user.
