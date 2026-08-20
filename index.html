@@ -11667,8 +11667,14 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         if(_old && _old!==this.value){
           removeFromZoneSource(ds, _old, 'surplus');
         }
+        /* 新しい担当者がすでに余剰/ゾーンに分類されていた場合も外す
+           （プルダウンで余剰中の人を直接選んだときに、その人が余剰ゾーンに残ったままにならないように） */
+        if(this.value){
+          removeFromZoneSource(ds, this.value, 'surplus');
+        }
         markDutyEdited(ds);
         saveD(); refreshPool(ds); updateStaffZoneBadge(ds); updateCloseBar(ds);
+        renderSurplusArea(ds, D.pages[ds], !can('duty'));
         maybeLateToast(D.pages[ds], did, this.value, _oldDuty);
         writeLog(this.value?'担当割り当て':'担当クリア', fmtJ(ds)+' '+did+(this.value?' → '+this.value:''));
       };
