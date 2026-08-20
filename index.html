@@ -2302,6 +2302,11 @@ function loadD() {
       }
       D._migVer = 4;
     }
+    /* v5: 余剰人員(surplus/surplusStatus)とHD分類(hdStatus)をdat.staffZone={ce,hd}に統合。旧フィールドは削除せずensureStaffZone()が読み出し時に吸収 */
+    if (!D._migVer || D._migVer < 5) {
+      Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg) ensureStaffZone(pg); });
+      D._migVer = 5;
+    }
     ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
     D.stf=DEF_STF.slice(); D.phs=DEF_PHS.slice(); D.dly=DEF_DLY.slice();
@@ -2592,6 +2597,12 @@ function fbInit() {
                 };
               }
               D._migVer = 4;
+              saveD();
+            }
+            /* v5: 余剰人員(surplus/surplusStatus)とHD分類(hdStatus)をdat.staffZone={ce,hd}に統合。旧フィールドは削除せずensureStaffZone()が読み出し時に吸収 */
+            if (!D._migVer || D._migVer < 5) {
+              Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg) ensureStaffZone(pg); });
+              D._migVer = 5;
               saveD();
             }
             setSyncLbl('同期済');
@@ -7913,6 +7924,20 @@ function ensureStaffAdj(dat) {
   if (!dat.staffAdj.removeCe) dat.staffAdj.removeCe = {};
   if (!dat.staffAdj.removeOc) dat.staffAdj.removeOc = {};
   return dat.staffAdj;
+}
+/* 余剰人員(surplus/surplusStatus)とHD分類(hdStatus)を dat.staffZone={ce,hd} に統合する遅延初期化＋旧形式吸収 */
+function ensureStaffZone(dat) {
+  if (!dat.staffZone) {
+    var ce = {};
+    (dat.surplus || []).forEach(function(n){ ce[n] = ''; });
+    var ss = dat.surplusStatus || {};
+    Object.keys(ss).forEach(function(n){ ce[n] = ss[n] || ''; });
+    var hd = {};
+    var hs = dat.hdStatus || {};
+    Object.keys(hs).forEach(function(n){ hd[n] = hs[n]; });
+    dat.staffZone = { ce: ce, hd: hd };
+  }
+  return dat.staffZone;
 }
 function poolHas(arr, name) {
   for (var i=0;i<arr.length;i++) if (arr[i].name === name) return true;
