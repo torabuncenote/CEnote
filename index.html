@@ -5020,9 +5020,15 @@ function markDutyEdited(ds) {
 }
 
 /* ===== 余剰人員エリア ===== */
+var SS_ZONES=[
+  {key:'hd',   icon:'🔄',label:'HDシフトチェンジ',border:'var(--pu)',  bg:'var(--pu-bg)',  color:'var(--pu)'},
+  {key:'maint',icon:'🔧',label:'メンテ',           border:'var(--or)',  bg:'var(--or-bg)',  color:'var(--or)'},
+  {key:'off',  icon:'🏖️',label:'休み',             border:'var(--gr)',  bg:'var(--gr-bg,#f0fff4)',color:'var(--gr)'},
+  {key:'other',icon:'📝',label:'その他',           border:'var(--bdr2)',bg:'var(--sur2)',     color:'var(--txt2)'}
+];
 function renderSurplusArea(ds, dat, locked) {
   var wrap = document.getElementById('surplus-wrap'); if (!wrap) return;
-  var surplus = dat.surplus || [];
+  var sz = ensureStaffZone(dat);
   var dlk = !can('duty');
 
   var hd = getShiftForDay(ds).hd || [];
@@ -5039,8 +5045,7 @@ function renderSurplusArea(ds, dat, locked) {
   html += '<div id="surplus-body" style="display:'+(_surplusOpen?'block':'none')+'">';
 
   /* 余剰人員チップ（ゾーン配置済みはスキップ、ゾーンカードに表示） */
-  var _ssF = dat.surplusStatus || {};
-  var _freeChips = surplus.filter(function(n){ return !_ssF[n]; });
+  var _freeChips = Object.keys(sz.ce).filter(function(n){ return !sz.ce[n]; });
   html += '<div id="surplus-chips" class="surplus-chips"'+(dlk?'':' ondragover="event.preventDefault()" ondrop="dropToSurplus(event,\''+ds+'\')"')+'>';
   for (var i=0; i<_freeChips.length; i++) {
     html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(_freeChips[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
@@ -5052,8 +5057,8 @@ function renderSurplusArea(ds, dat, locked) {
   html += '</div>';
 
   /* ステータス分類ゾーン（常時表示）：余剰人員またはHD勤務者をここにドロップ */
-  var ssData = dat.surplusStatus || {};
-  var hdStatusData = dat.hdStatus || {};
+  var ssData = sz.ce;
+  var hdStatusData = sz.hd;
   var hdAssigned = Object.keys(hdStatusData);
   html += '<div class="ss-zones-wrap">';
   for (var zi=0; zi<SS_ZONES.length; zi++) {
@@ -5067,7 +5072,7 @@ function renderSurplusArea(ds, dat, locked) {
     for (var wi=0; wi<zWorkers.length; wi++) {
       html += '<div class="pchip pchip-zone-'+zone.key+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(zWorkers[wi])+'" data-from="status" data-ds="'+ds+'" title="ドラッグして担当枠へ">'
         + escH(zWorkers[wi]);
-      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromStatus(\''+ds+'\',\''+escJs(zWorkers[wi])+'\')">×</button>';
+      if(!dlk) html += '<button class="pool-chip-x" onclick="unclassifyStaff(\''+ds+'\',\''+escJs(zWorkers[wi])+'\',\'ce\')">×</button>';
       html += '</div>';
     }
     for (var hi=0; hi<zHdWorkers.length; hi++) {
@@ -5076,7 +5081,7 @@ function renderSurplusArea(ds, dat, locked) {
       var isNt = hdInf && hdInf.night;
       html += '<div class="pchip pchip-zone-'+zone.key+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdN)+'" data-from="hd" data-ds="'+ds+'" title="ドラッグして移動">'+escH(hdN);
       if(hdInf) html += '<span class="cs">'+escH(isNt?'準':hdInf.shift)+'</span>';
-      if(!dlk) html += '<button class="pool-chip-x" onclick="removeFromHdStatus(\''+ds+'\',\''+escJs(hdN)+'\')">×</button>';
+      if(!dlk) html += '<button class="pool-chip-x" onclick="unclassifyStaff(\''+ds+'\',\''+escJs(hdN)+'\',\'hd\')">×</button>';
       html += '</div>';
     }
     if(!hasAny) html += '<span style="font-size:10px;color:var(--txt3)">ここにドロップ</span>';
@@ -5133,27 +5138,35 @@ function toggleStaffZone(){
   if(ar) ar.textContent = _staffZoneOpen ? '▲' : '▼';
 }
 
-var SS_ZONES=[
-  {key:'hd',   icon:'🔄',label:'HDシフトチェンジ',border:'var(--pu)',  bg:'var(--pu-bg)',  color:'var(--pu)'},
-  {key:'maint',icon:'🔧',label:'メンテ',           border:'var(--or)',  bg:'var(--or-bg)',  color:'var(--or)'},
-  {key:'off',  icon:'🏖️',label:'休み',             border:'var(--gr)',  bg:'var(--gr-bg,#f0fff4)',color:'var(--gr)'},
-  {key:'other',icon:'📝',label:'その他',           border:'var(--bdr2)',bg:'var(--sur2)',     color:'var(--txt2)'}
-];
-function assignToStatus(ds,name,fromSurplus,status){
-  if(!can('duty'))return;
-  if(!D.pages[ds])return;
-  /* surplus には残したまま surplusStatus にも追加（担当表・余剰カウント維持） */
-  if(!D.pages[ds].surplusStatus) D.pages[ds].surplusStatus={};
-  D.pages[ds].surplusStatus[name]=status;
-  saveD(); refreshPool(ds); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+/* CE/HD共通：スタッフをゾーンへ分類。監査ログもここに集約 */
+function classifyStaff(ds, name, kind, zoneKey) {
+  if (!can('duty')) return;
+  var dat = D.pages[ds]; if (!dat || !name) return;
+  var sz = ensureStaffZone(dat);
+  if (kind === 'hd') { sz.hd[name] = zoneKey; } else { sz.ce[name] = zoneKey; }
+  saveD();
+  if (kind !== 'hd') refreshPool(ds);
+  renderSurplusArea(ds, D.pages[ds], !can('duty'));
+  var zone = SS_ZONES.filter(function(z){ return z.key === zoneKey; })[0];
+  writeLog(kind==='hd' ? 'HD勤務者分類' : '余剰人員分類', fmtJ(ds)+' '+name+' → '+(zone?zone.label:zoneKey));
 }
-function removeFromStatus(ds,name){
-  if(!can('duty')||!D.pages[ds])return;
-  if(D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
-  /* ゾーンから外したら余剰プールへ戻す（既存データで surplus にない場合も含む） */
-  if(!D.pages[ds].surplus) D.pages[ds].surplus=[];
-  if(D.pages[ds].surplus.indexOf(name)===-1) D.pages[ds].surplus.push(name);
-  saveD(); refreshPool(ds); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+/* CE/HD共通：ゾーン分類の解除。CE側は解除後も余剰プールに残す（キーは消さず値を空文字に） */
+function unclassifyStaff(ds, name, kind) {
+  if (!can('duty')) return;
+  var dat = D.pages[ds]; if (!dat || !name) return;
+  var sz = ensureStaffZone(dat);
+  if (kind === 'hd') { delete sz.hd[name]; } else { sz.ce[name] = ''; }
+  saveD();
+  if (kind !== 'hd') refreshPool(ds);
+  renderSurplusArea(ds, D.pages[ds], !can('duty'));
+  writeLog(kind==='hd' ? 'HD勤務者分類解除' : '余剰人員分類解除', fmtJ(ds)+' '+name);
+}
+/* 担当枠へドロップされたときの後始末専用：ゾーン系の入れ物からだけ消す（担当確定ロジックには触れない・saveDは呼ばない＝呼び出し元が確定書き込みと合わせて1回で保存する） */
+function removeFromZoneSource(ds, name, from) {
+  var dat = D.pages[ds]; if (!dat || !name) return;
+  var sz = ensureStaffZone(dat);
+  if (from === 'hd') { delete sz.hd[name]; }
+  else if (from === 'surplus' || from === 'status') { delete sz.ce[name]; }
 }
 function dropToStatusZone(e,ds,status){
   e.preventDefault();
@@ -5161,22 +5174,7 @@ function dropToStatusZone(e,ds,status){
   var name=e.dataTransfer.getData('text/plain');
   var from=e.dataTransfer.getData('from');
   if(!name)return;
-  if(from==='hd'){
-    assignHdToStatus(ds,name,status);
-  } else {
-    assignToStatus(ds,name,from==='surplus',status);
-  }
-}
-function assignHdToStatus(ds,name,status){
-  if(!can('duty')||!D.pages[ds])return;
-  if(!D.pages[ds].hdStatus) D.pages[ds].hdStatus={};
-  D.pages[ds].hdStatus[name]=status;
-  saveD(); renderSurplusArea(ds,D.pages[ds],!can('duty'));
-}
-function removeFromHdStatus(ds,name){
-  if(!can('duty')||!D.pages[ds])return;
-  if(D.pages[ds].hdStatus) delete D.pages[ds].hdStatus[name];
-  saveD(); renderSurplusArea(ds,D.pages[ds],!can('duty'));
+  classifyStaff(ds, name, from==='hd' ? 'hd' : 'ce', status);
 }
 function toggleHDPanel(){
   var p=document.getElementById('hd-worker-panel'), b=document.getElementById('hd-toggle');
@@ -5188,32 +5186,30 @@ function toggleHDPanel(){
 
 function dropToSurplus(e, ds) {
   e.preventDefault();
+  if (!can('duty')) return;
   var name = e.dataTransfer.getData('text/plain'); if (!name) return;
   var from = e.dataTransfer.getData('from');
   if (from === 'hd') return; /* HD勤務者は余剰プールに入らない */
-  if (!D.pages[ds].surplus) D.pages[ds].surplus = [];
-  /* ステータスゾーンから来た場合はステータスを解除（重複チェック前に行う） */
-  if (from === 'status') {
-    if (D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
-  }
-  if (D.pages[ds].surplus.indexOf(name) === -1) D.pages[ds].surplus.push(name);
+  var dat = D.pages[ds]; if (!dat) return;
+  var sz = ensureStaffZone(dat);
+  sz.ce[name] = '';
   /* 担当枠から来た場合は担当をクリア */
   if (from !== 'surplus' && from !== 'status') {
-    var duties = D.pages[ds].duties || {};
+    var duties = dat.duties || {};
     for (var k in duties) { if (duties[k] === name) duties[k] = ''; }
   }
   saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], !can('duty'));
+  writeLog('余剰人員へ移動', fmtJ(ds)+' '+name);
 }
 
 function removeFromSurplus(ds, name) {
-  if (!D.pages[ds]) return;
-  var sur = D.pages[ds].surplus || [];
-  var i = sur.indexOf(name); if (i === -1) return;
-  sur.splice(i, 1);
-  D.pages[ds].surplus = sur;
-  /* ゾーン割り当ても一緒に消す（残すとゾーン表示だけ復活する） */
-  if (D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
+  if (!can('duty')) return;
+  var dat = D.pages[ds]; if (!dat) return;
+  var sz = ensureStaffZone(dat);
+  if (!(name in sz.ce)) return;
+  delete sz.ce[name];
   saveD(); refreshPool(ds); renderSurplusArea(ds, D.pages[ds], !can('duty'));
+  writeLog('余剰人員から削除', fmtJ(ds)+' '+name);
 }
 
 /* ===== 業務カード追加・削除 ===== */
@@ -10233,12 +10229,10 @@ function refreshPool(ds) {
   var dat=D.pages[ds]; if(!dat)return;
   var assigned={};
   if(dat.duties){for(var k in dat.duties){if(dat.duties[k])assigned[dat.duties[k]]=true;}}
-  /* 余剰人員も「割り当て済み」として扱いプールから隠す */
-  if(dat.surplus){for(var si2=0;si2<dat.surplus.length;si2++) assigned[dat.surplus[si2]]=true;}
+  /* 余剰人員（ゾーン分類済み含む）は「割り当て済み」として扱いプールから隠す */
+  Object.keys(ensureStaffZone(dat).ce).forEach(function(n){ assigned[n]=true; });
   /* extra_freeの担当も考慮 */
   if(dat.extra_free){for(var ef=0;ef<dat.extra_free.length;ef++){if(dat.extra_free[ef].name) assigned[dat.extra_free[ef].name]=true;}}
-  /* surplusStatusに分類された人員もプールから隠す */
-  if(dat.surplusStatus){for(var sk in dat.surplusStatus){if(dat.surplusStatus[sk]) assigned[sk]=true;}}
   /* OC担当はOCチップのみ隠す。CE兼任者はCEカードを当日勤務者一覧に残し、CEの割り振りにも使えるようにする */
   var ocAssigned={};
   if(dat.ocData&&dat.ocData.staff) ocAssigned[dat.ocData.staff]=true;
@@ -10299,11 +10293,14 @@ function poolHiddenReason(ds, name) {
   if (dat.extra_free) {
     for (var e = 0; e < dat.extra_free.length; e++) { if (dat.extra_free[e] && dat.extra_free[e].name === name) return '既にフリー枠に割り当て済み'; }
   }
-  if (dat.surplusStatus && dat.surplusStatus[name]) {
-    var z = SS_ZONES.filter(function(zz){ return zz.key === dat.surplusStatus[name]; })[0];
-    return '余剰人員の「' + (z ? z.label : dat.surplusStatus[name]) + '」に入っている';
+  var sz = ensureStaffZone(dat);
+  if (name in sz.ce) {
+    if (sz.ce[name]) {
+      var z = SS_ZONES.filter(function(zz){ return zz.key === sz.ce[name]; })[0];
+      return '余剰人員の「' + (z ? z.label : sz.ce[name]) + '」に入っている';
+    }
+    return '余剰人員に入っている';
   }
-  if (dat.surplus && dat.surplus.indexOf(name) !== -1) return '余剰人員に入っている';
   return null;
 }
 function removePoolStaff(ds, type, name) {
@@ -11669,10 +11666,9 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
         if(!D.pages[ds].duties) D.pages[ds].duties={};
         var _old=D.pages[ds].duties[did];
         D.pages[ds].duties[did]=this.value;
-        /* 旧担当者が余剰にいればそこからも除いてプールへ戻す */
-        if(_old && _old!==this.value && D.pages[ds].surplus){
-          var _si=D.pages[ds].surplus.indexOf(_old);
-          if(_si!==-1) D.pages[ds].surplus.splice(_si,1);
+        /* 旧担当者が余剰/ゾーンにいればそこからも除いてプールへ戻す */
+        if(_old && _old!==this.value){
+          removeFromZoneSource(ds, _old, 'surplus');
         }
         markDutyEdited(ds);
         saveD(); refreshPool(ds); updateStaffZoneBadge(ds); updateCloseBar(ds);
@@ -11801,7 +11797,7 @@ function buildDG(ds, dat, locked) {
             D.pages[ds].customDuties=cfg;
             var _an=D.pages[ds].duties&&D.pages[ds].duties[sid];
             if(D.pages[ds].duties) delete D.pages[ds].duties[sid];
-            if(_an && D.pages[ds].surplus){var _si=D.pages[ds].surplus.indexOf(_an);if(_si!==-1)D.pages[ds].surplus.splice(_si,1);}
+            if(_an) removeFromZoneSource(ds, _an, 'surplus');
             saveD(); renderPage(ds);
           };})(slot.id);
           tag.appendChild(rx);
@@ -11844,15 +11840,12 @@ function buildDG(ds, dat, locked) {
           clrBtn2.textContent='🗑'; clrBtn2.title='全枠クリア';
           clrBtn2.onclick=function(){
             if(!confirm('全担当枠を削除しますか？')) return;
-            /* 割り当て済みスタッフを余剰からも除いてプールへ戻す */
+            /* 割り当て済みスタッフを余剰/ゾーンからも除いてプールへ戻す */
             var _duts=D.pages[ds].duties||{};
-            if(D.pages[ds].surplus){
-              Object.keys(_duts).forEach(function(sid){
-                var n=_duts[sid]; if(!n)return;
-                var _si=D.pages[ds].surplus.indexOf(n);
-                if(_si!==-1) D.pages[ds].surplus.splice(_si,1);
-              });
-            }
+            Object.keys(_duts).forEach(function(sid){
+              var n=_duts[sid]; if(!n)return;
+              removeFromZoneSource(ds, n, 'surplus');
+            });
             D.pages[ds].customDuties=[]; D.pages[ds].duties={}; saveD(); renderPage(ds);
           };
           tagRow.appendChild(clrBtn2);
@@ -12015,11 +12008,7 @@ function buildDG(ds, dat, locked) {
         if (ssZone) {
           var zk = ssZone.getAttribute('data-zone-key');
           ssZone.classList.remove('drag-over');
-          if (_dragFrom === 'hd') {
-            assignHdToStatus(_dragDs, _dragName, zk);
-          } else {
-            assignToStatus(_dragDs, _dragName, _dragFrom === 'surplus', zk);
-          }
+          classifyStaff(_dragDs, _dragName, _dragFrom === 'hd' ? 'hd' : 'ce', zk);
           _dragName = ''; return;
         }
 
@@ -12027,19 +12016,7 @@ function buildDG(ds, dat, locked) {
         var card = el.closest('.dc[data-duty-id]');
         if (card) {
           var did = card.getAttribute('data-duty-id');
-          if (_dragFrom === 'surplus') {
-            var sur = D.pages[ds].surplus || [];
-            var si = sur.indexOf(_dragName);
-            if (si !== -1) { sur.splice(si,1); D.pages[ds].surplus = sur; }
-          }
-          if (_dragFrom === 'status') {
-            if (D.pages[_dragDs].surplusStatus) delete D.pages[_dragDs].surplusStatus[_dragName];
-            var _sSur=D.pages[_dragDs].surplus||[]; var _sSi=_sSur.indexOf(_dragName);
-            if(_sSi!==-1){_sSur.splice(_sSi,1);D.pages[_dragDs].surplus=_sSur;}
-          }
-          if (_dragFrom === 'hd') {
-            if (D.pages[_dragDs].hdStatus) delete D.pages[_dragDs].hdStatus[_dragName];
-          }
+          removeFromZoneSource(_dragDs, _dragName, _dragFrom);
           var sel = document.getElementById('sel-' + did);
           if (sel) {
             sel.value = _dragName; sel.classList.toggle('set', !!_dragName);
@@ -12095,22 +12072,8 @@ function buildDG(ds, dat, locked) {
         var did=card.getAttribute('data-duty-id');
         /* duty-card並び替えのドロップは別ハンドラで処理するためスキップ */
         if(!name||!did||name==='duty-card') return;
-        /* 余剰エリアから来た場合は余剰から削除 */
-        if(from==='surplus'){
-          var sur=D.pages[ds].surplus||[];
-          var si=sur.indexOf(name);
-          if(si!==-1){sur.splice(si,1); D.pages[ds].surplus=sur;}
-        }
-        /* ステータスゾーンから来た場合はステータスを解除 */
-        if(from==='status'){
-          if(D.pages[ds].surplusStatus) delete D.pages[ds].surplusStatus[name];
-          var _stSur=D.pages[ds].surplus||[]; var _stSi=_stSur.indexOf(name);
-          if(_stSi!==-1){_stSur.splice(_stSi,1);D.pages[ds].surplus=_stSur;}
-        }
-        /* HDゾーンから来た場合はHDステータスを解除 */
-        if(from==='hd'){
-          if(D.pages[ds].hdStatus) delete D.pages[ds].hdStatus[name];
-        }
+        /* 余剰/ゾーン系の入れ物から来た場合はそこからも消す（後始末のみ・確定書き込みと同じdropDsに対して行う） */
+        removeFromZoneSource(dropDs, name, from);
         var sel=document.getElementById('sel-'+did);
         if(sel){
           sel.value=name; sel.classList.toggle('set',!!name);
@@ -14355,8 +14318,7 @@ function renderAT() {
       html+='<td'+(si===selfIdx?' class="self-col"':'')+' >'+(chips.length?chips.join(' '):'<span class="dc-n">—</span>')+'</td>';
     }
     /* 余剰人員列（ステータスゾーン内のスタッフも余剰扱い） */
-    var surNames=(dat&&dat.surplus)?dat.surplus.slice():[];
-    if(dat&&dat.surplusStatus){Object.keys(dat.surplusStatus).forEach(function(n){if(surNames.indexOf(n)===-1)surNames.push(n);});}
+    var surNames=dat?Object.keys(ensureStaffZone(dat).ce):[];
     html+='<td style="font-size:10px;color:var(--txt3)">'+(surNames.join('<br>')||'')+'</td>';
     html+='</tr>';
   }
@@ -15041,8 +15003,7 @@ function exportAtCsv() {
       if(dat&&dat.ocData&&dat.ocData.staff===name)cells.push('OC');
       row.push(cells.join('/'));
     }
-    var _csvSur=(dat&&dat.surplus)?dat.surplus.slice():[];
-    if(dat&&dat.surplusStatus){Object.keys(dat.surplusStatus).forEach(function(n){if(_csvSur.indexOf(n)===-1)_csvSur.push(n);});}
+    var _csvSur=dat?Object.keys(ensureStaffZone(dat).ce):[];
     row.push(_csvSur.join('/'));
     rows.push(row);
   }
