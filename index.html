@@ -600,6 +600,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .btn-nm-text{display:none}
   .btn-gm-text{display:none}
   .btn-at-text{display:none}
+  .mt-text{display:none}
   .pend-txt{display:none}
   .at-hint{display:none}
   .uc-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1105,6 +1106,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
   <span class="tb-sep">|</span>
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
+    <button class="btn btn-g btn-sm" id="mode-toggle" onclick="toggleViewMode()" title="CEモード（タップでHDモードへ切替）">🩺<span class="mt-text"> CE</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -2148,6 +2150,8 @@ function dashJump(sel) {
 
 /* ===== INIT ===== */
 function init() {
+  _viewMode = getViewMode();
+  updateModeToggleBtn();
   syncCbarInset();
   /* ?preview=1 → 管理者モード / ?preview=2 → 一般ユーザーモードでローカル動作確認 */
   var params = new URLSearchParams(window.location.search);
@@ -9768,6 +9772,7 @@ function updateStaffZoneBadge(ds){
 }
 function updatePsgRemovalBanner(ds){
   var el=document.getElementById('psg-removal-banner'); if(!el) return;
+  if(_viewMode==='hd'){el.style.display='none';return;} /* PSG取り外しはCE業務 */
   if(!ds){el.style.display='none';return;}
   var n=new Date(),todayStr=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
   if(ds!==todayStr){el.style.display='none';return;}
@@ -9782,6 +9787,7 @@ function updatePsgRemovalBanner(ds){
 }
 function renderPage(ds) {
   if (!D.pages[ds]) return;
+  if (_viewMode === 'hd') { renderPageHD(ds); return; }
   var dat=D.pages[ds];
   if(!dat.ops)dat.ops={}; if(!dat.ocData)dat.ocData={};
   var w=new Date(ds).getDay(), ws=WDL[w], wf=WDF[w];
@@ -10120,89 +10126,179 @@ function renderPage(ds) {
   /* 申し送り投稿リストを描画 */
   renderMemos(ds, dat, mlk);
   if(!mlk){
-    (function(ds){
-      var btn = document.getElementById('memo-send-btn');
-      var ta  = document.getElementById('memo-new');
-      if(btn) btn.onclick = function(){ postMemo(ds); };
-      if(ta)  ta.addEventListener('keydown', function(e){
-        if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); postMemo(ds); }
-        /* メンション候補ナビゲーション */
-        var popup = document.getElementById('memo-mention-popup');
-        if (popup && popup.style.display !== 'none') {
-          var items = popup.querySelectorAll('.memo-mention-item');
-          var activeIdx = -1;
-          for (var i=0;i<items.length;i++) if (items[i].classList.contains('active')) { activeIdx=i; break; }
-          if (e.key==='ArrowDown') {
-            e.preventDefault();
-            var next = (activeIdx+1) % items.length;
-            for(var i=0;i<items.length;i++) items[i].classList.toggle('active', i===next);
-          } else if (e.key==='ArrowUp') {
-            e.preventDefault();
-            var prev = (activeIdx-1+items.length) % items.length;
-            for(var i=0;i<items.length;i++) items[i].classList.toggle('active', i===prev);
-          } else if (e.key==='Enter' || e.key==='Tab') {
-            var act = popup.querySelector('.memo-mention-item.active') || items[0];
-            if (act) { e.preventDefault(); act.click(); }
-          } else if (e.key==='Escape') {
-            popup.style.display = 'none';
-          }
-        }
-      });
-      /* メンション機能：@を入力したらスタッフ候補を表示 */
-      if(ta) ta.addEventListener('input', function(){
-        var val = this.value;
-        var pos = this.selectionStart;
-        var atIdx = val.lastIndexOf('@', pos-1);
-        var popup = document.getElementById('memo-mention-popup');
-        if (!popup) {
-          popup = document.createElement('div');
-          popup.id = 'memo-mention-popup';
-          popup.className = 'memo-mention-popup';
-          popup.style.display = 'none';
-          this.parentElement.style.position = 'relative';
-          this.parentElement.appendChild(popup);
-        }
-        if (atIdx === -1 || (atIdx > 0 && !/[\s\n]/.test(val[atIdx-1]))) {
-          popup.style.display = 'none'; return;
-        }
-        var query = val.slice(atIdx+1, pos);
-        if (query.length > 10) { popup.style.display = 'none'; return; }
-        var matches = D.stf.filter(function(s){ return s.indexOf(query) >= 0; });
-        if (!matches.length) { popup.style.display = 'none'; return; }
-        popup.innerHTML = '';
-        matches.slice(0, 20).forEach(function(name) {
-          var item = document.createElement('div');
-          item.className = 'memo-mention-item';
-          item.textContent = '@' + name;
-          /* mousedown で preventDefault することでタップ時も textarea がフォーカスを失わない */
-          item.onmousedown = function(e) { e.preventDefault(); };
-          item.onclick = (function(n, savedAt, savedPos){ return function(){
-            var ta2 = document.getElementById('memo-new');
-            popup.style.display = 'none';
-            if (!ta2) return;
-            var v = ta2.value;
-            var curPos = ta2.selectionStart || savedPos;
-            var freshAt = v.lastIndexOf('@', curPos - 1);
-            if (freshAt === -1) freshAt = savedAt;
-            if (freshAt === -1) { if (document.activeElement !== ta2) ta2.focus(); return; }
-            var newPos = freshAt + n.length + 2;
-            ta2.value = v.slice(0, freshAt) + '@' + n + ' ' + v.slice(curPos);
-            /* フォーカス中に不要な focus() を呼ぶと IME がリセットされるため、
-               外れている場合のみ focus() し、カーソル位置は setTimeout で確実に設定する */
-            if (document.activeElement !== ta2) ta2.focus();
-            setTimeout(function(){ ta2.setSelectionRange(newPos, newPos); }, 0);
-          };})(name, atIdx, pos);
-          popup.appendChild(item);
-        });
-        /* popupをtextareaの上に表示 */
-        popup.style.display = '';
-        popup.style.bottom = (ta.offsetHeight + 4) + 'px';
-        popup.style.left = '0';
-      });
-    })(ds);
+    bindMemoInput(ds);
   }
   autoGrowAll(document.getElementById('main')); /* 既に入っている長文が見切れないよう高さを合わせる */
   updateCloseBar(ds);
+}
+
+/* ===== HD主観の日ページ（フェーズ1：骨組みのみ） =====
+   HD担当表・HDチェックリストはまだ無い（D.hdDuty/D.hdDly等が未実装のフェーズ）ため、
+   今回出すのはヘッダー・イベント表示・簡易サマリ・申し送り（CEと同一の dat.memos）だけ。
+   #dg/#dcl/#wcl/#pool-chips/#ops-grid/#hdg/#hdcl は絶対に作らない
+   （buildDG/buildCL はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない）。 */
+function renderPageHD(ds) {
+  var dat = D.pages[ds];
+  var w = new Date(ds).getDay(), wf = WDF[w];
+  var mlk = !can('memo');
+  var si = getShiftForDay(ds);
+
+  var h = '<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
+  h += '<div class="pt2" style="flex:1">🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）</div>';
+  /* タブレットバッジの件数計算式は renderPage/updateTabletBtnBadge と完全に同じにすること */
+  var _tblOut = (dat.tabletLogs || []).filter(function (l) { return !l.returnedAt; }).length + tabletCarryOver(ds).length;
+  h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
+  h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
+  h += '</div>';
+
+  /* イベント表示エリア（renderPageのCE版と同一ロジック） */
+  var allEvts = si.evts || [];
+  var pageEvts = (dat.events || []);
+  for (var ei = 0; ei < pageEvts.length; ei++) { if (allEvts.indexOf(pageEvts[ei]) === -1) allEvts.push(pageEvts[ei]); }
+  h += '<div id="evt-area" style="margin-bottom:14px">';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
+  if (allEvts.length) {
+    for (var ei = 0; ei < allEvts.length; ei++) {
+      h += '<div style="display:inline-flex;align-items:center;gap:4px;background:var(--or-bg);border:1.5px solid var(--or-border,var(--or));border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--or)">';
+      h += '📅 ' + allEvts[ei];
+      h += '<button data-ds="' + ds + '" data-evt="' + allEvts[ei].replace(/"/g, '&quot;') + '" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:var(--or);font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
+      h += '</div>';
+    }
+  } else {
+    h += '<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
+  }
+  h += '<button data-ds="' + ds + '" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
+  h += '</div></div>';
+
+  /* 簡易サマリ行（HD担当表・HDチェックリストは未実装のため進捗はまだ出せない） */
+  h += '<div class="pp"><div class="pr"><span class="pl">🩸 HDモード</span><span class="pv">' + fmtJ(ds) + '（' + wf + '）</span></div></div>';
+
+  /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有） */
+  h += '<div class="st">📝 業務連絡・申し送り' + (mlk ? '<span class="slb lk">🔒</span>' : '') + '</div>';
+  h += '<div class="memo-list" id="memo-list"></div>';
+  if (!mlk) {
+    h += '<div class="memo-input-area">';
+    h += '<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">💡 <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
+    h += '<div id="memo-phi-warn" class="memo-phi-warn" style="display:none"></div>';
+    h += '<div class="memo-media-preview" id="memo-media-preview"></div>';
+    h += '<div class="memo-input-row">';
+    h += '<textarea id="memo-new" placeholder="申し送りを入力... (Ctrl+Enterで送信)" rows="2"></textarea>';
+    h += '<button class="btn btn-p" style="align-self:flex-end" onclick="postMemo(\'' + ds + '\')" id="memo-send-btn">送信</button>';
+    h += '</div>';
+    h += '<div class="memo-tools">';
+    h += '<label class="memo-media-btn">📎 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
+    h += '</div>';
+    h += '</div>';
+  }
+
+  document.getElementById('main').innerHTML = h;
+
+  /* data-action ボタンのイベント登録（renderPageのCE版と同一ロジック） */
+  var evtArea = document.getElementById('evt-area');
+  if (evtArea) {
+    evtArea.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      var action = btn.getAttribute('data-action');
+      var bds = btn.getAttribute('data-ds');
+      if (action === 'removeEvt') {
+        var evtName = btn.getAttribute('data-evt');
+        removeEvt(bds, evtName);
+      } else if (action === 'addEvtPrompt') {
+        addEvtPrompt(bds);
+      }
+    });
+  }
+
+  renderMemos(ds, dat, mlk);
+  if (!mlk) bindMemoInput(ds);
+  autoGrowAll(document.getElementById('main'));
+  updateTabletBtnBadge(ds);
+  updateCloseBar(ds);
+}
+
+/* 申し送り入力欄（#memo-new）のイベント登録：送信ボタン／Ctrl+Enter送信／@メンション候補。
+   renderPage・renderPageHD の両方が同じ #memo-new/#memo-send-btn DOMに対して呼ぶ共用関数
+   （HDモードもCEと同一の dat.memos スレッドを共有するため、入力UIも同じロジックでよい）。 */
+function bindMemoInput(ds){
+  var btn = document.getElementById('memo-send-btn');
+  var ta  = document.getElementById('memo-new');
+  if(btn) btn.onclick = function(){ postMemo(ds); };
+  if(ta)  ta.addEventListener('keydown', function(e){
+    if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); postMemo(ds); }
+    /* メンション候補ナビゲーション */
+    var popup = document.getElementById('memo-mention-popup');
+    if (popup && popup.style.display !== 'none') {
+      var items = popup.querySelectorAll('.memo-mention-item');
+      var activeIdx = -1;
+      for (var i=0;i<items.length;i++) if (items[i].classList.contains('active')) { activeIdx=i; break; }
+      if (e.key==='ArrowDown') {
+        e.preventDefault();
+        var next = (activeIdx+1) % items.length;
+        for(var i=0;i<items.length;i++) items[i].classList.toggle('active', i===next);
+      } else if (e.key==='ArrowUp') {
+        e.preventDefault();
+        var prev = (activeIdx-1+items.length) % items.length;
+        for(var i=0;i<items.length;i++) items[i].classList.toggle('active', i===prev);
+      } else if (e.key==='Enter' || e.key==='Tab') {
+        var act = popup.querySelector('.memo-mention-item.active') || items[0];
+        if (act) { e.preventDefault(); act.click(); }
+      } else if (e.key==='Escape') {
+        popup.style.display = 'none';
+      }
+    }
+  });
+  /* メンション機能：@を入力したらスタッフ候補を表示 */
+  if(ta) ta.addEventListener('input', function(){
+    var val = this.value;
+    var pos = this.selectionStart;
+    var atIdx = val.lastIndexOf('@', pos-1);
+    var popup = document.getElementById('memo-mention-popup');
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.id = 'memo-mention-popup';
+      popup.className = 'memo-mention-popup';
+      popup.style.display = 'none';
+      this.parentElement.style.position = 'relative';
+      this.parentElement.appendChild(popup);
+    }
+    if (atIdx === -1 || (atIdx > 0 && !/[\s\n]/.test(val[atIdx-1]))) {
+      popup.style.display = 'none'; return;
+    }
+    var query = val.slice(atIdx+1, pos);
+    if (query.length > 10) { popup.style.display = 'none'; return; }
+    var matches = D.stf.filter(function(s){ return s.indexOf(query) >= 0; });
+    if (!matches.length) { popup.style.display = 'none'; return; }
+    popup.innerHTML = '';
+    matches.slice(0, 20).forEach(function(name) {
+      var item = document.createElement('div');
+      item.className = 'memo-mention-item';
+      item.textContent = '@' + name;
+      /* mousedown で preventDefault することでタップ時も textarea がフォーカスを失わない */
+      item.onmousedown = function(e) { e.preventDefault(); };
+      item.onclick = (function(n, savedAt, savedPos){ return function(){
+        var ta2 = document.getElementById('memo-new');
+        popup.style.display = 'none';
+        if (!ta2) return;
+        var v = ta2.value;
+        var curPos = ta2.selectionStart || savedPos;
+        var freshAt = v.lastIndexOf('@', curPos - 1);
+        if (freshAt === -1) freshAt = savedAt;
+        if (freshAt === -1) { if (document.activeElement !== ta2) ta2.focus(); return; }
+        var newPos = freshAt + n.length + 2;
+        ta2.value = v.slice(0, freshAt) + '@' + n + ' ' + v.slice(curPos);
+        /* フォーカス中に不要な focus() を呼ぶと IME がリセットされるため、
+           外れている場合のみ focus() し、カーソル位置は setTimeout で確実に設定する */
+        if (document.activeElement !== ta2) ta2.focus();
+        setTimeout(function(){ ta2.setSelectionRange(newPos, newPos); }, 0);
+      };})(name, atIdx, pos);
+      popup.appendChild(item);
+    });
+    /* popupをtextareaの上に表示 */
+    popup.style.display = '';
+    popup.style.bottom = (ta.offsetHeight + 4) + 'px';
+    popup.style.left = '0';
+  });
 }
 
 /* 値が空のときは「＋◯◯」リンクだけを出しておき、クリックでラベル欄と入力欄を展開するための共通処理。
@@ -15821,6 +15917,42 @@ document.addEventListener('click',function(e){
     }
   }
 });
+
+/* ===== モード切替（CE主観／HD主観） =====
+   本人の端末設定なので D には入れない（BOARD_READ_KEY と同じ localStorage パターン）。
+   ログアウトでもリセットしない。 */
+var VIEW_MODE_KEY = 'ce2_viewmode';
+var _viewMode = 'ce';
+function getViewMode() {
+  return localStorage.getItem(VIEW_MODE_KEY) === 'hd' ? 'hd' : 'ce';
+}
+function setViewMode(m) {
+  _viewMode = (m === 'hd') ? 'hd' : 'ce';
+  localStorage.setItem(VIEW_MODE_KEY, _viewMode);
+  updateModeToggleBtn();
+  updateTabVisibility();
+  /* openPage の .pt2 再描画ガードを経由すると同じ日でも再描画されないため、直接呼ぶ */
+  if (curDs && D.pages[curDs]) renderPage(curDs);
+  /* PSG取り外しバナーは #main の外（固定要素）なので renderPage では再構築されない。
+     HDへの切替直後にCE側の状態のまま出っぱなしにならないよう明示的に更新する */
+  updatePsgRemovalBanner(curDs && D.pages[curDs] ? curDs : null);
+}
+function toggleViewMode() {
+  setViewMode(_viewMode === 'hd' ? 'ce' : 'hd');
+}
+function updateModeToggleBtn() {
+  var btn = document.getElementById('mode-toggle');
+  if (!btn) return;
+  if (_viewMode === 'hd') {
+    btn.innerHTML = '🩸<span class="mt-text"> HD</span>';
+    btn.title = 'HDモード（タップでCEモードへ切替）';
+    btn.classList.add('hd-on');
+  } else {
+    btn.innerHTML = '🩺<span class="mt-text"> CE</span>';
+    btn.title = 'CEモード（タップでHDモードへ切替）';
+    btn.classList.remove('hd-on');
+  }
+}
 
 /* ===== バックアップ（エクスポート / インポート） ===== */
 /* ===== 掲示板 ===== */
