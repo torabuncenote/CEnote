@@ -265,6 +265,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ds2{width:100%;font-size:13px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;transition:border-color .15s;margin-bottom:7px;font-family:var(--fn)}
 .ds2:hover,.ds2:focus{border-color:var(--ac);background:var(--ac-bg)}
 .ds2.set{border-color:var(--ac);background:var(--ac-bg);color:var(--ac);font-weight:700}
+.hd-name-sel.changed{border-color:var(--or);background:var(--or-bg);color:var(--or);font-weight:700}
+.hd-changed-badge{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;color:var(--or);white-space:nowrap}
 .pl2{font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:3px}
 .ps{width:100%;font-size:12px;border:1.5px dashed var(--bdr2);border-radius:var(--rs);padding:5px 9px;background:transparent;color:var(--txt2);cursor:pointer;outline:none;transition:all .15s;font-family:var(--mo)}
 .ps:hover,.ps:focus{border-color:var(--pu);background:var(--pu-bg);color:var(--pu)}
@@ -10145,12 +10147,15 @@ function renderPage(ds) {
   updateCloseBar(ds);
 }
 
-/* HD担当表（読み取り専用・フェーズ3）：勤務表から日勤（HD_DAY_CODES順）→準夜の順で1人1行の配列を作る純関数。
-   dat.hdDuty 等（手動修正の保存領域）はまだ無いフェーズなので触らない。D.shift/getShiftForDay 本体も無改変。
-   並び順は「同じコードに複数人いる場合は配列内の順」を保つため Array#sort の安定ソート性に依存する。
-   戻り値: [{role:'M', name:'山田 太郎', night:false}, ...] */
+/* HD担当表：勤務表から日勤（HD_DAY_CODES順）→準夜の順で1人1行の配列を作る純関数。
+   D.shift/getShiftForDay 本体は無改変。並び順は「同じコードに複数人いる場合は配列内の順」を保つため Array#sort の安定ソート性に依存する。
+   dat.hdDuty.overrides[勤務表由来の元の氏名] = 手動修正後の氏名 を見て、derivedName（元の氏名・不変）と
+   name（表示用の実効氏名＝overridesがあればそれ）の両方を返す。
+   戻り値: [{role:'M', derivedName:'山田 太郎', name:'山田 太郎', night:false}, ...] */
 function buildHdRoster(ds) {
   var hd = getShiftForDay(ds).hd || [];
+  var dat = D.pages[ds];
+  var overrides = (dat && dat.hdDuty && dat.hdDuty.overrides) || {};
   var day = hd.filter(function (h) { return !h.night; });
   var night = hd.filter(function (h) { return h.night; });
   day.sort(function (a, b) {
@@ -10158,26 +10163,56 @@ function buildHdRoster(ds) {
     var ib = HD_DAY_CODES.indexOf(b.shift); if (ib === -1) ib = HD_DAY_CODES.length;
     return ia - ib;
   });
-  var rows = day.map(function (h) { return { role: h.shift, name: h.name, night: false }; });
-  night.forEach(function (h) { rows.push({ role: h.shift, name: h.name, night: true }); });
+  function toRow(h, night) {
+    var derivedName = h.name;
+    var name = overrides[derivedName] || derivedName;
+    return { role: h.shift, derivedName: derivedName, name: name, night: night };
+  }
+  var rows = day.map(function (h) { return toRow(h, false); });
+  night.forEach(function (h) { rows.push(toRow(h, true)); });
   return rows;
 }
-/* HD担当表テーブルの1行分（役割／スタッフ／備考）。備考は dat.hdNotes[氏名] の読み取りのみ（編集UIはフェーズ4） */
-function hdRosterRowHTML(dat, r) {
+/* HD担当表テーブルの1行分（役割／スタッフ／備考）。
+   locked=false（can('duty')）のときはスタッフ欄を<select>（D.stf、非表示スタッフ除外）、
+   備考欄を<textarea>にして手動編集できる。編集の保存は呼び出し側（renderPageHD）のイベント委譲で行う。
+   備考のキーは実効氏名（r.name） — 担当を差し替えた行は差し替え後の氏名の備考を表示する。 */
+function hdRosterRowHTML(dat, r, locked) {
   var note = (dat.hdNotes && dat.hdNotes[r.name]) ? dat.hdNotes[r.name] : '';
-  var noteHTML = note ? escH(note) : '<span class="muted">—</span>';
-  return '<tr><td style="font-weight:700">' + escH(r.role || '') + '</td><td>' + escH(r.name) + '</td><td>' + noteHTML + '</td></tr>';
+  var staffCell;
+  if (locked) {
+    staffCell = escH(r.name);
+  } else {
+    var overridden = r.name !== r.derivedName;
+    var hasMatch = false, opts = '';
+    for (var j = 0; j < D.stf.length; j++) {
+      var _sn = D.stf[j];
+      if (D.stfHidden && D.stfHidden[_sn] && _sn !== r.name) continue;
+      if (_sn === r.name) hasMatch = true;
+      opts += '<option value="' + escH(_sn) + '"' + (_sn === r.name ? ' selected' : '') + '>' + escH(_sn) + '</option>';
+    }
+    if (r.name && !hasMatch) opts += '<option value="' + escH(r.name) + '" selected>' + escH(r.name) + '（名簿外）</option>';
+    staffCell = '<select class="ds2 hd-name-sel' + (overridden ? ' changed' : '') + '" data-derived="' + escH(r.derivedName) + '" style="margin-bottom:0">' + opts + '</select>'
+      + (overridden ? '<span class="hd-changed-badge" title="勤務表の割当から変更されています">変更済</span>' : '');
+  }
+  var noteCell;
+  if (locked) {
+    noteCell = note ? escH(note) : '<span class="muted">—</span>';
+  } else {
+    noteCell = '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>';
+  }
+  return '<tr><td style="font-weight:700">' + escH(r.role || '') + '</td><td>' + staffCell + '</td><td>' + noteCell + '</td></tr>';
 }
 
-/* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加） =====
+/* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集） =====
    HDチェックリストはまだ無い（D.hdDly等が未実装のフェーズ）ため、
-   今回出すのはヘッダー・イベント表示・簡易サマリ・HD担当表（読み取り専用）・申し送り（CEと同一の dat.memos）だけ。
+   今回出すのはヘッダー・イベント表示・簡易サマリ・HD担当表（担当変更・備考編集可）・申し送り（CEと同一の dat.memos）だけ。
    #dg/#dcl/#wcl/#pool-chips/#ops-grid/#hdcl は絶対に作らない
    （buildDG/buildCL はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない）。 */
 function renderPageHD(ds) {
   var dat = D.pages[ds];
   var w = new Date(ds).getDay(), wf = WDF[w];
   var mlk = !can('memo');
+  var dlk = !can('duty'); /* HD担当表の編集権限はCE側の担当ロックをそのまま流用（新規ロックIDは作らない） */
   var si = getShiftForDay(ds);
 
   var h = '<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
@@ -10210,7 +10245,7 @@ function renderPageHD(ds) {
   /* 簡易サマリ行（HDチェックリストは未実装のため進捗はまだ出せない） */
   h += '<div class="pp"><div class="pr"><span class="pl">🩸 HDモード</span><span class="pv">' + fmtJ(ds) + '（' + wf + '）</span></div></div>';
 
-  /* HD担当表（読み取り専用・フェーズ3）：役割/スタッフ/備考の3列、1人1行 */
+  /* HD担当表（フェーズ4：担当変更・備考編集可）：役割/スタッフ/備考の3列、1人1行 */
   h += '<div class="st">🩸 HD担当表</div>';
   var hdRows = buildHdRoster(ds);
   if (!hdRows.length) {
@@ -10218,15 +10253,15 @@ function renderPageHD(ds) {
   } else {
     var hdDayRows = hdRows.filter(function (r) { return !r.night; });
     var hdNightRows = hdRows.filter(function (r) { return r.night; });
-    h += '<div class="data-wrap"><table class="data-tbl">';
+    h += '<div class="data-wrap" id="hd-roster-wrap"><table class="data-tbl">';
     h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th>備考</th></tr></thead><tbody>';
     if (hdDayRows.length) {
       h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';
-      hdDayRows.forEach(function (r) { h += hdRosterRowHTML(dat, r); });
+      hdDayRows.forEach(function (r) { h += hdRosterRowHTML(dat, r, dlk); });
     }
     if (hdNightRows.length) {
       h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>';
-      hdNightRows.forEach(function (r) { h += hdRosterRowHTML(dat, r); });
+      hdNightRows.forEach(function (r) { h += hdRosterRowHTML(dat, r, dlk); });
     }
     h += '</tbody></table></div>';
   }
@@ -10265,6 +10300,45 @@ function renderPageHD(ds) {
       } else if (action === 'addEvtPrompt') {
         addEvtPrompt(bds);
       }
+    });
+  }
+
+  /* HD担当表の編集イベント登録（担当変更・備考入力）：行を毎回イベント委譲し直す（evtAreaと同じ方式）。
+     dlk（!can('duty')）のときは<select>/<textarea>自体を描画していないのでここは何もしない。 */
+  var hdRosterWrap = document.getElementById('hd-roster-wrap');
+  if (hdRosterWrap && !dlk) {
+    hdRosterWrap.addEventListener('change', function (e) {
+      var sel = e.target.closest('select.hd-name-sel');
+      if (!sel) return;
+      var derived = sel.getAttribute('data-derived');
+      var val = sel.value;
+      var pg = D.pages[ds];
+      if (!pg) return;
+      pg.hdDuty = pg.hdDuty || { overrides: {} };
+      pg.hdDuty.overrides = pg.hdDuty.overrides || {};
+      if (val === derived) {
+        delete pg.hdDuty.overrides[derived];
+        if (!Object.keys(pg.hdDuty.overrides).length) delete pg.hdDuty;
+      } else {
+        pg.hdDuty.overrides[derived] = val;
+      }
+      saveDPage(ds);
+      renderPageHD(ds); /* 担当変更は行の再構成（役割行の実効氏名・変更済みバッジ）を伴うため全体を再描画 */
+    });
+    var hdNoteTimers = {}; /* 備考は行ごとに独立してデバウンスする（1つのタイマーを共有すると同時編集時に取りこぼす） */
+    hdRosterWrap.addEventListener('input', function (e) {
+      var ta = e.target.closest('textarea.hd-note-ta');
+      if (!ta) return;
+      var key = ta.getAttribute('data-name');
+      var v = ta.value;
+      if (hdNoteTimers[key]) clearTimeout(hdNoteTimers[key]);
+      hdNoteTimers[key] = setTimeout(function () {
+        var pg = D.pages[ds];
+        if (!pg) return;
+        pg.hdNotes = pg.hdNotes || {};
+        if (v) pg.hdNotes[key] = v; else delete pg.hdNotes[key];
+        saveDPage(ds);
+      }, 600);
     });
   }
 
