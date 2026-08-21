@@ -5045,7 +5045,7 @@ function renderSurplusArea(ds, dat, locked) {
   var sz = ensureStaffZone(dat);
   var dlk = !can('duty');
 
-  var hd = getShiftForDay(ds).hd || [];
+  var hd = hdShiftWorkers(ds); /* HD担当表(dat.hdDuty.overrides)での差し替えを反映した実効氏名で表示する */
   var hdDay   = hd.filter(function(x){ return !x.night; });
   var hdNight = hd.filter(function(x){ return  x.night; });
 
@@ -5188,6 +5188,171 @@ function toggleHDPanel(){
   var p = document.getElementById('hd-worker-panel'), b = document.getElementById('hd-toggle');
   if (p) p.style.display = _hdPanelOpen ? 'flex' : 'none';
   if (b) b.classList.toggle('active', _hdPanelOpen);
+}
+
+/* 余剰人員パネル（#surplus-wrap、CE側の #pool-chips 含む）のD&D配線。デスクトップdragイベントとスマホtouchイベントの両方をここで一括登録する。
+   #pool-chips はCE主観の日ページ（renderPage→buildDG）にしか存在しないため、HD日ページ（renderPageHD）から呼んだ場合はnull guardで自動的に何もしない。
+   buildDG（CE）とrenderPageHD（HD）の両方が、自分のパネル描画後にこの関数を呼ぶ。 */
+function bindSurplusDnD(ds) {
+  var poolChips = document.getElementById('pool-chips');
+  if (poolChips) {
+    poolChips.addEventListener('dragstart', function(e) {
+      var chip=e.target.closest('[draggable]'); if(!chip) return;
+      e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
+      e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
+      e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
+    });
+    poolChips.addEventListener('dragend', function(e) {
+      var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
+    });
+  }
+  /* 余剰エリア＋HD勤務者パネルのD&D（安定要素 #surplus-wrap に委譲。
+     innerHTML 差し替え後も子チップのドラッグを拾える） */
+  var surplusEl = document.getElementById('surplus-wrap');
+  if (surplusEl) {
+    surplusEl.addEventListener('dragstart', function(e) {
+      var chip=e.target.closest('[draggable]'); if(!chip) return;
+      e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
+      e.dataTransfer.setData('from', chip.getAttribute('data-from')||'');
+      e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
+      e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
+    });
+    surplusEl.addEventListener('dragend', function(e) {
+      var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
+    });
+    /* HD勤務者チップのタップ割当（data-action="poolAssign"） */
+    surplusEl.addEventListener('click', function(e) {
+      var b=e.target.closest('[data-action="poolAssign"]'); if(!b) return;
+      poolAssign(b.getAttribute('data-ds')||ds, b.getAttribute('data-name'));
+    });
+  }
+
+  /* ===== スマホ用タッチD&D ===== */
+  (function(){
+    var _ghost = null, _dragName = '', _dragFrom = '', _dragDs = '';
+
+    function onTouchStart(e) {
+      /* ×ボタン等の操作要素から始まったタッチはドラッグ扱いにしない（タップでの削除を優先） */
+      if (e.target.closest('button,a,input,select,textarea')) return;
+      var chip = e.target.closest('[draggable]'); if (!chip) return;
+      _dragName = chip.getAttribute('data-name') || '';
+      _dragFrom = chip.getAttribute('data-from') || '';
+      _dragDs   = chip.getAttribute('data-ds')   || ds;
+      if (!_dragName) return;
+
+      /* ゴースト要素を作成 */
+      _ghost = document.createElement('div');
+      _ghost.textContent = _dragName;
+      _ghost.style.cssText = 'position:fixed;z-index:9999;background:var(--ac);color:#fff;'
+        + 'border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;'
+        + 'pointer-events:none;opacity:0.85;white-space:nowrap;transform:translate(-50%,-50%)';
+      document.body.appendChild(_ghost);
+      chip.classList.add('dragging');
+
+      var t = e.touches[0];
+      _ghost.style.left = t.clientX + 'px';
+      _ghost.style.top  = t.clientY + 'px';
+    }
+
+    function onTouchMove(e) {
+      if (!_ghost || !_dragName) return;
+      e.preventDefault();
+      var t = e.touches[0];
+      _ghost.style.left = t.clientX + 'px';
+      _ghost.style.top  = t.clientY + 'px';
+
+      /* ハイライト: 指の下の担当カードを探す */
+      var dg2 = document.getElementById('dg');
+      if (dg2) {
+        var all = dg2.querySelectorAll('.dc');
+        for (var i=0; i<all.length; i++) all[i].classList.remove('drag-over');
+        _ghost.style.display = 'none';
+        var el = document.elementFromPoint(t.clientX, t.clientY);
+        _ghost.style.display = '';
+        if (el) {
+          var card = el.closest('.dc[data-duty-id]');
+          if (card) card.classList.add('drag-over');
+        }
+        /* 余剰エリアのハイライト */
+        var surWrap = document.getElementById('surplus-wrap');
+        if (surWrap) surWrap.classList.remove('drag-over');
+        if (el && el.closest('#surplus-wrap')) {
+          if (surWrap) surWrap.classList.add('drag-over');
+        }
+        /* ステータスゾーンのハイライト */
+        var allZones = document.querySelectorAll('.ss-zone');
+        for(var zi2=0; zi2<allZones.length; zi2++) allZones[zi2].classList.remove('drag-over');
+        if (el) { var ssz = el.closest('.ss-zone'); if(ssz) ssz.classList.add('drag-over'); }
+      }
+    }
+
+    function onTouchEnd(e) {
+      if (!_ghost || !_dragName) return;
+      e.preventDefault(); /* タッチドラッグ後の合成click/mousedownを抑制 */
+      var t = e.changedTouches[0];
+
+      /* ゴーストを非表示にして要素を取得 */
+      _ghost.style.display = 'none';
+      var el = document.elementFromPoint(t.clientX, t.clientY);
+      _ghost.style.display = '';
+
+      /* ゴースト削除・ハイライト解除 */
+      document.body.removeChild(_ghost); _ghost = null;
+      var dg2 = document.getElementById('dg');
+      if (dg2) { var all=dg2.querySelectorAll('.dc'); for(var i=0;i<all.length;i++) all[i].classList.remove('drag-over'); }
+      var surWrap = document.getElementById('surplus-wrap');
+      if (surWrap) surWrap.classList.remove('drag-over');
+      document.querySelectorAll('.dragging').forEach(function(c){ c.classList.remove('dragging'); });
+
+      if (!el) { _dragName=''; return; }
+
+      /* ステータスゾーンへのドロップ */
+      var ssZone = el.closest('.ss-zone[data-zone-key]');
+      if (ssZone) {
+        var zk = ssZone.getAttribute('data-zone-key');
+        ssZone.classList.remove('drag-over');
+        classifyStaff(_dragDs, _dragName, _dragFrom === 'hd' ? 'hd' : 'ce', zk);
+        _dragName = ''; return;
+      }
+
+      /* 担当カードへのドロップ */
+      var card = el.closest('.dc[data-duty-id]');
+      if (card) {
+        var did = card.getAttribute('data-duty-id');
+        removeFromZoneSource(_dragDs, _dragName, _dragFrom);
+        var sel = document.getElementById('sel-' + did);
+        if (sel) {
+          sel.value = _dragName; sel.classList.toggle('set', !!_dragName);
+          var _oldDuty=(D.pages[_dragDs].duties||{})[did];
+          if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
+          D.pages[_dragDs].duties[did] = _dragName;
+          markDutyEdited(_dragDs);
+          saveD(); refreshPool(_dragDs); updateStaffZoneBadge(_dragDs); updateCloseBar(_dragDs);
+          maybeLateToast(D.pages[_dragDs], did, _dragName, _oldDuty);
+          writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
+        }
+        _dragName=''; return;
+      }
+
+      /* 余剰エリアへのドロップ（HD勤務者は除外） */
+      if (el.closest('#surplus-wrap') && _dragFrom !== 'hd') {
+        dropToSurplus({preventDefault:function(){}, dataTransfer:{
+          getData: function(k){ return k==='text/plain'?_dragName:(k==='from'?_dragFrom:''); }
+        }}, ds);
+        _dragName=''; return;
+      }
+
+      _dragName = '';
+    }
+
+    /* プールと余剰の両方にタッチリスナーを設定 */
+    [poolChips, surplusEl].forEach(function(area) {
+      if (!area) return;
+      area.addEventListener('touchstart', onTouchStart, {passive:true});
+      area.addEventListener('touchmove',  onTouchMove,  {passive:false});
+      area.addEventListener('touchend',   onTouchEnd,   {passive:true});
+    });
+  })();
 }
 
 function dropToSurplus(e, ds) {
@@ -10152,10 +10317,23 @@ function renderPage(ds) {
    dat.hdDuty.overrides[勤務表由来の元の氏名] = 手動修正後の氏名 を見て、derivedName（元の氏名・不変）と
    name（表示用の実効氏名＝overridesがあればそれ）の両方を返す。
    戻り値: [{role:'M', derivedName:'山田 太郎', name:'山田 太郎', night:false}, ...] */
-function buildHdRoster(ds) {
+/* getShiftForDay(ds).hd に dat.hdDuty.overrides（HD担当表での差し替え）を適用した実効HD勤務者一覧。
+   buildHdRoster（HD担当表）とrenderSurplusArea（CE/HDどちらの日ページでも表示する余剰人員パネルのHD勤務者欄）が
+   共通で使う唯一の入口 — 以前はこの2箇所が別々に getShiftForDay(ds).hd を直接読んでおり、
+   HD担当表で担当を差し替えても余剰人員パネル側には反映されなかった。
+   getShiftForDay 本体は他の呼び出し元（CE勤務者一覧・OC自動入力等）に影響するため変更しない。 */
+function hdShiftWorkers(ds) {
   var hd = getShiftForDay(ds).hd || [];
   var dat = D.pages[ds];
   var overrides = (dat && dat.hdDuty && dat.hdDuty.overrides) || {};
+  return hd.map(function (h) {
+    var derivedName = h.name;
+    var name = overrides[derivedName] || derivedName;
+    return { name: name, derivedName: derivedName, shift: h.shift, night: h.night };
+  });
+}
+function buildHdRoster(ds) {
+  var hd = hdShiftWorkers(ds);
   var day = hd.filter(function (h) { return !h.night; });
   var night = hd.filter(function (h) { return h.night; });
   day.sort(function (a, b) {
@@ -10163,13 +10341,11 @@ function buildHdRoster(ds) {
     var ib = HD_DAY_CODES.indexOf(b.shift); if (ib === -1) ib = HD_DAY_CODES.length;
     return ia - ib;
   });
-  function toRow(h, night) {
-    var derivedName = h.name;
-    var name = overrides[derivedName] || derivedName;
-    return { role: h.shift, derivedName: derivedName, name: name, night: night };
+  function toRow(h) {
+    return { role: h.shift, derivedName: h.derivedName, name: h.name, night: h.night };
   }
-  var rows = day.map(function (h) { return toRow(h, false); });
-  night.forEach(function (h) { rows.push(toRow(h, true)); });
+  var rows = day.map(toRow);
+  night.forEach(function (h) { rows.push(toRow(h)); });
   return rows;
 }
 /* HD担当表テーブルの1行分（役割／スタッフ／備考）。
@@ -10266,6 +10442,10 @@ function renderPageHD(ds) {
     h += '</tbody></table></div>';
   }
 
+  /* 余剰人員（CE主観と全く同じ renderSurplusArea/dat.staffZone を再利用。HD勤務者のゾーン分類をHD側からも行えるようにする） */
+  h += '<div class="st">🔄 余剰人員</div>';
+  h += '<div id="surplus-wrap"></div>';
+
   /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有） */
   h += '<div class="st">📝 業務連絡・申し送り' + (mlk ? '<span class="slb lk">🔒</span>' : '') + '</div>';
   h += '<div class="memo-list" id="memo-list"></div>';
@@ -10341,6 +10521,11 @@ function renderPageHD(ds) {
       }, 600);
     });
   }
+
+  /* 余剰人員パネル：CE側と全く同じ renderSurplusArea/dat.staffZone で描画し、D&D配線も共通の bindSurplusDnD(ds) を呼ぶ
+     （#pool-chips が無いHD日ページでは、その部分は自動的に何もしない＝null guard） */
+  renderSurplusArea(ds, dat, dlk);
+  if (!dlk) bindSurplusDnD(ds);
 
   renderMemos(ds, dat, mlk);
   if (!mlk) bindMemoInput(ds);
@@ -12122,165 +12307,7 @@ function buildDG(ds, dat, locked) {
 
   /* ===== D&Dリスナー（PC: dragイベント / スマホ: touchイベント） ===== */
   if (!locked) {
-    var poolChips = document.getElementById('pool-chips');
-    if (poolChips) {
-      poolChips.addEventListener('dragstart', function(e) {
-        var chip=e.target.closest('[draggable]'); if(!chip) return;
-        e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
-        e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
-        e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
-      });
-      poolChips.addEventListener('dragend', function(e) {
-        var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
-      });
-    }
-    /* 余剰エリア＋HD勤務者パネルのD&D（安定要素 #surplus-wrap に委譲。
-       innerHTML 差し替え後も子チップのドラッグを拾える） */
-    var surplusEl = document.getElementById('surplus-wrap');
-    if (surplusEl) {
-      surplusEl.addEventListener('dragstart', function(e) {
-        var chip=e.target.closest('[draggable]'); if(!chip) return;
-        e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
-        e.dataTransfer.setData('from', chip.getAttribute('data-from')||'');
-        e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
-        e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
-      });
-      surplusEl.addEventListener('dragend', function(e) {
-        var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
-      });
-      /* HD勤務者チップのタップ割当（data-action="poolAssign"） */
-      surplusEl.addEventListener('click', function(e) {
-        var b=e.target.closest('[data-action="poolAssign"]'); if(!b) return;
-        poolAssign(b.getAttribute('data-ds')||ds, b.getAttribute('data-name'));
-      });
-    }
-
-    /* ===== スマホ用タッチD&D ===== */
-    (function(){
-      var _ghost = null, _dragName = '', _dragFrom = '', _dragDs = '';
-
-      function onTouchStart(e) {
-        /* ×ボタン等の操作要素から始まったタッチはドラッグ扱いにしない（タップでの削除を優先） */
-        if (e.target.closest('button,a,input,select,textarea')) return;
-        var chip = e.target.closest('[draggable]'); if (!chip) return;
-        _dragName = chip.getAttribute('data-name') || '';
-        _dragFrom = chip.getAttribute('data-from') || '';
-        _dragDs   = chip.getAttribute('data-ds')   || ds;
-        if (!_dragName) return;
-
-        /* ゴースト要素を作成 */
-        _ghost = document.createElement('div');
-        _ghost.textContent = _dragName;
-        _ghost.style.cssText = 'position:fixed;z-index:9999;background:var(--ac);color:#fff;'
-          + 'border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;'
-          + 'pointer-events:none;opacity:0.85;white-space:nowrap;transform:translate(-50%,-50%)';
-        document.body.appendChild(_ghost);
-        chip.classList.add('dragging');
-
-        var t = e.touches[0];
-        _ghost.style.left = t.clientX + 'px';
-        _ghost.style.top  = t.clientY + 'px';
-      }
-
-      function onTouchMove(e) {
-        if (!_ghost || !_dragName) return;
-        e.preventDefault();
-        var t = e.touches[0];
-        _ghost.style.left = t.clientX + 'px';
-        _ghost.style.top  = t.clientY + 'px';
-
-        /* ハイライト: 指の下の担当カードを探す */
-        var dg2 = document.getElementById('dg');
-        if (dg2) {
-          var all = dg2.querySelectorAll('.dc');
-          for (var i=0; i<all.length; i++) all[i].classList.remove('drag-over');
-          _ghost.style.display = 'none';
-          var el = document.elementFromPoint(t.clientX, t.clientY);
-          _ghost.style.display = '';
-          if (el) {
-            var card = el.closest('.dc[data-duty-id]');
-            if (card) card.classList.add('drag-over');
-          }
-          /* 余剰エリアのハイライト */
-          var surWrap = document.getElementById('surplus-wrap');
-          if (surWrap) surWrap.classList.remove('drag-over');
-          if (el && el.closest('#surplus-wrap')) {
-            if (surWrap) surWrap.classList.add('drag-over');
-          }
-          /* ステータスゾーンのハイライト */
-          var allZones = document.querySelectorAll('.ss-zone');
-          for(var zi2=0; zi2<allZones.length; zi2++) allZones[zi2].classList.remove('drag-over');
-          if (el) { var ssz = el.closest('.ss-zone'); if(ssz) ssz.classList.add('drag-over'); }
-        }
-      }
-
-      function onTouchEnd(e) {
-        if (!_ghost || !_dragName) return;
-        e.preventDefault(); /* タッチドラッグ後の合成click/mousedownを抑制 */
-        var t = e.changedTouches[0];
-
-        /* ゴーストを非表示にして要素を取得 */
-        _ghost.style.display = 'none';
-        var el = document.elementFromPoint(t.clientX, t.clientY);
-        _ghost.style.display = '';
-
-        /* ゴースト削除・ハイライト解除 */
-        document.body.removeChild(_ghost); _ghost = null;
-        var dg2 = document.getElementById('dg');
-        if (dg2) { var all=dg2.querySelectorAll('.dc'); for(var i=0;i<all.length;i++) all[i].classList.remove('drag-over'); }
-        var surWrap = document.getElementById('surplus-wrap');
-        if (surWrap) surWrap.classList.remove('drag-over');
-        document.querySelectorAll('.dragging').forEach(function(c){ c.classList.remove('dragging'); });
-
-        if (!el) { _dragName=''; return; }
-
-        /* ステータスゾーンへのドロップ */
-        var ssZone = el.closest('.ss-zone[data-zone-key]');
-        if (ssZone) {
-          var zk = ssZone.getAttribute('data-zone-key');
-          ssZone.classList.remove('drag-over');
-          classifyStaff(_dragDs, _dragName, _dragFrom === 'hd' ? 'hd' : 'ce', zk);
-          _dragName = ''; return;
-        }
-
-        /* 担当カードへのドロップ */
-        var card = el.closest('.dc[data-duty-id]');
-        if (card) {
-          var did = card.getAttribute('data-duty-id');
-          removeFromZoneSource(_dragDs, _dragName, _dragFrom);
-          var sel = document.getElementById('sel-' + did);
-          if (sel) {
-            sel.value = _dragName; sel.classList.toggle('set', !!_dragName);
-            var _oldDuty=(D.pages[_dragDs].duties||{})[did];
-            if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
-            D.pages[_dragDs].duties[did] = _dragName;
-            markDutyEdited(_dragDs);
-            saveD(); refreshPool(_dragDs); updateStaffZoneBadge(_dragDs); updateCloseBar(_dragDs);
-            maybeLateToast(D.pages[_dragDs], did, _dragName, _oldDuty);
-            writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
-          }
-          _dragName=''; return;
-        }
-
-        /* 余剰エリアへのドロップ（HD勤務者は除外） */
-        if (el.closest('#surplus-wrap') && _dragFrom !== 'hd') {
-          dropToSurplus({preventDefault:function(){}, dataTransfer:{
-            getData: function(k){ return k==='text/plain'?_dragName:(k==='from'?_dragFrom:''); }
-          }}, ds);
-          _dragName=''; return;
-        }
-
-        _dragName = '';
-      }
-
-      /* プールと余剰の両方にタッチリスナーを設定 */
-      [poolChips, surplusEl].forEach(function(area) {
-        if (!area) return;
-        area.addEventListener('touchstart', onTouchStart, {passive:true});
-        area.addEventListener('touchmove',  onTouchMove,  {passive:false});
-        area.addEventListener('touchend',   onTouchEnd,   {passive:true});
-      });
-    })();
+    bindSurplusDnD(ds);
     var dg2 = document.getElementById('dg');
     if (dg2) {
       dg2.addEventListener('dragover', function(e) {
