@@ -4139,8 +4139,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/19-42';
+var APP_VERSION = 'Ver.2026/08/21-43';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/21-43', date:'2026-08-21', title:'当日業務内容カードが表示されなくなる不具合を修正', items:[
+    {t:'fix', d:'🔪 特定の日ページで「当日業務内容」（オペ・カテ等のカード）が一切表示されなくなる不具合を修正。人員配置管理エリアの余剰人員データの形式によっては、その先の業務カードの描画が止まってしまうことがありました'}
+  ]},
   { ver:'Ver.2026/08/19-42', date:'2026-08-19', title:'オンコール「対応」欄のスマホ表示を修正', items:[
     {t:'fix', d:'📞 オンコールの「対応」チェックと「対応フロー」ボタンが、スマホ幅で縦に崩れて表示される問題を修正。常に横並びで表示されます'}
   ]},
@@ -7926,7 +7929,14 @@ function ensureStaffAdj(dat) {
 function ensureStaffZone(dat) {
   if (!dat.staffZone) {
     var ce = {};
-    (dat.surplus || []).forEach(function(n){ ce[n] = ''; });
+    /* dat.surplus は旧形式の配列だが、Firebaseは疎な配列（歯抜けのindex）をオブジェクトとして
+       返すことがある（taskAssignees・_boardMediaArr等と同じ既知の対策パターン）。
+       ここでArray.isArrayを確認せずforEachすると、そのデータ形状の日ページだけ
+       renderSurplusArea以降（buildOPS＝当日業務内容カード等）が丸ごと描画されなくなる
+       重大な実害があったため、必ず配列へ正規化してから読む。 */
+    var sur = dat.surplus;
+    var surArr = Array.isArray(sur) ? sur : (sur ? Object.keys(sur).map(function(k){ return sur[k]; }) : []);
+    surArr.forEach(function(n){ if (n) ce[n] = ''; });
     var ss = dat.surplusStatus || {};
     Object.keys(ss).forEach(function(n){ ce[n] = ss[n] || ''; });
     var hd = {};
@@ -10074,7 +10084,10 @@ function renderPage(ds) {
 
   window._psgAlerted = false; /* ページ描画ごとにPSGアラートフラグをリセット */
   buildDG(ds, dat, dlk);
-  renderSurplusArea(ds, dat, dlk);
+  /* 余剰人員エリアの描画で予期しない例外が起きても、以降のオペ/カテ業務カード等の
+     臨床上重要な内容の描画を止めないようにする（実際にensureStaffZoneの型不整合で
+     ここが例外を投げ、当日業務内容カードが丸ごと表示されなくなる実害があったため）。 */
+  try { renderSurplusArea(ds, dat, dlk); } catch (e) { console.error('renderSurplusArea failed:', e); }
   buildOPS(ds, dat, olk);
   /* 幅が確定してから測る必要があるので、描画後にまとめて文字サイズを調整する */
   opsScheduleFit();
