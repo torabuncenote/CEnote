@@ -143,6 +143,8 @@ function can(id) {
 
 **Always use `can(id)` for permission checks — not `lk(id)&&!isAdmin`.** The latter ignores per-user grants.
 
+**Exception — スタッフマスタ is `isAdmin`, not a lock.** `renderStfList` / `addStf` / `rmStf` / `mvStf` / `editStfItem` / `confirmEditModal`'s `type:'stf'` branch all gate on `isAdmin` directly, and the 👥 スタッフ tab itself is admin-only (which also puts PHS番号 and 勤務表インポート behind admin, since they share `pane-staff`). The old `sm` lock was **removed from `LOCK_DEFS`** rather than left as a dead toggle. Before removing it, `sm` was doubling as the permission for 使用物品マスタ (`supTree`) renames while `opeTree`/`cathTree` referenced `om`/`cm` — ids that never existed in `LOCK_DEFS`, so `lk()` returned false and `can()` always allowed them; all three now use `mst`, matching their sections' own `data-perm`. Stale `D.lk.sm` / `userPerms[uid].sm` values are simply never read.
+
 #### Lock IDs (`LOCK_DEFS`)
 
 | id | label | notes |
@@ -152,8 +154,7 @@ function can(id) {
 | `ops` | 業務内容（オペ/カテ等） | |
 | `dm` | チェックリスト（共通）の編集 | pane-master 共通業務セクション |
 | `wm` | チェックリスト（曜日別）の編集 | pane-master 曜日別業務セクション |
-| `mst` | 各種マスタの編集 | OPE/カテ/使用物品/担当枠/スケジュール/PSG通知セクション |
-| `sm` | スタッフマスタの編集 | |
+| `mst` | 各種マスタの編集 | OPE/カテ/使用物品/担当枠/スケジュール/PSG通知/タブレット台帳/HD特殊治療セクション。3階層ツリー（`opeTree`/`cathTree`/`supTree`）のリネーム（`confirmEditModal` の `type:'tree'` と `editTreeItem`）もこれ |
 | `cl` | チェックリストの入力 | |
 | `memo` | 業務連絡・申し送りの編集 | |
 | `pg` | 連絡表の生成・削除 | |
@@ -166,31 +167,47 @@ function can(id) {
 `updateTabVisibility()` controls which sidebar tabs non-admin users can see. It must be called after any change to `currentUser.perms` (e.g., inside `saveUserPerm()` when the current user's own permissions change).
 
 ```js
-// Tab visibility is controlled by explicit tab_ permissions, NOT by edit-lock permissions
-'master': isAdmin || hasPerm('tab_master'),  // 業務タブ
-'staff':  isAdmin || hasPerm('sm') || hasPerm('tab_staff'),
+// Tab visibility is controlled by explicit tab_ permissions and by 主観モード,
+// NOT by edit-lock permissions
+var isHd = _viewMode === 'hd';
+'assign': !isHd,   // 担当表・OC集計・業務集計・公平性はCE専用
+'hdsum':  isHd,    // HD集計
+'staff':  isAdmin, // スタッフ一覧・PHS番号・勤務表インポートはまとめて管理者限定
+'master': isAdmin || hasPerm('tab_master'),  // 業務タブ（中身は data-mode でさらに出し分け）
 'lock':   isAdmin,
 'logs':   isAdmin,
 'docs':   isAdmin,
 ```
 
-`tab_master` and `tab_staff` are stored in `/userPerms/{uid}` alongside regular lock permissions, but are granted via the "タブ表示" section in `renderAdminUsers()` rather than the lock-permission buttons.
+`cal` / `my` / `task` / `lib` are deliberately **not** in the `show` map — they are visible to everyone in both modes, and the map only lists tabs that need controlling.
+
+After building `show`, the function escapes out of a tab that just became invisible: `if (!show.hdsum && curTab === 'hdsum') swTab('cal')` and the same for `assign`. Without this, switching modes while sitting on 担当表 or HD集計 leaves the old pane's contents on screen with no tab to leave it by. **`swTab` must never call `updateTabVisibility()`** or these two lines become an infinite loop.
+
+`tab_master` is stored in `/userPerms/{uid}` alongside regular lock permissions, but is granted via the "タブ表示" section in `renderAdminUsers()` rather than the lock-permission buttons. `tab_staff` used to work the same way and was removed when the スタッフ tab became admin-only; stale `tab_staff` values in existing `/userPerms` are simply never read.
 
 #### pane-master Section Gating
 
-Each section div in `#pane-master .sp` has a `data-perm` attribute. `swTab('master')` evaluates them after rendering:
+Each section div in `#pane-master .sp` carries a `data-perm` attribute (permission) and optionally a `data-mode` attribute (主観モード). `swTab('master')` evaluates both after rendering:
 
 ```js
 document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
   var perm = sec.getAttribute('data-perm');
-  sec.style.display = (perm === 'admin' ? isAdmin : can(perm)) ? '' : 'none';
+  var mode = sec.getAttribute('data-mode');
+  var permOk = (perm === 'admin' ? isAdmin : can(perm));
+  var modeOk = (!mode || mode === _viewMode);
+  sec.style.display = (permOk && modeOk) ? '' : 'none';
 });
 ```
 
-- `data-perm="dm"` — 共通チェックリスト section
-- `data-perm="wm"` — 曜日別チェックリスト section
-- `data-perm="mst"` — OPE/カテ/使用物品/担当枠/PSG通知/タブレット台帳/OC対応フローチャート sections
+- `data-perm="dm"` — 共通チェックリスト section (CE and HD each have their own)
+- `data-perm="wm"` — 曜日別チェックリスト section (CE and HD each have their own) ＋ 設置部署マスタ
+- `data-perm="mst"` — OPE/カテ/使用物品/担当枠/スケジュールプリセット/PSG通知/タブレット台帳/HD特殊治療/OC対応フローチャート sections
 - `data-perm="admin"` — メール通知/Web Push/月次自動割り当て sections (admin-only regardless of locks)
+- `data-mode="ce"` / `data-mode="hd"` — show only in that 主観モード. **Omitting `data-mode` means "both modes"**, which is currently true of exactly one section: 🏥 設置部署マスタ.
+
+**設置部署マスタ must stay its own top-level section.** It was originally nested inside the CE 📅 曜日別業務 block, but `D.wdDepts` is shared by both CE and HD 曜日別業務 (the 🏥 部署 modal on either side reads the same list). Leaving it nested meant hiding the CE block in HD mode also took away the only place to add or reorder departments.
+
+The selector is `.sp > div[data-perm]` — a **direct-child** selector — so a new section must be a direct child of `.sp`. Nesting it inside another section makes it invisible to both gates and it ends up shown to everyone in every mode.
 
 ### Firebase Listener Lifecycle
 
@@ -241,8 +258,11 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
     .stabs — tab strip
     pane-cal    — calendar with month navigation
     pane-assign — assignment table (月次担当一覧) with subtabs:
-                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性) / my (マイ担当)
+                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性)
+                  CE-only: hidden entirely in HD mode (see HD主観モード)
+    pane-my     — 👤 マイ担当 (all users, both modes; was a subtab of pane-assign — promoted for the same reason as pane-task)
     pane-task   — 📋 タスク管理 (all users; was a subtab of pane-assign until it was promoted to a top-level tab — it was too easy to miss in there)
+    pane-hdsum  — 🩸 HD集計 (HD mode only; see HD主観モード)
     pane-guide  — user guide
     pane-makers — 🏭 メーカー担当者連絡先 (all users; see メーカー担当者連絡先 section below)
     pane-staff / pane-master / pane-lock / pane-logs — admin-only
@@ -257,9 +277,11 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
-`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair` / `my`). Each subtab has a matching `subpane-{id}` div.
+`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair`). Each subtab has a matching `subpane-{id}` div. `my` (マイ担当) used to live here and was promoted to the top-level `pane-my`; `_curSubTab` can therefore never be `'my'`, so `exportSubCsv()` and the print path have no `'my'` branch.
 
 **Adding a top-level sidebar tab** touches six places, and the last one is the easy miss: the `.stabs` button (`tab-{id}`), the `pane-{id}` div, `swTab`'s `tabs` array, `swTab`'s `contentPanes` array (PC full-width), the per-tab render call in `swTab`, and **any Firebase listener that re-renders only while that pane is visible**. When `task` was promoted out of `pane-assign`, the three `/tasks` + `/taskMemos` listeners still queried `#subpane-task`; leaving them would have silently stopped real-time updates.
+
+`init()` calls `updateTabVisibility()` once at startup (right after `fbInit()`). Without it the mode-dependent tabs are never evaluated on a cold load: `_viewMode` is restored from `localStorage` at the top of `init()`, but the Firebase path only re-evaluates on login and the preview path used to hand-set `display=''` on the admin tabs, so reloading while in HD mode left 担当表 showing and HD集計 hidden. Do not replace that call with per-tab `style.display` assignments again.
 
 ### CSS Conventions
 
@@ -376,6 +398,10 @@ All class names are abbreviated:
 **血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。`{ day, night, bw, ward }`（数値文字列を直接入力）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`（数値化）／`hdCountSpArr(dat)`（Firebaseの疎配列→オブジェクト化対策。`ensureStaffZone`等と同じパターン）を経由する。`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列に正規化してから push/splice する。保存は`saveDPage(ds)`（`buildOPS`の`ops_cards`カード方式には乗せない——HD日ページには`#ops-grid`もカード追加/削除UIも無いため独立実装）。表示は`renderPageHD`内の`#hd-count-panel`（安定要素、中身だけ`hdCountPanelInnerHTML(ds,dat)`で差し替え）：既定はチップ表示＋`✏️編集`ボタン、押すと5行の入力フォームに変わる（開閉状態はモジュール変数`_hdCountOpen`、非永続）。ロックは新規IDを作らずCE側の`ops`ロックを流用。マスタ`D.hdTreatments`は`D.wdDepts`と同型の単純文字列配列（Dの5箇所ルール＋バックアップ3配列に登録済み）。
 
 **HD集計タブ（`renderHdSummary()`）**：`dat.hdCount`の期間集計。サイドバーの`#tab-hdsum`/`#pane-hdsum`はCE/HD共通の他コンテンツタブと同じ`swTab`の`tabs`/`contentPanes`配列に含まれるが、表示は`updateTabVisibility()`が`_viewMode==='hd'`のときだけ`tab-hdsum`を出す形で制御する（パーミッションではなく主観モードのみで出し分け——`renderPageHD`のロック流用方針と同じく全ユーザー対象）。CE主観へ戻したとき`curTab==='hdsum'`のままだと非表示タブの中身が残り続けるため、`updateTabVisibility()`が自動的に`swTab('cal')`へ退避させる。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
+
+**HDモードのタブ構成**：`updateTabVisibility()` が `_viewMode` を見て、担当表（`assign`＝OC集計・業務集計・公平性を含む）をHD主観では丸ごと隠し、HD集計（`hdsum`）を出す。残る 予定 / マイ担当 / タスク / 資料 は両モード共通、管理者専用タブ（スタッフ・ロック・ログ・管理資料）はHD主観でも管理者には出したままにする（モード切替はボタン1回なので締め出さない）。業務タブ（`master`）はタブ自体は両モードで出し、**中身のセクションを `data-mode` で出し分ける**（pane-master Section Gating 節を参照）——HD主観ではHD共通業務・HD曜日別業務・HD特殊治療マスタと、CE/HD共通の設置部署マスタだけが残る。
+
+**マイ担当（`renderMySchedule`）はHDの役割も出す**：CE担当枠（`getDutyCfg`＋`dat.duties`）とスケジュールブロックに加えて、`buildHdRoster(ds)` から自分の行のシフトコード（M・A1・準夜等）を `🩸 ` 付きで並べる。**`_viewMode` で分岐させない** — その人がその日HD勤務かどうかは主観と無関係な事実で、HD勤務が無い人は `getShiftForDay(ds).hd` に載らず何も出ない。`buildHdRoster` 経由なので `dat.hdDuty.overrides` の手動修正も反映される。
 
 **HDチェックリスト（`D.hdDly`/`D.hdWd` + `dat.hdChecks`）**：CE側（`D.dly`/`D.wd` + `dat.checks`、[Checklist Items & Week-of-Month Filtering](#checklist-items--week-of-month-filtering) 節を参照）とは名前空間もdat上のキーも完全に別。**`dat.checks`に相乗りしてはいけない** — `remapDlyChecks`/`remapWdChecks`は`D.dly.length`基準の固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にするとCE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は`dat.checks`しか触らずHD側は自動的に無傷になる（逆も同様）。
 
