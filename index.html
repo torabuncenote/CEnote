@@ -1241,6 +1241,26 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <button onclick="addWdDept()">追加</button>
           </div>
         </div>
+        <!-- HDチェックリストマスタ。CE側と同じdm/wmロックを流用し、別セクションとして表示する -->
+        <div data-perm="dm">
+          <div class="pt">🩸 HD共通業務（毎日）</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">HDモードの日ページに出るチェックリストです。CE側の「共通業務（毎日）」とは別に管理されます。</div>
+          <div class="rl" id="hd-dly-list"></div>
+          <div class="ar" id="hd-dly-ar">
+            <input type="text" id="in-hd-dly" placeholder="業務内容を入力…">
+            <button onclick="addHdDly()">追加</button>
+          </div>
+        </div>
+        <div data-perm="wm">
+          <div class="pt">🩸 HD曜日別業務</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">設置部署マスタはCE側と共通（上の🏥設置部署マスタ）です。</div>
+          <div class="wdt" id="hd-wdt"></div>
+          <div class="rl" id="hd-wdly-list"></div>
+          <div class="ar" id="hd-wdly-ar">
+            <input type="text" id="in-hd-wdly" placeholder="業務内容を入力…">
+            <button onclick="addHdWdly()">追加</button>
+          </div>
+        </div>
         <div data-perm="mst">
           <div class="pt">🔪 オペ 術式マスタ（科→中カテゴリ→術式）</div>
           <div class="pn" style="margin-bottom:8px;font-size:11px">科・中カテゴリ・術式の3階層で管理。▶をタップで展開。</div>
@@ -2102,8 +2122,8 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[]};
-var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{}};
+var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
 var _savingTs = 0;     /* saveD()後のリスナー再描画抑制タイムスタンプ */
@@ -2233,7 +2253,7 @@ function init() {
   if (!isPreview) fbInit();
   renderCal();
   renderStfList(); renderPhsList(); renderTabletList();
-  renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
+  renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList();
   renderOpeList(); renderCathList();
   renderLockList();
   initPHIGuard();
@@ -2321,6 +2341,8 @@ function loadD() {
     D.makers = normMakers(s.makers);
     D.wdDepts = s.wdDepts || [];
     D.hdTreatments = s.hdTreatments || [];
+    D.hdDly = s.hdDly || [];
+    D.hdWd = s.hdWd || {};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -2432,7 +2454,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[];
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={};
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -2605,6 +2627,8 @@ function fbInit() {
             D.makers = normMakers(d.makers);
             D.wdDepts = d.wdDepts || [];
             D.hdTreatments = d.hdTreatments || [];
+            D.hdDly = d.hdDly || [];
+            D.hdWd = d.hdWd || {};
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -2658,7 +2682,7 @@ function fbInit() {
             checkAutoDelTiming();
             renderCal();
             renderStfList(); renderPhsList(); renderTabletList();
-            renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
+            renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList();
             renderOpeList(); renderCathList();
             renderLockList(); renderAutoAssignModeSetting();
             updateTabVisibility();
@@ -7016,6 +7040,110 @@ function clStatus(ds) {
   return out;
 }
 
+/* ===== HDチェックリスト（HD主観モード。D.hdDly/D.hdWd + dat.hdChecks） =====
+   CE側（D.dly/D.wd + dat.checks）とは名前空間もdat上のキーも完全に別。
+   dat.checksに相乗りしない理由：remapDlyChecks/remapWdChecksはD.dly.length基準の
+   固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にすると
+   CE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。dat.hdChecksを
+   別キーにすることで、CE側マスタ編集はdat.checksしか触らず、HD側は自動的に無傷になる。
+   wdText/dlyText/dlyNotif/itemRebuild/isDlyShownOnDate/wdWeeks/wdOnce/wdSubs/wdSid/
+   newSid/nthWk/isLastWeek/wdApplies/wdSubProgress/renderSubPanel は渡された item
+   オブジェクトだけを見る純粋な関数（D.dly/D.wdを直接参照しない）ため、そのままHD版にも
+   使い回せる。CE版と同じ2段オフセット規約（0..D.hdDly.length-1がHD共通、
+   D.hdDly.length+jがHD曜日別）を踏襲する。 */
+/* 指定日に表示すべきHD曜日別項目を「本文＋マスタ項目そのもの」で返す（wdEntriesForDateのHD版） */
+function hdWdEntriesForDate(ds){
+  var w = new Date(ds).getDay(), ws = WDL[w];
+  var arr = D.hdWd[ws] || [], out = [];
+  for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push({ t: wdText(arr[i]), it: arr[i] }); }
+  return out;
+}
+/* 本文文字列の配列だけを返す（wdItemsForDateのHD版。描画側のindex整合に使う） */
+function hdWdItemsForDate(ds){
+  return hdWdEntriesForDate(ds).map(function(e){ return e.t; });
+}
+/* once指定のHD項目が同月の前の該当日で実施済みならその日付を返す（wdOnceDoneOnのHD版）。
+   D.dly.length→D.hdDly.length、pg.checks→pg.hdChecks、wdItemsForDate→hdWdItemsForDateの
+   3箇所だけがCE版との違い。過去方向のみ走査する理由・安定性の理由はwdOnceDoneOnと同じ。 */
+function hdWdOnceDoneOn(ds, ent) {
+  var it = ent.it;
+  if (!it || typeof it !== 'object' || !it.once) return null;
+  var ym = ds.slice(0, 7), dow = new Date(ds).getDay(), day = +ds.split('-')[2];
+  for (var d = 1; d < day; d++) {
+    var other = ym + '-' + pad(d);
+    if (new Date(other).getDay() !== dow) continue;
+    if (!wdApplies(other, it)) continue;
+    var pg = D.pages[other]; if (!pg || !pg.hdChecks) continue;
+    var idx = hdWdItemsForDate(other).indexOf(ent.t);
+    if (idx !== -1 && pg.hdChecks[D.hdDly.length + idx]) return other;
+  }
+  return null;
+}
+/* HD共通業務（D.hdDly）用のremap（remapDlyChecksのHD版）。dat.hdChecksだけを付け替え、
+   dat.checksには一切触れない。呼ぶタイミングもCE版と同じくマスタ変更の「前」。 */
+function remapHdDlyChecks(mapFn) {
+  Object.keys(D.pages || {}).forEach(function(ds) {
+    var dat = D.pages[ds];
+    if (!dat || !dat.hdChecks) return;
+    var next = {};
+    Object.keys(dat.hdChecks).forEach(function(k) {
+      var ni = mapFn(parseInt(k, 10));
+      if (ni === null || ni === undefined) return;
+      next[ni] = dat.hdChecks[k];
+    });
+    dat.hdChecks = next;
+  });
+}
+/* HD曜日別業務（D.hdWd[曜日]）用のremap（remapWdChecksのHD版）。呼ぶタイミングもCE版と
+   同じくマスタ変更の「後」（oldArrのコピーを先に取ってから変更し、その後これを呼ぶ）。 */
+function remapHdWdChecks(wdKey, oldArr, newArr) {
+  var base = D.hdDly.length;
+  Object.keys(D.pages || {}).forEach(function(ds) {
+    var dat = D.pages[ds];
+    if (!dat || !dat.hdChecks) return;
+    if (WDL[new Date(ds).getDay()] !== wdKey) return;
+    var oldF = [], newF = [], a;
+    for (a = 0; a < oldArr.length; a++) if (wdApplies(ds, oldArr[a])) oldF.push(wdText(oldArr[a]));
+    for (a = 0; a < newArr.length; a++) if (wdApplies(ds, newArr[a])) newF.push(wdText(newArr[a]));
+    var next = {};
+    Object.keys(dat.hdChecks).forEach(function(k) {
+      var idx = parseInt(k, 10);
+      if (idx < base) { next[idx] = dat.hdChecks[k]; return; }
+      var text = oldF[idx - base];
+      if (text === undefined) return;
+      var ni = newF.indexOf(text);
+      if (ni === -1) return;
+      next[base + ni] = dat.hdChecks[k];
+    });
+    dat.hdChecks = next;
+  });
+}
+/* HDチェックリストの集計はここが唯一の入口（clStatusのHD版）。updHdProg/closeItems(HD分岐)は
+   すべてこれを呼ぶ。D.hdDly/dat.hdChecks/hdWdEntriesForDate/hdWdOnceDoneOnを使う点だけがclStatusと違う。 */
+function hdClStatus(ds) {
+  var dat = D.pages[ds];
+  if (!dat) return { done:0, total:0, undone:[], exists:false };
+  var out = { done:0, total:0, undone:[], exists:true };
+  for (var i = 0; i < D.hdDly.length; i++) {
+    if (!isDlyShownOnDate(D.hdDly[i], ds)) continue;
+    out.total++;
+    if (dat.hdChecks && dat.hdChecks[i]) out.done++;
+    else out.undone.push({ label: dlyText(D.hdDly[i]) });
+  }
+  var ents = hdWdEntriesForDate(ds);
+  for (var j = 0; j < ents.length; j++) {
+    out.total++;
+    if ((dat.hdChecks && dat.hdChecks[D.hdDly.length + j]) || hdWdOnceDoneOn(ds, ents[j])) out.done++;
+    else out.undone.push({ label: ents[j].t });
+  }
+  return out;
+}
+function getHdPct(ds) {
+  var s = hdClStatus(ds);
+  if (!s.exists) return 0;
+  return s.total===0?100:Math.round(s.done/s.total*100);
+}
+
 /* ===== CALENDAR ===== */
 function getPct(ds) {
   var s = clStatus(ds);
@@ -7076,11 +7204,18 @@ function closeItems(ds) {
     });
   }
 
-  /* 2. チェックリスト未了（clStatusがgetPctと同じ数え方の唯一の集計元）。
-     オペ/カテいずれの担当枠も無い人（フリー・機器管理など、または担当なし）が
-     共通業務の担い手という実際の運用に合わせ、その場合だけ自分ごとにする */
-  var checklistMine = !!self && !myOpe && !myCath;
-  clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:checklistMine}); });
+  /* 2. チェックリスト未了。HDモードではHD側のマスタ/dat.hdChecksを見るhdClStatusに切り替える
+     （CE版のclStatusのままだとCE共通業務がHD日ページの消し込みバーに出てしまう）。
+     mine判定もCE側「オペ/カテ担当枠が無い人だけ自分ごと」はHDに担当枠の概念自体が
+     無いため意味を成さず、HDでは自分が特定できていれば単純に自分ごとにする。 */
+  if (_viewMode === 'hd') {
+    hdClStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:!!self}); });
+  } else {
+    /* オペ/カテいずれの担当枠も無い人（フリー・機器管理など、または担当なし）が
+       共通業務の担い手という実際の運用に合わせ、その場合だけ自分ごとにする */
+    var checklistMine = !!self && !myOpe && !myCath;
+    clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:checklistMine}); });
+  }
 
   /* 3/4. オペ・カテ：入力済み（opsItemFilled）なのに終了未チェックの行。
      症例行に自分の名前が入っている場合に加え、まだ誰も入力していなくても
@@ -7404,6 +7539,15 @@ function confirmEditModal() {
     var arr=D.wd[selWd]||[]; var item=arr[state.index];
     arr[state.index]=typeof item==='string'?newValue:Object.assign({},item,{t:newValue});
     D.wd[selWd]=arr; renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+  } else if (state.type === 'hdDly') {
+    if(!can('dm'))return;
+    D.hdDly[state.index] = itemRebuild(D.hdDly[state.index], {t: newValue});
+    renderHdDlyList(); saveD(); if(curDs)safeRenderPage();
+  } else if (state.type === 'hdWdly') {
+    if(!can('wm'))return;
+    var hdArr=D.hdWd[_hdSelWd]||[]; var hdItem=hdArr[state.index];
+    hdArr[state.index]=typeof hdItem==='string'?newValue:Object.assign({},hdItem,{t:newValue});
+    D.hdWd[_hdSelWd]=hdArr; renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
   } else if (state.type === 'dutyMaster') {
     if(!can('dm'))return;
     if(!D.dutyCfgMaster||!D.dutyCfgMaster.length) D.dutyCfgMaster=getDutyMaster();
@@ -7604,6 +7748,80 @@ function togDlyDay(i,key){
   renderDlyList(); saveD(); if(curDs)safeRenderPage();
 }
 
+/* ===== HD共通業務マスタ（D.hdDly） =====
+   renderDlyList〜togDlyDayのHD版。dlyText/dlyNotif/itemRebuild/isDlyShownOnDate/
+   _getDlySkipはCE/HD共通の純粋ヘルパーなのでそのまま使う。ロックは新規IDを作らずCE側の
+   'dm'（共通業務の編集）を流用する（pane-masterで別セクションとして表示するだけ）。
+   通知設定（🔔）はCE版のUIに合わせて項目の形状（notifキー）だけ揃え、実際に監視して
+   通知を飛ばすcheckTimeNotifs側のHD対応は別スコープのため、入力欄自体は出さない
+   （「設定したのに鳴らない」状態を画面に出さないため）。 */
+function renderHdDlyList() {
+  var l = document.getElementById('hd-dly-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('dm');
+  for (var i = 0; i < D.hdDly.length; i++) {
+    var it = D.hdDly[i], text = dlyText(it);
+    var el = document.createElement('div'); el.className = 'ri';
+    el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '4px';
+    var _dayKeys=[['skip_wd','平日'],['skip_sat','土'],['skip_sun','日']];
+    var wdOnlyBtn = (function(){
+      var s='';
+      _dayKeys.forEach(function(pair){
+        var skipped=_getDlySkip(it,pair[0]);
+        if(ok){
+          s+='<button type="button" onclick="togHdDlyDay('+i+',\''+pair[0]+'\')" title="'+(skipped?pair[1]+'を非表示中':pair[1]+'を表示中')+'" style="font-size:10px;padding:2px 6px;border-radius:6px;cursor:pointer;border:1px solid;white-space:nowrap;'+(skipped?'background:var(--sur2);color:var(--txt3);border-color:var(--bdr);text-decoration:line-through':'background:var(--ac-bg);color:var(--ac);border-color:var(--ac);font-weight:700')+'">'+pair[1]+'</button>';
+        } else if(skipped){
+          s+='<span style="font-size:10px;color:var(--txt3);text-decoration:line-through">'+pair[1]+'</span>';
+        }
+      });
+      return s?'<span style="display:inline-flex;gap:3px;align-items:center">'+s+'</span>':'';
+    })();
+    var btns = ok ? '<button class="re2" onclick="editHdDly('+i+')">✏️</button><button class="ru" onclick="mvHdDly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdDly('+i+',1)">↓</button><button class="rd2" onclick="rmHdDly('+i+')">×</button>' : '';
+    var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
+    el.innerHTML = head;
+    l.appendChild(el);
+  }
+  var ar = document.getElementById('hd-dly-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addHdDly() {
+  if(!can('dm'))return;
+  var v=document.getElementById('in-hd-dly').value.trim(); if(!v)return;
+  /* HD曜日別業務はhdChecks上でD.hdDly.lengthのオフセットに載っているため、
+     共通業務が1つ増えると全ページのHD曜日別チェックが1つずれる。先に付け替える。 */
+  var oldLen=D.hdDly.length;
+  remapHdDlyChecks(function(k){ return k<oldLen ? k : k+1; });
+  D.hdDly.push(v);
+  document.getElementById('in-hd-dly').value=''; renderHdDlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-hd-dly').focus();
+}
+function rmHdDly(i) {
+  if(!can('dm'))return;
+  remapHdDlyChecks(function(k){ return k===i ? null : (k>i ? k-1 : k); });
+  D.hdDly.splice(i,1);
+  renderHdDlyList(); saveD(); if(curDs)safeRenderPage();
+}
+function mvHdDly(i,d) {
+  if(!can('dm'))return;
+  var j=i+d; if(j<0||j>=D.hdDly.length)return;
+  remapHdDlyChecks(function(k){ return k===i ? j : (k===j ? i : k); });
+  var t=D.hdDly[i];D.hdDly[i]=D.hdDly[j];D.hdDly[j]=t; renderHdDlyList(); saveD();
+}
+function editHdDly(i) {
+  if(!can('dm'))return;
+  _editModalState={type:'hdDly',index:i};
+  document.getElementById('edit-item-title').textContent='🩸 HD共通業務を編集';
+  var inp=document.getElementById('edit-item-input'); inp.value=dlyText(D.hdDly[i]); inp.style.minHeight='40px';
+  document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
+}
+function togHdDlyDay(i,key){
+  if(!can('dm'))return;
+  var it=D.hdDly[i];
+  var obj=(it&&typeof it==='object')?Object.assign({},it):{t:dlyText(it)};
+  if(obj.wd_only){obj.skip_sat=true;obj.skip_sun=true;delete obj.wd_only;}
+  var cur=!!obj[key]; obj[key]=!cur; if(!obj[key]) delete obj[key];
+  D.hdDly[i]=obj;
+  renderHdDlyList(); saveD(); if(curDs)safeRenderPage();
+}
+
 /* ===== WEEKDAY MASTER ===== */
 function renderWdTabs() {
   var w = document.getElementById('wdt'); w.innerHTML = '';
@@ -7773,6 +7991,146 @@ function togWdOnce(i) {
   renderWdlyList(); saveD(); if(curDs)safeRenderPage(); renderCal();
 }
 
+/* ===== HD曜日別業務マスタ（D.hdWd） =====
+   renderWdTabs〜togWdOnceのHD版。_hdSelWd（HD版selWd）で選択中の曜日を保持する。
+   設置部署（🏥部署ボタン・openHdWdSubsModal）はD.wdDepts（CE/HD共通の部署マスタ）と
+   dat.subChecksをそのまま共有する——院内の部署そのものは主観と無関係なため、
+   ここだけは別マスタを作らずCE版のopenWdSubsModal系と同じデータを指す。
+   通知行はrenderHdDlyListと同じ理由で省略する。renderCal()もCE専用のカレンダー色分け
+   （getPct基準）を再計算するだけでHD側の表示には影響しないため呼ばない。 */
+function renderHdWdTabs() {
+  var w = document.getElementById('hd-wdt'); if (!w) return;
+  w.innerHTML = '';
+  var wds = ['月','火','水','木','金','土','日'];
+  for (var i = 0; i < wds.length; i++) {
+    var el = document.createElement('div');
+    el.className = 'wdtb' + (wds[i]===_hdSelWd?' on':'');
+    el.textContent = wds[i] + '曜';
+    (function(wd){ el.onclick = function(){ _hdSelWd=wd; renderHdWdlyList(); }; })(wds[i]);
+    w.appendChild(el);
+  }
+}
+function renderHdWdlyList() {
+  renderHdWdTabs();
+  var l = document.getElementById('hd-wdly-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('wm');
+  var ts = D.hdWd[_hdSelWd] || [];
+  if (!ts.length) { l.innerHTML = '<p class="cle">「' + _hdSelWd + '曜日」の追加業務はありません</p>'; }
+  else {
+    for (var i = 0; i < ts.length; i++) {
+      var it = ts[i], text = wdText(it), weeks = wdWeeks(it), once = wdOnce(it), subs = wdSubs(it);
+      var wkLabels = weeks ? weeks.map(function(w){ return w===0?'最終':'第'+w; }) : null;
+      var summary = (wkLabels ? wkLabels.join('・')+'週' : '毎週') + (once ? '・月内1回' : '');
+      var el = document.createElement('div');
+      el.className = 'ri';
+      el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
+      var subsBadge = '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openHdWdSubsModal('+i+')">🏥 部署'+(subs?' ('+subs.length+')':'')+'</button>';
+      var btns = ok ? (subsBadge + '<button class="re2" onclick="editHdWdly('+i+')">✏️</button><button class="ru" onclick="mvHdWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdWdly('+i+',1)">↓</button><button class="rd2" onclick="rmHdWdly('+i+')">×</button>') : '';
+      var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
+               + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
+      var freq = '';
+      if (ok) {
+        freq += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding-left:2px">';
+        freq += '<span style="font-size:10px;color:var(--txt3);margin-right:2px">頻度</span>';
+        for (var wk = 1; wk <= 5; wk++) {
+          var active = !weeks || weeks.indexOf(wk) !== -1;
+          freq += '<button onclick="togHdWdWeek('+i+','+wk+')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
+                + (active ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">第'+wk+'</button>';
+        }
+        freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
+        var activeLast = !weeks || weeks.indexOf(0) !== -1;
+        freq += '<button onclick="togHdWdWeek('+i+',0)" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
+              + (activeLast ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">最終</button>';
+        freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
+        freq += '<button onclick="setHdWdWeeks('+i+',\'all\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">毎週</button>';
+        freq += '<button onclick="setHdWdWeeks('+i+',\'odd\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第1・3・5</button>';
+        freq += '<button onclick="setHdWdWeeks('+i+',\'even\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第2・4</button>';
+        freq += '<button onclick="setHdWdWeeks('+i+',\'last\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">最終のみ</button>';
+        freq += '</div>';
+        freq += '<label style="display:flex;align-items:center;gap:5px;font-size:10px;padding-left:2px;'
+          + (weeks ? 'color:var(--txt2);cursor:pointer' : 'color:var(--txt3);cursor:not-allowed') + '"'
+          + (weeks ? '' : ' title="頻度を「毎週」以外（第N週や最終週）に変えると設定できます"') + '>'
+          + '<input type="checkbox" onchange="togHdWdOnce('+i+')" '+(once?'checked':'')+(weeks?'':' disabled')+'> 月内どれか1回でよい'
+          + (weeks ? '（'+wkLabels.join('・')+'週のどれかで済ませればOK）' : '（毎週以外の頻度にすると設定できます）')
+          + '</label>';
+      } else {
+        freq += '<div style="font-size:10px;color:var(--txt3);padding-left:2px">頻度: ' + summary + '</div>';
+      }
+      el.innerHTML = head + freq;
+      l.appendChild(el);
+    }
+  }
+  var ar = document.getElementById('hd-wdly-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addHdWdly() { if(!can('wm'))return; var v=document.getElementById('in-hd-wdly').value.trim(); if(!v)return; if(!D.hdWd[_hdSelWd])D.hdWd[_hdSelWd]=[]; D.hdWd[_hdSelWd].push(v); document.getElementById('in-hd-wdly').value=''; renderHdWdlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-hd-wdly').focus(); }
+function rmHdWdly(i) {
+  if(!can('wm'))return;
+  var oldArr=(D.hdWd[_hdSelWd]||[]).slice();
+  D.hdWd[_hdSelWd].splice(i,1);
+  remapHdWdChecks(_hdSelWd, oldArr, D.hdWd[_hdSelWd]);
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+}
+function mvHdWdly(i,d) {
+  if(!can('wm'))return;
+  var arr=D.hdWd[_hdSelWd]||[]; var j=i+d; if(j<0||j>=arr.length)return;
+  var oldArr=arr.slice();
+  var t=arr[i];arr[i]=arr[j];arr[j]=t;
+  remapHdWdChecks(_hdSelWd, oldArr, arr);
+  renderHdWdlyList(); saveD();
+}
+function editHdWdly(i) {
+  if(!can('wm'))return;
+  var arr=D.hdWd[_hdSelWd]||[]; var item=arr[i];
+  var txt=typeof item==='string'?item:(item.t||'');
+  _editModalState={type:'hdWdly',index:i};
+  document.getElementById('edit-item-title').textContent='🩸 HD曜日業務を編集';
+  var inp=document.getElementById('edit-item-input'); inp.value=txt; inp.style.minHeight='40px';
+  document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
+}
+function setHdWdWeeks(i, mode) {
+  if(!can('wm'))return;
+  var arr = D.hdWd[_hdSelWd]; if(!arr || arr[i]===undefined) return;
+  var oldArr = arr.slice();
+  var weeks = null;
+  if (mode==='odd')       weeks=[1,3,5];
+  else if (mode==='even') weeks=[2,4];
+  else if (mode==='last') weeks=[0];
+  var wasOnce = wdOnce(arr[i]);
+  var patch = { wk: weeks };
+  if (!weeks) patch.once = null;
+  arr[i] = itemRebuild(arr[i], patch);
+  remapHdWdChecks(_hdSelWd, oldArr, arr);
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+}
+function togHdWdWeek(i, wk) {
+  if(!can('wm'))return;
+  var arr = D.hdWd[_hdSelWd]; if(!arr || arr[i]===undefined) return;
+  var cur = wdWeeks(arr[i]);
+  var weeks = cur ? cur.slice() : [0,1,2,3,4,5];
+  var pos = weeks.indexOf(wk);
+  if (pos===-1) weeks.push(wk); else weeks.splice(pos,1);
+  weeks.sort(function(a,b){ return a-b; });
+  if (!weeks.length) { toast('最低1つの週を選んでください', 'warn'); return; }
+  var oldArr = arr.slice();
+  var collapsed = weeks.length>=6;
+  var wasOnce = wdOnce(arr[i]);
+  var patch = { wk: collapsed ? null : weeks };
+  if (collapsed) patch.once = null;
+  arr[i] = itemRebuild(arr[i], patch);
+  remapHdWdChecks(_hdSelWd, oldArr, arr);
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+}
+function togHdWdOnce(i) {
+  if(!can('wm'))return;
+  var arr = D.hdWd[_hdSelWd]; if(!arr || arr[i]===undefined) return;
+  if (!wdWeeks(arr[i])) { toast('「毎週」の業務には設定できません。先に第N週を指定してください', 'warn'); return; }
+  arr[i] = itemRebuild(arr[i], { once: wdOnce(arr[i]) ? null : true });
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+}
+
 /* ===== 設置部署マスタ（曜日別業務の「設置部署の消し込み」で使う共通リスト） =====
    部署名を業務ごとに毎回自由入力させると、表記ゆれ（「ICU」「I.C.U」等）で
    同じ場所が別集計になったり、単純な入力の手間が積み重なる。病棟名などは
@@ -7916,6 +8274,67 @@ function saveWdSubs(i) {
   renderWdlyList(); saveD();
   writeLog('曜日別業務の設置部署を編集', wdText(arr[i]) + '（' + checked.length + '件）');
   var ov = document.getElementById('wd-subs-md-ov'); if (ov) ov.remove();
+  toast('保存しました', 'ok');
+}
+
+/* ===== HD曜日別業務：設置部署の選択モーダル =====
+   openWdSubsModal〜saveWdSubsのHD版。D.hdWd[_hdSelWd]を対象にする点以外はCE版と同じで、
+   部署の選択肢自体はD.wdDepts（CE/HD共通マスタ）をそのまま使う——院内の部署はCE/HD
+   どちらから見ても同じ場所なので、ここだけ別マスタを持つ意味が無い。オーバーレイ/
+   チェックボックスのDOM idはCE版（wd-subs-*）と衝突しないよう hd-wd-subs-* にする。 */
+function openHdWdSubsModal(i) {
+  if (!can('wm')) return;
+  var arr = D.hdWd[_hdSelWd] || []; var item = arr[i]; if (item === undefined) return;
+  var oldOv = document.getElementById('hd-wd-subs-md-ov'); if (oldOv) oldOv.remove();
+  var ov = document.createElement('div'); ov.id = 'hd-wd-subs-md-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.id = 'hd-wd-subs-md'; md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderHdWdSubsModalBody(i);
+}
+function renderHdWdSubsModalBody(i) {
+  var md = document.getElementById('hd-wd-subs-md'); if (!md) return;
+  var arr = D.hdWd[_hdSelWd] || []; var item = arr[i]; if (item === undefined) return;
+  var selected = wdSubs(item) || [];
+  var depts = D.wdDepts || [];
+  var checksHTML = depts.map(function(name){
+    var checked = selected.indexOf(name) !== -1;
+    return '<label class="dc-cb-item'+(checked?' checked':'')+'"><input type="checkbox" data-dept="'+escH(name)+'"'+(checked?' checked':'')+'>'+escH(name)+'</label>';
+  }).join('');
+  md.innerHTML = '<h3>🏥 設置部署（' + escH(wdText(item)) + '）</h3>'
+    + (depts.length
+        ? '<div class="dc-cbs" id="hd-wd-subs-checks">' + checksHTML + '</div>'
+        : '<div class="pool-empty" style="padding:10px 0">まだ設置部署マスタが登録されていません。下から追加してください。</div>')
+    + '<div style="display:flex;gap:6px;margin-top:12px">'
+    + '<input type="text" id="hd-wd-subs-new" class="fi" style="flex:1;min-width:0;box-sizing:border-box" placeholder="マスタに無い部署を追加…">'
+    + '<button class="btn btn-g btn-sm" onclick="addHdWdDeptFromModal('+i+')">＋ マスタに追加</button></div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'hd-wd-subs-md-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" onclick="saveHdWdSubs('+i+')">保存</button></div>';
+}
+function addHdWdDeptFromModal(i) {
+  if (!can('wm')) return;
+  var el = document.getElementById('hd-wd-subs-new'); if (!el) return;
+  var v = fbSafeKey(el.value.trim()); if (!v) return;
+  D.wdDepts = D.wdDepts || [];
+  if (D.wdDepts.indexOf(v) === -1) D.wdDepts.push(v);
+  saveD();
+  renderHdWdSubsModalBody(i);
+  var cb = document.querySelector('#hd-wd-subs-checks input[data-dept="' + v.replace(/"/g,'') + '"]');
+  if (cb) cb.checked = true;
+}
+function saveHdWdSubs(i) {
+  if (!can('wm')) return;
+  var arr = D.hdWd[_hdSelWd] || []; var item = arr[i]; if (item === undefined) return;
+  var checked = [];
+  document.querySelectorAll('#hd-wd-subs-checks input:checked').forEach(function(cb){ checked.push(cb.getAttribute('data-dept')); });
+  var patch = checked.length ? { subs: checked } : { subs: null };
+  if (checked.length && !wdSid(item)) patch.sid = newSid();
+  arr[i] = itemRebuild(item, patch);
+  D.hdWd[_hdSelWd] = arr;
+  renderHdWdlyList(); saveD();
+  writeLog('HD曜日別業務の設置部署を編集', wdText(arr[i]) + '（' + checked.length + '件）');
+  var ov = document.getElementById('hd-wd-subs-md-ov'); if (ov) ov.remove();
   toast('保存しました', 'ok');
 }
 
@@ -8220,7 +8639,7 @@ function togLk(id, v) {
   } else {
     D.lk[id] = v;
   }
-  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
+  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList();
   if(curDs&&D.pages[curDs])safeRenderPage();
   var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
 }
@@ -10680,17 +11099,21 @@ function refreshHdCountPanel(ds) {
 }
 
 /* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集／
-   血液浄化件数入力を追加） =====
-   HDチェックリストはまだ無い（D.hdDly等が未実装のフェーズ）ため、
-   今回出すのはヘッダー・イベント表示・血液浄化件数・HD担当表（担当変更・備考編集可）・申し送り（CEと同一の dat.memos）だけ。
-   #dg/#dcl/#wcl/#pool-chips/#ops-grid/#hdcl は絶対に作らない
-   （buildDG/buildCL はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない）。 */
+   血液浄化件数入力・HDチェックリストを追加） =====
+   出しているのはヘッダー・イベント表示・血液浄化件数・HDチェックリスト（進捗バー含む）・
+   HD担当表（担当変更・備考編集可）・余剰人員・申し送り（CEと同一の dat.memos）。
+   #dg/#pool-chips/#ops-grid は絶対に作らない（buildDG はnullチェックが無くこれらのidが
+   無い状態で呼ぶと例外になるため、呼ばない）。#hdcl/#hdwcl は buildHdCL が冒頭で
+   nullガードするCE版と別実装なので、CE専用の #dcl/#wcl とは異なりここで作ってよい。 */
 function renderPageHD(ds) {
   var dat = D.pages[ds];
   var w = new Date(ds).getDay(), wf = WDF[w];
   var mlk = !can('memo');
   var dlk = !can('duty'); /* HD担当表の編集権限はCE側の担当ロックをそのまま流用（新規ロックIDは作らない） */
+  var clk = !can('cl');   /* HDチェックリストの入力権限もCE側の'cl'ロックを流用 */
   var si = getShiftForDay(ds);
+  var hdCls = hdClStatus(ds), hdDone = hdCls.done, hdTotal = hdCls.total;
+  var hdPct = hdTotal===0 ? 100 : Math.round(hdDone/hdTotal*100);
 
   var h = '<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
   h += '<div class="pt2" style="flex:1">🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）</div>';
@@ -10719,8 +11142,18 @@ function renderPageHD(ds) {
   h += '<button data-ds="' + ds + '" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
   h += '</div></div>';
 
-  /* 血液浄化の実施件数（チェックリストは未実装のため進捗はまだ出せない） */
+  /* 血液浄化の実施件数 */
   h += '<div class="pp" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
+
+  /* HDチェックリストの進捗（updHdProgが#hd-pgt/#hd-pgf/#hd-pgpを部分更新する。CE版の.pgw/.pgi/.pgtr/.pgfと同じCSSを流用） */
+  h += '<div class="pgw"><div class="pgi"><div class="pgt" id="hd-pgt">進捗：'+hdPct+'%（'+hdDone+' / '+hdTotal+' 完了）</div>';
+  h += '<div class="pgtr"><div class="pgf" id="hd-pgf" style="width:'+hdPct+'%"></div></div></div>';
+  h += '<div class="pgp'+(hdPct===100?' dn':'')+'" id="hd-pgp">'+hdPct+'%</div></div>';
+
+  /* HDチェックリスト（共通業務・曜日別業務）。.clgラッパーはCE版と同じクラスなので、
+     dashJump('.clg')・closeItemsの sel:'.clg' がCE/HDどちらの日ページでも無改造で動く */
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> HD共通業務（毎日・'+D.hdDly.length+'項目）</div><div id="hdcl"></div></div>';
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> HD曜日別業務 <span class="wb">'+wf+'</span></div><div id="hdwcl"></div></div><hr>';
 
   /* HD担当表（フェーズ4：担当変更・備考編集可）：役割/スタッフ/備考の3列、1人1行 */
   h += '<div class="st">🩸 HD担当表</div>';
@@ -10879,6 +11312,9 @@ function renderPageHD(ds) {
       }, 600);
     });
   }
+
+  /* HDチェックリスト本体の描画。buildHdCLは冒頭でnullガードするため、常に無条件に呼んでよい */
+  buildHdCL(ds, dat, clk);
 
   /* 余剰人員パネル：CE側と全く同じ renderSurplusArea/dat.staffZone で描画し、D&D配線も共通の bindSurplusDnD(ds) を呼ぶ
      （#pool-chips が無いHD日ページでは、その部分は自動的に何もしない＝null guard） */
@@ -14610,6 +15046,114 @@ function mkCk(ds,idx,task,dat,locked,it) {
   });
   return wrap;
 }
+/* ===== HDチェックリスト（buildCL/mkCkのHD版） =====
+   #hdcl/#hdwclへ描画する。CE版と違い呼び出し元で必ずnullチェック済みで呼ぶ規約はやめ、
+   ここ自身が冒頭でnullガードする——renderPageHDのコメントで「#hdclは絶対に作らない」と
+   されていた理由がbuildCLのnullガード欠如だったため、HD版は最初から安全に作る。
+   renderSubPanel/_subOpen/wdSubs/wdSid/wdSubProgressはCE版とそのまま共有する
+   （dat.subChecksはCE/HD問わず同じ場所に書く設計のため）。 */
+function buildHdCL(ds,dat,locked) {
+  var dc=document.getElementById('hdcl'); if(!dc) return;
+  dc.innerHTML='';
+  for(var i=0;i<D.hdDly.length;i++){
+    if(!isDlyShownOnDate(D.hdDly[i],ds)) continue;
+    dc.appendChild(mkHdCk(ds,i,dlyText(D.hdDly[i]),dat,locked,null));
+  }
+  var we=document.getElementById('hdwcl'); if(!we) return;
+  we.innerHTML='';
+  var ents = hdWdEntriesForDate(ds);
+  if(!ents.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
+  for(var j=0;j<ents.length;j++) we.appendChild(mkHdCk(ds,D.hdDly.length+j,ents[j].t,dat,locked,ents[j].it));
+}
+/* it は曜日別業務のマスタ項目（once判定に使う）。共通業務からの呼び出しはnull。
+   構造はmkCkと完全に同一で、dat.checks→dat.hdChecks、wdOnceDoneOn→hdWdOnceDoneOn、
+   updProg→updHdProgの3点だけが違う。writeLogのアクション名は先頭にHDを付け、
+   ログ画面でCE側のチェックと区別できるようにする。 */
+function mkHdCk(ds,idx,task,dat,locked,it) {
+  var own=!!(dat.hdChecks&&dat.hdChecks[idx]);
+  var onceDs = own ? null : hdWdOnceDoneOn(ds, {t:task, it:it});
+  var ck=own||!!onceDs;
+  var div=document.createElement('div'); div.className='cli'+(ck?' dn':'')+(locked?' lki':'')+(onceDs?' onced':'');
+  var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=ck; cb.disabled=locked||!!onceDs;
+  var lb=document.createElement('label'); lb.textContent=task;
+
+  var hasManual = !!(D.manual && D.manual[task] && (typeof D.manual[task]==='string' ? D.manual[task].trim() : (D.manual[task].text||D.manual[task].media&&D.manual[task].media.length)));
+  var peekBtn=document.createElement('button');
+  peekBtn.className='cli-peek'+(hasManual?' has-manual':'');
+  peekBtn.title='マニュアルを見る';
+  peekBtn.textContent='···';
+  peekBtn.type='button';
+
+  var subs = it ? wdSubs(it) : null;
+  var subBtn = null;
+  if (subs) { subBtn=document.createElement('button'); subBtn.type='button'; subBtn.className='cli-subbtn'; }
+
+  if(!locked && !onceDs){
+    (function(ds,idx,div,cb){
+      function toggle(){
+        cb.checked=!cb.checked;
+        if(!D.pages[ds].hdChecks)D.pages[ds].hdChecks={};
+        D.pages[ds].hdChecks[idx]=cb.checked;
+        div.classList.toggle('dn',cb.checked);
+        saveDPage(ds); updHdProg(ds);
+        writeLog(cb.checked?'HDチェック完了':'HDチェック解除', fmtJ(ds)+' '+task);
+      }
+      cb.onchange=function(){
+        if(!D.pages[ds].hdChecks)D.pages[ds].hdChecks={};
+        D.pages[ds].hdChecks[idx]=cb.checked;
+        div.classList.toggle('dn',cb.checked);
+        saveDPage(ds); updHdProg(ds);
+        writeLog(cb.checked?'HDチェック完了':'HDチェック解除', fmtJ(ds)+' '+task);
+      };
+      div.onclick=function(e){
+        if(e.target===cb||e.target===peekBtn||e.target===subBtn) return;
+        toggle();
+      };
+    })(ds,idx,div,cb);
+  }
+  peekBtn.onclick=function(e){ e.stopPropagation(); openSP(task); };
+
+  div.appendChild(cb); div.appendChild(lb);
+  if (onceDs) {
+    var note=document.createElement('span'); note.className='cli-note';
+    note.textContent='✓ '+fmtMD(onceDs)+'に実施済み（月内1回）';
+    div.appendChild(note);
+  }
+  if (subs) div.appendChild(subBtn);
+  div.appendChild(peekBtn);
+
+  if (!subs) return div;
+
+  var wrap=document.createElement('div'); wrap.className='cli-wrap'+(_subOpen[wdSid(it)]?' open':'');
+  var subsEl=document.createElement('div'); subsEl.className='cli-subs';
+  wrap.appendChild(div); wrap.appendChild(subsEl);
+  renderSubPanel(ds, it, wrap);
+  subBtn.onclick=function(e){
+    e.stopPropagation();
+    var sid=wdSid(it); wrap.classList.toggle('open'); _subOpen[sid]=wrap.classList.contains('open');
+  };
+  subsEl.addEventListener('change', function(e){
+    var cb2=e.target; if(cb2.tagName!=='INPUT') return;
+    var name=cb2.getAttribute('data-dep'); var sid=wdSid(it); if(!sid) return;
+    if (cb2.checked) {
+      if(!D.pages[ds].subChecks) D.pages[ds].subChecks={};
+      if(!D.pages[ds].subChecks[sid]) D.pages[ds].subChecks[sid]={};
+      D.pages[ds].subChecks[sid][name]={by:(typeof taskSelfName==='function'?(taskSelfName()||''):''),ts:Date.now()};
+      saveDPage(ds);
+      writeLog('設置部署を消し込み', fmtJ(ds)+' '+task+' '+name);
+    } else {
+      var owner=wdSubProgress(ds, sid)[name];
+      if (owner && D.pages[owner] && D.pages[owner].subChecks && D.pages[owner].subChecks[sid]) {
+        delete D.pages[owner].subChecks[sid][name];
+        saveDPage(owner);
+        writeLog('設置部署の消し込みを解除', fmtJ(owner)+' '+task+' '+name);
+      }
+    }
+    renderSubPanel(ds, it, wrap);
+  });
+  return wrap;
+}
+
 /* 部署パネルの開閉状態。sidキーで持ち、renderPage/safeRenderPageで再描画しても
    開いたままになるようにする（_treeOpenと同じ考え方）。 */
 var _subOpen = {};
@@ -14640,6 +15184,18 @@ function updProg(ds) {
   if(p){p.textContent=pct+'%';p.className='pgp'+(pct===100?' dn':'');}
   if(pr)pr.textContent=done+' / '+total+' 完了';
   renderCal();
+  updateCloseBar(ds);
+}
+/* updProgのHD版。DOM idが#hd-pgf/#hd-pgt/#hd-pgpと別なのでCE版と同じ関数にできない。
+   renderCal()は呼ばない — カレンダーの日セル色分けはgetPct（CE基準）のままで、
+   今回のスコープ外（HD専用のカレンダー表示は別フェーズ）。 */
+function updHdProg(ds) {
+  var _cls=hdClStatus(ds), done=_cls.done, total=_cls.total;
+  var pct=total===0?100:Math.round(done/total*100);
+  var f=document.getElementById('hd-pgf'), t=document.getElementById('hd-pgt'), p=document.getElementById('hd-pgp');
+  if(f)f.style.width=pct+'%';
+  if(t)t.textContent='進捗：'+pct+'%（'+done+' / '+total+' 完了）';
+  if(p){p.textContent=pct+'%';p.className='pgp'+(pct===100?' dn':'');}
   updateCloseBar(ds);
 }
 
@@ -16382,7 +16938,7 @@ function swTab(t) {
   if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
   if(t==='hdsum'){ renderHdSummary(); }
   if(t==='master'){
-    renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList();
+    renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
     document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
       var perm=sec.getAttribute('data-perm');
@@ -17604,14 +18160,14 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
     saveD();
     writeLog('Firebaseスナップショットから復元', dateStr);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
     renderFirebaseSnapshots();
@@ -17672,13 +18228,13 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
     if(FB_ON) writeLog('自動バックアップから復元', dt+' '+s.label);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
     renderAutoBackups();
@@ -17728,13 +18284,13 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       saveD();
       if(FB_ON) writeLog('バックアップインポート', file.name);
       renderCal(); safeRenderPage();
-      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
+      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList();
       renderOpeList(); renderCathList(); renderLockList(); renderAT();
       var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
       if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';
