@@ -1137,6 +1137,8 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
       <div class="stab"     id="tab-task"   onclick="swTab('task')">📋 タスク</div>
+      <!-- HDモードのときだけ表示（updateTabVisibility）。血液浄化件数(dat.hdCount)の期間集計 -->
+      <div class="stab"     id="tab-hdsum"  onclick="swTab('hdsum')"  style="display:none">🩸 HD集計</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
@@ -1486,6 +1488,17 @@ body.has-cbar #scroll-top-btn{bottom:126px}
         </div>
         <div id="mk-catnav" class="mk-catnav"></div>
         <div id="mk-list"></div>
+      </div>
+    </div>
+
+    <!-- HD集計パネル（HDモードのときだけタブが見える。血液浄化件数 dat.hdCount の期間集計） -->
+    <div id="pane-hdsum" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp">
+        <div class="pt" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span>🩸 HD集計</span>
+          <button class="btn btn-g btn-sm" onclick="exportHdCsv()">📥 CSV出力</button>
+        </div>
+        <div id="hd-sum-body"></div>
       </div>
     </div>
 
@@ -5547,14 +5560,14 @@ function sumDsList() {
 function setSumMode(m) {
   _sumMode = m;
   if (m === 'range' && (!_sumFrom || !_sumTo)) { var r0 = sumRange(); _sumFrom = r0.from; _sumTo = r0.to; }
-  renderOCSummary(); renderOpsSummary();
+  renderOCSummary(); renderOpsSummary(); renderHdSummary();
 }
 function applySumRange(pfx) {
   var f = document.getElementById(pfx+'-sum-from'), t = document.getElementById(pfx+'-sum-to');
   if (f) _sumFrom = f.value;
   if (t) _sumTo   = t.value;
   if (!_sumFrom || !_sumTo) { toast('開始日と終了日を選んでください', 'warn'); return; }
-  renderOCSummary(); renderOpsSummary();
+  renderOCSummary(); renderOpsSummary(); renderHdSummary();
 }
 /* 期間切替のコントロール。OC集計と業務集計の両方に同じものを出すので id は接頭辞で分ける */
 function sumCtlHTML(pfx) {
@@ -5847,6 +5860,106 @@ function renderOCSummary() {
     h += '<td class="num">'+(oc.nenkyu?'<span style="color:var(--ac);font-weight:700">✔ 年休</span>':'<span class="muted">—</span>')+'</td>';
     h += '</tr>';
   });
+  h += '</tbody></table></div>';
+  el.innerHTML = h;
+}
+
+/* ===== HD集計パネル（HDモードのときだけ見える独立タブ。dat.hdCount の期間集計） =====
+   OC集計と同じ骨格（グラフ無し、バッジ＋テーブル）で作る。renderOCSummary/renderOpsSummaryと同様、
+   #hd-sum-bodyが無ければ何もしない — pane-hdsumが非表示でも常時DOM自体は存在するため、
+   setSumMode/applySumRange/asPrevM/asNextMから無条件に呼んでよい。 */
+function renderHdSummary() {
+  var el = document.getElementById('hd-sum-body');
+  if (!el) return;
+  var rng = sumRange();
+  var rows = [];
+  sumDsList().forEach(function(ds){
+    var pg = D.pages[ds];
+    if (!pg || !pg.hdCount) return;
+    var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdCountN(pg.hdCount.ward);
+    var sp = hdCountSpArr(pg);
+    var total = day + night + bw + ward + sp.length;
+    if (!total) return; /* 全区分0件の日は一覧に出さない（OC集計が担当者未設定日をスキップするのと同じ考え方） */
+    rows.push({ ds: ds, day: day, night: night, bw: bw, ward: ward, sp: sp, total: total });
+  });
+  var h = sumCtlHTML('hd');
+  if (!rows.length) {
+    el.innerHTML = h + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'に血液浄化の記録がありません</div>';
+    return;
+  }
+  /* 集計 */
+  var sums = {day:0, night:0, bw:0, ward:0, sp:0};
+  var spAgg = {}; /* 治療名 → 件数（特殊治療の内訳） */
+  rows.forEach(function(r){
+    sums.day += r.day; sums.night += r.night; sums.bw += r.bw; sums.ward += r.ward; sums.sp += r.sp.length;
+    r.sp.forEach(function(name){ if (name) spAgg[name] = (spAgg[name]||0) + 1; });
+  });
+  var grandTotal = sums.day + sums.night + sums.bw + sums.ward + sums.sp;
+  h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+escH(rng.label)+'　HD集計</span></div>';
+  h += '<div class="sum-badges">';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>合計 <b style="color:var(--pu)">'+grandTotal+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>日中 <b>'+sums.day+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>準夜 <b>'+sums.night+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>BW <b>'+sums.bw+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>病棟 <b>'+sums.ward+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>特殊 <b>'+sums.sp+'</b>件</span>';
+  h += '</div>';
+  /* 複数月にまたがるときは月別の内訳を先に出す（年間集計で日別だけだと読み取れないため） */
+  if (rng.multi) {
+    var mk = sumMonthKeys(rows.map(function(r){ return r.ds; }));
+    var per = {};
+    mk.forEach(function(k){ per[k] = {day:0, night:0, bw:0, ward:0, sp:0}; });
+    rows.forEach(function(r){
+      var k = r.ds.slice(0,7), p = per[k];
+      p.day += r.day; p.night += r.night; p.bw += r.bw; p.ward += r.ward; p.sp += r.sp.length;
+    });
+    h += '<div class="data-wrap" style="margin-bottom:14px"><table class="data-tbl" style="min-width:420px">';
+    h += '<thead><tr><th style="width:90px">月</th><th>日中</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>計</th></tr></thead><tbody>';
+    mk.forEach(function(k){
+      var p = per[k], t = p.day + p.night + p.bw + p.ward + p.sp;
+      h += '<tr><td style="white-space:nowrap"><strong>'+sumMonthLabel(k)+'</strong></td>'
+        + '<td class="num">'+(p.day||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.night||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.bw||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.ward||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.sp||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num" style="font-weight:700;color:var(--pu)">'+t+'</td></tr>';
+    });
+    h += '<tr class="total"><td>合計</td><td class="num">'+sums.day+'</td><td class="num">'+sums.night+'</td>'
+      + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td>'
+      + '<td class="num" style="color:var(--pu)">'+grandTotal+'</td></tr>';
+    h += '</tbody></table></div>';
+  }
+  /* 特殊治療の内訳 */
+  var spNames = Object.keys(spAgg).sort(function(a,b){ return spAgg[b]-spAgg[a]; });
+  if (spNames.length) {
+    h += '<div class="sum-card-grid"><div class="sum-card"><div class="sum-card-ttl">🩸 特殊治療の内訳</div>';
+    spNames.forEach(function(n){
+      h += '<div class="sum-card-row"><span class="lbl">'+escH(n)+'</span><span class="n">'+spAgg[n]+'件</span></div>';
+    });
+    h += '</div></div>';
+  }
+  /* 日別テーブル */
+  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:520px">';
+  h += '<thead><tr><th style="width:'+(rng.multi?100:70)+'px">日付</th><th>日中</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>計</th></tr></thead><tbody>';
+  rows.forEach(function(r) {
+    var w = new Date(r.ds).getDay();
+    var wdCls = w===0?'color:var(--rd)':w===6?'color:var(--ac)':'';
+    var pt = r.ds.split('-');
+    var dn = rng.multi ? (parseInt(pt[1],10)+'/'+parseInt(pt[2],10)) : (parseInt(pt[2],10)+'日');
+    h += '<tr>';
+    h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'</strong> '+WDL[w]+'</td>';
+    h += '<td class="num">'+(r.day||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.night||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.bw||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.ward||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.sp.length||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num" style="font-weight:700;color:var(--pu)">'+r.total+'</td>';
+    h += '</tr>';
+  });
+  h += '<tr class="total"><td>合計</td><td class="num">'+sums.day+'</td><td class="num">'+sums.night+'</td>'
+    + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td>'
+    + '<td class="num" style="color:var(--pu)">'+grandTotal+'</td></tr>';
   h += '</tbody></table></div>';
   el.innerHTML = h;
 }
@@ -8066,11 +8179,14 @@ function updateTabVisibility() {
     'lock':   isAdmin,
     'logs':   isAdmin,
     'docs':   isAdmin,
+    'hdsum':  _viewMode === 'hd', /* HD集計は主観モードだけで出し分け。パーミッションではなく全員対象 */
   };
   Object.keys(show).forEach(function(id) {
     var el = document.getElementById('tab-' + id);
     if (el) el.style.display = show[id] ? '' : 'none';
   });
+  /* HD集計タブを開いたままCE主観へ戻すと、非表示タブの中身が残り続けてしまうためカレンダーへ退避する */
+  if (!show.hdsum && curTab === 'hdsum') swTab('cal');
   var fairBtn = document.getElementById('subtab-fair');
   if (fairBtn) fairBtn.style.display = isAdmin ? '' : 'none';
 }
@@ -14632,8 +14748,8 @@ function initAtPinchZoom() {
   cont.addEventListener('touchend', endPinch, {passive: true});
   cont.addEventListener('touchcancel', endPinch, {passive: true});
 }
-function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
-function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOpsSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
+function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();var hp=document.getElementById('pane-hdsum'); if(hp&&hp.style.display!=='none') renderHdSummary();}
+function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();var hp=document.getElementById('pane-hdsum'); if(hp&&hp.style.display!=='none') renderHdSummary();}
 
 var _mySchedName = null; /* マイ担当でスタッフが選択されたときのキャッシュ */
 function renderMySchedule(overrideName) {
@@ -15438,6 +15554,21 @@ function exportOcCsv() {
   if (rows.length===1){toast(rng.label+'にOC担当の記録がありません', 'warn');return;}
   downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
 }
+function exportHdCsv() {
+  var rng = sumRange(), rows = [['日付','曜日','日中','準夜','BW','病棟','特殊','計']];
+  sumDsList().forEach(function(ds){
+    var pg = D.pages[ds];
+    if (!pg || !pg.hdCount) return;
+    var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdCountN(pg.hdCount.ward);
+    var spLen = hdCountSpArr(pg).length;
+    var total = day + night + bw + ward + spLen;
+    if (!total) return;
+    var pt = ds.split('-');
+    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], day||'', night||'', bw||'', ward||'', spLen||'', total]);
+  });
+  if (rows.length===1){toast(rng.label+'に血液浄化の記録がありません', 'warn');return;}
+  downloadCsv('分院CE_HD集計_'+sumFileLabel()+'.csv', rows);
+}
 function exportOpsCsv() {
   if (_opsSumView === 'detail') { exportOpsDetailCsv(); return; }
   var rng = sumRange(), rows = [['日付','曜日','オペ','カテ','6MW','PSG','フリー']];
@@ -16201,12 +16332,12 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','task','hdsum','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   var libTabs=['guide','makers'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群。
      スケジュールはモーダル化したためここには含まれない（openSchedPanel/closeSchedPanel） */
-  var contentPanes=['assign','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var contentPanes=['assign','task','hdsum','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -16249,6 +16380,7 @@ function swTab(t) {
 
   if(t==='assign'){ swSubTab('at'); renderAT(); }
   if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
+  if(t==='hdsum'){ renderHdSummary(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
