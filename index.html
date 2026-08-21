@@ -10132,10 +10132,34 @@ function renderPage(ds) {
   updateCloseBar(ds);
 }
 
-/* ===== HD主観の日ページ（フェーズ1：骨組みのみ） =====
-   HD担当表・HDチェックリストはまだ無い（D.hdDuty/D.hdDly等が未実装のフェーズ）ため、
-   今回出すのはヘッダー・イベント表示・簡易サマリ・申し送り（CEと同一の dat.memos）だけ。
-   #dg/#dcl/#wcl/#pool-chips/#ops-grid/#hdg/#hdcl は絶対に作らない
+/* HD担当表（読み取り専用・フェーズ3）：勤務表から日勤（HD_DAY_CODES順）→準夜の順で1人1行の配列を作る純関数。
+   dat.hdDuty 等（手動修正の保存領域）はまだ無いフェーズなので触らない。D.shift/getShiftForDay 本体も無改変。
+   並び順は「同じコードに複数人いる場合は配列内の順」を保つため Array#sort の安定ソート性に依存する。
+   戻り値: [{role:'M', name:'山田 太郎', night:false}, ...] */
+function buildHdRoster(ds) {
+  var hd = getShiftForDay(ds).hd || [];
+  var day = hd.filter(function (h) { return !h.night; });
+  var night = hd.filter(function (h) { return h.night; });
+  day.sort(function (a, b) {
+    var ia = HD_DAY_CODES.indexOf(a.shift); if (ia === -1) ia = HD_DAY_CODES.length;
+    var ib = HD_DAY_CODES.indexOf(b.shift); if (ib === -1) ib = HD_DAY_CODES.length;
+    return ia - ib;
+  });
+  var rows = day.map(function (h) { return { role: h.shift, name: h.name, night: false }; });
+  night.forEach(function (h) { rows.push({ role: h.shift, name: h.name, night: true }); });
+  return rows;
+}
+/* HD担当表テーブルの1行分（役割／スタッフ／備考）。備考は dat.hdNotes[氏名] の読み取りのみ（編集UIはフェーズ4） */
+function hdRosterRowHTML(dat, r) {
+  var note = (dat.hdNotes && dat.hdNotes[r.name]) ? dat.hdNotes[r.name] : '';
+  var noteHTML = note ? escH(note) : '<span class="muted">—</span>';
+  return '<tr><td style="font-weight:700">' + escH(r.role || '') + '</td><td>' + escH(r.name) + '</td><td>' + noteHTML + '</td></tr>';
+}
+
+/* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加） =====
+   HDチェックリストはまだ無い（D.hdDly等が未実装のフェーズ）ため、
+   今回出すのはヘッダー・イベント表示・簡易サマリ・HD担当表（読み取り専用）・申し送り（CEと同一の dat.memos）だけ。
+   #dg/#dcl/#wcl/#pool-chips/#ops-grid/#hdcl は絶対に作らない
    （buildDG/buildCL はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない）。 */
 function renderPageHD(ds) {
   var dat = D.pages[ds];
@@ -10170,8 +10194,29 @@ function renderPageHD(ds) {
   h += '<button data-ds="' + ds + '" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
   h += '</div></div>';
 
-  /* 簡易サマリ行（HD担当表・HDチェックリストは未実装のため進捗はまだ出せない） */
+  /* 簡易サマリ行（HDチェックリストは未実装のため進捗はまだ出せない） */
   h += '<div class="pp"><div class="pr"><span class="pl">🩸 HDモード</span><span class="pv">' + fmtJ(ds) + '（' + wf + '）</span></div></div>';
+
+  /* HD担当表（読み取り専用・フェーズ3）：役割/スタッフ/備考の3列、1人1行 */
+  h += '<div class="st">🩸 HD担当表</div>';
+  var hdRows = buildHdRoster(ds);
+  if (!hdRows.length) {
+    h += '<div class="pool-empty" style="padding:14px 0">勤務表データがありません</div>';
+  } else {
+    var hdDayRows = hdRows.filter(function (r) { return !r.night; });
+    var hdNightRows = hdRows.filter(function (r) { return r.night; });
+    h += '<div class="data-wrap"><table class="data-tbl">';
+    h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th>備考</th></tr></thead><tbody>';
+    if (hdDayRows.length) {
+      h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';
+      hdDayRows.forEach(function (r) { h += hdRosterRowHTML(dat, r); });
+    }
+    if (hdNightRows.length) {
+      h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>';
+      hdNightRows.forEach(function (r) { h += hdRosterRowHTML(dat, r); });
+    }
+    h += '</tbody></table></div>';
+  }
 
   /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有） */
   h += '<div class="st">📝 業務連絡・申し送り' + (mlk ? '<span class="slb lk">🔒</span>' : '') + '</div>';
