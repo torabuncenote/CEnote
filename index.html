@@ -4135,8 +4135,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/21-43';
+var APP_VERSION = 'Ver.2026/08/21-44';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/21-44', date:'2026-08-21', title:'人員配置管理の中身が消える不具合を修正', items:[
+    {t:'fix', d:'👥 「人員配置管理」の余剰人員エリアが空欄になり、HDへ移動・休みなどの分類が見えなくなる不具合を修正しました'},
+    {t:'fix', d:'📞 同じ原因で、オンコール欄の担当者選択や申し送りの投稿が反応しなくなることがあった問題も解消しました'}
+  ]},
   { ver:'Ver.2026/08/21-43', date:'2026-08-21', title:'当日業務内容カードが表示されなくなる不具合を修正', items:[
     {t:'fix', d:'🔪 特定の日ページで「当日業務内容」（オペ・カテ等のカード）が一切表示されなくなる不具合を修正。人員配置管理エリアの余剰人員データの形式によっては、その先の業務カードの描画が止まってしまうことがありました'}
   ]},
@@ -7922,24 +7926,44 @@ function ensureStaffAdj(dat) {
   return dat.staffAdj;
 }
 /* 余剰人員(surplus/surplusStatus)とHD分類(hdStatus)を dat.staffZone={ce,hd} に統合する遅延初期化＋旧形式吸収 */
+/* 呼び出し側はすべて戻り値の .ce / .hd を Object.keys() などで直接触るため、
+   この関数は「常に {ce:{}, hd:{}} の形が揃ったオブジェクト」を返すことを保証する。
+
+   ここを「dat.staffZone が無いときだけ作る」にしていたのが過去2件の重大不具合の原因だった：
+   Firebaseは空のオブジェクトを保存時に削除するため、片方（例：CE側）が空だと
+   staffZone は {hd:{...}} の形で返ってきて .ce が undefined になる。すると
+   Object.keys(undefined) が例外を投げ、renderSurplusArea（余剰人員パネルが空になる）と
+   refreshPool（renderPage が中断し、以降のオンコール欄・申し送りのイベント登録が
+   丸ごと行われなくなる）の両方が壊れた。
+   同様に dat.surplus は旧形式では配列だが、疎な配列（歯抜けのindex）だと
+   Firebaseがオブジェクトで返すため配列メソッドが使えない。
+   これら「Firebaseから返る形は信用しない」という前提を、この1か所に集約する。 */
 function ensureStaffZone(dat) {
-  if (!dat.staffZone) {
-    var ce = {};
-    /* dat.surplus は旧形式の配列だが、Firebaseは疎な配列（歯抜けのindex）をオブジェクトとして
-       返すことがある（taskAssignees・_boardMediaArr等と同じ既知の対策パターン）。
-       ここでArray.isArrayを確認せずforEachすると、そのデータ形状の日ページだけ
-       renderSurplusArea以降（buildOPS＝当日業務内容カード等）が丸ごと描画されなくなる
-       重大な実害があったため、必ず配列へ正規化してから読む。 */
-    var sur = dat.surplus;
-    var surArr = Array.isArray(sur) ? sur : (sur ? Object.keys(sur).map(function(k){ return sur[k]; }) : []);
-    surArr.forEach(function(n){ if (n) ce[n] = ''; });
-    var ss = dat.surplusStatus || {};
-    Object.keys(ss).forEach(function(n){ ce[n] = ss[n] || ''; });
-    var hd = {};
-    var hs = dat.hdStatus || {};
-    Object.keys(hs).forEach(function(n){ hd[n] = hs[n]; });
-    dat.staffZone = { ce: ce, hd: hd };
+  /* 任意の形（未定義／配列／オブジェクト）を {名前: 値} の素直なオブジェクトへ均す */
+  function normMap(x) {
+    var out = {};
+    if (!x || typeof x !== 'object') return out;
+    Object.keys(x).forEach(function(k){ if (k) out[k] = x[k]; });
+    return out;
   }
+  var sz = (dat.staffZone && typeof dat.staffZone === 'object') ? dat.staffZone : null;
+  if (sz) {
+    /* 既存データ：欠けている側を補って必ず両方のキーを揃える */
+    if (!sz.ce || typeof sz.ce !== 'object') sz.ce = {};
+    if (!sz.hd || typeof sz.hd !== 'object') sz.hd = {};
+    return sz;
+  }
+  /* 新規：旧形式（surplus配列 / surplusStatus / hdStatus）から作り直す */
+  var ce = {};
+  var sur = dat.surplus;
+  var surArr = Array.isArray(sur) ? sur : (sur ? Object.keys(sur).map(function(k){ return sur[k]; }) : []);
+  surArr.forEach(function(n){ if (n) ce[n] = ''; });
+  var ss = normMap(dat.surplusStatus);
+  Object.keys(ss).forEach(function(n){ ce[n] = ss[n] || ''; });
+  var hd = {};
+  var hs = normMap(dat.hdStatus);
+  Object.keys(hs).forEach(function(n){ hd[n] = hs[n]; });
+  dat.staffZone = { ce: ce, hd: hd };
   return dat.staffZone;
 }
 function poolHas(arr, name) {
@@ -10086,7 +10110,10 @@ function renderPage(ds) {
   /* 幅が確定してから測る必要があるので、描画後にまとめて文字サイズを調整する */
   opsScheduleFit();
   buildCL(ds, dat, wtl, all, clk);
-  refreshPool(ds);
+  /* ここで例外が出ると、この下で登録するオンコール欄・申し送りのイベントが丸ごと
+     未登録になり「表示はされるが操作できない」状態になる（実際に起きた）。
+     プールの表示更新は他より重要度が低いので、失敗しても以降の登録は必ず続ける。 */
+  try { refreshPool(ds); } catch (e) { console.error('refreshPool failed:', e); }
 
   /* OC events */
   (function(ds){
