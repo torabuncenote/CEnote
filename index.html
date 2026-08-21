@@ -1337,6 +1337,15 @@ body.has-cbar #scroll-top-btn{bottom:126px}
           </div>
         </div>
         <div data-perm="mst">
+          <div class="pt">🩸 HD特殊治療マスタ</div>
+          <div class="pn" style="margin-bottom:8px">HDモードの血液浄化件数入力で「特殊」区分の選択肢になります（例: PMX、CHDF、二重濾過など）。1治療＝1件として数えます。</div>
+          <div class="rl" id="hd-treat-list"></div>
+          <div class="ar" id="hd-treat-ar">
+            <input type="text" id="in-hd-treat" placeholder="例: PMX" maxlength="20">
+            <button onclick="addHdTreat()" style="background:var(--pu)">追加</button>
+          </div>
+        </div>
+        <div data-perm="mst">
           <div class="pt">📞 OC対応フローチャート</div>
           <div class="pn" style="margin-bottom:8px">OC集計タブの「OC対応フローチャート」ボタン、または連絡表ページのオンコール（OC）担当枠にある「📄 対応フロー」ボタンで全員が閲覧できる内容です。改行・字下げ・矢印（→ ↓）はそのまま表示されます。</div>
           <textarea id="oc-flow-text" rows="10" style="width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur2);color:var(--txt)" placeholder="例:&#10;1. OC携帯が鳴ったら病棟名・用件を確認&#10;2. 機器トラブル → 現地へ&#10;   ↓解決しない場合&#10;3. リーダーへ連絡"></textarea>
@@ -2080,7 +2089,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[]};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[]};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -2090,6 +2099,7 @@ var _staleTs = 0;          /* 古いデータ検出による再保存レート�
 var _sessionId = Math.random().toString(36).slice(2, 9); /* セッション識別子 */
 var _lastCleanupDate = ''; /* cleanOldSnapshots の日次レート制限 */
 var _fbDataLoaded = false; /* Firebase /data リスナーが初回データを受信済み。trueになるまでFirebase書き込みを禁止（ログイン直後の空書き込みを防止） */
+var _hdCountOpen = false; /* HD日ページの血液浄化件数入力パネルの開閉状態（非永続。編集ボタンで開き、閉じるとチップ表示に戻る） */
 var _hdPanelOpen = false; /* HD勤務者パネルの開閉状態（renderSurplusArea 再呼出しを跨いで保持） */
 var _hdPanelUserOverride = null; /* このセッション中にユーザーが明示操作したか（true=手動オープン、false=手動クローズ、null=未操作＝自動判定に従う） */
 var _staffZoneOpen = false; /* 人員配置管理（当日勤務者一覧＋余剰人員）セクションの開閉状態。
@@ -2210,7 +2220,7 @@ function init() {
   if (!isPreview) fbInit();
   renderCal();
   renderStfList(); renderPhsList(); renderTabletList();
-  renderDlyList(); renderWdlyList(); renderWdDeptList();
+  renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
   renderOpeList(); renderCathList();
   renderLockList();
   initPHIGuard();
@@ -2297,6 +2307,7 @@ function loadD() {
     D.ocFlow = s.ocFlow || '';
     D.makers = normMakers(s.makers);
     D.wdDepts = s.wdDepts || [];
+    D.hdTreatments = s.hdTreatments || [];
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -2408,7 +2419,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[];
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[];
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -2580,6 +2591,7 @@ function fbInit() {
             D.ocFlow = d.ocFlow || '';
             D.makers = normMakers(d.makers);
             D.wdDepts = d.wdDepts || [];
+            D.hdTreatments = d.hdTreatments || [];
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -2633,7 +2645,7 @@ function fbInit() {
             checkAutoDelTiming();
             renderCal();
             renderStfList(); renderPhsList(); renderTabletList();
-            renderDlyList(); renderWdlyList(); renderWdDeptList();
+            renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
             renderOpeList(); renderCathList();
             renderLockList(); renderAutoAssignModeSetting();
             updateTabVisibility();
@@ -7689,6 +7701,44 @@ function mvWdDept(i, d) {
   renderWdDeptList(); saveD();
 }
 
+/* ===== HD特殊治療マスタ（HDモードの血液浄化件数入力「特殊」区分で選ぶ治療名の一覧） =====
+   D.wdDepts / D.tablets と同型の単純な文字列配列。mst権限（pane-masterの他マスタと同じ）で管理する。 */
+function renderHdTreatList() {
+  var l = document.getElementById('hd-treat-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('mst');
+  var list = D.hdTreatments || [];
+  if (!list.length) { l.innerHTML = '<p class="cle">まだ登録されていません</p>'; }
+  else {
+    for (var i = 0; i < list.length; i++) {
+      var el = document.createElement('div'); el.className = 'ri';
+      var btns = ok ? '<button class="ru" onclick="mvHdTreat('+i+',-1)"'+(i===0?' disabled':'')+'>↑</button><button class="rdw" onclick="mvHdTreat('+i+',1)"'+(i===list.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="rmHdTreat('+i+')">×</button>' : '';
+      el.innerHTML = '<span class="rn">🩸 ' + escH(list[i]) + '</span>' + btns;
+      l.appendChild(el);
+    }
+  }
+  var ar = document.getElementById('hd-treat-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addHdTreat() {
+  if (!can('mst')) return;
+  var el = document.getElementById('in-hd-treat'); var v = fbSafeKey(el.value.trim()); if (!v) return;
+  D.hdTreatments = D.hdTreatments || [];
+  if (D.hdTreatments.indexOf(v) !== -1) { toast('すでに登録されています', 'warn'); return; }
+  D.hdTreatments.push(v); el.value = ''; renderHdTreatList(); saveD();
+}
+function rmHdTreat(i) {
+  if (!can('mst')) return;
+  D.hdTreatments.splice(i, 1); renderHdTreatList(); saveD();
+  /* マスタから削除しても、過去ページの hdCount.sp に入っている治療名はそのまま残す（記録を消さないため）。
+     表示上はマスタに無い治療として選べなくなるだけ（hdCountSpSelectOpts が「（旧）」表示で保護する）。 */
+}
+function mvHdTreat(i, d) {
+  if (!can('mst')) return;
+  var arr = D.hdTreatments || []; var j = i + d; if (j < 0 || j >= arr.length) return;
+  var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  renderHdTreatList(); saveD();
+}
+
 /* ===== 曜日別業務：設置部署の選択モーダル =====
    点検対象を「その場で自由入力」ではなく設置部署マスタ（D.wdDepts）からチェックで選ぶ
    方式にしている。sidはリストを初めて保存した時に採番し、以後は不変（業務名を変えても
@@ -8054,7 +8104,7 @@ function togLk(id, v) {
   } else {
     D.lk[id] = v;
   }
-  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
+  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
   if(curDs&&D.pages[curDs])safeRenderPage();
   var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
 }
@@ -10424,9 +10474,99 @@ function hdRosterRowHTML(dat, r, locked) {
   return '<tr><td style="font-weight:700">' + escH(r.role || '') + '</td><td>' + staffCell + '</td><td>' + noteCell + '</td></tr>';
 }
 
-/* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集） =====
+/* ===== HD主観：血液浄化の実施件数（dat.hdCount） =====
+   その日に実施した血液浄化の「回数」を区分ごとに数える（スタッフ数ではない）。
+   day/night/bw/ward は数値文字列を直接入力（既存 ops.mw_n と同じ流儀）。
+   sp（特殊）だけはマスタ(D.hdTreatments)から選んだ治療名の配列で、その長さがそのまま件数になる。
+   保存は saveDPage(ds)（ページ単独スコープ）。ops_cards/buildOPSの仕組みには乗せない —
+   HD日ページには#ops-gridもカード追加/削除UIも無く、乗せると「1枠制限リスト」「カード定義テーブル」
+   「ディスパッチ」等5箇所以上の既存配列に手を入れることになるため、独立実装のほうが小さく済む。 */
+function hdCountN(v) { return parseInt(v, 10) || 0; }
+/* dat.hdCount.sp の読み取り専用アクセサ。Firebaseは疎な配列をオブジェクトとして返すことがある
+   （ensureStaffZone・taskAssignees等と同じ既知の対策パターン）ため、必ずこれ経由で読む。 */
+function hdCountSpArr(dat) {
+  var sp = dat && dat.hdCount && dat.hdCount.sp;
+  if (Array.isArray(sp)) return sp;
+  return sp ? Object.keys(sp).map(function (k) { return sp[k]; }).filter(Boolean) : [];
+}
+/* 書き込み用：dat.hdCount.sp を実配列に正規化してから返す（以後そのまま push/splice できる）。
+   表示専用の hdCountSpArr と違い dat を書き換えるので、行の追加・削除の直前だけ呼ぶ。 */
+function hdCountEnsureSpArr(dat) {
+  dat.hdCount = dat.hdCount || {};
+  if (!Array.isArray(dat.hdCount.sp)) dat.hdCount.sp = hdCountSpArr(dat);
+  return dat.hdCount.sp;
+}
+function hdCountTotal(dat) {
+  var c = dat.hdCount || {};
+  return hdCountN(c.day) + hdCountN(c.night) + hdCountN(c.bw) + hdCountN(c.ward) + hdCountSpArr(dat).length;
+}
+/* #hd-count-panel の中身（チップ表示 or 編集フォーム）。renderPageHD の初回描画と
+   refreshHdCountPanel の両方から呼ばれる —  #hd-count-panel 自体は常に存在する安定要素にして、
+   中身だけ差し替えることで編集ボタン・特殊行の追加/削除のたびにHD日ページ全体を再描画せずに済む。 */
+function hdCountPanelInnerHTML(ds, dat) {
+  var c = dat.hdCount || {};
+  var day = hdCountN(c.day), night = hdCountN(c.night), bw = hdCountN(c.bw), ward = hdCountN(c.ward);
+  var spArr = hdCountSpArr(dat);
+  var total = day + night + bw + ward + spArr.length;
+  var locked = !can('ops'); /* 新規ロックIDは作らず、CE側の業務内容ロック(ops)をそのまま流用 */
+  var CHIP = 'background:var(--pu-bg);color:var(--pu);border:1px solid var(--pu);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700';
+  var h = '';
+  if (!_hdCountOpen) {
+    h += '<div class="pr" style="flex-wrap:wrap;width:100%">';
+    h += '<span class="pl">🩸 血液浄化</span>';
+    if (total) {
+      h += '<span class="pv" style="background:var(--pu-bg);color:var(--pu)">' + total + '件</span>';
+      h += '<span style="display:flex;flex-wrap:wrap;gap:4px">';
+      if (day)   h += '<span style="' + CHIP + '">日中' + day + '</span>';
+      if (night) h += '<span style="' + CHIP + '">準夜' + night + '</span>';
+      if (bw)    h += '<span style="' + CHIP + '">BW' + bw + '</span>';
+      if (ward)  h += '<span style="' + CHIP + '">病棟' + ward + '</span>';
+      if (spArr.length) h += '<span style="' + CHIP + '">特殊' + spArr.length + '</span>';
+      h += '</span>';
+    } else {
+      h += '<span class="pv" style="color:var(--txt3);background:none;padding:0">未入力</span>';
+    }
+    if (!locked) h += '<button class="btn btn-g btn-sm" style="margin-left:auto" data-action="hdcnt-toggle">✏️ 編集</button>';
+    h += '</div>';
+  } else {
+    h += '<div class="pr" style="width:100%;margin-bottom:8px"><span class="pl">🩸 血液浄化</span><span class="pv" style="background:var(--pu-bg);color:var(--pu)">' + total + '件</span>';
+    h += '<button class="btn btn-g btn-sm" style="margin-left:auto" data-action="hdcnt-toggle">✕ 閉じる</button></div>';
+    h += '<div style="width:100%">';
+    [['day', '日中'], ['night', '準夜'], ['bw', 'BW'], ['ward', '病棟']].forEach(function (f) {
+      h += '<div class="ops-row"><span class="ops-lbl">' + f[1] + '</span><input type="number" class="ops-num" data-hdcnt-field="' + f[0] + '" min="0" value="' + (c[f[0]] || '') + '" placeholder="0"' + (locked ? ' disabled' : '') + '><span class="ops-unit">件</span></div>';
+    });
+    h += '<div class="ops-row" style="align-items:flex-start"><span class="ops-lbl" style="margin-top:6px">特殊</span><div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">';
+    spArr.forEach(function (name, i) {
+      h += '<div style="display:flex;gap:4px;align-items:center">';
+      h += '<select class="ds2" style="margin-bottom:0" data-hdcnt-sp="' + i + '"' + (locked ? ' disabled' : '') + '>' + hdTreatOptsHTML(name) + '</select>';
+      if (!locked) h += '<button class="pool-chip-x" data-action="hdcnt-sp-del" data-idx="' + i + '" style="position:static;font-size:16px">×</button>';
+      h += '</div>';
+    });
+    if (!spArr.length) h += '<span style="font-size:12px;color:var(--txt3)">なし</span>';
+    if (!locked) h += '<button class="btn btn-g btn-sm" style="align-self:flex-start;margin-top:2px" data-action="hdcnt-sp-add">＋ 追加</button>';
+    h += '</div></div>';
+    h += '</div>';
+  }
+  return h;
+}
+/* 特殊治療<select>のoption群。D.hdTreatmentsから削除済みでも現在選択中の値だけは
+   「（旧）」表示で残し、過去の入力を消さない（hdRosterRowHTMLの名簿外スタッフ表示と同じ方針）。 */
+function hdTreatOptsHTML(sel) {
+  var o = '<option value="">-- 治療を選択 --</option>';
+  (D.hdTreatments || []).forEach(function (t) { o += '<option value="' + escH(t) + '"' + (t === sel ? ' selected' : '') + '>' + escH(t) + '</option>'; });
+  if (sel && (D.hdTreatments || []).indexOf(sel) === -1) o += '<option value="' + escH(sel) + '" selected>' + escH(sel) + '（旧）</option>';
+  return o;
+}
+function refreshHdCountPanel(ds) {
+  var el = document.getElementById('hd-count-panel'); var pg = D.pages[ds];
+  if (!el || !pg) return;
+  el.innerHTML = hdCountPanelInnerHTML(ds, pg);
+}
+
+/* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集／
+   血液浄化件数入力を追加） =====
    HDチェックリストはまだ無い（D.hdDly等が未実装のフェーズ）ため、
-   今回出すのはヘッダー・イベント表示・簡易サマリ・HD担当表（担当変更・備考編集可）・申し送り（CEと同一の dat.memos）だけ。
+   今回出すのはヘッダー・イベント表示・血液浄化件数・HD担当表（担当変更・備考編集可）・申し送り（CEと同一の dat.memos）だけ。
    #dg/#dcl/#wcl/#pool-chips/#ops-grid/#hdcl は絶対に作らない
    （buildDG/buildCL はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない）。 */
 function renderPageHD(ds) {
@@ -10463,8 +10603,8 @@ function renderPageHD(ds) {
   h += '<button data-ds="' + ds + '" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
   h += '</div></div>';
 
-  /* 簡易サマリ行（HDチェックリストは未実装のため進捗はまだ出せない） */
-  h += '<div class="pp"><div class="pr"><span class="pl">🩸 HDモード</span><span class="pv">' + fmtJ(ds) + '（' + wf + '）</span></div></div>';
+  /* 血液浄化の実施件数（チェックリストは未実装のため進捗はまだ出せない） */
+  h += '<div class="pp" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
 
   /* HD担当表（フェーズ4：担当変更・備考編集可）：役割/スタッフ/備考の3列、1人1行 */
   h += '<div class="st">🩸 HD担当表</div>';
@@ -10525,6 +10665,63 @@ function renderPageHD(ds) {
       } else if (action === 'addEvtPrompt') {
         addEvtPrompt(bds);
       }
+    });
+  }
+
+  /* 血液浄化件数パネルのイベント登録。#hd-count-panel は常に存在する安定要素にし、中身だけを
+     refreshHdCountPanel で差し替えるため、ここで一度だけ委譲登録すれば追加/削除/編集トグルの
+     たびに登録し直す必要はない（#memo-list と同じ設計）。 */
+  var hdCountPanel = document.getElementById('hd-count-panel');
+  if (hdCountPanel) {
+    hdCountPanel.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      var action = btn.getAttribute('data-action');
+      var pg = D.pages[ds]; if (!pg) return;
+      if (action === 'hdcnt-toggle') {
+        if (!can('ops')) return;
+        _hdCountOpen = !_hdCountOpen;
+        refreshHdCountPanel(ds);
+      } else if (action === 'hdcnt-sp-add') {
+        if (!can('ops')) return;
+        hdCountEnsureSpArr(pg).push('');
+        saveDPage(ds);
+        refreshHdCountPanel(ds);
+      } else if (action === 'hdcnt-sp-del') {
+        if (!can('ops')) return;
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        var arr = hdCountEnsureSpArr(pg);
+        if (idx >= 0 && idx < arr.length) arr.splice(idx, 1);
+        saveDPage(ds);
+        refreshHdCountPanel(ds);
+      }
+    });
+    var hdCountTimers = {}; /* 区分ごとに独立してデバウンスする（hdRosterWrapのhdNoteTimersと同じ理由） */
+    hdCountPanel.addEventListener('input', function (e) {
+      var inp = e.target.closest('input[data-hdcnt-field]');
+      if (!inp || !can('ops')) return;
+      var key = inp.getAttribute('data-hdcnt-field');
+      var v = inp.value;
+      if (hdCountTimers[key]) clearTimeout(hdCountTimers[key]);
+      hdCountTimers[key] = setTimeout(function () {
+        var pg2 = D.pages[ds]; if (!pg2) return;
+        pg2.hdCount = pg2.hdCount || {};
+        pg2.hdCount[key] = v;
+        saveDPage(ds);
+        var totalEl = hdCountPanel.querySelector('.pv');
+        if (totalEl) totalEl.textContent = hdCountTotal(pg2) + '件'; /* 入力中に閉じるまで件数だけ即時反映（フォーカスを保つため全体は再描画しない） */
+      }, 600);
+    });
+    hdCountPanel.addEventListener('change', function (e) {
+      var sel = e.target.closest('select[data-hdcnt-sp]');
+      if (!sel || !can('ops')) return;
+      var idx = parseInt(sel.getAttribute('data-hdcnt-sp'), 10);
+      var pg2 = D.pages[ds]; if (!pg2) return;
+      var arr = hdCountEnsureSpArr(pg2);
+      if (idx >= 0 && idx < arr.length) arr[idx] = sel.value;
+      saveDPage(ds);
+      refreshHdCountPanel(ds); /* 選択肢は行の現在値ごとに生成する（hdTreatOptsHTML）ため、値が変わった行の
+        「（旧）」表示を消すには再生成が要る。件数（行数）自体は変わらないので合計は不変。 */
     });
   }
 
@@ -16053,7 +16250,7 @@ function swTab(t) {
   if(t==='assign'){ swSubTab('at'); renderAT(); }
   if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
   if(t==='master'){
-    renderWdlyList();renderDlyList();renderWdDeptList();
+    renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
     document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
       var perm=sec.getAttribute('data-perm');
@@ -17275,14 +17472,14 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
     saveD();
     writeLog('Firebaseスナップショットから復元', dateStr);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
     renderFirebaseSnapshots();
@@ -17343,13 +17540,13 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
     if(FB_ON) writeLog('自動バックアップから復元', dt+' '+s.label);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
     renderAutoBackups();
@@ -17399,13 +17596,13 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       saveD();
       if(FB_ON) writeLog('バックアップインポート', file.name);
       renderCal(); safeRenderPage();
-      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
+      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList();
       renderOpeList(); renderCathList(); renderLockList(); renderAT();
       var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
       if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';

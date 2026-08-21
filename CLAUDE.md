@@ -365,6 +365,16 @@ All class names are abbreviated:
 
 分類・解除の監査ログ：`classifyStaff`/`unclassifyStaff`が`writeLog('余剰人員分類'|'HD勤務者分類'|'余剰人員分類解除'|'HD勤務者分類解除', ...)`を、`dropToSurplus`/`removeFromSurplus`が`writeLog('余剰人員へ移動'|'余剰人員から削除', ...)`をそれぞれ呼ぶ。
 
+### HD主観モード（`_viewMode`）
+
+`_viewMode`（`'ce'|'hd'`）は端末ローカル設定（localStorage `ce2_viewmode`、`getViewMode()`/`setViewMode(m)`/`toggleViewMode()`）で、`D`には入れずログアウトでもリセットしない。トップバーの `#mode-toggle` ボタン（`updateModeToggleBtn()` が絵文字とラベル・`.hd-on`クラスを付け替え）で切り替える。`renderPage(ds)` は冒頭で `if(_viewMode==='hd'){ renderPageHD(ds); return; }` と分岐する。
+
+`renderPageHD(ds)` はCE版と別の日ページビルダーで、ヘッダー・イベント・血液浄化件数（後述）・HD担当表・余剰人員（`renderSurplusArea`をCEと共有）・申し送り（`dat.memos`をCEと共有）だけを描く。**`#dg`/`#dcl`/`#wcl`/`#pool-chips`/`#ops-grid`/`#hdcl` は絶対に作らない**（`buildDG`/`buildCL`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。
+
+`dat.hdDuty = { overrides: { 元の氏名: 差し替え後の氏名 } }` — HD担当表の手動修正（`hdRosterRowHTML`の`<select>`）。`dat.hdNotes = { 実効氏名: 'テキスト' }` — 担当表の備考欄。どちらも`saveDPage(ds)`。`buildHdRoster(ds)`は`hdShiftWorkers(ds)`（`getShiftForDay(ds).hd`に`hdDuty.overrides`を適用した実効HD勤務者一覧。HD担当表と余剰人員パネルの両方がこの1関数を共通の入口にする）を`HD_DAY_CODES`順にソートして返す。
+
+**血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。`{ day, night, bw, ward }`（数値文字列を直接入力）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`（数値化）／`hdCountSpArr(dat)`（Firebaseの疎配列→オブジェクト化対策。`ensureStaffZone`等と同じパターン）を経由する。`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列に正規化してから push/splice する。保存は`saveDPage(ds)`（`buildOPS`の`ops_cards`カード方式には乗せない——HD日ページには`#ops-grid`もカード追加/削除UIも無いため独立実装）。表示は`renderPageHD`内の`#hd-count-panel`（安定要素、中身だけ`hdCountPanelInnerHTML(ds,dat)`で差し替え）：既定はチップ表示＋`✏️編集`ボタン、押すと5行の入力フォームに変わる（開閉状態はモジュール変数`_hdCountOpen`、非永続）。ロックは新規IDを作らずCE側の`ops`ロックを流用。マスタ`D.hdTreatments`は`D.wdDepts`と同型の単純文字列配列（Dの5箇所ルール＋バックアップ3配列に登録済み）。
+
 ### OPE / カテカード（buildOPS内）
 
 `buildItemList(card, key, masterList, labelName, itemId, withTime, withOrder, withSup, withDept)` and `buildItemListTree(card, key, masterTree, labelName, itemId, withTime, withOrder, withSup)` build per-item rows inside an ops card.
