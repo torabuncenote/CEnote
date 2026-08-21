@@ -228,10 +228,14 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .hd-toggle-btn:hover{opacity:.8}
 .hd-toggle-btn.active{background:var(--pu);color:#fff}
 .hd-panel{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)}
+/* #mode-toggle（🩺CE/🩸HD切替ボタン、.tb-btns内）— HDモード中は紫地に変える。updateModeToggleBtnがJS側でクラスを付け外しするだけで、
+   この色指定自体は今まで存在しなかった（HDモードにしても見た目が変わらない不具合の原因）。 */
+#mode-toggle.hd-on{background:var(--pu);color:#fff;border-color:var(--pu)}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
 .pchip.sp{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2)}
 .pchip.pchip-zone-hd   {background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
+.pchip.pchip-zone-to_ce{background:var(--ac-bg);color:var(--ac);border:1.5px solid var(--ac)}
 .pchip.pchip-zone-maint{background:var(--or-bg);color:var(--or);border:1.5px solid var(--or)}
 .pchip.pchip-zone-off  {background:var(--gr-bg,#f0fff4);color:var(--gr);border:1.5px solid var(--gr)}
 .pchip.pchip-zone-other{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2)}
@@ -989,12 +993,18 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .ab{display:block!important}
   .main{margin:0!important;padding:0 8px!important;box-shadow:none!important;max-width:100%!important}
   .pt2{font-size:16px;font-weight:700;margin-bottom:8px}
-  .pp,.dg,.oc-card,.clg,.mo,.staffz,.pool-wrap,.surplus-wrap{page-break-inside:avoid}
+  .pp,.dg,.oc-card,.clg,.mo,.staffz,.pool-wrap,.surplus-wrap,#hd-roster-wrap{page-break-inside:avoid}
   .dg{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
   .dc{min-width:140px;font-size:11px!important}
   #staffz-body{display:block!important}
   #hd-worker-panel{display:flex!important}
   .pchip{font-size:11px!important;padding:3px 8px!important}
+  /* HD担当表：備考は院内配布物に出さない（要件16）ので列ごと非表示。group-hd行（🔵日勤/🌙準夜の区切り行）は
+     colspanの単一tdで:last-childにも該当してしまうため:not(.group-hd)で明示的に除外する。
+     スタッフ欄のselectは枠・背景を消して選択中の文字だけが見えるようにする。 */
+  #hd-roster-wrap thead th:last-child,
+  #hd-roster-wrap tbody tr:not(.group-hd) td:last-child{display:none!important}
+  #hd-roster-wrap select.hd-name-sel{border:none!important;background:transparent!important;-webkit-appearance:none;appearance:none;padding:0!important;color:inherit}
 }
 /* ===== 通知トースト ===== */
 .notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
@@ -5037,9 +5047,13 @@ function markDutyEdited(ds) {
   if (D.pages[ds] && D.pages[ds].autoAssigned) D.pages[ds].autoAssigned = false;
 }
 
-/* ===== 余剰人員エリア ===== */
+/* ===== 余剰人員エリア =====
+   key:'hd' は絶対に改名しない — 過去ページの staffZone.ce[名前]/staffZone.hd[名前] に
+   値 'hd' がそのまま永続化されているため、key を変えるとどのゾーンにも一致せず
+   チップが画面から消える（データは残るが不可視になる）。ラベル文字列だけ変更する。 */
 var SS_ZONES=[
-  {key:'hd',   icon:'🔄',label:'HDシフトチェンジ',border:'var(--pu)',  bg:'var(--pu-bg)',  color:'var(--pu)'},
+  {key:'hd',   icon:'🔄',label:'CE→HD',   border:'var(--pu)',  bg:'var(--pu-bg)',  color:'var(--pu)'},
+  {key:'to_ce',icon:'🔁',label:'HD→CE',   border:'var(--ac)',  bg:'var(--ac-bg)',  color:'var(--ac)'},
   {key:'maint',icon:'🔧',label:'メンテ',           border:'var(--or)',  bg:'var(--or-bg)',  color:'var(--or)'},
   {key:'off',  icon:'🏖️',label:'休み',             border:'var(--gr)',  bg:'var(--gr-bg,#f0fff4)',color:'var(--gr)'},
   {key:'other',icon:'📝',label:'その他',           border:'var(--bdr2)',bg:'var(--sur2)',     color:'var(--txt2)'}
@@ -5265,29 +5279,33 @@ function bindSurplusDnD(ds) {
       _ghost.style.left = t.clientX + 'px';
       _ghost.style.top  = t.clientY + 'px';
 
-      /* ハイライト: 指の下の担当カードを探す */
+      /* 指の下の要素を取得。以前はこの取得と全ハイライト処理が「#dgがあれば」ブロックの内側にあり、
+         #dgを持たないHD日ページではelすら求められず、スマホで余剰エリア/ステータスゾーンへ
+         ドラッグしてもハイライトが一切出なかった。担当カードのハイライトだけ#dg存在時に限定し、
+         余剰エリア・ステータスゾーンのハイライトはCE/HDどちらの日ページでも行う。 */
+      _ghost.style.display = 'none';
+      var el = document.elementFromPoint(t.clientX, t.clientY);
+      _ghost.style.display = '';
+
       var dg2 = document.getElementById('dg');
       if (dg2) {
         var all = dg2.querySelectorAll('.dc');
         for (var i=0; i<all.length; i++) all[i].classList.remove('drag-over');
-        _ghost.style.display = 'none';
-        var el = document.elementFromPoint(t.clientX, t.clientY);
-        _ghost.style.display = '';
         if (el) {
           var card = el.closest('.dc[data-duty-id]');
           if (card) card.classList.add('drag-over');
         }
-        /* 余剰エリアのハイライト */
-        var surWrap = document.getElementById('surplus-wrap');
-        if (surWrap) surWrap.classList.remove('drag-over');
-        if (el && el.closest('#surplus-wrap')) {
-          if (surWrap) surWrap.classList.add('drag-over');
-        }
-        /* ステータスゾーンのハイライト */
-        var allZones = document.querySelectorAll('.ss-zone');
-        for(var zi2=0; zi2<allZones.length; zi2++) allZones[zi2].classList.remove('drag-over');
-        if (el) { var ssz = el.closest('.ss-zone'); if(ssz) ssz.classList.add('drag-over'); }
       }
+      /* 余剰エリアのハイライト */
+      var surWrap = document.getElementById('surplus-wrap');
+      if (surWrap) surWrap.classList.remove('drag-over');
+      if (el && el.closest('#surplus-wrap')) {
+        if (surWrap) surWrap.classList.add('drag-over');
+      }
+      /* ステータスゾーンのハイライト */
+      var allZones = document.querySelectorAll('.ss-zone');
+      for(var zi2=0; zi2<allZones.length; zi2++) allZones[zi2].classList.remove('drag-over');
+      if (el) { var ssz = el.closest('.ss-zone'); if(ssz) ssz.classList.add('drag-over'); }
     }
 
     function onTouchEnd(e) {
@@ -10471,7 +10489,7 @@ function renderPageHD(ds) {
 
   /* 余剰人員（CE主観と全く同じ renderSurplusArea/dat.staffZone を再利用。HD勤務者のゾーン分類をHD側からも行えるようにする） */
   h += '<div class="st">🔄 余剰人員</div>';
-  h += '<div id="surplus-wrap"></div>';
+  h += '<div id="surplus-wrap" class="surplus-wrap"></div>';
 
   /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有） */
   h += '<div class="st">📝 業務連絡・申し送り' + (mlk ? '<span class="slb lk">🔒</span>' : '') + '</div>';
