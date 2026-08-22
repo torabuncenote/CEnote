@@ -574,6 +574,8 @@ Fixed bar at the bottom of the screen, shown only while a day page is open — `
 
 `updateCloseBar(ds)` は `closeItems(ds)` を集計し、`.warn`（🔴 今日・未了あり）/`.ref`（⚪ 今日以外を開いている・グレーの参照表示）/`.ok`（✅ 残り0）の3状態を切り替える。`body.classList.add('has-cbar')` は CSS 側で `.fb-toast`（`toast()` の一般トースト）・`#idle-warn`（自動ログアウトのカウントダウン警告）・`.notif-toast`・`#scroll-top-btn` の `bottom` をバーの高さぶん押し上げ、画面下端での重なりを防ぐ。`updateCloseBar(ds)` に単独の集中呼び出し口はなく、`updateOpsHeader(ds)`/`updateTabletBtnBadge(ds)` と同じ箇所（担当割り当て・OPS入力・タブレット貸出返却・申し送り投稿など）から都度呼ぶ。
 
+**画面下端が隠れない仕組み（`--cbar-h`）**：バーは `position:fixed` なので、何も手当てしないとページ末尾がバーの裏に入る。`syncCbarHeight()` が**バーの実測高さ**を `--cbar-h` に流し込み、`.main`・`.sp`（サイドバーの各タブ）・画面下端の固定要素（`.fb-toast`／`#idle-warn`／`.notif-toast`／`#scroll-top-btn`）がすべて `calc(... + var(--cbar-h, 0px))` でこれを避ける。**決め打ちの数値に戻さないこと** — 以前は `.main{padding-bottom:80px}` 固定で、セーフエリアや端末の下部UI（`--vv-bottom` は最大160px）でバーが厚くなると末尾が隠れていた。`updateCloseBar`（表示/非表示・文言変更の後）・`syncCbarInset`（`--vv-bottom` はバーの padding に入るため）・`resize` の3経路から測り直す。バーが出ていないときは 0 になるので余分な余白は残らない。
+
 **Android対策3点**（実機フィードバックで判明した「バーが出ない／出たり出なかったりする」不具合の修正）：①`updateCloseBar(ds)` の冒頭で `_cbarInputFocused` を `document.activeElement` の実態から毎回上書きする自己修復を入れている——`focusin`/`focusout` リスナー（入力欄フォーカス中はバーを隠す）は、フォーカス中の要素が `renderPage()` の `#main` 丸ごと差し替えで DOM ごと消えると `focusout` が発火せず、フラグが `true` のまま固まってリロードするまでバーが出なくなるため。②`.cbar` の `z-index` は `250`——スマホの全画面サイドバー（`.sb`=200）や `#pane-assign`（201）より上に置かないと、サイドバーを開くたびにその裏へ完全に隠れる。③`syncCbarInset()` は実測した下端インセットを、以前は120px超で一律0（補正なし）に捨てていたが、ナビゲーションバー＋ブラウザUIが厚い端末では平常時でもこれを超えてバーが沈む機種があったため、キーボード（200px超）と単に厚いUI（120〜200px）を分け、後者は160pxで捨てずにクランプするよう変更した。
 
 ### Shift Import
