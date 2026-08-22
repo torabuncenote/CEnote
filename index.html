@@ -55,6 +55,7 @@
   --code-bg:#1e1e1e;--code-fg:#d4d4d4;
   --fn:'Noto Sans JP',sans-serif;--mo:'DM Mono',monospace;
   --r:10px;--rs:6px;
+  color-scheme:light;
   --sh:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
   --shl:0 8px 32px rgba(0,0,0,.14);
   --sw:290px;--th:52px;
@@ -413,6 +414,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     /* トーストは地(--bg)より明るくして浮かせる（ライトと逆の関係になる） */
     --toast-bg:#333947;--toast-fg:#f2f3f5;--toast-warn:#8a5a12;
     --code-bg:#101216;--code-fg:#cfd3da;
+    /* ブラウザ既定のフォーム部品（背景色を指定していない input/textarea/select、
+       日付・時刻ピッカー、スクロールバー）もまとめて暗くする */
+    color-scheme:dark;
     /* 影は暗背景では黒を重ねても沈まないので、より濃く・広く取る */
     --sh:0 1px 4px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
     --shl:0 8px 32px rgba(0,0,0,.6);
@@ -599,6 +603,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ali{display:flex;align-items:center;gap:3px}
 .ndm{text-align:center;padding:36px;color:var(--txt3);font-size:13px}
 .ph{display:none}
+/* 背景を指定していない入力欄がブラウザ既定の白のまま残らないようにする。
+   詳細度が低いので、クラスで色を持っている入力欄には影響しない。
+   チェックボックス／ラジオ／色ピッカーは既定の描画に任せる。 */
+input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{background:var(--sur);color:var(--txt)}
 @media print{
   /* 紙は常に白。ダークのパレットは @media screen 限定なので、印刷では自動的にライトの :root 値に戻る */
   body{background:#fff!important;font-size:10px}
@@ -4770,12 +4778,12 @@ function renderRegs() {
     + '.rg-tbl th{background:#0e6e5e;color:#fff;padding:5px 8px;text-align:left}'
     + '.rg-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}'
     + '.rg-tbl tr:nth-child(even) td{background:var(--sur2)}'
-    + '.rg-ok{background:#e8f5f2;border:1px solid #0e6e5e;border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
+    + '.rg-ok{background:var(--gr-bg);border:1px solid var(--gr);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
     + '.rg-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
     + '.rg-alert{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
     + '.rg-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700}'
-    + '.rg-mhlw{background:#e8f5f2;color:#0e6e5e;border:1px solid #0e6e5e}'
-    + '.rg-ppc{background:#eef2fc;color:var(--ac);border:1px solid var(--ac)}'
+    + '.rg-mhlw{background:var(--gr-bg);color:var(--gr);border:1px solid var(--gr)}'
+    + '.rg-ppc{background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac)}'
     + '.rg-meti{background:var(--or-bg);color:var(--or);border:1px solid var(--or)}'
     + '</style>';
   var S = SS;
