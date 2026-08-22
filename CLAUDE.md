@@ -406,6 +406,12 @@ All class names are abbreviated:
 
 **CE⇄HD 相互参照（読み取り専用の担当表）**：同じ日の同じ現場を別主観で見ているだけなので、相手側の割り当ては見えるべき、という方針。`ceRosterRefHTML(ds,dat)` がHD日ページに「🩺 CE担当表」（`getDutyCfg`＋`dat.duties`、枠の色は`dutyColorFor(slot)`）を、`hdRosterRefHTML(ds,dat)` がCE日ページに「🩸 HD担当表」（`buildHdRoster(ds)`＋`dat.hdNotes`）を出す。どちらも**`<select>`/`<textarea>`を使わないテキスト表示**で、編集はそれぞれの主観の自分の担当表で行う。折りたたみの外枠は人員配置管理と同じ`.staffz`シェルを流用（新規CSS不要・見た目も揃う）、開閉は`_ceRefOpen`/`_hdRefOpen`（非永続、既定は閉じる）。対象が0件のときは見出しごと出さない。印刷CSSでは`#ce-ref-body`/`#hd-ref-body`を`#staffz-body`と同様に強制表示する。
 
+**カレンダーの完了ドットは主観に追従する**：`renderCal()` の日セル判定は `pctForView(ds)`（`_viewMode==='hd' ? getHdPct : getPct`）を通す。HD勤務者にCEの未完了を見せても意味が無いため。`setViewMode` と `updHdProg` の両方が `renderCal()` を呼んで塗り直す。**担当表（`renderAT`）はCE専用画面なので `getPct` のまま**——ここを `pctForView` にすると、HD主観で担当表を開いたときに日付セルの色だけHD基準になってしまう。
+
+**申し送りセクションのマークアップは `memoSectionHTML(ds, mlk)` に集約**：CE版とHD版が同一の `dat.memos` を共有しており、以前は両方に逐語的な複製があった。とくに患者情報を書かせないための注意書き（`.memo-notice`）が2箇所にあると、片方だけ文面を直したときにもう一方の主観に古い注意書きが残る。**患者安全に関わる文言なので複製を戻さないこと。**
+
+**未返却タブレットの台数は `tabletUnreturnedCount(ds)` が唯一の集計元**：ヘッダーバッジ・CE日ページ・HD日ページが同じ数を出す必要がある。以前は同じ式が3箇所に複製され「完全に同じにすること」というコメントで支えられていた。
+
 **余剰人員は主観で上下が入れ替わる（`renderSurplusArea`）**：どちらの主観でも「未分類の自分たち」を上のチップ行（`#surplus-chips`）に、「引っ張ってこられる相手」を折りたたみのソースパネル（`#hd-worker-panel`）に置く。
 
 | | 上のチップ行 | ソースパネル |
@@ -413,12 +419,12 @@ All class names are abbreviated:
 | CE主観 | CE余剰人員（`sz.ce`の未分類） `data-from="surplus"` | 🩸 HD勤務者 `data-from="hd"` |
 | HD主観 | HD勤務者（`sz.hd`の未分類） `data-from="hd"` | 🩺 CE勤務者（`getShiftForDay(ds).ce`の未分類） `data-from="surplus"` |
 
-**CE勤務者チップの`data-from`に`'ce'`のような新しい値を作ってはいけない。** `dropToStatusZone`は`from==='hd'?'hd':'ce'`で振り分けるので`'surplus'`でも分類は正しく落ちるが、`removeFromZoneSource`（担当枠へドロップしたときの後始末）は`'surplus'`/`'status'`しか見ておらず、新値だと後始末が効かなくなる。ソースパネルの自動オープン判定（`_hdPanelUserOverride===null`のとき）も主観で切り替え、HD主観では「未分類のCE勤務者がいるか」を見る。HD主観では`.staffz`の外枠見出しが「🔄 余剰人員」を出すため`renderSurplusArea`側の`.surplus-ttl`は出さず、見出しバッジ`#hdz-badge`（未分類N）は`renderSurplusArea`の末尾で直接書き換える（`staffZoneCounts()`はCE前提の数字なので流用しない）。HD日ページの折りたたみは`#staffz-body`と`toggleStaffZone()`/`_staffZoneOpen`をCEとそのまま共有する。
+**CE勤務者チップの`data-from`に`'ce'`のような新しい値を作ってはいけない。** `dropToStatusZone`は`from==='hd'?'hd':'ce'`で振り分けるので`'surplus'`でも分類は正しく落ちるが、`removeFromZoneSource`（担当枠へドロップしたときの後始末）は`'surplus'`/`'status'`しか見ておらず、新値だと後始末が効かなくなる。ソースパネルの自動オープン判定（`_hdPanelUserOverride===null`のとき）も主観で切り替え、HD主観では「未分類のCE勤務者がいるか」を見る。HD主観では`.staffz`の外枠見出しが「🔄 余剰人員」を出すため`renderSurplusArea`側の`.surplus-ttl`は出さず、見出しバッジ`#hdz-badge`（未分類N）は`renderSurplusArea`の末尾で直接書き換える（`staffZoneCounts()`はCE前提の数字なので流用しない）。HD日ページの折りたたみは`#staffz-body`と`toggleStaffZone()`/`_staffZoneOpen`をCEとそのまま共有する。**開閉の矢印は必ず`id`で引く**（`#staffz-arrow`/`#ce-ref-arrow`/`#hd-ref-arrow`）——HD日ページには`.staffz`シェルを流用したセクションが複数並ぶため、`querySelector('.staffz-arrow')`で先頭1つを取ると別セクションの矢印が反転して本体と食い違う。
 
 **HDチェックリスト（`D.hdDly`/`D.hdWd` + `dat.hdChecks`）**：CE側（`D.dly`/`D.wd` + `dat.checks`、[Checklist Items & Week-of-Month Filtering](#checklist-items--week-of-month-filtering) 節を参照）とは名前空間もdat上のキーも完全に別。**`dat.checks`に相乗りしてはいけない** — `remapDlyChecks`/`remapWdChecks`は`D.dly.length`基準の固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にするとCE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は`dat.checks`しか触らずHD側は自動的に無傷になる（逆も同様）。
 
 - `wdText`/`dlyText`/`dlyNotif`/`itemRebuild`/`isDlyShownOnDate`/`wdWeeks`/`wdOnce`/`wdSubs`/`wdSid`/`newSid`/`nthWk`/`isLastWeek`/`wdApplies`/`wdSubProgress`/`renderSubPanel`は渡された項目オブジェクトだけを見る純粋な関数（`D.dly`/`D.wd`を直接参照しない）なので、CE版をそのままHD版にも使い回す。`renderSubPanel`が書く`dat.subChecks`と設置部署マスタ`D.wdDepts`もCE/HD共通——院内の部署は主観と無関係なため、ここだけは別マスタを持たない。
-- HD版だけ新規に用意した関数：`hdWdEntriesForDate`/`hdWdItemsForDate`/`hdWdOnceDoneOn`（`wdOnceDoneOn`のHD版。`D.dly.length`→`D.hdDly.length`、`pg.checks`→`pg.hdChecks`、`wdItemsForDate`→`hdWdItemsForDate`の3点だけが違う）/`remapHdDlyChecks`/`remapHdWdChecks`（呼ぶタイミングもCE版と同じ非対称性を踏襲：dlyは変更の**前**、wdlyは変更の**後**）/`hdClStatus`/`getHdPct`/`buildHdCL(ds,dat,locked)`/`mkHdCk`/`updHdProg(ds)`（`updProg`のHD版。`#hd-pgf`/`#hd-pgt`/`#hd-pgp`を更新し`renderCal()`は呼ばない——カレンダーの日セル色分けは`getPct`＝CE基準のままで今回のスコープ外）。
+- HD版だけ新規に用意した関数：`hdWdEntriesForDate`/`hdWdItemsForDate`/`hdWdOnceDoneOn`（`wdOnceDoneOn`のHD版。`D.dly.length`→`D.hdDly.length`、`pg.checks`→`pg.hdChecks`、`wdItemsForDate`→`hdWdItemsForDate`の3点だけが違う）/`remapHdDlyChecks`/`remapHdWdChecks`（呼ぶタイミングもCE版と同じ非対称性を踏襲：dlyは変更の**前**、wdlyは変更の**後**）/`hdClStatus`/`getHdPct`/`buildHdCL(ds,dat,locked)`/`mkHdCk`/`updHdProg(ds)`（`updProg`のHD版。`#hd-pgf`/`#hd-pgt`/`#hd-pgp`を更新し、CE版と同じく`renderCal()`も呼ぶ）。
 - `buildHdCL`は冒頭で`if(!el) return;`する（`#hdcl`/`#hdwcl`が無い状態で呼ばれても安全）ため、CE版`buildCL`と違い呼び出し側でのnullガードは不要。`renderPageHD`から無条件に呼ぶ。
 - マスタ編集UI：`renderHdDlyList`/`addHdDly`/`rmHdDly`/`mvHdDly`/`editHdDly`/`togHdDlyDay`（共通業務）と`renderHdWdTabs`/`renderHdWdlyList`/`addHdWdly`/`rmHdWdly`/`mvHdWdly`/`editHdWdly`/`setHdWdWeeks`/`togHdWdWeek`/`togHdWdOnce`/`openHdWdSubsModal`/`saveHdWdSubs`（曜日別業務、選択中の曜日は`_hdSelWd`＝CE版`selWd`のHD版）。`pane-master`の`.sp`直下にCE版と同じ`data-perm="dm"`/`"wm"`の別セクションとして追加する（新規ロックIDは作らない）。**通知設定（🔔）の入力欄はCE版と違い出さない** — `itemRebuild`が`notif`キーを保持できる形状はCE版と揃えてあるが、実際に監視して通知を飛ばす`checkTimeNotifs`側のHD対応は別スコープのため、「設定したのに鳴らない」状態を画面に出さない判断。`confirmEditModal`の`state.type`に`'hdDly'`/`'hdWdly'`分岐を追加。
 - `renderPageHD`は`buildHdCL(ds, dat, clk)`を呼ぶ（`clk = !can('cl')`、CE版と同じ`cl`ロックを流用）。チェックリストのラッパー`<div class="clg">`はCE版と**同じクラス名**を使う——`dashJump('.clg')`と`closeItems`の`{key:'checklist', sel:'.clg', ...}`が`#main`内を`querySelector`するだけの実装なので、クラス名さえ揃えれば新規分岐なしでHD日ページでも正しくジャンプ・消し込みバー連動する。

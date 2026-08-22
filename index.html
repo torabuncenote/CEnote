@@ -1028,11 +1028,16 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   #staffz-body,#ce-ref-body,#hd-ref-body{display:block!important}
   #hd-worker-panel{display:flex!important}
   .pchip{font-size:11px!important;padding:3px 8px!important}
-  /* HD担当表：備考は院内配布物に出さない（要件16）ので列ごと非表示。group-hd行（🔵日勤/🌙準夜の区切り行）は
-     colspanの単一tdで:last-childにも該当してしまうため:not(.group-hd)で明示的に除外する。
+  /* HD担当表：備考は院内配布物に出さない（要件16）ので列ごと非表示。HD日ページの編集用テーブル
+     （#hd-roster-wrap）と、CE日ページに出す読み取り専用のミラー（#hd-ref-body）の両方に効かせる
+     — 片方だけ伏せても、もう片方の紙に同じ備考が載ってしまい要件を満たせないため。
+     group-hd行（🔵日勤/🌙準夜の区切り行）はcolspanの単一tdで:last-childにも該当してしまうため
+     :not(.group-hd)で明示的に除外する。
      スタッフ欄のselectは枠・背景を消して選択中の文字だけが見えるようにする。 */
   #hd-roster-wrap thead th:last-child,
-  #hd-roster-wrap tbody tr:not(.group-hd) td:last-child{display:none!important}
+  #hd-roster-wrap tbody tr:not(.group-hd) td:last-child,
+  #hd-ref-body thead th:last-child,
+  #hd-ref-body tbody tr:not(.group-hd) td:last-child{display:none!important}
   #hd-roster-wrap select.hd-name-sel{border:none!important;background:transparent!important;-webkit-appearance:none;appearance:none;padding:0!important;color:inherit}
 }
 /* ===== 通知トースト ===== */
@@ -4247,8 +4252,27 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/21-44';
+var APP_VERSION = 'Ver.2026/08/22-45';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/22-45', date:'2026-08-22', title:'HDモード（透析主観）を大幅に拡張', items:[
+    {t:'new', d:'🩸 HDモードの連絡表に「血液浄化」ダッシュボードを追加しました。日中・準夜・BW・病棟・特殊の件数が数字タイルで一目で分かり、特殊治療は治療名（PMX・CHDFなど）もそのまま表示されます'},
+    {t:'new', d:'🩸 HDモード専用の「HD集計」タブを追加しました。血液浄化の件数を月・年・期間指定で集計でき、特殊治療の内訳も出ます。CSV出力にも対応しています'},
+    {t:'new', d:'📌 HDモード専用のチェックリスト（共通業務・曜日別業務）を追加しました。第N週の指定や「月内どれか1回でよい」設定、設置部署ごとの消し込みまでCE側と同じように使えます'},
+    {t:'new', d:'📱 HD専用のタブレット台帳を追加しました。透析室のタブレットはCEのものと別管理になり、貸出・返却の記録や未返却の件数が混ざりません'},
+    {t:'new', d:'🩺 HDモードでCEの担当表が、CEモードでHDの担当表（備考つき）が、それぞれ読み取り専用で見られるようになりました。見出しをタップで開きます'},
+    {t:'new', d:'👤 「マイ担当」をサイドバーのタブに昇格しました。担当表の中に隠れていて気づきにくかったものが、1タップで開けます。HD勤務の役割（M・A1・準夜など）も一緒に表示されます'},
+    {t:'imp', d:'🔄 余剰人員の「HDシフトチェンジ」を「CE→HD」「HD→CE」の2つに分けました。どちら向きの移動なのかが一目で分かります'},
+    {t:'imp', d:'🔄 HDモードでは余剰人員の上下が入れ替わり、自分たち（HD勤務者）が上、引っ張ってこられる相手（CE勤務者）がボタンの中になります。折りたたみもできるようになりました'},
+    {t:'imp', d:'📅 カレンダーの完了マークが今見ているモードに合わせて変わるようになりました。HDモードではHDのチェックリストの進み具合が反映されます'},
+    {t:'imp', d:'🩸 HDモードではCE専用のタブ（担当表など）を隠し、実際に使うタブだけを表示するようにしました'},
+    {t:'imp', d:'🖨️ 印刷したとき、HD担当表の備考欄は紙に出ないようにしました（画面でのみ確認する運用に統一）'},
+    {t:'fix', d:'🔄 HDモードの連絡表で「余剰人員」を開閉したとき、別のセクションの▼マークが反応してしまう不具合を修正しました'},
+    {t:'fix', d:'📱 スマートフォンでHDモードの連絡表からスタッフをドラッグしたとき、移動先の枠がハイライトされない不具合を修正しました'},
+    {t:'fix', d:'🩸 HDモードのまま画面を再読み込みすると、タブの構成が切り替わらないままになる不具合を修正しました'},
+    {t:'fix', d:'🔄 余剰人員のチップが横に伸びて、氏名とシフトコードが縦に折り返してしまう表示崩れを修正しました'},
+    {t:'imp', admin:true, d:'👥 スタッフマスタ（スタッフ一覧・PHS番号・勤務表インポート）を管理者限定にしました。ロック設定の「スタッフマスタの編集」項目は廃止しています'},
+    {t:'imp', admin:true, d:'📋 業務タブの各マスタを、CEモード用とHDモード用で表示し分けるようにしました。設置部署マスタは両モード共通です'}
+  ]},
   { ver:'Ver.2026/08/21-44', date:'2026-08-21', title:'人員配置管理の中身が消える不具合を修正', items:[
     {t:'fix', d:'👥 「人員配置管理」の余剰人員エリアが空欄になり、HDへ移動・休みなどの分類が見えなくなる不具合を修正しました'},
     {t:'fix', d:'📞 同じ原因で、オンコール欄の担当者選択や申し送りの投稿が反応しなくなることがあった問題も解消しました'}
@@ -5300,7 +5324,11 @@ function toggleStaffZone(){
   _staffZoneOpen = !_staffZoneOpen;
   var body = document.getElementById('staffz-body');
   if(body) body.style.display = _staffZoneOpen ? 'block' : 'none';
-  var ar = document.querySelector('.staffz-arrow');
+  /* 矢印は必ず id で引く。以前は document.querySelector('.staffz-arrow') で
+     「文書内の先頭1つ」を取っていたが、HD日ページには .staffz シェルを流用した
+     セクションが複数あり（CE担当表→余剰人員の順）、余剰人員を開閉すると
+     CE担当表側の▼だけが反転して本体と食い違う不具合になっていた。 */
+  var ar = document.getElementById('staffz-arrow');
   if(ar) ar.textContent = _staffZoneOpen ? '▲' : '▼';
 }
 
@@ -5999,6 +6027,16 @@ function renderHdSummary() {
     rows.push({ ds: ds, day: day, night: night, bw: bw, ward: ward, sp: sp, total: total });
   });
   var h = sumCtlHTML('hd');
+  /* 月送り。OC集計・業務集計は担当表タブ上部の月ナビ（asPrevM/asNextM）を共有しているが、
+     HD主観ではその担当表タブごと隠れるため、HD集計にだけ自前の月送りを置く。
+     これが無いとHDユーザーは今月以外を「期間指定」でしか見られない。
+     asPrevM/asNextM は pane-hdsum が表示中なら renderHdSummary() を呼び直す。 */
+  if (_sumMode === 'month') {
+    h += '<div class="sum-toolbar" style="margin-top:-4px">'
+      + '<button class="btn btn-g btn-sm" onclick="asPrevM()">&#8249; 前の月</button>'
+      + '<button class="btn btn-g btn-sm" onclick="asNextM()">次の月 &#8250;</button>'
+      + '</div>';
+  }
   if (!rows.length) {
     el.innerHTML = h + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'に血液浄化の記録がありません</div>';
     return;
@@ -7242,6 +7280,10 @@ function getPct(ds) {
   if (!s.exists) return 0;
   return s.total===0?100:Math.round(s.done/s.total*100);
 }
+/* カレンダーの日セルの塗り分けに使う進捗。CE主観ならCEのチェックリスト、HD主観ならHDのを見る。
+   HD勤務者にCEの未完了を見せても意味が無いため主観に追従させる。
+   担当表（renderAT）はCE専用の画面なのでそちらは getPct のまま。 */
+function pctForView(ds) { return _viewMode === 'hd' ? getHdPct(ds) : getPct(ds); }
 
 /* その日、自分が持っている担当枠のラベル一覧。スロットのidは「追加」のたびに
    'slot_'+Date.now() で採番し直される（日をまたいで同じidが続く保証がない）ため、
@@ -7470,7 +7512,7 @@ function renderCal() {
     var cls = 'cd' + (w===0?' sun':w===6?' sat':'') + (ds===today?' tod':'') +
               (D.pages[ds] ? ' hp' : '') +
               (D.pages[ds] && D.pages[ds].autoAssigned ? ' ap' : '') +
-              (D.pages[ds] && getPct(ds)===100 ? ' dp' : '') +
+              (D.pages[ds] && pctForView(ds)===100 ? ' dp' : '') +
               (hasEvt ? ' ev' : '') +
               (curDs===ds ? ' sel' : '');
     var e = document.createElement('div'); e.className = cls;
@@ -10729,7 +10771,7 @@ function renderPage(ds) {
   var h='<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
   h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
-  var _tblOut=tabletLogsOf(dat).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
+  var _tblOut=tabletUnreturnedCount(ds);
   h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
   /* 掲示板はタブだと気づかれにくいので、連絡表からも直接開けるようにする。
      未読数は updateBoardBadge が boardUnreadCount を元にタブと同時に更新する */
@@ -10788,7 +10830,7 @@ function renderPage(ds) {
   h+='<span class="staffz-ttl">👥 人員配置管理</span>';
   h+='<span class="staffz-badge" id="staffz-badge-staff">当日'+_szc.staffN+'名</span>';
   h+='<span class="staffz-badge" id="staffz-badge-unassigned" style="color:var(--rd)'+(_szc.unassignedN?'':';display:none')+'">未割当'+_szc.unassignedN+'</span>';
-  h+='<span class="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
+  h+='<span class="staffz-arrow" id="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
   h+='</div>';
   h+='<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
 
@@ -10932,25 +10974,8 @@ function renderPage(ds) {
   h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> 共通業務（毎日・'+D.dly.length+'項目）</div><div id="dcl"></div></div>';
   h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> 曜日別業務 <span class="wb">'+wf+'</span></div><div id="wcl"></div></div><hr>';
 
-  /* 業務連絡 */
-  h+='<div class="st">📝 業務連絡・申し送り'+(mlk?'<span class="slb lk">🔒</span>':'')+'</div>';
-  h+='<div class="memo-list" id="memo-list"></div>';
-  if(!mlk){
-    h+='<div class="memo-input-area">';
-    /* 注意書き（常時表示） */
-    h+='<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">💡 <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
-    /* 患者情報検知警告エリア */
-    h+='<div id="memo-phi-warn" class="memo-phi-warn" style="display:none"></div>';
-    h+='<div class="memo-media-preview" id="memo-media-preview"></div>';
-    h+='<div class="memo-input-row">';
-    h+='<textarea id="memo-new" placeholder="申し送りを入力... (Ctrl+Enterで送信)" rows="2"></textarea>';
-    h+='<button class="btn btn-p" style="align-self:flex-end" onclick="postMemo(\''+ds+'\')" id="memo-send-btn">送信</button>';
-    h+='</div>';
-    h+='<div class="memo-tools">';
-    h+='<label class="memo-media-btn">📎 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
-    h+='</div>';
-    h+='</div>';
-  }
+  /* 業務連絡（マークアップは memoSectionHTML に集約。HD日ページと同一のものを使う） */
+  h+=memoSectionHTML(ds, mlk);
 
   /* 進捗 */
   h+='<div class="pgw"><div class="pgi"><div class="pgt" id="pgt">進捗：'+pct+'%（'+done+' / '+total+' 完了）</div>';
@@ -11188,8 +11213,8 @@ function hdCountPanelInnerHTML(ds, dat) {
       h += '<div class="hdash-tile'+(t[0]?'':' zero')+'"><div class="n">'+t[0]+'</div><div class="l">'+t[1]+'</div></div>';
     });
     h += '</div>';
-    /* 特殊治療は件数だけでなく中身（治療名）を出す。同じ治療が複数あれば ×n に集約し、
-       未選択の空行はタグにしない（件数には数えるので、タグ数と特殊タイルの数字は一致しないことがある） */
+    /* 特殊治療は件数だけでなく中身（治療名）を出す。同じ治療が複数あれば ×n に集約する。
+       未選択の空行は hdCountSpFilled が除いているので、タグの数と特殊タイルの数字は必ず一致する。 */
     var spCount = {}, spOrder = [];
     spFilled.forEach(function(nm){
       if (spCount[nm] === undefined) { spCount[nm] = 0; spOrder.push(nm); }
@@ -11327,8 +11352,7 @@ function renderPageHD(ds) {
 
   var h = '<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
   h += '<div class="pt2" style="flex:1">🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）</div>';
-  /* タブレットバッジの件数計算式は renderPage/updateTabletBtnBadge と完全に同じにすること */
-  var _tblOut = tabletLogsOf(dat).filter(function (l) { return !l.returnedAt; }).length + tabletCarryOver(ds).length;
+  var _tblOut = tabletUnreturnedCount(ds);
   h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
   h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h += '</div>';
@@ -11400,29 +11424,14 @@ function renderPageHD(ds) {
   h += '<div class="staffz-hd" onclick="toggleStaffZone()">';
   h += '<span class="staffz-ttl">🔄 余剰人員</span>';
   h += '<span class="staffz-badge" id="hdz-badge"></span>';
-  h += '<span class="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
+  h += '<span class="staffz-arrow" id="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
   h += '</div>';
   h += '<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
   h += '<div id="surplus-wrap" class="surplus-wrap"></div>';
   h += '</div></div>';
 
-  /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有） */
-  h += '<div class="st">📝 業務連絡・申し送り' + (mlk ? '<span class="slb lk">🔒</span>' : '') + '</div>';
-  h += '<div class="memo-list" id="memo-list"></div>';
-  if (!mlk) {
-    h += '<div class="memo-input-area">';
-    h += '<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">💡 <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
-    h += '<div id="memo-phi-warn" class="memo-phi-warn" style="display:none"></div>';
-    h += '<div class="memo-media-preview" id="memo-media-preview"></div>';
-    h += '<div class="memo-input-row">';
-    h += '<textarea id="memo-new" placeholder="申し送りを入力... (Ctrl+Enterで送信)" rows="2"></textarea>';
-    h += '<button class="btn btn-p" style="align-self:flex-end" onclick="postMemo(\'' + ds + '\')" id="memo-send-btn">送信</button>';
-    h += '</div>';
-    h += '<div class="memo-tools">';
-    h += '<label class="memo-media-btn">📎 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
-    h += '</div>';
-    h += '</div>';
-  }
+  /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有。マークアップも memoSectionHTML で共通） */
+  h += memoSectionHTML(ds, mlk);
 
   document.getElementById('main').innerHTML = h;
 
@@ -11554,6 +11563,30 @@ function renderPageHD(ds) {
   updateCloseBar(ds);
 }
 
+/* 申し送りセクション（見出し＋一覧＋入力欄）のHTML。CE版(renderPage)とHD版(renderPageHD)が
+   同一の dat.memos スレッドを共有しており、以前は両方に同じマークアップが逐語的に複製されていた。
+   とくに患者情報を書かせないための注意書き（.memo-notice）が2箇所にあり、片方だけ文面を直すと
+   もう一方の主観だけ古い注意書きが残る——患者安全に関わる文言なので、1箇所に集約する。 */
+function memoSectionHTML(ds, mlk){
+  var h = '<div class="st">📝 業務連絡・申し送り'+(mlk?'<span class="slb lk">🔒</span>':'')+'</div>';
+  h += '<div class="memo-list" id="memo-list"></div>';
+  if (mlk) return h;
+  h += '<div class="memo-input-area">';
+  /* 注意書き（常時表示） */
+  h += '<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">💡 <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
+  /* 患者情報検知警告エリア */
+  h += '<div id="memo-phi-warn" class="memo-phi-warn" style="display:none"></div>';
+  h += '<div class="memo-media-preview" id="memo-media-preview"></div>';
+  h += '<div class="memo-input-row">';
+  h += '<textarea id="memo-new" placeholder="申し送りを入力... (Ctrl+Enterで送信)" rows="2"></textarea>';
+  h += '<button class="btn btn-p" style="align-self:flex-end" onclick="postMemo(\''+ds+'\')" id="memo-send-btn">送信</button>';
+  h += '</div>';
+  h += '<div class="memo-tools">';
+  h += '<label class="memo-media-btn">📎 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
 /* 申し送り入力欄（#memo-new）のイベント登録：送信ボタン／Ctrl+Enter送信／@メンション候補。
    renderPage・renderPageHD の両方が同じ #memo-new/#memo-send-btn DOMに対して呼ぶ共用関数
    （HDモードもCEと同一の dat.memos スレッドを共有するため、入力UIも同じロジックでよい）。 */
@@ -15413,8 +15446,7 @@ function updProg(ds) {
   updateCloseBar(ds);
 }
 /* updProgのHD版。DOM idが#hd-pgf/#hd-pgt/#hd-pgpと別なのでCE版と同じ関数にできない。
-   renderCal()は呼ばない — カレンダーの日セル色分けはgetPct（CE基準）のままで、
-   今回のスコープ外（HD専用のカレンダー表示は別フェーズ）。 */
+   カレンダーの日セルは pctForView 経由で主観に追従するようになったので、CE版と同じく renderCal() を呼ぶ。 */
 function updHdProg(ds) {
   var _cls=hdClStatus(ds), done=_cls.done, total=_cls.total;
   var pct=total===0?100:Math.round(done/total*100);
@@ -15422,6 +15454,7 @@ function updHdProg(ds) {
   if(f)f.style.width=pct+'%';
   if(t)t.textContent='進捗：'+pct+'%（'+done+' / '+total+' 完了）';
   if(p){p.textContent=pct+'%';p.className='pgp'+(pct===100?' dn':'');}
+  renderCal();
   updateCloseBar(ds);
 }
 
@@ -16840,11 +16873,16 @@ function tabletReturnedHere(ds){
   return out;
 }
 
+/* 未返却のタブレット台数（当日分＋前日以前からの持ち越し分）。ヘッダーバッジと
+   CE/HD両方の日ページが同じ数を出す必要があるため、計算はここ1箇所に閉じる
+   （以前は同じ式が3箇所に複製され、「完全に同じにすること」というコメントで支えられていた）。 */
+function tabletUnreturnedCount(ds){
+  var dat=D.pages[ds];
+  return tabletLogsOf(dat).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
+}
 function updateTabletBtnBadge(ds){
   var b=document.getElementById('tablet-btn-badge'); if(!b) return;
-  var dat=D.pages[ds];
-  var out=tabletLogsOf(dat).filter(function(l){return !l.returnedAt;}).length;
-  out+=tabletCarryOver(ds).length; /* 持ち越し分も未返却として数える */
+  var out=tabletUnreturnedCount(ds);
   b.textContent=out; b.style.display=out?'inline-block':'none';
   updateCloseBar(ds);
 }
@@ -17276,6 +17314,8 @@ function setViewMode(m) {
   /* PSG取り外しバナーは #main の外（固定要素）なので renderPage では再構築されない。
      HDへの切替直後にCE側の状態のまま出っぱなしにならないよう明示的に更新する */
   updatePsgRemovalBanner(curDs && D.pages[curDs] ? curDs : null);
+  /* カレンダーの完了ドットは pctForView 経由で主観に追従するため、切替時に塗り直す */
+  renderCal();
 }
 function toggleViewMode() {
   setViewMode(_viewMode === 'hd' ? 'ce' : 'hd');
