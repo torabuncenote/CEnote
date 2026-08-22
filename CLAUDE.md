@@ -669,6 +669,17 @@ Incomplete memo posts show a 📅 button (`.mp-move`) next to the 済 checkbox i
 
 `moveMemo` splices the memo out of `D.pages[ds].memos`, tags it with `movedFrom: ds`, and pushes it into `D.pages[targetDs].memos` (auto-creating the target page via the same minimal structure as `_doPostMemo` if it doesn't exist yet, gated by `can('pg')`). **Because this mutates two different pages, it must use full `saveD()` — not `saveDPage()`** (per the page-scoped-only rule above). Moved memos display a small "(M/DDから移動)" annotation in `.mp-meta` when `m.movedFrom` is set.
 
+### Memo Editing (申し送りの編集)
+
+投稿済みの申し送りは `✏️` から本文を編集できる（`editMemo` / `cancelMemoEdit` / `saveMemoEdit` / `_doSaveMemoEdit`）。
+
+- **編集できるのは投稿者本人と管理者だけ**（`canEdit = canDel`）。移動（`mp-move`）は `can('memo')` があれば誰でもできるが、あれは本文を書き換えないため。**編集は本文そのものを変えるので削除と同じ範囲に絞る。**
+- 対象の特定は `memoKeyOf`（`ts+uid`）→ `findMemoByKey`。**インデックスを使わない** — Firebaseのエコーで `memos` の並びが変わっても同じ投稿を指し続けるため（返信と同じ理由）。`_doSaveMemoEdit` は保存直前にもう一度引き直す。
+- **`m.name` / `m.uid` は書き換えない。** 誰が最初に書いたかの表示は編集後も変わらず、代わりに `m.editedAt` / `m.editedBy` を記録して本文末尾に「◯◯ に △△ が編集」と出す。
+- PHI検知は `postMemo` と同じ契約（`phiHasBlock(result)` なら送信を止め、それ以外は確認して続行可）。
+- 保存は `saveDPage(ds)`（ページ単独スコープ）。`writeLog('申し送り編集', …)` に編集前後の冒頭20文字を残す。
+- **「済」チェックと操作ボタン（✏️📅✕）は `.mp-actions` の1つのflex行にまとめる。** 以前はそれぞれを個別に `position:absolute` ＋ 固定の `right` 値で並べており、編集ボタンを足したときに位置計算を更新し忘れて「済」の文字がボタンの下に隠れた。**個別の絶対配置に戻さないこと** — 横並びなら表示されるボタンの数が変わっても自動で詰まる。
+
 ### Memo Replies (申し送りの返信)
 
 Each memo carries `m.replies = { [rid]: {uid, name, isAdmin, text, media, ts} }` — **a keyed object, not an array**. `memos` itself is an array under `/data/pages/{ds}`, so a nested array would collide on index whenever two people reply at once; this mirrors the board's `/board/{id}/replies`. The key is `'r' + ts + '_' + uid.slice(0,8)`.
