@@ -419,10 +419,14 @@ All class names are abbreviated:
 | 申し送り | `dat.memos` | `dat.hdMemos` | `memoKey()` / `memosOf(dat)` / `ensureMemos(dat)` |
 | スケジュール | `dat.schedule` | `dat.hdSchedule` | `schedKey()` / `schedOf(dat)` / `ensureSched(dat)` ＋ 列は `schedColumns(ds,dat)` |
 | タブレット台帳 | `D.tablets` / `dat.tabletLogs` | `D.hdTablets` / `dat.hdTabletLogs` | `tabletMaster()` / `tabletLogsOf(dat)` / `ensureTabletLogs(dat)` |
-| 掲示板 | `/board` の投稿（`kind`無しまたは`'ce'`） | `/board` の投稿（`kind:'hd'`） | `boardKindOf(p)` / `boardInView(p)` |
+| 掲示板 | `/board` の投稿（`kind`無しまたは`'ce'`） | `/board` の投稿（`kind:'hd'`） | `boardKindOf(p)` / `boardInView(p)` / `boardReadKey()` |
 
 - **掲示板だけは保存先を分けない。** `/board` 1つのまま投稿に `kind` を付けて振り分ける——**Firebaseのセキュリティルールを触らずに済み**（別パス新設は管理画面での手作業が要る）、既読・ピン留め・タグ・返信の仕組みをそのまま使えるため。`renderBoard`/`boardUnreadCount`/既読マークの3箇所すべてで `boardInView` を通す（画面に出ていない投稿を既読にしないため）。
 - **`kind`／`hdMemos`／`hdSchedule` が無い既存データは全てCE扱い**になるので、移行処理は不要。
+- **`*Of` / `ensure*` アクセサは必ず `normArr(v)` を通す。** Firebaseは疎な配列をオブジェクトとして返すことがあり（`ensureStaffZone` で実害が出たのと同じ罠）、`Array.isArray` だけで判定して空配列に差し替えると**既存データを破壊する**。`renderSched` は開くたびに `ensureSched` を呼ぶため、その日のスケジュールが消える事故になる。
+- **既読の基準時刻も主観ごとに分ける**（`boardReadKey()` が `ce2_boardread` / `ce2_boardread_hd` を返す）。1つのキーを共有すると、HDの掲示板を開いただけでCEの未読バッジが0になる。
+- **`schedImportDuties`（🔄 業務割当から取込）はCE専用。** 取り込み元の `dat.duties`/`getDutyCfg` がCEのデータなので、HD主観ではボタンを出さず実行側でも弾く（通すとCEの担当枠が `hdSchedule` に流れ込む）。
+- 掲示板・スケジュールのパネルは同じモーダルが主観で別スレッドを映すので、**見出しに主観を出す**（`📢 掲示板（CE/HD）`／`🩺 CE|🩸 HD …のスケジュール`）。
 - `setViewMode` は掲示板のバッジ更新と、開いていればパネルの再描画も行う。
 - **横断検索と自動削除のメディア掃除は両スレッドを走査する** — 検索は「どこかに書いたはず」を探す機能なので主観に関係なくヒットさせ、掃除は片方だけだと添付がStorageに残り続けるため。
 - **マイ担当（`renderMySchedule`）も両方のタイムテーブルを見る**（HD分は`🩸`付き）。自分の予定であることは主観と無関係なので。

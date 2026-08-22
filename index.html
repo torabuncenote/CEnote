@@ -1772,7 +1772,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 <div class="ov hd" id="board-panel-ov" onclick="if(event.target===this)closeBoardPanel()">
   <div class="md" id="board-panel-md" style="max-width:720px;width:100%;height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
     <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--bdr);flex-shrink:0">
-      <span style="font-size:15px;font-weight:700">📢 掲示板</span>
+      <span style="font-size:15px;font-weight:700" id="board-panel-title">📢 掲示板</span>
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="closeBoardPanel()">✕</button>
     </div>
     <div id="pane-board" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
@@ -4252,8 +4252,20 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/22-45';
+var APP_VERSION = 'Ver.2026/08/22-46';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/22-46', date:'2026-08-22', title:'業務連絡・スケジュール・掲示板をCEとHDで分ける', items:[
+    {t:'new', d:'📝 業務連絡（申し送り）がCEモードとHDモードで別々になりました。透析の申し送りにCEのオペ・カテの連絡が混ざらなくなります。これまでの申し送りはすべてCE側に残ります'},
+    {t:'new', d:'📢 掲示板がCEモードとHDモードで別々になりました。見出しに「（CE）」「（HD）」と出るので、今どちらに書いているか分かります。未読の件数もそれぞれで数えます'},
+    {t:'new', d:'⏰ スケジュール（タイムテーブル）がCEモードとHDモードで別々になりました。HDモードでは列に並ぶのがHD勤務者になり、シフトコード（M・A1・準夜など）付きで表示されます'},
+    {t:'imp', d:'📅 イベントはこれまでどおり両方のモードから見えますが、登録した側で色が変わるようになりました（CEで登録＝橙の📅／HDで登録＝紫の🩸）'},
+    {t:'imp', d:'📘 使い方ガイドに「CEモードとHDモード」の章を追加しました。何が分かれて何が共通なのかを一覧で確認できます'},
+    {t:'fix', d:'🩸 HDモードの連絡表に掲示板・スケジュールを開くボタンが出ておらず、HDからは開けなかったのを修正しました'},
+    {t:'fix', d:'⏰ スケジュールや申し送りが、まれに保存形式の違いで表示されなくなることがあった問題を修正しました'},
+    {t:'fix', d:'📢 片方のモードで掲示板を開くと、もう片方の未読件数まで消えてしまう不具合を修正しました'},
+    {t:'fix', d:'⏰ HDモードのスケジュールで「業務割当から取込」を押すと、CEの担当がHD側に入ってしまう不具合を修正しました（この取り込みはCEモード専用です）'},
+    {t:'imp', admin:true, d:'📘 使い方ガイドの余剰人員ゾーンの説明が古いまま（「HDシフトチェンジ」）だったのを、現在の5ゾーン構成に更新しました'}
+  ]},
   { ver:'Ver.2026/08/22-45', date:'2026-08-22', title:'HDモード（透析主観）を大幅に拡張', items:[
     {t:'new', d:'🩸 HDモードの連絡表に「血液浄化」ダッシュボードを追加しました。日中・準夜・BW・病棟・特殊の件数が数字タイルで一目で分かり、特殊治療は治療名（PMX・CHDFなど）もそのまま表示されます'},
     {t:'new', d:'🩸 HDモード専用の「HD集計」タブを追加しました。血液浄化の件数を月・年・期間指定で集計でき、特殊治療の内訳も出ます。CSV出力にも対応しています'},
@@ -11877,8 +11889,17 @@ function memoReplyMediaArr(r) {
    dat.checks のような添字の共有規約は発生しない）。
    既存の申し送りはすべて dat.memos に入っているため、そのままCE側に残る。 */
 function memoKey() { return _viewMode === 'hd' ? 'hdMemos' : 'memos'; }
-function memosOf(dat) { var k = memoKey(); return (dat && Array.isArray(dat[k])) ? dat[k] : []; }
-function ensureMemos(dat) { var k = memoKey(); if (!Array.isArray(dat[k])) dat[k] = []; return dat[k]; }
+/* Firebaseは疎な配列（歯抜けのindex）をオブジェクトとして返すことがある。
+   ensureStaffZone で実害が出たのと同じ既知の罠で、Array.isArray だけで判定して
+   空配列に差し替えると**既存データを破壊する**（renderSched は開くたびに ensure* を
+   呼ぶため、その日のスケジュールが消える）。必ずここで実配列へ復元してから返す。 */
+function normArr(v) {
+  if (Array.isArray(v)) return v;
+  if (v && typeof v === 'object') return Object.keys(v).map(function(k){ return v[k]; }).filter(Boolean);
+  return [];
+}
+function memosOf(dat) { var k = memoKey(); return dat ? normArr(dat[k]) : []; }
+function ensureMemos(dat) { var k = memoKey(); if (!Array.isArray(dat[k])) dat[k] = normArr(dat[k]); return dat[k]; }
 /* 申し送り1件を指す安定キー。Firebaseのエコーで memos の並びが変わっても
    同じ投稿を指し続けられるよう、インデックスではなく ts+uid で特定する
    （moveMemo が対象を再特定しているのと同じ考え方） */
@@ -16617,8 +16638,8 @@ function schedDefForDuty(label){
    CEのタイムテーブル（オペ・カテの動き）とHDのそれ（透析の回転）は別物なので、
    保存先も列に並べる人も分ける。申し送り・タブレット台帳と同じアクセサ方式。 */
 function schedKey(){ return _viewMode === 'hd' ? 'hdSchedule' : 'schedule'; }
-function schedOf(dat){ var k=schedKey(); return (dat && Array.isArray(dat[k])) ? dat[k] : []; }
-function ensureSched(dat){ var k=schedKey(); if(!Array.isArray(dat[k])) dat[k]=[]; return dat[k]; }
+function schedOf(dat){ var k=schedKey(); return dat ? normArr(dat[k]) : []; }
+function ensureSched(dat){ var k=schedKey(); if(!Array.isArray(dat[k])) dat[k]=normArr(dat[k]); return dat[k]; }
 /* タイムテーブルの列に並べる人。CE主観は当日のCE勤務者＋OC＋担当枠の割当、
    HD主観は当日のHD勤務者（buildHdRoster 経由なので担当表での差し替えも反映される）。 */
 function schedColumns(ds, dat){
@@ -16657,11 +16678,12 @@ function renderSched(){
   }
   var dat=D.pages[ds];
   var locked=!can('duty');
-  title.textContent='⏰ '+fmtJ(ds)+' のスケジュール';
+  title.textContent=(_viewMode==='hd'?'🩸 HD ':'🩺 CE ')+fmtJ(ds)+' のスケジュール';
   /* ツールバー */
   var th='';
   if(!locked){
-    th+='<button class="btn btn-g btn-sm" onclick="schedImportDuties()">🔄 業務割当から取込</button>';
+    /* 取り込み元はCE専用データなので、HD主観ではボタン自体を出さない（実行側にもガードあり） */
+    if(_viewMode !== 'hd') th+='<button class="btn btn-g btn-sm" onclick="schedImportDuties()">🔄 業務割当から取込</button>';
     th+='<button class="btn btn-g btn-sm" onclick="schedClear()">🗑 全消去</button>';
   }
   tools.innerHTML=th;
@@ -16755,6 +16777,9 @@ function schedAddBlock(ds,staff,presetIdx,startMin){
 function schedImportDuties(){
   var ds=curDs, dat=D.pages[ds]; if(!dat) return;
   if(!can('duty')){ toast('🔒 担当割り当ての編集権限がありません', 'warn'); return; }
+  /* 取り込み元(dat.duties/getDutyCfg)はCE専用のデータなので、HD主観では実行しない。
+     そのまま通すとCEの担当枠がHDのタイムテーブル(hdSchedule)に流れ込む。 */
+  if(_viewMode === 'hd'){ toast('この取り込みはCEモードの担当割り当て用です', 'warn'); return; }
   if(!dat.duties){ toast('業務割当がありません。', 'warn'); return; }
   ensureSched(dat);
   var cfg=getDutyCfg(dat);
@@ -16888,8 +16913,8 @@ var _schedDragPreset=null;
    添字の共有規約が無いため、関数を複製せず主観で切り替えるアクセサ1組で足りる。 */
 function tabletMaster(){ return (_viewMode === 'hd' ? D.hdTablets : D.tablets) || []; }
 function tabletLogsKey(){ return _viewMode === 'hd' ? 'hdTabletLogs' : 'tabletLogs'; }
-function tabletLogsOf(dat){ return (dat && dat[tabletLogsKey()]) || []; }
-function ensureTabletLogs(dat){ var k = tabletLogsKey(); if (!dat[k]) dat[k] = []; return dat[k]; }
+function tabletLogsOf(dat){ return dat ? normArr(dat[tabletLogsKey()]) : []; }
+function ensureTabletLogs(dat){ var k = tabletLogsKey(); if (!Array.isArray(dat[k])) dat[k] = normArr(dat[k]); return dat[k]; }
 var _tabletView = 'list'; /* 'list' | 'timeline' */
 function tabletNowMin(){ var n=new Date(); return n.getHours()*60+n.getMinutes(); }
 function tabletNowHM(){ return schedMinToHM(tabletNowMin()); }
@@ -17411,13 +17436,17 @@ function updateModeToggleBtn() {
 /* ===== バックアップ（エクスポート / インポート） ===== */
 /* ===== 掲示板 ===== */
 var BOARD_READ_KEY = 'ce2_boardread';
+/* 既読の基準時刻も主観ごとに分ける。1つのキーを共有すると、HDの掲示板を開いただけで
+   CEの未読バッジが0になってしまう（未読の集計自体は boardInView で絞れているのに、
+   基準時刻が共通だと取りこぼす）。 */
+function boardReadKey() { return _viewMode === 'hd' ? (BOARD_READ_KEY + '_hd') : BOARD_READ_KEY; }
 
 function getBoardReadTs() {
-  return parseInt(localStorage.getItem(BOARD_READ_KEY) || '0', 10);
+  return parseInt(localStorage.getItem(boardReadKey()) || '0', 10);
 }
 
 function markBoardRead() {
-  localStorage.setItem(BOARD_READ_KEY, String(Date.now()));
+  localStorage.setItem(boardReadKey(), String(Date.now()));
   updateBoardBadge();
 }
 
@@ -17534,6 +17563,9 @@ var BOARD_TAGS = {
 function renderBoard() {
   var el = document.getElementById('board-list');
   if (!el) return;
+  /* 同じモーダルが主観で別スレッドを映すので、どちらを見ているかを見出しに出す */
+  var bt = document.getElementById('board-panel-title');
+  if (bt) bt.textContent = (_viewMode === 'hd' ? '📢 掲示板（HD）' : '📢 掲示板（CE）');
   var readTs = getBoardReadTs();
   /* 既読マーク：ログイン中ユーザーの既読がまだ無い投稿に記録する（無ければ書き込み、あれば何もしない＝無限ループ防止） */
   if (currentUser) {
