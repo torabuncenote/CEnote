@@ -9,6 +9,18 @@
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0a0a">
+<script>
+/* CSSより先に data-theme を当てる（init() を待つと、暗い設定の端末で
+   一瞬ライトの画面が見えてしまうため）。ロジック本体は applyTheme() 側。 */
+(function(){
+  try {
+    var v = localStorage.getItem('ce2_theme');
+    var eff = (v === 'light' || v === 'dark') ? v
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', eff);
+  } catch (e) {}
+})();
+</script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -34,6 +46,13 @@
   --rd:#c0392b;--rd-bg:#fdecea;
   --gd:#b45309;--gd-bg:#fffbeb;--gd-bdr:#fcd34d;
   --oc:#0369a1;--oc-bg:#e0f2fe;--oc-bdr:#7dd3fc;
+  --rd-bdr:#f5b8b8;
+  /* 注意喚起（PHI警告・OCアラート・PSGバナー）で共有する黄色系 */
+  --warn-bg:#fffbeb;--warn-fg:#b45309;--warn-fg2:#78350f;--warn-bdr:#f59e0b;
+  /* トースト・自動ログアウト警告。ライトでは地と反転した暗色 */
+  --toast-bg:#1e293b;--toast-fg:#fff;--toast-warn:#b45309;
+  /* 資料ページのコードブロック */
+  --code-bg:#1e1e1e;--code-fg:#d4d4d4;
   --fn:'Noto Sans JP',sans-serif;--mo:'DM Mono',monospace;
   --r:10px;--rs:6px;
   --sh:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
@@ -135,7 +154,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .lkt input:checked+.lks{background:var(--rd)}
 .lkt input:checked+.lks::before{transform:translateX(18px)}
 .lkb{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
-.lkb.lk{background:var(--rd-bg);color:var(--rd);border:1px solid #f5b8b8}
+.lkb.lk{background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd-bdr)}
 .lkb.ul{background:var(--gr-bg);color:var(--gr);border:1px solid #a7d9d0}
 .sbf{padding:11px 13px;border-top:1px solid var(--bdr);flex-shrink:0}
 .sbf p{font-size:11px;color:var(--txt3);margin-bottom:7px;line-height:1.5}
@@ -367,6 +386,43 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
    担当枠チップ（dutyColorFor）と同じ色相を再利用して画面をまたいだ一貫性を作る：
    オペ=青(slot_ope)、カテ=バラ(slot_cath)、フリー=ティール(slot_free) と揃え、
    6MW=緑・PSGはPSG外しバナーと同じ琥珀。 */
+/* ===== ダークモード =====
+   :root の変数だけを差し替える。色指定の大半（1600箇所以上）が var() 経由なので、
+   ここを上書きすれば自動的に追従する。
+   医療用途で色に意味を持たせている（🔴未了・🟢完了・🟠注意・🟣HD）ため、
+   単純な明暗反転はしない。暗背景では彩度が飛んで見分けが付かなくなるので、
+   意味色は明度を上げて彩度を落とし、背景色(--*-bg)は「地に溶ける濃さ」に置き換える。
+   html[data-theme="dark"] と、システム設定に追従する @media の両方から効かせる。 */
+/* 画面表示のときだけ効かせる。印刷ではこのブロック自体が適用されず、
+   :root のライト値がそのまま使われる（紙用パレットを別に転記しなくて済む） */
+@media screen{
+  :root[data-theme="dark"]{
+    --bg:#15161a;--sur:#1e2026;--sur2:#25272e;--bdr:#33363f;--bdr2:#4a4e59;
+    --txt:#e8e9ec;--txt2:#a8abb4;--txt3:#767b86;
+    /* 意味色：暗背景でも読める明度まで上げる。地(--*-bg)は本体色を10%前後で溶かした濃さ */
+    --ac:#6d9eff;--ac-bg:#1c2740;
+    --or:#f0a94a;--or-bg:#33260f;
+    --gr:#4fc4a8;--gr-bg:#123028;
+    --pu:#b28ce8;--pu-bg:#2a2140;
+    --rd:#ff7b6b;--rd-bg:#3a1f1c;
+    --gd:#e8a33d;--gd-bg:#332818;--gd-bdr:#7a5c22;
+    --oc:#5cb8f0;--oc-bg:#132c3d;--oc-bdr:#2d5c78;
+    --rd-bdr:#6b3a34;
+    /* 注意喚起：暗い琥珀の地＋明るい文字。白い箱が黒画面で光らないようにする */
+    --warn-bg:#33260f;--warn-fg:#f0b95a;--warn-fg2:#e8c88a;--warn-bdr:#8a6a2a;
+    /* トーストは地(--bg)より明るくして浮かせる（ライトと逆の関係になる） */
+    --toast-bg:#333947;--toast-fg:#f2f3f5;--toast-warn:#8a5a12;
+    --code-bg:#101216;--code-fg:#cfd3da;
+    /* 影は暗背景では黒を重ねても沈まないので、より濃く・広く取る */
+    --sh:0 1px 4px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+    --shl:0 8px 32px rgba(0,0,0,.6);
+  }
+
+  /* 集計グラフ・バッジの系列色。ライトでは濃い色でよいが、暗背景では沈むので明るくする */
+  :root[data-theme="dark"]{
+    --sum-ope:#7aa5ff;--sum-cath:#f07ab0;--sum-mw:#4fc4a8;--sum-psg:#e8a33d;--sum-free:#4fbfae;
+  }
+}
 :root{
   --sum-ope:#1d4ed8;--sum-cath:#be185d;--sum-mw:#0e6e5e;--sum-psg:#b45309;--sum-free:#0f766e;
 }
@@ -430,7 +486,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-hier-row input{flex:1.5;min-width:120px;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn)}
 @media(max-width:768px){.ops-hier-row select,.ops-hier-row input{flex:1 1 100%}}
 .clg{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;margin-bottom:9px;box-shadow:var(--sh)}
-.clg.lg{border-color:#f5b8b8;background:#fffcfc}
+.clg.lg{border-color:var(--rd-bdr);background:var(--sur2)}
 .clt{font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px}
 .wb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--or-bg);color:var(--or)}
 .cli{display:flex;align-items:flex-start;gap:9px;padding:5px 3px;border-radius:4px;transition:background .1s}
@@ -459,12 +515,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pgp{font-size:17px;font-weight:900;color:var(--ac);font-family:var(--mo);min-width:44px;text-align:right}
 .pgp.dn{color:var(--gr)}
 .ops-item-wrap+.ops-item-wrap{border-top:1px solid var(--bdr);margin-top:8px;padding-top:8px}
-#scroll-top-btn{position:fixed;right:20px;bottom:80px;z-index:400;width:44px;height:44px;border-radius:50%;background:#fdfbf0;color:var(--txt2);border:1.5px solid var(--bdr);cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);display:none;align-items:center;justify-content:center;transition:opacity .2s}
+#scroll-top-btn{position:fixed;right:20px;bottom:80px;z-index:400;width:44px;height:44px;border-radius:50%;background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr);cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);display:none;align-items:center;justify-content:center;transition:opacity .2s}
 #scroll-top-btn.show{display:flex}
 .btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:7px 14px;border-radius:var(--rs);border:none;cursor:pointer;transition:all .15s;font-family:var(--fn)}
 .btn-p{background:var(--ac);color:#fff}.btn-p:hover{background:#1744b8}
 .btn-g{background:var(--sur);color:var(--txt);border:1px solid var(--bdr2)}.btn-g:hover{background:var(--bg)}
-.btn-d{background:var(--rd-bg);color:var(--rd);border:1px solid #f5b8b8}
+.btn-d{background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd-bdr)}
 .btn-sm{padding:5px 11px;font-size:11px}
 .btn-fw{width:100%;justify-content:center}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -518,8 +574,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 #at-zoom-inner{transform-origin:0 0;display:inline-block;min-width:100%}
 .at-zoom-bar{display:none;gap:4px;margin-bottom:6px}
 .at{border-collapse:collapse;min-width:100%;font-size:11px;background:var(--sur)}
-.at th{background:#f0efeb;font-weight:700;color:var(--txt2);padding:6px 8px;border:1px solid var(--bdr);white-space:nowrap;text-align:center}
-.at th.sh{background:#e8e6e1;min-width:72px;text-align:left;position:sticky;left:0;z-index:3}
+.at th{background:var(--sur2);font-weight:700;color:var(--txt2);padding:6px 8px;border:1px solid var(--bdr);white-space:nowrap;text-align:center}
+.at th.sh{background:var(--bdr);min-width:72px;text-align:left;position:sticky;left:0;z-index:3}
 .at td{padding:5px 6px;border:1px solid var(--bdr);text-align:center;vertical-align:middle}
 .at td.sc{background:var(--sur2);font-weight:700;font-size:11px;text-align:left;border-right:2px solid var(--bdr2);white-space:nowrap;position:sticky;left:0;z-index:2}
 .at td.sc.hpc{border-left:4px solid var(--rd)}
@@ -527,15 +583,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .at th.self-col{background:var(--ac-bg)!important;color:var(--ac);font-weight:900;box-shadow:inset 0 -2px 0 var(--ac)}
 .at td.self-col{background:rgba(49,130,206,.06)!important}
 .atr{cursor:pointer}
-.atr:hover td{background:#f0f4ff!important}
-.atr:hover td.sc{background:#e4eafc!important}
+.atr:hover td{background:var(--ac-bg)!important}
+.atr:hover td.sc{background:var(--ac-bg)!important}
 .dch{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.4;margin:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .dc-o{background:#dbeafe;color:#1d4ed8}
-.dc-os{background:#e0e7ff;color:#4338ca}
-.dc-c{background:#fce7f3;color:#be185d}
-.dc-cs{background:#fdf2f8;color:#9d174d}
+.dc-os{background:var(--ac-bg);color:var(--ac)}
+.dc-c{background:var(--pu-bg);color:var(--pu)}
+.dc-cs{background:var(--pu-bg);color:var(--pu)}
 .dc-w{background:#d1fae5;color:#065f46}
-.dc-dv{background:#fef3c7;color:#92400e}
+.dc-dv{background:var(--gd-bg);color:var(--gd)}
 .dc-n{color:var(--txt3);font-size:10px}
 .dhw{font-size:9px;font-weight:700;display:inline-block}
 .dhw.su{color:var(--rd)}.dhw.sa{color:var(--ac)}
@@ -544,6 +600,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ndm{text-align:center;padding:36px;color:var(--txt3);font-size:13px}
 .ph{display:none}
 @media print{
+  /* 紙は常に白。ダークのパレットは @media screen 限定なので、印刷では自動的にライトの :root 値に戻る */
   body{background:#fff!important;font-size:10px}
   .tb,.atnav .btn,.ov{display:none!important}
   /* 担当表の印刷（🖨️ボタン）時のみレイアウトを切替。通常のCtrl+Pでは既定のまま。
@@ -663,7 +720,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* ===== LOGIN ===== */
 #login-ov{position:fixed;inset:0;background:rgba(30,29,26,.72);z-index:9999;display:flex;align-items:center;justify-content:center}
 #login-ov.hd{display:none}
-.login-box{background:#fff;border-radius:16px;padding:36px 32px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.22)}
+.login-box{background:var(--sur);border-radius:16px;padding:36px 32px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.22)}
 .login-box h2{font-size:20px;font-weight:900;color:var(--ac);margin-bottom:6px;text-align:center}
 .login-box p{font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px}
 .login-box input{width:100%;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:9px 12px;font-size:14px;margin-bottom:10px;outline:none;font-family:var(--fn)}
@@ -684,7 +741,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .login-link{display:inline-block;font-size:12px;color:var(--ac);cursor:pointer;margin:2px 0 12px;text-decoration:underline;background:none;border:none;padding:0}
 .login-link:hover{opacity:.8}
 /* 自動ログアウト警告 */
-#idle-warn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e1e1e;color:#fff;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;z-index:9998;display:none;gap:14px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+#idle-warn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-fg);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;z-index:9998;display:none;gap:14px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 #idle-warn.show{display:flex}
 #idle-warn button{background:var(--ac);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
 /* ===== USER BADGE ===== */
@@ -741,19 +798,19 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-input-row textarea:focus{border-color:var(--ac);background:var(--ac-bg)}
 .memo-input-area{display:flex;flex-direction:column;gap:6px}
 /* 患者情報注意書き */
-.memo-notice{font-size:11px;color:var(--txt3);background:var(--or-bg,#fffbeb);border:1px solid var(--or,#f59e0b);border-radius:6px;padding:5px 10px;line-height:1.5}
+.memo-notice{font-size:11px;color:var(--txt3);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:5px 10px;line-height:1.5}
 /* 患者情報検知警告コンテナ */
 .memo-phi-warn{display:flex;flex-direction:column;gap:6px}
 /* 🚨 赤ボックス（明確な患者情報） */
-.memo-phi-red{font-size:12px;color:#7f1d1d;background:#fef2f2;border:1.5px solid #ef4444;border-radius:6px;padding:9px 12px;line-height:1.7}
+.memo-phi-red{font-size:12px;color:var(--rd);background:var(--rd-bg);border:1.5px solid var(--rd);border-radius:6px;padding:9px 12px;line-height:1.7}
 .memo-phi-red strong{display:block;margin-bottom:3px;font-size:13px;color:#c0392b}
 /* ⚠️ 黄ボックス（連合会認可形式） */
-.memo-phi-yellow{font-size:12px;color:#78350f;background:#fffbeb;border:1.5px solid #f59e0b;border-radius:6px;padding:9px 12px;line-height:1.7}
-.memo-phi-yellow strong{display:block;margin-bottom:3px;font-size:13px;color:#b45309}
+.memo-phi-yellow{font-size:12px;color:var(--warn-fg2);background:var(--warn-bg);border:1.5px solid var(--warn-bdr);border-radius:6px;padding:9px 12px;line-height:1.7}
+.memo-phi-yellow strong{display:block;margin-bottom:3px;font-size:13px;color:var(--warn-fg)}
 /* 患者情報検知ポップアップ */
 .phi-sev{font-size:15px;font-weight:800;margin-bottom:10px;padding:9px 13px;border-radius:8px;text-align:center}
-.phi-sev-red{background:#fef2f2;color:#c0392b;border:1.5px solid #ef4444}
-.phi-sev-yellow{background:#fffbeb;color:#b45309;border:1.5px solid #f59e0b}
+.phi-sev-red{background:var(--rd-bg);color:var(--rd);border:1.5px solid var(--rd)}
+.phi-sev-yellow{background:var(--warn-bg);color:var(--warn-fg);border:1.5px solid var(--warn-bdr)}
 .phi-desc{font-size:12px;color:var(--txt2);margin-bottom:8px;line-height:1.7}
 .phi-list{margin:0 0 10px;padding:8px 12px 8px 28px;font-size:12px;color:var(--txt);background:var(--sur2);border:1px solid var(--bdr);border-radius:6px;line-height:1.7}
 .phi-list li{margin-bottom:2px}
@@ -842,7 +899,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* PSG取り外し担当マーク：完了チェックではなく担当割り当て印 */
 .dc-cb-item.psg-duty{border-color:var(--pu);color:var(--pu);font-weight:600}
 .dc-cb-item.psg-duty:hover{border-color:var(--pu);opacity:.85}
-.dc-cb-item.psg-duty.checked{background:#f0ebff;border-color:var(--pu);color:var(--pu);font-weight:700}
+.dc-cb-item.psg-duty.checked{background:var(--pu-bg);border-color:var(--pu);color:var(--pu);font-weight:700}
 .dc-cb-item.psg-duty input{accent-color:var(--pu)}
 
 /* ===== 表示名変更モーダル ===== */
@@ -1053,10 +1110,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   #hd-roster-wrap select.hd-name-sel{border:none!important;background:transparent!important;-webkit-appearance:none;appearance:none;padding:0!important;color:inherit}
 }
 /* ===== 通知トースト ===== */
-.notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
+.notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:var(--toast-bg);color:var(--toast-fg);padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
 @keyframes notifSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
 /* ===== 操作フィードバックのトースト（alert の置き換え） ===== */
-.fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:#fff;background:#1e293b;box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
+.fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:var(--toast-fg);background:var(--toast-bg);box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
 /* 消し込みバーが出ている間は、その高さぶん上へ逃がす（下端で重なると残り件数が読めなくなる） */
 /* 画面下端の固定要素も実測したバーの高さぶんだけ押し上げる（決め打ちの70/126pxをやめる） */
 body.has-cbar .fb-toast{bottom:calc(20px + var(--cbar-h, 0px))}
@@ -1064,17 +1121,17 @@ body.has-cbar #idle-warn{bottom:calc(20px + var(--cbar-h, 0px))}
 body.has-cbar .notif-toast{bottom:calc(80px + var(--cbar-h, 0px))}
 body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 .fb-toast.ok{background:#15803d}
-.fb-toast.warn{background:#b45309}
+.fb-toast.warn{background:var(--toast-warn)}
 .fb-toast.err{background:#b91c1c}
 .fb-toast .fb-toast-x{margin-left:4px;opacity:.7;font-size:12px;flex-shrink:0}
 @keyframes fbToastIn{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @media (prefers-reduced-motion:reduce){.fb-toast{animation:none}}
 .notif-time-row{display:flex;align-items:center;gap:6px;padding-left:2px;margin-top:2px;flex-wrap:wrap}
-.oc-alert-banner{background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;overflow:hidden}
+.oc-alert-banner{background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-bdr);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;overflow:hidden}
 </style>
 </head>
 <body>
-<div id="psg-removal-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#fff3cd;color:#856404;border-bottom:2px solid #ffc107;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;font-size:14px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">🌙 PSG取り外しがあります<button onclick="document.getElementById('psg-removal-banner').style.display='none'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:#856404;line-height:1">✕</button></div>
+<div id="psg-removal-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:var(--warn-bg);color:var(--warn-fg);border-bottom:2px solid var(--warn-bdr);padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;font-size:14px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">🌙 PSG取り外しがあります<button onclick="document.getElementById('psg-removal-banner').style.display='none'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:var(--warn-fg);line-height:1">✕</button></div>
 <!-- ===== 表示名変更モーダル ===== -->
 <div id="modal-name" class="hd">
   <div class="name-box">
@@ -1166,6 +1223,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
     <button class="btn btn-g btn-sm" id="mode-toggle" onclick="toggleViewMode()" title="CEモード（タップでHDモードへ切替）">🩺<span class="mt-text"> CE</span></button>
+    <button class="btn btn-g btn-sm" id="theme-toggle" onclick="cycleTheme()" title="表示テーマ">🌗<span class="mt-text"> 自動</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -2003,7 +2061,50 @@ var DUTY_PALETTE = [
   {bg:'#fef9c3',fg:'#854d0e'}, {bg:'#e0e7ff',fg:'#3730a3'}, {bg:'#fce7f3',fg:'#9d174d'},
   {bg:'#ccfbf1',fg:'#115e59'}, {bg:'#fde68a',fg:'#92400e'}
 ];
+/* ライト用に作られた「淡い背景＋濃い文字」のペアを、暗背景でも読める組み合わせに変換する。
+   17組ある担当枠の色をダーク用に手書きし直すと二重管理になるので、文字色(fg)の色相を軸に
+   計算で作る：文字はそのまま明るく、背景は同じ色相を地に溶かした暗さにする。
+   var(...) を含む値（__free など）はそのままCSS変数に任せる。 */
+function _hexToRgb(h) {
+  h = String(h || '').replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function _rgbToHsl(r,g,b) {
+  r/=255; g/=255; b/=255;
+  var mx=Math.max(r,g,b), mn=Math.min(r,g,b), h=0, sat=0, l=(mx+mn)/2, d=mx-mn;
+  if (d) {
+    sat = l > .5 ? d/(2-mx-mn) : d/(mx+mn);
+    if (mx===r) h=((g-b)/d+(g<b?6:0));
+    else if (mx===g) h=((b-r)/d+2);
+    else h=((r-g)/d+4);
+    h*=60;
+  }
+  return [h, sat, l];
+}
+function _hsl(h,s2,l) { return 'hsl('+Math.round(h)+','+Math.round(s2*100)+'%,'+Math.round(l*100)+'%)'; }
+var _dutyDarkCache = {};
+function darkenPair(c) {
+  if (!c) return c;
+  var key = c.bg + '|' + c.fg;
+  if (_dutyDarkCache[key]) return _dutyDarkCache[key];
+  var rgb = _hexToRgb(c.fg);
+  if (!rgb) { _dutyDarkCache[key] = c; return c; } /* var(--…) 等はCSS変数側で切り替わるので触らない */
+  var hsl = _rgbToHsl(rgb[0], rgb[1], rgb[2]);
+  var out = {
+    bg: _hsl(hsl[0], Math.min(hsl[1], .45), .16), /* 地に溶ける暗さ。彩度は上げすぎると濁る */
+    fg: _hsl(hsl[0], Math.min(hsl[1], .70), .72)  /* 暗背景で読める明度まで持ち上げる */
+  };
+  _dutyDarkCache[key] = out;
+  return out;
+}
+function themePair(c) { return effectiveTheme() === 'dark' ? darkenPair(c) : c; }
+
 function dutyColorFor(slot) {
+  return themePair(_dutyColorForRaw(slot));
+}
+function _dutyColorForRaw(slot) {
   if (!slot) return DUTY_PALETTE[0];
   if (slot.color && slot.color.bg) return slot.color; /* 将来、管理者が個別に色指定できるようにする場合の受け口 */
   if (slot.id && DUTY_LABEL_COLOR_MAP[slot.id]) return DUTY_LABEL_COLOR_MAP[slot.id]; /* __free/__oc 用 */
@@ -2269,6 +2370,7 @@ function dashJump(sel) {
 
 /* ===== INIT ===== */
 function init() {
+  applyTheme(); /* 描画前に当てる（後だとライトの画面が一瞬見える） */
   _viewMode = getViewMode();
   updateModeToggleBtn();
   syncCbarInset();
@@ -3565,7 +3667,7 @@ function renderManual() {
     +'.mn-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px;margin:8px 0}'
     +'.mn-alert{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:8px 12px;margin:8px 0}'
     +'.mn-tip{background:var(--ac-bg);border:1px solid var(--ac);border-radius:6px;padding:8px 12px;margin:8px 0}'
-    +'.mn-screen{background:#1e1e1e;color:#eee;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:11px;line-height:1.7;margin:8px 0;white-space:pre}'
+    +'.mn-screen{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:12px 16px;font-family:monospace;font-size:11px;line-height:1.7;margin:8px 0;white-space:pre}'
     +'.mn-tbl{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}'
     +'.mn-tbl th{background:var(--ac);color:#fff;padding:6px 10px;text-align:left}'
     +'.mn-tbl td{padding:6px 10px;border:1px solid var(--bdr)}'
@@ -3797,7 +3899,7 @@ function renderManual() {
 function renderAdminManual() {
   var el = document.getElementById('adminm-body');
   if (!el || el.innerHTML) return;
-  var SS = '<style>.a-h1{font-size:16px;font-weight:900;color:#b45309;border-bottom:3px solid #b45309;padding-bottom:5px;margin:18px 0 10px}.a-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid #b45309;color:var(--txt)}.a-p{font-size:12px;color:var(--txt);line-height:1.9;margin:0 0 7px}.a-step{display:flex;align-items:flex-start;gap:8px;margin:6px 0;font-size:12px}.a-num{background:#b45309;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}.a-ok{background:#f0fdf4;border:1px solid #22c55e;border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-warn{background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-err{background:#fdecea;border:1px solid #c0392b;border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-code{background:#1e1e1e;color:#d4d4d4;border-radius:6px;padding:10px 14px;font-size:11px;font-family:monospace;line-height:1.8;margin:6px 0;white-space:pre}.a-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.a-tbl th{background:#b45309;color:#fff;padding:5px 8px;text-align:left}.a-tbl td{padding:5px 8px;border:1px solid var(--bdr)}.a-tbl tr:nth-child(even) td{background:var(--sur2)}</style>';
+  var SS = '<style>.a-h1{font-size:16px;font-weight:900;color:var(--gd);border-bottom:3px solid var(--gd);padding-bottom:5px;margin:18px 0 10px}.a-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid var(--gd);color:var(--txt)}.a-p{font-size:12px;color:var(--txt);line-height:1.9;margin:0 0 7px}.a-step{display:flex;align-items:flex-start;gap:8px;margin:6px 0;font-size:12px}.a-num{background:var(--gd);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}.a-ok{background:var(--gr-bg);border:1px solid var(--gr);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-warn{background:var(--warn-bg);border:1px solid var(--warn-bdr);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-err{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-code{background:var(--code-bg);color:var(--code-fg);border-radius:6px;padding:10px 14px;font-size:11px;font-family:monospace;line-height:1.8;margin:6px 0;white-space:pre}.a-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.a-tbl th{background:var(--gd);color:#fff;padding:5px 8px;text-align:left}.a-tbl td{padding:5px 8px;border:1px solid var(--bdr)}.a-tbl tr:nth-child(even) td{background:var(--sur2)}</style>';
   var S = SS;
   S += '<div class="a-p" style="background:var(--gd-bg);border:1px solid var(--gd-bdr);border-radius:6px;padding:8px 12px">このページは管理者（CE部門責任者）向けのFirebase設定・アカウント管理の手順書です。</div>';
 
@@ -4137,7 +4239,7 @@ function renderAdminUsers() {
     el.innerHTML = S;
   }).catch(function(err) {
     var el2 = document.getElementById('adminm-users');
-    if (el2) el2.innerHTML = '<div style="font-size:12px;color:var(--rd);background:var(--rd-bg);border:1px solid #f5b8b8;border-radius:6px;padding:8px 12px">❌ 読み込みエラー: ' + escH(err.message) + '</div>';
+    if (el2) el2.innerHTML = '<div style="font-size:12px;color:var(--rd);background:var(--rd-bg);border:1px solid var(--rd-bdr);border-radius:6px;padding:8px 12px">❌ 読み込みエラー: ' + escH(err.message) + '</div>';
   });
 }
 
@@ -4790,7 +4892,7 @@ function renderDev() {
   var el = document.getElementById('dev-body');
   if (!el || el.innerHTML) return;
 
-  var SS = '<style>.d-h1{font-size:15px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:5px;margin:18px 0 10px}.d-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid var(--ac);color:var(--txt)}.d-p{font-size:12px;color:var(--txt);line-height:1.8;margin:0 0 6px}.d-code{font-family:monospace;background:var(--sur2);border:1px solid var(--bdr);border-radius:4px;padding:2px 6px;font-size:11px}.d-pre{font-family:monospace;background:#1e1e1e;color:#d4d4d4;border-radius:6px;padding:10px 14px;font-size:11px;line-height:1.7;overflow-x:auto;margin:6px 0;white-space:pre}.d-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.d-tbl th{background:var(--ac);color:#fff;padding:5px 8px;text-align:left}.d-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}.d-tbl tr:nth-child(even) td{background:var(--sur2)}.d-note{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.d-info{background:var(--ac-bg);border:1px solid var(--ac);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}</style>';
+  var SS = '<style>.d-h1{font-size:15px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:5px;margin:18px 0 10px}.d-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid var(--ac);color:var(--txt)}.d-p{font-size:12px;color:var(--txt);line-height:1.8;margin:0 0 6px}.d-code{font-family:monospace;background:var(--sur2);border:1px solid var(--bdr);border-radius:4px;padding:2px 6px;font-size:11px}.d-pre{font-family:monospace;background:var(--code-bg);color:var(--code-fg);border-radius:6px;padding:10px 14px;font-size:11px;line-height:1.7;overflow-x:auto;margin:6px 0;white-space:pre}.d-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.d-tbl th{background:var(--ac);color:#fff;padding:5px 8px;text-align:left}.d-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}.d-tbl tr:nth-child(even) td{background:var(--sur2)}.d-note{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.d-info{background:var(--ac-bg);border:1px solid var(--ac);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}</style>';
 
   var S = SS;
   S += '<div class="d-info">このページは別チャットへの引き継ぎ用です。index.htmlと一緒に新しいチャットに添付してください。</div>';
@@ -6252,7 +6354,11 @@ function renderOpsSummary() {
   var BG = GW < 40 ? 1 : 3;
   var BW = Math.max(2, Math.min(7, (GW * 0.8 - BG * 4) / 5));
   /* サマリーバッジ・担当表の担当枠チップと同じ色（--sum-* トークン）に揃える */
-  var COLORS = ['#1d4ed8','#be185d','#0e6e5e','#b45309','#0f766e'];
+  /* CSS変数(--sum-*)から読む。テーマ切替時はこの関数が再実行されるので自動で追従する */
+  var _cs = getComputedStyle(document.documentElement);
+  var COLORS = ['ope','cath','mw','psg','free'].map(function(k){
+    return (_cs.getPropertyValue('--sum-'+k) || '').trim() || '#1d4ed8';
+  });
   var KEYS   = ['ope','cath','mw','psg','free'];
   var LABELS = ['OPE','カテ','6MW','PSG','フリー'];
 
@@ -6401,7 +6507,7 @@ function renderFairness() {
   /* 偏り警告 */
   var warnLabels = labelsOrder.filter(function(lb){ return stats[lb].gap >= FAIR_GAP_WARN; });
   if (warnLabels.length) {
-    h += '<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:12px;color:#78350f;line-height:1.7;margin-bottom:12px">';
+    h += '<div style="background:var(--warn-bg);border:1.5px solid var(--warn-bdr);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--warn-fg2);line-height:1.7;margin-bottom:12px">';
     h += '<strong>⚠️ 偏りの可能性があります（最多−最少 ≥ '+FAIR_GAP_WARN+'回）</strong><br>';
     h += warnLabels.map(function(lb){ return lb+'（差 '+stats[lb].gap+'回）'; }).join('、');
     h += '</div>';
@@ -6414,7 +6520,7 @@ function renderFairness() {
   h += '<thead><tr><th style="width:90px;text-align:left">スタッフ</th>';
   labelsOrder.forEach(function(lb){
     var warn = stats[lb].gap >= FAIR_GAP_WARN;
-    h += '<th style="width:64px;text-align:center'+(warn?';background:#b45309':'')+'">'+escH(lb)+(warn?' ⚠️':'')+'</th>';
+    h += '<th style="width:64px;text-align:center'+(warn?';background:var(--warn-fg)':'')+'">'+escH(lb)+(warn?' ⚠️':'')+'</th>';
   });
   h += '<th style="width:120px;text-align:center">合計（出勤'+'日比）</th></tr></thead><tbody>';
 
@@ -6425,7 +6531,7 @@ function renderFairness() {
       var v = counts[n][lb]||0;
       var isMax = v>0 && v===stats[lb].max && stats[lb].gap>0;
       var isMin = v===stats[lb].min && stats[lb].gap>0;
-      var bg = isMax ? 'background:#fef2f2;color:#c0392b;font-weight:700' : (isMin ? 'background:#eef7ff;color:var(--ac)' : '');
+      var bg = isMax ? 'background:var(--rd-bg);color:var(--rd);font-weight:700' : (isMin ? 'background:var(--ac-bg);color:var(--ac)' : '');
       h += '<td style="text-align:center;'+bg+'">'+(v||'<span style="color:var(--txt3)">—</span>')+'</td>';
     });
     /* 合計＋出勤日数バー */
@@ -6456,7 +6562,7 @@ function renderGuide() {
     +'.gd-p{margin:0 0 8px;font-size:12px}'
     +'.gd-step{display:flex;gap:10px;margin:7px 0;align-items:flex-start;font-size:12px}'
     +'.gd-num{background:var(--ac);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}'
-    +'.gd-ok{background:#f0fdf4;border:1px solid #22c55e;border-radius:6px;padding:7px 11px;margin:7px 0;font-size:12px}'
+    +'.gd-ok{background:var(--gr-bg);border:1px solid var(--gr);border-radius:6px;padding:7px 11px;margin:7px 0;font-size:12px}'
     +'.gd-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:7px 0;font-size:12px}'
     +'.gd-tbl{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}'
     +'.gd-tbl th{background:var(--ac);color:#fff;padding:5px 9px;text-align:left}'
@@ -9387,11 +9493,11 @@ function parseShiftSheet(wb, fileName) {
     var vWarns  = valIssues.filter(function(i){ return i.type === 'warn'; });
     var vInfos  = valIssues.filter(function(i){ return i.type === 'info'; });
     if (vErrors.length) {
-      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--rd);padding:6px 10px;background:#ffeaea;border:1px solid var(--rd);border-radius:6px">❌ エラー（' + vErrors.length + '件）</summary>'
+      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--rd);padding:6px 10px;background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px">❌ エラー（' + vErrors.length + '件）</summary>'
           + '<div style="padding:6px 10px;font-size:11px">' + vErrors.map(function(e){ return '<div style="padding:2px 0;color:var(--rd)">• ' + e.msg + '</div>'; }).join('') + '</div></details>';
     }
     if (vWarns.length) {
-      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--or);padding:6px 10px;background:#fff8ee;border:1px solid var(--or);border-radius:6px;margin-top:4px">⚠️ 確認事項（' + vWarns.length + '件）</summary>'
+      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--or);padding:6px 10px;background:var(--or-bg);border:1px solid var(--or);border-radius:6px;margin-top:4px">⚠️ 確認事項（' + vWarns.length + '件）</summary>'
           + '<div style="padding:6px 10px;font-size:11px">' + vWarns.map(function(w){ return '<div style="padding:2px 0;color:var(--or)">• ' + w.msg + '</div>'; }).join('') + '</div></details>';
     }
     if (vInfos.length) {
@@ -17501,6 +17607,78 @@ document.addEventListener('click',function(e){
     }
   }
 });
+
+/* ===== テーマ（ライト／ダーク／端末設定に追従） =====
+   CE/HD主観と同じく端末ローカル設定。D には入れずログアウトでもリセットしない。
+   'auto'（既定）＝端末の設定に追従。'light'/'dark' はユーザーの明示指定で、
+   その場合 <html data-theme="..."> を付けて @media より優先させる。 */
+var THEME_KEY = 'ce2_theme';
+function getTheme() {
+  var v = localStorage.getItem(THEME_KEY);
+  return (v === 'light' || v === 'dark') ? v : 'auto';
+}
+/* 実際に今どちらで表示されているか（autoのときは端末の設定を見る） */
+function effectiveTheme() {
+  var t = getTheme();
+  if (t !== 'auto') return t;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+function applyTheme() {
+  /* data-theme には必ず 'light'/'dark' のどちらかを入れる（'auto' も解決してから入れる）。
+     こうしておくと CSS 側は :root[data-theme="dark"] の1ブロックだけで済み、
+     @media (prefers-color-scheme:dark) に同じパレットを二重管理せずに済む。 */
+  var eff = effectiveTheme();
+  document.documentElement.setAttribute('data-theme', eff);
+  /* スマホのブラウザUI（アドレスバー等）の色も合わせる */
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', eff === 'dark' ? '#15161a' : '#f4f3ef');
+  updateThemeBtn();
+}
+function setTheme(t) {
+  if (t === 'auto') localStorage.removeItem(THEME_KEY);
+  else localStorage.setItem(THEME_KEY, t);
+  applyTheme();
+}
+/* JS が色を計算して埋めている箇所（担当枠の色・集計グラフの系列色）は、
+   CSS変数の切り替えだけでは変わらないので描き直す。 */
+function repaintForTheme() {
+  _dutyDarkCache = {};
+  try {
+    if (typeof safeRenderPage === 'function') safeRenderPage();
+    if (typeof renderCal === 'function') renderCal();
+    var at = document.getElementById('subpane-at');
+    if (at && at.style.display !== 'none' && typeof renderAT === 'function') renderAT();
+    var ops = document.getElementById('subpane-ops');
+    if (ops && ops.style.display !== 'none' && typeof renderOpsSummary === 'function') renderOpsSummary();
+    var fair = document.getElementById('subpane-fair');
+    if (fair && fair.style.display !== 'none' && typeof renderFairness === 'function') renderFairness();
+  } catch (e) { /* 描き直しに失敗してもテーマ自体は当たっているので落とさない */ }
+}
+
+/* ライト → ダーク → 端末設定 の3状態を回す */
+function cycleTheme() {
+  var t = getTheme();
+  setTheme(t === 'auto' ? 'light' : (t === 'light' ? 'dark' : 'auto'));
+  repaintForTheme();
+  var lbl = { auto:'端末の設定に合わせます', light:'ライトモード', dark:'ダークモード' }[getTheme()];
+  toast('🎨 ' + lbl, 'ok');
+}
+function updateThemeBtn() {
+  var btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  var t = getTheme();
+  var ic = { auto:'🌗', light:'☀️', dark:'🌙' }[t];
+  var lb = { auto:'自動', light:'ライト', dark:'ダーク' }[t];
+  btn.innerHTML = ic + '<span class="mt-text"> ' + lb + '</span>';
+  btn.title = '表示テーマ：' + lb + '（タップで切替）';
+}
+/* 'auto' のまま端末側の設定が変わったら追従する */
+if (window.matchMedia) {
+  var _mq = window.matchMedia('(prefers-color-scheme: dark)');
+  var _onMq = function(){ if (getTheme() === 'auto') { applyTheme(); repaintForTheme(); } };
+  if (_mq.addEventListener) _mq.addEventListener('change', _onMq);
+  else if (_mq.addListener) _mq.addListener(_onMq);
+}
 
 /* ===== モード切替（CE主観／HD主観） =====
    本人の端末設定なので D には入れない（BOARD_READ_KEY と同じ localStorage パターン）。
