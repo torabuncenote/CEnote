@@ -212,6 +212,28 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .co{background:var(--ac-bg);border-left:3px solid var(--ac);border-radius:0 5px 5px 0;padding:9px 13px;font-size:12px;line-height:1.7;color:var(--txt2);margin-bottom:16px}
 .ln{background:var(--rd-bg);border-left:3px solid var(--rd);border-radius:0 5px 5px 0;padding:8px 13px;font-size:12px;color:var(--rd);margin-bottom:9px;display:flex;align-items:center;gap:6px}
+/* ===== HD血液浄化ダッシュボード（renderPageHD の #hd-count-panel） =====
+   区分ごとの数字を等幅で大きく並べ、0件の区分だけ彩度を落として「今日実際にやった区分」へ目が行くようにする。 */
+.hdash{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;box-shadow:var(--sh)}
+.hdash-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.hdash-ttl{font-size:12px;font-weight:700;color:var(--txt2);letter-spacing:.04em}
+.hdash-hd .btn{margin-left:auto}
+.hdash-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.hdash-tile{text-align:center;padding:8px 4px;border-radius:var(--rs);background:var(--pu-bg);border:1px solid var(--pu)}
+.hdash-tile .n{font-family:var(--mo);font-size:26px;font-weight:700;line-height:1.1;color:var(--pu)}
+.hdash-tile .l{font-size:10px;font-weight:700;color:var(--pu);opacity:.75;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 0件：枠と地を消して数字も落とす。実施した区分との差を一目で付けるための減算 */
+.hdash-tile.zero{background:var(--sur2);border-color:var(--bdr)}
+.hdash-tile.zero .n{color:var(--txt3);font-weight:500}
+.hdash-tile.zero .l{color:var(--txt3);opacity:1}
+.hdash-sp{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:11px;padding-top:11px;border-top:1px dashed var(--bdr)}
+.hdash-sp-lbl{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.06em}
+.hdash-sp-tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--pu-bg);color:var(--pu);border:1px solid var(--pu)}
+.hdash-sp-tag .x{opacity:.65;margin-left:3px;font-family:var(--mo)}
+.hdash-total{margin-top:10px;text-align:right;font-size:11px;font-weight:700;color:var(--txt3)}
+/* 相互参照テーブル内の担当枠ピル。色は dutyColorFor からインラインで入れるので形だけ定義する */
+.ref-pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;border:1px solid}
+.hdash-total b{font-family:var(--mo);font-size:15px;color:var(--txt);margin:0 3px}
 .staffz{margin-bottom:10px}
 .staffz-hd{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)}
 .staffz-ttl{font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
@@ -228,10 +250,17 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .hd-toggle-btn:hover{opacity:.8}
 .hd-toggle-btn.active{background:var(--pu);color:#fff}
 .hd-panel{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)}
+/* #mode-toggle（🩺CE/🩸HD切替ボタン、.tb-btns内）— HDモード中は紫地に変える。updateModeToggleBtnがJS側でクラスを付け外しするだけで、
+   この色指定自体は今まで存在しなかった（HDモードにしても見た目が変わらない不具合の原因）。 */
+#mode-toggle.hd-on{background:var(--pu);color:#fff;border-color:var(--pu)}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
-.pchip.sp{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2)}
+/* .pchip.sp の "sp" は サイドバーのスクロール枠 .sp（flex:1 / flex-direction:column / overflow-y:auto）と
+   クラス名がぶつかる。チップは .sp のこれらを一切設定していないので、flex親の中に置くと横に伸び、
+   中身（氏名とシフトコード）が縦積みになっていた。specificity 0,2,0 で打ち消す。 */
+.pchip.sp{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2);flex:0 0 auto;flex-direction:row;overflow:visible}
 .pchip.pchip-zone-hd   {background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
+.pchip.pchip-zone-to_ce{background:var(--ac-bg);color:var(--ac);border:1.5px solid var(--ac)}
 .pchip.pchip-zone-maint{background:var(--or-bg);color:var(--or);border:1.5px solid var(--or)}
 .pchip.pchip-zone-off  {background:var(--gr-bg,#f0fff4);color:var(--gr);border:1.5px solid var(--gr)}
 .pchip.pchip-zone-other{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2)}
@@ -265,6 +294,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ds2{width:100%;font-size:13px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;transition:border-color .15s;margin-bottom:7px;font-family:var(--fn)}
 .ds2:hover,.ds2:focus{border-color:var(--ac);background:var(--ac-bg)}
 .ds2.set{border-color:var(--ac);background:var(--ac-bg);color:var(--ac);font-weight:700}
+.hd-name-sel.changed{border-color:var(--or);background:var(--or-bg);color:var(--or);font-weight:700}
+.hd-changed-badge{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;color:var(--or);white-space:nowrap}
 .pl2{font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:3px}
 .ps{width:100%;font-size:12px;border:1.5px dashed var(--bdr2);border-radius:var(--rs);padding:5px 9px;background:transparent;color:var(--txt2);cursor:pointer;outline:none;transition:all .15s;font-family:var(--mo)}
 .ps:hover,.ps:focus{border-color:var(--pu);background:var(--pu-bg);color:var(--pu)}
@@ -600,6 +631,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .btn-nm-text{display:none}
   .btn-gm-text{display:none}
   .btn-at-text{display:none}
+  .mt-text{display:none}
   .pend-txt{display:none}
   .at-hint{display:none}
   .uc-name{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -609,6 +641,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .pool-mini-btn{padding:5px 10px;font-size:11px}
   .ss-zone{min-height:44px;padding:8px 10px}
   .staffz-hd{padding:11px 14px}
+  /* 5列のままだと1タイル60px弱まで潰れて2桁の数字が窮屈になるため3列で折り返す */
+  .hdash-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hdash-tile .n{font-size:23px}
 }
 /* 320px前後では タブレット/掲示板/スケジュール の3つにラベルまで出すと折り返す。
    ラベルを畳んでアイコン+バッジだけにし、1行に収める（375pxでは折り返さないため
@@ -986,12 +1021,24 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .ab{display:block!important}
   .main{margin:0!important;padding:0 8px!important;box-shadow:none!important;max-width:100%!important}
   .pt2{font-size:16px;font-weight:700;margin-bottom:8px}
-  .pp,.dg,.oc-card,.clg,.mo,.staffz,.pool-wrap,.surplus-wrap{page-break-inside:avoid}
+  .pp,.dg,.oc-card,.clg,.mo,.staffz,.pool-wrap,.surplus-wrap,#hd-roster-wrap,.hdash{page-break-inside:avoid}
   .dg{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
   .dc{min-width:140px;font-size:11px!important}
-  #staffz-body{display:block!important}
+  /* 折りたたみ中でも紙には出す（相互参照の担当表も含めて、紙が当日の全体像になるように） */
+  #staffz-body,#ce-ref-body,#hd-ref-body{display:block!important}
   #hd-worker-panel{display:flex!important}
   .pchip{font-size:11px!important;padding:3px 8px!important}
+  /* HD担当表：備考は院内配布物に出さない（要件16）ので列ごと非表示。HD日ページの編集用テーブル
+     （#hd-roster-wrap）と、CE日ページに出す読み取り専用のミラー（#hd-ref-body）の両方に効かせる
+     — 片方だけ伏せても、もう片方の紙に同じ備考が載ってしまい要件を満たせないため。
+     group-hd行（🔵日勤/🌙準夜の区切り行）はcolspanの単一tdで:last-childにも該当してしまうため
+     :not(.group-hd)で明示的に除外する。
+     スタッフ欄のselectは枠・背景を消して選択中の文字だけが見えるようにする。 */
+  #hd-roster-wrap thead th:last-child,
+  #hd-roster-wrap tbody tr:not(.group-hd) td:last-child,
+  #hd-ref-body thead th:last-child,
+  #hd-ref-body tbody tr:not(.group-hd) td:last-child{display:none!important}
+  #hd-roster-wrap select.hd-name-sel{border:none!important;background:transparent!important;-webkit-appearance:none;appearance:none;padding:0!important;color:inherit}
 }
 /* ===== 通知トースト ===== */
 .notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
@@ -1105,6 +1152,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
   <span class="tb-sep">|</span>
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
+    <button class="btn btn-g btn-sm" id="mode-toggle" onclick="toggleViewMode()" title="CEモード（タップでHDモードへ切替）">🩺<span class="mt-text"> CE</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -1122,7 +1170,10 @@ body.has-cbar #scroll-top-btn{bottom:126px}
     <div class="stabs">
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
+      <div class="stab"     id="tab-my"     onclick="swTab('my')">👤 マイ担当</div>
       <div class="stab"     id="tab-task"   onclick="swTab('task')">📋 タスク</div>
+      <!-- HDモードのときだけ表示（updateTabVisibility）。血液浄化件数(dat.hdCount)の期間集計 -->
+      <div class="stab"     id="tab-hdsum"  onclick="swTab('hdsum')"  style="display:none">🩸 HD集計</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
@@ -1201,7 +1252,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
     <!-- 業務マスタタブ -->
     <div id="pane-master" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp">
-        <div data-perm="dm">
+        <div data-perm="dm" data-mode="ce">
           <div class="pt">📌 共通業務（毎日）</div>
           <div class="rl" id="dly-list"></div>
           <div class="ar" id="dly-ar">
@@ -1209,7 +1260,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <button onclick="addDly()">追加</button>
           </div>
         </div>
-        <div data-perm="wm">
+        <div data-perm="wm" data-mode="ce">
           <div class="pt">📅 曜日別業務</div>
           <div class="wdt" id="wdt"></div>
           <div class="rl" id="wdly-list"></div>
@@ -1217,15 +1268,40 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <input type="text" id="in-wdly" placeholder="業務内容を入力…">
             <button onclick="addWdly()">追加</button>
           </div>
-          <div class="pt" style="margin-top:14px">🏥 設置部署マスタ</div>
-          <div class="pn" style="margin-bottom:8px;font-size:11px">各業務の「🏥 部署」で選ぶ設置部署（病棟名など）の共通リストです。ここに登録しておくと、業務ごとに毎回入力し直す必要がありません。</div>
+        </div>
+        <!-- 設置部署マスタはCE曜日別業務の入れ子だったが、HD曜日別業務の「🏥 部署」モーダルからも使う
+             共通マスタ（D.wdDepts）なので独立セクションに切り出した。data-mode を付けず両モードで出す。
+             ※ data-perm の判定は .sp > div[data-perm] の直下セレクタなので、必ず .sp の直接の子に置くこと -->
+        <div data-perm="wm">
+          <div class="pt">🏥 設置部署マスタ</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">各業務の「🏥 部署」で選ぶ設置部署（病棟名など）の共通リストです。ここに登録しておくと、業務ごとに毎回入力し直す必要がありません。CE・HDどちらの曜日別業務からも同じリストを使います。</div>
           <div class="rl" id="wd-dept-list"></div>
           <div class="ar" id="wd-dept-ar">
             <input type="text" id="in-wd-dept" placeholder="部署名を入力…">
             <button onclick="addWdDept()">追加</button>
           </div>
         </div>
-        <div data-perm="mst">
+        <!-- HDチェックリストマスタ。CE側と同じdm/wmロックを流用し、別セクションとして表示する -->
+        <div data-perm="dm" data-mode="hd">
+          <div class="pt">🩸 HD共通業務（毎日）</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">HDモードの日ページに出るチェックリストです。CE側の「共通業務（毎日）」とは別に管理されます。</div>
+          <div class="rl" id="hd-dly-list"></div>
+          <div class="ar" id="hd-dly-ar">
+            <input type="text" id="in-hd-dly" placeholder="業務内容を入力…">
+            <button onclick="addHdDly()">追加</button>
+          </div>
+        </div>
+        <div data-perm="wm" data-mode="hd">
+          <div class="pt">🩸 HD曜日別業務</div>
+          <div class="pn" style="margin-bottom:8px;font-size:11px">設置部署マスタはCE側と共通（上の🏥設置部署マスタ）です。</div>
+          <div class="wdt" id="hd-wdt"></div>
+          <div class="rl" id="hd-wdly-list"></div>
+          <div class="ar" id="hd-wdly-ar">
+            <input type="text" id="in-hd-wdly" placeholder="業務内容を入力…">
+            <button onclick="addHdWdly()">追加</button>
+          </div>
+        </div>
+        <div data-perm="mst" data-mode="ce">
           <div class="pt">🔪 オペ 術式マスタ（科→中カテゴリ→術式）</div>
           <div class="pn" style="margin-bottom:8px;font-size:11px">科・中カテゴリ・術式の3階層で管理。▶をタップで展開。</div>
           <div id="ope-tree-list"></div>
@@ -1234,7 +1310,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <button onclick="addOpeTreeDept()">科を追加</button>
           </div>
         </div>
-        <div data-perm="mst">
+        <div data-perm="mst" data-mode="ce">
           <div class="pt">🫀 カテ 種別マスタ（科→中カテゴリ→術式）</div>
           <div class="pn" style="margin-bottom:8px;font-size:11px">検査・治療種別を3階層で管理。</div>
           <div id="cath-tree-list"></div>
@@ -1243,7 +1319,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <button onclick="addCathTreeDept()">科を追加</button>
           </div>
         </div>
-        <div data-perm="mst">
+        <div data-perm="mst" data-mode="ce">
           <div class="pt">🧰 使用物品マスタ（カテゴリ→種別→品名）</div>
           <div class="pn" style="margin-bottom:8px;font-size:11px">物品を3階層で管理。</div>
           <div id="sup-tree-list"></div>
@@ -1252,7 +1328,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <button onclick="addSupTreeDept()">カテゴリを追加</button>
           </div>
         </div>
-        <div data-perm="mst">
+        <div data-perm="mst" data-mode="ce">
           <div class="pt">🎯 担当枠マスタ</div>
           <div class="pn" style="margin-bottom:8px">連絡表で選べる担当枠の種類を管理します。各枠には名前・アイコン・チェックボックスの有無を設定できます。</div>
           <div class="rl" id="duty-master-list"></div>
@@ -1278,7 +1354,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <div style="font-size:10px;color:var(--txt3);margin-top:2px">空欄の場合はデフォルト（フリー・PSG解析・自由記述）を使用</div>
           </div>
         </div>
-        <div data-perm="mst">
+        <div data-perm="mst" data-mode="ce">
           <div class="pt">⏰ スケジュールプリセット</div>
           <div class="pn" style="margin-bottom:8px">スケジュール画面で使う業務ブロックのプリセットを管理します。</div>
           <div class="rl" id="sched-preset-list"></div>
@@ -1298,7 +1374,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <button onclick="addSchedPreset()">追加</button>
           </div>
         </div>
-        <div data-perm="mst">
+        <div data-perm="mst" data-mode="ce">
           <div class="pt">🌙 PSG通知設定</div>
           <div class="pn" style="margin-bottom:8px">PSG装着者がいる日に付箋未入力の場合、指定時刻にトーストで通知します。</div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -1313,7 +1389,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <input type="time" id="psg-banner-end" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
           </div>
         </div>
-        <div data-perm="mst">
+        <div data-perm="mst" data-mode="ce">
           <div class="pt">📱 タブレット台帳</div>
           <div class="pn" style="margin-bottom:8px">貸出・返却を記録するタブレットを登録します。連絡表の「タブレット貸出・返却」で選択肢になります。</div>
           <div class="rl" id="tablet-master-list"></div>
@@ -1322,23 +1398,41 @@ body.has-cbar #scroll-top-btn{bottom:126px}
             <button onclick="addTablet()" style="background:var(--pu)">追加</button>
           </div>
         </div>
-        <div data-perm="mst">
+        <div data-perm="mst" data-mode="hd">
+          <div class="pt">🩸 HD特殊治療マスタ</div>
+          <div class="pn" style="margin-bottom:8px">HDモードの血液浄化件数入力で「特殊」区分の選択肢になります（例: PMX、CHDF、二重濾過など）。1治療＝1件として数えます。</div>
+          <div class="rl" id="hd-treat-list"></div>
+          <div class="ar" id="hd-treat-ar">
+            <input type="text" id="in-hd-treat" placeholder="例: PMX" maxlength="20">
+            <button onclick="addHdTreat()" style="background:var(--pu)">追加</button>
+          </div>
+        </div>
+        <div data-perm="mst" data-mode="hd">
+          <div class="pt">📱 HDタブレット台帳</div>
+          <div class="pn" style="margin-bottom:8px">透析室のタブレットを登録します。CEのタブレット台帳とは別管理で、貸出・返却の記録も混ざりません。</div>
+          <div class="rl" id="hd-tablet-master-list"></div>
+          <div class="ar" id="hd-tablet-master-ar">
+            <input type="text" id="in-hd-tablet" placeholder="例: HD1号機" maxlength="20">
+            <button onclick="addHdTablet()" style="background:var(--pu)">追加</button>
+          </div>
+        </div>
+        <div data-perm="mst" data-mode="ce">
           <div class="pt">📞 OC対応フローチャート</div>
           <div class="pn" style="margin-bottom:8px">OC集計タブの「OC対応フローチャート」ボタン、または連絡表ページのオンコール（OC）担当枠にある「📄 対応フロー」ボタンで全員が閲覧できる内容です。改行・字下げ・矢印（→ ↓）はそのまま表示されます。</div>
           <textarea id="oc-flow-text" rows="10" style="width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur2);color:var(--txt)" placeholder="例:&#10;1. OC携帯が鳴ったら病棟名・用件を確認&#10;2. 機器トラブル → 現地へ&#10;   ↓解決しない場合&#10;3. リーダーへ連絡"></textarea>
           <div style="margin-top:6px;text-align:right"><button class="btn btn-p btn-sm" onclick="saveOcFlow()">保存</button></div>
         </div>
-        <div id="emailjs-cfg-section" data-perm="admin">
+        <div id="emailjs-cfg-section" data-perm="admin" data-mode="ce">
           <div class="pt">📧 メール通知設定（EmailJS）</div>
           <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
           <div id="emailjs-cfg-form"></div>
         </div>
-        <div id="fcm-cfg-section" data-perm="admin">
+        <div id="fcm-cfg-section" data-perm="admin" data-mode="ce">
           <div class="pt">🔔 Web Push設定（FCM）</div>
           <div class="pn" style="margin-bottom:8px">Firebase Cloud Messaging でアプリを閉じていても担当割り当て通知をプッシュ配信できます。Firebase コンソール → プロジェクト設定 → Cloud Messaging から VAPIDキー（公開鍵）とサーバーキーを取得してください。</div>
           <div id="fcm-cfg-form"></div>
         </div>
-        <div id="auto-assign-mode-cfg" data-perm="admin">
+        <div id="auto-assign-mode-cfg" data-perm="admin" data-mode="ce">
           <div class="pt">🎲 月次自動割り当てモード</div>
           <div id="auto-assign-mode-form"></div>
         </div>
@@ -1466,6 +1560,17 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       </div>
     </div>
 
+    <!-- HD集計パネル（HDモードのときだけタブが見える。血液浄化件数 dat.hdCount の期間集計） -->
+    <div id="pane-hdsum" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp">
+        <div class="pt" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span>🩸 HD集計</span>
+          <button class="btn btn-g btn-sm" onclick="exportHdCsv()">📥 CSV出力</button>
+        </div>
+        <div id="hd-sum-body"></div>
+      </div>
+    </div>
+
     <!-- 操作マニュアルパネル（管理者向け詳細版） -->
     <div id="pane-manual" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:40px">
@@ -1560,6 +1665,14 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       </div>
     </div>
 
+    <!-- マイ担当パネル。以前は担当表（pane-assign）のサブタブだったが、埋もれて気づかれにくいため
+         タスクと同じくトップレベルのタブへ昇格した。CE/HD両モードで常時表示する -->
+    <div id="pane-my" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:40px">
+        <div id="my-body"></div>
+      </div>
+    </div>
+
   <!-- 担当表パネル（PC: サイドバー全幅拡張でメインエリア表示 / スマホ: fixed全画面表示） -->
   <div id="pane-assign" style="display:none;flex:1;overflow-y:auto">
     <div class="atw">
@@ -1581,7 +1694,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
         <button id="subtab-oc" class="btn btn-g btn-sm" onclick="swSubTab('oc')" style="border-radius:6px 6px 0 0">📞 OC集計</button>
         <button id="subtab-ops" class="btn btn-g btn-sm" onclick="swSubTab('ops')" style="border-radius:6px 6px 0 0">📈 業務集計</button>
         <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0;display:none">⚖️ 公平性</button>
-        <button id="subtab-my" class="btn btn-g btn-sm" onclick="swSubTab('my')" style="border-radius:6px 6px 0 0">👤 マイ担当</button>
       </div>
       <!-- 担当表 -->
       <div id="subpane-at">
@@ -1605,10 +1717,6 @@ body.has-cbar #scroll-top-btn{bottom:126px}
       <!-- 公平性チェック -->
       <div id="subpane-fair" style="display:none">
         <div id="fair-body"></div>
-      </div>
-      <!-- マイ担当 -->
-      <div id="subpane-my" style="display:none;padding:10px 4px">
-        <div id="my-body"></div>
       </div>
     </div>
   </div>
@@ -1917,7 +2025,6 @@ var LOCK_DEFS = [
   {id:'dm',      icon:'📌', label:'チェックリスト（共通）の編集'},
   {id:'wm',      icon:'📅', label:'チェックリスト（曜日別）の編集'},
   {id:'mst',     icon:'📋', label:'各種マスタの編集'},
-  {id:'sm',      icon:'👤', label:'スタッフマスタの編集'},
   {id:'cl',      icon:'✅', label:'チェックリストの入力'},
   {id:'memo',    icon:'📝', label:'業務連絡・申し送りの編集'},
   {id:'pg',      icon:'🗑', label:'連絡表の生成・削除'},
@@ -2066,8 +2173,8 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[]};
-var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', isAdmin = false;
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[]};
+var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
 var _savingTs = 0;     /* saveD()後のリスナー再描画抑制タイムスタンプ */
@@ -2076,6 +2183,7 @@ var _staleTs = 0;          /* 古いデータ検出による再保存レート�
 var _sessionId = Math.random().toString(36).slice(2, 9); /* セッション識別子 */
 var _lastCleanupDate = ''; /* cleanOldSnapshots の日次レート制限 */
 var _fbDataLoaded = false; /* Firebase /data リスナーが初回データを受信済み。trueになるまでFirebase書き込みを禁止（ログイン直後の空書き込みを防止） */
+var _hdCountOpen = false; /* HD日ページの血液浄化件数入力パネルの開閉状態（非永続。編集ボタンで開き、閉じるとチップ表示に戻る） */
 var _hdPanelOpen = false; /* HD勤務者パネルの開閉状態（renderSurplusArea 再呼出しを跨いで保持） */
 var _hdPanelUserOverride = null; /* このセッション中にユーザーが明示操作したか（true=手動オープン、false=手動クローズ、null=未操作＝自動判定に従う） */
 var _staffZoneOpen = false; /* 人員配置管理（当日勤務者一覧＋余剰人員）セクションの開閉状態。
@@ -2148,6 +2256,8 @@ function dashJump(sel) {
 
 /* ===== INIT ===== */
 function init() {
+  _viewMode = getViewMode();
+  updateModeToggleBtn();
   syncCbarInset();
   /* ?preview=1 → 管理者モード / ?preview=2 → 一般ユーザーモードでローカル動作確認 */
   var params = new URLSearchParams(window.location.search);
@@ -2169,13 +2279,9 @@ function init() {
     uc.className = 'uc-name' + (previewAsAdmin ? ' admin' : '');
     uc.style.display = '';
     document.getElementById('btn-logout').style.display = '';
-    if (previewAsAdmin) {
-      ['staff','master','lock','logs','docs'].forEach(function(id){
-        var el = document.getElementById('tab-'+id); if(el) el.style.display='';
-      });
-      var fairBtn = document.getElementById('subtab-fair');
-      if (fairBtn) fairBtn.style.display = '';
-    }
+    /* 管理者タブ・公平性サブタブの出し分けは下の updateTabVisibility() に任せる
+       （以前はここで手動に display='' していたが、主観モードによる出し分け＝担当表/HD集計を
+       見ないため、HDモードで再読み込みするとタブ構成が古いまま残る問題があった） */
     setSyncLbl('ローカル保存 ('+(previewAsAdmin?'管理者':'一般')+')');
   }
   var now = new Date();
@@ -2192,9 +2298,13 @@ function init() {
       saveFirebaseSnapshot('定期（1時間）');
   }, 60*60*1000);
   if (!isPreview) fbInit();
+  /* タブの出し分けを起動時にも必ず1回通す。Firebase運用ではログイン完了時にも呼ばれるが、
+     _viewMode（CE/HD主観）は localStorage から init 冒頭で復元されるため、ここで評価しないと
+     HDモードのまま再読み込みしたときに担当表が残りHD集計が出ない状態になる。 */
+  updateTabVisibility();
   renderCal();
   renderStfList(); renderPhsList(); renderTabletList();
-  renderDlyList(); renderWdlyList(); renderWdDeptList();
+  renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
   renderOpeList(); renderCathList();
   renderLockList();
   initPHIGuard();
@@ -2281,6 +2391,10 @@ function loadD() {
     D.ocFlow = s.ocFlow || '';
     D.makers = normMakers(s.makers);
     D.wdDepts = s.wdDepts || [];
+    D.hdTreatments = s.hdTreatments || [];
+    D.hdDly = s.hdDly || [];
+    D.hdWd = s.hdWd || {};
+    D.hdTablets = s.hdTablets || [];
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -2392,7 +2506,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[];
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[];
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -2564,6 +2678,10 @@ function fbInit() {
             D.ocFlow = d.ocFlow || '';
             D.makers = normMakers(d.makers);
             D.wdDepts = d.wdDepts || [];
+            D.hdTreatments = d.hdTreatments || [];
+            D.hdDly = d.hdDly || [];
+            D.hdWd = d.hdWd || {};
+            D.hdTablets = d.hdTablets || [];
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -2617,7 +2735,7 @@ function fbInit() {
             checkAutoDelTiming();
             renderCal();
             renderStfList(); renderPhsList(); renderTabletList();
-            renderDlyList(); renderWdlyList(); renderWdDeptList();
+            renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
             renderOpeList(); renderCathList();
             renderLockList(); renderAutoAssignModeSetting();
             updateTabVisibility();
@@ -3377,7 +3495,6 @@ function renderSpec() {
    ['ops','業務内容（オペ/カテ等）','一般ユーザーが業務内容を編集できなくなる'],
    ['dm','共通業務マスタ','一般ユーザーが共通業務を編集できなくなる'],
    ['wm','曜日別業務マスタ','一般ユーザーが曜日別業務を編集できなくなる'],
-   ['sm','スタッフマスタ','一般ユーザーがスタッフを編集できなくなる'],
    ['cl','チェックリスト操作','一般ユーザーがチェックできなくなる'],
    ['memo','業務連絡・申し送り','一般ユーザーが申し送りを投稿できなくなる'],
    ['pg','連絡表の生成・削除','一般ユーザーが連絡表を生成・削除できなくなる'],
@@ -3953,7 +4070,7 @@ function renderAdminUsers() {
           S += '<div style="margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px">';
           S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">📑 タブ表示（このユーザーに追加表示するタブ）</div>';
           S += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
-          [{id:'tab_master',icon:'📋',label:'業務タブ'},{id:'tab_staff',icon:'👤',label:'スタッフタブ'}].forEach(function(tp){
+          [{id:'tab_master',icon:'📋',label:'業務タブ'}].forEach(function(tp){
             var granted = !!userPerms[tp.id];
             S += '<button class="btn ' + (granted ? 'btn-p' : 'btn-g') + ' btn-sm"';
             S += ' style="font-size:11px' + (granted ? '' : ';opacity:0.6') + '"';
@@ -4135,8 +4252,27 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/21-44';
+var APP_VERSION = 'Ver.2026/08/22-45';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/22-45', date:'2026-08-22', title:'HDモード（透析主観）を大幅に拡張', items:[
+    {t:'new', d:'🩸 HDモードの連絡表に「血液浄化」ダッシュボードを追加しました。日中・準夜・BW・病棟・特殊の件数が数字タイルで一目で分かり、特殊治療は治療名（PMX・CHDFなど）もそのまま表示されます'},
+    {t:'new', d:'🩸 HDモード専用の「HD集計」タブを追加しました。血液浄化の件数を月・年・期間指定で集計でき、特殊治療の内訳も出ます。CSV出力にも対応しています'},
+    {t:'new', d:'📌 HDモード専用のチェックリスト（共通業務・曜日別業務）を追加しました。第N週の指定や「月内どれか1回でよい」設定、設置部署ごとの消し込みまでCE側と同じように使えます'},
+    {t:'new', d:'📱 HD専用のタブレット台帳を追加しました。透析室のタブレットはCEのものと別管理になり、貸出・返却の記録や未返却の件数が混ざりません'},
+    {t:'new', d:'🩺 HDモードでCEの担当表が、CEモードでHDの担当表（備考つき）が、それぞれ読み取り専用で見られるようになりました。見出しをタップで開きます'},
+    {t:'new', d:'👤 「マイ担当」をサイドバーのタブに昇格しました。担当表の中に隠れていて気づきにくかったものが、1タップで開けます。HD勤務の役割（M・A1・準夜など）も一緒に表示されます'},
+    {t:'imp', d:'🔄 余剰人員の「HDシフトチェンジ」を「CE→HD」「HD→CE」の2つに分けました。どちら向きの移動なのかが一目で分かります'},
+    {t:'imp', d:'🔄 HDモードでは余剰人員の上下が入れ替わり、自分たち（HD勤務者）が上、引っ張ってこられる相手（CE勤務者）がボタンの中になります。折りたたみもできるようになりました'},
+    {t:'imp', d:'📅 カレンダーの完了マークが今見ているモードに合わせて変わるようになりました。HDモードではHDのチェックリストの進み具合が反映されます'},
+    {t:'imp', d:'🩸 HDモードではCE専用のタブ（担当表など）を隠し、実際に使うタブだけを表示するようにしました'},
+    {t:'imp', d:'🖨️ 印刷したとき、HD担当表の備考欄は紙に出ないようにしました（画面でのみ確認する運用に統一）'},
+    {t:'fix', d:'🔄 HDモードの連絡表で「余剰人員」を開閉したとき、別のセクションの▼マークが反応してしまう不具合を修正しました'},
+    {t:'fix', d:'📱 スマートフォンでHDモードの連絡表からスタッフをドラッグしたとき、移動先の枠がハイライトされない不具合を修正しました'},
+    {t:'fix', d:'🩸 HDモードのまま画面を再読み込みすると、タブの構成が切り替わらないままになる不具合を修正しました'},
+    {t:'fix', d:'🔄 余剰人員のチップが横に伸びて、氏名とシフトコードが縦に折り返してしまう表示崩れを修正しました'},
+    {t:'imp', admin:true, d:'👥 スタッフマスタ（スタッフ一覧・PHS番号・勤務表インポート）を管理者限定にしました。ロック設定の「スタッフマスタの編集」項目は廃止しています'},
+    {t:'imp', admin:true, d:'📋 業務タブの各マスタを、CEモード用とHDモード用で表示し分けるようにしました。設置部署マスタは両モード共通です'}
+  ]},
   { ver:'Ver.2026/08/21-44', date:'2026-08-21', title:'人員配置管理の中身が消える不具合を修正', items:[
     {t:'fix', d:'👥 「人員配置管理」の余剰人員エリアが空欄になり、HDへ移動・休みなどの分類が見えなくなる不具合を修正しました'},
     {t:'fix', d:'📞 同じ原因で、オンコール欄の担当者選択や申し送りの投稿が反応しなくなることがあった問題も解消しました'}
@@ -5031,9 +5167,13 @@ function markDutyEdited(ds) {
   if (D.pages[ds] && D.pages[ds].autoAssigned) D.pages[ds].autoAssigned = false;
 }
 
-/* ===== 余剰人員エリア ===== */
+/* ===== 余剰人員エリア =====
+   key:'hd' は絶対に改名しない — 過去ページの staffZone.ce[名前]/staffZone.hd[名前] に
+   値 'hd' がそのまま永続化されているため、key を変えるとどのゾーンにも一致せず
+   チップが画面から消える（データは残るが不可視になる）。ラベル文字列だけ変更する。 */
 var SS_ZONES=[
-  {key:'hd',   icon:'🔄',label:'HDシフトチェンジ',border:'var(--pu)',  bg:'var(--pu-bg)',  color:'var(--pu)'},
+  {key:'hd',   icon:'🔄',label:'CE→HD',   border:'var(--pu)',  bg:'var(--pu-bg)',  color:'var(--pu)'},
+  {key:'to_ce',icon:'🔁',label:'HD→CE',   border:'var(--ac)',  bg:'var(--ac-bg)',  color:'var(--ac)'},
   {key:'maint',icon:'🔧',label:'メンテ',           border:'var(--or)',  bg:'var(--or-bg)',  color:'var(--or)'},
   {key:'off',  icon:'🏖️',label:'休み',             border:'var(--gr)',  bg:'var(--gr-bg,#f0fff4)',color:'var(--gr)'},
   {key:'other',icon:'📝',label:'その他',           border:'var(--bdr2)',bg:'var(--sur2)',     color:'var(--txt2)'}
@@ -5043,30 +5183,50 @@ function renderSurplusArea(ds, dat, locked) {
   var sz = ensureStaffZone(dat);
   var dlk = !can('duty');
 
-  var hd = getShiftForDay(ds).hd || [];
+  var hd = hdShiftWorkers(ds); /* HD担当表(dat.hdDuty.overrides)での差し替えを反映した実効氏名で表示する */
   var hdDay   = hd.filter(function(x){ return !x.night; });
   var hdNight = hd.filter(function(x){ return  x.night; });
+  /* 主観で「自分たちの一覧（上のチップ行）」と「相手側のソースパネル」を丸ごと入れ替える。
+     CE主観：上＝CE余剰人員 ／ パネル＝HD勤務者
+     HD主観：上＝HD勤務者   ／ パネル＝CE勤務者
+     どちらの主観でも「未分類の自分たち」を上に、「引っ張ってこられる相手」をパネルに置く形。 */
+  var isHd = (_viewMode === 'hd');
+  var ceOnDuty = getShiftForDay(ds).ce || []; /* [{name, shift:'CE', oc}] */
 
-  /* 未分類のHD勤務者がいる間は自動的にパネルを開く（ユーザーが明示操作していない限り） */
-  var hasUnclassifiedHd = hd.some(function(x){ return !sz.hd[x.name]; });
-  if (_hdPanelUserOverride === null) _hdPanelOpen = hasUnclassifiedHd;
+  /* 未分類の相手側スタッフがいる間は自動的にパネルを開く（ユーザーが明示操作していない限り） */
+  var hasUnclassifiedSrc = isHd
+    ? ceOnDuty.some(function(x){ return !sz.ce[x.name]; })
+    : hd.some(function(x){ return !sz.hd[x.name]; });
+  if (_hdPanelUserOverride === null) _hdPanelOpen = hasUnclassifiedSrc;
 
-  /* ヘッダー：タイトル＋ HD勤務者トグルボタン（右） */
+  /* ヘッダー：タイトル＋ソースパネルのトグルボタン（右）。
+     HD主観では外側の .staffz 見出しが「🔄 余剰人員」を出しているのでタイトルは重複させない。 */
+  var srcLabel = isHd ? ('🩺 CE勤務者 ('+ceOnDuty.length+')') : ('🩸 HD勤務者 ('+hd.length+')');
   var html = '<div class="surplus-hd">';
-  html += '<div class="surplus-ttl">🔄 余剰人員</div>';
-  html += '<button type="button" class="hd-toggle-btn'+ (_hdPanelOpen?' active':'')+'" id="hd-toggle" onclick="toggleHDPanel()">🩸 HD勤務者 ('+hd.length+')</button>';
+  if (!isHd) html += '<div class="surplus-ttl">🔄 余剰人員</div>';
+  html += '<button type="button" class="hd-toggle-btn'+ (_hdPanelOpen?' active':'')+'" id="hd-toggle" style="margin-left:auto" onclick="toggleHDPanel()">'+srcLabel+'</button>';
   html += '</div>';
 
-  /* 余剰人員チップ（ゾーン配置済みはスキップ、ゾーンカードに表示） */
-  var _freeChips = Object.keys(sz.ce).filter(function(n){ return !sz.ce[n]; });
+  /* 上のチップ行：未分類の「自分たち」 */
   html += '<div id="surplus-chips" class="surplus-chips"'+(dlk?'':' ondragover="event.preventDefault()" ondrop="dropToSurplus(event,\''+ds+'\')"')+'>';
-  for (var i=0; i<_freeChips.length; i++) {
-    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(_freeChips[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
-    html += escH(_freeChips[i]);
-    if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escJs(_freeChips[i])+'\')">×</button>';
-    html += '</div>';
+  if (isHd) {
+    var hdFree = hd.filter(function(x){ return !sz.hd[x.name]; });
+    for (var hf=0; hf<hdFree.length; hf++) {
+      var hfw = hdFree[hf];
+      html += '<div class="pchip hd'+(hfw.night?' night':'')+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hfw.name)+'" data-from="hd" data-ds="'+ds+'" title="ドラッグしてゾーンへ">'
+        + escH(hfw.name) + '<span class="cs">'+escH(hfw.night?'準':hfw.shift)+'</span></div>';
+    }
+    if (!hdFree.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">'+(hd.length?'全員分類済み ✓':'勤務表にHD勤務者がいません')+'</div>';
+  } else {
+    var _freeChips = Object.keys(sz.ce).filter(function(n){ return !sz.ce[n]; });
+    for (var i=0; i<_freeChips.length; i++) {
+      html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(_freeChips[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
+      html += escH(_freeChips[i]);
+      if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escJs(_freeChips[i])+'\')">×</button>';
+      html += '</div>';
+    }
+    if (!_freeChips.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   }
-  if (!_freeChips.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   html += '</div>';
 
   /* ステータス分類ゾーン（常時表示）：余剰人員またはHD勤務者をここにドロップ */
@@ -5102,29 +5262,47 @@ function renderSurplusArea(ds, dat, locked) {
   }
   html += '</div>';
 
-  /* HD勤務者パネル（折りたたみ）：ソースリストのみ */
-  var hdDayFree   = hdDay.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
-  var hdNightFree = hdNight.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
-  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+';flex-direction:column">';
-  if (!hd.length) {
-    html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
-  } else {
-    if (hdDay.length) {
-      html += '<div class="pool-sec" style="width:100%">🔵 日勤</div>';
-      if (hdDayFree.length) {
-        for (var j=0; j<hdDayFree.length; j++)
-          html += '<div class="pchip hd" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdDayFree[j].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdDayFree[j].name)+'<span class="cs">'+escH(hdDayFree[j].shift)+'</span></div>';
-      } else {
-        html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+  /* ソースパネル（折りたたみ）：相手側のスタッフ一覧。
+     CE勤務者チップの data-from は新しい値を作らず 'surplus' を使う——dropToStatusZone は
+     from==='hd' 以外を全て 'ce' に振るので分類は正しく落ち、removeFromZoneSource が後始末で
+     見る値（'surplus'/'status'）とも揃う。'ce' のような新値を足すと後始末が効かなくなる。 */
+  /* HD側は「🔵日勤 / 🌙準夜」の見出し行を挟むので縦積み、CE側は見出しが無いのでチップを横に流す */
+  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+';flex-direction:'+(isHd?'row':'column')+'">';
+  if (isHd) {
+    var ceFree = ceOnDuty.filter(function(x){ return !sz.ce[x.name]; });
+    if (!ceOnDuty.length) {
+      html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
+    } else if (!ceFree.length) {
+      html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+    } else {
+      for (var cf=0; cf<ceFree.length; cf++) {
+        html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(ceFree[cf].name)+'" data-from="surplus" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'
+          + escH(ceFree[cf].name) + (ceFree[cf].oc?'<span class="cs">OC</span>':'') + '</div>';
       }
     }
-    if (hdNight.length) {
-      html += '<div class="pool-sec" style="width:100%">🌙 準夜</div>';
-      if (hdNightFree.length) {
-        for (var k=0; k<hdNightFree.length; k++)
-          html += '<div class="pchip hd night" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdNightFree[k].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdNightFree[k].name)+'<span class="cs">準</span></div>';
-      } else {
-        html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+  } else {
+    var hdDayFree   = hdDay.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
+    var hdNightFree = hdNight.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
+    if (!hd.length) {
+      html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
+    } else {
+      if (hdDay.length) {
+        html += '<div class="pool-sec" style="width:100%">🔵 日勤</div>';
+        if (hdDayFree.length) {
+          for (var j=0; j<hdDayFree.length; j++)
+            html += '<div class="pchip hd" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdDayFree[j].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdDayFree[j].name)+'<span class="cs">'+escH(hdDayFree[j].shift)+'</span></div>';
+        } else {
+          html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+        }
+      }
+      if (hdNight.length) {
+        html += '<div class="pool-sec" style="width:100%">🌙 準夜</div>';
+        if (hdNightFree.length) {
+          for (var k=0; k<hdNightFree.length; k++)
+            html += '<div class="pchip hd night" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdNightFree[k].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdNightFree[k].name)+'<span class="cs">準</span></div>';
+        } else {
+          html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+        }
       }
     }
   }
@@ -5132,13 +5310,25 @@ function renderSurplusArea(ds, dat, locked) {
 
   wrap.innerHTML = html;
   updateStaffZoneBadge(ds);
+  /* HD日ページの .staffz 見出しに出す「未分類N」バッジ。CE側の staffZoneCounts() は
+     当日勤務者数と未割当枠数というCE前提の数字なので流用せず、ここで直接書き換える。 */
+  var hdzB = document.getElementById('hdz-badge');
+  if (hdzB) {
+    var unN = hd.filter(function(x){ return !sz.hd[x.name]; }).length;
+    hdzB.textContent = unN ? ('未分類 '+unN) : '全員分類済み';
+    hdzB.style.color = unN ? 'var(--rd)' : 'var(--txt3)';
+  }
 }
 
 function toggleStaffZone(){
   _staffZoneOpen = !_staffZoneOpen;
   var body = document.getElementById('staffz-body');
   if(body) body.style.display = _staffZoneOpen ? 'block' : 'none';
-  var ar = document.querySelector('.staffz-arrow');
+  /* 矢印は必ず id で引く。以前は document.querySelector('.staffz-arrow') で
+     「文書内の先頭1つ」を取っていたが、HD日ページには .staffz シェルを流用した
+     セクションが複数あり（CE担当表→余剰人員の順）、余剰人員を開閉すると
+     CE担当表側の▼だけが反転して本体と食い違う不具合になっていた。 */
+  var ar = document.getElementById('staffz-arrow');
   if(ar) ar.textContent = _staffZoneOpen ? '▲' : '▼';
 }
 
@@ -5186,6 +5376,175 @@ function toggleHDPanel(){
   var p = document.getElementById('hd-worker-panel'), b = document.getElementById('hd-toggle');
   if (p) p.style.display = _hdPanelOpen ? 'flex' : 'none';
   if (b) b.classList.toggle('active', _hdPanelOpen);
+}
+
+/* 余剰人員パネル（#surplus-wrap、CE側の #pool-chips 含む）のD&D配線。デスクトップdragイベントとスマホtouchイベントの両方をここで一括登録する。
+   #pool-chips はCE主観の日ページ（renderPage→buildDG）にしか存在しないため、HD日ページ（renderPageHD）から呼んだ場合はnull guardで自動的に何もしない。
+   buildDG（CE）とrenderPageHD（HD）の両方が、自分のパネル描画後にこの関数を呼ぶ。 */
+function bindSurplusDnD(ds) {
+  var poolChips = document.getElementById('pool-chips');
+  if (poolChips) {
+    poolChips.addEventListener('dragstart', function(e) {
+      var chip=e.target.closest('[draggable]'); if(!chip) return;
+      e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
+      e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
+      e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
+    });
+    poolChips.addEventListener('dragend', function(e) {
+      var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
+    });
+  }
+  /* 余剰エリア＋HD勤務者パネルのD&D（安定要素 #surplus-wrap に委譲。
+     innerHTML 差し替え後も子チップのドラッグを拾える） */
+  var surplusEl = document.getElementById('surplus-wrap');
+  if (surplusEl) {
+    surplusEl.addEventListener('dragstart', function(e) {
+      var chip=e.target.closest('[draggable]'); if(!chip) return;
+      e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
+      e.dataTransfer.setData('from', chip.getAttribute('data-from')||'');
+      e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
+      e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
+    });
+    surplusEl.addEventListener('dragend', function(e) {
+      var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
+    });
+    /* HD勤務者チップのタップ割当（data-action="poolAssign"） */
+    surplusEl.addEventListener('click', function(e) {
+      var b=e.target.closest('[data-action="poolAssign"]'); if(!b) return;
+      poolAssign(b.getAttribute('data-ds')||ds, b.getAttribute('data-name'));
+    });
+  }
+
+  /* ===== スマホ用タッチD&D ===== */
+  (function(){
+    var _ghost = null, _dragName = '', _dragFrom = '', _dragDs = '';
+
+    function onTouchStart(e) {
+      /* ×ボタン等の操作要素から始まったタッチはドラッグ扱いにしない（タップでの削除を優先） */
+      if (e.target.closest('button,a,input,select,textarea')) return;
+      var chip = e.target.closest('[draggable]'); if (!chip) return;
+      _dragName = chip.getAttribute('data-name') || '';
+      _dragFrom = chip.getAttribute('data-from') || '';
+      _dragDs   = chip.getAttribute('data-ds')   || ds;
+      if (!_dragName) return;
+
+      /* ゴースト要素を作成 */
+      _ghost = document.createElement('div');
+      _ghost.textContent = _dragName;
+      _ghost.style.cssText = 'position:fixed;z-index:9999;background:var(--ac);color:#fff;'
+        + 'border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;'
+        + 'pointer-events:none;opacity:0.85;white-space:nowrap;transform:translate(-50%,-50%)';
+      document.body.appendChild(_ghost);
+      chip.classList.add('dragging');
+
+      var t = e.touches[0];
+      _ghost.style.left = t.clientX + 'px';
+      _ghost.style.top  = t.clientY + 'px';
+    }
+
+    function onTouchMove(e) {
+      if (!_ghost || !_dragName) return;
+      e.preventDefault();
+      var t = e.touches[0];
+      _ghost.style.left = t.clientX + 'px';
+      _ghost.style.top  = t.clientY + 'px';
+
+      /* 指の下の要素を取得。以前はこの取得と全ハイライト処理が「#dgがあれば」ブロックの内側にあり、
+         #dgを持たないHD日ページではelすら求められず、スマホで余剰エリア/ステータスゾーンへ
+         ドラッグしてもハイライトが一切出なかった。担当カードのハイライトだけ#dg存在時に限定し、
+         余剰エリア・ステータスゾーンのハイライトはCE/HDどちらの日ページでも行う。 */
+      _ghost.style.display = 'none';
+      var el = document.elementFromPoint(t.clientX, t.clientY);
+      _ghost.style.display = '';
+
+      var dg2 = document.getElementById('dg');
+      if (dg2) {
+        var all = dg2.querySelectorAll('.dc');
+        for (var i=0; i<all.length; i++) all[i].classList.remove('drag-over');
+        if (el) {
+          var card = el.closest('.dc[data-duty-id]');
+          if (card) card.classList.add('drag-over');
+        }
+      }
+      /* 余剰エリアのハイライト */
+      var surWrap = document.getElementById('surplus-wrap');
+      if (surWrap) surWrap.classList.remove('drag-over');
+      if (el && el.closest('#surplus-wrap')) {
+        if (surWrap) surWrap.classList.add('drag-over');
+      }
+      /* ステータスゾーンのハイライト */
+      var allZones = document.querySelectorAll('.ss-zone');
+      for(var zi2=0; zi2<allZones.length; zi2++) allZones[zi2].classList.remove('drag-over');
+      if (el) { var ssz = el.closest('.ss-zone'); if(ssz) ssz.classList.add('drag-over'); }
+    }
+
+    function onTouchEnd(e) {
+      if (!_ghost || !_dragName) return;
+      e.preventDefault(); /* タッチドラッグ後の合成click/mousedownを抑制 */
+      var t = e.changedTouches[0];
+
+      /* ゴーストを非表示にして要素を取得 */
+      _ghost.style.display = 'none';
+      var el = document.elementFromPoint(t.clientX, t.clientY);
+      _ghost.style.display = '';
+
+      /* ゴースト削除・ハイライト解除 */
+      document.body.removeChild(_ghost); _ghost = null;
+      var dg2 = document.getElementById('dg');
+      if (dg2) { var all=dg2.querySelectorAll('.dc'); for(var i=0;i<all.length;i++) all[i].classList.remove('drag-over'); }
+      var surWrap = document.getElementById('surplus-wrap');
+      if (surWrap) surWrap.classList.remove('drag-over');
+      document.querySelectorAll('.dragging').forEach(function(c){ c.classList.remove('dragging'); });
+
+      if (!el) { _dragName=''; return; }
+
+      /* ステータスゾーンへのドロップ */
+      var ssZone = el.closest('.ss-zone[data-zone-key]');
+      if (ssZone) {
+        var zk = ssZone.getAttribute('data-zone-key');
+        ssZone.classList.remove('drag-over');
+        classifyStaff(_dragDs, _dragName, _dragFrom === 'hd' ? 'hd' : 'ce', zk);
+        _dragName = ''; return;
+      }
+
+      /* 担当カードへのドロップ */
+      var card = el.closest('.dc[data-duty-id]');
+      if (card) {
+        var did = card.getAttribute('data-duty-id');
+        removeFromZoneSource(_dragDs, _dragName, _dragFrom);
+        var sel = document.getElementById('sel-' + did);
+        if (sel) {
+          sel.value = _dragName; sel.classList.toggle('set', !!_dragName);
+          var _oldDuty=(D.pages[_dragDs].duties||{})[did];
+          if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
+          D.pages[_dragDs].duties[did] = _dragName;
+          markDutyEdited(_dragDs);
+          saveD(); refreshPool(_dragDs); updateStaffZoneBadge(_dragDs); updateCloseBar(_dragDs);
+          maybeLateToast(D.pages[_dragDs], did, _dragName, _oldDuty);
+          writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
+        }
+        _dragName=''; return;
+      }
+
+      /* 余剰エリアへのドロップ（HD勤務者は除外） */
+      if (el.closest('#surplus-wrap') && _dragFrom !== 'hd') {
+        dropToSurplus({preventDefault:function(){}, dataTransfer:{
+          getData: function(k){ return k==='text/plain'?_dragName:(k==='from'?_dragFrom:''); }
+        }}, ds);
+        _dragName=''; return;
+      }
+
+      _dragName = '';
+    }
+
+    /* プールと余剰の両方にタッチリスナーを設定 */
+    [poolChips, surplusEl].forEach(function(area) {
+      if (!area) return;
+      area.addEventListener('touchstart', onTouchStart, {passive:true});
+      area.addEventListener('touchmove',  onTouchMove,  {passive:false});
+      area.addEventListener('touchend',   onTouchEnd,   {passive:true});
+    });
+  })();
 }
 
 function dropToSurplus(e, ds) {
@@ -5296,7 +5655,7 @@ function removeOpsCard(ds, cid) {
 var _curSubTab = 'at';
 function swSubTab(id) {
   _curSubTab = id;
-  var ids = ['at','oc','ops','fair','my'];
+  var ids = ['at','oc','ops','fair']; /* 'my'（マイ担当）はトップレベルタブ（swTab('my')）へ昇格済み */
   ids.forEach(function(sid){
     var pane = document.getElementById('subpane-'+sid);
     if (pane) pane.style.display = sid===id ? '' : 'none';
@@ -5308,12 +5667,11 @@ function swSubTab(id) {
   /* CSV/印刷ボタンの有無をサブタブに合わせて切り替え */
   var csvBtn   = document.getElementById('btn-sub-csv');
   var printBtn = document.getElementById('btn-sub-print');
-  if (csvBtn)   csvBtn.style.display   = (id==='fair'||id==='my') ? 'none' : '';
-  if (printBtn) printBtn.style.display = (id==='my') ? 'none' : '';
+  if (csvBtn)   csvBtn.style.display   = (id==='fair') ? 'none' : '';
+  if (printBtn) printBtn.style.display = '';
   if (id==='oc')   renderOCSummary();
   if (id==='ops')  renderOpsSummary();
   if (id==='fair') renderFairness();
-  if (id==='my')   renderMySchedule();
 }
 
 /* ===== OC集計シート ===== */
@@ -5346,14 +5704,14 @@ function sumDsList() {
 function setSumMode(m) {
   _sumMode = m;
   if (m === 'range' && (!_sumFrom || !_sumTo)) { var r0 = sumRange(); _sumFrom = r0.from; _sumTo = r0.to; }
-  renderOCSummary(); renderOpsSummary();
+  renderOCSummary(); renderOpsSummary(); renderHdSummary();
 }
 function applySumRange(pfx) {
   var f = document.getElementById(pfx+'-sum-from'), t = document.getElementById(pfx+'-sum-to');
   if (f) _sumFrom = f.value;
   if (t) _sumTo   = t.value;
   if (!_sumFrom || !_sumTo) { toast('開始日と終了日を選んでください', 'warn'); return; }
-  renderOCSummary(); renderOpsSummary();
+  renderOCSummary(); renderOpsSummary(); renderHdSummary();
 }
 /* 期間切替のコントロール。OC集計と業務集計の両方に同じものを出すので id は接頭辞で分ける */
 function sumCtlHTML(pfx) {
@@ -5646,6 +6004,116 @@ function renderOCSummary() {
     h += '<td class="num">'+(oc.nenkyu?'<span style="color:var(--ac);font-weight:700">✔ 年休</span>':'<span class="muted">—</span>')+'</td>';
     h += '</tr>';
   });
+  h += '</tbody></table></div>';
+  el.innerHTML = h;
+}
+
+/* ===== HD集計パネル（HDモードのときだけ見える独立タブ。dat.hdCount の期間集計） =====
+   OC集計と同じ骨格（グラフ無し、バッジ＋テーブル）で作る。renderOCSummary/renderOpsSummaryと同様、
+   #hd-sum-bodyが無ければ何もしない — pane-hdsumが非表示でも常時DOM自体は存在するため、
+   setSumMode/applySumRange/asPrevM/asNextMから無条件に呼んでよい。 */
+function renderHdSummary() {
+  var el = document.getElementById('hd-sum-body');
+  if (!el) return;
+  var rng = sumRange();
+  var rows = [];
+  sumDsList().forEach(function(ds){
+    var pg = D.pages[ds];
+    if (!pg || !pg.hdCount) return;
+    var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdCountN(pg.hdCount.ward);
+    var sp = hdCountSpFilled(pg);
+    var total = day + night + bw + ward + sp.length;
+    if (!total) return; /* 全区分0件の日は一覧に出さない（OC集計が担当者未設定日をスキップするのと同じ考え方） */
+    rows.push({ ds: ds, day: day, night: night, bw: bw, ward: ward, sp: sp, total: total });
+  });
+  var h = sumCtlHTML('hd');
+  /* 月送り。OC集計・業務集計は担当表タブ上部の月ナビ（asPrevM/asNextM）を共有しているが、
+     HD主観ではその担当表タブごと隠れるため、HD集計にだけ自前の月送りを置く。
+     これが無いとHDユーザーは今月以外を「期間指定」でしか見られない。
+     asPrevM/asNextM は pane-hdsum が表示中なら renderHdSummary() を呼び直す。 */
+  if (_sumMode === 'month') {
+    h += '<div class="sum-toolbar" style="margin-top:-4px">'
+      + '<button class="btn btn-g btn-sm" onclick="asPrevM()">&#8249; 前の月</button>'
+      + '<button class="btn btn-g btn-sm" onclick="asNextM()">次の月 &#8250;</button>'
+      + '</div>';
+  }
+  if (!rows.length) {
+    el.innerHTML = h + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'に血液浄化の記録がありません</div>';
+    return;
+  }
+  /* 集計 */
+  var sums = {day:0, night:0, bw:0, ward:0, sp:0};
+  var spAgg = {}; /* 治療名 → 件数（特殊治療の内訳） */
+  rows.forEach(function(r){
+    sums.day += r.day; sums.night += r.night; sums.bw += r.bw; sums.ward += r.ward; sums.sp += r.sp.length;
+    r.sp.forEach(function(name){ if (name) spAgg[name] = (spAgg[name]||0) + 1; });
+  });
+  var grandTotal = sums.day + sums.night + sums.bw + sums.ward + sums.sp;
+  h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+escH(rng.label)+'　HD集計</span></div>';
+  h += '<div class="sum-badges">';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>合計 <b style="color:var(--pu)">'+grandTotal+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>日中 <b>'+sums.day+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>準夜 <b>'+sums.night+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>BW <b>'+sums.bw+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>病棟 <b>'+sums.ward+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>特殊 <b>'+sums.sp+'</b>件</span>';
+  h += '</div>';
+  /* 複数月にまたがるときは月別の内訳を先に出す（年間集計で日別だけだと読み取れないため） */
+  if (rng.multi) {
+    var mk = sumMonthKeys(rows.map(function(r){ return r.ds; }));
+    var per = {};
+    mk.forEach(function(k){ per[k] = {day:0, night:0, bw:0, ward:0, sp:0}; });
+    rows.forEach(function(r){
+      var k = r.ds.slice(0,7), p = per[k];
+      p.day += r.day; p.night += r.night; p.bw += r.bw; p.ward += r.ward; p.sp += r.sp.length;
+    });
+    h += '<div class="data-wrap" style="margin-bottom:14px"><table class="data-tbl" style="min-width:420px">';
+    h += '<thead><tr><th style="width:90px">月</th><th>日中</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>計</th></tr></thead><tbody>';
+    mk.forEach(function(k){
+      var p = per[k], t = p.day + p.night + p.bw + p.ward + p.sp;
+      h += '<tr><td style="white-space:nowrap"><strong>'+sumMonthLabel(k)+'</strong></td>'
+        + '<td class="num">'+(p.day||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.night||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.bw||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.ward||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.sp||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num" style="font-weight:700;color:var(--pu)">'+t+'</td></tr>';
+    });
+    h += '<tr class="total"><td>合計</td><td class="num">'+sums.day+'</td><td class="num">'+sums.night+'</td>'
+      + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td>'
+      + '<td class="num" style="color:var(--pu)">'+grandTotal+'</td></tr>';
+    h += '</tbody></table></div>';
+  }
+  /* 特殊治療の内訳 */
+  var spNames = Object.keys(spAgg).sort(function(a,b){ return spAgg[b]-spAgg[a]; });
+  if (spNames.length) {
+    h += '<div class="sum-card-grid"><div class="sum-card"><div class="sum-card-ttl">🩸 特殊治療の内訳</div>';
+    spNames.forEach(function(n){
+      h += '<div class="sum-card-row"><span class="lbl">'+escH(n)+'</span><span class="n">'+spAgg[n]+'件</span></div>';
+    });
+    h += '</div></div>';
+  }
+  /* 日別テーブル */
+  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:520px">';
+  h += '<thead><tr><th style="width:'+(rng.multi?100:70)+'px">日付</th><th>日中</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>計</th></tr></thead><tbody>';
+  rows.forEach(function(r) {
+    var w = new Date(r.ds).getDay();
+    var wdCls = w===0?'color:var(--rd)':w===6?'color:var(--ac)':'';
+    var pt = r.ds.split('-');
+    var dn = rng.multi ? (parseInt(pt[1],10)+'/'+parseInt(pt[2],10)) : (parseInt(pt[2],10)+'日');
+    h += '<tr>';
+    h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'</strong> '+WDL[w]+'</td>';
+    h += '<td class="num">'+(r.day||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.night||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.bw||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.ward||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.sp.length||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num" style="font-weight:700;color:var(--pu)">'+r.total+'</td>';
+    h += '</tr>';
+  });
+  h += '<tr class="total"><td>合計</td><td class="num">'+sums.day+'</td><td class="num">'+sums.night+'</td>'
+    + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td>'
+    + '<td class="num" style="color:var(--pu)">'+grandTotal+'</td></tr>';
   h += '</tbody></table></div>';
   el.innerHTML = h;
 }
@@ -6702,12 +7170,120 @@ function clStatus(ds) {
   return out;
 }
 
+/* ===== HDチェックリスト（HD主観モード。D.hdDly/D.hdWd + dat.hdChecks） =====
+   CE側（D.dly/D.wd + dat.checks）とは名前空間もdat上のキーも完全に別。
+   dat.checksに相乗りしない理由：remapDlyChecks/remapWdChecksはD.dly.length基準の
+   固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にすると
+   CE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。dat.hdChecksを
+   別キーにすることで、CE側マスタ編集はdat.checksしか触らず、HD側は自動的に無傷になる。
+   wdText/dlyText/dlyNotif/itemRebuild/isDlyShownOnDate/wdWeeks/wdOnce/wdSubs/wdSid/
+   newSid/nthWk/isLastWeek/wdApplies/wdSubProgress/renderSubPanel は渡された item
+   オブジェクトだけを見る純粋な関数（D.dly/D.wdを直接参照しない）ため、そのままHD版にも
+   使い回せる。CE版と同じ2段オフセット規約（0..D.hdDly.length-1がHD共通、
+   D.hdDly.length+jがHD曜日別）を踏襲する。 */
+/* 指定日に表示すべきHD曜日別項目を「本文＋マスタ項目そのもの」で返す（wdEntriesForDateのHD版） */
+function hdWdEntriesForDate(ds){
+  var w = new Date(ds).getDay(), ws = WDL[w];
+  var arr = D.hdWd[ws] || [], out = [];
+  for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push({ t: wdText(arr[i]), it: arr[i] }); }
+  return out;
+}
+/* 本文文字列の配列だけを返す（wdItemsForDateのHD版。描画側のindex整合に使う） */
+function hdWdItemsForDate(ds){
+  return hdWdEntriesForDate(ds).map(function(e){ return e.t; });
+}
+/* once指定のHD項目が同月の前の該当日で実施済みならその日付を返す（wdOnceDoneOnのHD版）。
+   D.dly.length→D.hdDly.length、pg.checks→pg.hdChecks、wdItemsForDate→hdWdItemsForDateの
+   3箇所だけがCE版との違い。過去方向のみ走査する理由・安定性の理由はwdOnceDoneOnと同じ。 */
+function hdWdOnceDoneOn(ds, ent) {
+  var it = ent.it;
+  if (!it || typeof it !== 'object' || !it.once) return null;
+  var ym = ds.slice(0, 7), dow = new Date(ds).getDay(), day = +ds.split('-')[2];
+  for (var d = 1; d < day; d++) {
+    var other = ym + '-' + pad(d);
+    if (new Date(other).getDay() !== dow) continue;
+    if (!wdApplies(other, it)) continue;
+    var pg = D.pages[other]; if (!pg || !pg.hdChecks) continue;
+    var idx = hdWdItemsForDate(other).indexOf(ent.t);
+    if (idx !== -1 && pg.hdChecks[D.hdDly.length + idx]) return other;
+  }
+  return null;
+}
+/* HD共通業務（D.hdDly）用のremap（remapDlyChecksのHD版）。dat.hdChecksだけを付け替え、
+   dat.checksには一切触れない。呼ぶタイミングもCE版と同じくマスタ変更の「前」。 */
+function remapHdDlyChecks(mapFn) {
+  Object.keys(D.pages || {}).forEach(function(ds) {
+    var dat = D.pages[ds];
+    if (!dat || !dat.hdChecks) return;
+    var next = {};
+    Object.keys(dat.hdChecks).forEach(function(k) {
+      var ni = mapFn(parseInt(k, 10));
+      if (ni === null || ni === undefined) return;
+      next[ni] = dat.hdChecks[k];
+    });
+    dat.hdChecks = next;
+  });
+}
+/* HD曜日別業務（D.hdWd[曜日]）用のremap（remapWdChecksのHD版）。呼ぶタイミングもCE版と
+   同じくマスタ変更の「後」（oldArrのコピーを先に取ってから変更し、その後これを呼ぶ）。 */
+function remapHdWdChecks(wdKey, oldArr, newArr) {
+  var base = D.hdDly.length;
+  Object.keys(D.pages || {}).forEach(function(ds) {
+    var dat = D.pages[ds];
+    if (!dat || !dat.hdChecks) return;
+    if (WDL[new Date(ds).getDay()] !== wdKey) return;
+    var oldF = [], newF = [], a;
+    for (a = 0; a < oldArr.length; a++) if (wdApplies(ds, oldArr[a])) oldF.push(wdText(oldArr[a]));
+    for (a = 0; a < newArr.length; a++) if (wdApplies(ds, newArr[a])) newF.push(wdText(newArr[a]));
+    var next = {};
+    Object.keys(dat.hdChecks).forEach(function(k) {
+      var idx = parseInt(k, 10);
+      if (idx < base) { next[idx] = dat.hdChecks[k]; return; }
+      var text = oldF[idx - base];
+      if (text === undefined) return;
+      var ni = newF.indexOf(text);
+      if (ni === -1) return;
+      next[base + ni] = dat.hdChecks[k];
+    });
+    dat.hdChecks = next;
+  });
+}
+/* HDチェックリストの集計はここが唯一の入口（clStatusのHD版）。updHdProg/closeItems(HD分岐)は
+   すべてこれを呼ぶ。D.hdDly/dat.hdChecks/hdWdEntriesForDate/hdWdOnceDoneOnを使う点だけがclStatusと違う。 */
+function hdClStatus(ds) {
+  var dat = D.pages[ds];
+  if (!dat) return { done:0, total:0, undone:[], exists:false };
+  var out = { done:0, total:0, undone:[], exists:true };
+  for (var i = 0; i < D.hdDly.length; i++) {
+    if (!isDlyShownOnDate(D.hdDly[i], ds)) continue;
+    out.total++;
+    if (dat.hdChecks && dat.hdChecks[i]) out.done++;
+    else out.undone.push({ label: dlyText(D.hdDly[i]) });
+  }
+  var ents = hdWdEntriesForDate(ds);
+  for (var j = 0; j < ents.length; j++) {
+    out.total++;
+    if ((dat.hdChecks && dat.hdChecks[D.hdDly.length + j]) || hdWdOnceDoneOn(ds, ents[j])) out.done++;
+    else out.undone.push({ label: ents[j].t });
+  }
+  return out;
+}
+function getHdPct(ds) {
+  var s = hdClStatus(ds);
+  if (!s.exists) return 0;
+  return s.total===0?100:Math.round(s.done/s.total*100);
+}
+
 /* ===== CALENDAR ===== */
 function getPct(ds) {
   var s = clStatus(ds);
   if (!s.exists) return 0;
   return s.total===0?100:Math.round(s.done/s.total*100);
 }
+/* カレンダーの日セルの塗り分けに使う進捗。CE主観ならCEのチェックリスト、HD主観ならHDのを見る。
+   HD勤務者にCEの未完了を見せても意味が無いため主観に追従させる。
+   担当表（renderAT）はCE専用の画面なのでそちらは getPct のまま。 */
+function pctForView(ds) { return _viewMode === 'hd' ? getHdPct(ds) : getPct(ds); }
 
 /* その日、自分が持っている担当枠のラベル一覧。スロットのidは「追加」のたびに
    'slot_'+Date.now() で採番し直される（日をまたいで同じidが続く保証がない）ため、
@@ -6762,11 +7338,18 @@ function closeItems(ds) {
     });
   }
 
-  /* 2. チェックリスト未了（clStatusがgetPctと同じ数え方の唯一の集計元）。
-     オペ/カテいずれの担当枠も無い人（フリー・機器管理など、または担当なし）が
-     共通業務の担い手という実際の運用に合わせ、その場合だけ自分ごとにする */
-  var checklistMine = !!self && !myOpe && !myCath;
-  clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:checklistMine}); });
+  /* 2. チェックリスト未了。HDモードではHD側のマスタ/dat.hdChecksを見るhdClStatusに切り替える
+     （CE版のclStatusのままだとCE共通業務がHD日ページの消し込みバーに出てしまう）。
+     mine判定もCE側「オペ/カテ担当枠が無い人だけ自分ごと」はHDに担当枠の概念自体が
+     無いため意味を成さず、HDでは自分が特定できていれば単純に自分ごとにする。 */
+  if (_viewMode === 'hd') {
+    hdClStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:!!self}); });
+  } else {
+    /* オペ/カテいずれの担当枠も無い人（フリー・機器管理など、または担当なし）が
+       共通業務の担い手という実際の運用に合わせ、その場合だけ自分ごとにする */
+    var checklistMine = !!self && !myOpe && !myCath;
+    clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:checklistMine}); });
+  }
 
   /* 3/4. オペ・カテ：入力済み（opsItemFilled）なのに終了未チェックの行。
      症例行に自分の名前が入っている場合に加え、まだ誰も入力していなくても
@@ -6780,7 +7363,7 @@ function closeItems(ds) {
   });
 
   /* 5. タブレット未返却（ヘッダーバッジと同じ式：当日分＋前日以前からの持ち越し分） */
-  (dat.tabletLogs||[]).forEach(function(l){
+  tabletLogsOf(dat).forEach(function(l){
     if (!l.returnedAt) byKey.tablet.items.push({mine: !!(self && l.borrower===self)});
   });
   tabletCarryOver(ds).forEach(function(o){
@@ -6929,7 +7512,7 @@ function renderCal() {
     var cls = 'cd' + (w===0?' sun':w===6?' sat':'') + (ds===today?' tod':'') +
               (D.pages[ds] ? ' hp' : '') +
               (D.pages[ds] && D.pages[ds].autoAssigned ? ' ap' : '') +
-              (D.pages[ds] && getPct(ds)===100 ? ' dp' : '') +
+              (D.pages[ds] && pctForView(ds)===100 ? ' dp' : '') +
               (hasEvt ? ' ev' : '') +
               (curDs===ds ? ' sel' : '');
     var e = document.createElement('div'); e.className = cls;
@@ -6964,7 +7547,7 @@ function nextM() { calM++; if (calM>11){calM=0;calY++;} renderCal(); }
 /* ===== STAFF ===== */
 function renderStfList() {
   var l = document.getElementById('stf-list'); l.innerHTML = '';
-  var ok = can('sm');
+  var ok = isAdmin; /* スタッフ一覧の編集は管理者限定（sm ロックは廃止） */
   for (var i = 0; i < D.stf.length; i++) {
     var name = D.stf[i];
     var el = document.createElement('div'); el.className = 'ri';
@@ -6989,15 +7572,15 @@ function toggleStfHidden(name) {
   if (D.stfHidden[name]) { delete D.stfHidden[name]; } else { D.stfHidden[name] = true; }
   saveD(); renderStfList(); renderCal();
 }
-function addStf() { if(!can('sm'))return; var v=document.getElementById('in-stf').value.trim(); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
-function rmStf(i) { if(!can('sm'))return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
-function mvStf(i,d) { if(!can('sm'))return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
+function addStf() { if(!isAdmin)return; var v=document.getElementById('in-stf').value.trim(); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
+function rmStf(i) { if(!isAdmin)return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
+function mvStf(i,d) { if(!isAdmin)return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 
 /* モーダル編集状態 */
 var _editModalState = {type: null, index: null, level: null, di: null, ci: null, ii: null};
 
 function editStfItem(i) {
-  if (!can('sm')) return;
+  if (!isAdmin) return;
   var currentValue = D.stf[i];
   _editModalState = {type: 'stf', index: i};
   document.getElementById('edit-item-title').textContent = '👤 スタッフを編集';
@@ -7020,7 +7603,7 @@ function confirmEditModal() {
 
   if (state.type === 'stf') {
     // スタッフ編集
-    if (!can('sm')) return;
+    if (!isAdmin) return;
     for (var j = 0; j < D.stf.length; j++) {
       if (j !== state.index && D.stf[j].toLowerCase() === newValue.toLowerCase()) {
         toast('このスタッフ名は既に登録されています', 'warn');
@@ -7034,12 +7617,11 @@ function confirmEditModal() {
     if (curDs) safeRenderPage();
     writeLog('スタッフ編集', oldValue + ' → ' + newValue);
   } else if (state.type === 'tree') {
-    // ツリー項目編集
-    var perm = 'sm';
-    if (state.saveKey === 'opeTree') perm = 'om';
-    else if (state.saveKey === 'cathTree') perm = 'cm';
-    else if (state.saveKey === 'supTree') perm = 'sm';
-    if (!can(perm)) return;
+    /* ツリー項目編集。オペ/カテ/使用物品の3マスタはいずれも pane-master 側で
+       data-perm="mst" のセクションに置かれているので、リネーム経路も 'mst' に揃える。
+       以前は既定値と supTree が 'sm'（スタッフマスタ）を流用し、opeTree/cathTree は
+       LOCK_DEFS に存在しない 'om'/'cm' を見ていた（lk() が常に false ＝ 実質無制限）。 */
+    if (!can('mst')) return;
 
     var tree = D[state.saveKey];
     var oldValue = '';
@@ -7090,6 +7672,15 @@ function confirmEditModal() {
     var arr=D.wd[selWd]||[]; var item=arr[state.index];
     arr[state.index]=typeof item==='string'?newValue:Object.assign({},item,{t:newValue});
     D.wd[selWd]=arr; renderWdlyList(); saveD(); if(curDs)safeRenderPage();
+  } else if (state.type === 'hdDly') {
+    if(!can('dm'))return;
+    D.hdDly[state.index] = itemRebuild(D.hdDly[state.index], {t: newValue});
+    renderHdDlyList(); saveD(); if(curDs)safeRenderPage();
+  } else if (state.type === 'hdWdly') {
+    if(!can('wm'))return;
+    var hdArr=D.hdWd[_hdSelWd]||[]; var hdItem=hdArr[state.index];
+    hdArr[state.index]=typeof hdItem==='string'?newValue:Object.assign({},hdItem,{t:newValue});
+    D.hdWd[_hdSelWd]=hdArr; renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
   } else if (state.type === 'dutyMaster') {
     if(!can('dm'))return;
     if(!D.dutyCfgMaster||!D.dutyCfgMaster.length) D.dutyCfgMaster=getDutyMaster();
@@ -7190,6 +7781,38 @@ function openOcFlowModal() {
 }
 function rmTablet(i) { if(!can('mst'))return; D.tablets.splice(i,1); renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
 
+/* ===== HDタブレット台帳マスタ（D.hdTablets） =====
+   透析室のタブレットはCEのものとは別の端末なので台帳を分ける。UI・権限はCE版と完全に同型にして、
+   「同じものの別の台帳」であることが見た目からも分かるようにする。 */
+function renderHdTabletList() {
+  var l = document.getElementById('hd-tablet-master-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('mst');
+  D.hdTablets = D.hdTablets || [];
+  if (!D.hdTablets.length) { l.innerHTML = '<p class="cle">まだ登録されていません</p>'; }
+  else {
+    for (var i = 0; i < D.hdTablets.length; i++) {
+      var el = document.createElement('div'); el.className = 'ri';
+      var btns = ok ? '<button class="rd2" onclick="rmHdTablet('+i+')">×</button>' : '';
+      el.innerHTML = '<span class="rn">📱 ' + escH(D.hdTablets[i]) + '</span>' + btns;
+      l.appendChild(el);
+    }
+  }
+  var ar = document.getElementById('hd-tablet-master-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addHdTablet() {
+  if(!can('mst'))return;
+  var el=document.getElementById('in-hd-tablet'); var v=el.value.trim(); if(!v)return;
+  D.hdTablets=D.hdTablets||[];
+  if (D.hdTablets.indexOf(v) !== -1) { toast('すでに登録されています', 'warn'); return; }
+  D.hdTablets.push(v); el.value=''; renderHdTabletList(); saveD(); if(curDs)safeRenderPage();
+}
+function rmHdTablet(i) {
+  if(!can('mst'))return;
+  D.hdTablets.splice(i,1); renderHdTabletList(); saveD(); if(curDs)safeRenderPage();
+  /* マスタから削除しても、過去ページの hdTabletLogs に残っている貸出記録は消さない（記録を消さないため） */
+}
+
 /* ===== DAILY MASTER ===== */
 function renderDlyList() {
   var l = document.getElementById('dly-list'); l.innerHTML = '';
@@ -7288,6 +7911,80 @@ function togDlyDay(i,key){
   var cur=!!obj[key]; obj[key]=!cur; if(!obj[key]) delete obj[key];
   D.dly[i]=obj;
   renderDlyList(); saveD(); if(curDs)safeRenderPage();
+}
+
+/* ===== HD共通業務マスタ（D.hdDly） =====
+   renderDlyList〜togDlyDayのHD版。dlyText/dlyNotif/itemRebuild/isDlyShownOnDate/
+   _getDlySkipはCE/HD共通の純粋ヘルパーなのでそのまま使う。ロックは新規IDを作らずCE側の
+   'dm'（共通業務の編集）を流用する（pane-masterで別セクションとして表示するだけ）。
+   通知設定（🔔）はCE版のUIに合わせて項目の形状（notifキー）だけ揃え、実際に監視して
+   通知を飛ばすcheckTimeNotifs側のHD対応は別スコープのため、入力欄自体は出さない
+   （「設定したのに鳴らない」状態を画面に出さないため）。 */
+function renderHdDlyList() {
+  var l = document.getElementById('hd-dly-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('dm');
+  for (var i = 0; i < D.hdDly.length; i++) {
+    var it = D.hdDly[i], text = dlyText(it);
+    var el = document.createElement('div'); el.className = 'ri';
+    el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '4px';
+    var _dayKeys=[['skip_wd','平日'],['skip_sat','土'],['skip_sun','日']];
+    var wdOnlyBtn = (function(){
+      var s='';
+      _dayKeys.forEach(function(pair){
+        var skipped=_getDlySkip(it,pair[0]);
+        if(ok){
+          s+='<button type="button" onclick="togHdDlyDay('+i+',\''+pair[0]+'\')" title="'+(skipped?pair[1]+'を非表示中':pair[1]+'を表示中')+'" style="font-size:10px;padding:2px 6px;border-radius:6px;cursor:pointer;border:1px solid;white-space:nowrap;'+(skipped?'background:var(--sur2);color:var(--txt3);border-color:var(--bdr);text-decoration:line-through':'background:var(--ac-bg);color:var(--ac);border-color:var(--ac);font-weight:700')+'">'+pair[1]+'</button>';
+        } else if(skipped){
+          s+='<span style="font-size:10px;color:var(--txt3);text-decoration:line-through">'+pair[1]+'</span>';
+        }
+      });
+      return s?'<span style="display:inline-flex;gap:3px;align-items:center">'+s+'</span>':'';
+    })();
+    var btns = ok ? '<button class="re2" onclick="editHdDly('+i+')">✏️</button><button class="ru" onclick="mvHdDly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdDly('+i+',1)">↓</button><button class="rd2" onclick="rmHdDly('+i+')">×</button>' : '';
+    var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
+    el.innerHTML = head;
+    l.appendChild(el);
+  }
+  var ar = document.getElementById('hd-dly-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addHdDly() {
+  if(!can('dm'))return;
+  var v=document.getElementById('in-hd-dly').value.trim(); if(!v)return;
+  /* HD曜日別業務はhdChecks上でD.hdDly.lengthのオフセットに載っているため、
+     共通業務が1つ増えると全ページのHD曜日別チェックが1つずれる。先に付け替える。 */
+  var oldLen=D.hdDly.length;
+  remapHdDlyChecks(function(k){ return k<oldLen ? k : k+1; });
+  D.hdDly.push(v);
+  document.getElementById('in-hd-dly').value=''; renderHdDlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-hd-dly').focus();
+}
+function rmHdDly(i) {
+  if(!can('dm'))return;
+  remapHdDlyChecks(function(k){ return k===i ? null : (k>i ? k-1 : k); });
+  D.hdDly.splice(i,1);
+  renderHdDlyList(); saveD(); if(curDs)safeRenderPage();
+}
+function mvHdDly(i,d) {
+  if(!can('dm'))return;
+  var j=i+d; if(j<0||j>=D.hdDly.length)return;
+  remapHdDlyChecks(function(k){ return k===i ? j : (k===j ? i : k); });
+  var t=D.hdDly[i];D.hdDly[i]=D.hdDly[j];D.hdDly[j]=t; renderHdDlyList(); saveD();
+}
+function editHdDly(i) {
+  if(!can('dm'))return;
+  _editModalState={type:'hdDly',index:i};
+  document.getElementById('edit-item-title').textContent='🩸 HD共通業務を編集';
+  var inp=document.getElementById('edit-item-input'); inp.value=dlyText(D.hdDly[i]); inp.style.minHeight='40px';
+  document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
+}
+function togHdDlyDay(i,key){
+  if(!can('dm'))return;
+  var it=D.hdDly[i];
+  var obj=(it&&typeof it==='object')?Object.assign({},it):{t:dlyText(it)};
+  if(obj.wd_only){obj.skip_sat=true;obj.skip_sun=true;delete obj.wd_only;}
+  var cur=!!obj[key]; obj[key]=!cur; if(!obj[key]) delete obj[key];
+  D.hdDly[i]=obj;
+  renderHdDlyList(); saveD(); if(curDs)safeRenderPage();
 }
 
 /* ===== WEEKDAY MASTER ===== */
@@ -7459,6 +8156,146 @@ function togWdOnce(i) {
   renderWdlyList(); saveD(); if(curDs)safeRenderPage(); renderCal();
 }
 
+/* ===== HD曜日別業務マスタ（D.hdWd） =====
+   renderWdTabs〜togWdOnceのHD版。_hdSelWd（HD版selWd）で選択中の曜日を保持する。
+   設置部署（🏥部署ボタン・openHdWdSubsModal）はD.wdDepts（CE/HD共通の部署マスタ）と
+   dat.subChecksをそのまま共有する——院内の部署そのものは主観と無関係なため、
+   ここだけは別マスタを作らずCE版のopenWdSubsModal系と同じデータを指す。
+   通知行はrenderHdDlyListと同じ理由で省略する。renderCal()もCE専用のカレンダー色分け
+   （getPct基準）を再計算するだけでHD側の表示には影響しないため呼ばない。 */
+function renderHdWdTabs() {
+  var w = document.getElementById('hd-wdt'); if (!w) return;
+  w.innerHTML = '';
+  var wds = ['月','火','水','木','金','土','日'];
+  for (var i = 0; i < wds.length; i++) {
+    var el = document.createElement('div');
+    el.className = 'wdtb' + (wds[i]===_hdSelWd?' on':'');
+    el.textContent = wds[i] + '曜';
+    (function(wd){ el.onclick = function(){ _hdSelWd=wd; renderHdWdlyList(); }; })(wds[i]);
+    w.appendChild(el);
+  }
+}
+function renderHdWdlyList() {
+  renderHdWdTabs();
+  var l = document.getElementById('hd-wdly-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('wm');
+  var ts = D.hdWd[_hdSelWd] || [];
+  if (!ts.length) { l.innerHTML = '<p class="cle">「' + _hdSelWd + '曜日」の追加業務はありません</p>'; }
+  else {
+    for (var i = 0; i < ts.length; i++) {
+      var it = ts[i], text = wdText(it), weeks = wdWeeks(it), once = wdOnce(it), subs = wdSubs(it);
+      var wkLabels = weeks ? weeks.map(function(w){ return w===0?'最終':'第'+w; }) : null;
+      var summary = (wkLabels ? wkLabels.join('・')+'週' : '毎週') + (once ? '・月内1回' : '');
+      var el = document.createElement('div');
+      el.className = 'ri';
+      el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
+      var subsBadge = '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openHdWdSubsModal('+i+')">🏥 部署'+(subs?' ('+subs.length+')':'')+'</button>';
+      var btns = ok ? (subsBadge + '<button class="re2" onclick="editHdWdly('+i+')">✏️</button><button class="ru" onclick="mvHdWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdWdly('+i+',1)">↓</button><button class="rd2" onclick="rmHdWdly('+i+')">×</button>') : '';
+      var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
+               + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
+      var freq = '';
+      if (ok) {
+        freq += '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding-left:2px">';
+        freq += '<span style="font-size:10px;color:var(--txt3);margin-right:2px">頻度</span>';
+        for (var wk = 1; wk <= 5; wk++) {
+          var active = !weeks || weeks.indexOf(wk) !== -1;
+          freq += '<button onclick="togHdWdWeek('+i+','+wk+')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
+                + (active ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">第'+wk+'</button>';
+        }
+        freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
+        var activeLast = !weeks || weeks.indexOf(0) !== -1;
+        freq += '<button onclick="togHdWdWeek('+i+',0)" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
+              + (activeLast ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">最終</button>';
+        freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
+        freq += '<button onclick="setHdWdWeeks('+i+',\'all\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">毎週</button>';
+        freq += '<button onclick="setHdWdWeeks('+i+',\'odd\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第1・3・5</button>';
+        freq += '<button onclick="setHdWdWeeks('+i+',\'even\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第2・4</button>';
+        freq += '<button onclick="setHdWdWeeks('+i+',\'last\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">最終のみ</button>';
+        freq += '</div>';
+        freq += '<label style="display:flex;align-items:center;gap:5px;font-size:10px;padding-left:2px;'
+          + (weeks ? 'color:var(--txt2);cursor:pointer' : 'color:var(--txt3);cursor:not-allowed') + '"'
+          + (weeks ? '' : ' title="頻度を「毎週」以外（第N週や最終週）に変えると設定できます"') + '>'
+          + '<input type="checkbox" onchange="togHdWdOnce('+i+')" '+(once?'checked':'')+(weeks?'':' disabled')+'> 月内どれか1回でよい'
+          + (weeks ? '（'+wkLabels.join('・')+'週のどれかで済ませればOK）' : '（毎週以外の頻度にすると設定できます）')
+          + '</label>';
+      } else {
+        freq += '<div style="font-size:10px;color:var(--txt3);padding-left:2px">頻度: ' + summary + '</div>';
+      }
+      el.innerHTML = head + freq;
+      l.appendChild(el);
+    }
+  }
+  var ar = document.getElementById('hd-wdly-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addHdWdly() { if(!can('wm'))return; var v=document.getElementById('in-hd-wdly').value.trim(); if(!v)return; if(!D.hdWd[_hdSelWd])D.hdWd[_hdSelWd]=[]; D.hdWd[_hdSelWd].push(v); document.getElementById('in-hd-wdly').value=''; renderHdWdlyList(); saveD(); if(curDs)safeRenderPage(); document.getElementById('in-hd-wdly').focus(); }
+function rmHdWdly(i) {
+  if(!can('wm'))return;
+  var oldArr=(D.hdWd[_hdSelWd]||[]).slice();
+  D.hdWd[_hdSelWd].splice(i,1);
+  remapHdWdChecks(_hdSelWd, oldArr, D.hdWd[_hdSelWd]);
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+}
+function mvHdWdly(i,d) {
+  if(!can('wm'))return;
+  var arr=D.hdWd[_hdSelWd]||[]; var j=i+d; if(j<0||j>=arr.length)return;
+  var oldArr=arr.slice();
+  var t=arr[i];arr[i]=arr[j];arr[j]=t;
+  remapHdWdChecks(_hdSelWd, oldArr, arr);
+  renderHdWdlyList(); saveD();
+}
+function editHdWdly(i) {
+  if(!can('wm'))return;
+  var arr=D.hdWd[_hdSelWd]||[]; var item=arr[i];
+  var txt=typeof item==='string'?item:(item.t||'');
+  _editModalState={type:'hdWdly',index:i};
+  document.getElementById('edit-item-title').textContent='🩸 HD曜日業務を編集';
+  var inp=document.getElementById('edit-item-input'); inp.value=txt; inp.style.minHeight='40px';
+  document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
+}
+function setHdWdWeeks(i, mode) {
+  if(!can('wm'))return;
+  var arr = D.hdWd[_hdSelWd]; if(!arr || arr[i]===undefined) return;
+  var oldArr = arr.slice();
+  var weeks = null;
+  if (mode==='odd')       weeks=[1,3,5];
+  else if (mode==='even') weeks=[2,4];
+  else if (mode==='last') weeks=[0];
+  var wasOnce = wdOnce(arr[i]);
+  var patch = { wk: weeks };
+  if (!weeks) patch.once = null;
+  arr[i] = itemRebuild(arr[i], patch);
+  remapHdWdChecks(_hdSelWd, oldArr, arr);
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+}
+function togHdWdWeek(i, wk) {
+  if(!can('wm'))return;
+  var arr = D.hdWd[_hdSelWd]; if(!arr || arr[i]===undefined) return;
+  var cur = wdWeeks(arr[i]);
+  var weeks = cur ? cur.slice() : [0,1,2,3,4,5];
+  var pos = weeks.indexOf(wk);
+  if (pos===-1) weeks.push(wk); else weeks.splice(pos,1);
+  weeks.sort(function(a,b){ return a-b; });
+  if (!weeks.length) { toast('最低1つの週を選んでください', 'warn'); return; }
+  var oldArr = arr.slice();
+  var collapsed = weeks.length>=6;
+  var wasOnce = wdOnce(arr[i]);
+  var patch = { wk: collapsed ? null : weeks };
+  if (collapsed) patch.once = null;
+  arr[i] = itemRebuild(arr[i], patch);
+  remapHdWdChecks(_hdSelWd, oldArr, arr);
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+}
+function togHdWdOnce(i) {
+  if(!can('wm'))return;
+  var arr = D.hdWd[_hdSelWd]; if(!arr || arr[i]===undefined) return;
+  if (!wdWeeks(arr[i])) { toast('「毎週」の業務には設定できません。先に第N週を指定してください', 'warn'); return; }
+  arr[i] = itemRebuild(arr[i], { once: wdOnce(arr[i]) ? null : true });
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+}
+
 /* ===== 設置部署マスタ（曜日別業務の「設置部署の消し込み」で使う共通リスト） =====
    部署名を業務ごとに毎回自由入力させると、表記ゆれ（「ICU」「I.C.U」等）で
    同じ場所が別集計になったり、単純な入力の手間が積み重なる。病棟名などは
@@ -7498,6 +8335,44 @@ function mvWdDept(i, d) {
   var arr = D.wdDepts || []; var j = i + d; if (j < 0 || j >= arr.length) return;
   var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
   renderWdDeptList(); saveD();
+}
+
+/* ===== HD特殊治療マスタ（HDモードの血液浄化件数入力「特殊」区分で選ぶ治療名の一覧） =====
+   D.wdDepts / D.tablets と同型の単純な文字列配列。mst権限（pane-masterの他マスタと同じ）で管理する。 */
+function renderHdTreatList() {
+  var l = document.getElementById('hd-treat-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('mst');
+  var list = D.hdTreatments || [];
+  if (!list.length) { l.innerHTML = '<p class="cle">まだ登録されていません</p>'; }
+  else {
+    for (var i = 0; i < list.length; i++) {
+      var el = document.createElement('div'); el.className = 'ri';
+      var btns = ok ? '<button class="ru" onclick="mvHdTreat('+i+',-1)"'+(i===0?' disabled':'')+'>↑</button><button class="rdw" onclick="mvHdTreat('+i+',1)"'+(i===list.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="rmHdTreat('+i+')">×</button>' : '';
+      el.innerHTML = '<span class="rn">🩸 ' + escH(list[i]) + '</span>' + btns;
+      l.appendChild(el);
+    }
+  }
+  var ar = document.getElementById('hd-treat-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addHdTreat() {
+  if (!can('mst')) return;
+  var el = document.getElementById('in-hd-treat'); var v = fbSafeKey(el.value.trim()); if (!v) return;
+  D.hdTreatments = D.hdTreatments || [];
+  if (D.hdTreatments.indexOf(v) !== -1) { toast('すでに登録されています', 'warn'); return; }
+  D.hdTreatments.push(v); el.value = ''; renderHdTreatList(); saveD();
+}
+function rmHdTreat(i) {
+  if (!can('mst')) return;
+  D.hdTreatments.splice(i, 1); renderHdTreatList(); saveD();
+  /* マスタから削除しても、過去ページの hdCount.sp に入っている治療名はそのまま残す（記録を消さないため）。
+     表示上はマスタに無い治療として選べなくなるだけ（hdCountSpSelectOpts が「（旧）」表示で保護する）。 */
+}
+function mvHdTreat(i, d) {
+  if (!can('mst')) return;
+  var arr = D.hdTreatments || []; var j = i + d; if (j < 0 || j >= arr.length) return;
+  var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  renderHdTreatList(); saveD();
 }
 
 /* ===== 曜日別業務：設置部署の選択モーダル =====
@@ -7564,6 +8439,67 @@ function saveWdSubs(i) {
   renderWdlyList(); saveD();
   writeLog('曜日別業務の設置部署を編集', wdText(arr[i]) + '（' + checked.length + '件）');
   var ov = document.getElementById('wd-subs-md-ov'); if (ov) ov.remove();
+  toast('保存しました', 'ok');
+}
+
+/* ===== HD曜日別業務：設置部署の選択モーダル =====
+   openWdSubsModal〜saveWdSubsのHD版。D.hdWd[_hdSelWd]を対象にする点以外はCE版と同じで、
+   部署の選択肢自体はD.wdDepts（CE/HD共通マスタ）をそのまま使う——院内の部署はCE/HD
+   どちらから見ても同じ場所なので、ここだけ別マスタを持つ意味が無い。オーバーレイ/
+   チェックボックスのDOM idはCE版（wd-subs-*）と衝突しないよう hd-wd-subs-* にする。 */
+function openHdWdSubsModal(i) {
+  if (!can('wm')) return;
+  var arr = D.hdWd[_hdSelWd] || []; var item = arr[i]; if (item === undefined) return;
+  var oldOv = document.getElementById('hd-wd-subs-md-ov'); if (oldOv) oldOv.remove();
+  var ov = document.createElement('div'); ov.id = 'hd-wd-subs-md-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.id = 'hd-wd-subs-md'; md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderHdWdSubsModalBody(i);
+}
+function renderHdWdSubsModalBody(i) {
+  var md = document.getElementById('hd-wd-subs-md'); if (!md) return;
+  var arr = D.hdWd[_hdSelWd] || []; var item = arr[i]; if (item === undefined) return;
+  var selected = wdSubs(item) || [];
+  var depts = D.wdDepts || [];
+  var checksHTML = depts.map(function(name){
+    var checked = selected.indexOf(name) !== -1;
+    return '<label class="dc-cb-item'+(checked?' checked':'')+'"><input type="checkbox" data-dept="'+escH(name)+'"'+(checked?' checked':'')+'>'+escH(name)+'</label>';
+  }).join('');
+  md.innerHTML = '<h3>🏥 設置部署（' + escH(wdText(item)) + '）</h3>'
+    + (depts.length
+        ? '<div class="dc-cbs" id="hd-wd-subs-checks">' + checksHTML + '</div>'
+        : '<div class="pool-empty" style="padding:10px 0">まだ設置部署マスタが登録されていません。下から追加してください。</div>')
+    + '<div style="display:flex;gap:6px;margin-top:12px">'
+    + '<input type="text" id="hd-wd-subs-new" class="fi" style="flex:1;min-width:0;box-sizing:border-box" placeholder="マスタに無い部署を追加…">'
+    + '<button class="btn btn-g btn-sm" onclick="addHdWdDeptFromModal('+i+')">＋ マスタに追加</button></div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="document.getElementById(\'hd-wd-subs-md-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" onclick="saveHdWdSubs('+i+')">保存</button></div>';
+}
+function addHdWdDeptFromModal(i) {
+  if (!can('wm')) return;
+  var el = document.getElementById('hd-wd-subs-new'); if (!el) return;
+  var v = fbSafeKey(el.value.trim()); if (!v) return;
+  D.wdDepts = D.wdDepts || [];
+  if (D.wdDepts.indexOf(v) === -1) D.wdDepts.push(v);
+  saveD();
+  renderHdWdSubsModalBody(i);
+  var cb = document.querySelector('#hd-wd-subs-checks input[data-dept="' + v.replace(/"/g,'') + '"]');
+  if (cb) cb.checked = true;
+}
+function saveHdWdSubs(i) {
+  if (!can('wm')) return;
+  var arr = D.hdWd[_hdSelWd] || []; var item = arr[i]; if (item === undefined) return;
+  var checked = [];
+  document.querySelectorAll('#hd-wd-subs-checks input:checked').forEach(function(cb){ checked.push(cb.getAttribute('data-dept')); });
+  var patch = checked.length ? { subs: checked } : { subs: null };
+  if (checked.length && !wdSid(item)) patch.sid = newSid();
+  arr[i] = itemRebuild(item, patch);
+  D.hdWd[_hdSelWd] = arr;
+  renderHdWdlyList(); saveD();
+  writeLog('HD曜日別業務の設置部署を編集', wdText(arr[i]) + '（' + checked.length + '件）');
+  var ov = document.getElementById('hd-wd-subs-md-ov'); if (ov) ov.remove();
   toast('保存しました', 'ok');
 }
 
@@ -7697,12 +8633,9 @@ function _focusTreeInput(elId, di, ci, type) {
 
 /* Tree Item Editing (Modal) */
 function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValue) {
-  // Permission check based on saveKey
-  var perm = 'sm'; // default staff management
-  if (saveKey === 'opeTree') perm = 'om';
-  else if (saveKey === 'cathTree') perm = 'cm';
-  else if (saveKey === 'supTree') perm = 'sm';
-  if (!can(perm)) return;
+  /* オペ/カテ/使用物品ツリーはどれも pane-master の data-perm="mst" セクションにあるので
+     'mst' で統一する（confirmEditModal 側の同じ判定と対になっている）。 */
+  if (!can('mst')) return;
 
   // アイコン（最初の2文字）を削除した値を取得
   var displayValue = currentValue;
@@ -7821,8 +8754,12 @@ function updateTabVisibility() {
   var hasPerm = function(id) {
     return !!(currentUser && currentUser.perms && currentUser.perms[id]);
   };
+  /* cal / my / task / lib は常時表示なので show に入れない（表示制御が要るものだけを列挙する） */
+  var isHd = _viewMode === 'hd';
   var show = {
-    'staff':  isAdmin || hasPerm('sm') || hasPerm('tab_staff'),
+    'assign': !isHd,   /* 担当表・OC集計・業務集計・公平性はCE専用のためHD主観では丸ごと隠す */
+    'hdsum':  isHd,    /* HD集計は主観モードだけで出し分け。パーミッションではなく全員対象 */
+    'staff':  isAdmin, /* スタッフ一覧・PHS番号・勤務表インポートはまとめて管理者限定 */
     'master': isAdmin || hasPerm('tab_master'),
     'lock':   isAdmin,
     'logs':   isAdmin,
@@ -7832,6 +8769,10 @@ function updateTabVisibility() {
     var el = document.getElementById('tab-' + id);
     if (el) el.style.display = show[id] ? '' : 'none';
   });
+  /* 非表示になったタブを開いたままモードを切り替えると中身が残り続けてしまうためカレンダーへ退避する。
+     swTab は updateTabVisibility を呼び返さないのでループしない。 */
+  if (!show.hdsum  && curTab === 'hdsum')  swTab('cal');
+  if (!show.assign && curTab === 'assign') swTab('cal');
   var fairBtn = document.getElementById('subtab-fair');
   if (fairBtn) fairBtn.style.display = isAdmin ? '' : 'none';
 }
@@ -7865,7 +8806,7 @@ function togLk(id, v) {
   } else {
     D.lk[id] = v;
   }
-  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
+  saveD(); renderLockList(); renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
   if(curDs&&D.pages[curDs])safeRenderPage();
   var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
 }
@@ -9802,6 +10743,7 @@ function updateStaffZoneBadge(ds){
 }
 function updatePsgRemovalBanner(ds){
   var el=document.getElementById('psg-removal-banner'); if(!el) return;
+  if(_viewMode==='hd'){el.style.display='none';return;} /* PSG取り外しはCE業務 */
   if(!ds){el.style.display='none';return;}
   var n=new Date(),todayStr=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
   if(ds!==todayStr){el.style.display='none';return;}
@@ -9816,6 +10758,7 @@ function updatePsgRemovalBanner(ds){
 }
 function renderPage(ds) {
   if (!D.pages[ds]) return;
+  if (_viewMode === 'hd') { renderPageHD(ds); return; }
   var dat=D.pages[ds];
   if(!dat.ops)dat.ops={}; if(!dat.ocData)dat.ocData={};
   var w=new Date(ds).getDay(), ws=WDL[w], wf=WDF[w];
@@ -9828,7 +10771,7 @@ function renderPage(ds) {
   var h='<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
   h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
-  var _tblOut=(dat.tabletLogs||[]).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
+  var _tblOut=tabletUnreturnedCount(ds);
   h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
   /* 掲示板はタブだと気づかれにくいので、連絡表からも直接開けるようにする。
      未読数は updateBoardBadge が boardUnreadCount を元にタブと同時に更新する */
@@ -9887,7 +10830,7 @@ function renderPage(ds) {
   h+='<span class="staffz-ttl">👥 人員配置管理</span>';
   h+='<span class="staffz-badge" id="staffz-badge-staff">当日'+_szc.staffN+'名</span>';
   h+='<span class="staffz-badge" id="staffz-badge-unassigned" style="color:var(--rd)'+(_szc.unassignedN?'':';display:none')+'">未割当'+_szc.unassignedN+'</span>';
-  h+='<span class="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
+  h+='<span class="staffz-arrow" id="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
   h+='</div>';
   h+='<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
 
@@ -9930,6 +10873,10 @@ function renderPage(ds) {
   h+='<div class="co">💡 勤務者一覧の名前をタップすると担当に自動入力されます。勤務交代時は「＋CE」「＋OC」で当日だけ追加、各名前の「×」で当日だけ除外できます。割り当て済みの人は消えます。</div>';
   h+='</div>'; /* #staffz-body */
   h+='</div>'; /* .staffz */
+
+  /* HD担当表（読み取り専用）。HD主観で書かれた備考をCE側からも読めるようにする。
+     編集はHD主観の担当表で行うため、ここはテキスト表示だけにする。 */
+  h+=hdRosterRefHTML(ds, dat);
 
   /* 担当割り当て */
   h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
@@ -10027,25 +10974,8 @@ function renderPage(ds) {
   h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> 共通業務（毎日・'+D.dly.length+'項目）</div><div id="dcl"></div></div>';
   h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> 曜日別業務 <span class="wb">'+wf+'</span></div><div id="wcl"></div></div><hr>';
 
-  /* 業務連絡 */
-  h+='<div class="st">📝 業務連絡・申し送り'+(mlk?'<span class="slb lk">🔒</span>':'')+'</div>';
-  h+='<div class="memo-list" id="memo-list"></div>';
-  if(!mlk){
-    h+='<div class="memo-input-area">';
-    /* 注意書き（常時表示） */
-    h+='<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">💡 <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
-    /* 患者情報検知警告エリア */
-    h+='<div id="memo-phi-warn" class="memo-phi-warn" style="display:none"></div>';
-    h+='<div class="memo-media-preview" id="memo-media-preview"></div>';
-    h+='<div class="memo-input-row">';
-    h+='<textarea id="memo-new" placeholder="申し送りを入力... (Ctrl+Enterで送信)" rows="2"></textarea>';
-    h+='<button class="btn btn-p" style="align-self:flex-end" onclick="postMemo(\''+ds+'\')" id="memo-send-btn">送信</button>';
-    h+='</div>';
-    h+='<div class="memo-tools">';
-    h+='<label class="memo-media-btn">📎 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
-    h+='</div>';
-    h+='</div>';
-  }
+  /* 業務連絡（マークアップは memoSectionHTML に集約。HD日ページと同一のものを使う） */
+  h+=memoSectionHTML(ds, mlk);
 
   /* 進捗 */
   h+='<div class="pgw"><div class="pgi"><div class="pgt" id="pgt">進捗：'+pct+'%（'+done+' / '+total+' 完了）</div>';
@@ -10160,89 +11090,585 @@ function renderPage(ds) {
   /* 申し送り投稿リストを描画 */
   renderMemos(ds, dat, mlk);
   if(!mlk){
-    (function(ds){
-      var btn = document.getElementById('memo-send-btn');
-      var ta  = document.getElementById('memo-new');
-      if(btn) btn.onclick = function(){ postMemo(ds); };
-      if(ta)  ta.addEventListener('keydown', function(e){
-        if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); postMemo(ds); }
-        /* メンション候補ナビゲーション */
-        var popup = document.getElementById('memo-mention-popup');
-        if (popup && popup.style.display !== 'none') {
-          var items = popup.querySelectorAll('.memo-mention-item');
-          var activeIdx = -1;
-          for (var i=0;i<items.length;i++) if (items[i].classList.contains('active')) { activeIdx=i; break; }
-          if (e.key==='ArrowDown') {
-            e.preventDefault();
-            var next = (activeIdx+1) % items.length;
-            for(var i=0;i<items.length;i++) items[i].classList.toggle('active', i===next);
-          } else if (e.key==='ArrowUp') {
-            e.preventDefault();
-            var prev = (activeIdx-1+items.length) % items.length;
-            for(var i=0;i<items.length;i++) items[i].classList.toggle('active', i===prev);
-          } else if (e.key==='Enter' || e.key==='Tab') {
-            var act = popup.querySelector('.memo-mention-item.active') || items[0];
-            if (act) { e.preventDefault(); act.click(); }
-          } else if (e.key==='Escape') {
-            popup.style.display = 'none';
-          }
-        }
-      });
-      /* メンション機能：@を入力したらスタッフ候補を表示 */
-      if(ta) ta.addEventListener('input', function(){
-        var val = this.value;
-        var pos = this.selectionStart;
-        var atIdx = val.lastIndexOf('@', pos-1);
-        var popup = document.getElementById('memo-mention-popup');
-        if (!popup) {
-          popup = document.createElement('div');
-          popup.id = 'memo-mention-popup';
-          popup.className = 'memo-mention-popup';
-          popup.style.display = 'none';
-          this.parentElement.style.position = 'relative';
-          this.parentElement.appendChild(popup);
-        }
-        if (atIdx === -1 || (atIdx > 0 && !/[\s\n]/.test(val[atIdx-1]))) {
-          popup.style.display = 'none'; return;
-        }
-        var query = val.slice(atIdx+1, pos);
-        if (query.length > 10) { popup.style.display = 'none'; return; }
-        var matches = D.stf.filter(function(s){ return s.indexOf(query) >= 0; });
-        if (!matches.length) { popup.style.display = 'none'; return; }
-        popup.innerHTML = '';
-        matches.slice(0, 20).forEach(function(name) {
-          var item = document.createElement('div');
-          item.className = 'memo-mention-item';
-          item.textContent = '@' + name;
-          /* mousedown で preventDefault することでタップ時も textarea がフォーカスを失わない */
-          item.onmousedown = function(e) { e.preventDefault(); };
-          item.onclick = (function(n, savedAt, savedPos){ return function(){
-            var ta2 = document.getElementById('memo-new');
-            popup.style.display = 'none';
-            if (!ta2) return;
-            var v = ta2.value;
-            var curPos = ta2.selectionStart || savedPos;
-            var freshAt = v.lastIndexOf('@', curPos - 1);
-            if (freshAt === -1) freshAt = savedAt;
-            if (freshAt === -1) { if (document.activeElement !== ta2) ta2.focus(); return; }
-            var newPos = freshAt + n.length + 2;
-            ta2.value = v.slice(0, freshAt) + '@' + n + ' ' + v.slice(curPos);
-            /* フォーカス中に不要な focus() を呼ぶと IME がリセットされるため、
-               外れている場合のみ focus() し、カーソル位置は setTimeout で確実に設定する */
-            if (document.activeElement !== ta2) ta2.focus();
-            setTimeout(function(){ ta2.setSelectionRange(newPos, newPos); }, 0);
-          };})(name, atIdx, pos);
-          popup.appendChild(item);
-        });
-        /* popupをtextareaの上に表示 */
-        popup.style.display = '';
-        popup.style.bottom = (ta.offsetHeight + 4) + 'px';
-        popup.style.left = '0';
-      });
-    })(ds);
+    bindMemoInput(ds);
   }
   autoGrowAll(document.getElementById('main')); /* 既に入っている長文が見切れないよう高さを合わせる */
   updateCloseBar(ds);
+}
+
+/* HD担当表：勤務表から日勤（HD_DAY_CODES順）→準夜の順で1人1行の配列を作る純関数。
+   D.shift/getShiftForDay 本体は無改変。並び順は「同じコードに複数人いる場合は配列内の順」を保つため Array#sort の安定ソート性に依存する。
+   dat.hdDuty.overrides[勤務表由来の元の氏名] = 手動修正後の氏名 を見て、derivedName（元の氏名・不変）と
+   name（表示用の実効氏名＝overridesがあればそれ）の両方を返す。
+   戻り値: [{role:'M', derivedName:'山田 太郎', name:'山田 太郎', night:false}, ...] */
+/* getShiftForDay(ds).hd に dat.hdDuty.overrides（HD担当表での差し替え）を適用した実効HD勤務者一覧。
+   buildHdRoster（HD担当表）とrenderSurplusArea（CE/HDどちらの日ページでも表示する余剰人員パネルのHD勤務者欄）が
+   共通で使う唯一の入口 — 以前はこの2箇所が別々に getShiftForDay(ds).hd を直接読んでおり、
+   HD担当表で担当を差し替えても余剰人員パネル側には反映されなかった。
+   getShiftForDay 本体は他の呼び出し元（CE勤務者一覧・OC自動入力等）に影響するため変更しない。 */
+function hdShiftWorkers(ds) {
+  var hd = getShiftForDay(ds).hd || [];
+  var dat = D.pages[ds];
+  var overrides = (dat && dat.hdDuty && dat.hdDuty.overrides) || {};
+  return hd.map(function (h) {
+    var derivedName = h.name;
+    var name = overrides[derivedName] || derivedName;
+    return { name: name, derivedName: derivedName, shift: h.shift, night: h.night };
+  });
+}
+function buildHdRoster(ds) {
+  var hd = hdShiftWorkers(ds);
+  var day = hd.filter(function (h) { return !h.night; });
+  var night = hd.filter(function (h) { return h.night; });
+  day.sort(function (a, b) {
+    var ia = HD_DAY_CODES.indexOf(a.shift); if (ia === -1) ia = HD_DAY_CODES.length;
+    var ib = HD_DAY_CODES.indexOf(b.shift); if (ib === -1) ib = HD_DAY_CODES.length;
+    return ia - ib;
+  });
+  function toRow(h) {
+    return { role: h.shift, derivedName: h.derivedName, name: h.name, night: h.night };
+  }
+  var rows = day.map(toRow);
+  night.forEach(function (h) { rows.push(toRow(h)); });
+  return rows;
+}
+/* HD担当表テーブルの1行分（役割／スタッフ／備考）。
+   locked=false（can('duty')）のときはスタッフ欄を<select>（D.stf、非表示スタッフ除外）、
+   備考欄を<textarea>にして手動編集できる。編集の保存は呼び出し側（renderPageHD）のイベント委譲で行う。
+   備考のキーは実効氏名（r.name） — 担当を差し替えた行は差し替え後の氏名の備考を表示する。 */
+function hdRosterRowHTML(dat, r, locked) {
+  var note = (dat.hdNotes && dat.hdNotes[r.name]) ? dat.hdNotes[r.name] : '';
+  var staffCell;
+  if (locked) {
+    staffCell = escH(r.name);
+  } else {
+    var overridden = r.name !== r.derivedName;
+    var hasMatch = false, opts = '';
+    for (var j = 0; j < D.stf.length; j++) {
+      var _sn = D.stf[j];
+      if (D.stfHidden && D.stfHidden[_sn] && _sn !== r.name) continue;
+      if (_sn === r.name) hasMatch = true;
+      opts += '<option value="' + escH(_sn) + '"' + (_sn === r.name ? ' selected' : '') + '>' + escH(_sn) + '</option>';
+    }
+    if (r.name && !hasMatch) opts += '<option value="' + escH(r.name) + '" selected>' + escH(r.name) + '（名簿外）</option>';
+    staffCell = '<select class="ds2 hd-name-sel' + (overridden ? ' changed' : '') + '" data-derived="' + escH(r.derivedName) + '" style="margin-bottom:0">' + opts + '</select>'
+      + (overridden ? '<span class="hd-changed-badge" title="勤務表の割当から変更されています">変更済</span>' : '');
+  }
+  var noteCell;
+  if (locked) {
+    noteCell = note ? escH(note) : '<span class="muted">—</span>';
+  } else {
+    noteCell = '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>';
+  }
+  return '<tr><td style="font-weight:700">' + escH(r.role || '') + '</td><td>' + staffCell + '</td><td>' + noteCell + '</td></tr>';
+}
+
+/* ===== HD主観：血液浄化の実施件数（dat.hdCount） =====
+   その日に実施した血液浄化の「回数」を区分ごとに数える（スタッフ数ではない）。
+   day/night/bw/ward は数値文字列を直接入力（既存 ops.mw_n と同じ流儀）。
+   sp（特殊）だけはマスタ(D.hdTreatments)から選んだ治療名の配列で、その長さがそのまま件数になる。
+   保存は saveDPage(ds)（ページ単独スコープ）。ops_cards/buildOPSの仕組みには乗せない —
+   HD日ページには#ops-gridもカード追加/削除UIも無く、乗せると「1枠制限リスト」「カード定義テーブル」
+   「ディスパッチ」等5箇所以上の既存配列に手を入れることになるため、独立実装のほうが小さく済む。 */
+function hdCountN(v) { return parseInt(v, 10) || 0; }
+/* dat.hdCount.sp の読み取り専用アクセサ。Firebaseは疎な配列をオブジェクトとして返すことがある
+   （ensureStaffZone・taskAssignees等と同じ既知の対策パターン）ため、必ずこれ経由で読む。 */
+function hdCountSpArr(dat) {
+  var sp = dat && dat.hdCount && dat.hdCount.sp;
+  if (Array.isArray(sp)) return sp;
+  return sp ? Object.keys(sp).map(function (k) { return sp[k]; }).filter(Boolean) : [];
+}
+/* 件数として数える特殊治療。治療を選ぶ前の空行は「＋追加」で行だけ先に増えている途中の状態なので、
+   件数からは除く（hdCountSpArr は編集フォームの行数をそのまま返すので、行の描画にはそちらを使う）。 */
+function hdCountSpFilled(dat) { return hdCountSpArr(dat).filter(Boolean); }
+/* 書き込み用：dat.hdCount.sp を実配列に正規化してから返す（以後そのまま push/splice できる）。
+   表示専用の hdCountSpArr と違い dat を書き換えるので、行の追加・削除の直前だけ呼ぶ。 */
+function hdCountEnsureSpArr(dat) {
+  dat.hdCount = dat.hdCount || {};
+  if (!Array.isArray(dat.hdCount.sp)) dat.hdCount.sp = hdCountSpArr(dat);
+  return dat.hdCount.sp;
+}
+function hdCountTotal(dat) {
+  var c = dat.hdCount || {};
+  return hdCountN(c.day) + hdCountN(c.night) + hdCountN(c.bw) + hdCountN(c.ward) + hdCountSpFilled(dat).length;
+}
+/* #hd-count-panel の中身（チップ表示 or 編集フォーム）。renderPageHD の初回描画と
+   refreshHdCountPanel の両方から呼ばれる —  #hd-count-panel 自体は常に存在する安定要素にして、
+   中身だけ差し替えることで編集ボタン・特殊行の追加/削除のたびにHD日ページ全体を再描画せずに済む。 */
+function hdCountPanelInnerHTML(ds, dat) {
+  var c = dat.hdCount || {};
+  var day = hdCountN(c.day), night = hdCountN(c.night), bw = hdCountN(c.bw), ward = hdCountN(c.ward);
+  var spArr = hdCountSpArr(dat);        /* 編集フォームの行（空行を含む） */
+  var spFilled = hdCountSpFilled(dat);  /* 件数として数える分（空行を除く） */
+  var total = day + night + bw + ward + spFilled.length;
+  var locked = !can('ops'); /* 新規ロックIDは作らず、CE側の業務内容ロック(ops)をそのまま流用 */
+  var h = '';
+  if (!_hdCountOpen) {
+    h += '<div class="hdash-hd"><span class="hdash-ttl">🩸 血液浄化</span>';
+    if (!locked) h += '<button class="btn btn-g btn-sm" data-action="hdcnt-toggle">✏️ 編集</button>';
+    h += '</div>';
+    /* 数字タイル。0件の区分は .zero で彩度を落とし、実施した区分だけが浮くようにする */
+    h += '<div class="hdash-tiles">';
+    [[day,'日中'],[night,'準夜'],[bw,'BW'],[ward,'病棟'],[spFilled.length,'特殊']].forEach(function(t){
+      h += '<div class="hdash-tile'+(t[0]?'':' zero')+'"><div class="n">'+t[0]+'</div><div class="l">'+t[1]+'</div></div>';
+    });
+    h += '</div>';
+    /* 特殊治療は件数だけでなく中身（治療名）を出す。同じ治療が複数あれば ×n に集約する。
+       未選択の空行は hdCountSpFilled が除いているので、タグの数と特殊タイルの数字は必ず一致する。 */
+    var spCount = {}, spOrder = [];
+    spFilled.forEach(function(nm){
+      if (spCount[nm] === undefined) { spCount[nm] = 0; spOrder.push(nm); }
+      spCount[nm]++;
+    });
+    if (spOrder.length) {
+      h += '<div class="hdash-sp"><span class="hdash-sp-lbl">特殊治療</span>';
+      spOrder.forEach(function(nm){
+        h += '<span class="hdash-sp-tag">'+escH(nm)+(spCount[nm]>1?'<span class="x">×'+spCount[nm]+'</span>':'')+'</span>';
+      });
+      h += '</div>';
+    }
+    h += '<div class="hdash-total">合計 <b>'+total+'</b> 件</div>';
+  } else {
+    h += '<div class="hdash-hd"><span class="hdash-ttl">🩸 血液浄化</span>';
+    h += '<span class="hdash-total" style="margin:0">合計 <b>'+total+'</b> 件</span>';
+    h += '<button class="btn btn-g btn-sm" data-action="hdcnt-toggle">✕ 閉じる</button></div>';
+    h += '<div style="width:100%">';
+    [['day', '日中'], ['night', '準夜'], ['bw', 'BW'], ['ward', '病棟']].forEach(function (f) {
+      h += '<div class="ops-row"><span class="ops-lbl">' + f[1] + '</span><input type="number" class="ops-num" data-hdcnt-field="' + f[0] + '" min="0" value="' + (c[f[0]] || '') + '" placeholder="0"' + (locked ? ' disabled' : '') + '><span class="ops-unit">件</span></div>';
+    });
+    h += '<div class="ops-row" style="align-items:flex-start"><span class="ops-lbl" style="margin-top:6px">特殊</span><div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">';
+    spArr.forEach(function (name, i) {
+      h += '<div style="display:flex;gap:4px;align-items:center">';
+      h += '<select class="ds2" style="margin-bottom:0" data-hdcnt-sp="' + i + '"' + (locked ? ' disabled' : '') + '>' + hdTreatOptsHTML(name) + '</select>';
+      if (!locked) h += '<button class="pool-chip-x" data-action="hdcnt-sp-del" data-idx="' + i + '" style="position:static;font-size:16px">×</button>';
+      h += '</div>';
+    });
+    if (!spArr.length) h += '<span style="font-size:12px;color:var(--txt3)">なし</span>';
+    if (!locked) h += '<button class="btn btn-g btn-sm" style="align-self:flex-start;margin-top:2px" data-action="hdcnt-sp-add">＋ 追加</button>';
+    h += '</div></div>';
+    h += '</div>';
+  }
+  return h;
+}
+/* 特殊治療<select>のoption群。D.hdTreatmentsから削除済みでも現在選択中の値だけは
+   「（旧）」表示で残し、過去の入力を消さない（hdRosterRowHTMLの名簿外スタッフ表示と同じ方針）。 */
+function hdTreatOptsHTML(sel) {
+  var o = '<option value="">-- 治療を選択 --</option>';
+  (D.hdTreatments || []).forEach(function (t) { o += '<option value="' + escH(t) + '"' + (t === sel ? ' selected' : '') + '>' + escH(t) + '</option>'; });
+  if (sel && (D.hdTreatments || []).indexOf(sel) === -1) o += '<option value="' + escH(sel) + '" selected>' + escH(sel) + '（旧）</option>';
+  return o;
+}
+function refreshHdCountPanel(ds) {
+  var el = document.getElementById('hd-count-panel'); var pg = D.pages[ds];
+  if (!el || !pg) return;
+  el.innerHTML = hdCountPanelInnerHTML(ds, pg);
+}
+
+/* ===== CE⇄HD 相互参照（読み取り専用の担当表） =====
+   同じ日の同じ現場を別の主観で見ているだけなので、相手側が誰に何を割り当てたかは見えるべき。
+   編集はそれぞれの主観の自分の担当表で行うため、ここは <select>/<textarea> を使わずテキストで出す。
+   折りたたみの外枠は人員配置管理と同じ .staffz シェルを流用する（新規CSS不要・見た目も揃う）。
+   開閉状態はモジュール変数で持つ（非永続。ページを開き直すと既定の「閉じる」に戻る）。 */
+var _ceRefOpen = false; /* HD日ページで「CE担当表」を開いているか */
+var _hdRefOpen = false; /* CE日ページで「HD担当表」を開いているか */
+function toggleCeRef(){
+  _ceRefOpen = !_ceRefOpen;
+  var b = document.getElementById('ce-ref-body'); if (b) b.style.display = _ceRefOpen ? 'block' : 'none';
+  var a = document.getElementById('ce-ref-arrow'); if (a) a.textContent = _ceRefOpen ? '▲' : '▼';
+}
+function toggleHdRef(){
+  _hdRefOpen = !_hdRefOpen;
+  var b = document.getElementById('hd-ref-body'); if (b) b.style.display = _hdRefOpen ? 'block' : 'none';
+  var a = document.getElementById('hd-ref-arrow'); if (a) a.textContent = _hdRefOpen ? '▲' : '▼';
+}
+/* HD日ページに出す「CE担当表」。枠の色は担当カードと同じ dutyColorFor(slot) から取る。 */
+function ceRosterRefHTML(ds, dat) {
+  var slots = getDutyCfg(dat) || [];
+  if (!slots.length) return ''; /* CE側の担当枠が未設定の日は見出しごと出さない */
+  var duties = dat.duties || {};
+  var filled = slots.filter(function(s){ return !!duties[s.id]; }).length;
+  var h = '<div class="staffz">';
+  h += '<div class="staffz-hd" onclick="toggleCeRef()">';
+  h += '<span class="staffz-ttl">🩺 CE担当表</span>';
+  h += '<span class="staffz-badge">'+filled+' / '+slots.length+' 枠</span>';
+  h += '<span class="staffz-arrow" id="ce-ref-arrow">'+(_ceRefOpen?'▲':'▼')+'</span>';
+  h += '</div>';
+  h += '<div id="ce-ref-body" style="display:'+(_ceRefOpen?'block':'none')+';padding-top:10px">';
+  h += '<div class="data-wrap"><table class="data-tbl">';
+  h += '<thead><tr><th style="width:44%">担当枠</th><th>担当者</th></tr></thead><tbody>';
+  slots.forEach(function(s){
+    var col = dutyColorFor(s);
+    var nm = duties[s.id] || '';
+    h += '<tr><td><span class="ref-pill" style="background:'+col.bg+';color:'+col.fg+';border-color:'+col.fg+'">'+escH(s.label || s.id)+'</span></td>'
+       + '<td'+(nm?' style="font-weight:700"':'')+'>'+(nm?escH(nm):'<span class="muted">—</span>')+'</td></tr>';
+  });
+  h += '</tbody></table></div></div></div>';
+  return h;
+}
+/* CE日ページに出す「HD担当表」。備考（dat.hdNotes）は実効氏名がキーなので buildHdRoster の r.name で引く。 */
+function hdRosterRefHTML(ds, dat) {
+  var rows = buildHdRoster(ds);
+  if (!rows.length) return ''; /* その日HD勤務者がいなければ見出しごと出さない */
+  var notes = dat.hdNotes || {};
+  var noteN = rows.filter(function(r){ return !!notes[r.name]; }).length;
+  var h = '<div class="staffz">';
+  h += '<div class="staffz-hd" onclick="toggleHdRef()">';
+  h += '<span class="staffz-ttl">🩸 HD担当表</span>';
+  h += '<span class="staffz-badge">'+rows.length+'名'+(noteN?'・備考'+noteN:'')+'</span>';
+  h += '<span class="staffz-arrow" id="hd-ref-arrow">'+(_hdRefOpen?'▲':'▼')+'</span>';
+  h += '</div>';
+  h += '<div id="hd-ref-body" style="display:'+(_hdRefOpen?'block':'none')+';padding-top:10px">';
+  h += '<div class="data-wrap"><table class="data-tbl">';
+  h += '<thead><tr><th style="width:64px">役割</th><th style="width:34%">スタッフ</th><th>備考</th></tr></thead><tbody>';
+  var dayRows = rows.filter(function(r){ return !r.night; });
+  var ntRows  = rows.filter(function(r){ return  r.night; });
+  function row(r){
+    var nt = notes[r.name] || '';
+    return '<tr><td style="font-weight:700">'+escH(r.role||'')+'</td><td>'+escH(r.name||'')+'</td>'
+         + '<td style="white-space:pre-wrap;font-size:11px">'+(nt?escH(nt):'<span class="muted">—</span>')+'</td></tr>';
+  }
+  if (dayRows.length) { h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>'; dayRows.forEach(function(r){ h += row(r); }); }
+  if (ntRows.length)  { h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>'; ntRows.forEach(function(r){ h += row(r); }); }
+  h += '</tbody></table></div></div></div>';
+  return h;
+}
+
+/* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集／
+   血液浄化件数入力・HDチェックリストを追加） =====
+   出しているのはヘッダー・イベント表示・血液浄化件数・HDチェックリスト（進捗バー含む）・
+   HD担当表（担当変更・備考編集可）・余剰人員・申し送り（CEと同一の dat.memos）。
+   #dg/#pool-chips/#ops-grid は絶対に作らない（buildDG はnullチェックが無くこれらのidが
+   無い状態で呼ぶと例外になるため、呼ばない）。#hdcl/#hdwcl は buildHdCL が冒頭で
+   nullガードするCE版と別実装なので、CE専用の #dcl/#wcl とは異なりここで作ってよい。 */
+function renderPageHD(ds) {
+  var dat = D.pages[ds];
+  var w = new Date(ds).getDay(), wf = WDF[w];
+  var mlk = !can('memo');
+  var dlk = !can('duty'); /* HD担当表の編集権限はCE側の担当ロックをそのまま流用（新規ロックIDは作らない） */
+  var clk = !can('cl');   /* HDチェックリストの入力権限もCE側の'cl'ロックを流用 */
+  var si = getShiftForDay(ds);
+  var hdCls = hdClStatus(ds), hdDone = hdCls.done, hdTotal = hdCls.total;
+  var hdPct = hdTotal===0 ? 100 : Math.round(hdDone/hdTotal*100);
+
+  var h = '<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
+  h += '<div class="pt2" style="flex:1">🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）</div>';
+  var _tblOut = tabletUnreturnedCount(ds);
+  h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
+  h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
+  h += '</div>';
+
+  /* イベント表示エリア（renderPageのCE版と同一ロジック） */
+  var allEvts = si.evts || [];
+  var pageEvts = (dat.events || []);
+  for (var ei = 0; ei < pageEvts.length; ei++) { if (allEvts.indexOf(pageEvts[ei]) === -1) allEvts.push(pageEvts[ei]); }
+  h += '<div id="evt-area" style="margin-bottom:14px">';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
+  if (allEvts.length) {
+    for (var ei = 0; ei < allEvts.length; ei++) {
+      h += '<div style="display:inline-flex;align-items:center;gap:4px;background:var(--or-bg);border:1.5px solid var(--or-border,var(--or));border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--or)">';
+      h += '📅 ' + allEvts[ei];
+      h += '<button data-ds="' + ds + '" data-evt="' + allEvts[ei].replace(/"/g, '&quot;') + '" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:var(--or);font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
+      h += '</div>';
+    }
+  } else {
+    h += '<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
+  }
+  h += '<button data-ds="' + ds + '" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
+  h += '</div></div>';
+
+  /* 血液浄化の実施件数（ダッシュボード） */
+  h += '<div class="hdash" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
+
+  /* HD担当表（フェーズ4：担当変更・備考編集可）：役割/スタッフ/備考の3列、1人1行。
+     「今日の件数と人員」を上にまとめたいのでダッシュボードの真下に置く。
+     イベント委譲は innerHTML 差し込み後に #hd-roster-wrap を引き直しているため、組み立て順を変えても動く。 */
+  h += '<div class="st">🩸 HD担当表</div>';
+  var hdRows = buildHdRoster(ds);
+  if (!hdRows.length) {
+    h += '<div class="pool-empty" style="padding:14px 0">勤務表データがありません</div>';
+  } else {
+    var hdDayRows = hdRows.filter(function (r) { return !r.night; });
+    var hdNightRows = hdRows.filter(function (r) { return r.night; });
+    h += '<div class="data-wrap" id="hd-roster-wrap"><table class="data-tbl">';
+    h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th>備考</th></tr></thead><tbody>';
+    if (hdDayRows.length) {
+      h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';
+      hdDayRows.forEach(function (r) { h += hdRosterRowHTML(dat, r, dlk); });
+    }
+    if (hdNightRows.length) {
+      h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>';
+      hdNightRows.forEach(function (r) { h += hdRosterRowHTML(dat, r, dlk); });
+    }
+    h += '</tbody></table></div>';
+  }
+
+  /* CE担当表（読み取り専用）。同じ日の同じ現場を別主観で見ているだけなので、相手側の割り当ては見えるべき。
+     編集はCE主観の担当カードで行うため、ここは色付きの枠名と担当者を出すだけにする。 */
+  h += ceRosterRefHTML(ds, dat);
+
+  /* HDチェックリストの進捗（updHdProgが#hd-pgt/#hd-pgf/#hd-pgpを部分更新する。CE版の.pgw/.pgi/.pgtr/.pgfと同じCSSを流用） */
+  h += '<div class="pgw"><div class="pgi"><div class="pgt" id="hd-pgt">進捗：'+hdPct+'%（'+hdDone+' / '+hdTotal+' 完了）</div>';
+  h += '<div class="pgtr"><div class="pgf" id="hd-pgf" style="width:'+hdPct+'%"></div></div></div>';
+  h += '<div class="pgp'+(hdPct===100?' dn':'')+'" id="hd-pgp">'+hdPct+'%</div></div>';
+
+  /* HDチェックリスト（共通業務・曜日別業務）。.clgラッパーはCE版と同じクラスなので、
+     dashJump('.clg')・closeItemsの sel:'.clg' がCE/HDどちらの日ページでも無改造で動く */
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> HD共通業務（毎日・'+D.hdDly.length+'項目）</div><div id="hdcl"></div></div>';
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> HD曜日別業務 <span class="wb">'+wf+'</span></div><div id="hdwcl"></div></div><hr>';
+
+  /* 余剰人員（CE主観と全く同じ renderSurplusArea/dat.staffZone を再利用）。
+     CE側の人員配置管理と同じ .staffz シェルで包んで折りたためるようにする——#staffz-body と
+     toggleStaffZone()/_staffZoneOpen をそのまま使い回すので、新しいトグル関数もCSSも要らず、
+     印刷時の #staffz-body{display:block!important} もそのまま効く。 */
+  h += '<div class="staffz">';
+  h += '<div class="staffz-hd" onclick="toggleStaffZone()">';
+  h += '<span class="staffz-ttl">🔄 余剰人員</span>';
+  h += '<span class="staffz-badge" id="hdz-badge"></span>';
+  h += '<span class="staffz-arrow" id="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
+  h += '</div>';
+  h += '<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
+  h += '<div id="surplus-wrap" class="surplus-wrap"></div>';
+  h += '</div></div>';
+
+  /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有。マークアップも memoSectionHTML で共通） */
+  h += memoSectionHTML(ds, mlk);
+
+  document.getElementById('main').innerHTML = h;
+
+  /* data-action ボタンのイベント登録（renderPageのCE版と同一ロジック） */
+  var evtArea = document.getElementById('evt-area');
+  if (evtArea) {
+    evtArea.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      var action = btn.getAttribute('data-action');
+      var bds = btn.getAttribute('data-ds');
+      if (action === 'removeEvt') {
+        var evtName = btn.getAttribute('data-evt');
+        removeEvt(bds, evtName);
+      } else if (action === 'addEvtPrompt') {
+        addEvtPrompt(bds);
+      }
+    });
+  }
+
+  /* 血液浄化件数パネルのイベント登録。#hd-count-panel は常に存在する安定要素にし、中身だけを
+     refreshHdCountPanel で差し替えるため、ここで一度だけ委譲登録すれば追加/削除/編集トグルの
+     たびに登録し直す必要はない（#memo-list と同じ設計）。 */
+  var hdCountPanel = document.getElementById('hd-count-panel');
+  if (hdCountPanel) {
+    hdCountPanel.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      var action = btn.getAttribute('data-action');
+      var pg = D.pages[ds]; if (!pg) return;
+      if (action === 'hdcnt-toggle') {
+        if (!can('ops')) return;
+        _hdCountOpen = !_hdCountOpen;
+        refreshHdCountPanel(ds);
+      } else if (action === 'hdcnt-sp-add') {
+        if (!can('ops')) return;
+        hdCountEnsureSpArr(pg).push('');
+        saveDPage(ds);
+        refreshHdCountPanel(ds);
+      } else if (action === 'hdcnt-sp-del') {
+        if (!can('ops')) return;
+        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        var arr = hdCountEnsureSpArr(pg);
+        if (idx >= 0 && idx < arr.length) arr.splice(idx, 1);
+        saveDPage(ds);
+        refreshHdCountPanel(ds);
+      }
+    });
+    var hdCountTimers = {}; /* 区分ごとに独立してデバウンスする（hdRosterWrapのhdNoteTimersと同じ理由） */
+    hdCountPanel.addEventListener('input', function (e) {
+      var inp = e.target.closest('input[data-hdcnt-field]');
+      if (!inp || !can('ops')) return;
+      var key = inp.getAttribute('data-hdcnt-field');
+      var v = inp.value;
+      if (hdCountTimers[key]) clearTimeout(hdCountTimers[key]);
+      hdCountTimers[key] = setTimeout(function () {
+        var pg2 = D.pages[ds]; if (!pg2) return;
+        pg2.hdCount = pg2.hdCount || {};
+        pg2.hdCount[key] = v;
+        saveDPage(ds);
+        var totalEl = hdCountPanel.querySelector('.hdash-total b');
+        if (totalEl) totalEl.textContent = hdCountTotal(pg2); /* 入力中は合計だけ即時反映（フォーカスを保つため全体は再描画しない） */
+      }, 600);
+    });
+    hdCountPanel.addEventListener('change', function (e) {
+      var sel = e.target.closest('select[data-hdcnt-sp]');
+      if (!sel || !can('ops')) return;
+      var idx = parseInt(sel.getAttribute('data-hdcnt-sp'), 10);
+      var pg2 = D.pages[ds]; if (!pg2) return;
+      var arr = hdCountEnsureSpArr(pg2);
+      if (idx >= 0 && idx < arr.length) arr[idx] = sel.value;
+      saveDPage(ds);
+      refreshHdCountPanel(ds); /* 選択肢は行の現在値ごとに生成する（hdTreatOptsHTML）ため、値が変わった行の
+        「（旧）」表示を消すには再生成が要る。件数（行数）自体は変わらないので合計は不変。 */
+    });
+  }
+
+  /* HD担当表の編集イベント登録（担当変更・備考入力）：行を毎回イベント委譲し直す（evtAreaと同じ方式）。
+     dlk（!can('duty')）のときは<select>/<textarea>自体を描画していないのでここは何もしない。 */
+  var hdRosterWrap = document.getElementById('hd-roster-wrap');
+  if (hdRosterWrap && !dlk) {
+    hdRosterWrap.addEventListener('change', function (e) {
+      var sel = e.target.closest('select.hd-name-sel');
+      if (!sel) return;
+      var derived = sel.getAttribute('data-derived');
+      var val = sel.value;
+      var pg = D.pages[ds];
+      if (!pg) return;
+      pg.hdDuty = pg.hdDuty || { overrides: {} };
+      pg.hdDuty.overrides = pg.hdDuty.overrides || {};
+      if (val === derived) {
+        delete pg.hdDuty.overrides[derived];
+        if (!Object.keys(pg.hdDuty.overrides).length) delete pg.hdDuty;
+      } else {
+        pg.hdDuty.overrides[derived] = val;
+      }
+      saveDPage(ds);
+      renderPageHD(ds); /* 担当変更は行の再構成（役割行の実効氏名・変更済みバッジ）を伴うため全体を再描画 */
+    });
+    var hdNoteTimers = {}; /* 備考は行ごとに独立してデバウンスする（1つのタイマーを共有すると同時編集時に取りこぼす） */
+    hdRosterWrap.addEventListener('input', function (e) {
+      var ta = e.target.closest('textarea.hd-note-ta');
+      if (!ta) return;
+      var key = ta.getAttribute('data-name');
+      var v = ta.value;
+      if (hdNoteTimers[key]) clearTimeout(hdNoteTimers[key]);
+      hdNoteTimers[key] = setTimeout(function () {
+        var pg = D.pages[ds];
+        if (!pg) return;
+        pg.hdNotes = pg.hdNotes || {};
+        if (v) pg.hdNotes[key] = v; else delete pg.hdNotes[key];
+        saveDPage(ds);
+      }, 600);
+    });
+  }
+
+  /* HDチェックリスト本体の描画。buildHdCLは冒頭でnullガードするため、常に無条件に呼んでよい */
+  buildHdCL(ds, dat, clk);
+
+  /* 余剰人員パネル：CE側と全く同じ renderSurplusArea/dat.staffZone で描画し、D&D配線も共通の bindSurplusDnD(ds) を呼ぶ
+     （#pool-chips が無いHD日ページでは、その部分は自動的に何もしない＝null guard） */
+  renderSurplusArea(ds, dat, dlk);
+  if (!dlk) bindSurplusDnD(ds);
+
+  renderMemos(ds, dat, mlk);
+  if (!mlk) bindMemoInput(ds);
+  autoGrowAll(document.getElementById('main'));
+  updateTabletBtnBadge(ds);
+  updateCloseBar(ds);
+}
+
+/* 申し送りセクション（見出し＋一覧＋入力欄）のHTML。CE版(renderPage)とHD版(renderPageHD)が
+   同一の dat.memos スレッドを共有しており、以前は両方に同じマークアップが逐語的に複製されていた。
+   とくに患者情報を書かせないための注意書き（.memo-notice）が2箇所にあり、片方だけ文面を直すと
+   もう一方の主観だけ古い注意書きが残る——患者安全に関わる文言なので、1箇所に集約する。 */
+function memoSectionHTML(ds, mlk){
+  var h = '<div class="st">📝 業務連絡・申し送り'+(mlk?'<span class="slb lk">🔒</span>':'')+'</div>';
+  h += '<div class="memo-list" id="memo-list"></div>';
+  if (mlk) return h;
+  h += '<div class="memo-input-area">';
+  /* 注意書き（常時表示） */
+  h += '<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">💡 <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
+  /* 患者情報検知警告エリア */
+  h += '<div id="memo-phi-warn" class="memo-phi-warn" style="display:none"></div>';
+  h += '<div class="memo-media-preview" id="memo-media-preview"></div>';
+  h += '<div class="memo-input-row">';
+  h += '<textarea id="memo-new" placeholder="申し送りを入力... (Ctrl+Enterで送信)" rows="2"></textarea>';
+  h += '<button class="btn btn-p" style="align-self:flex-end" onclick="postMemo(\''+ds+'\')" id="memo-send-btn">送信</button>';
+  h += '</div>';
+  h += '<div class="memo-tools">';
+  h += '<label class="memo-media-btn">📎 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
+/* 申し送り入力欄（#memo-new）のイベント登録：送信ボタン／Ctrl+Enter送信／@メンション候補。
+   renderPage・renderPageHD の両方が同じ #memo-new/#memo-send-btn DOMに対して呼ぶ共用関数
+   （HDモードもCEと同一の dat.memos スレッドを共有するため、入力UIも同じロジックでよい）。 */
+function bindMemoInput(ds){
+  var btn = document.getElementById('memo-send-btn');
+  var ta  = document.getElementById('memo-new');
+  if(btn) btn.onclick = function(){ postMemo(ds); };
+  if(ta)  ta.addEventListener('keydown', function(e){
+    if(e.key==='Enter' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); postMemo(ds); }
+    /* メンション候補ナビゲーション */
+    var popup = document.getElementById('memo-mention-popup');
+    if (popup && popup.style.display !== 'none') {
+      var items = popup.querySelectorAll('.memo-mention-item');
+      var activeIdx = -1;
+      for (var i=0;i<items.length;i++) if (items[i].classList.contains('active')) { activeIdx=i; break; }
+      if (e.key==='ArrowDown') {
+        e.preventDefault();
+        var next = (activeIdx+1) % items.length;
+        for(var i=0;i<items.length;i++) items[i].classList.toggle('active', i===next);
+      } else if (e.key==='ArrowUp') {
+        e.preventDefault();
+        var prev = (activeIdx-1+items.length) % items.length;
+        for(var i=0;i<items.length;i++) items[i].classList.toggle('active', i===prev);
+      } else if (e.key==='Enter' || e.key==='Tab') {
+        var act = popup.querySelector('.memo-mention-item.active') || items[0];
+        if (act) { e.preventDefault(); act.click(); }
+      } else if (e.key==='Escape') {
+        popup.style.display = 'none';
+      }
+    }
+  });
+  /* メンション機能：@を入力したらスタッフ候補を表示 */
+  if(ta) ta.addEventListener('input', function(){
+    var val = this.value;
+    var pos = this.selectionStart;
+    var atIdx = val.lastIndexOf('@', pos-1);
+    var popup = document.getElementById('memo-mention-popup');
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.id = 'memo-mention-popup';
+      popup.className = 'memo-mention-popup';
+      popup.style.display = 'none';
+      this.parentElement.style.position = 'relative';
+      this.parentElement.appendChild(popup);
+    }
+    if (atIdx === -1 || (atIdx > 0 && !/[\s\n]/.test(val[atIdx-1]))) {
+      popup.style.display = 'none'; return;
+    }
+    var query = val.slice(atIdx+1, pos);
+    if (query.length > 10) { popup.style.display = 'none'; return; }
+    var matches = D.stf.filter(function(s){ return s.indexOf(query) >= 0; });
+    if (!matches.length) { popup.style.display = 'none'; return; }
+    popup.innerHTML = '';
+    matches.slice(0, 20).forEach(function(name) {
+      var item = document.createElement('div');
+      item.className = 'memo-mention-item';
+      item.textContent = '@' + name;
+      /* mousedown で preventDefault することでタップ時も textarea がフォーカスを失わない */
+      item.onmousedown = function(e) { e.preventDefault(); };
+      item.onclick = (function(n, savedAt, savedPos){ return function(){
+        var ta2 = document.getElementById('memo-new');
+        popup.style.display = 'none';
+        if (!ta2) return;
+        var v = ta2.value;
+        var curPos = ta2.selectionStart || savedPos;
+        var freshAt = v.lastIndexOf('@', curPos - 1);
+        if (freshAt === -1) freshAt = savedAt;
+        if (freshAt === -1) { if (document.activeElement !== ta2) ta2.focus(); return; }
+        var newPos = freshAt + n.length + 2;
+        ta2.value = v.slice(0, freshAt) + '@' + n + ' ' + v.slice(curPos);
+        /* フォーカス中に不要な focus() を呼ぶと IME がリセットされるため、
+           外れている場合のみ focus() し、カーソル位置は setTimeout で確実に設定する */
+        if (document.activeElement !== ta2) ta2.focus();
+        setTimeout(function(){ ta2.setSelectionRange(newPos, newPos); }, 0);
+      };})(name, atIdx, pos);
+      popup.appendChild(item);
+    });
+    /* popupをtextareaの上に表示 */
+    popup.style.display = '';
+    popup.style.bottom = (ta.offsetHeight + 4) + 'px';
+    popup.style.left = '0';
+  });
 }
 
 /* 値が空のときは「＋◯◯」リンクだけを出しておき、クリックでラベル欄と入力欄を展開するための共通処理。
@@ -11934,165 +13360,7 @@ function buildDG(ds, dat, locked) {
 
   /* ===== D&Dリスナー（PC: dragイベント / スマホ: touchイベント） ===== */
   if (!locked) {
-    var poolChips = document.getElementById('pool-chips');
-    if (poolChips) {
-      poolChips.addEventListener('dragstart', function(e) {
-        var chip=e.target.closest('[draggable]'); if(!chip) return;
-        e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
-        e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
-        e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
-      });
-      poolChips.addEventListener('dragend', function(e) {
-        var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
-      });
-    }
-    /* 余剰エリア＋HD勤務者パネルのD&D（安定要素 #surplus-wrap に委譲。
-       innerHTML 差し替え後も子チップのドラッグを拾える） */
-    var surplusEl = document.getElementById('surplus-wrap');
-    if (surplusEl) {
-      surplusEl.addEventListener('dragstart', function(e) {
-        var chip=e.target.closest('[draggable]'); if(!chip) return;
-        e.dataTransfer.setData('text/plain', chip.getAttribute('data-name')||'');
-        e.dataTransfer.setData('from', chip.getAttribute('data-from')||'');
-        e.dataTransfer.setData('ds', chip.getAttribute('data-ds')||'');
-        e.dataTransfer.effectAllowed='move'; chip.classList.add('dragging');
-      });
-      surplusEl.addEventListener('dragend', function(e) {
-        var chip=e.target.closest('[draggable]'); if(chip) chip.classList.remove('dragging');
-      });
-      /* HD勤務者チップのタップ割当（data-action="poolAssign"） */
-      surplusEl.addEventListener('click', function(e) {
-        var b=e.target.closest('[data-action="poolAssign"]'); if(!b) return;
-        poolAssign(b.getAttribute('data-ds')||ds, b.getAttribute('data-name'));
-      });
-    }
-
-    /* ===== スマホ用タッチD&D ===== */
-    (function(){
-      var _ghost = null, _dragName = '', _dragFrom = '', _dragDs = '';
-
-      function onTouchStart(e) {
-        /* ×ボタン等の操作要素から始まったタッチはドラッグ扱いにしない（タップでの削除を優先） */
-        if (e.target.closest('button,a,input,select,textarea')) return;
-        var chip = e.target.closest('[draggable]'); if (!chip) return;
-        _dragName = chip.getAttribute('data-name') || '';
-        _dragFrom = chip.getAttribute('data-from') || '';
-        _dragDs   = chip.getAttribute('data-ds')   || ds;
-        if (!_dragName) return;
-
-        /* ゴースト要素を作成 */
-        _ghost = document.createElement('div');
-        _ghost.textContent = _dragName;
-        _ghost.style.cssText = 'position:fixed;z-index:9999;background:var(--ac);color:#fff;'
-          + 'border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;'
-          + 'pointer-events:none;opacity:0.85;white-space:nowrap;transform:translate(-50%,-50%)';
-        document.body.appendChild(_ghost);
-        chip.classList.add('dragging');
-
-        var t = e.touches[0];
-        _ghost.style.left = t.clientX + 'px';
-        _ghost.style.top  = t.clientY + 'px';
-      }
-
-      function onTouchMove(e) {
-        if (!_ghost || !_dragName) return;
-        e.preventDefault();
-        var t = e.touches[0];
-        _ghost.style.left = t.clientX + 'px';
-        _ghost.style.top  = t.clientY + 'px';
-
-        /* ハイライト: 指の下の担当カードを探す */
-        var dg2 = document.getElementById('dg');
-        if (dg2) {
-          var all = dg2.querySelectorAll('.dc');
-          for (var i=0; i<all.length; i++) all[i].classList.remove('drag-over');
-          _ghost.style.display = 'none';
-          var el = document.elementFromPoint(t.clientX, t.clientY);
-          _ghost.style.display = '';
-          if (el) {
-            var card = el.closest('.dc[data-duty-id]');
-            if (card) card.classList.add('drag-over');
-          }
-          /* 余剰エリアのハイライト */
-          var surWrap = document.getElementById('surplus-wrap');
-          if (surWrap) surWrap.classList.remove('drag-over');
-          if (el && el.closest('#surplus-wrap')) {
-            if (surWrap) surWrap.classList.add('drag-over');
-          }
-          /* ステータスゾーンのハイライト */
-          var allZones = document.querySelectorAll('.ss-zone');
-          for(var zi2=0; zi2<allZones.length; zi2++) allZones[zi2].classList.remove('drag-over');
-          if (el) { var ssz = el.closest('.ss-zone'); if(ssz) ssz.classList.add('drag-over'); }
-        }
-      }
-
-      function onTouchEnd(e) {
-        if (!_ghost || !_dragName) return;
-        e.preventDefault(); /* タッチドラッグ後の合成click/mousedownを抑制 */
-        var t = e.changedTouches[0];
-
-        /* ゴーストを非表示にして要素を取得 */
-        _ghost.style.display = 'none';
-        var el = document.elementFromPoint(t.clientX, t.clientY);
-        _ghost.style.display = '';
-
-        /* ゴースト削除・ハイライト解除 */
-        document.body.removeChild(_ghost); _ghost = null;
-        var dg2 = document.getElementById('dg');
-        if (dg2) { var all=dg2.querySelectorAll('.dc'); for(var i=0;i<all.length;i++) all[i].classList.remove('drag-over'); }
-        var surWrap = document.getElementById('surplus-wrap');
-        if (surWrap) surWrap.classList.remove('drag-over');
-        document.querySelectorAll('.dragging').forEach(function(c){ c.classList.remove('dragging'); });
-
-        if (!el) { _dragName=''; return; }
-
-        /* ステータスゾーンへのドロップ */
-        var ssZone = el.closest('.ss-zone[data-zone-key]');
-        if (ssZone) {
-          var zk = ssZone.getAttribute('data-zone-key');
-          ssZone.classList.remove('drag-over');
-          classifyStaff(_dragDs, _dragName, _dragFrom === 'hd' ? 'hd' : 'ce', zk);
-          _dragName = ''; return;
-        }
-
-        /* 担当カードへのドロップ */
-        var card = el.closest('.dc[data-duty-id]');
-        if (card) {
-          var did = card.getAttribute('data-duty-id');
-          removeFromZoneSource(_dragDs, _dragName, _dragFrom);
-          var sel = document.getElementById('sel-' + did);
-          if (sel) {
-            sel.value = _dragName; sel.classList.toggle('set', !!_dragName);
-            var _oldDuty=(D.pages[_dragDs].duties||{})[did];
-            if (!D.pages[_dragDs].duties) D.pages[_dragDs].duties = {};
-            D.pages[_dragDs].duties[did] = _dragName;
-            markDutyEdited(_dragDs);
-            saveD(); refreshPool(_dragDs); updateStaffZoneBadge(_dragDs); updateCloseBar(_dragDs);
-            maybeLateToast(D.pages[_dragDs], did, _dragName, _oldDuty);
-            writeLog('担当割り当て', fmtJ(_dragDs)+' '+did+' → '+_dragName);
-          }
-          _dragName=''; return;
-        }
-
-        /* 余剰エリアへのドロップ（HD勤務者は除外） */
-        if (el.closest('#surplus-wrap') && _dragFrom !== 'hd') {
-          dropToSurplus({preventDefault:function(){}, dataTransfer:{
-            getData: function(k){ return k==='text/plain'?_dragName:(k==='from'?_dragFrom:''); }
-          }}, ds);
-          _dragName=''; return;
-        }
-
-        _dragName = '';
-      }
-
-      /* プールと余剰の両方にタッチリスナーを設定 */
-      [poolChips, surplusEl].forEach(function(area) {
-        if (!area) return;
-        area.addEventListener('touchstart', onTouchStart, {passive:true});
-        area.addEventListener('touchmove',  onTouchMove,  {passive:false});
-        area.addEventListener('touchend',   onTouchEnd,   {passive:true});
-      });
-    })();
+    bindSurplusDnD(ds);
     var dg2 = document.getElementById('dg');
     if (dg2) {
       dg2.addEventListener('dragover', function(e) {
@@ -14037,6 +15305,114 @@ function mkCk(ds,idx,task,dat,locked,it) {
   });
   return wrap;
 }
+/* ===== HDチェックリスト（buildCL/mkCkのHD版） =====
+   #hdcl/#hdwclへ描画する。CE版と違い呼び出し元で必ずnullチェック済みで呼ぶ規約はやめ、
+   ここ自身が冒頭でnullガードする——renderPageHDのコメントで「#hdclは絶対に作らない」と
+   されていた理由がbuildCLのnullガード欠如だったため、HD版は最初から安全に作る。
+   renderSubPanel/_subOpen/wdSubs/wdSid/wdSubProgressはCE版とそのまま共有する
+   （dat.subChecksはCE/HD問わず同じ場所に書く設計のため）。 */
+function buildHdCL(ds,dat,locked) {
+  var dc=document.getElementById('hdcl'); if(!dc) return;
+  dc.innerHTML='';
+  for(var i=0;i<D.hdDly.length;i++){
+    if(!isDlyShownOnDate(D.hdDly[i],ds)) continue;
+    dc.appendChild(mkHdCk(ds,i,dlyText(D.hdDly[i]),dat,locked,null));
+  }
+  var we=document.getElementById('hdwcl'); if(!we) return;
+  we.innerHTML='';
+  var ents = hdWdEntriesForDate(ds);
+  if(!ents.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
+  for(var j=0;j<ents.length;j++) we.appendChild(mkHdCk(ds,D.hdDly.length+j,ents[j].t,dat,locked,ents[j].it));
+}
+/* it は曜日別業務のマスタ項目（once判定に使う）。共通業務からの呼び出しはnull。
+   構造はmkCkと完全に同一で、dat.checks→dat.hdChecks、wdOnceDoneOn→hdWdOnceDoneOn、
+   updProg→updHdProgの3点だけが違う。writeLogのアクション名は先頭にHDを付け、
+   ログ画面でCE側のチェックと区別できるようにする。 */
+function mkHdCk(ds,idx,task,dat,locked,it) {
+  var own=!!(dat.hdChecks&&dat.hdChecks[idx]);
+  var onceDs = own ? null : hdWdOnceDoneOn(ds, {t:task, it:it});
+  var ck=own||!!onceDs;
+  var div=document.createElement('div'); div.className='cli'+(ck?' dn':'')+(locked?' lki':'')+(onceDs?' onced':'');
+  var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=ck; cb.disabled=locked||!!onceDs;
+  var lb=document.createElement('label'); lb.textContent=task;
+
+  var hasManual = !!(D.manual && D.manual[task] && (typeof D.manual[task]==='string' ? D.manual[task].trim() : (D.manual[task].text||D.manual[task].media&&D.manual[task].media.length)));
+  var peekBtn=document.createElement('button');
+  peekBtn.className='cli-peek'+(hasManual?' has-manual':'');
+  peekBtn.title='マニュアルを見る';
+  peekBtn.textContent='···';
+  peekBtn.type='button';
+
+  var subs = it ? wdSubs(it) : null;
+  var subBtn = null;
+  if (subs) { subBtn=document.createElement('button'); subBtn.type='button'; subBtn.className='cli-subbtn'; }
+
+  if(!locked && !onceDs){
+    (function(ds,idx,div,cb){
+      function toggle(){
+        cb.checked=!cb.checked;
+        if(!D.pages[ds].hdChecks)D.pages[ds].hdChecks={};
+        D.pages[ds].hdChecks[idx]=cb.checked;
+        div.classList.toggle('dn',cb.checked);
+        saveDPage(ds); updHdProg(ds);
+        writeLog(cb.checked?'HDチェック完了':'HDチェック解除', fmtJ(ds)+' '+task);
+      }
+      cb.onchange=function(){
+        if(!D.pages[ds].hdChecks)D.pages[ds].hdChecks={};
+        D.pages[ds].hdChecks[idx]=cb.checked;
+        div.classList.toggle('dn',cb.checked);
+        saveDPage(ds); updHdProg(ds);
+        writeLog(cb.checked?'HDチェック完了':'HDチェック解除', fmtJ(ds)+' '+task);
+      };
+      div.onclick=function(e){
+        if(e.target===cb||e.target===peekBtn||e.target===subBtn) return;
+        toggle();
+      };
+    })(ds,idx,div,cb);
+  }
+  peekBtn.onclick=function(e){ e.stopPropagation(); openSP(task); };
+
+  div.appendChild(cb); div.appendChild(lb);
+  if (onceDs) {
+    var note=document.createElement('span'); note.className='cli-note';
+    note.textContent='✓ '+fmtMD(onceDs)+'に実施済み（月内1回）';
+    div.appendChild(note);
+  }
+  if (subs) div.appendChild(subBtn);
+  div.appendChild(peekBtn);
+
+  if (!subs) return div;
+
+  var wrap=document.createElement('div'); wrap.className='cli-wrap'+(_subOpen[wdSid(it)]?' open':'');
+  var subsEl=document.createElement('div'); subsEl.className='cli-subs';
+  wrap.appendChild(div); wrap.appendChild(subsEl);
+  renderSubPanel(ds, it, wrap);
+  subBtn.onclick=function(e){
+    e.stopPropagation();
+    var sid=wdSid(it); wrap.classList.toggle('open'); _subOpen[sid]=wrap.classList.contains('open');
+  };
+  subsEl.addEventListener('change', function(e){
+    var cb2=e.target; if(cb2.tagName!=='INPUT') return;
+    var name=cb2.getAttribute('data-dep'); var sid=wdSid(it); if(!sid) return;
+    if (cb2.checked) {
+      if(!D.pages[ds].subChecks) D.pages[ds].subChecks={};
+      if(!D.pages[ds].subChecks[sid]) D.pages[ds].subChecks[sid]={};
+      D.pages[ds].subChecks[sid][name]={by:(typeof taskSelfName==='function'?(taskSelfName()||''):''),ts:Date.now()};
+      saveDPage(ds);
+      writeLog('設置部署を消し込み', fmtJ(ds)+' '+task+' '+name);
+    } else {
+      var owner=wdSubProgress(ds, sid)[name];
+      if (owner && D.pages[owner] && D.pages[owner].subChecks && D.pages[owner].subChecks[sid]) {
+        delete D.pages[owner].subChecks[sid][name];
+        saveDPage(owner);
+        writeLog('設置部署の消し込みを解除', fmtJ(owner)+' '+task+' '+name);
+      }
+    }
+    renderSubPanel(ds, it, wrap);
+  });
+  return wrap;
+}
+
 /* 部署パネルの開閉状態。sidキーで持ち、renderPage/safeRenderPageで再描画しても
    開いたままになるようにする（_treeOpenと同じ考え方）。 */
 var _subOpen = {};
@@ -14066,6 +15442,18 @@ function updProg(ds) {
   if(t)t.textContent='進捗：'+pct+'%（'+done+' / '+total+' 完了）';
   if(p){p.textContent=pct+'%';p.className='pgp'+(pct===100?' dn':'');}
   if(pr)pr.textContent=done+' / '+total+' 完了';
+  renderCal();
+  updateCloseBar(ds);
+}
+/* updProgのHD版。DOM idが#hd-pgf/#hd-pgt/#hd-pgpと別なのでCE版と同じ関数にできない。
+   カレンダーの日セルは pctForView 経由で主観に追従するようになったので、CE版と同じく renderCal() を呼ぶ。 */
+function updHdProg(ds) {
+  var _cls=hdClStatus(ds), done=_cls.done, total=_cls.total;
+  var pct=total===0?100:Math.round(done/total*100);
+  var f=document.getElementById('hd-pgf'), t=document.getElementById('hd-pgt'), p=document.getElementById('hd-pgp');
+  if(f)f.style.width=pct+'%';
+  if(t)t.textContent='進捗：'+pct+'%（'+done+' / '+total+' 完了）';
+  if(p){p.textContent=pct+'%';p.className='pgp'+(pct===100?' dn':'');}
   renderCal();
   updateCloseBar(ds);
 }
@@ -14175,8 +15563,8 @@ function initAtPinchZoom() {
   cont.addEventListener('touchend', endPinch, {passive: true});
   cont.addEventListener('touchcancel', endPinch, {passive: true});
 }
-function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
-function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOpsSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();}
+function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();var hp=document.getElementById('pane-hdsum'); if(hp&&hp.style.display!=='none') renderHdSummary();}
+function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();var hp=document.getElementById('pane-hdsum'); if(hp&&hp.style.display!=='none') renderHdSummary();}
 
 var _mySchedName = null; /* マイ担当でスタッフが選択されたときのキャッシュ */
 function renderMySchedule(overrideName) {
@@ -14239,6 +15627,14 @@ function renderMySchedule(overrideName) {
           if (blk.staff === selfName && blk.label) slots.push('📅 ' + blk.label);
         }
       }
+      /* HD担当表の役割（M・A1・準夜等）。buildHdRoster は hdShiftWorkers 経由で
+         勤務表由来のHD勤務者に dat.hdDuty.overrides を適用した実効一覧を返すため、
+         HD担当表で手動修正した分もここに反映される。
+         _viewMode で分岐させない — その人がその日HD勤務かどうかは主観と無関係な事実で、
+         HD勤務が無い人には getShiftForDay(ds).hd に載らず何も出ない。 */
+      buildHdRoster(ds).forEach(function(r){
+        if (r.name === selfName && r.role) slots.push('🩸 ' + r.role);
+      });
       if (slots.length) cards.push({ds: ds, slots: slots});
     }
     cur.setDate(cur.getDate() + 1);
@@ -14981,6 +16377,21 @@ function exportOcCsv() {
   if (rows.length===1){toast(rng.label+'にOC担当の記録がありません', 'warn');return;}
   downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
 }
+function exportHdCsv() {
+  var rng = sumRange(), rows = [['日付','曜日','日中','準夜','BW','病棟','特殊','計']];
+  sumDsList().forEach(function(ds){
+    var pg = D.pages[ds];
+    if (!pg || !pg.hdCount) return;
+    var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdCountN(pg.hdCount.ward);
+    var spLen = hdCountSpFilled(pg).length;
+    var total = day + night + bw + ward + spLen;
+    if (!total) return;
+    var pt = ds.split('-');
+    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], day||'', night||'', bw||'', ward||'', spLen||'', total]);
+  });
+  if (rows.length===1){toast(rng.label+'に血液浄化の記録がありません', 'warn');return;}
+  downloadCsv('分院CE_HD集計_'+sumFileLabel()+'.csv', rows);
+}
 function exportOpsCsv() {
   if (_opsSumView === 'detail') { exportOpsDetailCsv(); return; }
   var rng = sumRange(), rows = [['日付','曜日','オペ','カテ','6MW','PSG','フリー']];
@@ -15399,6 +16810,16 @@ function schedBindInteractions(ds){
 var _schedDragPreset=null;
 
 /* ===== タブレット貸出・返却 ===== */
+/* ===== CE/HDでタブレット台帳を分ける =====
+   透析室のタブレットとCEのタブレットは物理的に別の端末なので、マスタ（D.tablets / D.hdTablets）も
+   貸出ログ（dat.tabletLogs / dat.hdTabletLogs）も別に持つ。分けないと、片方の未返却が
+   もう片方のヘッダーバッジ・消し込みバー・持ち越し判定に混ざって数が合わなくなる。
+   チェックリスト（dat.checks / dat.hdChecks）と違い、ログは id で引く独立した配列で
+   添字の共有規約が無いため、関数を複製せず主観で切り替えるアクセサ1組で足りる。 */
+function tabletMaster(){ return (_viewMode === 'hd' ? D.hdTablets : D.tablets) || []; }
+function tabletLogsKey(){ return _viewMode === 'hd' ? 'hdTabletLogs' : 'tabletLogs'; }
+function tabletLogsOf(dat){ return (dat && dat[tabletLogsKey()]) || []; }
+function ensureTabletLogs(dat){ var k = tabletLogsKey(); if (!dat[k]) dat[k] = []; return dat[k]; }
 var _tabletView = 'list'; /* 'list' | 'timeline' */
 function tabletNowMin(){ var n=new Date(); return n.getHours()*60+n.getMinutes(); }
 function tabletNowHM(){ return schedMinToHM(tabletNowMin()); }
@@ -15415,9 +16836,10 @@ function setTabletView(v){ _tabletView=v; if(curDs) renderTabletPanelBody(curDs)
 /* 記録は id で特定する。添字だとモーダルを開いている間に他端末が前の記録を消したとき、
    別のタブレットを返却・削除してしまう（申し送り移動が ts+uid で解決しているのと同じ問題）。 */
 function tabletFindLog(ds, id){
-  var dat=D.pages[ds]; if(!dat||!dat.tabletLogs) return null;
-  for(var i=0;i<dat.tabletLogs.length;i++){
-    if(dat.tabletLogs[i].id===id) return {log:dat.tabletLogs[i], idx:i};
+  var dat=D.pages[ds]; if(!dat) return null;
+  var _lg=tabletLogsOf(dat);
+  for(var i=0;i<_lg.length;i++){
+    if(_lg[i].id===id) return {log:_lg[i], idx:i};
   }
   return null;
 }
@@ -15431,8 +16853,8 @@ function tabletCarryOver(ds){
   for(var k=1;k<=TABLET_CARRY_DAYS;k++){
     var d=new Date(base); d.setDate(d.getDate()-k);
     var pds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    var pdat=D.pages[pds]; if(!pdat||!pdat.tabletLogs) continue;
-    pdat.tabletLogs.forEach(function(l){ if(!l.returnedAt) out.push({ds:pds, log:l}); });
+    var pdat=D.pages[pds]; if(!pdat) continue;
+    tabletLogsOf(pdat).forEach(function(l){ if(!l.returnedAt) out.push({ds:pds, log:l}); });
   }
   return out;
 }
@@ -15445,17 +16867,22 @@ function tabletReturnedHere(ds){
   for(var k=1;k<=TABLET_CARRY_DAYS;k++){
     var d=new Date(base); d.setDate(d.getDate()-k);
     var pds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    var pdat=D.pages[pds]; if(!pdat||!pdat.tabletLogs) continue;
-    pdat.tabletLogs.forEach(function(l){ if(l.returnedDs===ds) out.push({ds:pds, log:l}); });
+    var pdat=D.pages[pds]; if(!pdat) continue;
+    tabletLogsOf(pdat).forEach(function(l){ if(l.returnedDs===ds) out.push({ds:pds, log:l}); });
   }
   return out;
 }
 
+/* 未返却のタブレット台数（当日分＋前日以前からの持ち越し分）。ヘッダーバッジと
+   CE/HD両方の日ページが同じ数を出す必要があるため、計算はここ1箇所に閉じる
+   （以前は同じ式が3箇所に複製され、「完全に同じにすること」というコメントで支えられていた）。 */
+function tabletUnreturnedCount(ds){
+  var dat=D.pages[ds];
+  return tabletLogsOf(dat).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
+}
 function updateTabletBtnBadge(ds){
   var b=document.getElementById('tablet-btn-badge'); if(!b) return;
-  var dat=D.pages[ds];
-  var out=(dat&&dat.tabletLogs)?dat.tabletLogs.filter(function(l){return !l.returnedAt;}).length:0;
-  out+=tabletCarryOver(ds).length; /* 持ち越し分も未返却として数える */
+  var out=tabletUnreturnedCount(ds);
   b.textContent=out; b.style.display=out?'inline-block':'none';
   updateCloseBar(ds);
 }
@@ -15477,8 +16904,8 @@ function renderTabletPanelBody(ds){
   var wrap=document.getElementById('tablet-panel-body'); if(!wrap) return;
   var dat=D.pages[ds]; if(!dat) return;
   var locked=!can('tablet');
-  var logs=dat.tabletLogs=dat.tabletLogs||[];
-  var tablets=D.tablets||[];
+  var logs=ensureTabletLogs(dat);
+  var tablets=tabletMaster();
   var h='';
   /* 古い記録は id を持たないことがあるため、ここで一度だけ採番して以降 id で扱えるようにする */
   var backfilled=false;
@@ -15621,8 +17048,8 @@ function tabletStfOptions(selected){
 
 function openTabletLendModal(ds){
   if(!can('tablet')) return;
-  var tablets=D.tablets||[];
-  if(!tablets.length){ toast('先に業務タブでタブレットを登録してください', 'warn'); return; }
+  var tablets=tabletMaster();
+  if(!tablets.length){ toast('先に業務タブで'+(_viewMode==='hd'?'HD':'')+'タブレットを登録してください', 'warn'); return; }
   var tblOpts=tablets.map(function(t){ return '<option value="'+escH(t)+'">'+escH(t)+'</option>'; }).join('');
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
@@ -15660,8 +17087,7 @@ function saveTabletLend(ds){
 }
 function _doSaveTabletLend(ds,name,borrower,timeStr){
   var dat=D.pages[ds]; if(!dat) return;
-  dat.tabletLogs = dat.tabletLogs || [];
-  dat.tabletLogs.push({ id:'tl'+Date.now()+Math.floor(Math.random()*1000), tablet:name, borrower:borrower, lentAt:tabletHMToMin(timeStr), returnedBy:'', returnedAt:0 });
+  ensureTabletLogs(dat).push({ id:'tl'+Date.now()+Math.floor(Math.random()*1000), tablet:name, borrower:borrower, lentAt:tabletHMToMin(timeStr), returnedBy:'', returnedAt:0 });
   saveDPage(ds);
   writeLog('タブレット貸出', fmtJ(ds)+' '+name+'（'+borrower+'）');
   var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
@@ -15735,7 +17161,7 @@ function tabletDelete(ds, id){
   /* 確認ダイアログの間に配列が変わっている可能性があるため、削除直前に引き直す */
   var again=tabletFindLog(ds, id);
   if(!again){ toast('この貸出記録は既に削除されています', 'warn'); renderTabletPanelBody(ds); return; }
-  D.pages[ds].tabletLogs.splice(again.idx,1);
+  ensureTabletLogs(D.pages[ds]).splice(again.idx,1);
   saveDPage(ds);
   writeLog('タブレット記録削除', fmtJ(ds)+' '+l.tablet);
   renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
@@ -15744,12 +17170,12 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','my','task','hdsum','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   var libTabs=['guide','makers'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群。
      スケジュールはモーダル化したためここには含まれない（openSchedPanel/closeSchedPanel） */
-  var contentPanes=['assign','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var contentPanes=['assign','my','task','hdsum','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -15791,13 +17217,21 @@ function swTab(t) {
   if(docsTabs.indexOf(t)===-1 && libTabs.indexOf(t)===-1) openSubmenu(null);
 
   if(t==='assign'){ swSubTab('at'); renderAT(); }
+  if(t==='my'){ renderMySchedule(); }
   if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
+  if(t==='hdsum'){ renderHdSummary(); }
   if(t==='master'){
-    renderWdlyList();renderDlyList();renderWdDeptList();
+    renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
+    /* data-perm = 権限による出し分け（従来どおり）。
+       data-mode = 主観モードによる出し分け（'ce'|'hd'、属性なし＝両モードで表示）。
+       セレクタが .sp > div[...] の直下指定なので、新セクションは必ず .sp の直接の子に置くこと。 */
     document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
       var perm=sec.getAttribute('data-perm');
-      sec.style.display=(perm==='admin'?isAdmin:can(perm))?'':'none';
+      var mode=sec.getAttribute('data-mode');
+      var permOk=(perm==='admin'?isAdmin:can(perm));
+      var modeOk=(!mode||mode===_viewMode);
+      sec.style.display=(permOk&&modeOk)?'':'none';
     });
   }
   if(t==='logs'){loadLogs();}
@@ -15861,6 +17295,44 @@ document.addEventListener('click',function(e){
     }
   }
 });
+
+/* ===== モード切替（CE主観／HD主観） =====
+   本人の端末設定なので D には入れない（BOARD_READ_KEY と同じ localStorage パターン）。
+   ログアウトでもリセットしない。 */
+var VIEW_MODE_KEY = 'ce2_viewmode';
+var _viewMode = 'ce';
+function getViewMode() {
+  return localStorage.getItem(VIEW_MODE_KEY) === 'hd' ? 'hd' : 'ce';
+}
+function setViewMode(m) {
+  _viewMode = (m === 'hd') ? 'hd' : 'ce';
+  localStorage.setItem(VIEW_MODE_KEY, _viewMode);
+  updateModeToggleBtn();
+  updateTabVisibility();
+  /* openPage の .pt2 再描画ガードを経由すると同じ日でも再描画されないため、直接呼ぶ */
+  if (curDs && D.pages[curDs]) renderPage(curDs);
+  /* PSG取り外しバナーは #main の外（固定要素）なので renderPage では再構築されない。
+     HDへの切替直後にCE側の状態のまま出っぱなしにならないよう明示的に更新する */
+  updatePsgRemovalBanner(curDs && D.pages[curDs] ? curDs : null);
+  /* カレンダーの完了ドットは pctForView 経由で主観に追従するため、切替時に塗り直す */
+  renderCal();
+}
+function toggleViewMode() {
+  setViewMode(_viewMode === 'hd' ? 'ce' : 'hd');
+}
+function updateModeToggleBtn() {
+  var btn = document.getElementById('mode-toggle');
+  if (!btn) return;
+  if (_viewMode === 'hd') {
+    btn.innerHTML = '🩸<span class="mt-text"> HD</span>';
+    btn.title = 'HDモード（タップでCEモードへ切替）';
+    btn.classList.add('hd-on');
+  } else {
+    btn.innerHTML = '🩺<span class="mt-text"> CE</span>';
+    btn.title = 'CEモード（タップでHDモードへ切替）';
+    btn.classList.remove('hd-on');
+  }
+}
 
 /* ===== バックアップ（エクスポート / インポート） ===== */
 /* ===== 掲示板 ===== */
@@ -16979,14 +18451,14 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
     saveD();
     writeLog('Firebaseスナップショットから復元', dateStr);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
     renderFirebaseSnapshots();
@@ -17047,13 +18519,13 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
     if(FB_ON) writeLog('自動バックアップから復元', dt+' '+s.label);
     renderCal(); safeRenderPage();
-    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
+    renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
     renderOpeList(); renderCathList(); renderLockList(); renderAT();
     var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
     renderAutoBackups();
@@ -17103,13 +18575,13 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       saveD();
       if(FB_ON) writeLog('バックアップインポート', file.name);
       renderCal(); safeRenderPage();
-      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList();
+      renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
       renderOpeList(); renderCathList(); renderLockList(); renderAT();
       var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
       if(el) el.textContent = '✅ 復元しました: ' + file.name + '（'+pageCount+'ページ）';

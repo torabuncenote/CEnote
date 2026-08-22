@@ -143,6 +143,8 @@ function can(id) {
 
 **Always use `can(id)` for permission checks — not `lk(id)&&!isAdmin`.** The latter ignores per-user grants.
 
+**Exception — スタッフマスタ is `isAdmin`, not a lock.** `renderStfList` / `addStf` / `rmStf` / `mvStf` / `editStfItem` / `confirmEditModal`'s `type:'stf'` branch all gate on `isAdmin` directly, and the 👥 スタッフ tab itself is admin-only (which also puts PHS番号 and 勤務表インポート behind admin, since they share `pane-staff`). The old `sm` lock was **removed from `LOCK_DEFS`** rather than left as a dead toggle. Before removing it, `sm` was doubling as the permission for 使用物品マスタ (`supTree`) renames while `opeTree`/`cathTree` referenced `om`/`cm` — ids that never existed in `LOCK_DEFS`, so `lk()` returned false and `can()` always allowed them; all three now use `mst`, matching their sections' own `data-perm`. Stale `D.lk.sm` / `userPerms[uid].sm` values are simply never read.
+
 #### Lock IDs (`LOCK_DEFS`)
 
 | id | label | notes |
@@ -152,8 +154,7 @@ function can(id) {
 | `ops` | 業務内容（オペ/カテ等） | |
 | `dm` | チェックリスト（共通）の編集 | pane-master 共通業務セクション |
 | `wm` | チェックリスト（曜日別）の編集 | pane-master 曜日別業務セクション |
-| `mst` | 各種マスタの編集 | OPE/カテ/使用物品/担当枠/スケジュール/PSG通知セクション |
-| `sm` | スタッフマスタの編集 | |
+| `mst` | 各種マスタの編集 | OPE/カテ/使用物品/担当枠/スケジュール/PSG通知/タブレット台帳/HD特殊治療セクション。3階層ツリー（`opeTree`/`cathTree`/`supTree`）のリネーム（`confirmEditModal` の `type:'tree'` と `editTreeItem`）もこれ |
 | `cl` | チェックリストの入力 | |
 | `memo` | 業務連絡・申し送りの編集 | |
 | `pg` | 連絡表の生成・削除 | |
@@ -166,31 +167,47 @@ function can(id) {
 `updateTabVisibility()` controls which sidebar tabs non-admin users can see. It must be called after any change to `currentUser.perms` (e.g., inside `saveUserPerm()` when the current user's own permissions change).
 
 ```js
-// Tab visibility is controlled by explicit tab_ permissions, NOT by edit-lock permissions
-'master': isAdmin || hasPerm('tab_master'),  // 業務タブ
-'staff':  isAdmin || hasPerm('sm') || hasPerm('tab_staff'),
+// Tab visibility is controlled by explicit tab_ permissions and by 主観モード,
+// NOT by edit-lock permissions
+var isHd = _viewMode === 'hd';
+'assign': !isHd,   // 担当表・OC集計・業務集計・公平性はCE専用
+'hdsum':  isHd,    // HD集計
+'staff':  isAdmin, // スタッフ一覧・PHS番号・勤務表インポートはまとめて管理者限定
+'master': isAdmin || hasPerm('tab_master'),  // 業務タブ（中身は data-mode でさらに出し分け）
 'lock':   isAdmin,
 'logs':   isAdmin,
 'docs':   isAdmin,
 ```
 
-`tab_master` and `tab_staff` are stored in `/userPerms/{uid}` alongside regular lock permissions, but are granted via the "タブ表示" section in `renderAdminUsers()` rather than the lock-permission buttons.
+`cal` / `my` / `task` / `lib` are deliberately **not** in the `show` map — they are visible to everyone in both modes, and the map only lists tabs that need controlling.
+
+After building `show`, the function escapes out of a tab that just became invisible: `if (!show.hdsum && curTab === 'hdsum') swTab('cal')` and the same for `assign`. Without this, switching modes while sitting on 担当表 or HD集計 leaves the old pane's contents on screen with no tab to leave it by. **`swTab` must never call `updateTabVisibility()`** or these two lines become an infinite loop.
+
+`tab_master` is stored in `/userPerms/{uid}` alongside regular lock permissions, but is granted via the "タブ表示" section in `renderAdminUsers()` rather than the lock-permission buttons. `tab_staff` used to work the same way and was removed when the スタッフ tab became admin-only; stale `tab_staff` values in existing `/userPerms` are simply never read.
 
 #### pane-master Section Gating
 
-Each section div in `#pane-master .sp` has a `data-perm` attribute. `swTab('master')` evaluates them after rendering:
+Each section div in `#pane-master .sp` carries a `data-perm` attribute (permission) and optionally a `data-mode` attribute (主観モード). `swTab('master')` evaluates both after rendering:
 
 ```js
 document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
   var perm = sec.getAttribute('data-perm');
-  sec.style.display = (perm === 'admin' ? isAdmin : can(perm)) ? '' : 'none';
+  var mode = sec.getAttribute('data-mode');
+  var permOk = (perm === 'admin' ? isAdmin : can(perm));
+  var modeOk = (!mode || mode === _viewMode);
+  sec.style.display = (permOk && modeOk) ? '' : 'none';
 });
 ```
 
-- `data-perm="dm"` — 共通チェックリスト section
-- `data-perm="wm"` — 曜日別チェックリスト section
-- `data-perm="mst"` — OPE/カテ/使用物品/担当枠/PSG通知/タブレット台帳/OC対応フローチャート sections
+- `data-perm="dm"` — 共通チェックリスト section (CE and HD each have their own)
+- `data-perm="wm"` — 曜日別チェックリスト section (CE and HD each have their own) ＋ 設置部署マスタ
+- `data-perm="mst"` — OPE/カテ/使用物品/担当枠/スケジュールプリセット/PSG通知/タブレット台帳/HD特殊治療/OC対応フローチャート sections
 - `data-perm="admin"` — メール通知/Web Push/月次自動割り当て sections (admin-only regardless of locks)
+- `data-mode="ce"` / `data-mode="hd"` — show only in that 主観モード. **Omitting `data-mode` means "both modes"**, which is currently true of exactly one section: 🏥 設置部署マスタ.
+
+**設置部署マスタ must stay its own top-level section.** It was originally nested inside the CE 📅 曜日別業務 block, but `D.wdDepts` is shared by both CE and HD 曜日別業務 (the 🏥 部署 modal on either side reads the same list). Leaving it nested meant hiding the CE block in HD mode also took away the only place to add or reorder departments.
+
+The selector is `.sp > div[data-perm]` — a **direct-child** selector — so a new section must be a direct child of `.sp`. Nesting it inside another section makes it invisible to both gates and it ends up shown to everyone in every mode.
 
 ### Firebase Listener Lifecycle
 
@@ -241,8 +258,11 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
     .stabs — tab strip
     pane-cal    — calendar with month navigation
     pane-assign — assignment table (月次担当一覧) with subtabs:
-                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性) / my (マイ担当)
+                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性)
+                  CE-only: hidden entirely in HD mode (see HD主観モード)
+    pane-my     — 👤 マイ担当 (all users, both modes; was a subtab of pane-assign — promoted for the same reason as pane-task)
     pane-task   — 📋 タスク管理 (all users; was a subtab of pane-assign until it was promoted to a top-level tab — it was too easy to miss in there)
+    pane-hdsum  — 🩸 HD集計 (HD mode only; see HD主観モード)
     pane-guide  — user guide
     pane-makers — 🏭 メーカー担当者連絡先 (all users; see メーカー担当者連絡先 section below)
     pane-staff / pane-master / pane-lock / pane-logs — admin-only
@@ -257,9 +277,11 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
-`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair` / `my`). Each subtab has a matching `subpane-{id}` div.
+`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair`). Each subtab has a matching `subpane-{id}` div. `my` (マイ担当) used to live here and was promoted to the top-level `pane-my`; `_curSubTab` can therefore never be `'my'`, so `exportSubCsv()` and the print path have no `'my'` branch.
 
 **Adding a top-level sidebar tab** touches six places, and the last one is the easy miss: the `.stabs` button (`tab-{id}`), the `pane-{id}` div, `swTab`'s `tabs` array, `swTab`'s `contentPanes` array (PC full-width), the per-tab render call in `swTab`, and **any Firebase listener that re-renders only while that pane is visible**. When `task` was promoted out of `pane-assign`, the three `/tasks` + `/taskMemos` listeners still queried `#subpane-task`; leaving them would have silently stopped real-time updates.
+
+`init()` calls `updateTabVisibility()` once at startup (right after `fbInit()`). Without it the mode-dependent tabs are never evaluated on a cold load: `_viewMode` is restored from `localStorage` at the top of `init()`, but the Firebase path only re-evaluates on login and the preview path used to hand-set `display=''` on the admin tabs, so reloading while in HD mode left 担当表 showing and HD集計 hidden. Do not replace that call with per-tab `style.display` assignments again.
 
 ### CSS Conventions
 
@@ -269,6 +291,7 @@ All class names are abbreviated:
 - `.btn-p` primary (blue), `.btn-g` ghost/secondary, `.btn-d` danger
 - `.ov` overlay backdrop, `.md` modal dialog, `.sp-panel` side peek panel
 - `.brd-*` board post/reply elements
+- **`.pchip.sp`（余剰人員チップ）の `sp` はサイドバーのスクロール枠 `.sp` とクラス名が衝突する。** `.sp` が持つ `flex:1` / `flex-direction:column` / `overflow-y:auto` をチップ側は一切上書きしていなかったため、flex親の中に置くと横いっぱいに伸び、氏名とシフトコードが縦積みになっていた。`.pchip.sp`（specificity 0,2,0）で `flex:0 0 auto;flex-direction:row;overflow:visible` を打ち消している。`.sp` は汎用名なので、新しいチップ系クラスに `sp` を使い回さないこと
 - CSS custom properties: `--ac` accent blue, `--rd` red, `--gr` green, `--or` orange, `--pu` purple, `--gd` gold, `--oc` light blue (on-call)
 
 ### Key Functions
@@ -348,7 +371,7 @@ All class names are abbreviated:
 
 `DUTIES` defines fixed slot types. `DEF_DUTY_MASTER` is the admin-editable master. Each day stores assignments as `{ ope: "name", cath: "name", ... }` plus a pool of unassigned staff for drag-and-drop.
 
-**Pool ↔ Surplus**: `refreshPool(ds)` only touches `#pool-chips .pchip:not(.hd)` — do not broaden this selector or surplus zone chips will be hidden. Surplus/HD-zone membership lives in `dat.staffZone = { ce:{}, hd:{} }` (`ensureStaffZone(dat)` lazily initializes it and absorbs the legacy `dat.surplus`/`dat.surplusStatus`/`dat.hdStatus` fields on first read — those legacy fields are never deleted, so old exported backups restore correctly). `ce[name]` existing as a key means the person is in the CE surplus pool; an empty-string value means unclassified, a non-empty value (`hd`/`maint`/`off`/`other`) means classified into that zone. `hd[name]` existing means an HD-shift worker is classified into that zone (HD workers with no key are still unclassified, since HD membership itself is always derived from shift data, never stored). `classifyStaff(ds, name, kind, zoneKey)` / `unclassifyStaff(ds, name, kind)` (`kind` is `'ce'|'hd'`) are the single entry points for zone assignment/removal and also write to `/logs`. `removeFromZoneSource(ds, name, from)` is the drop-onto-duty-slot cleanup-only helper (no `saveD()`/log — the caller's duty-write covers persistence).
+**Pool ↔ Surplus**: `refreshPool(ds)` only touches `#pool-chips .pchip:not(.hd)` — do not broaden this selector or surplus zone chips will be hidden. Surplus/HD-zone membership lives in `dat.staffZone = { ce:{}, hd:{} }` (`ensureStaffZone(dat)` lazily initializes it and absorbs the legacy `dat.surplus`/`dat.surplusStatus`/`dat.hdStatus` fields on first read — those legacy fields are never deleted, so old exported backups restore correctly). `ce[name]` existing as a key means the person is in the CE surplus pool; an empty-string value means unclassified, a non-empty value (`hd`/`to_ce`/`maint`/`off`/`other` — see `SS_ZONES`) means classified into that zone. `hd` (label "CE→HD") and `to_ce` (label "HD→CE") both exist so the shift-change direction is visible at a glance; **`key:'hd'` must never be renamed** — it is persisted in old pages' `staffZone.ce`/`staffZone.hd` values, and changing the key would make those chips match no zone and silently disappear (data intact, just unrendered). Only the label string may change. `hd[name]` existing means an HD-shift worker is classified into that zone (HD workers with no key are still unclassified, since HD membership itself is always derived from shift data, never stored). `classifyStaff(ds, name, kind, zoneKey)` / `unclassifyStaff(ds, name, kind)` (`kind` is `'ce'|'hd'`) are the single entry points for zone assignment/removal and also write to `/logs`. `removeFromZoneSource(ds, name, from)` is the drop-onto-duty-slot cleanup-only helper (no `saveD()`/log — the caller's duty-write covers persistence).
 
 **Duty assignment paths** (3 total — all must call `maybeLateToast` and `writeLog`):
 1. `<select>` onchange in `buildDutyCard`
@@ -364,6 +387,48 @@ All class names are abbreviated:
 開閉は2段階（3段階から統合済み）：①`_staffZoneOpen`（`.staffz`本体、既定`false`）②`_hdPanelOpen`（HD勤務者パネル、`#hd-worker-panel`）。旧`_surplusOpen`（余剰人員チップ・ゾーンカード本体の折りたたみ、`#surplus-body`）は廃止し、`.staffz`が開いていれば余剰人員チップ・ゾーンカードは常時表示する。`_hdPanelOpen`は「未分類のHD勤務者が1人でもいる」間は`renderSurplusArea`が自動でtrueにする（`_hdPanelUserOverride`が`null`＝そのセッションでユーザーが未操作の間だけ）。`toggleHDPanel()`をユーザーが押すと`_hdPanelUserOverride`にその時の開閉状態を記録し、以降そのセッション中は自動判定より優先される。
 
 分類・解除の監査ログ：`classifyStaff`/`unclassifyStaff`が`writeLog('余剰人員分類'|'HD勤務者分類'|'余剰人員分類解除'|'HD勤務者分類解除', ...)`を、`dropToSurplus`/`removeFromSurplus`が`writeLog('余剰人員へ移動'|'余剰人員から削除', ...)`をそれぞれ呼ぶ。
+
+### HD主観モード（`_viewMode`）
+
+`_viewMode`（`'ce'|'hd'`）は端末ローカル設定（localStorage `ce2_viewmode`、`getViewMode()`/`setViewMode(m)`/`toggleViewMode()`）で、`D`には入れずログアウトでもリセットしない。トップバーの `#mode-toggle` ボタン（`updateModeToggleBtn()` が絵文字とラベル・`.hd-on`クラスを付け替え）で切り替える。`renderPage(ds)` は冒頭で `if(_viewMode==='hd'){ renderPageHD(ds); return; }` と分岐する。
+
+`renderPageHD(ds)` はCE版と別の日ページビルダー。並び順は **ヘッダー → イベント → 血液浄化ダッシュボード → HD担当表 → CE担当表（読み取り専用） → 進捗バー → HDチェックリスト → 余剰人員 → 申し送り**。「今日の件数と人員」を上にまとめたいのでHD担当表をダッシュボードの真下に置いている（HD担当表のイベント委譲は `innerHTML` 差し込み後に `#hd-roster-wrap` を引き直しているので、組み立て順を変えても動く）。余剰人員は `renderSurplusArea` をCEと共有し、申し送りは `dat.memos` をCEと共有する。**`#dg`/`#pool-chips`/`#ops-grid` は絶対に作らない**（`buildDG`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。CE専用の`#dcl`/`#wcl`（`buildCL`が対象、nullガード無し）とは別に、HD版の`#hdcl`/`#hdwcl`は`buildHdCL`が冒頭で`if(!el) return;`する独自実装なので作ってよい。
+
+`dat.hdDuty = { overrides: { 元の氏名: 差し替え後の氏名 } }` — HD担当表の手動修正（`hdRosterRowHTML`の`<select>`）。`dat.hdNotes = { 実効氏名: 'テキスト' }` — 担当表の備考欄。どちらも`saveDPage(ds)`。`buildHdRoster(ds)`は`hdShiftWorkers(ds)`（`getShiftForDay(ds).hd`に`hdDuty.overrides`を適用した実効HD勤務者一覧。HD担当表と余剰人員パネルの両方がこの1関数を共通の入口にする）を`HD_DAY_CODES`順にソートして返す。
+
+**血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。`{ day, night, bw, ward }`（数値文字列を直接入力）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`（数値化）／`hdCountSpArr(dat)`（Firebaseの疎配列→オブジェクト化対策。`ensureStaffZone`等と同じパターン）を経由する。`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列に正規化してから push/splice する。保存は`saveDPage(ds)`（`buildOPS`の`ops_cards`カード方式には乗せない——HD日ページには`#ops-grid`もカード追加/削除UIも無いため独立実装）。表示は`renderPageHD`内の`#hd-count-panel`（`.hdash`、安定要素で中身だけ`hdCountPanelInnerHTML(ds,dat)`が差し替える）：既定は**数字タイルを5枚横並び**にしたダッシュボード、`✏️編集`で5行の入力フォームに変わる（開閉状態はモジュール変数`_hdCountOpen`、非永続）。**0件の区分は`.hdash-tile.zero`で彩度を落とす** — 実際に実施した区分へ目が行くようにするための減算で、意図的な差。**特殊治療は件数だけでなく治療名をタグで出す**。同じ治療が複数あれば `PMX ×2` に集約する。**治療を選ぶ前の空行は件数から除く** — 読み取りは必ず `hdCountSpFilled(dat)`（＝`hdCountSpArr(dat).filter(Boolean)`）を通すこと。`hdCountSpArr` は編集フォームの行数をそのまま返すので、行の描画にだけ使う。編集中は入力のたびに全体を再描画せず `.hdash-total b` の合計だけ差し替える（フォーカスを保つため）。ロックは新規IDを作らずCE側の`ops`ロックを流用。マスタ`D.hdTreatments`は`D.wdDepts`と同型の単純文字列配列（Dの5箇所ルール＋バックアップ3配列に登録済み）。
+
+**HD集計タブ（`renderHdSummary()`）**：`dat.hdCount`の期間集計。サイドバーの`#tab-hdsum`/`#pane-hdsum`はCE/HD共通の他コンテンツタブと同じ`swTab`の`tabs`/`contentPanes`配列に含まれるが、表示は`updateTabVisibility()`が`_viewMode==='hd'`のときだけ`tab-hdsum`を出す形で制御する（パーミッションではなく主観モードのみで出し分け——`renderPageHD`のロック流用方針と同じく全ユーザー対象）。CE主観へ戻したとき`curTab==='hdsum'`のままだと非表示タブの中身が残り続けるため、`updateTabVisibility()`が自動的に`swTab('cal')`へ退避させる。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
+
+**HDモードのタブ構成**：`updateTabVisibility()` が `_viewMode` を見て、担当表（`assign`＝OC集計・業務集計・公平性を含む）をHD主観では丸ごと隠し、HD集計（`hdsum`）を出す。残る 予定 / マイ担当 / タスク / 資料 は両モード共通、管理者専用タブ（スタッフ・ロック・ログ・管理資料）はHD主観でも管理者には出したままにする（モード切替はボタン1回なので締め出さない）。業務タブ（`master`）はタブ自体は両モードで出し、**中身のセクションを `data-mode` で出し分ける**（pane-master Section Gating 節を参照）——HD主観ではHD共通業務・HD曜日別業務・HD特殊治療マスタと、CE/HD共通の設置部署マスタだけが残る。
+
+**マイ担当（`renderMySchedule`）はHDの役割も出す**：CE担当枠（`getDutyCfg`＋`dat.duties`）とスケジュールブロックに加えて、`buildHdRoster(ds)` から自分の行のシフトコード（M・A1・準夜等）を `🩸 ` 付きで並べる。**`_viewMode` で分岐させない** — その人がその日HD勤務かどうかは主観と無関係な事実で、HD勤務が無い人は `getShiftForDay(ds).hd` に載らず何も出ない。`buildHdRoster` 経由なので `dat.hdDuty.overrides` の手動修正も反映される。
+
+**CE⇄HD 相互参照（読み取り専用の担当表）**：同じ日の同じ現場を別主観で見ているだけなので、相手側の割り当ては見えるべき、という方針。`ceRosterRefHTML(ds,dat)` がHD日ページに「🩺 CE担当表」（`getDutyCfg`＋`dat.duties`、枠の色は`dutyColorFor(slot)`）を、`hdRosterRefHTML(ds,dat)` がCE日ページに「🩸 HD担当表」（`buildHdRoster(ds)`＋`dat.hdNotes`）を出す。どちらも**`<select>`/`<textarea>`を使わないテキスト表示**で、編集はそれぞれの主観の自分の担当表で行う。折りたたみの外枠は人員配置管理と同じ`.staffz`シェルを流用（新規CSS不要・見た目も揃う）、開閉は`_ceRefOpen`/`_hdRefOpen`（非永続、既定は閉じる）。対象が0件のときは見出しごと出さない。印刷CSSでは`#ce-ref-body`/`#hd-ref-body`を`#staffz-body`と同様に強制表示する。
+
+**カレンダーの完了ドットは主観に追従する**：`renderCal()` の日セル判定は `pctForView(ds)`（`_viewMode==='hd' ? getHdPct : getPct`）を通す。HD勤務者にCEの未完了を見せても意味が無いため。`setViewMode` と `updHdProg` の両方が `renderCal()` を呼んで塗り直す。**担当表（`renderAT`）はCE専用画面なので `getPct` のまま**——ここを `pctForView` にすると、HD主観で担当表を開いたときに日付セルの色だけHD基準になってしまう。
+
+**申し送りセクションのマークアップは `memoSectionHTML(ds, mlk)` に集約**：CE版とHD版が同一の `dat.memos` を共有しており、以前は両方に逐語的な複製があった。とくに患者情報を書かせないための注意書き（`.memo-notice`）が2箇所にあると、片方だけ文面を直したときにもう一方の主観に古い注意書きが残る。**患者安全に関わる文言なので複製を戻さないこと。**
+
+**未返却タブレットの台数は `tabletUnreturnedCount(ds)` が唯一の集計元**：ヘッダーバッジ・CE日ページ・HD日ページが同じ数を出す必要がある。以前は同じ式が3箇所に複製され「完全に同じにすること」というコメントで支えられていた。
+
+**余剰人員は主観で上下が入れ替わる（`renderSurplusArea`）**：どちらの主観でも「未分類の自分たち」を上のチップ行（`#surplus-chips`）に、「引っ張ってこられる相手」を折りたたみのソースパネル（`#hd-worker-panel`）に置く。
+
+| | 上のチップ行 | ソースパネル |
+|---|---|---|
+| CE主観 | CE余剰人員（`sz.ce`の未分類） `data-from="surplus"` | 🩸 HD勤務者 `data-from="hd"` |
+| HD主観 | HD勤務者（`sz.hd`の未分類） `data-from="hd"` | 🩺 CE勤務者（`getShiftForDay(ds).ce`の未分類） `data-from="surplus"` |
+
+**CE勤務者チップの`data-from`に`'ce'`のような新しい値を作ってはいけない。** `dropToStatusZone`は`from==='hd'?'hd':'ce'`で振り分けるので`'surplus'`でも分類は正しく落ちるが、`removeFromZoneSource`（担当枠へドロップしたときの後始末）は`'surplus'`/`'status'`しか見ておらず、新値だと後始末が効かなくなる。ソースパネルの自動オープン判定（`_hdPanelUserOverride===null`のとき）も主観で切り替え、HD主観では「未分類のCE勤務者がいるか」を見る。HD主観では`.staffz`の外枠見出しが「🔄 余剰人員」を出すため`renderSurplusArea`側の`.surplus-ttl`は出さず、見出しバッジ`#hdz-badge`（未分類N）は`renderSurplusArea`の末尾で直接書き換える（`staffZoneCounts()`はCE前提の数字なので流用しない）。HD日ページの折りたたみは`#staffz-body`と`toggleStaffZone()`/`_staffZoneOpen`をCEとそのまま共有する。**開閉の矢印は必ず`id`で引く**（`#staffz-arrow`/`#ce-ref-arrow`/`#hd-ref-arrow`）——HD日ページには`.staffz`シェルを流用したセクションが複数並ぶため、`querySelector('.staffz-arrow')`で先頭1つを取ると別セクションの矢印が反転して本体と食い違う。
+
+**HDチェックリスト（`D.hdDly`/`D.hdWd` + `dat.hdChecks`）**：CE側（`D.dly`/`D.wd` + `dat.checks`、[Checklist Items & Week-of-Month Filtering](#checklist-items--week-of-month-filtering) 節を参照）とは名前空間もdat上のキーも完全に別。**`dat.checks`に相乗りしてはいけない** — `remapDlyChecks`/`remapWdChecks`は`D.dly.length`基準の固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にするとCE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は`dat.checks`しか触らずHD側は自動的に無傷になる（逆も同様）。
+
+- `wdText`/`dlyText`/`dlyNotif`/`itemRebuild`/`isDlyShownOnDate`/`wdWeeks`/`wdOnce`/`wdSubs`/`wdSid`/`newSid`/`nthWk`/`isLastWeek`/`wdApplies`/`wdSubProgress`/`renderSubPanel`は渡された項目オブジェクトだけを見る純粋な関数（`D.dly`/`D.wd`を直接参照しない）なので、CE版をそのままHD版にも使い回す。`renderSubPanel`が書く`dat.subChecks`と設置部署マスタ`D.wdDepts`もCE/HD共通——院内の部署は主観と無関係なため、ここだけは別マスタを持たない。
+- HD版だけ新規に用意した関数：`hdWdEntriesForDate`/`hdWdItemsForDate`/`hdWdOnceDoneOn`（`wdOnceDoneOn`のHD版。`D.dly.length`→`D.hdDly.length`、`pg.checks`→`pg.hdChecks`、`wdItemsForDate`→`hdWdItemsForDate`の3点だけが違う）/`remapHdDlyChecks`/`remapHdWdChecks`（呼ぶタイミングもCE版と同じ非対称性を踏襲：dlyは変更の**前**、wdlyは変更の**後**）/`hdClStatus`/`getHdPct`/`buildHdCL(ds,dat,locked)`/`mkHdCk`/`updHdProg(ds)`（`updProg`のHD版。`#hd-pgf`/`#hd-pgt`/`#hd-pgp`を更新し、CE版と同じく`renderCal()`も呼ぶ）。
+- `buildHdCL`は冒頭で`if(!el) return;`する（`#hdcl`/`#hdwcl`が無い状態で呼ばれても安全）ため、CE版`buildCL`と違い呼び出し側でのnullガードは不要。`renderPageHD`から無条件に呼ぶ。
+- マスタ編集UI：`renderHdDlyList`/`addHdDly`/`rmHdDly`/`mvHdDly`/`editHdDly`/`togHdDlyDay`（共通業務）と`renderHdWdTabs`/`renderHdWdlyList`/`addHdWdly`/`rmHdWdly`/`mvHdWdly`/`editHdWdly`/`setHdWdWeeks`/`togHdWdWeek`/`togHdWdOnce`/`openHdWdSubsModal`/`saveHdWdSubs`（曜日別業務、選択中の曜日は`_hdSelWd`＝CE版`selWd`のHD版）。`pane-master`の`.sp`直下にCE版と同じ`data-perm="dm"`/`"wm"`の別セクションとして追加する（新規ロックIDは作らない）。**通知設定（🔔）の入力欄はCE版と違い出さない** — `itemRebuild`が`notif`キーを保持できる形状はCE版と揃えてあるが、実際に監視して通知を飛ばす`checkTimeNotifs`側のHD対応は別スコープのため、「設定したのに鳴らない」状態を画面に出さない判断。`confirmEditModal`の`state.type`に`'hdDly'`/`'hdWdly'`分岐を追加。
+- `renderPageHD`は`buildHdCL(ds, dat, clk)`を呼ぶ（`clk = !can('cl')`、CE版と同じ`cl`ロックを流用）。チェックリストのラッパー`<div class="clg">`はCE版と**同じクラス名**を使う——`dashJump('.clg')`と`closeItems`の`{key:'checklist', sel:'.clg', ...}`が`#main`内を`querySelector`するだけの実装なので、クラス名さえ揃えれば新規分岐なしでHD日ページでも正しくジャンプ・消し込みバー連動する。
+- `closeItems(ds)`の`checklist`カテゴリは`_viewMode`で分岐：HDモードは`hdClStatus(ds).undone`を数える（CE版の`clStatus`のままだとCE共通業務がHD日ページの消し込みバーに出てしまう）。`mine`判定もCE側「オペ/カテ担当枠が無い人だけ自分ごと」はHDに担当枠の概念自体が無いため意味を成さず、HDでは`!!self`（自分が特定できていれば自分ごと）に単純化する。`ope`/`cath`/`oc`の3カテゴリは分岐させていない——HD日ページには`dat.ops`/`dat.ocData`が存在しないため自然に0件になり実害がない。
 
 ### OPE / カテカード（buildOPS内）
 
@@ -562,16 +627,18 @@ Self-only notes shown at the bottom of the タスク tab (`#pane-task`). **Separ
 - The modal is shared: `openTaskModal(id, isMemo)` hides the assignee block and swaps the store; `saveTaskFromModal(id, isMemo)` branches to `_doSaveMemo`. PHI detection still runs (blocking categories are refused, same as tasks).
 - Memo contents are **never** written to `/logs`.
 
-### Summary Period (OC集計 / 業務集計)
+### Summary Period (OC集計 / 業務集計 / HD集計)
 
-`renderOCSummary()` and `renderOpsSummary()` no longer iterate the days of `asY/asM` directly. Both go through:
+`renderOCSummary()`, `renderOpsSummary()`, and `renderHdSummary()` no longer iterate the days of `asY/asM` directly. All three go through:
 
-- `_sumMode` (`'month'|'year'|'range'`), `_sumFrom`, `_sumTo` — module-level state shared by both subtabs.
+- `_sumMode` (`'month'|'year'|'range'`), `_sumFrom`, `_sumTo` — module-level state shared by all three.
 - `sumRange()` → `{from, to, label, multi}` (`multi` = spans more than one calendar month).
 - `sumDsList()` → existing `D.pages` keys inside the range, sorted (string compare works for `YYYY-MM-DD`).
-- `sumCtlHTML(pfx)` renders the 月／年／期間指定 switcher; `pfx` (`'oc'`/`'ops'`) keeps the date-input ids unique because both subtabs are in the DOM at once.
+- `sumCtlHTML(pfx)` renders the 月／年／期間指定 switcher; `pfx` (`'oc'`/`'ops'`/`'hd'`) keeps the date-input ids unique because all three panes are in the DOM at once (though `hd`'s pane, `#pane-hdsum`, is only a `.stab`-visible tab in HD mode — see HD主観モード section).
 
-When `multi` is true both renderers add a per-month breakdown, the ops trend graph buckets by month instead of week (bar width shrinks via `BW`/`BG` so 12 groups still fit), and date cells show `M/D` instead of `D日`. `exportOcCsv()` / `exportOpsCsv()` follow the same range and name the file via `sumFileLabel()`.
+When `multi` is true all three renderers add a per-month breakdown, the ops trend graph buckets by month instead of week (bar width shrinks via `BW`/`BG` so 12 groups still fit), and date cells show `M/D` instead of `D日`. `exportOcCsv()` / `exportOpsCsv()` / `exportHdCsv()` follow the same range and name the file via `sumFileLabel()`.
+
+`setSumMode(m)` and `applySumRange(pfx)` call all three renderers unconditionally (`renderOCSummary(); renderOpsSummary(); renderHdSummary();`) regardless of which pane is actually visible — each renderer's own `if(!el) return` (element-existence, not visibility) is the only guard, and writing into a hidden pane's `innerHTML` is harmless. The calendar month-nav `asPrevM()`/`asNextM()`, by contrast, checks each pane/subpane's `style.display!=='none'` before calling its renderer (`subpane-oc`/`subpane-ops`/`pane-hdsum`), since walking `D.pages` on every month click is wasted work when nothing will be shown — follow this existing asymmetry (unconditional in the two setters, display-gated in the month-nav) rather than "fixing" it to be consistent.
 
 ### Memo Move-to-Another-Day
 
@@ -596,6 +663,7 @@ Each memo carries `m.replies = { [rid]: {uid, name, isAdmin, text, media, ts} }`
 Digitizes the paper tablet loan log. Two data pieces:
 
 - **Master `D.tablets`** — array of tablet names (strings), top-level D property (follows the 5-location rule; edited in pane-master's `📱 タブレット台帳` section via `renderTabletList`/`addTablet`/`rmTablet`, gated `can('mst')`, modeled on the PHS master).
+- **CE/HDで台帳が分かれる**：透析室のタブレットはCEのものとは別の端末なので、マスタ（`D.tablets` / `D.hdTablets`）も貸出ログ（`dat.tabletLogs` / `dat.hdTabletLogs`）も別に持つ。分けないと片方の未返却がもう片方のヘッダーバッジ・消し込みバー・持ち越し判定（`tabletCarryOver`）に混ざる。**読み書きは必ず `tabletMaster()` / `tabletLogsOf(dat)` / `ensureTabletLogs(dat)` / `tabletLogsKey()` を通す**（`_viewMode` で切り替わる）。チェックリスト（`dat.checks`/`dat.hdChecks`）と違い、ログは id で引く独立した配列で添字の共有規約が無いため、関数を複製せずこのアクセサ1組で足りている。マスタ編集UIだけはCE/HDそれぞれの `data-mode` セクションに分かれている（`renderTabletList`/`renderHdTabletList`）
 - **Per-page `D.pages[ds].tabletLogs`** — array of loan records `{ id, tablet, borrower, lentAt, returnedBy, returnedAt }`. Times are **minutes-from-midnight** (same unit as `schedule`; format with `schedMinToHM(m)`, parse with `tabletHMToMin("HH:MM")`, "now" via `tabletNowMin()`/`tabletNowHM()`). Unreturned = `returnedAt === 0`. Lazy-init with `dat.tabletLogs = dat.tabletLogs || []` (old pages predate the field). Persisted with `saveDPage(ds)` (single-page scope).
 
 The day page does **not** show an inline tablet section (it would occupy too much space). Instead, `renderPage` adds a compact `📱 タブレット` button (`#tablet-btn`) to the page header next to 印刷, carrying a red `#tablet-btn-badge` showing the current unreturned count (glanceable 揃い確認; hidden when 0). Clicking it calls `openTabletPanel(ds)`, a modal `.ov`/`.md` (`#tablet-panel-ov`, max-height 85vh scroll, click-outside/✕ closes) whose body is filled by `renderTabletPanelBody(ds)`. That body shows the "現在貸出中: N台" summary (red when N>0), a record button, and a list/timeline toggle (`_tabletView`, `setTabletView` → re-renders the panel body). The **list** view shows each loan (green/red left-border by returned state) with 返却/削除 buttons; the **timeline** view (`buildTabletTimeline`) reuses the schedule grid structure — vertical time axis × one column per tablet — with returned loans as solid blocks and unreturned ones as red-striped blocks extending to the current time (today only, else axis end). Timeline is view-only; editing happens in the list. After any lend/return/delete, the handlers call `renderTabletPanelBody(ds)` **and** `updateTabletBtnBadge(ds)` so both the open panel and the header badge stay current.
