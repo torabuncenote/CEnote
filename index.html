@@ -1772,7 +1772,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 <div class="ov hd" id="board-panel-ov" onclick="if(event.target===this)closeBoardPanel()">
   <div class="md" id="board-panel-md" style="max-width:720px;width:100%;height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
     <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--bdr);flex-shrink:0">
-      <span style="font-size:15px;font-weight:700">📢 掲示板</span>
+      <span style="font-size:15px;font-weight:700" id="board-panel-title">📢 掲示板</span>
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="closeBoardPanel()">✕</button>
     </div>
     <div id="pane-board" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
@@ -4252,8 +4252,20 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/22-45';
+var APP_VERSION = 'Ver.2026/08/22-46';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/22-46', date:'2026-08-22', title:'業務連絡・スケジュール・掲示板をCEとHDで分ける', items:[
+    {t:'new', d:'📝 業務連絡（申し送り）がCEモードとHDモードで別々になりました。透析の申し送りにCEのオペ・カテの連絡が混ざらなくなります。これまでの申し送りはすべてCE側に残ります'},
+    {t:'new', d:'📢 掲示板がCEモードとHDモードで別々になりました。見出しに「（CE）」「（HD）」と出るので、今どちらに書いているか分かります。未読の件数もそれぞれで数えます'},
+    {t:'new', d:'⏰ スケジュール（タイムテーブル）がCEモードとHDモードで別々になりました。HDモードでは列に並ぶのがHD勤務者になり、シフトコード（M・A1・準夜など）付きで表示されます'},
+    {t:'imp', d:'📅 イベントはこれまでどおり両方のモードから見えますが、登録した側で色が変わるようになりました（CEで登録＝橙の📅／HDで登録＝紫の🩸）'},
+    {t:'imp', d:'📘 使い方ガイドに「CEモードとHDモード」の章を追加しました。何が分かれて何が共通なのかを一覧で確認できます'},
+    {t:'fix', d:'🩸 HDモードの連絡表に掲示板・スケジュールを開くボタンが出ておらず、HDからは開けなかったのを修正しました'},
+    {t:'fix', d:'⏰ スケジュールや申し送りが、まれに保存形式の違いで表示されなくなることがあった問題を修正しました'},
+    {t:'fix', d:'📢 片方のモードで掲示板を開くと、もう片方の未読件数まで消えてしまう不具合を修正しました'},
+    {t:'fix', d:'⏰ HDモードのスケジュールで「業務割当から取込」を押すと、CEの担当がHD側に入ってしまう不具合を修正しました（この取り込みはCEモード専用です）'},
+    {t:'imp', admin:true, d:'📘 使い方ガイドの余剰人員ゾーンの説明が古いまま（「HDシフトチェンジ」）だったのを、現在の5ゾーン構成に更新しました'}
+  ]},
   { ver:'Ver.2026/08/22-45', date:'2026-08-22', title:'HDモード（透析主観）を大幅に拡張', items:[
     {t:'new', d:'🩸 HDモードの連絡表に「血液浄化」ダッシュボードを追加しました。日中・準夜・BW・病棟・特殊の件数が数字タイルで一目で分かり、特殊治療は治療名（PMX・CHDFなど）もそのまま表示されます'},
     {t:'new', d:'🩸 HDモード専用の「HD集計」タブを追加しました。血液浄化の件数を月・年・期間指定で集計でき、特殊治療の内訳も出ます。CSV出力にも対応しています'},
@@ -6471,6 +6483,23 @@ function renderGuide() {
   S += step(1,'カレンダーの日付をタップ','🔴🔵のドットがある日に連絡表があります。');
   S += step(2,'右側に連絡表が表示される','');
 
+  S += h1('🩸 CEモードとHDモード');
+  S += '<div class="gd-p">画面いちばん上の「🩺 CE」ボタンをタップすると<strong>HDモード（透析の立場で見る画面）</strong>に切り替わり、もう一度押すとCEモードに戻ります。ボタンが紫の「🩸 HD」になっていればHDモードです。<strong>この設定はその端末だけに保存される</strong>ので、他の人の画面には影響しません。</div>';
+  S += '<div class="gd-p">HDモードでは、透析の業務で使うものだけが並びます。CEの担当表・オペ／カテの入力欄は出ません。</div>';
+  S += '<table class="gd-tbl"><tr><th>項目</th><th>CEモード</th><th>HDモード</th></tr>'
+    + '<tr><td>連絡表の中身</td><td>担当割り当て・業務内容・オンコール</td><td>血液浄化の件数・HD担当表・HDチェックリスト</td></tr>'
+    + '<tr><td>チェックリスト</td><td>CE用</td><td>HD用（別々に管理されます）</td></tr>'
+    + '<tr><td>申し送り</td><td>CE用</td><td>HD用（別々のスレッドです）</td></tr>'
+    + '<tr><td>掲示板・スケジュール</td><td>CE用</td><td>HD用（別々です）</td></tr>'
+    + '<tr><td>タブレット台帳</td><td>CEのタブレット</td><td>透析室のタブレット</td></tr>'
+    + '<tr><td>イベント</td><td colspan="2">両方から見えます（登録した側で色が変わります）</td></tr>'
+    + '<tr><td>余剰人員</td><td colspan="2">両方から見えます（同じ内容です）</td></tr>'
+    + '</table>';
+  S += h2('相手側の担当を見る');
+  S += '<div class="gd-p">HDモードの連絡表では「🩺 CE担当表」、CEモードでは「🩸 HD担当表」の見出しをタップすると、<strong>相手側が誰に何を割り当てたかを読むことができます</strong>（見るだけで、編集はそれぞれのモードで行います）。CE側から見るHD担当表には、HDで書かれた備考も表示されます。</div>';
+  S += h2('カレンダーの完了マーク');
+  S += '<div class="gd-p">カレンダーの日付に付く完了マークは、<strong>今見ているモードのチェックリスト</strong>の進み具合で変わります。HDモードならHDの業務が終わっているかどうかで色が付きます。</div>';
+
   S += h1('🎯 ダッシュボードでジャンプ');
   S += '<div class="gd-p">連絡表の一番上には「✅ 進捗」「📊 業務」「📞 オンコール」「📝 申し送り」の4枚のカードが並びます。タップすると、その内容が書かれている場所まで自動でスクロールし、2秒間だけ枠が光って場所を教えてくれます。</div>';
   S += '<table class="gd-tbl"><tr><th>カード</th><th>飛び先</th></tr>'
@@ -6502,17 +6531,19 @@ function renderGuide() {
   S += '<div class="gd-p">「当日勤務者一覧」と「余剰人員」は「👥 人員配置管理」というタイトルの下に1つにまとまっています。タイトル行をタップすると、この中身をまとめて折りたたみ／展開できます。タイトルの右側には「当日◯名」（当日勤務している人数）と、割り当てられていない担当枠があるときだけ「未割当◯」の赤いバッジが出ます。</div>';
   S += h2('余剰人員エリアの折りたたみ');
   S += '<div class="gd-p">「🔄 余剰人員 ▲」タイトル部分をタップするとエリア全体を折りたたみ／展開できます。スマホで縦スクロールを減らしたいときに活用してください。</div>';
-  S += h2('🩸 HD 勤務者パネル');
-  S += '<div class="gd-p">余剰人員エリア右上の「🩸 HD勤務者」ボタンをタップすると、当日のHD（透析）勤務者が日勤・準夜別に表示されます。勤務表を取り込んでいない場合はデータなしと表示されます。</div>';
+  S += h2('相手側の勤務者パネル');
+  S += '<div class="gd-p">余剰人員エリア右上のボタンをタップすると、<strong>相手側の勤務者</strong>が表示されます。CEモードでは「🩸 HD勤務者」（日勤・準夜別）、HDモードでは「🩺 CE勤務者」が出ます。勤務表を取り込んでいない場合はデータなしと表示されます。</div>';
+  S += '<div class="gd-p">上下の並びもモードで入れ替わります。<strong>いつも「未分類の自分たち」が上のチップ行に、「引っ張ってこられる相手」がボタンの中に</strong>入ります。</div>';
   S += h2('ステータスゾーン');
-  S += '<div class="gd-p">余剰人員エリアには以下の4つのゾーンが常時表示されます。</div>';
+  S += '<div class="gd-p">余剰人員エリアには以下の5つのゾーンが常時表示されます。</div>';
   S += '<table class="gd-tbl"><tr><th>ゾーン</th><th>用途</th></tr>'
-    + '<tr><td>🔄 HDシフトチェンジ</td><td>透析担当の入れ替わり</td></tr>'
+    + '<tr><td>🔄 CE→HD</td><td>CEから透析へ移動</td></tr>'
+    + '<tr><td>🔁 HD→CE</td><td>透析からCEへ移動</td></tr>'
     + '<tr><td>🔧 メンテ</td><td>機器メンテナンス対応</td></tr>'
     + '<tr><td>🏖️ 休み</td><td>休暇・不在</td></tr>'
     + '<tr><td>📝 その他</td><td>上記以外の特記事項</td></tr>'
     + '</table>';
-  S += '<div class="gd-p">余剰スタッフカードまたはHD勤務者カードをドラッグしてゾーンに置くと、その日のスタッフ状況が一目でわかります。カード右の「×」でゾーンから外せます。</div>';
+  S += '<div class="gd-p">スタッフカードをドラッグしてゾーンに置くと、その日のスタッフ状況が一目でわかります。カード右の「×」でゾーンから外せます。<strong>ここで分類した内容はCEモード・HDモードのどちらから見ても同じように表示されます。</strong></div>';
 
   S += h1('📊 業務件数');
   S += '<div class="gd-p">連絡表上部のヘッダーに当日の業務件数が自動集計されて表示されます。</div>';
@@ -7332,7 +7363,7 @@ function closeItems(ds) {
 
   /* 1. 自分あてメンションを含む未完了の申し送り */
   if (self) {
-    (dat.memos||[]).forEach(function(m){
+    memosOf(dat).forEach(function(m){
       if (m.done) return;
       if (extractMentions(m.text, m.name).indexOf(self) !== -1) byKey.mention.items.push({mine:true});
     });
@@ -8928,14 +8959,49 @@ function applyStaffAdjustments(ds, res) {
 /* ===== SHIFT IMPORT ===== */
 
 /* ===== EVENT FUNCTIONS ===== */
+/* ===== イベント表示（CE/HD共通・出所で色分け） =====
+   イベント自体はCE/HDで共通のものを両方から見せる（同じ日の同じ現場の予定なので）。
+   ただし「どちら発の予定か」は分かったほうがよいため、登録した側で色を変える。
+   出所は dat.evtKinds = { イベント名: 'hd' } の別マップで持つ——イベント本体は
+   文字列の配列（dat.events / D.evts[ym][day]）で既存データが入っているため、
+   形を変えずに横に足せるこの持ち方にする。**印が無いものはCE扱い**なので、
+   既存イベントは全てCE色のまま出る（移行不要）。 */
+function evtKindOf(dat, name) {
+  return (dat && dat.evtKinds && dat.evtKinds[name] === 'hd') ? 'hd' : 'ce';
+}
+function evtAreaHTML(ds, dat, allEvts) {
+  var h = '<div id="evt-area" style="margin-bottom:14px">';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
+  if (allEvts.length) {
+    for (var ei = 0; ei < allEvts.length; ei++) {
+      var nm = allEvts[ei];
+      var isHd = evtKindOf(dat, nm) === 'hd';
+      var col = isHd ? 'var(--pu)' : 'var(--or)';
+      var bg  = isHd ? 'var(--pu-bg)' : 'var(--or-bg)';
+      h += '<div style="display:inline-flex;align-items:center;gap:4px;background:'+bg+';border:1.5px solid '+col+';border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:'+col+'" title="'+(isHd?'HDで登録された予定':'CEで登録された予定')+'">';
+      h += (isHd ? '🩸 ' : '📅 ') + escH(nm);
+      h += '<button data-ds="'+ds+'" data-evt="'+escH(nm)+'" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:'+col+';font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
+      h += '</div>';
+    }
+  } else {
+    h += '<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
+  }
+  h += '<button data-ds="'+ds+'" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
+  h += '</div></div>';
+  return h;
+}
 function addEvtPrompt(ds) {
   if(!can('pg')) return;
   var v = prompt('イベント名を入力してください');
   if (!v || !v.trim()) return;
   v = v.trim();
   phiGuardText(v, function(){
-    if (!D.pages[ds].events) D.pages[ds].events = [];
-    if (D.pages[ds].events.indexOf(v) === -1) D.pages[ds].events.push(v);
+    var pg = D.pages[ds]; if (!pg) return;
+    if (!pg.events) pg.events = [];
+    if (pg.events.indexOf(v) === -1) pg.events.push(v);
+    /* 登録した側を記録して色分けに使う。CEは既定なので印を付けない（既存データと同じ扱いになる） */
+    if (_viewMode === 'hd') { pg.evtKinds = pg.evtKinds || {}; pg.evtKinds[v] = 'hd'; }
+    else if (pg.evtKinds) { delete pg.evtKinds[v]; }
     saveD();
     renderPage(ds);
   }, function(){ addEvtPrompt(ds); });
@@ -8953,6 +9019,11 @@ function removeEvt(ds, evtName) {
   if (D.evts[ym] && D.evts[ym][day]) {
     var idx2 = D.evts[ym][day].indexOf(evtName);
     if (idx2 !== -1) D.evts[ym][day].splice(idx2, 1);
+  }
+  /* 出所の印も一緒に片付ける（消したイベント名の印が残り続けないように） */
+  if (dat.evtKinds) {
+    delete dat.evtKinds[evtName];
+    if (!Object.keys(dat.evtKinds).length) delete dat.evtKinds;
   }
   saveD();
   renderPage(ds);
@@ -9375,7 +9446,7 @@ function dayHasDutyAssigned(ds){
   var dat=D.pages&&D.pages[ds];
   if(!dat||!dat.duties) return false;
   for(var k in dat.duties){ if(dat.duties[k]) return true; }
-  if(dat.schedule && dat.schedule.length) return true;
+  if((dat.schedule && dat.schedule.length) || (dat.hdSchedule && dat.hdSchedule.length)) return true;
   return false;
 }
 
@@ -10787,20 +10858,7 @@ function renderPage(ds) {
   var pageEvts = (dat.events || []);
   /* ページ独自イベントはマージ（重複排除） */
   for (var ei=0;ei<pageEvts.length;ei++){if(allEvts.indexOf(pageEvts[ei])===-1)allEvts.push(pageEvts[ei]);}
-  h+='<div id="evt-area" style="margin-bottom:14px">';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
-  if(allEvts.length){
-    for(var ei=0;ei<allEvts.length;ei++){
-      h+='<div style="display:inline-flex;align-items:center;gap:4px;background:var(--or-bg);border:1.5px solid var(--or-border,var(--or));border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--or)">';
-      h+='📅 '+allEvts[ei];
-      h+='<button data-ds="'+ds+'" data-evt="'+allEvts[ei].replace(/"/g,'&quot;')+'" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:var(--or);font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
-      h+='</div>';
-    }
-  } else {
-    h+='<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
-  }
-  h+='<button data-ds="'+ds+'" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
-  h+='</div></div>';
+  h+=evtAreaHTML(ds, dat, allEvts);
   /* 業務件数集計 */
   var _ops=dat.ops||{};
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
@@ -10818,7 +10876,7 @@ function renderPage(ds) {
   var _ocStaff = dat.ocData.staff || '';
   var _ocCls = !_ocStaff ? ' dash-warn' : (dat.ocData.done ? ' pv-p' : '');
   h+='<div class="pr dash-chip" id="oc-dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'" id="oc-dash-val">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅対応済':'')+'</span></div>';
-  var _memoUndone = (dat.memos||[]).filter(function(m){return !m.done;}).length;
+  var _memoUndone = memosOf(dat).filter(function(m){return !m.done;}).length;
   h+='<div class="pr dash-chip" onclick="dashJump(\'#memo-list\')" title="申し送りへジャンプ"><span class="pl">📝 申し送り</span><span class="pv'+(_memoUndone?'':' dash-muted')+'">'+_memoUndone+'件</span></div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
@@ -11336,7 +11394,7 @@ function hdRosterRefHTML(ds, dat) {
 /* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集／
    血液浄化件数入力・HDチェックリストを追加） =====
    出しているのはヘッダー・イベント表示・血液浄化件数・HDチェックリスト（進捗バー含む）・
-   HD担当表（担当変更・備考編集可）・余剰人員・申し送り（CEと同一の dat.memos）。
+   HD担当表（担当変更・備考編集可）・余剰人員・申し送り（HD専用の dat.hdMemos）。
    #dg/#pool-chips/#ops-grid は絶対に作らない（buildDG はnullチェックが無くこれらのidが
    無い状態で呼ぶと例外になるため、呼ばない）。#hdcl/#hdwcl は buildHdCL が冒頭で
    nullガードするCE版と別実装なので、CE専用の #dcl/#wcl とは異なりここで作ってよい。 */
@@ -11354,6 +11412,11 @@ function renderPageHD(ds) {
   h += '<div class="pt2" style="flex:1">🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）</div>';
   var _tblOut = tabletUnreturnedCount(ds);
   h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
+  /* 掲示板・スケジュールもCE版と同じ並びで出す。中身は主観ごとに別スレッド
+     （掲示板は kind、スケジュールは dat.hdSchedule）なので、HDにはHDの分だけが出る。 */
+  var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
+  h += '<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"' + (_brdN ? '' : ' style="display:none"') + '>' + (_brdN > 99 ? '99+' : _brdN) + '</span></button>';
+  h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="スケジュールを開く">⏰<span class="hd-btn-text"> スケジュール</span></button>';
   h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h += '</div>';
 
@@ -11361,20 +11424,7 @@ function renderPageHD(ds) {
   var allEvts = si.evts || [];
   var pageEvts = (dat.events || []);
   for (var ei = 0; ei < pageEvts.length; ei++) { if (allEvts.indexOf(pageEvts[ei]) === -1) allEvts.push(pageEvts[ei]); }
-  h += '<div id="evt-area" style="margin-bottom:14px">';
-  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
-  if (allEvts.length) {
-    for (var ei = 0; ei < allEvts.length; ei++) {
-      h += '<div style="display:inline-flex;align-items:center;gap:4px;background:var(--or-bg);border:1.5px solid var(--or-border,var(--or));border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--or)">';
-      h += '📅 ' + allEvts[ei];
-      h += '<button data-ds="' + ds + '" data-evt="' + allEvts[ei].replace(/"/g, '&quot;') + '" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:var(--or);font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
-      h += '</div>';
-    }
-  } else {
-    h += '<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
-  }
-  h += '<button data-ds="' + ds + '" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
-  h += '</div></div>';
+  h += evtAreaHTML(ds, dat, allEvts);
 
   /* 血液浄化の実施件数（ダッシュボード） */
   h += '<div class="hdash" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
@@ -11430,7 +11480,7 @@ function renderPageHD(ds) {
   h += '<div id="surplus-wrap" class="surplus-wrap"></div>';
   h += '</div></div>';
 
-  /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有。マークアップも memoSectionHTML で共通） */
+  /* 業務連絡・申し送り（HD専用スレッド dat.hdMemos。マークアップは memoSectionHTML でCEと共通） */
   h += memoSectionHTML(ds, mlk);
 
   document.getElementById('main').innerHTML = h;
@@ -11564,7 +11614,7 @@ function renderPageHD(ds) {
 }
 
 /* 申し送りセクション（見出し＋一覧＋入力欄）のHTML。CE版(renderPage)とHD版(renderPageHD)が
-   同一の dat.memos スレッドを共有しており、以前は両方に同じマークアップが逐語的に複製されていた。
+   別スレッド（dat.memos / dat.hdMemos）だが画面の作りは同一で、以前は両方に同じマークアップが逐語的に複製されていた。
    とくに患者情報を書かせないための注意書き（.memo-notice）が2箇所にあり、片方だけ文面を直すと
    もう一方の主観だけ古い注意書きが残る——患者安全に関わる文言なので、1箇所に集約する。 */
 function memoSectionHTML(ds, mlk){
@@ -11589,7 +11639,7 @@ function memoSectionHTML(ds, mlk){
 }
 /* 申し送り入力欄（#memo-new）のイベント登録：送信ボタン／Ctrl+Enter送信／@メンション候補。
    renderPage・renderPageHD の両方が同じ #memo-new/#memo-send-btn DOMに対して呼ぶ共用関数
-   （HDモードもCEと同一の dat.memos スレッドを共有するため、入力UIも同じロジックでよい）。 */
+   （スレッドは memosOf/ensureMemos が主観で切り替えるので、入力UIは同じロジックでよい）。 */
 function bindMemoInput(ds){
   var btn = document.getElementById('memo-send-btn');
   var ta  = document.getElementById('memo-new');
@@ -11831,12 +11881,31 @@ function memoReplyMediaArr(r) {
   if (Array.isArray(r.media)) return r.media.filter(Boolean);
   return Object.keys(r.media).map(function(k){ return r.media[k]; }).filter(Boolean);
 }
+/* ===== CE/HDで申し送りスレッドを分ける =====
+   CEの申し送りとHD（透析室）の申し送りは読む相手が違うので、スレッドごと分ける。
+   分けないと、HD勤務者にCEのオペ・カテの申し送りが流れ込み、逆も起きる。
+   タブレット台帳と同じく、関数は複製せず主観で切り替えるアクセサ1組で扱う
+   （memos は id ではなく配列の並びで扱うが、CE/HDで別配列にするだけなので
+   dat.checks のような添字の共有規約は発生しない）。
+   既存の申し送りはすべて dat.memos に入っているため、そのままCE側に残る。 */
+function memoKey() { return _viewMode === 'hd' ? 'hdMemos' : 'memos'; }
+/* Firebaseは疎な配列（歯抜けのindex）をオブジェクトとして返すことがある。
+   ensureStaffZone で実害が出たのと同じ既知の罠で、Array.isArray だけで判定して
+   空配列に差し替えると**既存データを破壊する**（renderSched は開くたびに ensure* を
+   呼ぶため、その日のスケジュールが消える）。必ずここで実配列へ復元してから返す。 */
+function normArr(v) {
+  if (Array.isArray(v)) return v;
+  if (v && typeof v === 'object') return Object.keys(v).map(function(k){ return v[k]; }).filter(Boolean);
+  return [];
+}
+function memosOf(dat) { var k = memoKey(); return dat ? normArr(dat[k]) : []; }
+function ensureMemos(dat) { var k = memoKey(); if (!Array.isArray(dat[k])) dat[k] = normArr(dat[k]); return dat[k]; }
 /* 申し送り1件を指す安定キー。Firebaseのエコーで memos の並びが変わっても
    同じ投稿を指し続けられるよう、インデックスではなく ts+uid で特定する
    （moveMemo が対象を再特定しているのと同じ考え方） */
 function memoKeyOf(m) { return String(m && m.ts || 0) + '_' + String((m && m.uid) || ''); }
 function findMemoByKey(ds, key) {
-  var memos = (D.pages[ds] && D.pages[ds].memos) ? D.pages[ds].memos : [];
+  var memos = memosOf(D.pages[ds]);
   for (var i = 0; i < memos.length; i++) {
     if (memoKeyOf(memos[i]) === key) return { idx: i, m: memos[i] };
   }
@@ -11847,7 +11916,7 @@ function renderMemos(ds, dat, locked) {
   var el = document.getElementById('memo-list');
   if (!el) return;
   bindMemoListEvents(el);
-  var memos = (dat && dat.memos) ? dat.memos : [];
+  var memos = memosOf(dat);
   if (!memos.length) {
     el.innerHTML = '<div class="pool-empty" style="font-size:12px;padding:6px 0">申し送りはまだありません</div>';
     return;
@@ -11959,11 +12028,12 @@ function bindMemoListEvents(el) {
     if (cb) {
       var idx = parseInt(cb.getAttribute('data-idx'));
       var bds = cb.getAttribute('data-ds');
-      if (!D.pages[bds] || !D.pages[bds].memos) return;
-      D.pages[bds].memos[idx].done = cb.checked;
+      if (!D.pages[bds]) return;
+      var _bm = memosOf(D.pages[bds]); if (!_bm[idx]) return;
+      _bm[idx].done = cb.checked;
       /* チェックしたユーザーと時刻を記録 */
-      D.pages[bds].memos[idx].doneBy   = currentUser ? (currentUser.displayName || currentUser.email) : '';
-      D.pages[bds].memos[idx].doneAt   = cb.checked ? Date.now() : null;
+      _bm[idx].doneBy   = currentUser ? (currentUser.displayName || currentUser.email) : '';
+      _bm[idx].doneAt   = cb.checked ? Date.now() : null;
       saveDPage(bds);
       /* 投稿ボックスのクラスを即時切り替え（再描画なし） */
       var post = cb.closest('.memo-post');
@@ -12290,9 +12360,10 @@ function checkAndDeleteOldData(force) {
     var pageDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
     if (pageDate.getTime() < cutoff) { delete D.pages[ds]; deleted++; }
   }
-  /* 申し送りメディアの削除 */
+  /* 申し送りメディアの削除。CE/HD両方のスレッドを掃除しないと、片方の添付が
+     Storageに残り続けて容量を食う。 */
   for (var ds2 in D.pages) {
-    var memos = D.pages[ds2].memos || [];
+    var memos = (D.pages[ds2].memos || []).concat(D.pages[ds2].hdMemos || []);
     for (var i = memos.length - 1; i >= 0; i--) {
       var media = memos[i].media || [];
       for (var j = media.length - 1; j >= 0; j--) {
@@ -12826,7 +12897,7 @@ function _doPostMemo(ds) {
     if (!can('pg')) { toast('🔒 このページはまだ作成されていません。管理者に連絡してください。', 'warn'); return; }
     D.pages[ds] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
   }
-  if (!D.pages[ds].memos) D.pages[ds].memos = [];
+  ensureMemos(D.pages[ds]);
 
   var sendBtn = document.getElementById('memo-send-btn');
   if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '送信中...'; }
@@ -12873,7 +12944,7 @@ function _doPostMemo(ds) {
 }
 
 function _finishPostMemo(ds, entry, text, sendBtn) {
-  D.pages[ds].memos.push(entry);
+  ensureMemos(D.pages[ds]).push(entry);
   saveDPage(ds);
   writeLog('申し送り投稿', fmtJ(ds) + ' 「' + (text||'[画像/動画]').slice(0,30) + (text.length>30?'...':'') + '」');
   var ta = document.getElementById('memo-new');
@@ -12898,8 +12969,8 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
 
 
 function delMemo(ds, idx) {
-  if (!D.pages[ds] || !D.pages[ds].memos) return;
-  var m = D.pages[ds].memos[idx];
+  if (!D.pages[ds]) return;
+  var m = memosOf(D.pages[ds])[idx];
   if (!m) return;
   if (!confirm('この申し送りを削除しますか？')) return;
   /* Storageファイルも削除 */
@@ -12914,7 +12985,7 @@ function delMemo(ds, idx) {
       });
     });
   }
-  D.pages[ds].memos.splice(idx, 1);
+  memosOf(D.pages[ds]).splice(idx, 1);
   saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
@@ -12922,9 +12993,9 @@ function delMemo(ds, idx) {
 }
 
 function openMoveMemoModal(ds, idx) {
-  if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return;
+  if (!D.pages[ds] || !memosOf(D.pages[ds])[idx]) return;
   /* モーダル表示中にFirebaseエコーでindexがずれても対象を再特定できるよう識別子を保持 */
-  var m0 = D.pages[ds].memos[idx];
+  var m0 = memosOf(D.pages[ds])[idx];
   var memoTs = m0.ts, memoUid = m0.uid;
   var oldOv = document.getElementById('move-memo-ov'); if (oldOv) oldOv.remove(); /* 二重表示防止 */
   var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
@@ -12943,7 +13014,7 @@ function openMoveMemoModal(ds, idx) {
     var targetDs = document.getElementById('move-memo-date').value;
     if (!targetDs) { toast('移動先の日付を選択してください', 'warn'); return; }
     /* 他端末の編集でindexがずれた可能性があるため ts+uid で対象を再特定する */
-    var memos = (D.pages[ds] && D.pages[ds].memos) || [];
+    var memos = memosOf(D.pages[ds]);
     var curIdx = -1;
     for (var i = 0; i < memos.length; i++) {
       if (memoTs ? (memos[i].ts === memoTs && memos[i].uid === memoUid) : i === idx) { curIdx = i; break; }
@@ -12955,16 +13026,16 @@ function openMoveMemoModal(ds, idx) {
 
 function moveMemo(ds, idx, targetDs) {
   if (targetDs === ds) { toast('移動元と同じ日付です', 'warn'); return false; }
-  if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return false;
+  if (!D.pages[ds] || !memosOf(D.pages[ds])[idx]) return false;
   if (!D.pages[targetDs]) {
     if (!can('pg')) { toast('🔒 移動先の連絡表がまだ作成されていません。管理者に連絡してください。', 'warn'); return false; }
     D.pages[targetDs] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
   }
-  if (!D.pages[targetDs].memos) D.pages[targetDs].memos = [];
-  var m = D.pages[ds].memos[idx];
-  D.pages[ds].memos.splice(idx, 1);
+  /* 移動元・移動先とも「今いる主観のスレッド」を指す。CE側の申し送りがHD側へ紛れ込むことはない */
+  var m = memosOf(D.pages[ds])[idx];
+  memosOf(D.pages[ds]).splice(idx, 1);
   m.movedFrom = ds;
-  D.pages[targetDs].memos.push(m);
+  ensureMemos(D.pages[targetDs]).push(m);
   saveD();
   writeLog('申し送り移動', fmtJ(ds) + '→' + fmtJ(targetDs) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
@@ -15621,12 +15692,14 @@ function renderMySchedule(overrideName) {
         }
       }
       /* タイムテーブルブロック */
-      if (dat.schedule) {
-        for (var si = 0; si < dat.schedule.length; si++) {
-          var blk = dat.schedule[si];
-          if (blk.staff === selfName && blk.label) slots.push('📅 ' + blk.label);
-        }
-      }
+      /* タイムテーブルはCE(schedule)とHD(hdSchedule)の両方を見る。自分の予定である
+         ことは主観と無関係なので、どちらに置かれていても出す（HD分は🩸で区別）。 */
+      (dat.schedule || []).forEach(function(blk){
+        if (blk.staff === selfName && blk.label) slots.push('📅 ' + blk.label);
+      });
+      (dat.hdSchedule || []).forEach(function(blk){
+        if (blk.staff === selfName && blk.label) slots.push('🩸 ' + blk.label);
+      });
       /* HD担当表の役割（M・A1・準夜等）。buildHdRoster は hdShiftWorkers 経由で
          勤務表由来のHD勤務者に dat.hdDuty.overrides を適用した実効一覧を返すため、
          HD担当表で手動修正した分もここに反映される。
@@ -16561,6 +16634,36 @@ function schedDefForDuty(label){
   return {color:'gd', start:9*60, dur:60};
 }
 
+/* ===== CE/HDでスケジュールを分ける =====
+   CEのタイムテーブル（オペ・カテの動き）とHDのそれ（透析の回転）は別物なので、
+   保存先も列に並べる人も分ける。申し送り・タブレット台帳と同じアクセサ方式。 */
+function schedKey(){ return _viewMode === 'hd' ? 'hdSchedule' : 'schedule'; }
+function schedOf(dat){ var k=schedKey(); return dat ? normArr(dat[k]) : []; }
+function ensureSched(dat){ var k=schedKey(); if(!Array.isArray(dat[k])) dat[k]=normArr(dat[k]); return dat[k]; }
+/* タイムテーブルの列に並べる人。CE主観は当日のCE勤務者＋OC＋担当枠の割当、
+   HD主観は当日のHD勤務者（buildHdRoster 経由なので担当表での差し替えも反映される）。 */
+function schedColumns(ds, dat){
+  var staff=[];
+  if (_viewMode === 'hd') {
+    buildHdRoster(ds).forEach(function(r){
+      if (r.name && !staff.some(function(x){return x.name===r.name;})) staff.push({name:r.name, oc:false, role:r.role});
+    });
+    return staff;
+  }
+  var si=getShiftForDay(ds);
+  si.ce.forEach(function(c){ staff.push({name:c.name,oc:false}); });
+  si.oc.forEach(function(o){ if(!staff.some(function(x){return x.name===o.name;})) staff.push({name:o.name,oc:true}); });
+  /* シフト表未取込のとき、担当カードの割当スタッフを列として補完する。
+     すでにシフト由来で列がある人は重複しない。 */
+  if(dat.duties){
+    var cfg=getDutyCfg(dat);
+    for(var di=0;di<cfg.length;di++){
+      var dname=dat.duties[cfg[di].id];
+      if(dname && !staff.some(function(x){return x.name===dname;})) staff.push({name:dname,oc:false});
+    }
+  }
+  return staff;
+}
 function renderSched(){
   var tools=document.getElementById('sched-tools');
   var body=document.getElementById('sched-body');
@@ -16575,32 +16678,20 @@ function renderSched(){
   }
   var dat=D.pages[ds];
   var locked=!can('duty');
-  title.textContent='⏰ '+fmtJ(ds)+' のスケジュール';
+  title.textContent=(_viewMode==='hd'?'🩸 HD ':'🩺 CE ')+fmtJ(ds)+' のスケジュール';
   /* ツールバー */
   var th='';
   if(!locked){
-    th+='<button class="btn btn-g btn-sm" onclick="schedImportDuties()">🔄 業務割当から取込</button>';
+    /* 取り込み元はCE専用データなので、HD主観ではボタン自体を出さない（実行側にもガードあり） */
+    if(_viewMode !== 'hd') th+='<button class="btn btn-g btn-sm" onclick="schedImportDuties()">🔄 業務割当から取込</button>';
     th+='<button class="btn btn-g btn-sm" onclick="schedClear()">🗑 全消去</button>';
   }
   tools.innerHTML=th;
 
-  if(!dat.schedule) dat.schedule=[];
-  var si=getShiftForDay(ds);
-  var staff=[];
-  si.ce.forEach(function(c){ staff.push({name:c.name,oc:false}); });
-  si.oc.forEach(function(o){ if(!staff.some(function(s){return s.name===o.name;})) staff.push({name:o.name,oc:true}); });
-
-  /* シフト表未取込のとき、担当カードの割当スタッフを列として補完する。
-     すでにシフト由来で列がある人は重複しない。 */
-  if(dat.duties){
-    var cfg=getDutyCfg(dat);
-    for(var di=0;di<cfg.length;di++){
-      var dname=dat.duties[cfg[di].id];
-      if(dname && !staff.some(function(s){return s.name===dname;})) staff.push({name:dname,oc:false});
-    }
-  }
+  ensureSched(dat);
+  var staff=schedColumns(ds, dat);
   if(!staff.length){
-    body.innerHTML='<div class="sched-empty">👥 当日勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
+    body.innerHTML='<div class="sched-empty">👥 当日'+(_viewMode==='hd'?'HD':'')+'勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
     return;
   }
 
@@ -16636,8 +16727,9 @@ function renderSched(){
     h+='<div class="sched-colhd'+(st.oc?' oc':'')+'">'+escH(st.name)+(st.oc?' 🟠':'')+'</div>';
     h+='<div class="sched-track" data-staff="'+escH(st.name)+'" style="height:'+totalH+'px;background:repeating-linear-gradient(to bottom,transparent,transparent '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN)+'px)">';
     /* ブロック */
-    for(var b=0;b<dat.schedule.length;b++){
-      var bl=dat.schedule[b];
+    var _sc=schedOf(dat);
+    for(var b=0;b<_sc.length;b++){
+      var bl=_sc[b];
       if(bl.staff!==st.name) continue;
       var top2=(bl.start-SCHED_START)*SCHED_PXMIN;
       var hgt=(bl.end-bl.start)*SCHED_PXMIN;
@@ -16662,13 +16754,13 @@ function schedSelectPreset(i){
 
 function schedAddBlock(ds,staff,presetIdx,startMin){
   var dat=D.pages[ds]; if(!dat) return;
-  if(!dat.schedule) dat.schedule=[];
+  ensureSched(dat);
   var p=getSchedPresets()[presetIdx]; if(!p) return;
   var add=function(label){
     var start=schedSnap(startMin);
     var end=Math.min(SCHED_END,start+(p.dur||60));
     if(end<=start) end=Math.min(SCHED_END,start+SCHED_SLOT);
-    dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
+    ensureSched(dat).push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
     saveDPage(ds);
     writeLog('スケジュール追加',fmtJ(ds)+' '+staff+' '+label+' '+schedMinToHM(start));
     renderSched();
@@ -16685,8 +16777,11 @@ function schedAddBlock(ds,staff,presetIdx,startMin){
 function schedImportDuties(){
   var ds=curDs, dat=D.pages[ds]; if(!dat) return;
   if(!can('duty')){ toast('🔒 担当割り当ての編集権限がありません', 'warn'); return; }
+  /* 取り込み元(dat.duties/getDutyCfg)はCE専用のデータなので、HD主観では実行しない。
+     そのまま通すとCEの担当枠がHDのタイムテーブル(hdSchedule)に流れ込む。 */
+  if(_viewMode === 'hd'){ toast('この取り込みはCEモードの担当割り当て用です', 'warn'); return; }
   if(!dat.duties){ toast('業務割当がありません。', 'warn'); return; }
-  if(!dat.schedule) dat.schedule=[];
+  ensureSched(dat);
   var cfg=getDutyCfg(dat);
   var added=0;
   for(var i=0;i<cfg.length;i++){
@@ -16694,11 +16789,11 @@ function schedImportDuties(){
     var name=dat.duties[slot.id];
     if(!name) continue;
     /* 同一スタッフ・同一ラベルの既存ブロックがあればスキップ */
-    var exists=dat.schedule.some(function(b){ return b.staff===name && b.label===slot.label; });
+    var exists=schedOf(dat).some(function(b){ return b.staff===name && b.label===slot.label; });
     if(exists) continue;
     var def=schedDefForDuty(slot.label);
     var start=schedSnap(def.start), end=Math.min(SCHED_END,start+def.dur);
-    dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*10000)+i,staff:name,label:slot.label,start:start,end:end,color:def.color});
+    ensureSched(dat).push({id:'sb'+Date.now()+Math.floor(Math.random()*10000)+i,staff:name,label:slot.label,start:start,end:end,color:def.color});
     added++;
   }
   saveDPage(ds);
@@ -16709,9 +16804,9 @@ function schedImportDuties(){
 
 function schedClear(){
   var ds=curDs, dat=D.pages[ds]; if(!dat) return;
-  if(!dat.schedule||!dat.schedule.length) return;
+  if(!schedOf(dat).length) return;
   if(!confirm(fmtJ(ds)+' のスケジュールをすべて消去しますか？')) return;
-  dat.schedule=[];
+  dat[schedKey()]=[];
   saveDPage(ds);
   writeLog('スケジュール全消去',fmtJ(ds));
   renderSched();
@@ -16727,7 +16822,7 @@ function schedBindInteractions(ds){
     x.addEventListener('click',function(e){
       e.stopPropagation();
       var id=x.getAttribute('data-del');
-      dat.schedule=dat.schedule.filter(function(b){return b.id!==id;});
+      dat[schedKey()]=schedOf(dat).filter(function(b){return b.id!==id;});
       saveDPage(ds); writeLog('スケジュール削除',fmtJ(ds)); renderSched();
     });
   });
@@ -16766,7 +16861,7 @@ function schedBindInteractions(ds){
     var handle=el.querySelector('.bh');
     function startDrag(e,mode){
       e.preventDefault(); e.stopPropagation();
-      var bl=dat.schedule.filter(function(b){return b.id===id;})[0]; if(!bl) return;
+      var bl=schedOf(dat).filter(function(b){return b.id===id;})[0]; if(!bl) return;
       var startY=e.clientY, origStart=bl.start, origEnd=bl.end, dur=origEnd-origStart, moved=false;
       el.setPointerCapture&&el.setPointerCapture(e.pointerId);
       function onMove(ev){
@@ -16818,8 +16913,8 @@ var _schedDragPreset=null;
    添字の共有規約が無いため、関数を複製せず主観で切り替えるアクセサ1組で足りる。 */
 function tabletMaster(){ return (_viewMode === 'hd' ? D.hdTablets : D.tablets) || []; }
 function tabletLogsKey(){ return _viewMode === 'hd' ? 'hdTabletLogs' : 'tabletLogs'; }
-function tabletLogsOf(dat){ return (dat && dat[tabletLogsKey()]) || []; }
-function ensureTabletLogs(dat){ var k = tabletLogsKey(); if (!dat[k]) dat[k] = []; return dat[k]; }
+function tabletLogsOf(dat){ return dat ? normArr(dat[tabletLogsKey()]) : []; }
+function ensureTabletLogs(dat){ var k = tabletLogsKey(); if (!Array.isArray(dat[k])) dat[k] = normArr(dat[k]); return dat[k]; }
 var _tabletView = 'list'; /* 'list' | 'timeline' */
 function tabletNowMin(){ var n=new Date(); return n.getHours()*60+n.getMinutes(); }
 function tabletNowHM(){ return schedMinToHM(tabletNowMin()); }
@@ -17316,6 +17411,10 @@ function setViewMode(m) {
   updatePsgRemovalBanner(curDs && D.pages[curDs] ? curDs : null);
   /* カレンダーの完了ドットは pctForView 経由で主観に追従するため、切替時に塗り直す */
   renderCal();
+  /* 掲示板は主観ごとに別スレッド。未読バッジの数も切り替える（開いていれば中身も差し替える） */
+  updateBoardBadge();
+  var bov = document.getElementById('board-panel-ov');
+  if (bov && !bov.classList.contains('hd')) renderBoard();
 }
 function toggleViewMode() {
   setViewMode(_viewMode === 'hd' ? 'ce' : 'hd');
@@ -17337,22 +17436,34 @@ function updateModeToggleBtn() {
 /* ===== バックアップ（エクスポート / インポート） ===== */
 /* ===== 掲示板 ===== */
 var BOARD_READ_KEY = 'ce2_boardread';
+/* 既読の基準時刻も主観ごとに分ける。1つのキーを共有すると、HDの掲示板を開いただけで
+   CEの未読バッジが0になってしまう（未読の集計自体は boardInView で絞れているのに、
+   基準時刻が共通だと取りこぼす）。 */
+function boardReadKey() { return _viewMode === 'hd' ? (BOARD_READ_KEY + '_hd') : BOARD_READ_KEY; }
 
 function getBoardReadTs() {
-  return parseInt(localStorage.getItem(BOARD_READ_KEY) || '0', 10);
+  return parseInt(localStorage.getItem(boardReadKey()) || '0', 10);
 }
 
 function markBoardRead() {
-  localStorage.setItem(BOARD_READ_KEY, String(Date.now()));
+  localStorage.setItem(boardReadKey(), String(Date.now()));
   updateBoardBadge();
 }
 
+/* ===== CE/HDで掲示板を分ける =====
+   保存先(/board)は1つのまま、投稿に kind を付けて振り分ける。**Firebaseの
+   セキュリティ設定を触らずに済み**、既読・ピン留め・タグ・返信といった既存の
+   仕組みをそのまま使えるため（別パスを新設すると管理画面での手作業が要る）。
+   kind が無い投稿はCE扱いなので、既存の投稿は全てCE側に残る。 */
+function boardKindOf(p) { return (p && p.kind === 'hd') ? 'hd' : 'ce'; }
+function boardInView(p) { return boardKindOf(p) === (_viewMode === 'hd' ? 'hd' : 'ce'); }
 /* 未読件数の唯一の数え元。タブのバッジと日ページの掲示板ボタンの両方がこれを使う */
 function boardUnreadCount() {
   var readTs = getBoardReadTs();
   var count = 0;
   Object.keys(_boardData).forEach(function(id) {
     var p = _boardData[id];
+    if (!boardInView(p)) return; /* 今いる主観の投稿だけ数える */
     if ((p.ts || 0) > readTs) count++;
     var replies = p.replies || {};
     Object.keys(replies).forEach(function(rid) {
@@ -17452,12 +17563,16 @@ var BOARD_TAGS = {
 function renderBoard() {
   var el = document.getElementById('board-list');
   if (!el) return;
+  /* 同じモーダルが主観で別スレッドを映すので、どちらを見ているかを見出しに出す */
+  var bt = document.getElementById('board-panel-title');
+  if (bt) bt.textContent = (_viewMode === 'hd' ? '📢 掲示板（HD）' : '📢 掲示板（CE）');
   var readTs = getBoardReadTs();
   /* 既読マーク：ログイン中ユーザーの既読がまだ無い投稿に記録する（無ければ書き込み、あれば何もしない＝無限ループ防止） */
   if (currentUser) {
     Object.keys(_boardData).forEach(function(id) {
       var p = _boardData[id];
       if (!p) return;
+      if (!boardInView(p)) return; /* 画面に出ていない投稿を既読にしない */
       if (!p.reads) p.reads = {};
       if (!p.reads[currentUser.uid]) {
         var robj = { n: currentUser.displayName || currentUser.email, ts: Date.now() };
@@ -17477,7 +17592,9 @@ function renderBoard() {
       }
     });
   }
-  var allPosts = Object.keys(_boardData).map(function(id) {
+  var allPosts = Object.keys(_boardData).filter(function(id) {
+    return boardInView(_boardData[id]);
+  }).map(function(id) {
     return Object.assign({ _id: id }, _boardData[id]);
   });
   /* ピン留め（有効期限内のもののみ）→ 新しい順 */
@@ -17736,7 +17853,7 @@ function _doPostBoard(text) {
   if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   var tagSel = document.getElementById('board-tag-sel');
   var tag = (tagSel && tagSel.value) || 'etc';
-  var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false, tag: tag };
+  var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false, tag: tag, kind: (_viewMode === 'hd' ? 'hd' : 'ce') };
   var buf = _boardMediaBuf.slice();
   var btn = document.getElementById('board-post-btn');
   if (!buf.length) { _finishPostBoard(post, text, btn); return; }
@@ -17988,13 +18105,15 @@ function _doSearch(q) {
   Object.keys(D.pages).sort().reverse().forEach(function(ds) {
     var pg = D.pages[ds]; if (!pg) return;
     var snippets = [];
-    /* 申し送り */
-    if (Array.isArray(pg.memos)) {
-      pg.memos.forEach(function(m) {
+    /* 申し送り。CE(memos)とHD(hdMemos)の両方を対象にする——検索は「どこかに書いたはず」を
+       探す機能なので、今どちらの主観で見ているかに関係なくヒットさせる。 */
+    [['memos','申し送り'],['hdMemos','申し送り(HD)']].forEach(function(src){
+      if (!Array.isArray(pg[src[0]])) return;
+      pg[src[0]].forEach(function(m) {
         if (m && m.text && m.text.toLowerCase().indexOf(q) !== -1)
-          snippets.push('申し送り: ' + m.text.slice(0, 60));
+          snippets.push(src[1] + ': ' + m.text.slice(0, 60));
       });
-    }
+    });
     if (pg.memo && pg.memo.toLowerCase().indexOf(q) !== -1)
       snippets.push('メモ: ' + pg.memo.slice(0, 60));
     /* 担当 */
