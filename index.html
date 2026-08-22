@@ -8928,14 +8928,49 @@ function applyStaffAdjustments(ds, res) {
 /* ===== SHIFT IMPORT ===== */
 
 /* ===== EVENT FUNCTIONS ===== */
+/* ===== イベント表示（CE/HD共通・出所で色分け） =====
+   イベント自体はCE/HDで共通のものを両方から見せる（同じ日の同じ現場の予定なので）。
+   ただし「どちら発の予定か」は分かったほうがよいため、登録した側で色を変える。
+   出所は dat.evtKinds = { イベント名: 'hd' } の別マップで持つ——イベント本体は
+   文字列の配列（dat.events / D.evts[ym][day]）で既存データが入っているため、
+   形を変えずに横に足せるこの持ち方にする。**印が無いものはCE扱い**なので、
+   既存イベントは全てCE色のまま出る（移行不要）。 */
+function evtKindOf(dat, name) {
+  return (dat && dat.evtKinds && dat.evtKinds[name] === 'hd') ? 'hd' : 'ce';
+}
+function evtAreaHTML(ds, dat, allEvts) {
+  var h = '<div id="evt-area" style="margin-bottom:14px">';
+  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
+  if (allEvts.length) {
+    for (var ei = 0; ei < allEvts.length; ei++) {
+      var nm = allEvts[ei];
+      var isHd = evtKindOf(dat, nm) === 'hd';
+      var col = isHd ? 'var(--pu)' : 'var(--or)';
+      var bg  = isHd ? 'var(--pu-bg)' : 'var(--or-bg)';
+      h += '<div style="display:inline-flex;align-items:center;gap:4px;background:'+bg+';border:1.5px solid '+col+';border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:'+col+'" title="'+(isHd?'HDで登録された予定':'CEで登録された予定')+'">';
+      h += (isHd ? '🩸 ' : '📅 ') + escH(nm);
+      h += '<button data-ds="'+ds+'" data-evt="'+escH(nm)+'" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:'+col+';font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
+      h += '</div>';
+    }
+  } else {
+    h += '<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
+  }
+  h += '<button data-ds="'+ds+'" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
+  h += '</div></div>';
+  return h;
+}
 function addEvtPrompt(ds) {
   if(!can('pg')) return;
   var v = prompt('イベント名を入力してください');
   if (!v || !v.trim()) return;
   v = v.trim();
   phiGuardText(v, function(){
-    if (!D.pages[ds].events) D.pages[ds].events = [];
-    if (D.pages[ds].events.indexOf(v) === -1) D.pages[ds].events.push(v);
+    var pg = D.pages[ds]; if (!pg) return;
+    if (!pg.events) pg.events = [];
+    if (pg.events.indexOf(v) === -1) pg.events.push(v);
+    /* 登録した側を記録して色分けに使う。CEは既定なので印を付けない（既存データと同じ扱いになる） */
+    if (_viewMode === 'hd') { pg.evtKinds = pg.evtKinds || {}; pg.evtKinds[v] = 'hd'; }
+    else if (pg.evtKinds) { delete pg.evtKinds[v]; }
     saveD();
     renderPage(ds);
   }, function(){ addEvtPrompt(ds); });
@@ -8953,6 +8988,11 @@ function removeEvt(ds, evtName) {
   if (D.evts[ym] && D.evts[ym][day]) {
     var idx2 = D.evts[ym][day].indexOf(evtName);
     if (idx2 !== -1) D.evts[ym][day].splice(idx2, 1);
+  }
+  /* 出所の印も一緒に片付ける（消したイベント名の印が残り続けないように） */
+  if (dat.evtKinds) {
+    delete dat.evtKinds[evtName];
+    if (!Object.keys(dat.evtKinds).length) delete dat.evtKinds;
   }
   saveD();
   renderPage(ds);
@@ -10787,20 +10827,7 @@ function renderPage(ds) {
   var pageEvts = (dat.events || []);
   /* ページ独自イベントはマージ（重複排除） */
   for (var ei=0;ei<pageEvts.length;ei++){if(allEvts.indexOf(pageEvts[ei])===-1)allEvts.push(pageEvts[ei]);}
-  h+='<div id="evt-area" style="margin-bottom:14px">';
-  h+='<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
-  if(allEvts.length){
-    for(var ei=0;ei<allEvts.length;ei++){
-      h+='<div style="display:inline-flex;align-items:center;gap:4px;background:var(--or-bg);border:1.5px solid var(--or-border,var(--or));border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--or)">';
-      h+='📅 '+allEvts[ei];
-      h+='<button data-ds="'+ds+'" data-evt="'+allEvts[ei].replace(/"/g,'&quot;')+'" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:var(--or);font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
-      h+='</div>';
-    }
-  } else {
-    h+='<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
-  }
-  h+='<button data-ds="'+ds+'" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
-  h+='</div></div>';
+  h+=evtAreaHTML(ds, dat, allEvts);
   /* 業務件数集計 */
   var _ops=dat.ops||{};
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
@@ -11361,20 +11388,7 @@ function renderPageHD(ds) {
   var allEvts = si.evts || [];
   var pageEvts = (dat.events || []);
   for (var ei = 0; ei < pageEvts.length; ei++) { if (allEvts.indexOf(pageEvts[ei]) === -1) allEvts.push(pageEvts[ei]); }
-  h += '<div id="evt-area" style="margin-bottom:14px">';
-  h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
-  if (allEvts.length) {
-    for (var ei = 0; ei < allEvts.length; ei++) {
-      h += '<div style="display:inline-flex;align-items:center;gap:4px;background:var(--or-bg);border:1.5px solid var(--or-border,var(--or));border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:var(--or)">';
-      h += '📅 ' + allEvts[ei];
-      h += '<button data-ds="' + ds + '" data-evt="' + allEvts[ei].replace(/"/g, '&quot;') + '" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:var(--or);font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
-      h += '</div>';
-    }
-  } else {
-    h += '<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
-  }
-  h += '<button data-ds="' + ds + '" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
-  h += '</div></div>';
+  h += evtAreaHTML(ds, dat, allEvts);
 
   /* 血液浄化の実施件数（ダッシュボード） */
   h += '<div class="hdash" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
