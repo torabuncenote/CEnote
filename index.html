@@ -9415,7 +9415,7 @@ function dayHasDutyAssigned(ds){
   var dat=D.pages&&D.pages[ds];
   if(!dat||!dat.duties) return false;
   for(var k in dat.duties){ if(dat.duties[k]) return true; }
-  if(dat.schedule && dat.schedule.length) return true;
+  if((dat.schedule && dat.schedule.length) || (dat.hdSchedule && dat.hdSchedule.length)) return true;
   return false;
 }
 
@@ -15647,12 +15647,14 @@ function renderMySchedule(overrideName) {
         }
       }
       /* タイムテーブルブロック */
-      if (dat.schedule) {
-        for (var si = 0; si < dat.schedule.length; si++) {
-          var blk = dat.schedule[si];
-          if (blk.staff === selfName && blk.label) slots.push('📅 ' + blk.label);
-        }
-      }
+      /* タイムテーブルはCE(schedule)とHD(hdSchedule)の両方を見る。自分の予定である
+         ことは主観と無関係なので、どちらに置かれていても出す（HD分は🩸で区別）。 */
+      (dat.schedule || []).forEach(function(blk){
+        if (blk.staff === selfName && blk.label) slots.push('📅 ' + blk.label);
+      });
+      (dat.hdSchedule || []).forEach(function(blk){
+        if (blk.staff === selfName && blk.label) slots.push('🩸 ' + blk.label);
+      });
       /* HD担当表の役割（M・A1・準夜等）。buildHdRoster は hdShiftWorkers 経由で
          勤務表由来のHD勤務者に dat.hdDuty.overrides を適用した実効一覧を返すため、
          HD担当表で手動修正した分もここに反映される。
@@ -16587,6 +16589,36 @@ function schedDefForDuty(label){
   return {color:'gd', start:9*60, dur:60};
 }
 
+/* ===== CE/HDでスケジュールを分ける =====
+   CEのタイムテーブル（オペ・カテの動き）とHDのそれ（透析の回転）は別物なので、
+   保存先も列に並べる人も分ける。申し送り・タブレット台帳と同じアクセサ方式。 */
+function schedKey(){ return _viewMode === 'hd' ? 'hdSchedule' : 'schedule'; }
+function schedOf(dat){ var k=schedKey(); return (dat && Array.isArray(dat[k])) ? dat[k] : []; }
+function ensureSched(dat){ var k=schedKey(); if(!Array.isArray(dat[k])) dat[k]=[]; return dat[k]; }
+/* タイムテーブルの列に並べる人。CE主観は当日のCE勤務者＋OC＋担当枠の割当、
+   HD主観は当日のHD勤務者（buildHdRoster 経由なので担当表での差し替えも反映される）。 */
+function schedColumns(ds, dat){
+  var staff=[];
+  if (_viewMode === 'hd') {
+    buildHdRoster(ds).forEach(function(r){
+      if (r.name && !staff.some(function(x){return x.name===r.name;})) staff.push({name:r.name, oc:false, role:r.role});
+    });
+    return staff;
+  }
+  var si=getShiftForDay(ds);
+  si.ce.forEach(function(c){ staff.push({name:c.name,oc:false}); });
+  si.oc.forEach(function(o){ if(!staff.some(function(x){return x.name===o.name;})) staff.push({name:o.name,oc:true}); });
+  /* シフト表未取込のとき、担当カードの割当スタッフを列として補完する。
+     すでにシフト由来で列がある人は重複しない。 */
+  if(dat.duties){
+    var cfg=getDutyCfg(dat);
+    for(var di=0;di<cfg.length;di++){
+      var dname=dat.duties[cfg[di].id];
+      if(dname && !staff.some(function(x){return x.name===dname;})) staff.push({name:dname,oc:false});
+    }
+  }
+  return staff;
+}
 function renderSched(){
   var tools=document.getElementById('sched-tools');
   var body=document.getElementById('sched-body');
@@ -16610,23 +16642,10 @@ function renderSched(){
   }
   tools.innerHTML=th;
 
-  if(!dat.schedule) dat.schedule=[];
-  var si=getShiftForDay(ds);
-  var staff=[];
-  si.ce.forEach(function(c){ staff.push({name:c.name,oc:false}); });
-  si.oc.forEach(function(o){ if(!staff.some(function(s){return s.name===o.name;})) staff.push({name:o.name,oc:true}); });
-
-  /* シフト表未取込のとき、担当カードの割当スタッフを列として補完する。
-     すでにシフト由来で列がある人は重複しない。 */
-  if(dat.duties){
-    var cfg=getDutyCfg(dat);
-    for(var di=0;di<cfg.length;di++){
-      var dname=dat.duties[cfg[di].id];
-      if(dname && !staff.some(function(s){return s.name===dname;})) staff.push({name:dname,oc:false});
-    }
-  }
+  ensureSched(dat);
+  var staff=schedColumns(ds, dat);
   if(!staff.length){
-    body.innerHTML='<div class="sched-empty">👥 当日勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
+    body.innerHTML='<div class="sched-empty">👥 当日'+(_viewMode==='hd'?'HD':'')+'勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
     return;
   }
 
@@ -16662,8 +16681,9 @@ function renderSched(){
     h+='<div class="sched-colhd'+(st.oc?' oc':'')+'">'+escH(st.name)+(st.oc?' 🟠':'')+'</div>';
     h+='<div class="sched-track" data-staff="'+escH(st.name)+'" style="height:'+totalH+'px;background:repeating-linear-gradient(to bottom,transparent,transparent '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN)+'px)">';
     /* ブロック */
-    for(var b=0;b<dat.schedule.length;b++){
-      var bl=dat.schedule[b];
+    var _sc=schedOf(dat);
+    for(var b=0;b<_sc.length;b++){
+      var bl=_sc[b];
       if(bl.staff!==st.name) continue;
       var top2=(bl.start-SCHED_START)*SCHED_PXMIN;
       var hgt=(bl.end-bl.start)*SCHED_PXMIN;
@@ -16688,13 +16708,13 @@ function schedSelectPreset(i){
 
 function schedAddBlock(ds,staff,presetIdx,startMin){
   var dat=D.pages[ds]; if(!dat) return;
-  if(!dat.schedule) dat.schedule=[];
+  ensureSched(dat);
   var p=getSchedPresets()[presetIdx]; if(!p) return;
   var add=function(label){
     var start=schedSnap(startMin);
     var end=Math.min(SCHED_END,start+(p.dur||60));
     if(end<=start) end=Math.min(SCHED_END,start+SCHED_SLOT);
-    dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
+    ensureSched(dat).push({id:'sb'+Date.now()+Math.floor(Math.random()*1000),staff:staff,label:label,start:start,end:end,color:p.color});
     saveDPage(ds);
     writeLog('スケジュール追加',fmtJ(ds)+' '+staff+' '+label+' '+schedMinToHM(start));
     renderSched();
@@ -16712,7 +16732,7 @@ function schedImportDuties(){
   var ds=curDs, dat=D.pages[ds]; if(!dat) return;
   if(!can('duty')){ toast('🔒 担当割り当ての編集権限がありません', 'warn'); return; }
   if(!dat.duties){ toast('業務割当がありません。', 'warn'); return; }
-  if(!dat.schedule) dat.schedule=[];
+  ensureSched(dat);
   var cfg=getDutyCfg(dat);
   var added=0;
   for(var i=0;i<cfg.length;i++){
@@ -16720,11 +16740,11 @@ function schedImportDuties(){
     var name=dat.duties[slot.id];
     if(!name) continue;
     /* 同一スタッフ・同一ラベルの既存ブロックがあればスキップ */
-    var exists=dat.schedule.some(function(b){ return b.staff===name && b.label===slot.label; });
+    var exists=schedOf(dat).some(function(b){ return b.staff===name && b.label===slot.label; });
     if(exists) continue;
     var def=schedDefForDuty(slot.label);
     var start=schedSnap(def.start), end=Math.min(SCHED_END,start+def.dur);
-    dat.schedule.push({id:'sb'+Date.now()+Math.floor(Math.random()*10000)+i,staff:name,label:slot.label,start:start,end:end,color:def.color});
+    ensureSched(dat).push({id:'sb'+Date.now()+Math.floor(Math.random()*10000)+i,staff:name,label:slot.label,start:start,end:end,color:def.color});
     added++;
   }
   saveDPage(ds);
@@ -16735,9 +16755,9 @@ function schedImportDuties(){
 
 function schedClear(){
   var ds=curDs, dat=D.pages[ds]; if(!dat) return;
-  if(!dat.schedule||!dat.schedule.length) return;
+  if(!schedOf(dat).length) return;
   if(!confirm(fmtJ(ds)+' のスケジュールをすべて消去しますか？')) return;
-  dat.schedule=[];
+  dat[schedKey()]=[];
   saveDPage(ds);
   writeLog('スケジュール全消去',fmtJ(ds));
   renderSched();
@@ -16753,7 +16773,7 @@ function schedBindInteractions(ds){
     x.addEventListener('click',function(e){
       e.stopPropagation();
       var id=x.getAttribute('data-del');
-      dat.schedule=dat.schedule.filter(function(b){return b.id!==id;});
+      dat[schedKey()]=schedOf(dat).filter(function(b){return b.id!==id;});
       saveDPage(ds); writeLog('スケジュール削除',fmtJ(ds)); renderSched();
     });
   });
@@ -16792,7 +16812,7 @@ function schedBindInteractions(ds){
     var handle=el.querySelector('.bh');
     function startDrag(e,mode){
       e.preventDefault(); e.stopPropagation();
-      var bl=dat.schedule.filter(function(b){return b.id===id;})[0]; if(!bl) return;
+      var bl=schedOf(dat).filter(function(b){return b.id===id;})[0]; if(!bl) return;
       var startY=e.clientY, origStart=bl.start, origEnd=bl.end, dur=origEnd-origStart, moved=false;
       el.setPointerCapture&&el.setPointerCapture(e.pointerId);
       function onMove(ev){
@@ -17342,6 +17362,10 @@ function setViewMode(m) {
   updatePsgRemovalBanner(curDs && D.pages[curDs] ? curDs : null);
   /* カレンダーの完了ドットは pctForView 経由で主観に追従するため、切替時に塗り直す */
   renderCal();
+  /* 掲示板は主観ごとに別スレッド。未読バッジの数も切り替える（開いていれば中身も差し替える） */
+  updateBoardBadge();
+  var bov = document.getElementById('board-panel-ov');
+  if (bov && !bov.classList.contains('hd')) renderBoard();
 }
 function toggleViewMode() {
   setViewMode(_viewMode === 'hd' ? 'ce' : 'hd');
@@ -17373,12 +17397,20 @@ function markBoardRead() {
   updateBoardBadge();
 }
 
+/* ===== CE/HDで掲示板を分ける =====
+   保存先(/board)は1つのまま、投稿に kind を付けて振り分ける。**Firebaseの
+   セキュリティ設定を触らずに済み**、既読・ピン留め・タグ・返信といった既存の
+   仕組みをそのまま使えるため（別パスを新設すると管理画面での手作業が要る）。
+   kind が無い投稿はCE扱いなので、既存の投稿は全てCE側に残る。 */
+function boardKindOf(p) { return (p && p.kind === 'hd') ? 'hd' : 'ce'; }
+function boardInView(p) { return boardKindOf(p) === (_viewMode === 'hd' ? 'hd' : 'ce'); }
 /* 未読件数の唯一の数え元。タブのバッジと日ページの掲示板ボタンの両方がこれを使う */
 function boardUnreadCount() {
   var readTs = getBoardReadTs();
   var count = 0;
   Object.keys(_boardData).forEach(function(id) {
     var p = _boardData[id];
+    if (!boardInView(p)) return; /* 今いる主観の投稿だけ数える */
     if ((p.ts || 0) > readTs) count++;
     var replies = p.replies || {};
     Object.keys(replies).forEach(function(rid) {
@@ -17484,6 +17516,7 @@ function renderBoard() {
     Object.keys(_boardData).forEach(function(id) {
       var p = _boardData[id];
       if (!p) return;
+      if (!boardInView(p)) return; /* 画面に出ていない投稿を既読にしない */
       if (!p.reads) p.reads = {};
       if (!p.reads[currentUser.uid]) {
         var robj = { n: currentUser.displayName || currentUser.email, ts: Date.now() };
@@ -17503,7 +17536,9 @@ function renderBoard() {
       }
     });
   }
-  var allPosts = Object.keys(_boardData).map(function(id) {
+  var allPosts = Object.keys(_boardData).filter(function(id) {
+    return boardInView(_boardData[id]);
+  }).map(function(id) {
     return Object.assign({ _id: id }, _boardData[id]);
   });
   /* ピン留め（有効期限内のもののみ）→ 新しい順 */
@@ -17762,7 +17797,7 @@ function _doPostBoard(text) {
   if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   var tagSel = document.getElementById('board-tag-sel');
   var tag = (tagSel && tagSel.value) || 'etc';
-  var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false, tag: tag };
+  var post = { author: currentUser.displayName || currentUser.email, uid: currentUser.uid, ts: Date.now(), text: text, pin: false, tag: tag, kind: (_viewMode === 'hd' ? 'hd' : 'ce') };
   var buf = _boardMediaBuf.slice();
   var btn = document.getElementById('board-post-btn');
   if (!buf.length) { _finishPostBoard(post, text, btn); return; }
