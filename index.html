@@ -212,6 +212,26 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .co{background:var(--ac-bg);border-left:3px solid var(--ac);border-radius:0 5px 5px 0;padding:9px 13px;font-size:12px;line-height:1.7;color:var(--txt2);margin-bottom:16px}
 .ln{background:var(--rd-bg);border-left:3px solid var(--rd);border-radius:0 5px 5px 0;padding:8px 13px;font-size:12px;color:var(--rd);margin-bottom:9px;display:flex;align-items:center;gap:6px}
+/* ===== HD血液浄化ダッシュボード（renderPageHD の #hd-count-panel） =====
+   区分ごとの数字を等幅で大きく並べ、0件の区分だけ彩度を落として「今日実際にやった区分」へ目が行くようにする。 */
+.hdash{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;box-shadow:var(--sh)}
+.hdash-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.hdash-ttl{font-size:12px;font-weight:700;color:var(--txt2);letter-spacing:.04em}
+.hdash-hd .btn{margin-left:auto}
+.hdash-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.hdash-tile{text-align:center;padding:8px 4px;border-radius:var(--rs);background:var(--pu-bg);border:1px solid var(--pu)}
+.hdash-tile .n{font-family:var(--mo);font-size:26px;font-weight:700;line-height:1.1;color:var(--pu)}
+.hdash-tile .l{font-size:10px;font-weight:700;color:var(--pu);opacity:.75;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 0件：枠と地を消して数字も落とす。実施した区分との差を一目で付けるための減算 */
+.hdash-tile.zero{background:var(--sur2);border-color:var(--bdr)}
+.hdash-tile.zero .n{color:var(--txt3);font-weight:500}
+.hdash-tile.zero .l{color:var(--txt3);opacity:1}
+.hdash-sp{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:11px;padding-top:11px;border-top:1px dashed var(--bdr)}
+.hdash-sp-lbl{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.06em}
+.hdash-sp-tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--pu-bg);color:var(--pu);border:1px solid var(--pu)}
+.hdash-sp-tag .x{opacity:.65;margin-left:3px;font-family:var(--mo)}
+.hdash-total{margin-top:10px;text-align:right;font-size:11px;font-weight:700;color:var(--txt3)}
+.hdash-total b{font-family:var(--mo);font-size:15px;color:var(--txt);margin:0 3px}
 .staffz{margin-bottom:10px}
 .staffz-hd{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)}
 .staffz-ttl{font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
@@ -233,7 +253,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 #mode-toggle.hd-on{background:var(--pu);color:#fff;border-color:var(--pu)}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
-.pchip.sp{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2)}
+/* .pchip.sp の "sp" は サイドバーのスクロール枠 .sp（flex:1 / flex-direction:column / overflow-y:auto）と
+   クラス名がぶつかる。チップは .sp のこれらを一切設定していないので、flex親の中に置くと横に伸び、
+   中身（氏名とシフトコード）が縦積みになっていた。specificity 0,2,0 で打ち消す。 */
+.pchip.sp{background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr2);flex:0 0 auto;flex-direction:row;overflow:visible}
 .pchip.pchip-zone-hd   {background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.pchip-zone-to_ce{background:var(--ac-bg);color:var(--ac);border:1.5px solid var(--ac)}
 .pchip.pchip-zone-maint{background:var(--or-bg);color:var(--or);border:1.5px solid var(--or)}
@@ -616,6 +639,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .pool-mini-btn{padding:5px 10px;font-size:11px}
   .ss-zone{min-height:44px;padding:8px 10px}
   .staffz-hd{padding:11px 14px}
+  /* 5列のままだと1タイル60px弱まで潰れて2桁の数字が窮屈になるため3列で折り返す */
+  .hdash-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .hdash-tile .n{font-size:23px}
 }
 /* 320px前後では タブレット/掲示板/スケジュール の3つにラベルまで出すと折り返す。
    ラベルを畳んでアイコン+バッジだけにし、1行に収める（375pxでは折り返さないため
@@ -993,10 +1019,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .ab{display:block!important}
   .main{margin:0!important;padding:0 8px!important;box-shadow:none!important;max-width:100%!important}
   .pt2{font-size:16px;font-weight:700;margin-bottom:8px}
-  .pp,.dg,.oc-card,.clg,.mo,.staffz,.pool-wrap,.surplus-wrap,#hd-roster-wrap{page-break-inside:avoid}
+  .pp,.dg,.oc-card,.clg,.mo,.staffz,.pool-wrap,.surplus-wrap,#hd-roster-wrap,.hdash{page-break-inside:avoid}
   .dg{display:flex!important;flex-wrap:wrap!important;gap:6px!important}
   .dc{min-width:140px;font-size:11px!important}
-  #staffz-body{display:block!important}
+  /* 折りたたみ中でも紙には出す（相互参照の担当表も含めて、紙が当日の全体像になるように） */
+  #staffz-body,#ce-ref-body,#hd-ref-body{display:block!important}
   #hd-worker-panel{display:flex!important}
   .pchip{font-size:11px!important;padding:3px 8px!important}
   /* HD担当表：備考は院内配布物に出さない（要件16）ので列ごと非表示。group-hd行（🔵日勤/🌙準夜の区切り行）は
@@ -5122,27 +5149,47 @@ function renderSurplusArea(ds, dat, locked) {
   var hd = hdShiftWorkers(ds); /* HD担当表(dat.hdDuty.overrides)での差し替えを反映した実効氏名で表示する */
   var hdDay   = hd.filter(function(x){ return !x.night; });
   var hdNight = hd.filter(function(x){ return  x.night; });
+  /* 主観で「自分たちの一覧（上のチップ行）」と「相手側のソースパネル」を丸ごと入れ替える。
+     CE主観：上＝CE余剰人員 ／ パネル＝HD勤務者
+     HD主観：上＝HD勤務者   ／ パネル＝CE勤務者
+     どちらの主観でも「未分類の自分たち」を上に、「引っ張ってこられる相手」をパネルに置く形。 */
+  var isHd = (_viewMode === 'hd');
+  var ceOnDuty = getShiftForDay(ds).ce || []; /* [{name, shift:'CE', oc}] */
 
-  /* 未分類のHD勤務者がいる間は自動的にパネルを開く（ユーザーが明示操作していない限り） */
-  var hasUnclassifiedHd = hd.some(function(x){ return !sz.hd[x.name]; });
-  if (_hdPanelUserOverride === null) _hdPanelOpen = hasUnclassifiedHd;
+  /* 未分類の相手側スタッフがいる間は自動的にパネルを開く（ユーザーが明示操作していない限り） */
+  var hasUnclassifiedSrc = isHd
+    ? ceOnDuty.some(function(x){ return !sz.ce[x.name]; })
+    : hd.some(function(x){ return !sz.hd[x.name]; });
+  if (_hdPanelUserOverride === null) _hdPanelOpen = hasUnclassifiedSrc;
 
-  /* ヘッダー：タイトル＋ HD勤務者トグルボタン（右） */
+  /* ヘッダー：タイトル＋ソースパネルのトグルボタン（右）。
+     HD主観では外側の .staffz 見出しが「🔄 余剰人員」を出しているのでタイトルは重複させない。 */
+  var srcLabel = isHd ? ('🩺 CE勤務者 ('+ceOnDuty.length+')') : ('🩸 HD勤務者 ('+hd.length+')');
   var html = '<div class="surplus-hd">';
-  html += '<div class="surplus-ttl">🔄 余剰人員</div>';
-  html += '<button type="button" class="hd-toggle-btn'+ (_hdPanelOpen?' active':'')+'" id="hd-toggle" onclick="toggleHDPanel()">🩸 HD勤務者 ('+hd.length+')</button>';
+  if (!isHd) html += '<div class="surplus-ttl">🔄 余剰人員</div>';
+  html += '<button type="button" class="hd-toggle-btn'+ (_hdPanelOpen?' active':'')+'" id="hd-toggle" style="margin-left:auto" onclick="toggleHDPanel()">'+srcLabel+'</button>';
   html += '</div>';
 
-  /* 余剰人員チップ（ゾーン配置済みはスキップ、ゾーンカードに表示） */
-  var _freeChips = Object.keys(sz.ce).filter(function(n){ return !sz.ce[n]; });
+  /* 上のチップ行：未分類の「自分たち」 */
   html += '<div id="surplus-chips" class="surplus-chips"'+(dlk?'':' ondragover="event.preventDefault()" ondrop="dropToSurplus(event,\''+ds+'\')"')+'>';
-  for (var i=0; i<_freeChips.length; i++) {
-    html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(_freeChips[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
-    html += escH(_freeChips[i]);
-    if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escJs(_freeChips[i])+'\')">×</button>';
-    html += '</div>';
+  if (isHd) {
+    var hdFree = hd.filter(function(x){ return !sz.hd[x.name]; });
+    for (var hf=0; hf<hdFree.length; hf++) {
+      var hfw = hdFree[hf];
+      html += '<div class="pchip hd'+(hfw.night?' night':'')+'" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hfw.name)+'" data-from="hd" data-ds="'+ds+'" title="ドラッグしてゾーンへ">'
+        + escH(hfw.name) + '<span class="cs">'+escH(hfw.night?'準':hfw.shift)+'</span></div>';
+    }
+    if (!hdFree.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">'+(hd.length?'全員分類済み ✓':'勤務表にHD勤務者がいません')+'</div>';
+  } else {
+    var _freeChips = Object.keys(sz.ce).filter(function(n){ return !sz.ce[n]; });
+    for (var i=0; i<_freeChips.length; i++) {
+      html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(_freeChips[i])+'" data-from="surplus" data-ds="'+ds+'" title="ドラッグして担当枠へ">';
+      html += escH(_freeChips[i]);
+      if (!dlk) html += '<button class="pool-chip-x" onclick="removeFromSurplus(\''+ds+'\',\''+escJs(_freeChips[i])+'\')">×</button>';
+      html += '</div>';
+    }
+    if (!_freeChips.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   }
-  if (!_freeChips.length) html += '<div style="font-size:11px;color:var(--txt3);padding:8px 4px">プールからドラッグして移動</div>';
   html += '</div>';
 
   /* ステータス分類ゾーン（常時表示）：余剰人員またはHD勤務者をここにドロップ */
@@ -5178,29 +5225,47 @@ function renderSurplusArea(ds, dat, locked) {
   }
   html += '</div>';
 
-  /* HD勤務者パネル（折りたたみ）：ソースリストのみ */
-  var hdDayFree   = hdDay.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
-  var hdNightFree = hdNight.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
-  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+';flex-direction:column">';
-  if (!hd.length) {
-    html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
-  } else {
-    if (hdDay.length) {
-      html += '<div class="pool-sec" style="width:100%">🔵 日勤</div>';
-      if (hdDayFree.length) {
-        for (var j=0; j<hdDayFree.length; j++)
-          html += '<div class="pchip hd" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdDayFree[j].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdDayFree[j].name)+'<span class="cs">'+escH(hdDayFree[j].shift)+'</span></div>';
-      } else {
-        html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+  /* ソースパネル（折りたたみ）：相手側のスタッフ一覧。
+     CE勤務者チップの data-from は新しい値を作らず 'surplus' を使う——dropToStatusZone は
+     from==='hd' 以外を全て 'ce' に振るので分類は正しく落ち、removeFromZoneSource が後始末で
+     見る値（'surplus'/'status'）とも揃う。'ce' のような新値を足すと後始末が効かなくなる。 */
+  /* HD側は「🔵日勤 / 🌙準夜」の見出し行を挟むので縦積み、CE側は見出しが無いのでチップを横に流す */
+  html += '<div id="hd-worker-panel" class="hd-panel" style="display:'+(_hdPanelOpen?'flex':'none')+';flex-direction:'+(isHd?'row':'column')+'">';
+  if (isHd) {
+    var ceFree = ceOnDuty.filter(function(x){ return !sz.ce[x.name]; });
+    if (!ceOnDuty.length) {
+      html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
+    } else if (!ceFree.length) {
+      html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+    } else {
+      for (var cf=0; cf<ceFree.length; cf++) {
+        html += '<div class="pchip sp" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(ceFree[cf].name)+'" data-from="surplus" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'
+          + escH(ceFree[cf].name) + (ceFree[cf].oc?'<span class="cs">OC</span>':'') + '</div>';
       }
     }
-    if (hdNight.length) {
-      html += '<div class="pool-sec" style="width:100%">🌙 準夜</div>';
-      if (hdNightFree.length) {
-        for (var k=0; k<hdNightFree.length; k++)
-          html += '<div class="pchip hd night" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdNightFree[k].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdNightFree[k].name)+'<span class="cs">準</span></div>';
-      } else {
-        html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+  } else {
+    var hdDayFree   = hdDay.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
+    var hdNightFree = hdNight.filter(function(x){ return hdAssigned.indexOf(x.name)===-1; });
+    if (!hd.length) {
+      html += '<div style="font-size:11px;color:var(--txt3);padding:6px 2px">データなし（対象月の勤務表を再取込してください）</div>';
+    } else {
+      if (hdDay.length) {
+        html += '<div class="pool-sec" style="width:100%">🔵 日勤</div>';
+        if (hdDayFree.length) {
+          for (var j=0; j<hdDayFree.length; j++)
+            html += '<div class="pchip hd" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdDayFree[j].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdDayFree[j].name)+'<span class="cs">'+escH(hdDayFree[j].shift)+'</span></div>';
+        } else {
+          html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+        }
+      }
+      if (hdNight.length) {
+        html += '<div class="pool-sec" style="width:100%">🌙 準夜</div>';
+        if (hdNightFree.length) {
+          for (var k=0; k<hdNightFree.length; k++)
+            html += '<div class="pchip hd night" draggable="'+(dlk?'false':'true')+'" data-name="'+escH(hdNightFree[k].name)+'" data-from="hd" data-ds="'+ds+'"'+(dlk?'':' title="ドラッグしてゾーンへ"')+'>'+escH(hdNightFree[k].name)+'<span class="cs">準</span></div>';
+        } else {
+          html += '<span style="font-size:10px;color:var(--txt3);padding:4px 2px">全員分類済み ✓</span>';
+        }
       }
     }
   }
@@ -5208,6 +5273,14 @@ function renderSurplusArea(ds, dat, locked) {
 
   wrap.innerHTML = html;
   updateStaffZoneBadge(ds);
+  /* HD日ページの .staffz 見出しに出す「未分類N」バッジ。CE側の staffZoneCounts() は
+     当日勤務者数と未割当枠数というCE前提の数字なので流用せず、ここで直接書き換える。 */
+  var hdzB = document.getElementById('hdz-badge');
+  if (hdzB) {
+    var unN = hd.filter(function(x){ return !sz.hd[x.name]; }).length;
+    hdzB.textContent = unN ? ('未分類 '+unN) : '全員分類済み';
+    hdzB.style.color = unN ? 'var(--rd)' : 'var(--txt3)';
+  }
 }
 
 function toggleStaffZone(){
@@ -10714,6 +10787,10 @@ function renderPage(ds) {
   h+='</div>'; /* #staffz-body */
   h+='</div>'; /* .staffz */
 
+  /* HD担当表（読み取り専用）。HD主観で書かれた備考をCE側からも読めるようにする。
+     編集はHD主観の担当表で行うため、ここはテキスト表示だけにする。 */
+  h+=hdRosterRefHTML(ds, dat);
+
   /* 担当割り当て */
   h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
   if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="margin-left:auto;font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">🎲 自動割り当て</button>';
@@ -11051,28 +11128,37 @@ function hdCountPanelInnerHTML(ds, dat) {
   var spArr = hdCountSpArr(dat);
   var total = day + night + bw + ward + spArr.length;
   var locked = !can('ops'); /* 新規ロックIDは作らず、CE側の業務内容ロック(ops)をそのまま流用 */
-  var CHIP = 'background:var(--pu-bg);color:var(--pu);border:1px solid var(--pu);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700';
   var h = '';
   if (!_hdCountOpen) {
-    h += '<div class="pr" style="flex-wrap:wrap;width:100%">';
-    h += '<span class="pl">🩸 血液浄化</span>';
-    if (total) {
-      h += '<span class="pv" style="background:var(--pu-bg);color:var(--pu)">' + total + '件</span>';
-      h += '<span style="display:flex;flex-wrap:wrap;gap:4px">';
-      if (day)   h += '<span style="' + CHIP + '">日中' + day + '</span>';
-      if (night) h += '<span style="' + CHIP + '">準夜' + night + '</span>';
-      if (bw)    h += '<span style="' + CHIP + '">BW' + bw + '</span>';
-      if (ward)  h += '<span style="' + CHIP + '">病棟' + ward + '</span>';
-      if (spArr.length) h += '<span style="' + CHIP + '">特殊' + spArr.length + '</span>';
-      h += '</span>';
-    } else {
-      h += '<span class="pv" style="color:var(--txt3);background:none;padding:0">未入力</span>';
-    }
-    if (!locked) h += '<button class="btn btn-g btn-sm" style="margin-left:auto" data-action="hdcnt-toggle">✏️ 編集</button>';
+    h += '<div class="hdash-hd"><span class="hdash-ttl">🩸 血液浄化</span>';
+    if (!locked) h += '<button class="btn btn-g btn-sm" data-action="hdcnt-toggle">✏️ 編集</button>';
     h += '</div>';
+    /* 数字タイル。0件の区分は .zero で彩度を落とし、実施した区分だけが浮くようにする */
+    h += '<div class="hdash-tiles">';
+    [[day,'日中'],[night,'準夜'],[bw,'BW'],[ward,'病棟'],[spArr.length,'特殊']].forEach(function(t){
+      h += '<div class="hdash-tile'+(t[0]?'':' zero')+'"><div class="n">'+t[0]+'</div><div class="l">'+t[1]+'</div></div>';
+    });
+    h += '</div>';
+    /* 特殊治療は件数だけでなく中身（治療名）を出す。同じ治療が複数あれば ×n に集約し、
+       未選択の空行はタグにしない（件数には数えるので、タグ数と特殊タイルの数字は一致しないことがある） */
+    var spCount = {}, spOrder = [];
+    spArr.forEach(function(nm){
+      if (!nm) return;
+      if (spCount[nm] === undefined) { spCount[nm] = 0; spOrder.push(nm); }
+      spCount[nm]++;
+    });
+    if (spOrder.length) {
+      h += '<div class="hdash-sp"><span class="hdash-sp-lbl">特殊治療</span>';
+      spOrder.forEach(function(nm){
+        h += '<span class="hdash-sp-tag">'+escH(nm)+(spCount[nm]>1?'<span class="x">×'+spCount[nm]+'</span>':'')+'</span>';
+      });
+      h += '</div>';
+    }
+    h += '<div class="hdash-total">合計 <b>'+total+'</b> 件</div>';
   } else {
-    h += '<div class="pr" style="width:100%;margin-bottom:8px"><span class="pl">🩸 血液浄化</span><span class="pv" style="background:var(--pu-bg);color:var(--pu)">' + total + '件</span>';
-    h += '<button class="btn btn-g btn-sm" style="margin-left:auto" data-action="hdcnt-toggle">✕ 閉じる</button></div>';
+    h += '<div class="hdash-hd"><span class="hdash-ttl">🩸 血液浄化</span>';
+    h += '<span class="hdash-total" style="margin:0">合計 <b>'+total+'</b> 件</span>';
+    h += '<button class="btn btn-g btn-sm" data-action="hdcnt-toggle">✕ 閉じる</button></div>';
     h += '<div style="width:100%">';
     [['day', '日中'], ['night', '準夜'], ['bw', 'BW'], ['ward', '病棟']].forEach(function (f) {
       h += '<div class="ops-row"><span class="ops-lbl">' + f[1] + '</span><input type="number" class="ops-num" data-hdcnt-field="' + f[0] + '" min="0" value="' + (c[f[0]] || '') + '" placeholder="0"' + (locked ? ' disabled' : '') + '><span class="ops-unit">件</span></div>';
@@ -11103,6 +11189,75 @@ function refreshHdCountPanel(ds) {
   var el = document.getElementById('hd-count-panel'); var pg = D.pages[ds];
   if (!el || !pg) return;
   el.innerHTML = hdCountPanelInnerHTML(ds, pg);
+}
+
+/* ===== CE⇄HD 相互参照（読み取り専用の担当表） =====
+   同じ日の同じ現場を別の主観で見ているだけなので、相手側が誰に何を割り当てたかは見えるべき。
+   編集はそれぞれの主観の自分の担当表で行うため、ここは <select>/<textarea> を使わずテキストで出す。
+   折りたたみの外枠は人員配置管理と同じ .staffz シェルを流用する（新規CSS不要・見た目も揃う）。
+   開閉状態はモジュール変数で持つ（非永続。ページを開き直すと既定の「閉じる」に戻る）。 */
+var _ceRefOpen = false; /* HD日ページで「CE担当表」を開いているか */
+var _hdRefOpen = false; /* CE日ページで「HD担当表」を開いているか */
+function toggleCeRef(){
+  _ceRefOpen = !_ceRefOpen;
+  var b = document.getElementById('ce-ref-body'); if (b) b.style.display = _ceRefOpen ? 'block' : 'none';
+  var a = document.getElementById('ce-ref-arrow'); if (a) a.textContent = _ceRefOpen ? '▲' : '▼';
+}
+function toggleHdRef(){
+  _hdRefOpen = !_hdRefOpen;
+  var b = document.getElementById('hd-ref-body'); if (b) b.style.display = _hdRefOpen ? 'block' : 'none';
+  var a = document.getElementById('hd-ref-arrow'); if (a) a.textContent = _hdRefOpen ? '▲' : '▼';
+}
+/* HD日ページに出す「CE担当表」。枠の色は担当カードと同じ dutyColorFor(slot) から取る。 */
+function ceRosterRefHTML(ds, dat) {
+  var slots = getDutyCfg(dat) || [];
+  if (!slots.length) return ''; /* CE側の担当枠が未設定の日は見出しごと出さない */
+  var duties = dat.duties || {};
+  var filled = slots.filter(function(s){ return !!duties[s.id]; }).length;
+  var h = '<div class="staffz">';
+  h += '<div class="staffz-hd" onclick="toggleCeRef()">';
+  h += '<span class="staffz-ttl">🩺 CE担当表</span>';
+  h += '<span class="staffz-badge">'+filled+' / '+slots.length+' 枠</span>';
+  h += '<span class="staffz-arrow" id="ce-ref-arrow">'+(_ceRefOpen?'▲':'▼')+'</span>';
+  h += '</div>';
+  h += '<div id="ce-ref-body" style="display:'+(_ceRefOpen?'block':'none')+';padding-top:10px">';
+  h += '<div class="data-wrap"><table class="data-tbl">';
+  h += '<thead><tr><th style="width:44%">担当枠</th><th>担当者</th></tr></thead><tbody>';
+  slots.forEach(function(s){
+    var col = dutyColorFor(s);
+    var nm = duties[s.id] || '';
+    h += '<tr><td><span class="hdash-sp-tag" style="background:'+col.bg+';color:'+col.fg+';border-color:'+col.fg+'">'+escH(s.label || s.id)+'</span></td>'
+       + '<td'+(nm?' style="font-weight:700"':'')+'>'+(nm?escH(nm):'<span class="muted">—</span>')+'</td></tr>';
+  });
+  h += '</tbody></table></div></div></div>';
+  return h;
+}
+/* CE日ページに出す「HD担当表」。備考（dat.hdNotes）は実効氏名がキーなので buildHdRoster の r.name で引く。 */
+function hdRosterRefHTML(ds, dat) {
+  var rows = buildHdRoster(ds);
+  if (!rows.length) return ''; /* その日HD勤務者がいなければ見出しごと出さない */
+  var notes = dat.hdNotes || {};
+  var noteN = rows.filter(function(r){ return !!notes[r.name]; }).length;
+  var h = '<div class="staffz">';
+  h += '<div class="staffz-hd" onclick="toggleHdRef()">';
+  h += '<span class="staffz-ttl">🩸 HD担当表</span>';
+  h += '<span class="staffz-badge">'+rows.length+'名'+(noteN?'・備考'+noteN:'')+'</span>';
+  h += '<span class="staffz-arrow" id="hd-ref-arrow">'+(_hdRefOpen?'▲':'▼')+'</span>';
+  h += '</div>';
+  h += '<div id="hd-ref-body" style="display:'+(_hdRefOpen?'block':'none')+';padding-top:10px">';
+  h += '<div class="data-wrap"><table class="data-tbl">';
+  h += '<thead><tr><th style="width:64px">役割</th><th style="width:34%">スタッフ</th><th>備考</th></tr></thead><tbody>';
+  var dayRows = rows.filter(function(r){ return !r.night; });
+  var ntRows  = rows.filter(function(r){ return  r.night; });
+  function row(r){
+    var nt = notes[r.name] || '';
+    return '<tr><td style="font-weight:700">'+escH(r.role||'')+'</td><td>'+escH(r.name||'')+'</td>'
+         + '<td style="white-space:pre-wrap;font-size:11px">'+(nt?escH(nt):'<span class="muted">—</span>')+'</td></tr>';
+  }
+  if (dayRows.length) { h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>'; dayRows.forEach(function(r){ h += row(r); }); }
+  if (ntRows.length)  { h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>'; ntRows.forEach(function(r){ h += row(r); }); }
+  h += '</tbody></table></div></div></div>';
+  return h;
 }
 
 /* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集／
@@ -11149,20 +11304,12 @@ function renderPageHD(ds) {
   h += '<button data-ds="' + ds + '" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
   h += '</div></div>';
 
-  /* 血液浄化の実施件数 */
-  h += '<div class="pp" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
+  /* 血液浄化の実施件数（ダッシュボード） */
+  h += '<div class="hdash" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
 
-  /* HDチェックリストの進捗（updHdProgが#hd-pgt/#hd-pgf/#hd-pgpを部分更新する。CE版の.pgw/.pgi/.pgtr/.pgfと同じCSSを流用） */
-  h += '<div class="pgw"><div class="pgi"><div class="pgt" id="hd-pgt">進捗：'+hdPct+'%（'+hdDone+' / '+hdTotal+' 完了）</div>';
-  h += '<div class="pgtr"><div class="pgf" id="hd-pgf" style="width:'+hdPct+'%"></div></div></div>';
-  h += '<div class="pgp'+(hdPct===100?' dn':'')+'" id="hd-pgp">'+hdPct+'%</div></div>';
-
-  /* HDチェックリスト（共通業務・曜日別業務）。.clgラッパーはCE版と同じクラスなので、
-     dashJump('.clg')・closeItemsの sel:'.clg' がCE/HDどちらの日ページでも無改造で動く */
-  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> HD共通業務（毎日・'+D.hdDly.length+'項目）</div><div id="hdcl"></div></div>';
-  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> HD曜日別業務 <span class="wb">'+wf+'</span></div><div id="hdwcl"></div></div><hr>';
-
-  /* HD担当表（フェーズ4：担当変更・備考編集可）：役割/スタッフ/備考の3列、1人1行 */
+  /* HD担当表（フェーズ4：担当変更・備考編集可）：役割/スタッフ/備考の3列、1人1行。
+     「今日の件数と人員」を上にまとめたいのでダッシュボードの真下に置く。
+     イベント委譲は innerHTML 差し込み後に #hd-roster-wrap を引き直しているため、組み立て順を変えても動く。 */
   h += '<div class="st">🩸 HD担当表</div>';
   var hdRows = buildHdRoster(ds);
   if (!hdRows.length) {
@@ -11183,9 +11330,33 @@ function renderPageHD(ds) {
     h += '</tbody></table></div>';
   }
 
-  /* 余剰人員（CE主観と全く同じ renderSurplusArea/dat.staffZone を再利用。HD勤務者のゾーン分類をHD側からも行えるようにする） */
-  h += '<div class="st">🔄 余剰人員</div>';
+  /* CE担当表（読み取り専用）。同じ日の同じ現場を別主観で見ているだけなので、相手側の割り当ては見えるべき。
+     編集はCE主観の担当カードで行うため、ここは色付きの枠名と担当者を出すだけにする。 */
+  h += ceRosterRefHTML(ds, dat);
+
+  /* HDチェックリストの進捗（updHdProgが#hd-pgt/#hd-pgf/#hd-pgpを部分更新する。CE版の.pgw/.pgi/.pgtr/.pgfと同じCSSを流用） */
+  h += '<div class="pgw"><div class="pgi"><div class="pgt" id="hd-pgt">進捗：'+hdPct+'%（'+hdDone+' / '+hdTotal+' 完了）</div>';
+  h += '<div class="pgtr"><div class="pgf" id="hd-pgf" style="width:'+hdPct+'%"></div></div></div>';
+  h += '<div class="pgp'+(hdPct===100?' dn':'')+'" id="hd-pgp">'+hdPct+'%</div></div>';
+
+  /* HDチェックリスト（共通業務・曜日別業務）。.clgラッパーはCE版と同じクラスなので、
+     dashJump('.clg')・closeItemsの sel:'.clg' がCE/HDどちらの日ページでも無改造で動く */
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> HD共通業務（毎日・'+D.hdDly.length+'項目）</div><div id="hdcl"></div></div>';
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> HD曜日別業務 <span class="wb">'+wf+'</span></div><div id="hdwcl"></div></div><hr>';
+
+  /* 余剰人員（CE主観と全く同じ renderSurplusArea/dat.staffZone を再利用）。
+     CE側の人員配置管理と同じ .staffz シェルで包んで折りたためるようにする——#staffz-body と
+     toggleStaffZone()/_staffZoneOpen をそのまま使い回すので、新しいトグル関数もCSSも要らず、
+     印刷時の #staffz-body{display:block!important} もそのまま効く。 */
+  h += '<div class="staffz">';
+  h += '<div class="staffz-hd" onclick="toggleStaffZone()">';
+  h += '<span class="staffz-ttl">🔄 余剰人員</span>';
+  h += '<span class="staffz-badge" id="hdz-badge"></span>';
+  h += '<span class="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
+  h += '</div>';
+  h += '<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
   h += '<div id="surplus-wrap" class="surplus-wrap"></div>';
+  h += '</div></div>';
 
   /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有） */
   h += '<div class="st">📝 業務連絡・申し送り' + (mlk ? '<span class="slb lk">🔒</span>' : '') + '</div>';
@@ -11264,8 +11435,8 @@ function renderPageHD(ds) {
         pg2.hdCount = pg2.hdCount || {};
         pg2.hdCount[key] = v;
         saveDPage(ds);
-        var totalEl = hdCountPanel.querySelector('.pv');
-        if (totalEl) totalEl.textContent = hdCountTotal(pg2) + '件'; /* 入力中に閉じるまで件数だけ即時反映（フォーカスを保つため全体は再描画しない） */
+        var totalEl = hdCountPanel.querySelector('.hdash-total b');
+        if (totalEl) totalEl.textContent = hdCountTotal(pg2); /* 入力中は合計だけ即時反映（フォーカスを保つため全体は再描画しない） */
       }, 600);
     });
     hdCountPanel.addEventListener('change', function (e) {

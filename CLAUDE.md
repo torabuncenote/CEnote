@@ -291,6 +291,7 @@ All class names are abbreviated:
 - `.btn-p` primary (blue), `.btn-g` ghost/secondary, `.btn-d` danger
 - `.ov` overlay backdrop, `.md` modal dialog, `.sp-panel` side peek panel
 - `.brd-*` board post/reply elements
+- **`.pchip.sp`（余剰人員チップ）の `sp` はサイドバーのスクロール枠 `.sp` とクラス名が衝突する。** `.sp` が持つ `flex:1` / `flex-direction:column` / `overflow-y:auto` をチップ側は一切上書きしていなかったため、flex親の中に置くと横いっぱいに伸び、氏名とシフトコードが縦積みになっていた。`.pchip.sp`（specificity 0,2,0）で `flex:0 0 auto;flex-direction:row;overflow:visible` を打ち消している。`.sp` は汎用名なので、新しいチップ系クラスに `sp` を使い回さないこと
 - CSS custom properties: `--ac` accent blue, `--rd` red, `--gr` green, `--or` orange, `--pu` purple, `--gd` gold, `--oc` light blue (on-call)
 
 ### Key Functions
@@ -391,17 +392,28 @@ All class names are abbreviated:
 
 `_viewMode`（`'ce'|'hd'`）は端末ローカル設定（localStorage `ce2_viewmode`、`getViewMode()`/`setViewMode(m)`/`toggleViewMode()`）で、`D`には入れずログアウトでもリセットしない。トップバーの `#mode-toggle` ボタン（`updateModeToggleBtn()` が絵文字とラベル・`.hd-on`クラスを付け替え）で切り替える。`renderPage(ds)` は冒頭で `if(_viewMode==='hd'){ renderPageHD(ds); return; }` と分岐する。
 
-`renderPageHD(ds)` はCE版と別の日ページビルダーで、ヘッダー・イベント・血液浄化件数（後述）・HDチェックリスト（後述）・HD担当表・余剰人員（`renderSurplusArea`をCEと共有）・申し送り（`dat.memos`をCEと共有）を描く。**`#dg`/`#pool-chips`/`#ops-grid` は絶対に作らない**（`buildDG`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。CE専用の`#dcl`/`#wcl`（`buildCL`が対象、nullガード無し）とは別に、HD版の`#hdcl`/`#hdwcl`は`buildHdCL`が冒頭で`if(!el) return;`する独自実装なので作ってよい。
+`renderPageHD(ds)` はCE版と別の日ページビルダー。並び順は **ヘッダー → イベント → 血液浄化ダッシュボード → HD担当表 → CE担当表（読み取り専用） → 進捗バー → HDチェックリスト → 余剰人員 → 申し送り**。「今日の件数と人員」を上にまとめたいのでHD担当表をダッシュボードの真下に置いている（HD担当表のイベント委譲は `innerHTML` 差し込み後に `#hd-roster-wrap` を引き直しているので、組み立て順を変えても動く）。余剰人員は `renderSurplusArea` をCEと共有し、申し送りは `dat.memos` をCEと共有する。**`#dg`/`#pool-chips`/`#ops-grid` は絶対に作らない**（`buildDG`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。CE専用の`#dcl`/`#wcl`（`buildCL`が対象、nullガード無し）とは別に、HD版の`#hdcl`/`#hdwcl`は`buildHdCL`が冒頭で`if(!el) return;`する独自実装なので作ってよい。
 
 `dat.hdDuty = { overrides: { 元の氏名: 差し替え後の氏名 } }` — HD担当表の手動修正（`hdRosterRowHTML`の`<select>`）。`dat.hdNotes = { 実効氏名: 'テキスト' }` — 担当表の備考欄。どちらも`saveDPage(ds)`。`buildHdRoster(ds)`は`hdShiftWorkers(ds)`（`getShiftForDay(ds).hd`に`hdDuty.overrides`を適用した実効HD勤務者一覧。HD担当表と余剰人員パネルの両方がこの1関数を共通の入口にする）を`HD_DAY_CODES`順にソートして返す。
 
-**血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。`{ day, night, bw, ward }`（数値文字列を直接入力）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`（数値化）／`hdCountSpArr(dat)`（Firebaseの疎配列→オブジェクト化対策。`ensureStaffZone`等と同じパターン）を経由する。`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列に正規化してから push/splice する。保存は`saveDPage(ds)`（`buildOPS`の`ops_cards`カード方式には乗せない——HD日ページには`#ops-grid`もカード追加/削除UIも無いため独立実装）。表示は`renderPageHD`内の`#hd-count-panel`（安定要素、中身だけ`hdCountPanelInnerHTML(ds,dat)`で差し替え）：既定はチップ表示＋`✏️編集`ボタン、押すと5行の入力フォームに変わる（開閉状態はモジュール変数`_hdCountOpen`、非永続）。ロックは新規IDを作らずCE側の`ops`ロックを流用。マスタ`D.hdTreatments`は`D.wdDepts`と同型の単純文字列配列（Dの5箇所ルール＋バックアップ3配列に登録済み）。
+**血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。`{ day, night, bw, ward }`（数値文字列を直接入力）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`（数値化）／`hdCountSpArr(dat)`（Firebaseの疎配列→オブジェクト化対策。`ensureStaffZone`等と同じパターン）を経由する。`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列に正規化してから push/splice する。保存は`saveDPage(ds)`（`buildOPS`の`ops_cards`カード方式には乗せない——HD日ページには`#ops-grid`もカード追加/削除UIも無いため独立実装）。表示は`renderPageHD`内の`#hd-count-panel`（`.hdash`、安定要素で中身だけ`hdCountPanelInnerHTML(ds,dat)`が差し替える）：既定は**数字タイルを5枚横並び**にしたダッシュボード、`✏️編集`で5行の入力フォームに変わる（開閉状態はモジュール変数`_hdCountOpen`、非永続）。**0件の区分は`.hdash-tile.zero`で彩度を落とす** — 実際に実施した区分へ目が行くようにするための減算で、意図的な差。**特殊治療は件数だけでなく治療名をタグで出す**。同じ治療が複数あれば `PMX ×2` に集約し、未選択の空行はタグにしない（そのためタグの数と特殊タイルの数字は一致しないことがある）。編集中は入力のたびに全体を再描画せず `.hdash-total b` の合計だけ差し替える（フォーカスを保つため）。ロックは新規IDを作らずCE側の`ops`ロックを流用。マスタ`D.hdTreatments`は`D.wdDepts`と同型の単純文字列配列（Dの5箇所ルール＋バックアップ3配列に登録済み）。
 
 **HD集計タブ（`renderHdSummary()`）**：`dat.hdCount`の期間集計。サイドバーの`#tab-hdsum`/`#pane-hdsum`はCE/HD共通の他コンテンツタブと同じ`swTab`の`tabs`/`contentPanes`配列に含まれるが、表示は`updateTabVisibility()`が`_viewMode==='hd'`のときだけ`tab-hdsum`を出す形で制御する（パーミッションではなく主観モードのみで出し分け——`renderPageHD`のロック流用方針と同じく全ユーザー対象）。CE主観へ戻したとき`curTab==='hdsum'`のままだと非表示タブの中身が残り続けるため、`updateTabVisibility()`が自動的に`swTab('cal')`へ退避させる。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
 
 **HDモードのタブ構成**：`updateTabVisibility()` が `_viewMode` を見て、担当表（`assign`＝OC集計・業務集計・公平性を含む）をHD主観では丸ごと隠し、HD集計（`hdsum`）を出す。残る 予定 / マイ担当 / タスク / 資料 は両モード共通、管理者専用タブ（スタッフ・ロック・ログ・管理資料）はHD主観でも管理者には出したままにする（モード切替はボタン1回なので締め出さない）。業務タブ（`master`）はタブ自体は両モードで出し、**中身のセクションを `data-mode` で出し分ける**（pane-master Section Gating 節を参照）——HD主観ではHD共通業務・HD曜日別業務・HD特殊治療マスタと、CE/HD共通の設置部署マスタだけが残る。
 
 **マイ担当（`renderMySchedule`）はHDの役割も出す**：CE担当枠（`getDutyCfg`＋`dat.duties`）とスケジュールブロックに加えて、`buildHdRoster(ds)` から自分の行のシフトコード（M・A1・準夜等）を `🩸 ` 付きで並べる。**`_viewMode` で分岐させない** — その人がその日HD勤務かどうかは主観と無関係な事実で、HD勤務が無い人は `getShiftForDay(ds).hd` に載らず何も出ない。`buildHdRoster` 経由なので `dat.hdDuty.overrides` の手動修正も反映される。
+
+**CE⇄HD 相互参照（読み取り専用の担当表）**：同じ日の同じ現場を別主観で見ているだけなので、相手側の割り当ては見えるべき、という方針。`ceRosterRefHTML(ds,dat)` がHD日ページに「🩺 CE担当表」（`getDutyCfg`＋`dat.duties`、枠の色は`dutyColorFor(slot)`）を、`hdRosterRefHTML(ds,dat)` がCE日ページに「🩸 HD担当表」（`buildHdRoster(ds)`＋`dat.hdNotes`）を出す。どちらも**`<select>`/`<textarea>`を使わないテキスト表示**で、編集はそれぞれの主観の自分の担当表で行う。折りたたみの外枠は人員配置管理と同じ`.staffz`シェルを流用（新規CSS不要・見た目も揃う）、開閉は`_ceRefOpen`/`_hdRefOpen`（非永続、既定は閉じる）。対象が0件のときは見出しごと出さない。印刷CSSでは`#ce-ref-body`/`#hd-ref-body`を`#staffz-body`と同様に強制表示する。
+
+**余剰人員は主観で上下が入れ替わる（`renderSurplusArea`）**：どちらの主観でも「未分類の自分たち」を上のチップ行（`#surplus-chips`）に、「引っ張ってこられる相手」を折りたたみのソースパネル（`#hd-worker-panel`）に置く。
+
+| | 上のチップ行 | ソースパネル |
+|---|---|---|
+| CE主観 | CE余剰人員（`sz.ce`の未分類） `data-from="surplus"` | 🩸 HD勤務者 `data-from="hd"` |
+| HD主観 | HD勤務者（`sz.hd`の未分類） `data-from="hd"` | 🩺 CE勤務者（`getShiftForDay(ds).ce`の未分類） `data-from="surplus"` |
+
+**CE勤務者チップの`data-from`に`'ce'`のような新しい値を作ってはいけない。** `dropToStatusZone`は`from==='hd'?'hd':'ce'`で振り分けるので`'surplus'`でも分類は正しく落ちるが、`removeFromZoneSource`（担当枠へドロップしたときの後始末）は`'surplus'`/`'status'`しか見ておらず、新値だと後始末が効かなくなる。ソースパネルの自動オープン判定（`_hdPanelUserOverride===null`のとき）も主観で切り替え、HD主観では「未分類のCE勤務者がいるか」を見る。HD主観では`.staffz`の外枠見出しが「🔄 余剰人員」を出すため`renderSurplusArea`側の`.surplus-ttl`は出さず、見出しバッジ`#hdz-badge`（未分類N）は`renderSurplusArea`の末尾で直接書き換える（`staffZoneCounts()`はCE前提の数字なので流用しない）。HD日ページの折りたたみは`#staffz-body`と`toggleStaffZone()`/`_staffZoneOpen`をCEとそのまま共有する。
 
 **HDチェックリスト（`D.hdDly`/`D.hdWd` + `dat.hdChecks`）**：CE側（`D.dly`/`D.wd` + `dat.checks`、[Checklist Items & Week-of-Month Filtering](#checklist-items--week-of-month-filtering) 節を参照）とは名前空間もdat上のキーも完全に別。**`dat.checks`に相乗りしてはいけない** — `remapDlyChecks`/`remapWdChecks`は`D.dly.length`基準の固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にするとCE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は`dat.checks`しか触らずHD側は自動的に無傷になる（逆も同様）。
 
