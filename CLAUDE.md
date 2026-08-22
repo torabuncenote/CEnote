@@ -293,7 +293,7 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `<head>` に小さなインラインスクリプトがあり、CSSより先に `data-theme` を当てている。`init()` を待つと、暗い設定の端末で起動時に一瞬ライトの画面が見える。
 
-**新しい色は直書きせずCSS変数を足す。** ライト `:root` とダークブロックの2箇所に定義すれば全体に効く。既存の意味色に加えて `--rd-bdr`（赤系ボーダー）、`--warn-bg`/`--warn-fg`/`--warn-fg2`/`--warn-bdr`（PHI警告・OCアラート・PSGバナーで共有）、`--toast-bg`/`--toast-fg`/`--toast-warn`、`--code-bg`/`--code-fg`（資料ページのコードブロック）がある。トーストはライトでは地より暗く、ダークでは地より明るい——「反転」ではなく「浮かせる」方向で揃えている。
+**新しい色は直書きせずCSS変数を足す。** ライト `:root` とダークブロックの2箇所に定義すれば全体に効く。既存の意味色に加えて `--rd-bdr`（赤系ボーダー）、`--ac-bg2`（`--ac-bg` より一段濃い青。担当表のホバー時に日付列 `td.sc` を通常セルと見分けるためだけに存在する——同じ `--ac-bg` にすると区別が消える）、`--alert-fg`/`--alert-bg`/`--alert-bdr`（**患者個人情報の警告専用**。通常の `--rd` より鮮やかにして他の赤より強く目に入るようにしている。`--rd` で代用しないこと）、`--warn-bg`/`--warn-fg`/`--warn-fg2`/`--warn-bdr`（PHI警告・OCアラート・PSGバナーで共有）、`--toast-bg`/`--toast-fg`/`--toast-warn`、`--code-bg`/`--code-fg`（資料ページのコードブロック）がある。トーストはライトでは地より暗く、ダークでは地より明るい——「反転」ではなく「浮かせる」方向で揃えている。
 
 `color-scheme` を `light`/`dark` で切り替えているので、背景色を指定していない `input`/`textarea`/`select`、日付・時刻ピッカー、スクロールバーもまとめて追従する。加えて `input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{background:var(--sur);color:var(--txt)}` を1行だけ置いている（詳細度が低いのでクラスで色を持つ入力欄には影響しない）。
 

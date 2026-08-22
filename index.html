@@ -47,10 +47,14 @@
   --gd:#b45309;--gd-bg:#fffbeb;--gd-bdr:#fcd34d;
   --oc:#0369a1;--oc-bg:#e0f2fe;--oc-bdr:#7dd3fc;
   --rd-bdr:#f5b8b8;
+  /* --ac-bg より一段濃い青。担当表のホバー時に日付列(td.sc)を通常セルと見分けるのに使う */
+  --ac-bg2:#e4eafc;
   /* 注意喚起（PHI警告・OCアラート・PSGバナー）で共有する黄色系 */
   --warn-bg:#fffbeb;--warn-fg:#b45309;--warn-fg2:#78350f;--warn-bdr:#f59e0b;
   /* トースト・自動ログアウト警告。ライトでは地と反転した暗色 */
   --toast-bg:#1e293b;--toast-fg:#fff;--toast-warn:#b45309;
+  /* 患者個人情報の警告。通常の --rd より鮮やかにして、他の赤より強く目に入るようにする */
+  --alert-fg:#7f1d1d;--alert-bg:#fef2f2;--alert-bdr:#ef4444;
   /* 資料ページのコードブロック */
   --code-bg:#1e1e1e;--code-fg:#d4d4d4;
   --fn:'Noto Sans JP',sans-serif;--mo:'DM Mono',monospace;
@@ -393,7 +397,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
    医療用途で色に意味を持たせている（🔴未了・🟢完了・🟠注意・🟣HD）ため、
    単純な明暗反転はしない。暗背景では彩度が飛んで見分けが付かなくなるので、
    意味色は明度を上げて彩度を落とし、背景色(--*-bg)は「地に溶ける濃さ」に置き換える。
-   html[data-theme="dark"] と、システム設定に追従する @media の両方から効かせる。 */
+   data-theme には常に light/dark のどちらかが入る（'auto' は applyTheme が解決してから書く）
+   ので、ここ1ブロックだけで済む。@media (prefers-color-scheme) 版は作らないこと。 */
 /* 画面表示のときだけ効かせる。印刷ではこのブロック自体が適用されず、
    :root のライト値がそのまま使われる（紙用パレットを別に転記しなくて済む） */
 @media screen{
@@ -409,10 +414,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
     --gd:#e8a33d;--gd-bg:#332818;--gd-bdr:#7a5c22;
     --oc:#5cb8f0;--oc-bg:#132c3d;--oc-bdr:#2d5c78;
     --rd-bdr:#6b3a34;
+    --ac-bg2:#25355c;
     /* 注意喚起：暗い琥珀の地＋明るい文字。白い箱が黒画面で光らないようにする */
     --warn-bg:#33260f;--warn-fg:#f0b95a;--warn-fg2:#e8c88a;--warn-bdr:#8a6a2a;
     /* トーストは地(--bg)より明るくして浮かせる（ライトと逆の関係になる） */
     --toast-bg:#333947;--toast-fg:#f2f3f5;--toast-warn:#8a5a12;
+    --alert-fg:#ffb0a4;--alert-bg:#40201c;--alert-bdr:#ff6a55;
     --code-bg:#101216;--code-fg:#cfd3da;
     /* ブラウザ既定のフォーム部品（背景色を指定していない input/textarea/select、
        日付・時刻ピッカー、スクロールバー）もまとめて暗くする */
@@ -588,14 +595,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .at td.self-col{background:rgba(49,130,206,.06)!important}
 .atr{cursor:pointer}
 .atr:hover td{background:var(--ac-bg)!important}
-.atr:hover td.sc{background:var(--ac-bg)!important}
+.atr:hover td.sc{background:var(--ac-bg2)!important}
 .dch{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.4;margin:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.dc-o{background:#dbeafe;color:#1d4ed8}
-.dc-os{background:var(--ac-bg);color:var(--ac)}
-.dc-c{background:var(--pu-bg);color:var(--pu)}
-.dc-cs{background:var(--pu-bg);color:var(--pu)}
-.dc-w{background:#d1fae5;color:#065f46}
-.dc-dv{background:var(--gd-bg);color:var(--gd)}
 .dc-n{color:var(--txt3);font-size:10px}
 .dhw{font-size:9px;font-weight:700;display:inline-block}
 .dhw.su{color:var(--rd)}.dhw.sa{color:var(--ac)}
@@ -810,14 +811,14 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
 /* 患者情報検知警告コンテナ */
 .memo-phi-warn{display:flex;flex-direction:column;gap:6px}
 /* 🚨 赤ボックス（明確な患者情報） */
-.memo-phi-red{font-size:12px;color:var(--rd);background:var(--rd-bg);border:1.5px solid var(--rd);border-radius:6px;padding:9px 12px;line-height:1.7}
+.memo-phi-red{font-size:12px;color:var(--alert-fg);background:var(--alert-bg);border:1.5px solid var(--alert-bdr);border-radius:6px;padding:9px 12px;line-height:1.7}
 .memo-phi-red strong{display:block;margin-bottom:3px;font-size:13px;color:#c0392b}
 /* ⚠️ 黄ボックス（連合会認可形式） */
 .memo-phi-yellow{font-size:12px;color:var(--warn-fg2);background:var(--warn-bg);border:1.5px solid var(--warn-bdr);border-radius:6px;padding:9px 12px;line-height:1.7}
 .memo-phi-yellow strong{display:block;margin-bottom:3px;font-size:13px;color:var(--warn-fg)}
 /* 患者情報検知ポップアップ */
 .phi-sev{font-size:15px;font-weight:800;margin-bottom:10px;padding:9px 13px;border-radius:8px;text-align:center}
-.phi-sev-red{background:var(--rd-bg);color:var(--rd);border:1.5px solid var(--rd)}
+.phi-sev-red{background:var(--alert-bg);color:var(--rd);border:1.5px solid var(--alert-bdr)}
 .phi-sev-yellow{background:var(--warn-bg);color:var(--warn-fg);border:1.5px solid var(--warn-bdr)}
 .phi-desc{font-size:12px;color:var(--txt2);margin-bottom:8px;line-height:1.7}
 .phi-list{margin:0 0 10px;padding:8px 12px 8px 28px;font-size:12px;color:var(--txt);background:var(--sur2);border:1px solid var(--bdr);border-radius:6px;line-height:1.7}
@@ -17643,6 +17644,7 @@ function applyTheme() {
      @media (prefers-color-scheme:dark) に同じパレットを二重管理せずに済む。 */
   var eff = effectiveTheme();
   document.documentElement.setAttribute('data-theme', eff);
+  _dutyDarkCache = {}; /* 担当枠の変換色はテーマごとに違うので、ここで必ず捨てる */
   /* スマホのブラウザUI（アドレスバー等）の色も合わせる */
   var meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', eff === 'dark' ? '#15161a' : '#f4f3ef');
