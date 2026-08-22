@@ -108,7 +108,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .cd.ev::before{content:'';position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:var(--gd)}
 .cd.sun .dnp{color:var(--rd)}.cd.sat .dnp{color:var(--ac)}
 .dnp{font-size:12px}
-.sp{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;overscroll-behavior-y:contain}
+.sp{flex:1;overflow-y:auto;padding:12px;padding-bottom:calc(12px + var(--cbar-h, 0px));display:flex;flex-direction:column;gap:12px;overscroll-behavior-y:contain}
 .sp::-webkit-scrollbar{width:4px}
 .sp::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px}
 .pt{font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
@@ -142,7 +142,10 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 /* 連絡表の中身は縦に読むもので、横スクロールが要る要素は無い。
    どこか1つでも幅をはみ出すとページ全体が左右に動いて読みにくくなるので、
    横方向は最初から動かさない（min-width:0 が無いと flex 子は縮まない） */
-.main{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:28px 44px 80px}
+/* 下余白は消し込みバーの実測高さ(--cbar-h)に連動させる。以前は80px固定で、
+   セーフエリアや端末の下部UIでバーが厚くなるとページ末尾が隠れていた。
+   バーが出ていないときは --cbar-h が 0 になるので従来と同じ余白に戻る。 */
+.main{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:28px 44px calc(28px + var(--cbar-h, 0px))}
 .main::-webkit-scrollbar{width:6px}
 .main::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px}
 /* PC: コンテンツタブ選択時にサイドバーを全幅に拡張してメインエリアとして使う */
@@ -579,7 +582,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   :root{--sw:100vw}
   /* スマホでも.abはflexのまま（sbがfixedで浮くので実質mainのみ表示される） */
   .ab{height:auto!important;overflow:visible!important}
-  .main{padding:18px 14px 70px}
+  .main{padding:18px 14px calc(18px + var(--cbar-h, 0px))}
   .dg{grid-template-columns:1fr}
   .ops-grid{grid-template-columns:minmax(0,1fr)}
   .ops-item-row{flex-wrap:wrap}
@@ -1046,10 +1049,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* ===== 操作フィードバックのトースト（alert の置き換え） ===== */
 .fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:#fff;background:#1e293b;box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
 /* 消し込みバーが出ている間は、その高さぶん上へ逃がす（下端で重なると残り件数が読めなくなる） */
-body.has-cbar .fb-toast{bottom:70px}
-body.has-cbar #idle-warn{bottom:70px}
-body.has-cbar .notif-toast{bottom:126px}
-body.has-cbar #scroll-top-btn{bottom:126px}
+/* 画面下端の固定要素も実測したバーの高さぶんだけ押し上げる（決め打ちの70/126pxをやめる） */
+body.has-cbar .fb-toast{bottom:calc(20px + var(--cbar-h, 0px))}
+body.has-cbar #idle-warn{bottom:calc(20px + var(--cbar-h, 0px))}
+body.has-cbar .notif-toast{bottom:calc(80px + var(--cbar-h, 0px))}
+body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 .fb-toast.ok{background:#15803d}
 .fb-toast.warn{background:#b45309}
 .fb-toast.err{background:#b91c1c}
@@ -1517,7 +1521,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 
     <!-- 仕様書パネル -->
     <div id="pane-spec" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px">📖 システム仕様書</div>
         <div id="spec-body"></div>
       </div>
@@ -1527,7 +1531,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 
     <!-- 使い方パネル（全ユーザー対象） -->
     <div id="pane-guide" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
           <span>📘 使い方ガイド</span>
           <button class="btn btn-g btn-sm" onclick="openChangelogPublic()">📝 変更履歴</button>
@@ -1573,7 +1577,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 
     <!-- 操作マニュアルパネル（管理者向け詳細版） -->
     <div id="pane-manual" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px">📘 操作マニュアル</div>
         <div id="manual-body"></div>
       </div>
@@ -1581,7 +1585,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 
     <!-- 管理者設定パネル -->
     <div id="pane-adminm" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px">🔑 管理者設定</div>
         <div id="adminm-users" style="margin-bottom:18px"></div>
         <div class="pt" style="margin-bottom:12px">💾 バックアップ（3つの安全網）</div>
@@ -1636,7 +1640,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 
     <!-- 引き継ぎ資料パネル -->
     <div id="pane-dev" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px">🔧 引き継ぎ資料（開発者向け）</div>
         <div id="dev-body"></div>
       </div>
@@ -1644,7 +1648,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 
     <!-- 法令・ガイドライン -->
     <div id="pane-regs" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px">⚖️ 法令・ガイドライン</div>
         <div id="regs-body"></div>
       </div>
@@ -1652,7 +1656,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 
     <!-- 変更履歴 -->
     <div id="pane-changelog" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px">📝 変更履歴</div>
         <div id="changelog-body"></div>
       </div>
@@ -1660,7 +1664,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
 
     <!-- タスク管理パネル（全ユーザー対象。旧・担当表のサブタブから一階層上げた） -->
     <div id="pane-task" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div id="task-body"></div>
       </div>
     </div>
@@ -1668,7 +1672,7 @@ body.has-cbar #scroll-top-btn{bottom:126px}
     <!-- マイ担当パネル。以前は担当表（pane-assign）のサブタブだったが、埋もれて気づかれにくいため
          タスクと同じくトップレベルのタブへ昇格した。CE/HD両モードで常時表示する -->
     <div id="pane-my" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:40px">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div id="my-body"></div>
       </div>
     </div>
@@ -7427,6 +7431,7 @@ function updateCloseBar(ds) {
     bar.style.display = 'none';
     bar.setAttribute('data-ds', '');
     markBody(false);
+    syncCbarHeight();
     return;
   }
   bar.setAttribute('data-ds', ds);
@@ -7462,6 +7467,7 @@ function updateCloseBar(ds) {
 
   var detail = document.getElementById('cbar-detail');
   if (detail && detail.style.display !== 'none') renderCbarDetail(ds, cats);
+  syncCbarHeight(); /* 文言や表示/非表示が変わったあとに測る */
 }
 function cbarDs(){ var bar=document.getElementById('cbar'); return bar ? bar.getAttribute('data-ds') : ''; }
 function toggleCbarDetail(){
@@ -17486,6 +17492,15 @@ function updateBoardBtnBadge() {
    以前は120px超を一律0（＝補正なし）に捨てていたが、ナビゲーションバー＋ブラウザUIが
    厚い端末では平常時でもこれを超え、バーがナビゲーションバーの裏に沈む機種があった。
    キーボード（200px超級）と単に厚いUI（120〜200px）を分け、後者は捨てずに上限で止める。 */
+/* 消し込みバーの実測高さを --cbar-h に流し込む。#main やサイドバーの下余白、
+   画面下端の固定要素（トースト・自動ログアウト警告・トップへ戻る）がこれを見て避ける。
+   バーの高さはセーフエリア・端末の下部UI・文言の折り返しで変わるので、
+   決め打ちの数値ではなく毎回測る（以前は80px固定でページ末尾が隠れていた）。 */
+function syncCbarHeight() {
+  var bar = document.getElementById('cbar');
+  var h = (bar && bar.style.display !== 'none') ? bar.offsetHeight : 0;
+  document.documentElement.style.setProperty('--cbar-h', h + 'px');
+}
 function syncCbarInset() {
   var vv = window.visualViewport;
   var px = 0;
@@ -17497,12 +17512,15 @@ function syncCbarInset() {
     else if (px > 160) px = 160; /* 想定より厚いUI。捨てずに上限でクランプ */
   }
   document.documentElement.style.setProperty('--vv-bottom', px + 'px');
+  syncCbarHeight(); /* --vv-bottom はバーの padding に入るので、変えたら高さを測り直す */
 }
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', syncCbarInset);
   window.visualViewport.addEventListener('scroll', syncCbarInset);
 }
 window.addEventListener('orientationchange', function(){ setTimeout(syncCbarInset, 300); });
+/* 幅が変わるとバーの文言が折り返して高さが変わることがあるので、リサイズでも測り直す */
+window.addEventListener('resize', syncCbarHeight);
 
 /* 掲示板パネル。サイドバーのタブは廃止したので、開く手段はここだけ（連絡表ヘッダーの📢ボタン）。
    #pane-board の要素をそのままモーダル内へ移設してあるため、renderBoard/postBoard は変更不要 */
