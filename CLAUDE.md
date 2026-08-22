@@ -678,6 +678,7 @@ Incomplete memo posts show a 📅 button (`.mp-move`) next to the 済 checkbox i
 - **`m.name` / `m.uid` は書き換えない。** 誰が最初に書いたかの表示は編集後も変わらず、代わりに `m.editedAt` / `m.editedBy` を記録して本文末尾に「◯◯ に △△ が編集」と出す。
 - PHI検知は `postMemo` と同じ契約（`phiHasBlock(result)` なら送信を止め、それ以外は確認して続行可）。
 - 保存は `saveDPage(ds)`（ページ単独スコープ）。`writeLog('申し送り編集', …)` に編集前後の冒頭20文字を残す。
+- **「済」チェックと操作ボタン（✏️📅✕）は `.mp-actions` の1つのflex行にまとめる。** 以前はそれぞれを個別に `position:absolute` ＋ 固定の `right` 値で並べており、編集ボタンを足したときに位置計算を更新し忘れて「済」の文字がボタンの下に隠れた。**個別の絶対配置に戻さないこと** — 横並びなら表示されるボタンの数が変わっても自動で詰まる。
 
 ### Memo Replies (申し送りの返信)
 

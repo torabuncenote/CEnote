@@ -701,17 +701,19 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-post{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6;position:relative}
 .memo-post.memo-done{opacity:0.55;background:var(--sur)}
 .memo-post.memo-done .mp-body{text-decoration:line-through;color:var(--txt3)}
-.memo-done-label{position:absolute;top:8px;right:36px;display:flex;align-items:center;gap:3px;cursor:pointer;user-select:none}
+.memo-done-label{display:flex;align-items:center;gap:3px;cursor:pointer;user-select:none}
 .memo-done-cb{width:14px;height:14px;cursor:pointer;accent-color:var(--ac)}
 .memo-done-txt{font-size:10px;color:var(--txt3);white-space:nowrap}
 .memo-post .mp-meta{font-size:10px;color:var(--txt3);margin-bottom:4px;display:flex;align-items:center;gap:6px}
 .memo-post .mp-name{font-weight:700;color:var(--ac)}
-.memo-post .mp-del{position:absolute;top:7px;right:9px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
+/* 「済」と操作ボタンは1つのflex行にまとめて右上に置く。
+   以前はそれぞれを個別に position:absolute + 固定の right 値で並べており、
+   ボタンが1つ増えたときに位置計算を更新し忘れて「済」の文字が隠れた。
+   横並びにしておけば、表示されるボタンの数が変わっても自動で詰まる。 */
+.mp-actions{position:absolute;top:7px;right:9px;display:flex;align-items:center;gap:7px}
+.memo-post .mp-del,.memo-post .mp-move,.memo-post .mp-edit{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0;line-height:1}
 .memo-post .mp-del:hover{color:var(--rd)}
-.memo-post .mp-move{position:absolute;top:7px;right:34px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
 .memo-post .mp-move:hover{color:var(--ac)}
-/* 編集ボタンは移動(right:34px)・削除(right:9px)のさらに左に置く */
-.memo-post .mp-edit{position:absolute;top:7px;right:59px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
 .memo-post .mp-edit:hover{color:var(--ac)}
 .mp-edit-form{margin-top:4px}
 .mp-edit-form textarea{width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--ac);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur);color:var(--txt);line-height:1.6}
@@ -11954,13 +11956,20 @@ function renderMemos(ds, dat, locked) {
        memo権限があれば移動できるようにしている。誰が書いたかは m.name が常に元投稿者のまま保たれる
        （move側では書き換えない）ので、権限を広げても「元の文章は誰が書いたか」の表示は変わらない */
     var canMove = !locked && !isDone;
-    var doneRight = canMove ? '64px' : (canDel ? '36px' : '9px');
-    h += '<label class="memo-done-label" style="right:' + doneRight + '" title="既読・完了">'
+    var showEdit = canEdit && !!m.text;
+    /* 「済」と操作ボタンは .mp-actions の中に左から順に並べる（済 → 編集 → 移動 → 削除）。
+       flexなので表示される数が変わっても自動で詰まり、位置計算は不要。 */
+    h += '<div class="mp-actions">';
+    h += '<label class="memo-done-label" title="既読・完了">'
        + '<input type="checkbox" class="memo-done-cb"'
        + ' data-idx="' + i + '" data-ds="' + ds + '" data-action="doneMemo"'
        + (isDone ? ' checked' : '') + '>'
        + '<span class="memo-done-txt">済</span>'
        + '</label>';
+    if (showEdit) h += '<button class="mp-edit" data-mkey="' + escH(mkey) + '" data-action="editMemo" title="編集">✏️</button>';
+    if (canMove)  h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
+    if (canDel)   h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
+    h += '</div>';
     h += '<div class="mp-meta">';
     h += '<span class="mp-name">' + escH(m.name || '不明') + '</span>';
     h += '<span>' + (m.ts ? fmtTS(m.ts) : '') + '</span>';
@@ -12040,9 +12049,6 @@ function renderMemos(ds, dat, locked) {
       h += '<button class="btn btn-p btn-sm" style="font-size:11px" data-action="postMemoReply" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '" id="mp-rsend-' + escH(mkey) + '">返信</button>';
       h += '</div></div>';
     }
-    if (canEdit && m.text) h += '<button class="mp-edit" data-mkey="' + escH(mkey) + '" data-action="editMemo" title="編集">✏️</button>';
-    if (canMove) h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
-    if (canDel) h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
     h += '</div>';
   }
   el.innerHTML = h;
