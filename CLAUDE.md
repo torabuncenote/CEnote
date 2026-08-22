@@ -289,7 +289,11 @@ CSVは対象を持つサブタブにだけ出す：担当表は `at` のみ（�
 
 ### テーマ（ライト／ダーク）
 
-端末ローカル設定（localStorage `ce2_theme`、`getTheme()`/`setTheme(t)`/`cycleTheme()`）。`_viewMode` と同じく `D` には入れず、ログアウトでもリセットしない。トップバーの `#theme-toggle` が **ライト → ダーク → 端末設定（auto）** の3状態を回す。
+端末ローカル設定（localStorage `ce2_theme`、`getTheme()`/`setTheme(t)`/`cycleTheme()`）。`_viewMode` と同じく `D` には入れず、ログアウトでもリセットしない。トップバーの `#theme-toggle` が **☀️ライト → 🌙ダーク → 🌓端末に合わせる** の3状態を回す。
+
+**既定はライト（`auto` ではない）。** 端末のダーク設定に勝手に引きずられると、更新した瞬間に職員の画面が黒くなって驚かせるため、端末設定への追従は🌓を選んだときだけの動作にしている。**`getTheme()` の既定値を `'auto'` に戻さないこと。**
+
+**`setTheme()` は `'auto'` も localStorage に保存する。** 既定がライトになったので、`'auto'` をキー削除で表すと「端末に合わせる」を選んだこと自体が次回起動時に失われる（キー無し＝ライト、と解釈されるため）。`<head>` のちらつき防止スクリプトも同じ3分岐を持つので、**片方だけ直さないこと**。
 
 **`data-theme` には必ず `light`/`dark` のどちらかが入る。** `auto` は `localStorage` 側の状態としてのみ存在し、`applyTheme()` が `effectiveTheme()`（`matchMedia('(prefers-color-scheme: dark)')` を見る）で解決してから属性に書く。こうすることで CSS 側は `:root[data-theme="dark"]` 1ブロックで済み、`@media (prefers-color-scheme:dark)` に同じパレットを二重管理せずに済む。`auto` のまま端末設定が変わったときは `matchMedia` の `change` リスナーが `applyTheme()` + `repaintForTheme()` を呼ぶ。**`data-theme` を消して `@media` に任せる形に戻さないこと** — 戻すとパレットの定義箇所が2つになり、片方だけ直したときに端末設定追従のユーザーにだけ古い色が残る。
 

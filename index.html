@@ -15,8 +15,12 @@
 (function(){
   try {
     var v = localStorage.getItem('ce2_theme');
-    var eff = (v === 'light' || v === 'dark') ? v
-      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+    /* 既定はライト。'auto'（🌓＝端末に合わせる）を選んだときだけ端末設定を見る。
+       ロジックは getTheme()/effectiveTheme() と揃えること */
+    var eff = (v === 'dark') ? 'dark'
+      : (v === 'auto')
+        ? ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light')
+        : 'light';
     document.documentElement.setAttribute('data-theme', eff);
   } catch (e) {}
 })();
@@ -1240,7 +1244,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
     <button class="btn btn-g btn-sm" id="mode-toggle" onclick="toggleViewMode()" title="CEモード（タップでHDモードへ切替）">🩺<span class="mt-text"> CE</span></button>
-    <button class="btn btn-g btn-sm" id="theme-toggle" onclick="cycleTheme()" title="表示テーマ">🌗<span class="mt-text"> 自動</span></button>
+    <button class="btn btn-g btn-sm" id="theme-toggle" onclick="cycleTheme()" title="表示テーマ">☀️<span class="mt-text"> ライト</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -4426,8 +4430,8 @@ var APP_CHANGELOG = [
     {t:'fix', d:'🌙 ダークモードで、青や緑のボタン・バッジの上の白文字が薄く見えていたのを修正しました'}
   ]},
   { ver:'Ver.2026/08/22-48', date:'2026-08-22', title:'ダークモードに対応しました', items:[
-    {t:'new', d:'🌙 画面を暗い配色に切り替えられるようになりました。上のバーの🌗ボタンを押すたびに「ライト → ダーク → 端末の設定に合わせる」と切り替わります。選んだ設定はその端末に記憶されます'},
-    {t:'new', d:'🌗 初期状態はスマートフォンやパソコン本体のダークモード設定に自動で合わせます。夜勤帯や暗い部屋で画面がまぶしくなりにくくなります'},
+    {t:'new', d:'🌙 画面を暗い配色に切り替えられるようになりました。上のバーのボタンを押すたびに「☀️ ライト → 🌙 ダーク → 🌓 端末に合わせる」と切り替わります。選んだ設定はその端末に記憶され、次に開いたときもそのままです'},
+    {t:'new', d:'☀️ 最初はこれまでどおりライト（白い画面）です。暗くしたいときだけボタンで切り替えてください。🌓 にすると、スマートフォンやパソコン本体のダークモード設定に合わせて自動で切り替わります'},
     {t:'imp', d:'🎨 ダークでも色の意味は変わりません。未完了の赤・完了の緑・注意の橙・HDの紫は、暗い背景でも見分けられる明るさに調整しています'},
     {t:'imp', d:'🖨️ 印刷はダークモードでも従来どおり白い紙面で出ます'}
   ]},
@@ -6839,7 +6843,16 @@ function renderGuide() {
   S += step(2,'「自動割り当て」ボタンをタップ','月単位で担当を自動生成します。');
   S += step(3,'カレンダーに🟢緑ドットが表示される','自動割り当て済み・まだ手動変更なしの状態です。手動変更すると緑→赤に変わります。');
   S += h2('公平性確認');
-  S += '<div class="gd-p">「📊 担当表」内の「公平性」タブで、スタッフ別の担当回数マトリクスを確認できます。担当が偏っている列は赤・少ない列は青でハイライトされます。</div>';
+  S += '<div class="gd-p">「📊 担当表」内の「⚖️ CE公平性」で、スタッフ別の担当回数マトリクスを確認できます。担当が偏っている列は赤・少ない列は青でハイライトされます。HDモードに切り替えると「⚖️ HD公平性」になり、M・A1・A2・B1・B・準夜といったHDの役割が誰に何回当たったかを同じ形で確認できます。</div>';
+
+  S += h1('🌙 画面の明るさ（ライト／ダーク）');
+  S += '<div class="gd-p">上のバーのボタンで、画面の配色を切り替えられます。押すたびに次の3つを順に回ります。設定はその端末に記憶されるので、次に開いたときも同じ配色です（他の人の画面には影響しません）。</div>';
+  S += '<table class="gd-tbl"><tr><th>表示</th><th>動き</th></tr>'
+    + '<tr><td>☀️ ライト</td><td>これまでどおりの白い画面（最初はこれです）</td></tr>'
+    + '<tr><td>🌙 ダーク</td><td>暗い配色。夜勤帯や暗い部屋でまぶしくなりにくくなります</td></tr>'
+    + '<tr><td>🌓 端末に合わせる</td><td>スマートフォンやパソコン本体のダークモード設定に合わせて自動で切り替わります</td></tr>'
+    + '</table>';
+  S += '<div class="gd-p">印刷はどの設定でも白い紙面で出ます。</div>';
 
   S += h1('📈 集計（CE集計・OC集計・HD集計）');
   S += '<div class="gd-p">「📈 集計」タブに3種類の集計がまとまっています。CEモード・HDモードのどちらでも3つとも見られます。</div>';
@@ -17793,7 +17806,9 @@ document.addEventListener('click',function(e){
 var THEME_KEY = 'ce2_theme';
 function getTheme() {
   var v = localStorage.getItem(THEME_KEY);
-  return (v === 'light' || v === 'dark') ? v : 'auto';
+  /* 既定はライト。端末のダーク設定に勝手に引きずられないようにするため、
+     'auto'（端末に合わせる）はユーザーが🌓を選んだときだけの状態にしている。 */
+  return (v === 'light' || v === 'dark' || v === 'auto') ? v : 'light';
 }
 /* 実際に今どちらで表示されているか（autoのときは端末の設定を見る） */
 function effectiveTheme() {
@@ -17814,8 +17829,10 @@ function applyTheme() {
   updateThemeBtn();
 }
 function setTheme(t) {
-  if (t === 'auto') localStorage.removeItem(THEME_KEY);
-  else localStorage.setItem(THEME_KEY, t);
+  /* 'auto' も含めて必ず保存する。既定がライトになったので、'auto' をキー削除で
+     表すと「端末に合わせる」を選んだこと自体が次回起動時に失われてしまう。 */
+  if (t !== 'light' && t !== 'dark' && t !== 'auto') t = 'light';
+  localStorage.setItem(THEME_KEY, t);
   applyTheme();
 }
 /* JS が色を計算して埋めている箇所（担当枠の色・集計グラフの系列色）は、
@@ -17839,15 +17856,15 @@ function cycleTheme() {
   var t = getTheme();
   setTheme(t === 'auto' ? 'light' : (t === 'light' ? 'dark' : 'auto'));
   repaintForTheme();
-  var lbl = { auto:'端末の設定に合わせます', light:'ライトモード', dark:'ダークモード' }[getTheme()];
+  var lbl = { auto:'端末の設定に合わせます（🌓）', light:'ライトモード', dark:'ダークモード' }[getTheme()];
   toast('🎨 ' + lbl, 'ok');
 }
 function updateThemeBtn() {
   var btn = document.getElementById('theme-toggle');
   if (!btn) return;
   var t = getTheme();
-  var ic = { auto:'🌗', light:'☀️', dark:'🌙' }[t];
-  var lb = { auto:'自動', light:'ライト', dark:'ダーク' }[t];
+  var ic = { auto:'🌓', light:'☀️', dark:'🌙' }[t];
+  var lb = { auto:'端末に合わせる', light:'ライト', dark:'ダーク' }[t];
   btn.innerHTML = ic + '<span class="mt-text"> ' + lb + '</span>';
   btn.title = '表示テーマ：' + lb + '（タップで切替）';
 }
