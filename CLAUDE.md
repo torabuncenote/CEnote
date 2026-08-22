@@ -167,21 +167,22 @@ function can(id) {
 `updateTabVisibility()` controls which sidebar tabs non-admin users can see. It must be called after any change to `currentUser.perms` (e.g., inside `saveUserPerm()` when the current user's own permissions change).
 
 ```js
-// Tab visibility is controlled by explicit tab_ permissions and by 主観モード,
+// Tab visibility is controlled by explicit tab_ permissions,
 // NOT by edit-lock permissions
-var isHd = _viewMode === 'hd';
-'assign': !isHd,   // 担当表・OC集計・業務集計・公平性はCE専用
-'hdsum':  isHd,    // HD集計
 'staff':  isAdmin, // スタッフ一覧・PHS番号・勤務表インポートはまとめて管理者限定
-'master': isAdmin || hasPerm('tab_master'),  // 業務タブ（中身は data-mode でさらに出し分け）
+'master': isAdmin || hasPerm('tab_master'),  // マスタタブ（中身は data-mode でさらに出し分け）
 'lock':   isAdmin,
 'logs':   isAdmin,
 'docs':   isAdmin,
 ```
 
-`cal` / `my` / `task` / `lib` are deliberately **not** in the `show` map — they are visible to everyone in both modes, and the map only lists tabs that need controlling.
+`cal` / `assign` / `sum` / `task` / `lib` are deliberately **not** in the `show` map — they are visible to everyone in both modes, and the map only lists tabs that need controlling.
 
-After building `show`, the function escapes out of a tab that just became invisible: `if (!show.hdsum && curTab === 'hdsum') swTab('cal')` and the same for `assign`. Without this, switching modes while sitting on 担当表 or HD集計 leaves the old pane's contents on screen with no tab to leave it by. **`swTab` must never call `updateTabVisibility()`** or these two lines become an infinite loop.
+**主観モードによる出し分けはタブではなくサブタブで行う。** `updateTabVisibility()` の後半が `subtab-at`（CE担当表）と `subtab-fair`（CE公平性）を HD主観で、`subtab-hdfair`（HD公平性）を CE主観で隠し、隠れたサブタブを開いたままモードを切り替えたときは `swSubTab('my')` へ退避させる。公平性2つはどちらも管理者のみ。担当表タブごと隠さないのは、**マイ担当がHD勤務のシフトも出す画面**（`renderMySchedule` は `_viewMode` で分岐しない）で、HD主観からも辿れる必要があるため。`swTab('assign')` の既定サブタブも主観で変わる（HDなら `my`）。
+
+集計タブ（`sum`）は主観でもパーミッションでも出し分けない——集計は「どちらの目で見るか」に依らない事実だから。HD集計サブタブもCE主観から見える。
+
+**`swTab` must never call `updateTabVisibility()`** or the escape lines become an infinite loop.
 
 `tab_master` is stored in `/userPerms/{uid}` alongside regular lock permissions, but is granted via the "タブ表示" section in `renderAdminUsers()` rather than the lock-permission buttons. `tab_staff` used to work the same way and was removed when the スタッフ tab became admin-only; stale `tab_staff` values in existing `/userPerms` are simply never read.
 
@@ -257,12 +258,13 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
   .sb     — sidebar (left, collapsible)
     .stabs — tab strip
     pane-cal    — calendar with month navigation
-    pane-assign — assignment table (月次担当一覧) with subtabs:
-                  at (担当表) / oc (OC集計) / ops (業務集計) / fair (公平性)
-                  CE-only: hidden entirely in HD mode (see HD主観モード)
-    pane-my     — 👤 マイ担当 (all users, both modes; was a subtab of pane-assign — promoted for the same reason as pane-task)
+    pane-assign — 📊 担当表, with subtabs (swSubTab / `_curSubTab`):
+                  at (担当表) / my (マイ担当) / fair (CE公平性) / hdfair (HD公平性)
+                  タブ自体は両主観で出す。at と fair がCE主観、hdfair がHD主観（下記）
+    pane-sum    — 📈 集計, with subtabs (swSumTab / `_curSumTab`):
+                  ops (CE集計) / oc (OC集計) / hd (HD集計)
+                  全ユーザー・両主観。パーミッションでも主観でも出し分けない
     pane-task   — 📋 タスク管理 (all users; was a subtab of pane-assign until it was promoted to a top-level tab — it was too easy to miss in there)
-    pane-hdsum  — 🩸 HD集計 (HD mode only; see HD主観モード)
     pane-guide  — user guide
     pane-makers — 🏭 メーカー担当者連絡先 (all users; see メーカー担当者連絡先 section below)
     pane-staff / pane-master / pane-lock / pane-logs — admin-only
@@ -277,11 +279,33 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
-`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `oc` / `ops` / `fair`). Each subtab has a matching `subpane-{id}` div. `my` (マイ担当) used to live here and was promoted to the top-level `pane-my`; `_curSubTab` can therefore never be `'my'`, so `exportSubCsv()` and the print path have no `'my'` branch.
+`swSubTab(id)` switches between the subtabs inside `pane-assign` (`at` / `my` / `fair`), `swSumTab(id)` between those inside `pane-sum` (`ops` / `oc` / `hd`). Each subtab has a matching `subpane-{id}` div, and the two panes keep separate state (`_curSubTab` / `_curSumTab`) because each has its own CSV and 印刷 button targeting a different thing.
+
+CSVは対象を持つサブタブにだけ出す：担当表は `at` のみ（マイ担当・公平性はボタンごと隠す）、集計は3つとも出す。印刷は `_printSubPane(phId, subId)` が共通処理で、担当表(`at`)だけは専用レイアウトの `printAt()` へ抜ける。印刷CSSは `body[data-print-sub="…"]` で1枚だけ開くので、**サブタブを足したらこの行も足すこと**（足し忘れると紙が白紙になる）。
 
 **Adding a top-level sidebar tab** touches six places, and the last one is the easy miss: the `.stabs` button (`tab-{id}`), the `pane-{id}` div, `swTab`'s `tabs` array, `swTab`'s `contentPanes` array (PC full-width), the per-tab render call in `swTab`, and **any Firebase listener that re-renders only while that pane is visible**. When `task` was promoted out of `pane-assign`, the three `/tasks` + `/taskMemos` listeners still queried `#subpane-task`; leaving them would have silently stopped real-time updates.
 
 `init()` calls `updateTabVisibility()` once at startup (right after `fbInit()`). Without it the mode-dependent tabs are never evaluated on a cold load: `_viewMode` is restored from `localStorage` at the top of `init()`, but the Firebase path only re-evaluates on login and the preview path used to hand-set `display=''` on the admin tabs, so reloading while in HD mode left 担当表 showing and HD集計 hidden. Do not replace that call with per-tab `style.display` assignments again.
+
+### テーマ（ライト／ダーク）
+
+端末ローカル設定（localStorage `ce2_theme`、`getTheme()`/`setTheme(t)`/`cycleTheme()`）。`_viewMode` と同じく `D` には入れず、ログアウトでもリセットしない。トップバーの `#theme-toggle` が **ライト → ダーク → 端末設定（auto）** の3状態を回す。
+
+**`data-theme` には必ず `light`/`dark` のどちらかが入る。** `auto` は `localStorage` 側の状態としてのみ存在し、`applyTheme()` が `effectiveTheme()`（`matchMedia('(prefers-color-scheme: dark)')` を見る）で解決してから属性に書く。こうすることで CSS 側は `:root[data-theme="dark"]` 1ブロックで済み、`@media (prefers-color-scheme:dark)` に同じパレットを二重管理せずに済む。`auto` のまま端末設定が変わったときは `matchMedia` の `change` リスナーが `applyTheme()` + `repaintForTheme()` を呼ぶ。**`data-theme` を消して `@media` に任せる形に戻さないこと** — 戻すとパレットの定義箇所が2つになり、片方だけ直したときに端末設定追従のユーザーにだけ古い色が残る。
+
+**ダークのパレットは `@media screen` の中に置く。** 印刷時はこのブロック自体が適用されず `:root` のライト値がそのまま効くので、紙用のパレットを別に転記する必要がない（転記すると二重管理になり、ライト側の色を変えたときに紙だけ古い色になる）。
+
+`<head>` に小さなインラインスクリプトがあり、CSSより先に `data-theme` を当てている。`init()` を待つと、暗い設定の端末で起動時に一瞬ライトの画面が見える。
+
+**新しい色は直書きせずCSS変数を足す。** ライト `:root` とダークブロックの2箇所に定義すれば全体に効く。既存の意味色に加えて `--rd-bdr`（赤系ボーダー）、`--ac-bg2`（`--ac-bg` より一段濃い青。担当表のホバー時に日付列 `td.sc` を通常セルと見分けるためだけに存在する——同じ `--ac-bg` にすると区別が消える）、`--alert-fg`/`--alert-bg`/`--alert-bdr`（**患者個人情報の警告専用**。通常の `--rd` より鮮やかにして他の赤より強く目に入るようにしている。`--rd` で代用しないこと）、`--warn-bg`/`--warn-fg`/`--warn-fg2`/`--warn-bdr`（PHI警告・OCアラート・PSGバナーで共有）、`--toast-bg`/`--toast-fg`/`--toast-warn`、`--code-bg`/`--code-fg`（資料ページのコードブロック）、`--on-ac`（**意味色をベタ塗りした上に載せる文字色**。ライトは白、ダークは地の色。ダークでは意味色を明るくしてあるので、白のままだとコントラストが2倍前後まで落ちて10pxのバッジが読めなくなる。`background:var(--ac)` 等と組で使い、`#fff` を直書きしないこと）がある。トーストはライトでは地より暗く、ダークでは地より明るい——「反転」ではなく「浮かせる」方向で揃えている。
+
+`color-scheme` を `light`/`dark` で切り替えているので、背景色を指定していない `input`/`textarea`/`select`、日付・時刻ピッカー、スクロールバーもまとめて追従する。加えて `input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{background:var(--sur);color:var(--txt)}` を1行だけ置いている（詳細度が低いのでクラスで色を持つ入力欄には影響しない）。
+
+**JSが色を計算して埋めている箇所はCSS変数だけでは変わらない**ので、テーマ切替時に `repaintForTheme()` が塗り直す（`_dutyDarkCache` のクリア＋開いている日ページ・カレンダー・担当表・業務集計・公平性の再描画）。対象は担当枠の色と集計グラフの系列色。
+
+**担当枠の17色（`DUTY_COLOR_MAP` / `DUTY_PALETTE`）はダーク用に手書きし直さない。** `dutyColorFor(slot)` が `themePair()` → `darkenPair()` を通し、文字色(`fg`)の**色相を軸に計算で**「暗い地＋明るい文字」を作る（`_dutyDarkCache` にメモ化）。ライト用の定義だけを正本にしておくことで、枠を1つ足すたびにダーク用の色も足す、という二重作業が発生しない。`bg`/`fg` が `var(...)` の組（`__free` など）は `_hexToRgb` が `null` を返すのでそのまま素通しになり、CSS変数側の切り替えに任せる。
+
+集計グラフの系列色は `getComputedStyle(document.documentElement).getPropertyValue('--sum-'+k)` で読む。`renderOpsSummary()` 内の `COLORS` に直書きしないこと。
 
 ### CSS Conventions
 
@@ -308,7 +332,7 @@ All class names are abbreviated:
 | `renderPage(ds)` | Re-render the open day page |
 | `safeRenderPage()` | `renderPage(curDs)` only if page is open |
 | `renderCal()` | Render calendar sidebar |
-| `renderAT()` / `renderFairness()` | Monthly assignment table / fairness matrix (both filter `D.stfHidden`) |
+| `renderAT()` / `renderFairness()` / `renderHdFairness()` | Monthly assignment table / CE公平性 / HD公平性（いずれも `D.stfHidden` を除外） |
 | `buildDG(ds, dat, locked)` | Duty card grid |
 | `buildCL(ds, dat, wtl, all, locked)` | Checklist section |
 | `buildOPS(ds, dat, locked)` | OPE/cath/ops record section |
@@ -335,8 +359,9 @@ All class names are abbreviated:
 | `staffZoneCounts(ds)` / `updateStaffZoneBadge(ds)` | 「👥 人員配置管理」見出しの「当日N名」「未割当N」バッジの唯一の集計元／DOM部分更新 |
 | `dashJump(sel)` / `dashJumpTop(el)` | ダッシュボードカード・消し込みバーからの共通ジャンプ＋2秒ハイライト（詳細は下記 Dashboard Jump 節） |
 | `closeItems(ds)` / `updateCloseBar(ds)` | 消し込みバー（`.cbar`）の6カテゴリ集計の唯一の入口／バー本体の再描画（詳細は下記 消し込みバー 節） |
-| `renderOpsSummary()` | 業務集計サブタブ — monthly OPE/cath/6MW/PSG counts |
+| `renderOpsSummary()` | CE集計サブタブ（旧「業務集計」）— monthly OPE/cath/6MW/PSG counts |
 | `renderOCSummary()` | OC集計サブタブ — on-call response log |
+| `fairnessHTML(o)` | 公平性マトリクスの表組み。CE/HDで共通（複製しないこと） |
 | `updatePendingBadge()` | Media approval badge (debounced 200ms) |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
 | `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
@@ -365,6 +390,9 @@ All class names are abbreviated:
 | `mkCopyTel(id, which)` / `mkCopyMail(id)` / `mkFlashCopied(el)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック）。コピー成功時はトーストに加え、押したボタン自体のアイコンを`data-ic`属性の元絵文字から一瞬✓に変える（`mkFlashCopied`）。ボタンDOM idは`mk-tel-{id}-{1|2}` / `mk-mail-{id}`で固定 |
 | `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
 | `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
+| `getTheme()` / `setTheme(t)` / `cycleTheme()` / `effectiveTheme()` / `applyTheme()` | 表示テーマ（ライト／ダーク／端末設定）。`data-theme` には常に light/dark のどちらかを書く |
+| `repaintForTheme()` | テーマ切替時に、JSが色を埋めている箇所（担当枠・集計グラフ）を塗り直す |
+| `darkenPair(c)` / `themePair(c)` | ライト用の「淡い地＋濃い文字」ペアを、色相を軸に暗背景用へ計算変換（`_dutyDarkCache` にメモ化） |
 | `openSubmenu(id)` | `docs-submenu`（🔑 管理資料）と`lib-submenu`（📚 資料）を相互排他で開閉。`id`が`null`なら両方閉じる |
 
 ### Duty/Assignment System
@@ -398,9 +426,9 @@ All class names are abbreviated:
 
 **血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。`{ day, night, bw, ward }`（数値文字列を直接入力）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`（数値化）／`hdCountSpArr(dat)`（Firebaseの疎配列→オブジェクト化対策。`ensureStaffZone`等と同じパターン）を経由する。`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列に正規化してから push/splice する。保存は`saveDPage(ds)`（`buildOPS`の`ops_cards`カード方式には乗せない——HD日ページには`#ops-grid`もカード追加/削除UIも無いため独立実装）。表示は`renderPageHD`内の`#hd-count-panel`（`.hdash`、安定要素で中身だけ`hdCountPanelInnerHTML(ds,dat)`が差し替える）：既定は**数字タイルを5枚横並び**にしたダッシュボード、`✏️編集`で5行の入力フォームに変わる（開閉状態はモジュール変数`_hdCountOpen`、非永続）。**0件の区分は`.hdash-tile.zero`で彩度を落とす** — 実際に実施した区分へ目が行くようにするための減算で、意図的な差。**特殊治療は件数だけでなく治療名をタグで出す**。同じ治療が複数あれば `PMX ×2` に集約する。**治療を選ぶ前の空行は件数から除く** — 読み取りは必ず `hdCountSpFilled(dat)`（＝`hdCountSpArr(dat).filter(Boolean)`）を通すこと。`hdCountSpArr` は編集フォームの行数をそのまま返すので、行の描画にだけ使う。編集中は入力のたびに全体を再描画せず `.hdash-total b` の合計だけ差し替える（フォーカスを保つため）。ロックは新規IDを作らずCE側の`ops`ロックを流用。マスタ`D.hdTreatments`は`D.wdDepts`と同型の単純文字列配列（Dの5箇所ルール＋バックアップ3配列に登録済み）。
 
-**HD集計タブ（`renderHdSummary()`）**：`dat.hdCount`の期間集計。サイドバーの`#tab-hdsum`/`#pane-hdsum`はCE/HD共通の他コンテンツタブと同じ`swTab`の`tabs`/`contentPanes`配列に含まれるが、表示は`updateTabVisibility()`が`_viewMode==='hd'`のときだけ`tab-hdsum`を出す形で制御する（パーミッションではなく主観モードのみで出し分け——`renderPageHD`のロック流用方針と同じく全ユーザー対象）。CE主観へ戻したとき`curTab==='hdsum'`のままだと非表示タブの中身が残り続けるため、`updateTabVisibility()`が自動的に`swTab('cal')`へ退避させる。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
+**HD集計（`renderHdSummary()`）**：`dat.hdCount`の期間集計。📈 集計タブ（`pane-sum`）の `subpane-hd` にCE集計・OC集計と並べて置く。**主観でもパーミッションでも出し分けない**——集計は「どちらの目で見るか」に依らない事実なので、CE主観からもHD集計が見える（逆も同様）。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
 
-**HDモードのタブ構成**：`updateTabVisibility()` が `_viewMode` を見て、担当表（`assign`＝OC集計・業務集計・公平性を含む）をHD主観では丸ごと隠し、HD集計（`hdsum`）を出す。残る 予定 / マイ担当 / タスク / 資料 は両モード共通、管理者専用タブ（スタッフ・ロック・ログ・管理資料）はHD主観でも管理者には出したままにする（モード切替はボタン1回なので締め出さない）。業務タブ（`master`）はタブ自体は両モードで出し、**中身のセクションを `data-mode` で出し分ける**（pane-master Section Gating 節を参照）——HD主観ではHD共通業務・HD曜日別業務・HD特殊治療マスタと、CE/HD共通の設置部署マスタだけが残る。
+**HDモードのタブ構成**：**タブの並び自体は主観で変わらない**（予定 / 担当表 / 集計 / タスク / 資料、＋管理者専用タブ）。主観で切り替わるのは担当表タブの中のサブタブだけで、`updateTabVisibility()` が HD主観で `subtab-at`（CE担当表）と `subtab-fair`（公平性）を隠す。管理者専用タブはHD主観でも管理者には出したままにする（モード切替はボタン1回なので締め出さない）。マスタタブ（`master`）はタブ自体は両モードで出し、**中身のセクションを `data-mode` で出し分ける**（pane-master Section Gating 節を参照）——HD主観ではHD共通業務・HD曜日別業務・HD特殊治療マスタと、CE/HD共通の設置部署マスタだけが残る。
 
 **マイ担当（`renderMySchedule`）はHDの役割も出す**：CE担当枠（`getDutyCfg`＋`dat.duties`）とスケジュールブロックに加えて、`buildHdRoster(ds)` から自分の行のシフトコード（M・A1・準夜等）を `🩸 ` 付きで並べる。**`_viewMode` で分岐させない** — その人がその日HD勤務かどうかは主観と無関係な事実で、HD勤務が無い人は `getShiftForDay(ds).hd` に載らず何も出ない。`buildHdRoster` 経由なので `dat.hdDuty.overrides` の手動修正も反映される。
 
@@ -599,9 +627,20 @@ Storage paths: `manual/{taskName}/…`, `memo/{ds}/…`, `memo/{ds}/reply_…`, 
 
 All image/video uploads (memo, memo reply, board post, board reply, manual, task) display immediately regardless of uploader — there is no admin approval gate. This was removed after real-world feedback that the review step was unnecessary friction; the earlier `pending: true` flag, the approve/reject UI, and the toolbar's pending-count badge were deleted outright rather than left dormant, since nothing sets `pending` anymore and no legacy `pending:true` records are known to exist in production. If a stray `pending:true` value is ever found on an old record, it is simply inert — no code reads that field anymore, so the media just displays like any other.
 
-### Fairness Check
+### Fairness Check（CE公平性 / HD公平性）
 
-`renderFairness()` — 4th subtab of the assignment pane. Counts duty assignments per staff×slot for `asY/asM`, shows a matrix with max(red)/min(blue) highlighting. Warns when any column's max−min ≥ `FAIR_GAP_WARN` (default 3). Hidden staff (`D.stfHidden`) are filtered from the matrix.
+担当表タブのサブタブ2枚。どちらも `asY/asM` の1か月ぶんを「スタッフ×列」の回数マトリクスにし、列ごとに最多(赤)/最少(青)を強調、`max−min ≥ FAIR_GAP_WARN`（既定3）で偏り警告を出す。`D.stfHidden` のスタッフは除外する。
+
+| | 数える対象 | 列 | データ元 |
+|---|---|---|---|
+| `renderFairness()`（CE公平性） | CE担当枠の割り当て回数 | `FAIR_MERGE` で束ねた枠名 | `pg.duties` ＋ `getDutyCfg(pg)` |
+| `renderHdFairness()`（HD公平性） | HDの役割が当たった回数 | `HD_DAY_CODES` 順（M→A1→…→B）＋ 準夜 ＋ 未知コード | `hdShiftWorkers(ds)` |
+
+**表の組み立ては `fairnessHTML(o)` に集約してある。** CE版とHD版で違うのは「何を数えるか」だけで、最多/最少のハイライト・偏り警告・出勤日数バーは同じなので、ここを複製しないこと（CE/HDの双子関数がこれ以上増えるのを避ける）。`o` は `{counts, labelsOrder, workedDays, periodLabel, totalHead, dayUnit, note, emptyMsg}`。
+
+- HD側が `buildHdRoster` ではなく **`hdShiftWorkers(ds)` を直接使う**のは、並べ替えや行の組み立てが要らないため。どちらも同じ関数を通るので、日ページのHD担当表で担当を差し替えた分（`dat.hdDuty.overrides`）は自動で反映される。
+- 準夜は `getShiftForDay` が `shift:'準', night:true` に正規化して返すので、`h.night` を見て `'準夜'` の1列に寄せる。`'準'` と `'準夜'` の表記ゆれを列として分けないこと。
+- 警告列のヘッダーは地を `--warn-fg` で塗るので、文字色に `--sur` を当てて反転させている（これが無いとライトは暗地に暗字、ダークは明地に明字で読めない）。
 
 ### Task Management (`/tasks`)
 
@@ -657,11 +696,11 @@ Self-only notes shown at the bottom of the タスク tab (`#pane-task`). **Separ
 - `_sumMode` (`'month'|'year'|'range'`), `_sumFrom`, `_sumTo` — module-level state shared by all three.
 - `sumRange()` → `{from, to, label, multi}` (`multi` = spans more than one calendar month).
 - `sumDsList()` → existing `D.pages` keys inside the range, sorted (string compare works for `YYYY-MM-DD`).
-- `sumCtlHTML(pfx)` renders the 月／年／期間指定 switcher; `pfx` (`'oc'`/`'ops'`/`'hd'`) keeps the date-input ids unique because all three panes are in the DOM at once (though `hd`'s pane, `#pane-hdsum`, is only a `.stab`-visible tab in HD mode — see HD主観モード section).
+- `sumCtlHTML(pfx)` renders the 月／年／期間指定 switcher; `pfx` (`'oc'`/`'ops'`/`'hd'`) keeps the date-input ids unique because all three subpanes are in the DOM at once. 期間の指定・前後の月移動は `sumCtlHTML` が自前で持つので、`pane-sum` のヘッダーには月ナビを置かない（置くと同じ操作が画面に2つ並ぶ）。
 
 When `multi` is true all three renderers add a per-month breakdown, the ops trend graph buckets by month instead of week (bar width shrinks via `BW`/`BG` so 12 groups still fit), and date cells show `M/D` instead of `D日`. `exportOcCsv()` / `exportOpsCsv()` / `exportHdCsv()` follow the same range and name the file via `sumFileLabel()`.
 
-`setSumMode(m)` and `applySumRange(pfx)` call all three renderers unconditionally (`renderOCSummary(); renderOpsSummary(); renderHdSummary();`) regardless of which pane is actually visible — each renderer's own `if(!el) return` (element-existence, not visibility) is the only guard, and writing into a hidden pane's `innerHTML` is harmless. The calendar month-nav `asPrevM()`/`asNextM()`, by contrast, checks each pane/subpane's `style.display!=='none'` before calling its renderer (`subpane-oc`/`subpane-ops`/`pane-hdsum`), since walking `D.pages` on every month click is wasted work when nothing will be shown — follow this existing asymmetry (unconditional in the two setters, display-gated in the month-nav) rather than "fixing" it to be consistent.
+`setSumMode(m)` and `applySumRange(pfx)` call all three renderers unconditionally (`renderOCSummary(); renderOpsSummary(); renderHdSummary();`) regardless of which pane is actually visible — each renderer's own `if(!el) return` (element-existence, not visibility) is the only guard, and writing into a hidden pane's `innerHTML` is harmless. The calendar month-nav `asPrevM()`/`asNextM()`, by contrast, checks whether `pane-sum` is open and re-renders only `_curSumTab`'s sheet, since walking `D.pages` on every month click is wasted work when nothing will be shown — follow this existing asymmetry (unconditional in the two setters, display-gated in the month-nav) rather than "fixing" it to be consistent.
 
 ### Memo Move-to-Another-Day
 

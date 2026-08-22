@@ -9,6 +9,18 @@
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0a0a">
+<script>
+/* CSSより先に data-theme を当てる（init() を待つと、暗い設定の端末で
+   一瞬ライトの画面が見えてしまうため）。ロジック本体は applyTheme() 側。 */
+(function(){
+  try {
+    var v = localStorage.getItem('ce2_theme');
+    var eff = (v === 'light' || v === 'dark') ? v
+      : ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', eff);
+  } catch (e) {}
+})();
+</script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -34,8 +46,24 @@
   --rd:#c0392b;--rd-bg:#fdecea;
   --gd:#b45309;--gd-bg:#fffbeb;--gd-bdr:#fcd34d;
   --oc:#0369a1;--oc-bg:#e0f2fe;--oc-bdr:#7dd3fc;
+  --rd-bdr:#f5b8b8;
+  /* --ac-bg より一段濃い青。担当表のホバー時に日付列(td.sc)を通常セルと見分けるのに使う */
+  --ac-bg2:#e4eafc;
+  /* 注意喚起（PHI警告・OCアラート・PSGバナー）で共有する黄色系 */
+  --warn-bg:#fffbeb;--warn-fg:#b45309;--warn-fg2:#78350f;--warn-bdr:#f59e0b;
+  /* トースト・自動ログアウト警告。ライトでは地と反転した暗色 */
+  --toast-bg:#1e293b;--toast-fg:#fff;--toast-warn:#b45309;
+  /* 意味色をベタ塗りした上に載せる文字色。ライトは意味色が濃いので白、
+     ダークは意味色を明るくしてあるので地の色を当てて反転させる（白のままだと
+     コントラストが2倍前後まで落ち、10pxのバッジが読めなくなる） */
+  --on-ac:#fff;
+  /* 患者個人情報の警告。通常の --rd より鮮やかにして、他の赤より強く目に入るようにする */
+  --alert-fg:#7f1d1d;--alert-bg:#fef2f2;--alert-bdr:#ef4444;
+  /* 資料ページのコードブロック */
+  --code-bg:#1e1e1e;--code-fg:#d4d4d4;
   --fn:'Noto Sans JP',sans-serif;--mo:'DM Mono',monospace;
   --r:10px;--rs:6px;
+  color-scheme:light;
   --sh:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
   --shl:0 8px 32px rgba(0,0,0,.14);
   --sw:290px;--th:52px;
@@ -71,7 +99,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .stab{flex:0 0 auto;padding:9px 12px;font-size:11px;font-weight:700;text-align:center;cursor:pointer;color:var(--txt2);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
 .stab.on{color:var(--ac);border-bottom-color:var(--ac);background:var(--ac-bg)}
 .stab:hover{background:var(--sur2)}
-.tab-badge{display:inline-block;background:var(--rd);color:#fff;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:3px;vertical-align:middle;line-height:1.4}
+.tab-badge{display:inline-block;background:var(--rd);color:var(--on-ac);border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;margin-left:3px;vertical-align:middle;line-height:1.4}
 .brd-post{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:11px 13px;margin-bottom:8px}
 .brd-post.pin{border-color:var(--or);background:color-mix(in srgb,var(--or) 6%,var(--sur2))}
 .brd-post.resolved{opacity:0.6}
@@ -99,7 +127,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .cd{border-radius:5px;min-height:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;transition:background .1s;position:relative;font-size:12px}
 .cd:hover{background:var(--ac-bg)}
 .cd.emp{cursor:default;pointer-events:none}
-.cd.tod .dn{background:var(--ac);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
+.cd.tod .dn{background:var(--ac);color:var(--on-ac);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px}
 .cd.sel{background:var(--ac-bg);outline:2px solid var(--ac)}
 .cd.hp::after{content:'';position:absolute;bottom:2px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:var(--rd);transition:background .3s}
 .cd.hp.dp::after{background:var(--ac)}
@@ -121,11 +149,11 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .ar{display:flex;gap:5px;margin-top:4px}
 .ar input{flex:1;font-size:12px;border:1px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur);outline:none;font-family:var(--fn)}
 .ar input:focus{border-color:var(--ac)}
-.ar button{font-size:12px;font-weight:700;padding:6px 11px;border-radius:var(--rs);border:none;background:var(--ac);color:#fff;cursor:pointer;white-space:nowrap}
+.ar button{font-size:12px;font-weight:700;padding:6px 11px;border-radius:var(--rs);border:none;background:var(--ac);color:var(--on-ac);cursor:pointer;white-space:nowrap}
 .pn{font-size:11px;color:var(--txt3);line-height:1.6;padding:7px 9px;background:var(--sur2);border-radius:5px;border:1px solid var(--bdr)}
 .wdt{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:8px}
 .wdtb{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid var(--bdr);color:var(--txt2);transition:all .15s}
-.wdtb.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.wdtb.on{background:var(--ac);color:var(--on-ac);border-color:var(--ac)}
 .lkr{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--sur);border:1px solid var(--bdr);border-radius:var(--rs);margin-bottom:5px}
 .lkrl{font-size:12px;font-weight:500;display:flex;align-items:center;gap:7px}
 .lkt{position:relative;width:38px;height:20px;flex-shrink:0}
@@ -135,7 +163,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .lkt input:checked+.lks{background:var(--rd)}
 .lkt input:checked+.lks::before{transform:translateX(18px)}
 .lkb{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
-.lkb.lk{background:var(--rd-bg);color:var(--rd);border:1px solid #f5b8b8}
+.lkb.lk{background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd-bdr)}
 .lkb.ul{background:var(--gr-bg);color:var(--gr);border:1px solid #a7d9d0}
 .sbf{padding:11px 13px;border-top:1px solid var(--bdr);flex-shrink:0}
 .sbf p{font-size:11px;color:var(--txt3);margin-bottom:7px;line-height:1.5}
@@ -190,8 +218,8 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .cbar.ref .cbar-txt{color:var(--txt3)}
 .cbar-mine{font-size:11px;color:var(--txt3);white-space:nowrap}
 .cbar-toggle{font-size:11px;font-weight:700;padding:5px 10px;border-radius:14px;border:1.5px solid var(--bdr2);background:var(--sur);color:var(--txt2);cursor:pointer;white-space:nowrap;flex-shrink:0}
-.cbar-toggle.active{background:var(--ac);border-color:var(--ac);color:#fff}
-.cbar-next{font-size:12px;font-weight:700;padding:6px 12px;border-radius:14px;border:none;background:var(--ac);color:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.cbar-toggle.active{background:var(--ac);border-color:var(--ac);color:var(--on-ac)}
+.cbar-next{font-size:12px;font-weight:700;padding:6px 12px;border-radius:14px;border:none;background:var(--ac);color:var(--on-ac);cursor:pointer;white-space:nowrap;flex-shrink:0}
 .cbar-detail{position:absolute;left:0;right:0;bottom:100%;background:var(--sur);border-top:1.5px solid var(--bdr2);box-shadow:0 -4px 10px rgba(0,0,0,.08);max-height:50vh;overflow-y:auto;padding:4px 10px}
 .cbar-row{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--bdr);cursor:pointer}
 .cbar-row:last-child{border-bottom:none}
@@ -251,11 +279,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .surplus-hd .surplus-ttl{margin-bottom:0}
 .hd-toggle-btn{font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;border:1.5px solid var(--pu);background:var(--pu-bg);color:var(--pu);cursor:pointer;white-space:nowrap}
 .hd-toggle-btn:hover{opacity:.8}
-.hd-toggle-btn.active{background:var(--pu);color:#fff}
+.hd-toggle-btn.active{background:var(--pu);color:var(--on-ac)}
 .hd-panel{display:flex;flex-wrap:wrap;gap:6px;min-height:24px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr2)}
 /* #mode-toggle（🩺CE/🩸HD切替ボタン、.tb-btns内）— HDモード中は紫地に変える。updateModeToggleBtnがJS側でクラスを付け外しするだけで、
    この色指定自体は今まで存在しなかった（HDモードにしても見た目が変わらない不具合の原因）。 */
-#mode-toggle.hd-on{background:var(--pu);color:#fff;border-color:var(--pu)}
+#mode-toggle.hd-on{background:var(--pu);color:var(--on-ac);border-color:var(--pu)}
 .pchip.hd{background:var(--pu-bg);color:var(--pu);border:1.5px solid var(--pu)}
 .pchip.hd.night{background:var(--or-bg);color:var(--or);border-color:var(--or)}
 /* .pchip.sp の "sp" は サイドバーのスクロール枠 .sp（flex:1 / flex-direction:column / overflow-y:auto）と
@@ -347,8 +375,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:0 2px;line-height:1;flex-shrink:0}
 .ops-item-del:hover{color:var(--rd)}
 .ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
-.ops-card-done-badge{display:inline-block;margin-left:8px;background:var(--gr);color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:2px 8px;vertical-align:middle}
-.ops-done-btn.on{background:var(--gr);color:#fff}
+.ops-card-done-badge{display:inline-block;margin-left:8px;background:var(--gr);color:var(--on-ac);font-size:10px;font-weight:700;border-radius:10px;padding:2px 8px;vertical-align:middle}
+.ops-done-btn.on{background:var(--gr);color:var(--on-ac)}
 .ops-item-wrap.ops-item-done{opacity:.45;filter:grayscale(.6);transition:opacity .2s}
 .ops-meta-lbl{font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0}
 .ops-staff-row,.ops-end-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:2px 0 4px}
@@ -359,7 +387,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-staff-add:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-bg)}
 .ops-end-time{font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:3px 6px;background:var(--sur2);color:var(--txt)}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
-.ops-add-btn:hover{background:var(--ac);color:#fff}
+.ops-add-btn:hover{background:var(--ac);color:var(--on-ac)}
 
 /* ===== 集計画面（OC集計・業務集計）共通UI =====
    期間・ビュー切替は同じ視覚言語の「セグメントコントロール」に統一し、バッジ・カード・
@@ -367,6 +395,50 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
    担当枠チップ（dutyColorFor）と同じ色相を再利用して画面をまたいだ一貫性を作る：
    オペ=青(slot_ope)、カテ=バラ(slot_cath)、フリー=ティール(slot_free) と揃え、
    6MW=緑・PSGはPSG外しバナーと同じ琥珀。 */
+/* ===== ダークモード =====
+   :root の変数だけを差し替える。色指定の大半（1600箇所以上）が var() 経由なので、
+   ここを上書きすれば自動的に追従する。
+   医療用途で色に意味を持たせている（🔴未了・🟢完了・🟠注意・🟣HD）ため、
+   単純な明暗反転はしない。暗背景では彩度が飛んで見分けが付かなくなるので、
+   意味色は明度を上げて彩度を落とし、背景色(--*-bg)は「地に溶ける濃さ」に置き換える。
+   data-theme には常に light/dark のどちらかが入る（'auto' は applyTheme が解決してから書く）
+   ので、ここ1ブロックだけで済む。@media (prefers-color-scheme) 版は作らないこと。 */
+/* 画面表示のときだけ効かせる。印刷ではこのブロック自体が適用されず、
+   :root のライト値がそのまま使われる（紙用パレットを別に転記しなくて済む） */
+@media screen{
+  :root[data-theme="dark"]{
+    --bg:#15161a;--sur:#1e2026;--sur2:#25272e;--bdr:#33363f;--bdr2:#4a4e59;
+    --txt:#e8e9ec;--txt2:#a8abb4;--txt3:#767b86;
+    /* 意味色：暗背景でも読める明度まで上げる。地(--*-bg)は本体色を10%前後で溶かした濃さ */
+    --ac:#6d9eff;--ac-bg:#1c2740;
+    --or:#f0a94a;--or-bg:#33260f;
+    --gr:#4fc4a8;--gr-bg:#123028;
+    --pu:#b28ce8;--pu-bg:#2a2140;
+    --rd:#ff7b6b;--rd-bg:#3a1f1c;
+    --gd:#e8a33d;--gd-bg:#332818;--gd-bdr:#7a5c22;
+    --oc:#5cb8f0;--oc-bg:#132c3d;--oc-bdr:#2d5c78;
+    --rd-bdr:#6b3a34;
+    --ac-bg2:#25355c;
+    /* 注意喚起：暗い琥珀の地＋明るい文字。白い箱が黒画面で光らないようにする */
+    --warn-bg:#33260f;--warn-fg:#f0b95a;--warn-fg2:#e8c88a;--warn-bdr:#8a6a2a;
+    /* トーストは地(--bg)より明るくして浮かせる（ライトと逆の関係になる） */
+    --toast-bg:#333947;--toast-fg:#f2f3f5;--toast-warn:#8a5a12;
+    --on-ac:#15161a;
+    --alert-fg:#ffb0a4;--alert-bg:#40201c;--alert-bdr:#ff6a55;
+    --code-bg:#101216;--code-fg:#cfd3da;
+    /* ブラウザ既定のフォーム部品（背景色を指定していない input/textarea/select、
+       日付・時刻ピッカー、スクロールバー）もまとめて暗くする */
+    color-scheme:dark;
+    /* 影は暗背景では黒を重ねても沈まないので、より濃く・広く取る */
+    --sh:0 1px 4px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.3);
+    --shl:0 8px 32px rgba(0,0,0,.6);
+  }
+
+  /* 集計グラフ・バッジの系列色。ライトでは濃い色でよいが、暗背景では沈むので明るくする */
+  :root[data-theme="dark"]{
+    --sum-ope:#7aa5ff;--sum-cath:#f07ab0;--sum-mw:#4fc4a8;--sum-psg:#e8a33d;--sum-free:#4fbfae;
+  }
+}
 :root{
   --sum-ope:#1d4ed8;--sum-cath:#be185d;--sum-mw:#0e6e5e;--sum-psg:#b45309;--sum-free:#0f766e;
 }
@@ -422,7 +494,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .tree-add-row{display:flex;gap:4px;margin-top:4px}
 .tree-add-row input{flex:1;font-size:11px;border:1px solid var(--bdr);border-radius:var(--rs);padding:4px 8px;outline:none;font-family:var(--fn)}
 .tree-add-row input:focus{border-color:var(--ac)}
-.tree-add-row button{font-size:11px;padding:4px 10px;border-radius:var(--rs);border:none;background:var(--ac);color:#fff;cursor:pointer;white-space:nowrap}
+.tree-add-row button{font-size:11px;padding:4px 10px;border-radius:var(--rs);border:none;background:var(--ac);color:var(--on-ac);cursor:pointer;white-space:nowrap}
 /* 階層選択セレクト */
 .ops-hier-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}
 .ops-hier-row select{flex:1;min-width:100px;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;font-family:var(--fn)}
@@ -430,7 +502,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-hier-row input{flex:1.5;min-width:120px;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn)}
 @media(max-width:768px){.ops-hier-row select,.ops-hier-row input{flex:1 1 100%}}
 .clg{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;margin-bottom:9px;box-shadow:var(--sh)}
-.clg.lg{border-color:#f5b8b8;background:#fffcfc}
+.clg.lg{border-color:var(--rd-bdr);background:var(--sur2)}
 .clt{font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px}
 .wb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--or-bg);color:var(--or)}
 .cli{display:flex;align-items:flex-start;gap:9px;padding:5px 3px;border-radius:4px;transition:background .1s}
@@ -459,12 +531,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pgp{font-size:17px;font-weight:900;color:var(--ac);font-family:var(--mo);min-width:44px;text-align:right}
 .pgp.dn{color:var(--gr)}
 .ops-item-wrap+.ops-item-wrap{border-top:1px solid var(--bdr);margin-top:8px;padding-top:8px}
-#scroll-top-btn{position:fixed;right:20px;bottom:80px;z-index:400;width:44px;height:44px;border-radius:50%;background:#fdfbf0;color:var(--txt2);border:1.5px solid var(--bdr);cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);display:none;align-items:center;justify-content:center;transition:opacity .2s}
+#scroll-top-btn{position:fixed;right:20px;bottom:80px;z-index:400;width:44px;height:44px;border-radius:50%;background:var(--sur2);color:var(--txt2);border:1.5px solid var(--bdr);cursor:pointer;font-size:11px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.15);display:none;align-items:center;justify-content:center;transition:opacity .2s}
 #scroll-top-btn.show{display:flex}
 .btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:7px 14px;border-radius:var(--rs);border:none;cursor:pointer;transition:all .15s;font-family:var(--fn)}
-.btn-p{background:var(--ac);color:#fff}.btn-p:hover{background:#1744b8}
+.btn-p{background:var(--ac);color:var(--on-ac)}.btn-p:hover{background:#1744b8}
 .btn-g{background:var(--sur);color:var(--txt);border:1px solid var(--bdr2)}.btn-g:hover{background:var(--bg)}
-.btn-d{background:var(--rd-bg);color:var(--rd);border:1px solid #f5b8b8}
+.btn-d{background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd-bdr)}
 .btn-sm{padding:5px 11px;font-size:11px}
 .btn-fw{width:100%;justify-content:center}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -506,7 +578,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* Modal Dialog */
 .mdb{display:flex;gap:8px;justify-content:flex-end}
 .btn{padding:8px 16px;border-radius:var(--rs);border:none;font-weight:700;cursor:pointer;font-size:12px;transition:all .15s}
-.btn-p{background:var(--ac);color:#fff}
+.btn-p{background:var(--ac);color:var(--on-ac)}
 .btn-p:hover{background:#1a4fc1}
 .btn-g{background:var(--sur2);color:var(--txt2);border:1px solid var(--bdr)}
 .btn-g:hover{background:var(--bdr)}
@@ -518,8 +590,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 #at-zoom-inner{transform-origin:0 0;display:inline-block;min-width:100%}
 .at-zoom-bar{display:none;gap:4px;margin-bottom:6px}
 .at{border-collapse:collapse;min-width:100%;font-size:11px;background:var(--sur)}
-.at th{background:#f0efeb;font-weight:700;color:var(--txt2);padding:6px 8px;border:1px solid var(--bdr);white-space:nowrap;text-align:center}
-.at th.sh{background:#e8e6e1;min-width:72px;text-align:left;position:sticky;left:0;z-index:3}
+.at th{background:var(--sur2);font-weight:700;color:var(--txt2);padding:6px 8px;border:1px solid var(--bdr);white-space:nowrap;text-align:center}
+.at th.sh{background:var(--bdr);min-width:72px;text-align:left;position:sticky;left:0;z-index:3}
 .at td{padding:5px 6px;border:1px solid var(--bdr);text-align:center;vertical-align:middle}
 .at td.sc{background:var(--sur2);font-weight:700;font-size:11px;text-align:left;border-right:2px solid var(--bdr2);white-space:nowrap;position:sticky;left:0;z-index:2}
 .at td.sc.hpc{border-left:4px solid var(--rd)}
@@ -527,15 +599,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .at th.self-col{background:var(--ac-bg)!important;color:var(--ac);font-weight:900;box-shadow:inset 0 -2px 0 var(--ac)}
 .at td.self-col{background:rgba(49,130,206,.06)!important}
 .atr{cursor:pointer}
-.atr:hover td{background:#f0f4ff!important}
-.atr:hover td.sc{background:#e4eafc!important}
+.atr:hover td{background:var(--ac-bg)!important}
+.atr:hover td.sc{background:var(--ac-bg2)!important}
 .dch{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.4;margin:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.dc-o{background:#dbeafe;color:#1d4ed8}
-.dc-os{background:#e0e7ff;color:#4338ca}
-.dc-c{background:#fce7f3;color:#be185d}
-.dc-cs{background:#fdf2f8;color:#9d174d}
-.dc-w{background:#d1fae5;color:#065f46}
-.dc-dv{background:#fef3c7;color:#92400e}
 .dc-n{color:var(--txt3);font-size:10px}
 .dhw{font-size:9px;font-weight:700;display:inline-block}
 .dhw.su{color:var(--rd)}.dhw.sa{color:var(--ac)}
@@ -543,7 +609,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ali{display:flex;align-items:center;gap:3px}
 .ndm{text-align:center;padding:36px;color:var(--txt3);font-size:13px}
 .ph{display:none}
+/* 背景を指定していない入力欄がブラウザ既定の白のまま残らないようにする。
+   詳細度が低いので、クラスで色を持っている入力欄には影響しない。
+   チェックボックス／ラジオ／色ピッカーは既定の描画に任せる。 */
+input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{background:var(--sur);color:var(--txt)}
 @media print{
+  /* 紙は常に白。ダークのパレットは @media screen 限定なので、印刷では自動的にライトの :root 値に戻る */
   body{background:#fff!important;font-size:10px}
   .tb,.atnav .btn,.ov{display:none!important}
   /* 担当表の印刷（🖨️ボタン）時のみレイアウトを切替。通常のCtrl+Pでは既定のまま。
@@ -568,13 +639,16 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   body.printing-sub .sb{display:block!important;position:static!important;width:auto!important;min-width:0!important;height:auto!important;border:none!important;overflow:visible!important;transform:none!important}
   body.printing-sub .stabs{display:none!important}
   body.printing-sub .atnav{display:none!important}
-  body.printing-sub .sb>:not(#pane-assign){display:none!important}
-  body.printing-sub #pane-assign{display:block!important;position:static!important;top:auto!important;bottom:auto!important;height:auto!important;flex:none!important;overflow:visible!important}
+  body.printing-sub .sb>:not(#pane-assign):not(#pane-sum){display:none!important}
+  body.printing-sub #pane-assign,body.printing-sub #pane-sum{display:block!important;position:static!important;top:auto!important;bottom:auto!important;height:auto!important;flex:none!important;overflow:visible!important}
   body.printing-sub [id^="subpane-"]{display:none!important}
   body[data-print-sub="at"] #subpane-at{display:block!important}
-  body[data-print-sub="oc"] #subpane-oc{display:block!important}
-  body[data-print-sub="ops"] #subpane-ops{display:block!important}
+  body[data-print-sub="my"] #subpane-my{display:block!important}
   body[data-print-sub="fair"] #subpane-fair{display:block!important}
+  body[data-print-sub="hdfair"] #subpane-hdfair{display:block!important}
+  body[data-print-sub="ops"] #subpane-ops{display:block!important}
+  body[data-print-sub="oc"] #subpane-oc{display:block!important}
+  body[data-print-sub="hd"] #subpane-hd{display:block!important}
   .ops-det-tbl tr{page-break-inside:avoid}
   @page{margin:10mm;size:A4 landscape}
 }
@@ -616,7 +690,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .sb{position:fixed;top:var(--th-all);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th-all))!important;overflow-y:auto}
   .sb.hm{transform:translateX(-100%)}
   /* スマホではpane-assignをfixedで全画面表示（sbと同様）。スケジュールはモーダル化したため対象外 */
-  #pane-assign{position:fixed;top:var(--th-all);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
+  #pane-assign,#pane-sum{position:fixed;top:var(--th-all);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
   .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
@@ -663,7 +737,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* ===== LOGIN ===== */
 #login-ov{position:fixed;inset:0;background:rgba(30,29,26,.72);z-index:9999;display:flex;align-items:center;justify-content:center}
 #login-ov.hd{display:none}
-.login-box{background:#fff;border-radius:16px;padding:36px 32px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.22)}
+.login-box{background:var(--sur);border-radius:16px;padding:36px 32px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.22)}
 .login-box h2{font-size:20px;font-weight:900;color:var(--ac);margin-bottom:6px;text-align:center}
 .login-box p{font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px}
 .login-box input{width:100%;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:9px 12px;font-size:14px;margin-bottom:10px;outline:none;font-family:var(--fn)}
@@ -684,9 +758,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .login-link{display:inline-block;font-size:12px;color:var(--ac);cursor:pointer;margin:2px 0 12px;text-decoration:underline;background:none;border:none;padding:0}
 .login-link:hover{opacity:.8}
 /* 自動ログアウト警告 */
-#idle-warn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1e1e1e;color:#fff;border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;z-index:9998;display:none;gap:14px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+#idle-warn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-fg);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;z-index:9998;display:none;gap:14px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 #idle-warn.show{display:flex}
-#idle-warn button{background:var(--ac);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
+#idle-warn button{background:var(--ac);color:var(--on-ac);border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer}
 /* ===== USER BADGE ===== */
 .uc-name{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--ac-bg);border:1px solid var(--ac);color:var(--ac);cursor:default}
 .uc-name.admin{background:var(--gd-bg);border-color:var(--gd-bdr);color:var(--gd)}
@@ -741,19 +815,19 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-input-row textarea:focus{border-color:var(--ac);background:var(--ac-bg)}
 .memo-input-area{display:flex;flex-direction:column;gap:6px}
 /* 患者情報注意書き */
-.memo-notice{font-size:11px;color:var(--txt3);background:var(--or-bg,#fffbeb);border:1px solid var(--or,#f59e0b);border-radius:6px;padding:5px 10px;line-height:1.5}
+.memo-notice{font-size:11px;color:var(--txt3);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:5px 10px;line-height:1.5}
 /* 患者情報検知警告コンテナ */
 .memo-phi-warn{display:flex;flex-direction:column;gap:6px}
 /* 🚨 赤ボックス（明確な患者情報） */
-.memo-phi-red{font-size:12px;color:#7f1d1d;background:#fef2f2;border:1.5px solid #ef4444;border-radius:6px;padding:9px 12px;line-height:1.7}
+.memo-phi-red{font-size:12px;color:var(--alert-fg);background:var(--alert-bg);border:1.5px solid var(--alert-bdr);border-radius:6px;padding:9px 12px;line-height:1.7}
 .memo-phi-red strong{display:block;margin-bottom:3px;font-size:13px;color:#c0392b}
 /* ⚠️ 黄ボックス（連合会認可形式） */
-.memo-phi-yellow{font-size:12px;color:#78350f;background:#fffbeb;border:1.5px solid #f59e0b;border-radius:6px;padding:9px 12px;line-height:1.7}
-.memo-phi-yellow strong{display:block;margin-bottom:3px;font-size:13px;color:#b45309}
+.memo-phi-yellow{font-size:12px;color:var(--warn-fg2);background:var(--warn-bg);border:1.5px solid var(--warn-bdr);border-radius:6px;padding:9px 12px;line-height:1.7}
+.memo-phi-yellow strong{display:block;margin-bottom:3px;font-size:13px;color:var(--warn-fg)}
 /* 患者情報検知ポップアップ */
 .phi-sev{font-size:15px;font-weight:800;margin-bottom:10px;padding:9px 13px;border-radius:8px;text-align:center}
-.phi-sev-red{background:#fef2f2;color:#c0392b;border:1.5px solid #ef4444}
-.phi-sev-yellow{background:#fffbeb;color:#b45309;border:1.5px solid #f59e0b}
+.phi-sev-red{background:var(--alert-bg);color:var(--rd);border:1.5px solid var(--alert-bdr)}
+.phi-sev-yellow{background:var(--warn-bg);color:var(--warn-fg);border:1.5px solid var(--warn-bdr)}
 .phi-desc{font-size:12px;color:var(--txt2);margin-bottom:8px;line-height:1.7}
 .phi-list{margin:0 0 10px;padding:8px 12px 8px 28px;font-size:12px;color:var(--txt);background:var(--sur2);border:1px solid var(--bdr);border-radius:6px;line-height:1.7}
 .phi-list li{margin-bottom:2px}
@@ -810,12 +884,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .sp-media-item video{width:180px;height:100px;object-fit:cover;display:block}
 .sp-media-del{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
 .sp-media-add{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:6px 12px;cursor:pointer;width:fit-content}
-.sp-media-add:hover{background:var(--ac);color:#fff}
+.sp-media-add:hover{background:var(--ac);color:var(--on-ac)}
 .sp-lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .sp-lightbox img{max-width:90vw;max-height:90vh;border-radius:6px}
 .sp-edit-btn{font-size:12px;padding:5px 12px;border-radius:var(--rs);border:1.5px solid var(--bdr2);background:var(--sur2);color:var(--txt2);cursor:pointer;font-family:var(--fn)}
 .sp-edit-btn:hover{border-color:var(--ac);color:var(--ac)}
-.sp-save-btn{font-size:12px;padding:5px 14px;border-radius:var(--rs);background:var(--ac);color:#fff;border:none;cursor:pointer;font-family:var(--fn);font-weight:700}
+.sp-save-btn{font-size:12px;padding:5px 14px;border-radius:var(--rs);background:var(--ac);color:var(--on-ac);border:none;cursor:pointer;font-family:var(--fn);font-weight:700}
 .sp-save-btn:hover{opacity:.85}
 .sp-toolbar{display:flex;gap:8px;margin-bottom:12px;align-items:center}
 .sp-section{font-size:11px;font-weight:700;color:var(--txt3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
@@ -842,7 +916,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* PSG取り外し担当マーク：完了チェックではなく担当割り当て印 */
 .dc-cb-item.psg-duty{border-color:var(--pu);color:var(--pu);font-weight:600}
 .dc-cb-item.psg-duty:hover{border-color:var(--pu);opacity:.85}
-.dc-cb-item.psg-duty.checked{background:#f0ebff;border-color:var(--pu);color:var(--pu);font-weight:700}
+.dc-cb-item.psg-duty.checked{background:var(--pu-bg);border-color:var(--pu);color:var(--pu);font-weight:700}
 .dc-cb-item.psg-duty input{accent-color:var(--pu)}
 
 /* ===== 表示名変更モーダル ===== */
@@ -906,7 +980,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .cl-entry ul{margin:6px 0 0;padding-left:18px}
 .cl-entry li{font-size:12px;color:var(--txt);line-height:1.7;margin:2px 0}
 .cl-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:6px}
-.cl-tag-fix{background:var(--rd);color:#fff}.cl-tag-new{background:var(--gr);color:#fff}.cl-tag-imp{background:var(--ac);color:#fff}
+.cl-tag-fix{background:var(--rd);color:var(--on-ac)}.cl-tag-new{background:var(--gr);color:var(--on-ac)}.cl-tag-imp{background:var(--ac);color:var(--on-ac)}
 /* ===== タスク管理 ===== */
 .task-card{background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:9px 12px;margin:6px 0;border-left:3px solid var(--bdr2)}
 .task-card.st-todo{border-left-color:var(--or)}
@@ -944,7 +1018,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   .asub{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
 }
 /* ===== タブレット貸出・返却 ===== */
-.tbl-badge{display:inline-block;min-width:16px;padding:0 4px;margin-left:5px;font-size:10px;font-weight:700;color:#fff;background:var(--rd);border-radius:20px;text-align:center;line-height:16px}
+.tbl-badge{display:inline-block;min-width:16px;padding:0 4px;margin-left:5px;font-size:10px;font-weight:700;color:var(--on-ac);background:var(--rd);border-radius:20px;text-align:center;line-height:16px}
 .tbl-list{display:flex;flex-direction:column;gap:4px}
 .tbl-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;background:var(--sur2);border-left:3px solid var(--gr)}
 .tbl-row.out{border-left-color:var(--rd)}
@@ -1053,10 +1127,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
   #hd-roster-wrap select.hd-name-sel{border:none!important;background:transparent!important;-webkit-appearance:none;appearance:none;padding:0!important;color:inherit}
 }
 /* ===== 通知トースト ===== */
-.notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:#1e293b;color:#fff;padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
+.notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:var(--toast-bg);color:var(--toast-fg);padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
 @keyframes notifSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
 /* ===== 操作フィードバックのトースト（alert の置き換え） ===== */
-.fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:#fff;background:#1e293b;box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
+.fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:var(--toast-fg);background:var(--toast-bg);box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
 /* 消し込みバーが出ている間は、その高さぶん上へ逃がす（下端で重なると残り件数が読めなくなる） */
 /* 画面下端の固定要素も実測したバーの高さぶんだけ押し上げる（決め打ちの70/126pxをやめる） */
 body.has-cbar .fb-toast{bottom:calc(20px + var(--cbar-h, 0px))}
@@ -1064,17 +1138,17 @@ body.has-cbar #idle-warn{bottom:calc(20px + var(--cbar-h, 0px))}
 body.has-cbar .notif-toast{bottom:calc(80px + var(--cbar-h, 0px))}
 body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 .fb-toast.ok{background:#15803d}
-.fb-toast.warn{background:#b45309}
+.fb-toast.warn{background:var(--toast-warn)}
 .fb-toast.err{background:#b91c1c}
 .fb-toast .fb-toast-x{margin-left:4px;opacity:.7;font-size:12px;flex-shrink:0}
 @keyframes fbToastIn{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @media (prefers-reduced-motion:reduce){.fb-toast{animation:none}}
 .notif-time-row{display:flex;align-items:center;gap:6px;padding-left:2px;margin-top:2px;flex-wrap:wrap}
-.oc-alert-banner{background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;overflow:hidden}
+.oc-alert-banner{background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-bdr);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;overflow:hidden}
 </style>
 </head>
 <body>
-<div id="psg-removal-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:#fff3cd;color:#856404;border-bottom:2px solid #ffc107;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;font-size:14px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">🌙 PSG取り外しがあります<button onclick="document.getElementById('psg-removal-banner').style.display='none'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:#856404;line-height:1">✕</button></div>
+<div id="psg-removal-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:var(--warn-bg);color:var(--warn-fg);border-bottom:2px solid var(--warn-bdr);padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;font-size:14px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">🌙 PSG取り外しがあります<button onclick="document.getElementById('psg-removal-banner').style.display='none'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:var(--warn-fg);line-height:1">✕</button></div>
 <!-- ===== 表示名変更モーダル ===== -->
 <div id="modal-name" class="hd">
   <div class="name-box">
@@ -1166,6 +1240,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <span class="tb-sub">臨床工学部</span>
   <div class="tb-btns">
     <button class="btn btn-g btn-sm" id="mode-toggle" onclick="toggleViewMode()" title="CEモード（タップでHDモードへ切替）">🩺<span class="mt-text"> CE</span></button>
+    <button class="btn btn-g btn-sm" id="theme-toggle" onclick="cycleTheme()" title="表示テーマ">🌗<span class="mt-text"> 自動</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -1183,12 +1258,11 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <div class="stabs">
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
-      <div class="stab"     id="tab-my"     onclick="swTab('my')">👤 マイ担当</div>
+      <!-- 業務集計・OC集計・HD集計をまとめた集計タブ。CE/HDどちらの主観でも表示する -->
+      <div class="stab"     id="tab-sum"    onclick="swTab('sum')">📈 集計</div>
       <div class="stab"     id="tab-task"   onclick="swTab('task')">📋 タスク</div>
-      <!-- HDモードのときだけ表示（updateTabVisibility）。血液浄化件数(dat.hdCount)の期間集計 -->
-      <div class="stab"     id="tab-hdsum"  onclick="swTab('hdsum')"  style="display:none">🩸 HD集計</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
-      <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
+      <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 マスタ</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
       <div class="stab"     id="tab-logs"   onclick="swTab('logs')"   style="display:none">📋 ログ</div>
       <div class="stab"     id="tab-docs"   onclick="toggleDocsMenu()" style="display:none">🔑 管理資料 ▾</div>
@@ -1574,16 +1648,6 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     </div>
 
     <!-- HD集計パネル（HDモードのときだけタブが見える。血液浄化件数 dat.hdCount の期間集計） -->
-    <div id="pane-hdsum" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp">
-        <div class="pt" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <span>🩸 HD集計</span>
-          <button class="btn btn-g btn-sm" onclick="exportHdCsv()">📥 CSV出力</button>
-        </div>
-        <div id="hd-sum-body"></div>
-      </div>
-    </div>
-
     <!-- 操作マニュアルパネル（管理者向け詳細版） -->
     <div id="pane-manual" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
@@ -1680,12 +1744,6 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 
     <!-- マイ担当パネル。以前は担当表（pane-assign）のサブタブだったが、埋もれて気づかれにくいため
          タスクと同じくトップレベルのタブへ昇格した。CE/HD両モードで常時表示する -->
-    <div id="pane-my" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
-        <div id="my-body"></div>
-      </div>
-    </div>
-
   <!-- 担当表パネル（PC: サイドバー全幅拡張でメインエリア表示 / スマホ: fixed全画面表示） -->
   <div id="pane-assign" style="display:none;flex:1;overflow-y:auto">
     <div class="atw">
@@ -1701,12 +1759,12 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         <button id="btn-sub-csv" class="btn btn-g btn-sm" onclick="exportSubCsv()">📥<span class="btn-at-text"> CSV</span></button>
         <button id="btn-sub-print" class="btn btn-g btn-sm" onclick="printSubTab()">🖨️<span class="btn-at-text"> 印刷</span></button>
       </div>
-      <!-- サブタブ -->
+      <!-- サブタブ（📊担当表 はCE主観のみ。マイ担当は両主観で出す） -->
       <div class="asub" style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
         <button id="subtab-at" class="btn btn-g btn-sm" onclick="swSubTab('at')" style="border-radius:6px 6px 0 0;border-bottom:2px solid var(--ac);font-weight:700">📊 担当表</button>
-        <button id="subtab-oc" class="btn btn-g btn-sm" onclick="swSubTab('oc')" style="border-radius:6px 6px 0 0">📞 OC集計</button>
-        <button id="subtab-ops" class="btn btn-g btn-sm" onclick="swSubTab('ops')" style="border-radius:6px 6px 0 0">📈 業務集計</button>
-        <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0;display:none">⚖️ 公平性</button>
+        <button id="subtab-my" class="btn btn-g btn-sm" onclick="swSubTab('my')" style="border-radius:6px 6px 0 0">👤 マイ担当</button>
+        <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0;display:none">⚖️ CE公平性</button>
+        <button id="subtab-hdfair" class="btn btn-g btn-sm" onclick="swSubTab('hdfair')" style="border-radius:6px 6px 0 0;display:none">⚖️ HD公平性</button>
       </div>
       <!-- 担当表 -->
       <div id="subpane-at">
@@ -1718,18 +1776,51 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         </div>
         <div class="ato" id="ato-wrap"><div id="at-zoom-inner"><div id="at-body"></div></div></div>
       </div>
+      <!-- マイ担当（自分の担当枠・スケジュール・HD勤務のシフト） -->
+      <div id="subpane-my" style="display:none">
+        <div id="my-body"></div>
+      </div>
+      <!-- 公平性チェック（CE=担当枠 / HD=シフトコード。表の描画は fairnessHTML で共通） -->
+      <div id="subpane-fair" style="display:none">
+        <div id="fair-body"></div>
+      </div>
+      <div id="subpane-hdfair" style="display:none">
+        <div id="hdfair-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 集計パネル（業務集計・OC集計・HD集計）。CE/HDどちらの主観でも見られる。
+       期間の指定は各集計が自前で持つ sumCtlHTML（月／年／期間指定）で行うので、
+       ここの月ナビは asY/asM を動かす ‹ › だけを置いている。 -->
+  <div id="pane-sum" style="display:none;flex:1;overflow-y:auto">
+    <div class="atw">
+      <button id="sum-back-btn" class="btn btn-g btn-sm" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
+      <div class="ph" id="sum-ph"></div>
+      <!-- 期間の指定は各集計が自前で持つ sumCtlHTML（月／年／期間指定＋前後の月）が担うので、
+           ここには月ナビを置かない（置くと同じ操作が画面に2つ並ぶ） -->
+      <div class="atnav">
+        <span class="atml" id="summl">📈 集計</span>
+        <button id="btn-sum-csv" class="btn btn-g btn-sm" style="margin-left:auto" onclick="exportSumCsv()">📥<span class="btn-at-text"> CSV</span></button>
+        <button id="btn-sum-print" class="btn btn-g btn-sm" onclick="printSumTab()">🖨️<span class="btn-at-text"> 印刷</span></button>
+      </div>
+      <div class="asub" style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
+        <button id="sumtab-ops" class="btn btn-g btn-sm" onclick="swSumTab('ops')" style="border-radius:6px 6px 0 0;border-bottom:2px solid var(--ac);font-weight:700">📈 CE集計</button>
+        <button id="sumtab-oc"  class="btn btn-g btn-sm" onclick="swSumTab('oc')"  style="border-radius:6px 6px 0 0">📞 OC集計</button>
+        <button id="sumtab-hd"  class="btn btn-g btn-sm" onclick="swSumTab('hd')"  style="border-radius:6px 6px 0 0">🩸 HD集計</button>
+      </div>
+      <!-- 業務集計シート -->
+      <div id="subpane-ops">
+        <div id="ops-sum-body"></div>
+      </div>
       <!-- OC集計シート -->
       <div id="subpane-oc" style="display:none">
         <div style="margin-bottom:8px"><button class="btn btn-g btn-sm" onclick="openOcFlowModal()">📞 OC対応フローチャート</button></div>
         <div id="oc-sum-body"></div>
       </div>
-      <!-- 業務集計シート -->
-      <div id="subpane-ops" style="display:none">
-        <div id="ops-sum-body"></div>
-      </div>
-      <!-- 公平性チェック -->
-      <div id="subpane-fair" style="display:none">
-        <div id="fair-body"></div>
+      <!-- HD集計シート（血液浄化件数 dat.hdCount の期間集計） -->
+      <div id="subpane-hd" style="display:none">
+        <div id="hd-sum-body"></div>
       </div>
     </div>
   </div>
@@ -2003,7 +2094,50 @@ var DUTY_PALETTE = [
   {bg:'#fef9c3',fg:'#854d0e'}, {bg:'#e0e7ff',fg:'#3730a3'}, {bg:'#fce7f3',fg:'#9d174d'},
   {bg:'#ccfbf1',fg:'#115e59'}, {bg:'#fde68a',fg:'#92400e'}
 ];
+/* ライト用に作られた「淡い背景＋濃い文字」のペアを、暗背景でも読める組み合わせに変換する。
+   17組ある担当枠の色をダーク用に手書きし直すと二重管理になるので、文字色(fg)の色相を軸に
+   計算で作る：文字はそのまま明るく、背景は同じ色相を地に溶かした暗さにする。
+   var(...) を含む値（__free など）はそのままCSS変数に任せる。 */
+function _hexToRgb(h) {
+  h = String(h || '').replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  if (h.length !== 6 || /[^0-9a-fA-F]/.test(h)) return null;
+  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+}
+function _rgbToHsl(r,g,b) {
+  r/=255; g/=255; b/=255;
+  var mx=Math.max(r,g,b), mn=Math.min(r,g,b), h=0, sat=0, l=(mx+mn)/2, d=mx-mn;
+  if (d) {
+    sat = l > .5 ? d/(2-mx-mn) : d/(mx+mn);
+    if (mx===r) h=((g-b)/d+(g<b?6:0));
+    else if (mx===g) h=((b-r)/d+2);
+    else h=((r-g)/d+4);
+    h*=60;
+  }
+  return [h, sat, l];
+}
+function _hsl(h,s2,l) { return 'hsl('+Math.round(h)+','+Math.round(s2*100)+'%,'+Math.round(l*100)+'%)'; }
+var _dutyDarkCache = {};
+function darkenPair(c) {
+  if (!c) return c;
+  var key = c.bg + '|' + c.fg;
+  if (_dutyDarkCache[key]) return _dutyDarkCache[key];
+  var rgb = _hexToRgb(c.fg);
+  if (!rgb) { _dutyDarkCache[key] = c; return c; } /* var(--…) 等はCSS変数側で切り替わるので触らない */
+  var hsl = _rgbToHsl(rgb[0], rgb[1], rgb[2]);
+  var out = {
+    bg: _hsl(hsl[0], Math.min(hsl[1], .45), .16), /* 地に溶ける暗さ。彩度は上げすぎると濁る */
+    fg: _hsl(hsl[0], Math.min(hsl[1], .70), .72)  /* 暗背景で読める明度まで持ち上げる */
+  };
+  _dutyDarkCache[key] = out;
+  return out;
+}
+function themePair(c) { return effectiveTheme() === 'dark' ? darkenPair(c) : c; }
+
 function dutyColorFor(slot) {
+  return themePair(_dutyColorForRaw(slot));
+}
+function _dutyColorForRaw(slot) {
   if (!slot) return DUTY_PALETTE[0];
   if (slot.color && slot.color.bg) return slot.color; /* 将来、管理者が個別に色指定できるようにする場合の受け口 */
   if (slot.id && DUTY_LABEL_COLOR_MAP[slot.id]) return DUTY_LABEL_COLOR_MAP[slot.id]; /* __free/__oc 用 */
@@ -2269,6 +2403,7 @@ function dashJump(sel) {
 
 /* ===== INIT ===== */
 function init() {
+  applyTheme(); /* 描画前に当てる（後だとライトの画面が一瞬見える） */
   _viewMode = getViewMode();
   updateModeToggleBtn();
   syncCbarInset();
@@ -3337,7 +3472,7 @@ function renderSpec() {
   var el = document.getElementById('spec-body');
   if (!el || el.innerHTML) return; /* 一度描画したら再描画しない */
 
-  var S = '<style>.spec-h1{font-size:17px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:6px;margin:20px 0 10px}.spec-h2{font-size:14px;font-weight:800;color:var(--txt);margin:16px 0 6px;padding:4px 0 4px 10px;border-left:4px solid var(--ac)}.spec-h3{font-size:12px;font-weight:700;color:var(--txt2);margin:10px 0 4px}.spec-p{font-size:12px;color:var(--txt);line-height:1.8;margin:0 0 6px}.spec-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.spec-tbl th{background:var(--ac);color:#fff;padding:5px 8px;text-align:left}.spec-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}.spec-tbl tr:nth-child(even) td{background:var(--sur2)}.spec-badge{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700}.spec-admin{background:var(--gd-bg);color:var(--gd);border:1px solid var(--gd-bdr)}.spec-user{background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac)}.spec-box{background:var(--sur2);border:1px solid var(--bdr);border-radius:6px;padding:8px 12px;margin:6px 0;font-size:12px}.spec-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px;margin:6px 0;font-size:12px}</style>';
+  var S = '<style>.spec-h1{font-size:17px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:6px;margin:20px 0 10px}.spec-h2{font-size:14px;font-weight:800;color:var(--txt);margin:16px 0 6px;padding:4px 0 4px 10px;border-left:4px solid var(--ac)}.spec-h3{font-size:12px;font-weight:700;color:var(--txt2);margin:10px 0 4px}.spec-p{font-size:12px;color:var(--txt);line-height:1.8;margin:0 0 6px}.spec-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.spec-tbl th{background:var(--ac);color:var(--on-ac);padding:5px 8px;text-align:left}.spec-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}.spec-tbl tr:nth-child(even) td{background:var(--sur2)}.spec-badge{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:700}.spec-admin{background:var(--gd-bg);color:var(--gd);border:1px solid var(--gd-bdr)}.spec-user{background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac)}.spec-box{background:var(--sur2);border:1px solid var(--bdr);border-radius:6px;padding:8px 12px;margin:6px 0;font-size:12px}.spec-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px;margin:6px 0;font-size:12px}</style>';
 
   S += '<div class="spec-h1">分院CE連絡表　システム仕様書</div>';
   S += '<div class="spec-p">バージョン：2026年6月　作成：CE部門内製</div>';
@@ -3392,12 +3527,17 @@ function renderSpec() {
   S += '<div class="spec-p">連絡表とは独立した部門内の掲示板。Firebase <code>/board</code> に保存（連絡表データ <code>/data</code> とは別系統）。全員が投稿・返信でき、自分の投稿は自分で削除、管理者は全員分を削除・ピン留め可。サイドバーのタブは廃止し、日ページのヘッダーにある「📢 掲示板」ボタン（<code>openBoardPanel()</code>）からモーダルで開きます。未読の投稿数はそのボタンの赤バッジに出て、開くと既読になります（既読時刻は端末の localStorage <code>ce2_boardread</code> に保持。未読の数え元は <code>boardUnreadCount()</code> 1つ）。</div>';
   S += '<div class="spec-h2">⏰ スケジュール（タイムテーブル）</div>';
   S += '<div class="spec-p">日付ごとに、勤務者を列にした縦型タイムテーブル（8:00〜21:00／15分刻み）。プリセットブロック（業務マスタで編集可）をタップ選択→列タップ、またはドラッグ＆ドロップで配置。ブロックはドラッグで移動／下端ハンドルでリサイズ。<code>D.pages[ds].schedule</code> に保存。担当割り当てから一括取り込みも可能。duty がロックされている場合、一般ユーザーは閲覧のみ。掲示板と同じくサイドバーのタブは廃止し、日ページのヘッダーにある「⏰ スケジュール」ボタン（<code>openSchedPanel()</code>）からモーダルで開きます。</div>';
-  S += '<div class="spec-h2">📞 OC集計 / 📈 業務集計 / ⚖️ 公平性（担当表のサブタブ）</div>';
-  S += '<div class="spec-box">📋 タスクは以前ここのサブタブだったが、サイドバーの独立タブ（<code>#pane-task</code>）へ移した。担当表のサブタブは at / oc / ops / fair / my の5つ。</div>';
-  S += '<table class="spec-tbl"><tr><th>サブタブ</th><th>内容</th></tr>';
-  S += '<tr><td>OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>';
-  S += '<tr><td>業務集計</td><td>オペ・カテ等の件数を集計</td></tr>';
-  S += '<tr><td>公平性</td><td>スタッフ×担当枠の割当回数マトリックス。列ごとに最多（赤）/最少（青）を強調し、最大−最小が一定（既定3）以上で偏り警告</td></tr>';
+  S += '<div class="spec-h2">📊 担当表 / 📈 集計（サブタブ構成）</div>';
+  S += '<div class="spec-box">担当表タブ（<code>#pane-assign</code> / <code>swSubTab</code>）は at / my / fair / hdfair、集計タブ（<code>#pane-sum</code> / <code>swSumTab</code>）は ops / oc / hd。集計タブはCE・HDどちらの主観でも3つとも表示する。📋 タスクは以前ここのサブタブだったが独立タブ（<code>#pane-task</code>）へ移した。</div>';
+  S += '<table class="spec-tbl"><tr><th>タブ</th><th>サブタブ</th><th>内容</th></tr>';
+  S += '<tr><td rowspan="4">📊 担当表</td><td>📊 担当表</td><td>縦:日付／横:スタッフ の担当マトリックス（CE主観のみ）</td></tr>';
+  S += '<tr><td>👤 マイ担当</td><td>自分の担当枠・スケジュール・HD勤務のシフト（両主観）</td></tr>';
+  S += '<tr><td>⚖️ CE公平性</td><td>スタッフ×担当枠の割当回数マトリックス（CE主観・管理者のみ）</td></tr>';
+  S += '<tr><td>⚖️ HD公平性</td><td>スタッフ×HDシフトコード（M〜B・準夜）の回数マトリックス（HD主観・管理者のみ）</td></tr>';
+  S += '<tr><td rowspan="3">📈 集計</td><td>📈 CE集計</td><td>オペ・カテ等の件数を集計（日別／明細の切替あり）</td></tr>';
+  S += '<tr><td>📞 OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>';
+  S += '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中・準夜・BW・病棟・特殊治療）を集計</td></tr>';
+  S += '<tr><td colspan="3" style="font-size:11px">公平性は列ごとに最多（赤）/最少（青）を強調し、最大−最小が一定（既定3）以上で偏り警告。表の描画は <code>fairnessHTML()</code> でCE/HD共通。</td></tr>';
   S += '</table>';
   S += '<div class="spec-h2">🏭 メーカー担当者連絡先</div>';
   S += '<div class="spec-p">連絡表とは独立したメーカー担当者の連絡先台帳。「📚 資料 → 🏭 メーカー」から開きます。データは <code>D.makers = { cats:[{id,name}], list:[{id,cat,maker,person,tel1,tel2,mail,note,upd,ts,by}] }</code>（トップレベル <code>D</code> の一部として <code>/data</code> に保存。専用のFirebaseパスは持たない）。<code>cat</code> はカテゴリの<code>id</code>参照で、空文字は「未分類」を表す。</div>';
@@ -3560,14 +3700,14 @@ function renderManual() {
     +'.mn-h3{font-size:13px;font-weight:700;margin:10px 0 4px;color:var(--txt2)}'
     +'.mn-p{margin:0 0 8px}'
     +'.mn-step{display:flex;gap:10px;margin:8px 0;align-items:flex-start}'
-    +'.mn-num{background:var(--ac);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}'
+    +'.mn-num{background:var(--ac);color:var(--on-ac);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}'
     +'.mn-ok{background:var(--gr-bg,#f0fdf4);border:1px solid #22c55e;border-radius:6px;padding:8px 12px;margin:8px 0}'
     +'.mn-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px;margin:8px 0}'
     +'.mn-alert{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:8px 12px;margin:8px 0}'
     +'.mn-tip{background:var(--ac-bg);border:1px solid var(--ac);border-radius:6px;padding:8px 12px;margin:8px 0}'
-    +'.mn-screen{background:#1e1e1e;color:#eee;border-radius:8px;padding:12px 16px;font-family:monospace;font-size:11px;line-height:1.7;margin:8px 0;white-space:pre}'
+    +'.mn-screen{background:var(--code-bg);color:var(--code-fg);border-radius:8px;padding:12px 16px;font-family:monospace;font-size:11px;line-height:1.7;margin:8px 0;white-space:pre}'
     +'.mn-tbl{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}'
-    +'.mn-tbl th{background:var(--ac);color:#fff;padding:6px 10px;text-align:left}'
+    +'.mn-tbl th{background:var(--ac);color:var(--on-ac);padding:6px 10px;text-align:left}'
     +'.mn-tbl td{padding:6px 10px;border:1px solid var(--bdr)}'
     +'.mn-tbl tr:nth-child(even) td{background:var(--sur2)}'
     +'</style>';
@@ -3736,14 +3876,22 @@ function renderManual() {
 
   // ===== 第9章 =====
   S += h1('第9章　担当表を見る・印刷する');
-  S += '<div class="mn-p">「📊 担当表」タブで月ごとの担当一覧（縦:日付・横:スタッフ）を確認できます。上部のサブタブで集計や公平性チェックも見られます。</div>';
+  S += '<div class="mn-p">「📊 担当表」タブで月ごとの担当一覧（縦:日付・横:スタッフ）を確認できます。件数の集計は別の「📈 集計」タブにまとまっています。</div>';
   S += step(1,'「📊 担当表」タブをクリック','「‹」「›」ボタンで月を切り替えられます。');
-  S += step(2,'サブタブを切り替える','📊 担当表／📞 OC集計／📈 業務集計／⚖️ 公平性 を切り替えられます。');
+  S += step(2,'サブタブを切り替える','📊 担当表／👤 マイ担当／⚖️ 公平性 を切り替えられます。HDモードでは CE担当表とCE公平性は出ず、代わりに HD公平性 が出ます。');
   S += step(3,'CSV出力・印刷','「📥 CSV」で表計算ソフト用に出力、「🖨️ 印刷」でA4横向き印刷（推奨）。');
   S += '<table class="mn-tbl"><tr><th>サブタブ</th><th>内容</th></tr>'
+    + '<tr><td>📊 担当表</td><td>縦:日付・横:スタッフ の担当一覧（CEモードのみ）</td></tr>'
+    + '<tr><td>👤 マイ担当</td><td>自分の担当枠・スケジュール・HD勤務のシフトをまとめて表示</td></tr>'
+    + '<tr><td>⚖️ CE公平性</td><td>誰がどのCE担当枠を何回受け持ったかを一覧化。偏りが大きいと警告が出ます</td></tr>'
+    + '<tr><td>⚖️ HD公平性</td><td>誰がどのHDの役割（M・A1・A2・B1・B・準夜など）を何回受け持ったかを一覧化。HDモードで表示されます</td></tr>'
+    + '</table>';
+  S += h1('第9章の2　集計を見る');
+  S += '<div class="mn-p">「📈 集計」タブに3種類の集計がまとまっています。CEモード・HDモードのどちらでも3つとも見られます。</div>';
+  S += '<table class="mn-tbl"><tr><th>サブタブ</th><th>内容</th></tr>'
+    + '<tr><td>📈 CE集計</td><td>オペ・カテなどの件数を集計。「📅 日別／📋 明細」で切り替えられます</td></tr>'
     + '<tr><td>📞 OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>'
-    + '<tr><td>📈 業務集計</td><td>オペ・カテなどの件数を集計</td></tr>'
-    + '<tr><td>⚖️ 公平性</td><td>誰がどの担当を何回受け持ったかを一覧化。偏りが大きいと警告が出ます</td></tr>'
+    + '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中・準夜・BW・病棟・特殊治療）を集計</td></tr>'
     + '</table>';
 
   // ===== 第10章　スケジュール =====
@@ -3797,7 +3945,7 @@ function renderManual() {
 function renderAdminManual() {
   var el = document.getElementById('adminm-body');
   if (!el || el.innerHTML) return;
-  var SS = '<style>.a-h1{font-size:16px;font-weight:900;color:#b45309;border-bottom:3px solid #b45309;padding-bottom:5px;margin:18px 0 10px}.a-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid #b45309;color:var(--txt)}.a-p{font-size:12px;color:var(--txt);line-height:1.9;margin:0 0 7px}.a-step{display:flex;align-items:flex-start;gap:8px;margin:6px 0;font-size:12px}.a-num{background:#b45309;color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}.a-ok{background:#f0fdf4;border:1px solid #22c55e;border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-warn{background:#fffbeb;border:1px solid #f59e0b;border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-err{background:#fdecea;border:1px solid #c0392b;border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-code{background:#1e1e1e;color:#d4d4d4;border-radius:6px;padding:10px 14px;font-size:11px;font-family:monospace;line-height:1.8;margin:6px 0;white-space:pre}.a-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.a-tbl th{background:#b45309;color:#fff;padding:5px 8px;text-align:left}.a-tbl td{padding:5px 8px;border:1px solid var(--bdr)}.a-tbl tr:nth-child(even) td{background:var(--sur2)}</style>';
+  var SS = '<style>.a-h1{font-size:16px;font-weight:900;color:var(--gd);border-bottom:3px solid var(--gd);padding-bottom:5px;margin:18px 0 10px}.a-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid var(--gd);color:var(--txt)}.a-p{font-size:12px;color:var(--txt);line-height:1.9;margin:0 0 7px}.a-step{display:flex;align-items:flex-start;gap:8px;margin:6px 0;font-size:12px}.a-num{background:var(--gd);color:var(--on-ac);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}.a-ok{background:var(--gr-bg);border:1px solid var(--gr);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-warn{background:var(--warn-bg);border:1px solid var(--warn-bdr);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-err{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-code{background:var(--code-bg);color:var(--code-fg);border-radius:6px;padding:10px 14px;font-size:11px;font-family:monospace;line-height:1.8;margin:6px 0;white-space:pre}.a-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.a-tbl th{background:var(--gd);color:var(--on-ac);padding:5px 8px;text-align:left}.a-tbl td{padding:5px 8px;border:1px solid var(--bdr)}.a-tbl tr:nth-child(even) td{background:var(--sur2)}</style>';
   var S = SS;
   S += '<div class="a-p" style="background:var(--gd-bg);border:1px solid var(--gd-bdr);border-radius:6px;padding:8px 12px">このページは管理者（CE部門責任者）向けのFirebase設定・アカウント管理の手順書です。</div>';
 
@@ -4137,7 +4285,7 @@ function renderAdminUsers() {
     el.innerHTML = S;
   }).catch(function(err) {
     var el2 = document.getElementById('adminm-users');
-    if (el2) el2.innerHTML = '<div style="font-size:12px;color:var(--rd);background:var(--rd-bg);border:1px solid #f5b8b8;border-radius:6px;padding:8px 12px">❌ 読み込みエラー: ' + escH(err.message) + '</div>';
+    if (el2) el2.innerHTML = '<div style="font-size:12px;color:var(--rd);background:var(--rd-bg);border:1px solid var(--rd-bdr);border-radius:6px;padding:8px 12px">❌ 読み込みエラー: ' + escH(err.message) + '</div>';
   });
 }
 
@@ -4265,8 +4413,24 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/22-47';
+var APP_VERSION = 'Ver.2026/08/23-49';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/23-49', date:'2026-08-23', title:'タブを整理しました', items:[
+    {t:'imp', d:'📈 「集計」タブを新しく作り、業務集計・OC集計・HD集計をこの中にまとめました。CEモードでもHDモードでも、3つとも見られます'},
+    {t:'imp', d:'👤 マイ担当を「担当表」タブの中に戻しました。担当表・マイ担当・公平性が同じ場所に並びます'},
+    {t:'imp', d:'🩸 HDモードでも「担当表」タブが出るようになり、マイ担当から自分のHD勤務のシフトを確認できます（CE担当表と公平性はCE専用なのでHDモードでは出ません）'},
+    {t:'imp', d:'📋 「業務」タブの名前を「マスタ」に変えました。中身は変わりません'},
+    {t:'imp', d:'📈 「業務集計」を「CE集計」に改名しました。OC集計・HD集計と名前の付け方を揃えています'},
+    {t:'new', d:'⚖️ 公平性チェックを「CE公平性」と「HD公平性」に分けました。HD公平性では、M・A1・A2・B1・B・準夜といったHDの役割が誰に何回当たったかを一覧で確認できます。同じ役割ばかりが続いていないかを見て、翌月のシフト調整の参考にできます'},
+    {t:'fix', d:'⚖️ 公平性の表で、偏りのある列の見出しが背景色と同系色になって読みにくかったのを修正しました'},
+    {t:'fix', d:'🌙 ダークモードで、青や緑のボタン・バッジの上の白文字が薄く見えていたのを修正しました'}
+  ]},
+  { ver:'Ver.2026/08/22-48', date:'2026-08-22', title:'ダークモードに対応しました', items:[
+    {t:'new', d:'🌙 画面を暗い配色に切り替えられるようになりました。上のバーの🌗ボタンを押すたびに「ライト → ダーク → 端末の設定に合わせる」と切り替わります。選んだ設定はその端末に記憶されます'},
+    {t:'new', d:'🌗 初期状態はスマートフォンやパソコン本体のダークモード設定に自動で合わせます。夜勤帯や暗い部屋で画面がまぶしくなりにくくなります'},
+    {t:'imp', d:'🎨 ダークでも色の意味は変わりません。未完了の赤・完了の緑・注意の橙・HDの紫は、暗い背景でも見分けられる明るさに調整しています'},
+    {t:'imp', d:'🖨️ 印刷はダークモードでも従来どおり白い紙面で出ます'}
+  ]},
   { ver:'Ver.2026/08/22-47', date:'2026-08-22', title:'申し送りを後から編集できるようにしました', items:[
     {t:'new', d:'📝 投稿した申し送りを ✏️ ボタンから編集できるようになりました。書き間違いの直しや追記のために、削除して投稿し直す必要がなくなります'},
     {t:'imp', d:'📝 編集された申し送りには「◯月◯日 ◯◯:◯◯ に △△ が編集」と本文の末尾に残ります。誰が最初に書いたかの表示は変わりません'},
@@ -4668,12 +4832,12 @@ function renderRegs() {
     + '.rg-tbl th{background:#0e6e5e;color:#fff;padding:5px 8px;text-align:left}'
     + '.rg-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}'
     + '.rg-tbl tr:nth-child(even) td{background:var(--sur2)}'
-    + '.rg-ok{background:#e8f5f2;border:1px solid #0e6e5e;border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
+    + '.rg-ok{background:var(--gr-bg);border:1px solid var(--gr);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
     + '.rg-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
     + '.rg-alert{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:7px 11px;margin:5px 0;font-size:12px}'
     + '.rg-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:10px;font-weight:700}'
-    + '.rg-mhlw{background:#e8f5f2;color:#0e6e5e;border:1px solid #0e6e5e}'
-    + '.rg-ppc{background:#eef2fc;color:var(--ac);border:1px solid var(--ac)}'
+    + '.rg-mhlw{background:var(--gr-bg);color:var(--gr);border:1px solid var(--gr)}'
+    + '.rg-ppc{background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac)}'
     + '.rg-meti{background:var(--or-bg);color:var(--or);border:1px solid var(--or)}'
     + '</style>';
   var S = SS;
@@ -4790,7 +4954,7 @@ function renderDev() {
   var el = document.getElementById('dev-body');
   if (!el || el.innerHTML) return;
 
-  var SS = '<style>.d-h1{font-size:15px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:5px;margin:18px 0 10px}.d-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid var(--ac);color:var(--txt)}.d-p{font-size:12px;color:var(--txt);line-height:1.8;margin:0 0 6px}.d-code{font-family:monospace;background:var(--sur2);border:1px solid var(--bdr);border-radius:4px;padding:2px 6px;font-size:11px}.d-pre{font-family:monospace;background:#1e1e1e;color:#d4d4d4;border-radius:6px;padding:10px 14px;font-size:11px;line-height:1.7;overflow-x:auto;margin:6px 0;white-space:pre}.d-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.d-tbl th{background:var(--ac);color:#fff;padding:5px 8px;text-align:left}.d-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}.d-tbl tr:nth-child(even) td{background:var(--sur2)}.d-note{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.d-info{background:var(--ac-bg);border:1px solid var(--ac);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}</style>';
+  var SS = '<style>.d-h1{font-size:15px;font-weight:900;color:var(--ac);border-bottom:3px solid var(--ac);padding-bottom:5px;margin:18px 0 10px}.d-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid var(--ac);color:var(--txt)}.d-p{font-size:12px;color:var(--txt);line-height:1.8;margin:0 0 6px}.d-code{font-family:monospace;background:var(--sur2);border:1px solid var(--bdr);border-radius:4px;padding:2px 6px;font-size:11px}.d-pre{font-family:monospace;background:var(--code-bg);color:var(--code-fg);border-radius:6px;padding:10px 14px;font-size:11px;line-height:1.7;overflow-x:auto;margin:6px 0;white-space:pre}.d-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.d-tbl th{background:var(--ac);color:var(--on-ac);padding:5px 8px;text-align:left}.d-tbl td{padding:5px 8px;border:1px solid var(--bdr);vertical-align:top}.d-tbl tr:nth-child(even) td{background:var(--sur2)}.d-note{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.d-info{background:var(--ac-bg);border:1px solid var(--ac);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}</style>';
 
   var S = SS;
   S += '<div class="d-info">このページは別チャットへの引き継ぎ用です。index.htmlと一緒に新しいチャットに添付してください。</div>';
@@ -4959,7 +5123,7 @@ function renderDev() {
   // ダウンロードボタン
   S += '<div class="d-h1">引き継ぎファイルのダウンロード</div>';
   S += '<div class="d-p" style="margin-bottom:10px">新しいチャットに引き継ぐときは、このMDファイルと index.html を一緒に添付してください。</div>';
-  S += '<button onclick="downloadDevMd()" style="display:flex;align-items:center;gap:8px;background:var(--ac);color:#fff;border:none;border-radius:var(--rs);padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer">⬇️ 引き継ぎ資料.md をダウンロード</button>';
+  S += '<button onclick="downloadDevMd()" style="display:flex;align-items:center;gap:8px;background:var(--ac);color:var(--on-ac);border:none;border-radius:var(--rs);padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer">⬇️ 引き継ぎ資料.md をダウンロード</button>';
 
   el.innerHTML = S;
 }
@@ -5461,7 +5625,7 @@ function bindSurplusDnD(ds) {
       /* ゴースト要素を作成 */
       _ghost = document.createElement('div');
       _ghost.textContent = _dragName;
-      _ghost.style.cssText = 'position:fixed;z-index:9999;background:var(--ac);color:#fff;'
+      _ghost.style.cssText = 'position:fixed;z-index:9999;background:var(--ac);color:var(--on-ac);'
         + 'border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700;'
         + 'pointer-events:none;opacity:0.85;white-space:nowrap;transform:translate(-50%,-50%)';
       document.body.appendChild(_ghost);
@@ -5683,9 +5847,10 @@ function removeOpsCard(ds, cid) {
 
 /* ===== 担当表サブタブ切り替え ===== */
 var _curSubTab = 'at';
+/* 担当表タブ（pane-assign）のサブタブ。集計は別タブ（swSumTab）に分離済み。 */
 function swSubTab(id) {
   _curSubTab = id;
-  var ids = ['at','oc','ops','fair']; /* 'my'（マイ担当）はトップレベルタブ（swTab('my')）へ昇格済み */
+  var ids = ['at','my','fair','hdfair'];
   ids.forEach(function(sid){
     var pane = document.getElementById('subpane-'+sid);
     if (pane) pane.style.display = sid===id ? '' : 'none';
@@ -5694,14 +5859,34 @@ function swSubTab(id) {
     btn.style.borderBottom = sid===id ? '2px solid var(--ac)' : 'none';
     btn.style.fontWeight   = sid===id ? '700' : '';
   });
-  /* CSV/印刷ボタンの有無をサブタブに合わせて切り替え */
+  /* CSVは担当表のみ。マイ担当・公平性は出力対象を持たない */
   var csvBtn   = document.getElementById('btn-sub-csv');
   var printBtn = document.getElementById('btn-sub-print');
-  if (csvBtn)   csvBtn.style.display   = (id==='fair') ? 'none' : '';
+  if (csvBtn)   csvBtn.style.display   = (id==='at') ? '' : 'none';
   if (printBtn) printBtn.style.display = '';
-  if (id==='oc')   renderOCSummary();
-  if (id==='ops')  renderOpsSummary();
-  if (id==='fair') renderFairness();
+  if (id==='at')   renderAT();
+  if (id==='my')   renderMySchedule();
+  if (id==='fair')   renderFairness();
+  if (id==='hdfair') renderHdFairness();
+}
+
+/* 集計タブ（pane-sum）のサブタブ。業務集計・OC集計・HD集計をここにまとめている。
+   CE/HDどちらの主観でも同じ3つを出す（集計は「どちらの目で見るか」に依らない事実のため）。 */
+var _curSumTab = 'ops';
+function swSumTab(id) {
+  if (['ops','oc','hd'].indexOf(id) === -1) id = 'ops';
+  _curSumTab = id;
+  ['ops','oc','hd'].forEach(function(sid){
+    var pane = document.getElementById('subpane-'+sid);
+    if (pane) pane.style.display = sid===id ? '' : 'none';
+    var btn = document.getElementById('sumtab-'+sid);
+    if (!btn) return;
+    btn.style.borderBottom = sid===id ? '2px solid var(--ac)' : 'none';
+    btn.style.fontWeight   = sid===id ? '700' : '';
+  });
+  if (id==='ops') renderOpsSummary();
+  if (id==='oc')  renderOCSummary();
+  if (id==='hd')  renderHdSummary();
 }
 
 /* ===== OC集計シート ===== */
@@ -6040,7 +6225,7 @@ function renderOCSummary() {
 
 /* ===== HD集計パネル（HDモードのときだけ見える独立タブ。dat.hdCount の期間集計） =====
    OC集計と同じ骨格（グラフ無し、バッジ＋テーブル）で作る。renderOCSummary/renderOpsSummaryと同様、
-   #hd-sum-bodyが無ければ何もしない — pane-hdsumが非表示でも常時DOM自体は存在するため、
+   #hd-sum-bodyが無ければ何もしない — subpane-hdが非表示でも常時DOM自体は存在するため、
    setSumMode/applySumRange/asPrevM/asNextMから無条件に呼んでよい。 */
 function renderHdSummary() {
   var el = document.getElementById('hd-sum-body');
@@ -6060,7 +6245,7 @@ function renderHdSummary() {
   /* 月送り。OC集計・業務集計は担当表タブ上部の月ナビ（asPrevM/asNextM）を共有しているが、
      HD主観ではその担当表タブごと隠れるため、HD集計にだけ自前の月送りを置く。
      これが無いとHDユーザーは今月以外を「期間指定」でしか見られない。
-     asPrevM/asNextM は pane-hdsum が表示中なら renderHdSummary() を呼び直す。 */
+     asPrevM/asNextM は集計タブでHD集計を開いていれば renderHdSummary() を呼び直す。 */
   if (_sumMode === 'month') {
     h += '<div class="sum-toolbar" style="margin-top:-4px">'
       + '<button class="btn btn-g btn-sm" onclick="asPrevM()">&#8249; 前の月</button>'
@@ -6197,7 +6382,7 @@ function renderOpsSummary() {
     + '<button class="seg-btn'+(_opsSumView==='day'?' on':'')+'" onclick="setOpsSumView(\'day\')">📅 日別</button>'
     + '<button class="seg-btn'+(_opsSumView==='detail'?' on':'')+'" onclick="setOpsSumView(\'detail\')">📋 明細</button>'
     + '</div>'
-    + '<span class="sum-period-label">'+escH(rng.label)+'　業務集計</span>'
+    + '<span class="sum-period-label">'+escH(rng.label)+'　CE集計</span>'
     + '</div>';
   /* バッジ色は担当表の担当枠チップ（dutyColorFor）と同系色に揃え、画面をまたいだ一貫性を作る */
   var badge = '<div class="sum-badges">'
@@ -6252,7 +6437,11 @@ function renderOpsSummary() {
   var BG = GW < 40 ? 1 : 3;
   var BW = Math.max(2, Math.min(7, (GW * 0.8 - BG * 4) / 5));
   /* サマリーバッジ・担当表の担当枠チップと同じ色（--sum-* トークン）に揃える */
-  var COLORS = ['#1d4ed8','#be185d','#0e6e5e','#b45309','#0f766e'];
+  /* CSS変数(--sum-*)から読む。テーマ切替時はこの関数が再実行されるので自動で追従する */
+  var _cs = getComputedStyle(document.documentElement);
+  var COLORS = ['ope','cath','mw','psg','free'].map(function(k){
+    return (_cs.getPropertyValue('--sum-'+k) || '').trim() || '#1d4ed8';
+  });
   var KEYS   = ['ope','cath','mw','psg','free'];
   var LABELS = ['OPE','カテ','6MW','PSG','フリー'];
 
@@ -6340,6 +6529,83 @@ function renderOpsSummary() {
 var FAIR_GAP_WARN = 3; /* 最多-最少 がこの値以上で「偏りあり」警告 */
 /* 公平性集計でOPE担当+OPEサブ、カテ担当+カテサブを同一業務として合算するラベルマップ */
 var FAIR_MERGE = {'OPE担当':'🔪 OPE','OPEサブ':'🔪 OPE','カテ担当':'🫀 カテ','カテサブ':'🫀 カテ'};
+/* 公平性マトリクスの描画。CE（担当枠）とHD（シフトコード）で「何を数えるか」だけが違い、
+   表の組み立て・最多/最少のハイライト・偏り警告は同じなので、描画はここに集約する。
+   o = { counts, labelsOrder, workedDays, periodLabel, colHead, totalHead, dayUnit, note, emptyMsg } */
+function fairnessHTML(o) {
+  var counts = o.counts, labelsOrder = o.labelsOrder, workedDays = o.workedDays || {};
+  var names = Object.keys(counts).filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
+  if (!names.length) return '<div class="pool-empty" style="padding:20px 0">' + escH(o.emptyMsg) + '</div>';
+  names.sort(function(a,b){ return counts[b]._total - counts[a]._total; });
+
+  /* 列ごとの統計（割当のある人＝出勤者ベースで偏りを評価） */
+  var stats = {};
+  labelsOrder.forEach(function(lb){
+    var vals = names.map(function(n){ return counts[n][lb]||0; });
+    var max = Math.max.apply(null, vals), min = Math.min.apply(null, vals);
+    var sum = vals.reduce(function(a,b){ return a+b; }, 0);
+    stats[lb] = { max:max, min:min, sum:sum, gap:max-min };
+  });
+  var totalAll = names.reduce(function(a,n){ return a+counts[n]._total; }, 0);
+  var maxTotal = Math.max.apply(null, names.map(function(n){ return counts[n]._total; }));
+
+  var h = '';
+  h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+escH(o.periodLabel)+'</span></div>';
+  h += '<div class="sum-badges">';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--ac)"></span>対象スタッフ <b style="color:var(--ac)">'+names.length+'</b>人</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--ac)"></span>'+escH(o.totalHead)+' <b style="color:var(--ac)">'+totalAll+'</b>件</span>';
+  h += '</div>';
+
+  /* 偏り警告 */
+  var warnLabels = labelsOrder.filter(function(lb){ return stats[lb].gap >= FAIR_GAP_WARN; });
+  if (warnLabels.length) {
+    h += '<div style="background:var(--warn-bg);border:1.5px solid var(--warn-bdr);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--warn-fg2);line-height:1.7;margin-bottom:12px">';
+    h += '<strong>⚠️ 偏りの可能性があります（最多−最少 ≥ '+FAIR_GAP_WARN+'回）</strong><br>';
+    h += warnLabels.map(function(lb){ return escH(lb)+'（差 '+stats[lb].gap+'回）'; }).join('、');
+    h += '</div>';
+  } else {
+    h += '<div style="background:var(--gr-bg);border:1.5px solid var(--gr);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--gr);line-height:1.7;margin-bottom:12px">✅ 大きな偏りは見つかりませんでした</div>';
+  }
+
+  /* テーブル */
+  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:480px">';
+  h += '<thead><tr><th style="width:90px;text-align:left">スタッフ</th>';
+  labelsOrder.forEach(function(lb){
+    var warn = stats[lb].gap >= FAIR_GAP_WARN;
+    /* 警告列は地を警告色で塗るので、文字色も面の色に反転させないと読めない
+       （ライト＝暗い地に白文字／ダーク＝明るい地に暗い文字、どちらでもコントラストが出る） */
+    h += '<th style="width:64px;text-align:center'+(warn?';background:var(--warn-fg);color:var(--sur)':'')+'">'+escH(lb)+(warn?' ⚠️':'')+'</th>';
+  });
+  h += '<th style="width:120px;text-align:center">合計（'+escH(o.dayUnit)+'比）</th></tr></thead><tbody>';
+
+  names.forEach(function(n){
+    h += '<tr>';
+    h += '<td style="text-align:left;font-weight:700">'+escH(n)+'</td>';
+    labelsOrder.forEach(function(lb){
+      var v = counts[n][lb]||0;
+      var isMax = v>0 && v===stats[lb].max && stats[lb].gap>0;
+      var isMin = v===stats[lb].min && stats[lb].gap>0;
+      var bg = isMax ? 'background:var(--rd-bg);color:var(--rd);font-weight:700' : (isMin ? 'background:var(--ac-bg);color:var(--ac)' : '');
+      h += '<td style="text-align:center;'+bg+'">'+(v||'<span style="color:var(--txt3)">—</span>')+'</td>';
+    });
+    /* 合計＋出勤日数バー */
+    var tot = counts[n]._total;
+    var wd  = workedDays[n]||0;
+    var barW = maxTotal ? Math.round(tot/maxTotal*100) : 0;
+    h += '<td style="text-align:center">';
+    h += '<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;background:var(--bdr);border-radius:4px;height:10px;overflow:hidden"><div style="width:'+barW+'%;background:var(--ac);height:100%"></div></div>';
+    h += '<span style="font-weight:700;min-width:38px;text-align:right">'+tot+(wd?' /'+wd+'日':'')+'</span></div>';
+    h += '</td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  h += '<div style="font-size:11px;color:var(--txt3);margin-top:8px;line-height:1.7">'
+     + '※ <span style="color:var(--rd);font-weight:700">赤</span>＝その列で最多の人、<span style="color:var(--ac);font-weight:700">青</span>＝最少の人。<br>'
+     + '※ ' + escH(o.note) + '</div>';
+  return h;
+}
+
+/* CE公平性：担当枠（getDutyCfg）の割り当て回数 */
 function renderFairness() {
   var el = document.getElementById('fair-body');
   if (!el) return;
@@ -6372,77 +6638,52 @@ function renderFairness() {
     });
   }
 
-  var names = Object.keys(counts).filter(function(n){return !(D.stfHidden&&D.stfHidden[n]);});
-  if (!names.length) {
-    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">この月に担当の割り当てがありません</div>';
-    return;
-  }
-  names.sort(function(a,b){ return counts[b]._total - counts[a]._total; });
-
-  /* 列ごとの統計（割当のある人＝出勤者ベースで偏りを評価） */
-  var stats = {};
-  labelsOrder.forEach(function(lb){
-    var vals = names.map(function(n){ return counts[n][lb]||0; });
-    var max = Math.max.apply(null, vals), min = Math.min.apply(null, vals);
-    var sum = vals.reduce(function(a,b){ return a+b; }, 0);
-    stats[lb] = { max:max, min:min, sum:sum, gap:max-min };
+  el.innerHTML = fairnessHTML({
+    counts: counts, labelsOrder: labelsOrder, workedDays: workedDays,
+    periodLabel: asY+'年'+(asM+1)+'月　CE担当の公平性',
+    totalHead: '総割当', dayUnit: '出勤日',
+    note: '出勤日数に対して割当が多い／少ない人を見て、翌月のシフト調整の参考にしてください。',
+    emptyMsg: 'この月に担当の割り当てがありません'
   });
-  var totalAll = names.reduce(function(a,n){ return a+counts[n]._total; }, 0);
-  var maxTotal = Math.max.apply(null, names.map(function(n){ return counts[n]._total; }));
+}
 
-  var h = '';
-  /* サマリー */
-  h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+asY+'年'+(asM+1)+'月　担当の公平性</span></div>';
-  h += '<div class="sum-badges">';
-  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--ac)"></span>対象スタッフ <b style="color:var(--ac)">'+names.length+'</b>人</span>';
-  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--ac)"></span>総割当 <b style="color:var(--ac)">'+totalAll+'</b>件</span>';
-  h += '</div>';
+/* HD公平性：HD担当表の役割（M〜B・準夜）が誰に何回当たったか。
+   数える元は buildHdRoster と同じ hdShiftWorkers(ds) なので、
+   日ページで手動修正した担当差し替え（dat.hdDuty.overrides）もそのまま反映される。 */
+function renderHdFairness() {
+  var el = document.getElementById('hdfair-body');
+  if (!el) return;
+  var days = new Date(asY, asM+1, 0).getDate();
+  var counts = {}, workedDays = {}, seen = {};
 
-  /* 偏り警告 */
-  var warnLabels = labelsOrder.filter(function(lb){ return stats[lb].gap >= FAIR_GAP_WARN; });
-  if (warnLabels.length) {
-    h += '<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:12px;color:#78350f;line-height:1.7;margin-bottom:12px">';
-    h += '<strong>⚠️ 偏りの可能性があります（最多−最少 ≥ '+FAIR_GAP_WARN+'回）</strong><br>';
-    h += warnLabels.map(function(lb){ return lb+'（差 '+stats[lb].gap+'回）'; }).join('、');
-    h += '</div>';
-  } else {
-    h += '<div style="background:var(--gr-bg);border:1.5px solid var(--gr);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--gr);line-height:1.7;margin-bottom:12px">✅ 大きな偏りは検出されませんでした。</div>';
-  }
-
-  /* テーブル */
-  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:480px">';
-  h += '<thead><tr><th style="width:90px;text-align:left">スタッフ</th>';
-  labelsOrder.forEach(function(lb){
-    var warn = stats[lb].gap >= FAIR_GAP_WARN;
-    h += '<th style="width:64px;text-align:center'+(warn?';background:#b45309':'')+'">'+escH(lb)+(warn?' ⚠️':'')+'</th>';
-  });
-  h += '<th style="width:120px;text-align:center">合計（出勤'+'日比）</th></tr></thead><tbody>';
-
-  names.forEach(function(n){
-    h += '<tr>';
-    h += '<td style="text-align:left;font-weight:700">'+escH(n)+'</td>';
-    labelsOrder.forEach(function(lb){
-      var v = counts[n][lb]||0;
-      var isMax = v>0 && v===stats[lb].max && stats[lb].gap>0;
-      var isMin = v===stats[lb].min && stats[lb].gap>0;
-      var bg = isMax ? 'background:#fef2f2;color:#c0392b;font-weight:700' : (isMin ? 'background:#eef7ff;color:var(--ac)' : '');
-      h += '<td style="text-align:center;'+bg+'">'+(v||'<span style="color:var(--txt3)">—</span>')+'</td>';
+  for (var d=1; d<=days; d++) {
+    var ds = asY+'-'+pad(asM+1)+'-'+pad(d);
+    if (!D.pages[ds]) continue;
+    hdShiftWorkers(ds).forEach(function(h){
+      /* 準夜は '準'/'準夜' の表記ゆれがあるので1列にまとめる */
+      var code = h.night ? '準夜' : (h.shift || '（未設定）');
+      seen[code] = 1;
+      if (!counts[h.name]) counts[h.name] = {_total:0};
+      counts[h.name][code] = (counts[h.name][code]||0)+1;
+      counts[h.name]._total++;
+      workedDays[h.name] = (workedDays[h.name]||0)+1;
     });
-    /* 合計＋出勤日数バー */
-    var tot = counts[n]._total;
-    var wd  = workedDays[n]||0;
-    var barW = maxTotal ? Math.round(tot/maxTotal*100) : 0;
-    h += '<td style="text-align:center">';
-    h += '<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;background:var(--bdr);border-radius:4px;height:10px;overflow:hidden"><div style="width:'+barW+'%;background:var(--ac);height:100%"></div></div>';
-    h += '<span style="font-weight:700;min-width:38px;text-align:right">'+tot+(wd?' /'+wd+'日':'')+'</span></div>';
-    h += '</td>';
-    h += '</tr>';
+  }
+
+  /* 列順は HD_DAY_CODES（M→A1→…→B）に揃え、準夜と未知コードを末尾に置く */
+  var labelsOrder = HD_DAY_CODES.filter(function(c){ return seen[c]; });
+  if (seen['準夜']) labelsOrder.push('準夜');
+  Object.keys(seen).forEach(function(c){
+    if (labelsOrder.indexOf(c) === -1) labelsOrder.push(c);
   });
-  h += '</tbody></table></div>';
-  h += '<div style="font-size:11px;color:var(--txt3);margin-top:8px;line-height:1.7">'
-     + '※ <span style="color:#c0392b;font-weight:700">赤</span>＝その担当で最多の人、<span style="color:var(--ac);font-weight:700">青</span>＝最少の人。「合計 /◯日」は割当合計と当月の出勤日数です。<br>'
-     + '※ 出勤日数に対して割当が多い／少ない人を見て、翌月のシフト調整の参考にしてください。</div>';
-  el.innerHTML = h;
+
+  el.innerHTML = fairnessHTML({
+    counts: counts, labelsOrder: labelsOrder, workedDays: workedDays,
+    periodLabel: asY+'年'+(asM+1)+'月　HD担当の公平性',
+    totalHead: '総担当', dayUnit: 'HD勤務日',
+    note: '同じ役割ばかりが続いていないかを見て、翌月のシフト調整の参考にしてください。日ページのHD担当表で担当を差し替えた分も反映されます。',
+    emptyMsg: 'この月にHD勤務の記録がありません'
+  });
 }
 
 /* ===== 一般ユーザー向け使い方ガイド ===== */
@@ -6455,11 +6696,11 @@ function renderGuide() {
     +'.gd-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid var(--ac);color:var(--txt)}'
     +'.gd-p{margin:0 0 8px;font-size:12px}'
     +'.gd-step{display:flex;gap:10px;margin:7px 0;align-items:flex-start;font-size:12px}'
-    +'.gd-num{background:var(--ac);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}'
-    +'.gd-ok{background:#f0fdf4;border:1px solid #22c55e;border-radius:6px;padding:7px 11px;margin:7px 0;font-size:12px}'
+    +'.gd-num{background:var(--ac);color:var(--on-ac);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}'
+    +'.gd-ok{background:var(--gr-bg);border:1px solid var(--gr);border-radius:6px;padding:7px 11px;margin:7px 0;font-size:12px}'
     +'.gd-warn{background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:7px 11px;margin:7px 0;font-size:12px}'
     +'.gd-tbl{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}'
-    +'.gd-tbl th{background:var(--ac);color:#fff;padding:5px 9px;text-align:left}'
+    +'.gd-tbl th{background:var(--ac);color:var(--on-ac);padding:5px 9px;text-align:left}'
     +'.gd-tbl td{padding:5px 9px;border:1px solid var(--bdr)}'
     +'.gd-tbl tr:nth-child(even) td{background:var(--sur2)}'
     +'</style>';
@@ -6600,12 +6841,17 @@ function renderGuide() {
   S += h2('公平性確認');
   S += '<div class="gd-p">「📊 担当表」内の「公平性」タブで、スタッフ別の担当回数マトリクスを確認できます。担当が偏っている列は赤・少ない列は青でハイライトされます。</div>';
 
-  S += h1('📞 OC集計・📈 業務集計');
-  S += '<div class="gd-p">「📊 担当表」タブの中の「OC集計」「業務集計」で、オンコール対応やオペ・カテなどの記録をまとめて確認できます。</div>';
+  S += h1('📈 集計（CE集計・OC集計・HD集計）');
+  S += '<div class="gd-p">「📈 集計」タブに3種類の集計がまとまっています。CEモード・HDモードのどちらでも3つとも見られます。</div>';
+  S += '<table class="gd-tbl"><tr><th>サブタブ</th><th>内容</th></tr>'
+    + '<tr><td>📈 CE集計</td><td>オペ・カテなどの件数</td></tr>'
+    + '<tr><td>📞 OC集計</td><td>オンコール対応の記録</td></tr>'
+    + '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中・準夜・BW・病棟・特殊治療）</td></tr>'
+    + '</table>';
   S += h2('集計する期間を選ぶ');
-  S += '<div class="gd-p">どちらのタブも上部に「📅 月／🗓 年／📆 期間指定」の切替があります。「年」は1年分を月ごとの内訳付きで、「期間指定」は開始日〜終了日を自由に選んで集計します。CSV出力もそのとき選んでいる期間に合わせて出力されます。</div>';
-  S += h2('業務集計：日別・明細の切替');
-  S += '<div class="gd-p">「業務集計」には「📅 日別／📋 明細」の切替があります。日別は週・月ごとの件数とグラフで全体を一望でき、明細はオペ・カテを1件ずつ、科・術式・担当者・入室〜終了時刻・使用物品まで並べて確認できます。</div>';
+  S += '<div class="gd-p">どのタブも上部に「📅 月／🗓 年／📆 期間指定」の切替があります。「年」は1年分を月ごとの内訳付きで、「期間指定」は開始日〜終了日を自由に選んで集計します。CSV出力もそのとき選んでいる期間に合わせて出力されます。</div>';
+  S += h2('CE集計：日別・明細の切替');
+  S += '<div class="gd-p">「CE集計」には「📅 日別／📋 明細」の切替があります。日別は週・月ごとの件数とグラフで全体を一望でき、明細はオペ・カテを1件ずつ、科・術式・担当者・入室〜終了時刻・使用物品まで並べて確認できます。</div>';
   S += step(1,'「📋 明細」に切り替える','');
   S += step(2,'種別・科・担当者・使用物品で絞り込む','絞り込みの選択肢には件数が表示されます。');
   S += step(3,'グルーピングで見出しごとに分ける','科ごと・日付ごと・担当者ごとに束ねて表示できます。');
@@ -8075,12 +8321,12 @@ function renderWdlyList() {
         for (var wk = 1; wk <= 5; wk++) {
           var active = !weeks || weeks.indexOf(wk) !== -1;
           freq += '<button onclick="togWdWeek('+i+','+wk+')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
-                + (active ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">第'+wk+'</button>';
+                + (active ? 'var(--ac);background:var(--ac);color:var(--on-ac)' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">第'+wk+'</button>';
         }
         freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
         var activeLast = !weeks || weeks.indexOf(0) !== -1;
         freq += '<button onclick="togWdWeek('+i+',0)" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
-              + (activeLast ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">最終</button>';
+              + (activeLast ? 'var(--ac);background:var(--ac);color:var(--on-ac)' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">最終</button>';
         freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
         freq += '<button onclick="setWdWeeks('+i+',\'all\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">毎週</button>';
         freq += '<button onclick="setWdWeeks('+i+',\'odd\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第1・3・5</button>';
@@ -8252,12 +8498,12 @@ function renderHdWdlyList() {
         for (var wk = 1; wk <= 5; wk++) {
           var active = !weeks || weeks.indexOf(wk) !== -1;
           freq += '<button onclick="togHdWdWeek('+i+','+wk+')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
-                + (active ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">第'+wk+'</button>';
+                + (active ? 'var(--ac);background:var(--ac);color:var(--on-ac)' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">第'+wk+'</button>';
         }
         freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
         var activeLast = !weeks || weeks.indexOf(0) !== -1;
         freq += '<button onclick="togHdWdWeek('+i+',0)" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid '
-              + (activeLast ? 'var(--ac);background:var(--ac);color:#fff' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">最終</button>';
+              + (activeLast ? 'var(--ac);background:var(--ac);color:var(--on-ac)' : 'var(--bdr);background:var(--bg);color:var(--txt3)') + '">最終</button>';
         freq += '<span style="width:1px;height:14px;background:var(--bdr);margin:0 3px"></span>';
         freq += '<button onclick="setHdWdWeeks('+i+',\'all\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">毎週</button>';
         freq += '<button onclick="setHdWdWeeks('+i+',\'odd\')" style="font-size:10px;padding:2px 7px;border-radius:10px;cursor:pointer;border:1px solid var(--bdr);background:var(--bg);color:var(--txt2)">第1・3・5</button>';
@@ -8805,11 +9051,12 @@ function updateTabVisibility() {
   var hasPerm = function(id) {
     return !!(currentUser && currentUser.perms && currentUser.perms[id]);
   };
-  /* cal / my / task / lib は常時表示なので show に入れない（表示制御が要るものだけを列挙する） */
+  /* cal / assign / sum / task / lib は常時表示なので show に入れない（表示制御が要るものだけを列挙する）。
+     担当表タブは両主観で出す — 中の「📊 担当表」サブタブだけをCE専用にし、
+     マイ担当（HD勤務のシフトも出す画面）はどちらの主観からも辿れるようにするため。
+     集計タブも両主観で出す（集計は「どちらの目で見るか」に依らない事実のため）。 */
   var isHd = _viewMode === 'hd';
   var show = {
-    'assign': !isHd,   /* 担当表・OC集計・業務集計・公平性はCE専用のためHD主観では丸ごと隠す */
-    'hdsum':  isHd,    /* HD集計は主観モードだけで出し分け。パーミッションではなく全員対象 */
     'staff':  isAdmin, /* スタッフ一覧・PHS番号・勤務表インポートはまとめて管理者限定 */
     'master': isAdmin || hasPerm('tab_master'),
     'lock':   isAdmin,
@@ -8820,12 +9067,16 @@ function updateTabVisibility() {
     var el = document.getElementById('tab-' + id);
     if (el) el.style.display = show[id] ? '' : 'none';
   });
-  /* 非表示になったタブを開いたままモードを切り替えると中身が残り続けてしまうためカレンダーへ退避する。
-     swTab は updateTabVisibility を呼び返さないのでループしない。 */
-  if (!show.hdsum  && curTab === 'hdsum')  swTab('cal');
-  if (!show.assign && curTab === 'assign') swTab('cal');
+  /* 担当表サブタブの出し分け。CE担当表と公平性はCEの担当枠が前提なのでHD主観では出さない。
+     いま隠したサブタブを開いていたら、中身が残り続けないようマイ担当へ退避する。 */
+  var atBtn   = document.getElementById('subtab-at');
   var fairBtn = document.getElementById('subtab-fair');
-  if (fairBtn) fairBtn.style.display = isAdmin ? '' : 'none';
+  var hdfBtn  = document.getElementById('subtab-hdfair');
+  if (atBtn)   atBtn.style.display   = isHd ? 'none' : '';
+  if (fairBtn) fairBtn.style.display = (isAdmin && !isHd) ? '' : 'none';
+  if (hdfBtn)  hdfBtn.style.display  = (isAdmin &&  isHd) ? '' : 'none';
+  if ( isHd && (_curSubTab === 'at' || _curSubTab === 'fair')) swSubTab('my');
+  if (!isHd &&  _curSubTab === 'hdfair') swSubTab('my');
 }
 function renderLockList() {
   var w = document.getElementById('lock-list'); w.innerHTML = '';
@@ -9368,7 +9619,7 @@ function parseShiftSheet(wb, fileName) {
     html += '<div style="padding:6px 10px;border-bottom:1px solid var(--bdr);font-size:11px">';
     html += '<span style="font-weight:700;color:var(--txt2);margin-right:8px">' + d2 + '\u65e5</span>';
     html += '<span style="color:var(--ac)">CE: ' + (p.ce.length ? p.ce.join('\u30fb') : '\u2014') + '</span>';
-    if (p.oc.length) html += '<span style="color:#e67e22;margin-left:8px">OC: ' + p.oc.join('\u30fb') + '</span>';
+    if (p.oc.length) html += '<span style="color:var(--or);margin-left:8px">OC: ' + p.oc.join('\u30fb') + '</span>';
     if (p.hd && p.hd.length) {
       var hdNm = p.hd.map(function(x){ return x.name + (x.night ? '(\u6e96)' : ''); });
       html += '<span style="color:var(--pu);margin-left:8px">\ud83e\ude78 ' + hdNm.join('\u30fb') + '</span>';
@@ -9387,11 +9638,11 @@ function parseShiftSheet(wb, fileName) {
     var vWarns  = valIssues.filter(function(i){ return i.type === 'warn'; });
     var vInfos  = valIssues.filter(function(i){ return i.type === 'info'; });
     if (vErrors.length) {
-      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--rd);padding:6px 10px;background:#ffeaea;border:1px solid var(--rd);border-radius:6px">❌ エラー（' + vErrors.length + '件）</summary>'
+      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--rd);padding:6px 10px;background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px">❌ エラー（' + vErrors.length + '件）</summary>'
           + '<div style="padding:6px 10px;font-size:11px">' + vErrors.map(function(e){ return '<div style="padding:2px 0;color:var(--rd)">• ' + e.msg + '</div>'; }).join('') + '</div></details>';
     }
     if (vWarns.length) {
-      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--or);padding:6px 10px;background:#fff8ee;border:1px solid var(--or);border-radius:6px;margin-top:4px">⚠️ 確認事項（' + vWarns.length + '件）</summary>'
+      vh += '<details open><summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--or);padding:6px 10px;background:var(--or-bg);border:1px solid var(--or);border-radius:6px;margin-top:4px">⚠️ 確認事項（' + vWarns.length + '件）</summary>'
           + '<div style="padding:6px 10px;font-size:11px">' + vWarns.map(function(w){ return '<div style="padding:2px 0;color:var(--or)">• ' + w.msg + '</div>'; }).join('') + '</div></details>';
     }
     if (vInfos.length) {
@@ -10781,7 +11032,7 @@ function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone){
   opeDone=opeDone||0; cathDone=cathDone||0;
   var s='';
   var GR_CHIP='background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer';
-  if(psgRemoval) s+='<span style="background:#fff0f0;color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">🌙 PSG外し</span> ';
+  if(psgRemoval) s+='<span style="background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">🌙 PSG外し</span> ';
   if(opeN){
     var opeAll=(opeDone>=opeN);
     var opeTxt=opeDone>0?('🔪 オペ '+opeDone+'/'+opeN+'件終了'+(opeAll?' ✅':'')):('🔪 オペ '+opeN+'件');
@@ -11028,7 +11279,7 @@ function renderPage(ds) {
       });
       h+='<span style="flex:1"></span>';
       if(isAdmin){
-        h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap">💾 テンプレ保存</button>';
+        h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:var(--on-ac);border:none;border-radius:6px;cursor:pointer;white-space:nowrap">💾 テンプレ保存</button>';
         if(isCustomOps) h+='<button type="button" onclick="resetOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap">↩ 戻す</button>';
         if(displayCards2.length>0) h+='<button type="button" onclick="clearOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap" title="全カードを削除">🗑</button>';
       }
@@ -13944,7 +14195,7 @@ function buildOPS(ds,dat,locked) {
       var cSel2=document.createElement('select'); cSel2.className='ops-sel'; cSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; cSel2.disabled=!!locked;
       var iSel2=document.createElement('select'); iSel2.className='ops-sel'; iSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; iSel2.disabled=!!locked;
       var addBtn2=document.createElement('button'); addBtn2.type='button'; addBtn2.textContent='追加'; addBtn2.disabled=!!locked;
-      addBtn2.style.cssText='font-size:11px;padding:4px 10px;border:none;border-radius:var(--rs);background:var(--ac);color:#fff;cursor:pointer;flex-shrink:0';
+      addBtn2.style.cssText='font-size:11px;padding:4px 10px;border:none;border-radius:var(--rs);background:var(--ac);color:var(--on-ac);cursor:pointer;flex-shrink:0';
       var dOpts2='<option value="">+ 物品カテゴリ</option>';
       (D.supTree||[]).forEach(function(d){ dOpts2+='<option value="'+escH(d.dept)+'">'+escH(d.dept)+'</option>'; });
       dSel2.innerHTML=dOpts2;
@@ -15745,8 +15996,30 @@ function initAtPinchZoom() {
   cont.addEventListener('touchend', endPinch, {passive: true});
   cont.addEventListener('touchcancel', endPinch, {passive: true});
 }
-function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();var hp=document.getElementById('pane-hdsum'); if(hp&&hp.style.display!=='none') renderHdSummary();}
-function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();var hp=document.getElementById('pane-hdsum'); if(hp&&hp.style.display!=='none') renderHdSummary();}
+function asPrevM(){asM--;if(asM<0){asM=11;asY--;}
+  if(_viewMode!=='hd') renderAT();
+  /* 表示中のサブタブだけ描き直す（毎回 D.pages を全走査させない） */
+  var sp=document.getElementById('pane-sum');
+  if(sp && sp.style.display!=='none'){
+    if(_curSumTab==='ops'){ var o1=document.getElementById('ops-sum-body'); if(o1) o1.innerHTML=''; renderOpsSummary(); }
+    if(_curSumTab==='oc'){  var o2=document.getElementById('oc-sum-body');  if(o2) o2.innerHTML=''; renderOCSummary(); }
+    if(_curSumTab==='hd'){  renderHdSummary(); }
+  }
+  var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
+  var hf=document.getElementById('subpane-hdfair'); if(hf&&hf.style.display!=='none') renderHdFairness();
+}
+function asNextM(){asM++;if(asM>11){asM=0;asY++;}
+  if(_viewMode!=='hd') renderAT();
+  /* 表示中のサブタブだけ描き直す（毎回 D.pages を全走査させない） */
+  var sp=document.getElementById('pane-sum');
+  if(sp && sp.style.display!=='none'){
+    if(_curSumTab==='ops'){ var o1=document.getElementById('ops-sum-body'); if(o1) o1.innerHTML=''; renderOpsSummary(); }
+    if(_curSumTab==='oc'){  var o2=document.getElementById('oc-sum-body');  if(o2) o2.innerHTML=''; renderOCSummary(); }
+    if(_curSumTab==='hd'){  renderHdSummary(); }
+  }
+  var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
+  var hf=document.getElementById('subpane-hdfair'); if(hf&&hf.style.display!=='none') renderHdFairness();
+}
 
 var _mySchedName = null; /* マイ担当でスタッフが選択されたときのキャッシュ */
 function renderMySchedule(overrideName) {
@@ -15850,13 +16123,13 @@ function renderMySchedule(overrideName) {
     var bg = isToday ? 'var(--ac-bg,#eef4ff)' : isFuture ? 'var(--sur)' : 'var(--sur2)';
     html += '<div style="background:'+bg+';border:'+border+';border-radius:8px;padding:8px 12px;cursor:pointer" onclick="openPage(\''+c.ds+'\')">';
     html += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px">';
-    if (isToday) html += '<span style="font-size:10px;font-weight:700;background:var(--ac);color:#fff;border-radius:4px;padding:1px 5px">今日</span>';
+    if (isToday) html += '<span style="font-size:10px;font-weight:700;background:var(--ac);color:var(--on-ac);border-radius:4px;padding:1px 5px">今日</span>';
     html += '<span style="font-size:13px;font-weight:700;color:var(--txt1)">' + fmtJ(c.ds) + '</span>';
     html += '<span style="font-size:12px;font-weight:700;color:'+wdColor+'">（'+wd+'）</span>';
     html += '</div>';
     html += '<div style="display:flex;flex-wrap:wrap;gap:4px">';
     for (var si2 = 0; si2 < c.slots.length; si2++) {
-      html += '<span style="font-size:11px;background:var(--ac);color:#fff;border-radius:4px;padding:2px 7px">'+escH(c.slots[si2])+'</span>';
+      html += '<span style="font-size:11px;background:var(--ac);color:var(--on-ac);border-radius:4px;padding:2px 7px">'+escH(c.slots[si2])+'</span>';
     }
     html += '</div></div>';
   }
@@ -15912,7 +16185,7 @@ function renderAT() {
     var dat=D.pages[ds];
     /* このページの担当枠設定を取得 */
     var pageDuties=getDutyCfg(dat);
-    html+='<tr class="atr" data-ds="'+ds+'"'+(ds===today?' style="background:#eef2fc"':'')+'>';
+    html+='<tr class="atr" data-ds="'+ds+'"'+(ds===today?' style="background:var(--ac-bg)"':'')+'>';
     html+='<td class="sc '+pctCls+'"><span style="font-weight:900;font-size:12px'+(ds===today?';color:var(--ac)':'')+'">';
     html+=dn+'日</span> <span class="dhw'+wdCls+'">'+WDL[w]+'</span></td>';
     for(var si=0;si<allS.length;si++){
@@ -16525,9 +16798,13 @@ window.addEventListener('afterprint',function(){
 
 /* サブタブ対応 CSV エクスポート（現在のサブタブで分岐） */
 function exportSubCsv() {
-  if (_curSubTab === 'at')   { exportAtCsv(); return; }
-  if (_curSubTab === 'oc')   { exportOcCsv(); return; }
-  if (_curSubTab === 'ops')  { exportOpsCsv(); return; }
+  if (_curSubTab === 'at') { exportAtCsv(); return; }
+  /* マイ担当・公平性はCSVボタン自体を出していないのでここには来ない */
+}
+function exportSumCsv() {
+  if (_curSumTab === 'ops') { exportOpsCsv(); return; }
+  if (_curSumTab === 'oc')  { exportOcCsv();  return; }
+  if (_curSumTab === 'hd')  { exportHdCsv();  return; }
 }
 function downloadCsv(filename, rows) {
   var csv = '﻿';
@@ -16594,7 +16871,7 @@ function exportOpsCsv() {
     rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], opeN||'', cathN||'', mwN||'', psgN||'', freeN||'']);
   });
   if (rows.length===1){toast(rng.label+'に業務記録がありません', 'warn');return;}
-  downloadCsv('分院CE_業務集計_'+sumFileLabel()+'.csv', rows);
+  downloadCsv('分院CE_CE集計_'+sumFileLabel()+'.csv', rows);
 }
 function exportOpsDetailCsv() {
   var rng = sumRange();
@@ -16609,13 +16886,19 @@ function exportOpsDetailCsv() {
       r.staff.join('/'), r.sup.join('/'), r.done?'済':''
     ]);
   });
-  downloadCsv('分院CE_業務明細_'+sumFileLabel()+'.csv', out);
+  downloadCsv('分院CE_CE明細_'+sumFileLabel()+'.csv', out);
 }
 /* サブタブ対応 印刷（現在のサブタブを印刷） */
 function printSubTab() {
   if (_curSubTab === 'at') { printAt(); return; }
-  document.getElementById('ph').textContent = '分院CE連絡表　' + asY+'年'+(asM+1)+'月';
-  document.body.setAttribute('data-print-sub', _curSubTab);
+  _printSubPane('ph', _curSubTab);
+}
+function printSumTab() { _printSubPane('sum-ph', _curSumTab); }
+/* サブタブ1枚だけを紙に出す共通処理。担当表(printAt)は専用のレイアウトを持つので通さない。 */
+function _printSubPane(phId, subId) {
+  var ph = document.getElementById(phId);
+  if (ph) ph.textContent = '分院CE連絡表　' + asY+'年'+(asM+1)+'月';
+  document.body.setAttribute('data-print-sub', subId);
   document.body.classList.add('printing-sub');
   setTimeout(function(){
     window.print();
@@ -17376,12 +17659,12 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','my','task','hdsum','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','sum','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   var libTabs=['guide','makers'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群。
      スケジュールはモーダル化したためここには含まれない（openSchedPanel/closeSchedPanel） */
-  var contentPanes=['assign','my','task','hdsum','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var contentPanes=['assign','sum','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -17392,12 +17675,12 @@ function swTab(t) {
     if(pn){ pn.style.display=id===t?'flex':'none'; }
   }
   /* 担当表のスマホ用「← 戻る」ボタン（スマホで該当タブ表示中のみ） */
-  ['assign'].forEach(function(id){
+  ['assign','sum'].forEach(function(id){
     var bb=document.getElementById(id+'-back-btn');
     if(bb) bb.style.display=(isSP && t===id)?'':'none';
   });
   /* メインエリア（連絡表詳細）の表示制御：コンテンツタブ選択時は非表示 */
-  var hideMain = (t==='assign') || (!isSP && contentPanes.indexOf(t)!==-1);
+  var hideMain = (t==='assign') || (t==='sum') || (!isSP && contentPanes.indexOf(t)!==-1);
   mn.style.display = hideMain ? 'none' : '';
   /* PCではコンテンツタブ選択時にサイドバーを全幅に拡張 */
   var ab = document.getElementById('ab');
@@ -17408,7 +17691,7 @@ function swTab(t) {
   if(!isSP){
     /* PCでは.hm（width:0!important）が残っていると全幅コンテンツpaneが消えるため必ず解除 */
     if(sb2) sb2.classList.remove('hm');
-  } else if(t==='assign'){
+  } else if(t==='assign' || t==='sum'){
     if(sb2){ sb2.classList.remove('hm'); }
     sbOpen=true;
   } else if(sb2 && !sbOpen){
@@ -17422,10 +17705,10 @@ function swTab(t) {
   /* どちらのサブメニューにも属さないタブへ移動したら、開いていたサブメニューを畳む */
   if(docsTabs.indexOf(t)===-1 && libTabs.indexOf(t)===-1) openSubmenu(null);
 
-  if(t==='assign'){ swSubTab('at'); renderAT(); }
-  if(t==='my'){ renderMySchedule(); }
+  /* HD主観ではCE担当表サブタブを出さないので、既定をマイ担当にする */
+  if(t==='assign'){ swSubTab(_viewMode==='hd' ? 'my' : 'at'); if(_viewMode!=='hd') renderAT(); }
+  if(t==='sum'){ swSumTab(_curSumTab); }
   if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
-  if(t==='hdsum'){ renderHdSummary(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
@@ -17465,10 +17748,11 @@ function toggleDocsMenu(){ openSubmenu('docs-submenu'); }
 function toggleLibMenu(){ openSubmenu('lib-submenu'); }
 function togSB(){
   var sb=document.getElementById('sb');
-  /* 担当表が全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
-     このpaneはsb内のfixed要素なので、.hmのtransformで巻き込まれないよう必ずcal経由で戻す */
+  /* 担当表・集計が全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
+     これらのpaneはsb内のfixed要素なので、.hmのtransformで巻き込まれないよう必ずcal経由で戻す */
   var ap=document.getElementById('pane-assign');
-  if(ap && ap.style.display==='flex'){
+  var sp=document.getElementById('pane-sum');
+  if((ap && ap.style.display==='flex') || (sp && sp.style.display==='flex')){
     sbOpen=false; /* swTab内のサイドバー再表示ロジックを働かせる */
     swTab('cal');
     return;
@@ -17501,6 +17785,79 @@ document.addEventListener('click',function(e){
     }
   }
 });
+
+/* ===== テーマ（ライト／ダーク／端末設定に追従） =====
+   CE/HD主観と同じく端末ローカル設定。D には入れずログアウトでもリセットしない。
+   'auto'（既定）＝端末の設定に追従。'light'/'dark' はユーザーの明示指定で、
+   その場合 <html data-theme="..."> を付けて @media より優先させる。 */
+var THEME_KEY = 'ce2_theme';
+function getTheme() {
+  var v = localStorage.getItem(THEME_KEY);
+  return (v === 'light' || v === 'dark') ? v : 'auto';
+}
+/* 実際に今どちらで表示されているか（autoのときは端末の設定を見る） */
+function effectiveTheme() {
+  var t = getTheme();
+  if (t !== 'auto') return t;
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+function applyTheme() {
+  /* data-theme には必ず 'light'/'dark' のどちらかを入れる（'auto' も解決してから入れる）。
+     こうしておくと CSS 側は :root[data-theme="dark"] の1ブロックだけで済み、
+     @media (prefers-color-scheme:dark) に同じパレットを二重管理せずに済む。 */
+  var eff = effectiveTheme();
+  document.documentElement.setAttribute('data-theme', eff);
+  _dutyDarkCache = {}; /* 担当枠の変換色はテーマごとに違うので、ここで必ず捨てる */
+  /* スマホのブラウザUI（アドレスバー等）の色も合わせる */
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', eff === 'dark' ? '#15161a' : '#f4f3ef');
+  updateThemeBtn();
+}
+function setTheme(t) {
+  if (t === 'auto') localStorage.removeItem(THEME_KEY);
+  else localStorage.setItem(THEME_KEY, t);
+  applyTheme();
+}
+/* JS が色を計算して埋めている箇所（担当枠の色・集計グラフの系列色）は、
+   CSS変数の切り替えだけでは変わらないので描き直す。 */
+function repaintForTheme() {
+  _dutyDarkCache = {};
+  try {
+    if (typeof safeRenderPage === 'function') safeRenderPage();
+    if (typeof renderCal === 'function') renderCal();
+    var at = document.getElementById('subpane-at');
+    if (at && at.style.display !== 'none' && typeof renderAT === 'function') renderAT();
+    var ops = document.getElementById('subpane-ops');
+    if (ops && ops.style.display !== 'none' && typeof renderOpsSummary === 'function') renderOpsSummary();
+    var fair = document.getElementById('subpane-fair');
+    if (fair && fair.style.display !== 'none' && typeof renderFairness === 'function') renderFairness();
+  } catch (e) { /* 描き直しに失敗してもテーマ自体は当たっているので落とさない */ }
+}
+
+/* ライト → ダーク → 端末設定 の3状態を回す */
+function cycleTheme() {
+  var t = getTheme();
+  setTheme(t === 'auto' ? 'light' : (t === 'light' ? 'dark' : 'auto'));
+  repaintForTheme();
+  var lbl = { auto:'端末の設定に合わせます', light:'ライトモード', dark:'ダークモード' }[getTheme()];
+  toast('🎨 ' + lbl, 'ok');
+}
+function updateThemeBtn() {
+  var btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  var t = getTheme();
+  var ic = { auto:'🌗', light:'☀️', dark:'🌙' }[t];
+  var lb = { auto:'自動', light:'ライト', dark:'ダーク' }[t];
+  btn.innerHTML = ic + '<span class="mt-text"> ' + lb + '</span>';
+  btn.title = '表示テーマ：' + lb + '（タップで切替）';
+}
+/* 'auto' のまま端末側の設定が変わったら追従する */
+if (window.matchMedia) {
+  var _mq = window.matchMedia('(prefers-color-scheme: dark)');
+  var _onMq = function(){ if (getTheme() === 'auto') { applyTheme(); repaintForTheme(); } };
+  if (_mq.addEventListener) _mq.addEventListener('change', _onMq);
+  else if (_mq.addListener) _mq.addListener(_onMq);
+}
 
 /* ===== モード切替（CE主観／HD主観） =====
    本人の端末設定なので D には入れない（BOARD_READ_KEY と同じ localStorage パターン）。
@@ -17769,7 +18126,7 @@ function renderBoard() {
     if (isNew) html += '<span style="color:var(--rd);font-weight:700;font-size:10px">NEW</span>';
     if (p.tag && BOARD_TAGS[p.tag]) {
       var tg = BOARD_TAGS[p.tag];
-      html += '<span style="font-size:10px;font-weight:700;color:#fff;background:' + tg.color + ';border-radius:4px;padding:1px 6px">' + tg.emoji + ' ' + tg.label + '</span>';
+      html += '<span style="font-size:10px;font-weight:700;color:var(--on-ac);background:' + tg.color + ';border-radius:4px;padding:1px 6px">' + tg.emoji + ' ' + tg.label + '</span>';
     }
     if (p.resolved) html += '<span style="color:var(--gr);font-weight:700;font-size:10px">✅解決済み</span>';
     html += '<span style="font-weight:600;color:var(--txt1)">' + escH(p.author || '匿名') + '</span>';
