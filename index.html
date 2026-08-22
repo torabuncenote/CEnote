@@ -7332,7 +7332,7 @@ function closeItems(ds) {
 
   /* 1. 自分あてメンションを含む未完了の申し送り */
   if (self) {
-    (dat.memos||[]).forEach(function(m){
+    memosOf(dat).forEach(function(m){
       if (m.done) return;
       if (extractMentions(m.text, m.name).indexOf(self) !== -1) byKey.mention.items.push({mine:true});
     });
@@ -10818,7 +10818,7 @@ function renderPage(ds) {
   var _ocStaff = dat.ocData.staff || '';
   var _ocCls = !_ocStaff ? ' dash-warn' : (dat.ocData.done ? ' pv-p' : '');
   h+='<div class="pr dash-chip" id="oc-dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'" id="oc-dash-val">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅対応済':'')+'</span></div>';
-  var _memoUndone = (dat.memos||[]).filter(function(m){return !m.done;}).length;
+  var _memoUndone = memosOf(dat).filter(function(m){return !m.done;}).length;
   h+='<div class="pr dash-chip" onclick="dashJump(\'#memo-list\')" title="申し送りへジャンプ"><span class="pl">📝 申し送り</span><span class="pv'+(_memoUndone?'':' dash-muted')+'">'+_memoUndone+'件</span></div>';
   h+='</div>';
   if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
@@ -11336,7 +11336,7 @@ function hdRosterRefHTML(ds, dat) {
 /* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集／
    血液浄化件数入力・HDチェックリストを追加） =====
    出しているのはヘッダー・イベント表示・血液浄化件数・HDチェックリスト（進捗バー含む）・
-   HD担当表（担当変更・備考編集可）・余剰人員・申し送り（CEと同一の dat.memos）。
+   HD担当表（担当変更・備考編集可）・余剰人員・申し送り（HD専用の dat.hdMemos）。
    #dg/#pool-chips/#ops-grid は絶対に作らない（buildDG はnullチェックが無くこれらのidが
    無い状態で呼ぶと例外になるため、呼ばない）。#hdcl/#hdwcl は buildHdCL が冒頭で
    nullガードするCE版と別実装なので、CE専用の #dcl/#wcl とは異なりここで作ってよい。 */
@@ -11430,7 +11430,7 @@ function renderPageHD(ds) {
   h += '<div id="surplus-wrap" class="surplus-wrap"></div>';
   h += '</div></div>';
 
-  /* 業務連絡・申し送り（CEと同一の dat.memos スレッドを共有。マークアップも memoSectionHTML で共通） */
+  /* 業務連絡・申し送り（HD専用スレッド dat.hdMemos。マークアップは memoSectionHTML でCEと共通） */
   h += memoSectionHTML(ds, mlk);
 
   document.getElementById('main').innerHTML = h;
@@ -11564,7 +11564,7 @@ function renderPageHD(ds) {
 }
 
 /* 申し送りセクション（見出し＋一覧＋入力欄）のHTML。CE版(renderPage)とHD版(renderPageHD)が
-   同一の dat.memos スレッドを共有しており、以前は両方に同じマークアップが逐語的に複製されていた。
+   別スレッド（dat.memos / dat.hdMemos）だが画面の作りは同一で、以前は両方に同じマークアップが逐語的に複製されていた。
    とくに患者情報を書かせないための注意書き（.memo-notice）が2箇所にあり、片方だけ文面を直すと
    もう一方の主観だけ古い注意書きが残る——患者安全に関わる文言なので、1箇所に集約する。 */
 function memoSectionHTML(ds, mlk){
@@ -11589,7 +11589,7 @@ function memoSectionHTML(ds, mlk){
 }
 /* 申し送り入力欄（#memo-new）のイベント登録：送信ボタン／Ctrl+Enter送信／@メンション候補。
    renderPage・renderPageHD の両方が同じ #memo-new/#memo-send-btn DOMに対して呼ぶ共用関数
-   （HDモードもCEと同一の dat.memos スレッドを共有するため、入力UIも同じロジックでよい）。 */
+   （スレッドは memosOf/ensureMemos が主観で切り替えるので、入力UIは同じロジックでよい）。 */
 function bindMemoInput(ds){
   var btn = document.getElementById('memo-send-btn');
   var ta  = document.getElementById('memo-new');
@@ -11831,12 +11831,22 @@ function memoReplyMediaArr(r) {
   if (Array.isArray(r.media)) return r.media.filter(Boolean);
   return Object.keys(r.media).map(function(k){ return r.media[k]; }).filter(Boolean);
 }
+/* ===== CE/HDで申し送りスレッドを分ける =====
+   CEの申し送りとHD（透析室）の申し送りは読む相手が違うので、スレッドごと分ける。
+   分けないと、HD勤務者にCEのオペ・カテの申し送りが流れ込み、逆も起きる。
+   タブレット台帳と同じく、関数は複製せず主観で切り替えるアクセサ1組で扱う
+   （memos は id ではなく配列の並びで扱うが、CE/HDで別配列にするだけなので
+   dat.checks のような添字の共有規約は発生しない）。
+   既存の申し送りはすべて dat.memos に入っているため、そのままCE側に残る。 */
+function memoKey() { return _viewMode === 'hd' ? 'hdMemos' : 'memos'; }
+function memosOf(dat) { var k = memoKey(); return (dat && Array.isArray(dat[k])) ? dat[k] : []; }
+function ensureMemos(dat) { var k = memoKey(); if (!Array.isArray(dat[k])) dat[k] = []; return dat[k]; }
 /* 申し送り1件を指す安定キー。Firebaseのエコーで memos の並びが変わっても
    同じ投稿を指し続けられるよう、インデックスではなく ts+uid で特定する
    （moveMemo が対象を再特定しているのと同じ考え方） */
 function memoKeyOf(m) { return String(m && m.ts || 0) + '_' + String((m && m.uid) || ''); }
 function findMemoByKey(ds, key) {
-  var memos = (D.pages[ds] && D.pages[ds].memos) ? D.pages[ds].memos : [];
+  var memos = memosOf(D.pages[ds]);
   for (var i = 0; i < memos.length; i++) {
     if (memoKeyOf(memos[i]) === key) return { idx: i, m: memos[i] };
   }
@@ -11847,7 +11857,7 @@ function renderMemos(ds, dat, locked) {
   var el = document.getElementById('memo-list');
   if (!el) return;
   bindMemoListEvents(el);
-  var memos = (dat && dat.memos) ? dat.memos : [];
+  var memos = memosOf(dat);
   if (!memos.length) {
     el.innerHTML = '<div class="pool-empty" style="font-size:12px;padding:6px 0">申し送りはまだありません</div>';
     return;
@@ -11959,11 +11969,12 @@ function bindMemoListEvents(el) {
     if (cb) {
       var idx = parseInt(cb.getAttribute('data-idx'));
       var bds = cb.getAttribute('data-ds');
-      if (!D.pages[bds] || !D.pages[bds].memos) return;
-      D.pages[bds].memos[idx].done = cb.checked;
+      if (!D.pages[bds]) return;
+      var _bm = memosOf(D.pages[bds]); if (!_bm[idx]) return;
+      _bm[idx].done = cb.checked;
       /* チェックしたユーザーと時刻を記録 */
-      D.pages[bds].memos[idx].doneBy   = currentUser ? (currentUser.displayName || currentUser.email) : '';
-      D.pages[bds].memos[idx].doneAt   = cb.checked ? Date.now() : null;
+      _bm[idx].doneBy   = currentUser ? (currentUser.displayName || currentUser.email) : '';
+      _bm[idx].doneAt   = cb.checked ? Date.now() : null;
       saveDPage(bds);
       /* 投稿ボックスのクラスを即時切り替え（再描画なし） */
       var post = cb.closest('.memo-post');
@@ -12290,9 +12301,10 @@ function checkAndDeleteOldData(force) {
     var pageDate = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
     if (pageDate.getTime() < cutoff) { delete D.pages[ds]; deleted++; }
   }
-  /* 申し送りメディアの削除 */
+  /* 申し送りメディアの削除。CE/HD両方のスレッドを掃除しないと、片方の添付が
+     Storageに残り続けて容量を食う。 */
   for (var ds2 in D.pages) {
-    var memos = D.pages[ds2].memos || [];
+    var memos = (D.pages[ds2].memos || []).concat(D.pages[ds2].hdMemos || []);
     for (var i = memos.length - 1; i >= 0; i--) {
       var media = memos[i].media || [];
       for (var j = media.length - 1; j >= 0; j--) {
@@ -12826,7 +12838,7 @@ function _doPostMemo(ds) {
     if (!can('pg')) { toast('🔒 このページはまだ作成されていません。管理者に連絡してください。', 'warn'); return; }
     D.pages[ds] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
   }
-  if (!D.pages[ds].memos) D.pages[ds].memos = [];
+  ensureMemos(D.pages[ds]);
 
   var sendBtn = document.getElementById('memo-send-btn');
   if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '送信中...'; }
@@ -12873,7 +12885,7 @@ function _doPostMemo(ds) {
 }
 
 function _finishPostMemo(ds, entry, text, sendBtn) {
-  D.pages[ds].memos.push(entry);
+  ensureMemos(D.pages[ds]).push(entry);
   saveDPage(ds);
   writeLog('申し送り投稿', fmtJ(ds) + ' 「' + (text||'[画像/動画]').slice(0,30) + (text.length>30?'...':'') + '」');
   var ta = document.getElementById('memo-new');
@@ -12898,8 +12910,8 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
 
 
 function delMemo(ds, idx) {
-  if (!D.pages[ds] || !D.pages[ds].memos) return;
-  var m = D.pages[ds].memos[idx];
+  if (!D.pages[ds]) return;
+  var m = memosOf(D.pages[ds])[idx];
   if (!m) return;
   if (!confirm('この申し送りを削除しますか？')) return;
   /* Storageファイルも削除 */
@@ -12914,7 +12926,7 @@ function delMemo(ds, idx) {
       });
     });
   }
-  D.pages[ds].memos.splice(idx, 1);
+  memosOf(D.pages[ds]).splice(idx, 1);
   saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
@@ -12922,9 +12934,9 @@ function delMemo(ds, idx) {
 }
 
 function openMoveMemoModal(ds, idx) {
-  if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return;
+  if (!D.pages[ds] || !memosOf(D.pages[ds])[idx]) return;
   /* モーダル表示中にFirebaseエコーでindexがずれても対象を再特定できるよう識別子を保持 */
-  var m0 = D.pages[ds].memos[idx];
+  var m0 = memosOf(D.pages[ds])[idx];
   var memoTs = m0.ts, memoUid = m0.uid;
   var oldOv = document.getElementById('move-memo-ov'); if (oldOv) oldOv.remove(); /* 二重表示防止 */
   var tmr = new Date(); tmr.setDate(tmr.getDate() + 1);
@@ -12943,7 +12955,7 @@ function openMoveMemoModal(ds, idx) {
     var targetDs = document.getElementById('move-memo-date').value;
     if (!targetDs) { toast('移動先の日付を選択してください', 'warn'); return; }
     /* 他端末の編集でindexがずれた可能性があるため ts+uid で対象を再特定する */
-    var memos = (D.pages[ds] && D.pages[ds].memos) || [];
+    var memos = memosOf(D.pages[ds]);
     var curIdx = -1;
     for (var i = 0; i < memos.length; i++) {
       if (memoTs ? (memos[i].ts === memoTs && memos[i].uid === memoUid) : i === idx) { curIdx = i; break; }
@@ -12955,16 +12967,16 @@ function openMoveMemoModal(ds, idx) {
 
 function moveMemo(ds, idx, targetDs) {
   if (targetDs === ds) { toast('移動元と同じ日付です', 'warn'); return false; }
-  if (!D.pages[ds] || !D.pages[ds].memos || !D.pages[ds].memos[idx]) return false;
+  if (!D.pages[ds] || !memosOf(D.pages[ds])[idx]) return false;
   if (!D.pages[targetDs]) {
     if (!can('pg')) { toast('🔒 移動先の連絡表がまだ作成されていません。管理者に連絡してください。', 'warn'); return false; }
     D.pages[targetDs] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
   }
-  if (!D.pages[targetDs].memos) D.pages[targetDs].memos = [];
-  var m = D.pages[ds].memos[idx];
-  D.pages[ds].memos.splice(idx, 1);
+  /* 移動元・移動先とも「今いる主観のスレッド」を指す。CE側の申し送りがHD側へ紛れ込むことはない */
+  var m = memosOf(D.pages[ds])[idx];
+  memosOf(D.pages[ds]).splice(idx, 1);
   m.movedFrom = ds;
-  D.pages[targetDs].memos.push(m);
+  ensureMemos(D.pages[targetDs]).push(m);
   saveD();
   writeLog('申し送り移動', fmtJ(ds) + '→' + fmtJ(targetDs) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
@@ -17988,13 +18000,15 @@ function _doSearch(q) {
   Object.keys(D.pages).sort().reverse().forEach(function(ds) {
     var pg = D.pages[ds]; if (!pg) return;
     var snippets = [];
-    /* 申し送り */
-    if (Array.isArray(pg.memos)) {
-      pg.memos.forEach(function(m) {
+    /* 申し送り。CE(memos)とHD(hdMemos)の両方を対象にする——検索は「どこかに書いたはず」を
+       探す機能なので、今どちらの主観で見ているかに関係なくヒットさせる。 */
+    [['memos','申し送り'],['hdMemos','申し送り(HD)']].forEach(function(src){
+      if (!Array.isArray(pg[src[0]])) return;
+      pg[src[0]].forEach(function(m) {
         if (m && m.text && m.text.toLowerCase().indexOf(q) !== -1)
-          snippets.push('申し送り: ' + m.text.slice(0, 60));
+          snippets.push(src[1] + ': ' + m.text.slice(0, 60));
       });
-    }
+    });
     if (pg.memo && pg.memo.toLowerCase().indexOf(q) !== -1)
       snippets.push('メモ: ' + pg.memo.slice(0, 60));
     /* 担当 */
