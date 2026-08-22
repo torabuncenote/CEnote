@@ -283,6 +283,26 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `init()` calls `updateTabVisibility()` once at startup (right after `fbInit()`). Without it the mode-dependent tabs are never evaluated on a cold load: `_viewMode` is restored from `localStorage` at the top of `init()`, but the Firebase path only re-evaluates on login and the preview path used to hand-set `display=''` on the admin tabs, so reloading while in HD mode left 担当表 showing and HD集計 hidden. Do not replace that call with per-tab `style.display` assignments again.
 
+### テーマ（ライト／ダーク）
+
+端末ローカル設定（localStorage `ce2_theme`、`getTheme()`/`setTheme(t)`/`cycleTheme()`）。`_viewMode` と同じく `D` には入れず、ログアウトでもリセットしない。トップバーの `#theme-toggle` が **ライト → ダーク → 端末設定（auto）** の3状態を回す。
+
+**`data-theme` には必ず `light`/`dark` のどちらかが入る。** `auto` は `localStorage` 側の状態としてのみ存在し、`applyTheme()` が `effectiveTheme()`（`matchMedia('(prefers-color-scheme: dark)')` を見る）で解決してから属性に書く。こうすることで CSS 側は `:root[data-theme="dark"]` 1ブロックで済み、`@media (prefers-color-scheme:dark)` に同じパレットを二重管理せずに済む。`auto` のまま端末設定が変わったときは `matchMedia` の `change` リスナーが `applyTheme()` + `repaintForTheme()` を呼ぶ。**`data-theme` を消して `@media` に任せる形に戻さないこと** — 戻すとパレットの定義箇所が2つになり、片方だけ直したときに端末設定追従のユーザーにだけ古い色が残る。
+
+**ダークのパレットは `@media screen` の中に置く。** 印刷時はこのブロック自体が適用されず `:root` のライト値がそのまま効くので、紙用のパレットを別に転記する必要がない（転記すると二重管理になり、ライト側の色を変えたときに紙だけ古い色になる）。
+
+`<head>` に小さなインラインスクリプトがあり、CSSより先に `data-theme` を当てている。`init()` を待つと、暗い設定の端末で起動時に一瞬ライトの画面が見える。
+
+**新しい色は直書きせずCSS変数を足す。** ライト `:root` とダークブロックの2箇所に定義すれば全体に効く。既存の意味色に加えて `--rd-bdr`（赤系ボーダー）、`--warn-bg`/`--warn-fg`/`--warn-fg2`/`--warn-bdr`（PHI警告・OCアラート・PSGバナーで共有）、`--toast-bg`/`--toast-fg`/`--toast-warn`、`--code-bg`/`--code-fg`（資料ページのコードブロック）がある。トーストはライトでは地より暗く、ダークでは地より明るい——「反転」ではなく「浮かせる」方向で揃えている。
+
+`color-scheme` を `light`/`dark` で切り替えているので、背景色を指定していない `input`/`textarea`/`select`、日付・時刻ピッカー、スクロールバーもまとめて追従する。加えて `input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{background:var(--sur);color:var(--txt)}` を1行だけ置いている（詳細度が低いのでクラスで色を持つ入力欄には影響しない）。
+
+**JSが色を計算して埋めている箇所はCSS変数だけでは変わらない**ので、テーマ切替時に `repaintForTheme()` が塗り直す（`_dutyDarkCache` のクリア＋開いている日ページ・カレンダー・担当表・業務集計・公平性の再描画）。対象は担当枠の色と集計グラフの系列色。
+
+**担当枠の17色（`DUTY_COLOR_MAP` / `DUTY_PALETTE`）はダーク用に手書きし直さない。** `dutyColorFor(slot)` が `themePair()` → `darkenPair()` を通し、文字色(`fg`)の**色相を軸に計算で**「暗い地＋明るい文字」を作る（`_dutyDarkCache` にメモ化）。ライト用の定義だけを正本にしておくことで、枠を1つ足すたびにダーク用の色も足す、という二重作業が発生しない。`bg`/`fg` が `var(...)` の組（`__free` など）は `_hexToRgb` が `null` を返すのでそのまま素通しになり、CSS変数側の切り替えに任せる。
+
+集計グラフの系列色は `getComputedStyle(document.documentElement).getPropertyValue('--sum-'+k)` で読む。`renderOpsSummary()` 内の `COLORS` に直書きしないこと。
+
 ### CSS Conventions
 
 All class names are abbreviated:
@@ -365,6 +385,9 @@ All class names are abbreviated:
 | `mkCopyTel(id, which)` / `mkCopyMail(id)` / `mkFlashCopied(el)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック）。コピー成功時はトーストに加え、押したボタン自体のアイコンを`data-ic`属性の元絵文字から一瞬✓に変える（`mkFlashCopied`）。ボタンDOM idは`mk-tel-{id}-{1|2}` / `mk-mail-{id}`で固定 |
 | `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
 | `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
+| `getTheme()` / `setTheme(t)` / `cycleTheme()` / `effectiveTheme()` / `applyTheme()` | 表示テーマ（ライト／ダーク／端末設定）。`data-theme` には常に light/dark のどちらかを書く |
+| `repaintForTheme()` | テーマ切替時に、JSが色を埋めている箇所（担当枠・集計グラフ）を塗り直す |
+| `darkenPair(c)` / `themePair(c)` | ライト用の「淡い地＋濃い文字」ペアを、色相を軸に暗背景用へ計算変換（`_dutyDarkCache` にメモ化） |
 | `openSubmenu(id)` | `docs-submenu`（🔑 管理資料）と`lib-submenu`（📚 資料）を相互排他で開閉。`id`が`null`なら両方閉じる |
 
 ### Duty/Assignment System
