@@ -634,13 +634,15 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   body.printing-sub .sb{display:block!important;position:static!important;width:auto!important;min-width:0!important;height:auto!important;border:none!important;overflow:visible!important;transform:none!important}
   body.printing-sub .stabs{display:none!important}
   body.printing-sub .atnav{display:none!important}
-  body.printing-sub .sb>:not(#pane-assign){display:none!important}
-  body.printing-sub #pane-assign{display:block!important;position:static!important;top:auto!important;bottom:auto!important;height:auto!important;flex:none!important;overflow:visible!important}
+  body.printing-sub .sb>:not(#pane-assign):not(#pane-sum){display:none!important}
+  body.printing-sub #pane-assign,body.printing-sub #pane-sum{display:block!important;position:static!important;top:auto!important;bottom:auto!important;height:auto!important;flex:none!important;overflow:visible!important}
   body.printing-sub [id^="subpane-"]{display:none!important}
   body[data-print-sub="at"] #subpane-at{display:block!important}
-  body[data-print-sub="oc"] #subpane-oc{display:block!important}
-  body[data-print-sub="ops"] #subpane-ops{display:block!important}
+  body[data-print-sub="my"] #subpane-my{display:block!important}
   body[data-print-sub="fair"] #subpane-fair{display:block!important}
+  body[data-print-sub="ops"] #subpane-ops{display:block!important}
+  body[data-print-sub="oc"] #subpane-oc{display:block!important}
+  body[data-print-sub="hd"] #subpane-hd{display:block!important}
   .ops-det-tbl tr{page-break-inside:avoid}
   @page{margin:10mm;size:A4 landscape}
 }
@@ -682,7 +684,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   .sb{position:fixed;top:var(--th-all);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th-all))!important;overflow-y:auto}
   .sb.hm{transform:translateX(-100%)}
   /* スマホではpane-assignをfixedで全画面表示（sbと同様）。スケジュールはモーダル化したため対象外 */
-  #pane-assign{position:fixed;top:var(--th-all);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
+  #pane-assign,#pane-sum{position:fixed;top:var(--th-all);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
   .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
@@ -1250,12 +1252,11 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <div class="stabs">
       <div class="stab on"  id="tab-cal"    onclick="swTab('cal')">📅 予定</div>
       <div class="stab"     id="tab-assign" onclick="swTab('assign')">📊 担当表</div>
-      <div class="stab"     id="tab-my"     onclick="swTab('my')">👤 マイ担当</div>
+      <!-- 業務集計・OC集計・HD集計をまとめた集計タブ。CE/HDどちらの主観でも表示する -->
+      <div class="stab"     id="tab-sum"    onclick="swTab('sum')">📈 集計</div>
       <div class="stab"     id="tab-task"   onclick="swTab('task')">📋 タスク</div>
-      <!-- HDモードのときだけ表示（updateTabVisibility）。血液浄化件数(dat.hdCount)の期間集計 -->
-      <div class="stab"     id="tab-hdsum"  onclick="swTab('hdsum')"  style="display:none">🩸 HD集計</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
-      <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 業務</div>
+      <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 マスタ</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
       <div class="stab"     id="tab-logs"   onclick="swTab('logs')"   style="display:none">📋 ログ</div>
       <div class="stab"     id="tab-docs"   onclick="toggleDocsMenu()" style="display:none">🔑 管理資料 ▾</div>
@@ -1641,16 +1642,6 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     </div>
 
     <!-- HD集計パネル（HDモードのときだけタブが見える。血液浄化件数 dat.hdCount の期間集計） -->
-    <div id="pane-hdsum" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp">
-        <div class="pt" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <span>🩸 HD集計</span>
-          <button class="btn btn-g btn-sm" onclick="exportHdCsv()">📥 CSV出力</button>
-        </div>
-        <div id="hd-sum-body"></div>
-      </div>
-    </div>
-
     <!-- 操作マニュアルパネル（管理者向け詳細版） -->
     <div id="pane-manual" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
@@ -1747,12 +1738,6 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 
     <!-- マイ担当パネル。以前は担当表（pane-assign）のサブタブだったが、埋もれて気づかれにくいため
          タスクと同じくトップレベルのタブへ昇格した。CE/HD両モードで常時表示する -->
-    <div id="pane-my" style="display:none;flex-direction:column;flex:1;overflow:hidden">
-      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
-        <div id="my-body"></div>
-      </div>
-    </div>
-
   <!-- 担当表パネル（PC: サイドバー全幅拡張でメインエリア表示 / スマホ: fixed全画面表示） -->
   <div id="pane-assign" style="display:none;flex:1;overflow-y:auto">
     <div class="atw">
@@ -1768,11 +1753,10 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         <button id="btn-sub-csv" class="btn btn-g btn-sm" onclick="exportSubCsv()">📥<span class="btn-at-text"> CSV</span></button>
         <button id="btn-sub-print" class="btn btn-g btn-sm" onclick="printSubTab()">🖨️<span class="btn-at-text"> 印刷</span></button>
       </div>
-      <!-- サブタブ -->
+      <!-- サブタブ（📊担当表 はCE主観のみ。マイ担当は両主観で出す） -->
       <div class="asub" style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
         <button id="subtab-at" class="btn btn-g btn-sm" onclick="swSubTab('at')" style="border-radius:6px 6px 0 0;border-bottom:2px solid var(--ac);font-weight:700">📊 担当表</button>
-        <button id="subtab-oc" class="btn btn-g btn-sm" onclick="swSubTab('oc')" style="border-radius:6px 6px 0 0">📞 OC集計</button>
-        <button id="subtab-ops" class="btn btn-g btn-sm" onclick="swSubTab('ops')" style="border-radius:6px 6px 0 0">📈 業務集計</button>
+        <button id="subtab-my" class="btn btn-g btn-sm" onclick="swSubTab('my')" style="border-radius:6px 6px 0 0">👤 マイ担当</button>
         <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0;display:none">⚖️ 公平性</button>
       </div>
       <!-- 担当表 -->
@@ -1785,18 +1769,48 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         </div>
         <div class="ato" id="ato-wrap"><div id="at-zoom-inner"><div id="at-body"></div></div></div>
       </div>
+      <!-- マイ担当（自分の担当枠・スケジュール・HD勤務のシフト） -->
+      <div id="subpane-my" style="display:none">
+        <div id="my-body"></div>
+      </div>
+      <!-- 公平性チェック -->
+      <div id="subpane-fair" style="display:none">
+        <div id="fair-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 集計パネル（業務集計・OC集計・HD集計）。CE/HDどちらの主観でも見られる。
+       期間の指定は各集計が自前で持つ sumCtlHTML（月／年／期間指定）で行うので、
+       ここの月ナビは asY/asM を動かす ‹ › だけを置いている。 -->
+  <div id="pane-sum" style="display:none;flex:1;overflow-y:auto">
+    <div class="atw">
+      <button id="sum-back-btn" class="btn btn-g btn-sm" onclick="swTab('cal')" style="display:none;margin-bottom:10px">← 戻る</button>
+      <div class="ph" id="sum-ph"></div>
+      <!-- 期間の指定は各集計が自前で持つ sumCtlHTML（月／年／期間指定＋前後の月）が担うので、
+           ここには月ナビを置かない（置くと同じ操作が画面に2つ並ぶ） -->
+      <div class="atnav">
+        <span class="atml" id="summl">📈 集計</span>
+        <button id="btn-sum-csv" class="btn btn-g btn-sm" style="margin-left:auto" onclick="exportSumCsv()">📥<span class="btn-at-text"> CSV</span></button>
+        <button id="btn-sum-print" class="btn btn-g btn-sm" onclick="printSumTab()">🖨️<span class="btn-at-text"> 印刷</span></button>
+      </div>
+      <div class="asub" style="display:flex;gap:6px;margin-bottom:10px;border-bottom:2px solid var(--bdr);padding-bottom:0">
+        <button id="sumtab-ops" class="btn btn-g btn-sm" onclick="swSumTab('ops')" style="border-radius:6px 6px 0 0;border-bottom:2px solid var(--ac);font-weight:700">📈 業務集計</button>
+        <button id="sumtab-oc"  class="btn btn-g btn-sm" onclick="swSumTab('oc')"  style="border-radius:6px 6px 0 0">📞 OC集計</button>
+        <button id="sumtab-hd"  class="btn btn-g btn-sm" onclick="swSumTab('hd')"  style="border-radius:6px 6px 0 0">🩸 HD集計</button>
+      </div>
+      <!-- 業務集計シート -->
+      <div id="subpane-ops">
+        <div id="ops-sum-body"></div>
+      </div>
       <!-- OC集計シート -->
       <div id="subpane-oc" style="display:none">
         <div style="margin-bottom:8px"><button class="btn btn-g btn-sm" onclick="openOcFlowModal()">📞 OC対応フローチャート</button></div>
         <div id="oc-sum-body"></div>
       </div>
-      <!-- 業務集計シート -->
-      <div id="subpane-ops" style="display:none">
-        <div id="ops-sum-body"></div>
-      </div>
-      <!-- 公平性チェック -->
-      <div id="subpane-fair" style="display:none">
-        <div id="fair-body"></div>
+      <!-- HD集計シート（血液浄化件数 dat.hdCount の期間集計） -->
+      <div id="subpane-hd" style="display:none">
+        <div id="hd-sum-body"></div>
       </div>
     </div>
   </div>
@@ -4376,8 +4390,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/22-48';
+var APP_VERSION = 'Ver.2026/08/23-49';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/23-49', date:'2026-08-23', title:'タブを整理しました', items:[
+    {t:'imp', d:'📈 「集計」タブを新しく作り、業務集計・OC集計・HD集計をこの中にまとめました。CEモードでもHDモードでも、3つとも見られます'},
+    {t:'imp', d:'👤 マイ担当を「担当表」タブの中に戻しました。担当表・マイ担当・公平性が同じ場所に並びます'},
+    {t:'imp', d:'🩸 HDモードでも「担当表」タブが出るようになり、マイ担当から自分のHD勤務のシフトを確認できます（CE担当表と公平性はCE専用なのでHDモードでは出ません）'},
+    {t:'imp', d:'📋 「業務」タブの名前を「マスタ」に変えました。中身は変わりません'}
+  ]},
   { ver:'Ver.2026/08/22-48', date:'2026-08-22', title:'ダークモードに対応しました', items:[
     {t:'new', d:'🌙 画面を暗い配色に切り替えられるようになりました。上のバーの🌗ボタンを押すたびに「ライト → ダーク → 端末の設定に合わせる」と切り替わります。選んだ設定はその端末に記憶されます'},
     {t:'new', d:'🌗 初期状態はスマートフォンやパソコン本体のダークモード設定に自動で合わせます。夜勤帯や暗い部屋で画面がまぶしくなりにくくなります'},
@@ -5800,9 +5820,10 @@ function removeOpsCard(ds, cid) {
 
 /* ===== 担当表サブタブ切り替え ===== */
 var _curSubTab = 'at';
+/* 担当表タブ（pane-assign）のサブタブ。集計は別タブ（swSumTab）に分離済み。 */
 function swSubTab(id) {
   _curSubTab = id;
-  var ids = ['at','oc','ops','fair']; /* 'my'（マイ担当）はトップレベルタブ（swTab('my')）へ昇格済み */
+  var ids = ['at','my','fair'];
   ids.forEach(function(sid){
     var pane = document.getElementById('subpane-'+sid);
     if (pane) pane.style.display = sid===id ? '' : 'none';
@@ -5811,14 +5832,33 @@ function swSubTab(id) {
     btn.style.borderBottom = sid===id ? '2px solid var(--ac)' : 'none';
     btn.style.fontWeight   = sid===id ? '700' : '';
   });
-  /* CSV/印刷ボタンの有無をサブタブに合わせて切り替え */
+  /* CSVは担当表のみ。マイ担当・公平性は出力対象を持たない */
   var csvBtn   = document.getElementById('btn-sub-csv');
   var printBtn = document.getElementById('btn-sub-print');
-  if (csvBtn)   csvBtn.style.display   = (id==='fair') ? 'none' : '';
+  if (csvBtn)   csvBtn.style.display   = (id==='at') ? '' : 'none';
   if (printBtn) printBtn.style.display = '';
-  if (id==='oc')   renderOCSummary();
-  if (id==='ops')  renderOpsSummary();
+  if (id==='at')   renderAT();
+  if (id==='my')   renderMySchedule();
   if (id==='fair') renderFairness();
+}
+
+/* 集計タブ（pane-sum）のサブタブ。業務集計・OC集計・HD集計をここにまとめている。
+   CE/HDどちらの主観でも同じ3つを出す（集計は「どちらの目で見るか」に依らない事実のため）。 */
+var _curSumTab = 'ops';
+function swSumTab(id) {
+  if (['ops','oc','hd'].indexOf(id) === -1) id = 'ops';
+  _curSumTab = id;
+  ['ops','oc','hd'].forEach(function(sid){
+    var pane = document.getElementById('subpane-'+sid);
+    if (pane) pane.style.display = sid===id ? '' : 'none';
+    var btn = document.getElementById('sumtab-'+sid);
+    if (!btn) return;
+    btn.style.borderBottom = sid===id ? '2px solid var(--ac)' : 'none';
+    btn.style.fontWeight   = sid===id ? '700' : '';
+  });
+  if (id==='ops') renderOpsSummary();
+  if (id==='oc')  renderOCSummary();
+  if (id==='hd')  renderHdSummary();
 }
 
 /* ===== OC集計シート ===== */
@@ -6157,7 +6197,7 @@ function renderOCSummary() {
 
 /* ===== HD集計パネル（HDモードのときだけ見える独立タブ。dat.hdCount の期間集計） =====
    OC集計と同じ骨格（グラフ無し、バッジ＋テーブル）で作る。renderOCSummary/renderOpsSummaryと同様、
-   #hd-sum-bodyが無ければ何もしない — pane-hdsumが非表示でも常時DOM自体は存在するため、
+   #hd-sum-bodyが無ければ何もしない — subpane-hdが非表示でも常時DOM自体は存在するため、
    setSumMode/applySumRange/asPrevM/asNextMから無条件に呼んでよい。 */
 function renderHdSummary() {
   var el = document.getElementById('hd-sum-body');
@@ -6177,7 +6217,7 @@ function renderHdSummary() {
   /* 月送り。OC集計・業務集計は担当表タブ上部の月ナビ（asPrevM/asNextM）を共有しているが、
      HD主観ではその担当表タブごと隠れるため、HD集計にだけ自前の月送りを置く。
      これが無いとHDユーザーは今月以外を「期間指定」でしか見られない。
-     asPrevM/asNextM は pane-hdsum が表示中なら renderHdSummary() を呼び直す。 */
+     asPrevM/asNextM は集計タブでHD集計を開いていれば renderHdSummary() を呼び直す。 */
   if (_sumMode === 'month') {
     h += '<div class="sum-toolbar" style="margin-top:-4px">'
       + '<button class="btn btn-g btn-sm" onclick="asPrevM()">&#8249; 前の月</button>'
@@ -8926,11 +8966,12 @@ function updateTabVisibility() {
   var hasPerm = function(id) {
     return !!(currentUser && currentUser.perms && currentUser.perms[id]);
   };
-  /* cal / my / task / lib は常時表示なので show に入れない（表示制御が要るものだけを列挙する） */
+  /* cal / assign / sum / task / lib は常時表示なので show に入れない（表示制御が要るものだけを列挙する）。
+     担当表タブは両主観で出す — 中の「📊 担当表」サブタブだけをCE専用にし、
+     マイ担当（HD勤務のシフトも出す画面）はどちらの主観からも辿れるようにするため。
+     集計タブも両主観で出す（集計は「どちらの目で見るか」に依らない事実のため）。 */
   var isHd = _viewMode === 'hd';
   var show = {
-    'assign': !isHd,   /* 担当表・OC集計・業務集計・公平性はCE専用のためHD主観では丸ごと隠す */
-    'hdsum':  isHd,    /* HD集計は主観モードだけで出し分け。パーミッションではなく全員対象 */
     'staff':  isAdmin, /* スタッフ一覧・PHS番号・勤務表インポートはまとめて管理者限定 */
     'master': isAdmin || hasPerm('tab_master'),
     'lock':   isAdmin,
@@ -8941,12 +8982,13 @@ function updateTabVisibility() {
     var el = document.getElementById('tab-' + id);
     if (el) el.style.display = show[id] ? '' : 'none';
   });
-  /* 非表示になったタブを開いたままモードを切り替えると中身が残り続けてしまうためカレンダーへ退避する。
-     swTab は updateTabVisibility を呼び返さないのでループしない。 */
-  if (!show.hdsum  && curTab === 'hdsum')  swTab('cal');
-  if (!show.assign && curTab === 'assign') swTab('cal');
+  /* 担当表サブタブの出し分け。CE担当表と公平性はCEの担当枠が前提なのでHD主観では出さない。
+     いま隠したサブタブを開いていたら、中身が残り続けないようマイ担当へ退避する。 */
+  var atBtn   = document.getElementById('subtab-at');
   var fairBtn = document.getElementById('subtab-fair');
-  if (fairBtn) fairBtn.style.display = isAdmin ? '' : 'none';
+  if (atBtn)   atBtn.style.display   = isHd ? 'none' : '';
+  if (fairBtn) fairBtn.style.display = (isAdmin && !isHd) ? '' : 'none';
+  if (isHd && (_curSubTab === 'at' || _curSubTab === 'fair')) swSubTab('my');
 }
 function renderLockList() {
   var w = document.getElementById('lock-list'); w.innerHTML = '';
@@ -15866,8 +15908,28 @@ function initAtPinchZoom() {
   cont.addEventListener('touchend', endPinch, {passive: true});
   cont.addEventListener('touchcancel', endPinch, {passive: true});
 }
-function asPrevM(){asM--;if(asM<0){asM=11;asY--;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();var hp=document.getElementById('pane-hdsum'); if(hp&&hp.style.display!=='none') renderHdSummary();}
-function asNextM(){asM++;if(asM>11){asM=0;asY++;}renderAT();var oc=document.getElementById('oc-sum-body');if(oc&&document.getElementById('subpane-oc')&&document.getElementById('subpane-oc').style.display!=='none'){oc.innerHTML='';renderOCSummary();}var ops=document.getElementById('ops-sum-body');if(ops&&document.getElementById('subpane-ops')&&document.getElementById('subpane-ops').style.display!=='none'){ops.innerHTML='';renderOpsSummary();}var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();var hp=document.getElementById('pane-hdsum'); if(hp&&hp.style.display!=='none') renderHdSummary();}
+function asPrevM(){asM--;if(asM<0){asM=11;asY--;}
+  if(_viewMode!=='hd') renderAT();
+  /* 表示中のサブタブだけ描き直す（毎回 D.pages を全走査させない） */
+  var sp=document.getElementById('pane-sum');
+  if(sp && sp.style.display!=='none'){
+    if(_curSumTab==='ops'){ var o1=document.getElementById('ops-sum-body'); if(o1) o1.innerHTML=''; renderOpsSummary(); }
+    if(_curSumTab==='oc'){  var o2=document.getElementById('oc-sum-body');  if(o2) o2.innerHTML=''; renderOCSummary(); }
+    if(_curSumTab==='hd'){  renderHdSummary(); }
+  }
+  var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
+}
+function asNextM(){asM++;if(asM>11){asM=0;asY++;}
+  if(_viewMode!=='hd') renderAT();
+  /* 表示中のサブタブだけ描き直す（毎回 D.pages を全走査させない） */
+  var sp=document.getElementById('pane-sum');
+  if(sp && sp.style.display!=='none'){
+    if(_curSumTab==='ops'){ var o1=document.getElementById('ops-sum-body'); if(o1) o1.innerHTML=''; renderOpsSummary(); }
+    if(_curSumTab==='oc'){  var o2=document.getElementById('oc-sum-body');  if(o2) o2.innerHTML=''; renderOCSummary(); }
+    if(_curSumTab==='hd'){  renderHdSummary(); }
+  }
+  var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
+}
 
 var _mySchedName = null; /* マイ担当でスタッフが選択されたときのキャッシュ */
 function renderMySchedule(overrideName) {
@@ -16646,9 +16708,13 @@ window.addEventListener('afterprint',function(){
 
 /* サブタブ対応 CSV エクスポート（現在のサブタブで分岐） */
 function exportSubCsv() {
-  if (_curSubTab === 'at')   { exportAtCsv(); return; }
-  if (_curSubTab === 'oc')   { exportOcCsv(); return; }
-  if (_curSubTab === 'ops')  { exportOpsCsv(); return; }
+  if (_curSubTab === 'at') { exportAtCsv(); return; }
+  /* マイ担当・公平性はCSVボタン自体を出していないのでここには来ない */
+}
+function exportSumCsv() {
+  if (_curSumTab === 'ops') { exportOpsCsv(); return; }
+  if (_curSumTab === 'oc')  { exportOcCsv();  return; }
+  if (_curSumTab === 'hd')  { exportHdCsv();  return; }
 }
 function downloadCsv(filename, rows) {
   var csv = '﻿';
@@ -16735,8 +16801,14 @@ function exportOpsDetailCsv() {
 /* サブタブ対応 印刷（現在のサブタブを印刷） */
 function printSubTab() {
   if (_curSubTab === 'at') { printAt(); return; }
-  document.getElementById('ph').textContent = '分院CE連絡表　' + asY+'年'+(asM+1)+'月';
-  document.body.setAttribute('data-print-sub', _curSubTab);
+  _printSubPane('ph', _curSubTab);
+}
+function printSumTab() { _printSubPane('sum-ph', _curSumTab); }
+/* サブタブ1枚だけを紙に出す共通処理。担当表(printAt)は専用のレイアウトを持つので通さない。 */
+function _printSubPane(phId, subId) {
+  var ph = document.getElementById(phId);
+  if (ph) ph.textContent = '分院CE連絡表　' + asY+'年'+(asM+1)+'月';
+  document.body.setAttribute('data-print-sub', subId);
   document.body.classList.add('printing-sub');
   setTimeout(function(){
     window.print();
@@ -17497,12 +17569,12 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','my','task','hdsum','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','sum','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   var libTabs=['guide','makers'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群。
      スケジュールはモーダル化したためここには含まれない（openSchedPanel/closeSchedPanel） */
-  var contentPanes=['assign','my','task','hdsum','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var contentPanes=['assign','sum','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -17513,12 +17585,12 @@ function swTab(t) {
     if(pn){ pn.style.display=id===t?'flex':'none'; }
   }
   /* 担当表のスマホ用「← 戻る」ボタン（スマホで該当タブ表示中のみ） */
-  ['assign'].forEach(function(id){
+  ['assign','sum'].forEach(function(id){
     var bb=document.getElementById(id+'-back-btn');
     if(bb) bb.style.display=(isSP && t===id)?'':'none';
   });
   /* メインエリア（連絡表詳細）の表示制御：コンテンツタブ選択時は非表示 */
-  var hideMain = (t==='assign') || (!isSP && contentPanes.indexOf(t)!==-1);
+  var hideMain = (t==='assign') || (t==='sum') || (!isSP && contentPanes.indexOf(t)!==-1);
   mn.style.display = hideMain ? 'none' : '';
   /* PCではコンテンツタブ選択時にサイドバーを全幅に拡張 */
   var ab = document.getElementById('ab');
@@ -17529,7 +17601,7 @@ function swTab(t) {
   if(!isSP){
     /* PCでは.hm（width:0!important）が残っていると全幅コンテンツpaneが消えるため必ず解除 */
     if(sb2) sb2.classList.remove('hm');
-  } else if(t==='assign'){
+  } else if(t==='assign' || t==='sum'){
     if(sb2){ sb2.classList.remove('hm'); }
     sbOpen=true;
   } else if(sb2 && !sbOpen){
@@ -17543,10 +17615,10 @@ function swTab(t) {
   /* どちらのサブメニューにも属さないタブへ移動したら、開いていたサブメニューを畳む */
   if(docsTabs.indexOf(t)===-1 && libTabs.indexOf(t)===-1) openSubmenu(null);
 
-  if(t==='assign'){ swSubTab('at'); renderAT(); }
-  if(t==='my'){ renderMySchedule(); }
+  /* HD主観ではCE担当表サブタブを出さないので、既定をマイ担当にする */
+  if(t==='assign'){ swSubTab(_viewMode==='hd' ? 'my' : 'at'); if(_viewMode!=='hd') renderAT(); }
+  if(t==='sum'){ swSumTab(_curSumTab); }
   if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
-  if(t==='hdsum'){ renderHdSummary(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
@@ -17586,10 +17658,11 @@ function toggleDocsMenu(){ openSubmenu('docs-submenu'); }
 function toggleLibMenu(){ openSubmenu('lib-submenu'); }
 function togSB(){
   var sb=document.getElementById('sb');
-  /* 担当表が全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
-     このpaneはsb内のfixed要素なので、.hmのtransformで巻き込まれないよう必ずcal経由で戻す */
+  /* 担当表・集計が全画面表示中にハンバーガーを押したら swTab('cal') で正規に閉じる。
+     これらのpaneはsb内のfixed要素なので、.hmのtransformで巻き込まれないよう必ずcal経由で戻す */
   var ap=document.getElementById('pane-assign');
-  if(ap && ap.style.display==='flex'){
+  var sp=document.getElementById('pane-sum');
+  if((ap && ap.style.display==='flex') || (sp && sp.style.display==='flex')){
     sbOpen=false; /* swTab内のサイドバー再表示ロジックを働かせる */
     swTab('cal');
     return;
