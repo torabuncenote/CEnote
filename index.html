@@ -710,6 +710,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .memo-post .mp-del:hover{color:var(--rd)}
 .memo-post .mp-move{position:absolute;top:7px;right:34px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
 .memo-post .mp-move:hover{color:var(--ac)}
+/* 編集ボタンは移動(right:34px)・削除(right:9px)のさらに左に置く */
+.memo-post .mp-edit{position:absolute;top:7px;right:59px;background:none;border:none;cursor:pointer;color:var(--txt3);font-size:13px;padding:0}
+.memo-post .mp-edit:hover{color:var(--ac)}
+.mp-edit-form{margin-top:4px}
+.mp-edit-form textarea{width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--ac);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur);color:var(--txt);line-height:1.6}
+.mp-edit-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:5px}
+.mp-edited{font-size:10px;color:var(--txt3)}
 /* 申し送りの返信スレッド（掲示板の .brd-replies と同じ「左の縦線で入れ子」表現） */
 .mp-replies{margin-top:8px;padding-left:10px;border-left:2px solid var(--ac);border-radius:0}
 .mp-reply{padding:5px 0;border-bottom:1px solid var(--bdr);font-size:12px}
@@ -4256,8 +4263,13 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/22-46';
+var APP_VERSION = 'Ver.2026/08/22-47';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/22-47', date:'2026-08-22', title:'申し送りを後から編集できるようにしました', items:[
+    {t:'new', d:'📝 投稿した申し送りを ✏️ ボタンから編集できるようになりました。書き間違いの直しや追記のために、削除して投稿し直す必要がなくなります'},
+    {t:'imp', d:'📝 編集された申し送りには「◯月◯日 ◯◯:◯◯ に △△ が編集」と本文の末尾に残ります。誰が最初に書いたかの表示は変わりません'},
+    {t:'fix', d:'📱 画面下の消し込みバーでページの末尾が隠れてしまう問題を修正しました。スマートフォンや、画面下部にボタンのある端末で読めなくなっていた部分が見えるようになります'}
+  ]},
   { ver:'Ver.2026/08/22-46', date:'2026-08-22', title:'業務連絡・スケジュール・掲示板をCEとHDで分ける', items:[
     {t:'new', d:'📝 業務連絡（申し送り）がCEモードとHDモードで別々になりました。透析の申し送りにCEのオペ・カテの連絡が混ざらなくなります。これまでの申し送りはすべてCE側に残ります'},
     {t:'new', d:'📢 掲示板がCEモードとHDモードで別々になりました。見出しに「（CE）」「（HD）」と出るので、今どちらに書いているか分かります。未読の件数もそれぞれで数えます'},
@@ -11932,6 +11944,9 @@ function renderMemos(ds, dat, locked) {
     var m = memos[i];
     var mkey = memoKeyOf(m);
     var canDel = !locked && (isAdmin || (currentUser && currentUser.uid === m.uid));
+    /* 編集は削除と同じ範囲（本人か管理者）に限る。移動と違い本文そのものを書き換えるため、
+       memo権限だけで他人の文章に手を入れられるようにはしない。 */
+    var canEdit = canDel;
     var isDone = !!m.done;
     h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
     /* 済チェックボックス：削除・移動ボタンの有無で右位置を調整 */
@@ -11952,7 +11967,20 @@ function renderMemos(ds, dat, locked) {
     if (m.isAdmin) h += '<span style="font-size:9px;background:var(--gd-bg);color:var(--gd);border-radius:4px;padding:1px 5px;border:1px solid var(--gd-bdr)">管理者</span>';
     if (m.movedFrom) { var mfP = m.movedFrom.split('-'); h += '<span style="font-size:10px;color:var(--txt3)">(' + parseInt(mfP[1]) + '/' + parseInt(mfP[2]) + 'から移動)</span>'; }
     h += '</div>';
-    if (m.text) h += '<div class="mp-body" style="white-space:pre-wrap">' + highlightMention(escH(m.text)) + '</div>';
+    if (m.text) {
+      h += '<div class="mp-body" id="mp-body-' + escH(mkey) + '" style="white-space:pre-wrap">' + highlightMention(escH(m.text));
+      /* 編集された投稿は、いつ誰が直したかを本文の末尾に小さく残す（元の投稿者表示は変えない） */
+      if (m.editedAt) h += ' <span class="mp-edited">（' + fmtTS(m.editedAt) + ' に' + escH(m.editedBy || '編集') + 'が編集）</span>';
+      h += '</div>';
+      if (canEdit) {
+        h += '<div class="mp-edit-form" id="mp-ef-' + escH(mkey) + '" style="display:none">';
+        h += '<textarea rows="3" id="mp-ei-' + escH(mkey) + '"></textarea>';
+        h += '<div class="mp-edit-actions">';
+        h += '<button class="btn btn-g btn-sm" data-action="cancelMemoEdit" data-mkey="' + escH(mkey) + '">キャンセル</button>';
+        h += '<button class="btn btn-p btn-sm" data-action="saveMemoEdit" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '">保存</button>';
+        h += '</div></div>';
+      }
+    }
     /* 画像・動画 */
     var mArr = memoMediaArr(m);
     if (mArr.length) {
@@ -12012,6 +12040,7 @@ function renderMemos(ds, dat, locked) {
       h += '<button class="btn btn-p btn-sm" style="font-size:11px" data-action="postMemoReply" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '" id="mp-rsend-' + escH(mkey) + '">返信</button>';
       h += '</div></div>';
     }
+    if (canEdit && m.text) h += '<button class="mp-edit" data-mkey="' + escH(mkey) + '" data-action="editMemo" title="編集">✏️</button>';
     if (canMove) h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
     if (canDel) h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
     h += '</div>';
@@ -12048,6 +12077,13 @@ function bindMemoListEvents(el) {
     }
   });
   el.addEventListener('click', function(e) {
+    /* 編集：開く／取消／保存（bindMemoListEvents の一度きりの委譲に相乗りする） */
+    var edBtn = e.target.closest('[data-action="editMemo"]');
+    if (edBtn) { editMemo(edBtn.getAttribute('data-mkey')); return; }
+    var edCancel = e.target.closest('[data-action="cancelMemoEdit"]');
+    if (edCancel) { cancelMemoEdit(edCancel.getAttribute('data-mkey')); return; }
+    var edSave = e.target.closest('[data-action="saveMemoEdit"]');
+    if (edSave) { saveMemoEdit(edSave.getAttribute('data-ds'), edSave.getAttribute('data-mkey')); return; }
     /* 削除ボタン */
     var btn = e.target.closest('[data-action="delMemo"]');
     if (btn) {
@@ -12865,6 +12901,69 @@ function initPHIGuard() {
       }
     });
   });
+}
+
+/* ===== 申し送りの編集 =====
+   本文の書き間違い・追記のために、投稿者本人と管理者だけが後から直せるようにする。
+   対象の特定は memoKeyOf（ts+uid）で行う——Firebaseのエコーで memos の並びが変わっても
+   同じ投稿を指し続けるため（返信の実装と同じ理由でインデックスは使わない）。
+   PHI検知は postMemo と同じ契約（phiHasBlock なら送信を止める）に揃える。 */
+function editMemo(mkey) {
+  var body = document.getElementById('mp-body-' + mkey);
+  var form = document.getElementById('mp-ef-' + mkey);
+  var input = document.getElementById('mp-ei-' + mkey);
+  if (!body || !form || !input) return;
+  var ds = cbarDs() || curDs;
+  var found = findMemoByKey(ds, mkey);
+  if (!found) { toast('この申し送りは見つかりませんでした', 'warn'); return; }
+  input.value = found.m.text || '';
+  body.style.display = 'none';
+  form.style.display = '';
+  input.focus();
+  autoGrowTA(input);
+}
+function cancelMemoEdit(mkey) {
+  var body = document.getElementById('mp-body-' + mkey);
+  var form = document.getElementById('mp-ef-' + mkey);
+  if (body) body.style.display = '';
+  if (form) form.style.display = 'none';
+}
+function saveMemoEdit(ds, mkey) {
+  var input = document.getElementById('mp-ei-' + mkey);
+  if (!input) return;
+  var text = input.value.trim();
+  if (!text) { toast('本文は空にできません', 'warn'); return; }
+  var result = detectPHI(text);
+  if (result.red.length || result.yellow.length) {
+    showPHIPopup({
+      result: result,
+      mode: 'memo',
+      onFix: function(){ var t=document.getElementById('mp-ei-' + mkey); if(t) t.focus(); },
+      onProceed: phiHasBlock(result) ? null : function(){
+        writeLog('PHI警告を確認して編集', '検知内容: ' + result.red.concat(result.yellow).join(', '));
+        _doSaveMemoEdit(ds, mkey, text);
+      }
+    });
+    return;
+  }
+  _doSaveMemoEdit(ds, mkey, text);
+}
+function _doSaveMemoEdit(ds, mkey, text) {
+  /* 保存直前に引き直す。編集中にFirebaseのエコーで並びが変わっている可能性があるため */
+  var found = findMemoByKey(ds, mkey);
+  if (!found) { toast('この申し送りは既に削除されています', 'warn'); renderMemos(ds, D.pages[ds], !can('memo')); return; }
+  var m = found.m;
+  if (!(isAdmin || (currentUser && currentUser.uid === m.uid))) { toast('この申し送りは編集できません', 'warn'); return; }
+  var before = m.text || '';
+  if (before === text) { cancelMemoEdit(mkey); return; }
+  m.text = text;
+  m.editedAt = Date.now();
+  m.editedBy = currentUser ? (currentUser.displayName || currentUser.email) : '';
+  saveDPage(ds);
+  writeLog('申し送り編集', fmtJ(ds) + ' 「' + before.slice(0,20) + '」→「' + text.slice(0,20) + '」');
+  renderMemos(ds, D.pages[ds], !can('memo'));
+  updateCloseBar(ds);
+  toast('編集しました', 'ok');
 }
 
 function postMemo(ds) {
