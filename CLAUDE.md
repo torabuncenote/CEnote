@@ -474,6 +474,13 @@ All class names are abbreviated:
 
 **CE勤務者チップの`data-from`に`'ce'`のような新しい値を作ってはいけない。** `dropToStatusZone`は`from==='hd'?'hd':'ce'`で振り分けるので`'surplus'`でも分類は正しく落ちるが、`removeFromZoneSource`（担当枠へドロップしたときの後始末）は`'surplus'`/`'status'`しか見ておらず、新値だと後始末が効かなくなる。ソースパネルの自動オープン判定（`_hdPanelUserOverride===null`のとき）も主観で切り替え、HD主観では「未分類のCE勤務者がいるか」を見る。HD主観では`.staffz`の外枠見出しが「🔄 余剰人員」を出すため`renderSurplusArea`側の`.surplus-ttl`は出さず、見出しバッジ`#hdz-badge`（未分類N）は`renderSurplusArea`の末尾で直接書き換える（`staffZoneCounts()`はCE前提の数字なので流用しない）。HD日ページの折りたたみは`#staffz-body`と`toggleStaffZone()`/`_staffZoneOpen`をCEとそのまま共有する。**開閉の矢印は必ず`id`で引く**（`#staffz-arrow`/`#ce-ref-arrow`/`#hd-ref-arrow`）——HD日ページには`.staffz`シェルを流用したセクションが複数並ぶため、`querySelector('.staffz-arrow')`で先頭1つを取ると別セクションの矢印が反転して本体と食い違う。
 
+> **⚠️ チェックリスト周りを次に変更するときは、機能を足す前に双子関数の共通化を先に行うこと。**
+> CE版とHD版の双子関数が33組あり、うち14組は変数名を置き換えると1文字も違わない完全な複製（`mkCk`↔`mkHdCk` 95行、`clStatus`↔`hdClStatus`、`getPct`↔`getHdPct`、`remapDlyChecks`↔`remapHdDlyChecks`、`remapWdChecks`↔`remapHdWdChecks`、`wdOnceDoneOn`↔`hdWdOnceDoneOn`、`togWdWeek`↔`togHdWdWeek`、`setWdWeeks`↔`setHdWdWeeks` ほか）。26組が95%以上一致。
+> **片方だけ直しても例外は出ず、CE主観で動作確認すると正常に見えるため気づけない** — HD主観で開いた透析スタッフだけが古い挙動に当たる。チェックリストは機器点検の記録なので、月次リセット絡み（`wdOnceDoneOn`）でズレると月末まで発覚しない。
+> 共通化の方針：関数を引数で分岐させるのではなく、**名前空間の記述子**（`{dlyKey:'dly', wdKey:'wd', checksKey:'checks', prefix:''}` のような組）を渡す形にする。`wdText`/`dlyText`/`itemRebuild`/`isDlyShownOnDate`/`wdApplies` などは既に「渡された項目オブジェクトだけを見る純粋な関数」なので、そのまま両方から使える。
+> 優先度：`mkCk`（最大かつ最も触られる）→ `clStatus`/`getPct`（進捗率の計算）→ `remap*`（マスタ並べ替え時のチェック移動。壊れるとデータが消える）→ 残り。上位4組でリスクの大半が消える。
+> 2026-08-23 時点でズレは発生していない（`renderDlyList`↔`renderHdDlyList` と `buildCL`↔`buildHdCL` の差は下記の意図的なもの）。
+
 **HDチェックリスト（`D.hdDly`/`D.hdWd` + `dat.hdChecks`）**：CE側（`D.dly`/`D.wd` + `dat.checks`、[Checklist Items & Week-of-Month Filtering](#checklist-items--week-of-month-filtering) 節を参照）とは名前空間もdat上のキーも完全に別。**`dat.checks`に相乗りしてはいけない** — `remapDlyChecks`/`remapWdChecks`は`D.dly.length`基準の固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にするとCE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は`dat.checks`しか触らずHD側は自動的に無傷になる（逆も同様）。
 
 - `wdText`/`dlyText`/`dlyNotif`/`itemRebuild`/`isDlyShownOnDate`/`wdWeeks`/`wdOnce`/`wdSubs`/`wdSid`/`newSid`/`nthWk`/`isLastWeek`/`wdApplies`/`wdSubProgress`/`renderSubPanel`は渡された項目オブジェクトだけを見る純粋な関数（`D.dly`/`D.wd`を直接参照しない）なので、CE版をそのままHD版にも使い回す。`renderSubPanel`が書く`dat.subChecks`と設置部署マスタ`D.wdDepts`もCE/HD共通——院内の部署は主観と無関係なため、ここだけは別マスタを持たない。
