@@ -2650,6 +2650,7 @@ function fbInit() {
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
         _tasksData = {}; _taskView = null; _taskFilter = 'all';
+        _mySchedName = null; _mySchedPick = false; /* 次に別の人がログインしたとき、前の人の担当が出たままにならないように */
         _memosData = {}; _memoDenied = false; /* 別の人がログインしたときに前の人のメモが残らないようにする */
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
@@ -4417,8 +4418,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/23-49';
+var APP_VERSION = 'Ver.2026/08/28-50';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/28-50', date:'2026-08-28', title:'マイ担当と集計の月切り替えを直しました', items:[
+    {t:'imp', d:'👤 マイ担当が、いま表示している月の担当だけを出すようになりました。担当表の ‹ › で月を動かすと、マイ担当も同じ月に切り替わります（これまでは月を動かしても表示が変わらず、2か月ぶんが混ざって出ていました）'},
+    {t:'imp', d:'📈 集計タブに ‹ › を付けました。「📅 月」「🗓 年」を選んだまま、前後の月・年へそのまま移動できます（これまでは担当表タブへ行って月を変えてから戻る必要がありました）'},
+    {t:'fix', d:'👤 マイ担当の「変更」ボタンを押しても何も起きず、他の人の担当を見られなかったのを修正しました'},
+    {t:'fix', d:'📝 申し送りの削除や別の日への移動が反映されない（移動すると元の日にも残って二重になる）ことがあったのを修正しました'},
+    {t:'fix', d:'🩸 HDモードの消し込みバーに、CE専用のオペ・カテ・オンコールの未了が数えられていたのを修正しました。「→」や「▶ 次へ」を押しても飛べない項目が出なくなります'},
+    {t:'fix', d:'🔪 オペ・カテのカードを削除しても件数が残り続け、画面に無い症例がヘッダーや集計に出ていたのを修正しました。削除時は入力済みの症例も一緒に消してよいか確認します'},
+    {t:'fix', d:'🖨️ 集計の印刷で、「年」や「期間指定」を選んでいても見出しが「◯年◯月」になっていたのを修正しました'}
+  ]},
   { ver:'Ver.2026/08/23-49', date:'2026-08-23', title:'タブを整理しました', items:[
     {t:'imp', d:'📈 「集計」タブを新しく作り、業務集計・OC集計・HD集計をこの中にまとめました。CEモードでもHDモードでも、3つとも見られます'},
     {t:'imp', d:'👤 マイ担当を「担当表」タブの中に戻しました。担当表・マイ担当・公平性が同じ場所に並びます'},
@@ -5824,6 +5834,17 @@ function removeOpsCard(ds, cid) {
   }
   var idx = dat.ops_cards.indexOf(cid);
   if (idx === -1) return;
+  /* オペ・カテは入力済みの症例が消えるので先に確認する（PSG・フリーは1枚ぶんの
+     入力しか無いので従来どおり確認なし）。残したままカードだけ消すと、画面に無い
+     症例がヘッダーの件数・消し込みバー・集計に出続けてしまうため、消すなら一緒に消す。 */
+  if (cid === 'ope' || cid === 'cath') {
+    var kindLabel = (cid === 'ope' ? 'オペ' : 'カテ');
+    var filledN = 0;
+    normArr(dat.ops && dat.ops[cid + '_items']).forEach(function(it){ if (opsItemFilled(it)) filledN++; });
+    if (filledN && !confirm('入力済みの' + kindLabel + '症例 ' + filledN + '件も一緒に削除します。よろしいですか？')) return;
+    if (dat.ops) delete dat.ops[cid + '_items'];
+    if (filledN) writeLog(kindLabel + 'カード削除', fmtJ(ds) + ' 症例' + filledN + '件も削除');
+  }
   dat.ops_cards.splice(idx, 1);
   /* PSGを取り消したら装着・外し等のデータも消し、翌日に連動した「PSG取り外し」チェックも解除する */
   if (cid === 'psg') {
@@ -5920,6 +5941,17 @@ function sumDsList() {
   out.sort();
   return out;
 }
+/* 月モードなら前後の月、年モードなら前後の年へ。表示月(asY/asM)は担当表と共有なので、
+   月移動は asPrevM/asNextM をそのまま使う（担当表・公平性・マイ担当の描き直しも含めて
+   1か所に集約されているため、ここで同じ処理を書き写さない）。 */
+function sumShift(d) {
+  if (_sumMode === 'year') {
+    asY += (d < 0 ? -1 : 1);
+    renderOCSummary(); renderOpsSummary(); renderHdSummary();
+    return;
+  }
+  if (d < 0) asPrevM(); else asNextM();
+}
 function setSumMode(m) {
   _sumMode = m;
   if (m === 'range' && (!_sumFrom || !_sumTo)) { var r0 = sumRange(); _sumFrom = r0.from; _sumTo = r0.to; }
@@ -5939,8 +5971,18 @@ function sumCtlHTML(pfx) {
     return '<button class="seg-btn'+(_sumMode===mode?' on':'')+'" onclick="setSumMode(\''+mode+'\')">'+label+'</button>';
   };
   var h = '<div class="sum-toolbar">'
-    + '<div class="seg-group">'+seg('month','📅 月')+seg('year','🗓 年')+seg('range','📆 期間指定')+'</div>'
-    + '<span class="sum-period-label">'+escH(r.label)+'</span>';
+    + '<div class="seg-group">'+seg('month','📅 月')+seg('year','🗓 年')+seg('range','📆 期間指定')+'</div>';
+  /* 月／年の前後移動。集計タブのヘッダーには月ナビを置いていないので、ここに無いと
+     「📅 月」を選んでいるのに表示月を変える手段が画面のどこにも無くなる
+     （担当表タブへ行って ‹ › を押してから戻る、という操作を強いていた） */
+  if (_sumMode !== 'range') {
+    h += '<span style="display:flex;align-items:center;gap:4px">'
+      + '<button class="btn btn-g btn-sm" onclick="sumShift(-1)" title="前へ">&#8249;</button>'
+      + '<span class="sum-period-label">'+escH(r.label)+'</span>'
+      + '<button class="btn btn-g btn-sm" onclick="sumShift(1)" title="次へ">&#8250;</button></span>';
+  } else {
+    h += '<span class="sum-period-label">'+escH(r.label)+'</span>';
+  }
   if (_sumMode === 'range') {
     h += '<span style="display:flex;gap:6px;align-items:center">'
       + '<input type="date" id="'+pfx+'-sum-from" class="fi" style="width:auto;margin:0;font-size:11px" value="'+escH(_sumFrom)+'">'
@@ -5975,9 +6017,9 @@ function opsDetailRows() {
   sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
     if (!pg || !pg.ops) return;
-    [['ope_items','オペ'], ['cath_items','カテ']].forEach(function(pair){
-      var key = pair[0], kind = pair[1];
-      (pg.ops[key] || []).forEach(function(it){
+    [['ope','オペ'], ['cath','カテ']].forEach(function(pair){
+      var kind = pair[1];
+      opsItemsOf(pg, pair[0]).forEach(function(it){
         if (!opsItemFilled(it)) return;
         var dept = opsItemDept(it) || '（未分類）';
         var name = opsItemName(it) || '（無題）';
@@ -6355,14 +6397,9 @@ function renderOpsSummary() {
     var opeN  = 0, cathN = 0, mwN = 0, psgN = 0, freeN = 0;
     var hasAny = false;
 
-    /* オペ：ope_itemsの何らかの入力がある行数 */
-    if (ops.ope_items) {
-      ops.ope_items.forEach(function(it){ if(opsItemFilled(it)){ opeN++; hasAny=true; } });
-    }
-    /* カテ：cath_itemsの何らかの入力がある行数 */
-    if (ops.cath_items) {
-      ops.cath_items.forEach(function(it){ if(opsItemFilled(it)){ cathN++; hasAny=true; } });
-    }
+    /* オペ・カテ：何らかの入力がある行数（カードを消した日の残骸は opsItemsOf が除く） */
+    opsItemsOf(pg,'ope').forEach(function(it){ if(opsItemFilled(it)){ opeN++; hasAny=true; } });
+    opsItemsOf(pg,'cath').forEach(function(it){ if(opsItemFilled(it)){ cathN++; hasAny=true; } });
     /* 6MW：mw_nの値 */
     if (ops.mw_n) { mwN = parseInt(ops.mw_n)||0; if(mwN) hasAny=true; }
     /* PSG：装着欄に入力があれば1件（外しはカウントしない） */
@@ -7659,14 +7696,19 @@ function closeItems(ds) {
     clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:checklistMine}); });
   }
 
+  /* 3/4/6. オペ・カテ・オンコールはCE日ページにしか無いセクション。
+     dat.ops / dat.ocData はCE・HDで同じページオブジェクトを共有しているので、
+     主観で分けないとHD日ページでもCEの未了が数えられてしまう。しかもジャンプ先
+     （#ops-card-ope / .oc-card）はHD日ページに存在しないため「→」も「▶次へ」も無反応になる。 */
+  if (_viewMode === 'hd') return cats;
+
   /* 3/4. オペ・カテ：入力済み（opsItemFilled）なのに終了未チェックの行。
      症例行に自分の名前が入っている場合に加え、まだ誰も入力していなくても
      自分がオペ/カテ系の担当枠を持っていればその日の自分の仕事として数える */
-  var ops = dat.ops || {};
-  (ops.ope_items||[]).forEach(function(it){
+  opsItemsOf(dat,'ope').forEach(function(it){
     if (opsItemFilled(it) && !it.done) byKey.ope.items.push({mine: myOpe || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
   });
-  (ops.cath_items||[]).forEach(function(it){
+  opsItemsOf(dat,'cath').forEach(function(it){
     if (opsItemFilled(it) && !it.done) byKey.cath.items.push({mine: myCath || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
   });
 
@@ -10113,6 +10155,17 @@ function opsItemFilled(it){
    削除済みカードの残骸が集計され続けるバグがあった。ops_cards（個別カード運用日）
    が配列ならそれを正として走査し、無い日（テンプレ運用）だけ従来どおり ops の
    キーを走査する。 */
+/* オペ／カテの症例行。カードを削除した日は残骸を数えないよう空を返す
+   （フリーカードで opsFreeCards がやっているのと同じ方針）。
+   ops_cards が null/undefined のときはテンプレ表示中なので従来どおり全部数える。
+   件数を数える箇所（ヘッダーチップ・消し込みバー・CE集計・明細・CSV）はすべてこれを通すこと。
+   横断検索だけは意図的に通していない — 「どこかに書いたはず」を探す機能なので、
+   カードを消した日の記録もヒットさせたい（残骸に辿り着ける唯一の導線でもある）。 */
+function opsItemsOf(pg, kind){
+  if (!pg || !pg.ops) return [];
+  if (Array.isArray(pg.ops_cards) && pg.ops_cards.indexOf(kind) === -1) return [];
+  return normArr(pg.ops[kind + '_items']);
+}
 function opsFreeCards(pg){
   var ops = (pg && pg.ops) || {}, names = ops.freeNames || {}, out = [];
   if (Array.isArray(pg && pg.ops_cards)) {
@@ -11065,8 +11118,8 @@ function updateOpsHeader(ds){
   var o=D.pages[ds].ops||{};
   var cards=D.pages[ds].ops_cards!=null?D.pages[ds].ops_cards:(D.opsCfg||[]);
   /* オペ・カテ：何らかの入力がある行数（術式追加した行を反映）+ 業務終了済みの行数 */
-  var opeN=0,opeDone=0; if(o.ope_items) o.ope_items.forEach(function(it){if(opsItemFilled(it)){opeN++;if(it.done)opeDone++;}});
-  var cathN=0,cathDone=0; if(o.cath_items) o.cath_items.forEach(function(it){if(opsItemFilled(it)){cathN++;if(it.done)cathDone++;}});
+  var opeN=0,opeDone=0; opsItemsOf(D.pages[ds],'ope').forEach(function(it){if(opsItemFilled(it)){opeN++;if(it.done)opeDone++;}});
+  var cathN=0,cathDone=0; opsItemsOf(D.pages[ds],'cath').forEach(function(it){if(opsItemFilled(it)){cathN++;if(it.done)cathDone++;}});
   /* 6MW：カード存在で1、件数入力があればその値 */
   var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
   /* PSG：カードが追加されているか、または psg_on に入力があれば1 */
@@ -11146,8 +11199,8 @@ function renderPage(ds) {
   /* 業務件数集計 */
   var _ops=dat.ops||{};
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
-  var _opeN=0,_opeDone=0; if(_ops.ope_items) _ops.ope_items.forEach(function(it){if(opsItemFilled(it)){_opeN++;if(it.done)_opeDone++;}});
-  var _cathN=0,_cathDone=0; if(_ops.cath_items) _ops.cath_items.forEach(function(it){if(opsItemFilled(it)){_cathN++;if(it.done)_cathDone++;}});
+  var _opeN=0,_opeDone=0; opsItemsOf(dat,'ope').forEach(function(it){if(opsItemFilled(it)){_opeN++;if(it.done)_opeDone++;}});
+  var _cathN=0,_cathDone=0; opsItemsOf(dat,'cath').forEach(function(it){if(opsItemFilled(it)){_cathN++;if(it.done)_cathDone++;}});
   var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
   var _opsCardsRP=dat.ops_cards;
   var _psgN=!!(_ops.psg_on||(_opsCardsRP&&_opsCardsRP.indexOf('psg')!==-1))?1:0;
@@ -13360,7 +13413,10 @@ function delMemo(ds, idx) {
       });
     });
   }
-  memosOf(D.pages[ds]).splice(idx, 1);
+  /* ensureMemos（実体）を splice する。memosOf は Firebase がオブジェクト形状で
+     返したときに正規化した「別配列」を返すため、それを splice しても元データは減らない
+     （＝削除したのに消えない／移動すると二重になる）。 */
+  ensureMemos(D.pages[ds]).splice(idx, 1);
   saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
@@ -13407,8 +13463,11 @@ function moveMemo(ds, idx, targetDs) {
     D.pages[targetDs] = {duties:{},phsNums:{},checks:{},memo:'',memos:[],ops:{},ocData:{}};
   }
   /* 移動元・移動先とも「今いる主観のスレッド」を指す。CE側の申し送りがHD側へ紛れ込むことはない */
-  var m = memosOf(D.pages[ds])[idx];
-  memosOf(D.pages[ds]).splice(idx, 1);
+  /* 取得も削除も ensureMemos（実体）で行う。memosOf の戻り値は正規化後の別配列に
+     なりうるので、そちらを splice すると移動元に残ったまま移動先にも増えてしまう。 */
+  var srcMemos = ensureMemos(D.pages[ds]);
+  var m = srcMemos[idx];
+  srcMemos.splice(idx, 1);
   m.movedFrom = ds;
   ensureMemos(D.pages[targetDs]).push(m);
   saveD();
@@ -16018,6 +16077,7 @@ function asPrevM(){asM--;if(asM<0){asM=11;asY--;}
     if(_curSumTab==='oc'){  var o2=document.getElementById('oc-sum-body');  if(o2) o2.innerHTML=''; renderOCSummary(); }
     if(_curSumTab==='hd'){  renderHdSummary(); }
   }
+  var mp=document.getElementById('subpane-my'); if(mp&&mp.style.display!=='none') renderMySchedule();
   var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
   var hf=document.getElementById('subpane-hdfair'); if(hf&&hf.style.display!=='none') renderHdFairness();
 }
@@ -16030,19 +16090,24 @@ function asNextM(){asM++;if(asM>11){asM=0;asY++;}
     if(_curSumTab==='oc'){  var o2=document.getElementById('oc-sum-body');  if(o2) o2.innerHTML=''; renderOCSummary(); }
     if(_curSumTab==='hd'){  renderHdSummary(); }
   }
+  var mp=document.getElementById('subpane-my'); if(mp&&mp.style.display!=='none') renderMySchedule();
   var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
   var hf=document.getElementById('subpane-hdfair'); if(hf&&hf.style.display!=='none') renderHdFairness();
 }
 
 var _mySchedName = null; /* マイ担当でスタッフが選択されたときのキャッシュ */
+var _mySchedPick = false; /* 「変更」で選択画面を強制表示する（非永続）。
+   これが無いと、自分の名前がアカウントから解決できる人（＝ほぼ全員）は
+   _mySchedName を null にしても即座に自分に再解決され、ボタンが無反応に見える */
 function renderMySchedule(overrideName) {
   var el = document.getElementById('my-body');
   if (!el) return;
   var WD3 = ['日','月','火','水','木','金','土'];
 
   /* selfName 解決 */
-  var selfName = overrideName || _mySchedName || null;
-  if (!selfName) {
+  if (overrideName) _mySchedPick = false;
+  var selfName = overrideName || (_mySchedPick ? null : _mySchedName) || null;
+  if (!selfName && !_mySchedPick) {
     if (currentUser && currentUser.uid !== 'preview') {
       if (D.stf.indexOf(currentUser.displayName) >= 0) {
         selfName = currentUser.displayName;
@@ -16053,30 +16118,32 @@ function renderMySchedule(overrideName) {
       }
     }
   }
-  _mySchedName = selfName;
+  if (selfName) _mySchedName = selfName;
 
-  /* 名前が特定できない場合はスタッフ選択UIを表示 */
+  /* 名前が特定できない、または「変更」が押された場合はスタッフ選択UIを表示 */
   if (!selfName) {
-    var opts = D.stf.map(function(n){ return '<option value="'+escH(n)+'">'+escH(n)+'</option>'; }).join('');
+    var curSel = _mySchedName || '';
+    var opts = D.stf.map(function(n){
+      return '<option value="'+escH(n)+'"'+(n===curSel?' selected':'')+'>'+escH(n)+'</option>';
+    }).join('');
     el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--txt2)">'
       + '<div style="margin-bottom:8px;font-size:13px">担当を確認するスタッフを選んでください</div>'
       + '<select id="my-stf-sel" class="ds2" style="font-size:13px;padding:6px 10px"><option value="">— 選択 —</option>'+opts+'</select>'
-      + '<button class="btn btn-p btn-sm" style="margin-left:8px" onclick="var s=document.getElementById(\'my-stf-sel\');if(s.value){_mySchedName=null;renderMySchedule(s.value);}">表示</button>'
+      + '<button class="btn btn-p btn-sm" style="margin-left:8px" onclick="var s=document.getElementById(\'my-stf-sel\');if(s.value){renderMySchedule(s.value);}">表示</button>'
+      + (curSel ? '<div style="margin-top:10px"><button class="btn btn-g btn-sm" style="font-size:11px" onclick="_mySchedPick=false;renderMySchedule()">キャンセル</button></div>' : '')
       + '</div>';
     return;
   }
 
-  /* スキャン範囲: 当月1日 〜 今日+30日 */
+  /* スキャン範囲: 担当表と同じ表示月（asY/asM）の1日〜末日。
+     以前は「当月1日〜今日+30日」の固定窓で、月ナビ（‹ ›）を動かしても
+     表示が変わらず、常に2か月ぶんが混ざって出ていた */
   var today = toDS(new Date());
-  var todayDt = new Date(today);
-  var endDt = new Date(todayDt); endDt.setDate(endDt.getDate() + 30);
-  var startYM = today.slice(0,7); /* 当月最初から */
-  var startDt = new Date(startYM + '-01');
+  var mDays = new Date(asY, asM + 1, 0).getDate();
 
   var cards = [];
-  var cur = new Date(startDt);
-  while (cur <= endDt) {
-    var ds = toDS(cur);
+  for (var mi = 1; mi <= mDays; mi++) {
+    var ds = asY + '-' + pad(asM + 1) + '-' + pad(mi);
     var dat = D.pages[ds];
     if (dat) {
       var slots = [];
@@ -16107,19 +16174,20 @@ function renderMySchedule(overrideName) {
       });
       if (slots.length) cards.push({ds: ds, slots: slots});
     }
-    cur.setDate(cur.getDate() + 1);
   }
 
-  var nameLabel = isAdmin && overrideName ? '<span style="font-size:11px;color:var(--txt3)">（' + escH(selfName) + '）</span> ' : '';
+  /* 他人の担当を開けるのは管理者と、アカウントが未リンクで自分を特定できない人だけ
+     （元の条件のまま。押しても何も起きなかった不具合だけを直す） */
   var changeBtn = (isAdmin || D.stf.indexOf(currentUser && currentUser.displayName) === -1)
-    ? '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:8px" onclick="_mySchedName=null;renderMySchedule()">変更</button>' : '';
+    ? '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:8px;white-space:nowrap" onclick="_mySchedPick=true;renderMySchedule()">変更</button>' : '';
 
-  var html = '<div style="display:flex;align-items:center;gap:4px;margin-bottom:10px;padding:0 4px">'
+  var html = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:10px;padding:0 4px">'
     + '<span style="font-size:13px;font-weight:700;color:var(--txt1)">👤 '+escH(selfName)+'の担当予定</span>'
+    + '<span style="font-size:11px;color:var(--txt3);white-space:nowrap">'+asY+'年'+(asM+1)+'月</span>'
     + changeBtn + '</div>';
 
   if (!cards.length) {
-    html += '<div class="pool-empty" style="padding:20px 0">この期間に担当割り当てがありません</div>';
+    html += '<div class="pool-empty" style="padding:20px 0">'+asY+'年'+(asM+1)+'月に担当割り当てがありません</div>';
     el.innerHTML = html;
     return;
   }
@@ -16874,8 +16942,8 @@ function exportOpsCsv() {
     if (!pg) return;
     var ops = pg.ops||{};
     var opeN=0,cathN=0,mwN=0,psgN=0,freeN=0;
-    if(ops.ope_items)  ops.ope_items.forEach(function(it){if(opsItemFilled(it))opeN++;});
-    if(ops.cath_items) ops.cath_items.forEach(function(it){if(opsItemFilled(it))cathN++;});
+    opsItemsOf(pg,'ope').forEach(function(it){if(opsItemFilled(it))opeN++;});
+    opsItemsOf(pg,'cath').forEach(function(it){if(opsItemFilled(it))cathN++;});
     if(ops.mw_n) mwN=parseInt(ops.mw_n)||0;
     if(ops.psg_on) psgN=1;
     opsFreeCards(pg).forEach(function(f){if(opsFreeFilled(f))freeN++;});
@@ -16906,11 +16974,13 @@ function printSubTab() {
   if (_curSubTab === 'at') { printAt(); return; }
   _printSubPane('ph', _curSubTab);
 }
-function printSumTab() { _printSubPane('sum-ph', _curSumTab); }
+/* 集計は月とは限らない（年・期間指定がある）ので、紙の見出しも実際の集計期間を出す。
+   asY/asM 固定だと「2026年」を集計しているのに紙には「2026年8月」と刷られてしまう。 */
+function printSumTab() { _printSubPane('sum-ph', _curSumTab, sumRange().label); }
 /* サブタブ1枚だけを紙に出す共通処理。担当表(printAt)は専用のレイアウトを持つので通さない。 */
-function _printSubPane(phId, subId) {
+function _printSubPane(phId, subId, periodLabel) {
   var ph = document.getElementById(phId);
-  if (ph) ph.textContent = '分院CE連絡表　' + asY+'年'+(asM+1)+'月';
+  if (ph) ph.textContent = '分院CE連絡表　' + (periodLabel || (asY+'年'+(asM+1)+'月'));
   document.body.setAttribute('data-print-sub', subId);
   document.body.classList.add('printing-sub');
   setTimeout(function(){
