@@ -443,11 +443,14 @@ dat.placement = {
 
 - **書き込みは必ず `plMove(ds, name, spec)` を通す。** `spec` は `{kind:'duty',slot}` / `{kind:'free'}` / `{kind:'pool'}` / `{kind:'surplus',side}` / `{kind:'zone',zone,side}` / `{kind:'hdrole',role}`。冒頭で `plClearSpot()` を呼び、担当枠・フリー枠・台帳のすべてから外してから入れるので、**1人が2か所に居る状態は原理的に作れない**。担当枠の `<select>`・担当カードへのドロップ・配置盤のドラッグ・タップ割り当ての4経路すべてがここを通る。
 - **担当枠（`dat.duties`）とフリー枠（`dat.extra_free`）だけは従来どおりそこが正本**。担当表・公平性・マイ担当・CSVがすべて `dat.duties` を読んでいるため。`plSpot()` が duties/extra_free を先に見て「いま担当枠にいる」と答えるので、台帳と二重管理にはならない。**`placement.people[name].spot` に担当枠IDを入れてはいけない**（正本が2つになる）。
-- **名簿は書き込むまで導出、書き込んだら固定**。`plPeople(ds)` は `placement.fixed` が立っていれば `people` を、立っていなければ `plDerive(ds)`（勤務表＋旧フィールド）を返す。`plFix(ds)` が書き込み前に必ず呼ばれてスナップショットを取る。あとから勤務表を直したときは `plResync(ds)` が差分（追加／除外／勤務コード変更）を出して確認のうえ反映する——**担当枠に入っている人の割り当ては変えない**。
+- **名簿は書き込むまで導出、書き込んだら固定**。`plPeople(ds)` は `placement.fixed` が立っていれば `people` を、立っていなければ `plDerive(ds)`（勤務表＋旧フィールド）を返す。**判定に「人が1人以上いること」を混ぜないこと** — 全員を名簿から外した日が導出へフォールバックして勤務表から全員復活する（Firebaseは空オブジェクトを保存しないので再読込後も同じ経路に落ちる）。同じ理由で `plFix` の再スナップショット条件も `!p.fixed` だけを見る。
+- **読み取りのために `plFix()` を呼ばないこと。** `plFix` は名簿を固定する副作用を持つので、表示・ダイアログの初期値取得には `plPeople(ds)[name]` を使う。以前 `plEditMemo` がこれを誤り、メモを開いて閉じただけでその日が勤務表に追随しなくなっていた。
+- **HDの役割コードは `plHdRole(code)` を通す**（`HD_DAY_CODES` と `'準'` 以外は空＝役割なし）。勤務表に `shift:'CE'` かつ `hd:'day'` の行があるとHD側にも載るため、素通しすると役割名として `'CE'` や内部値がそのまま画面に出る。`plDerive`・`plSpot`・`plMove` の押し出し判定の3か所で同じ式を使う。`plFix(ds)` が書き込み前に必ず呼ばれてスナップショットを取る。あとから勤務表を直したときは `plResync(ds)` が差分（追加／除外／勤務コード変更）を出して確認のうえ反映する——**担当枠に入っている人の割り当ては変えない**。
 - **旧フィールドは消さない。** `plDerive()` が読み出し時に吸収する（`ensureStaffZone` と同じ方針）。`staffZone.ce[名前]==='hd'` は「HDへ応援（受け取り済み）」、`staffZone.hd[名前]==='to_ce'` は「CEへ応援」として読む。`hdDuty.overrides` の `{元の人:差し替え後}` は、元の人を名簿から外して差し替え後の人にその役割を持たせる形に読み替える。**`spot` を空にしてHDへ移すと、CEの勤務コード（`shift='CE'`）が役割名として表示されてしまう** ので、応援は必ず `spot:'応援'` を入れる。
 - **提供 → 受け取りの2段階**。`plOffer(ds,name,to)` は自分側の余剰に残したまま `offer` を立て、相手側の「⇦ 提供されています」枠にも出す（同じ人が2か所に見えるのはこの状態だけで、意図的）。`plAccept(ds,name)` で初めて `side` が移り `from` が付く。`plCancelOffer()` で取り下げ。**直接ドラッグして相手側へ移すことも許している** — 提供は「相手に判断を委ねたいとき」の手段であって、責任者が両方を見て決める操作を禁じるものではない。
 - **HD担当表（`buildHdRoster`/`hdShiftWorkers`）は台帳から作る。** `side==='hd'` かつ `plSpot().kind==='hdrole'` の人だけが並ぶ（余剰・ゾーンの人は配置盤側に出る）。役割は `spot || shift`。行の `<select>` は「その役割を誰が持つか」を変える操作で、`plMove(…,{kind:'hdrole',role})` に落ちる（同じ役割を持っていた人はHDの余剰へ押し出される）。
 - 見出しバッジは `.staffz`（`toggleStaffZone()` / `_staffZoneOpen`、既定 `false`）に出す。集計の実体は `plCounts(ds)` ひとつで、`staffZoneCounts()` はその別名。`updateStaffZoneBadge(ds)` が `#staffz-badge-staff` / `#staffz-badge-unassigned` だけを差し替える。
+- **スマホのドラッグは長押し（250ms）で開始する。** `touchstart` で即ドラッグ状態に入ると、以降の `touchmove` を `preventDefault` するせいでチップの上から始めたスワイプがページスクロールにならず、指を離した枠へその人が移動してしまう（配置盤は面積の大半がチップなので誤操作が起きやすい）。長押しが成立する前に8px以上動いたらスクロールとみなしてドラッグ候補を捨てる。
 - 監査ログは `plMove`（`人員配置変更`）・`plOffer`/`plCancelOffer`/`plAccept`（`応援の提供`／`取り下げ`／`受け取り`）・`plAddPerson`/`plRemovePerson`（`名簿に追加`／`名簿から除外`）・`plResync`（`勤務表から取り込み直し`）が書く。
 - **配置盤は主観で中身を変えない。** `_viewMode` が効くのは「自分側の列を先に並べる」ことだけ（スマホでは自分側が上に来る）。CE主観・HD主観で別の画面を作らないこと——CE/HDの双子関数がこれ以上増えるのを避けるため、`renderPlacementBoard` は1つしかない。
 

@@ -306,6 +306,17 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pl-chip-slot{font-size:9px;border-radius:3px;padding:1px 5px}
 .pl-chip-offer{font-size:9px;font-weight:700;color:var(--pu);background:var(--pu-bg);border-radius:3px;padding:1px 5px}
 .pl-chip-memo{font-size:9px;color:var(--txt3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-chip-norole{font-size:9px;color:var(--txt3);border:1px dashed var(--bdr2);border-radius:3px;padding:1px 5px}
+.pl-menu{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow:auto}
+.pl-mgrp{font-size:10px;font-weight:800;color:var(--txt3);letter-spacing:.04em;margin:8px 0 2px}
+.pl-mrow{display:flex;align-items:center;gap:8px;width:100%;text-align:left;font-size:13px;font-weight:700;color:var(--txt);background:var(--sur);border:1px solid var(--bdr);border-radius:8px;padding:9px 12px;cursor:pointer}
+.pl-mrow:hover:not(:disabled){border-color:var(--ac);background:var(--ac-bg);color:var(--ac)}
+.pl-mrow.on{background:var(--sur2);color:var(--txt3);cursor:default}
+.pl-mrow-sub{margin-left:auto;font-size:10px;font-weight:400;color:var(--txt3);max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-mroles{display:flex;flex-wrap:wrap;gap:4px}
+.pl-mrole{font-size:12px;font-weight:700;min-width:38px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);border-radius:6px;padding:6px 8px;cursor:pointer}
+.pl-mrole:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-bg)}
+.pl-mrole.on{background:var(--ac);color:var(--on-ac);border-color:var(--ac)}
 .pl-chip-acts{display:inline-flex;align-items:center;gap:2px}
 .pl-btn{font-size:9px;font-weight:700;border:1px solid var(--bdr);background:var(--sur2);color:var(--txt2);border-radius:4px;padding:1px 5px;cursor:pointer;line-height:1.5}
 .pl-btn:hover{background:var(--ac-bg);color:var(--ac);border-color:var(--ac)}
@@ -5435,6 +5446,10 @@ var PL_ZONES = [
   {key:'off',   icon:'🏖️', label:'休み',    color:'var(--gr)',   bg:'var(--gr-bg,#f0fff4)',border:'var(--gr)'},
   {key:'other', icon:'📝', label:'その他',  color:'var(--txt2)', bg:'var(--sur2)',         border:'var(--bdr2)'}
 ];
+/* HDの役割として妥当なコードだけを通す。勤務表で shift='CE' + hd='day' のように
+   HDコード以外が入っている行は「役割なし」でHD側に置く——素通しすると 'CE' や
+   内部値がそのまま役割名として画面に出る。 */
+function plHdRole(code){ return (code === '準' || HD_DAY_CODES.indexOf(code) !== -1) ? code : ''; }
 function plZone(key){ for(var i=0;i<PL_ZONES.length;i++) if(PL_ZONES[i].key===key) return PL_ZONES[i]; return null; }
 function plSideLabel(side){ return side==='hd' ? '🩸 HD' : '🩺 CE'; }
 
@@ -5464,13 +5479,16 @@ function plDerive(ds){
     else {
       var q = people[name];
       if (o.oc) q.oc = true;
-      if (o.base === 'hd') { q.base='hd'; q.side='hd'; q.shift=o.shift||q.shift; q.night=!!o.night; }
+      /* spot も必ず上書きする。CE勤務かつHD日勤の行（shift:'CE' + hd:'day'）は
+         si.ce → si.hd の順で put されるため、ここで spot を更新しないと 'pool' が
+         残り、plSpot がそれを役割名として返して画面に "pool" と出てしまう。 */
+      if (o.base === 'hd') { q.base='hd'; q.side='hd'; q.shift=o.shift||q.shift; q.night=!!o.night; q.spot=o.spot||''; }
     }
     return people[name];
   }
   (si.ce||[]).forEach(function(c){ put(c.name, {base:'ce', shift:c.shift||'CE', oc:c.oc, side:'ce', spot:'pool'}); });
   (si.oc||[]).forEach(function(o){ put(o.name, {base:'oc', shift:o.shift||'', oc:true,  side:'ce', spot:'pool'}); });
-  (si.hd||[]).forEach(function(h){ put(h.name, {base:'hd', shift:h.night?'準':h.shift, night:h.night, side:'hd', spot:h.night?'準':h.shift}); });
+  (si.hd||[]).forEach(function(h){ var c = h.night ? '準' : plHdRole(h.shift); put(h.name, {base:'hd', shift:c || h.shift || '', night:h.night, side:'hd', spot:c}); });
 
   /* 旧 hdDuty.overrides（HD担当表での差し替え）を読み替える：
      元の人はその日いなかったことになり、差し替え先の人がその役割を持つ */
@@ -5491,7 +5509,7 @@ function plDerive(ds){
     var q = people[n] || put(n, {base:'ce', shift:'', side:'ce', spot:'surplus'});
     if (!q) return;
     var v = szCe[n];
-    if (v === 'hd') { q.side='hd'; q.spot='応援'; q.from='ce'; }      /* 過去の日は受け取り済みとして読む。spotを空にするとCEの勤務コードが役割名になってしまう */
+    if (v === 'hd') { q.side='hd'; q.spot=''; q.from='ce'; }          /* 過去の日は受け取り済みとして読む（役割なし） */
     else if (v && plZone(v)) { q.side='ce'; q.spot=v; }
     else { q.side='ce'; q.spot='surplus'; }                            /* '' と旧 'to_ce' は余剰扱い */
   });
@@ -5517,14 +5535,17 @@ function plDerive(ds){
 function plPeople(ds){
   var dat = D.pages[ds]; if (!dat) return {};
   var p = dat.placement;
-  if (p && p.fixed && p.people && Object.keys(p.people).length) return p.people;
+  /* 判定は fixed だけを見る。以前は「人が1人以上いること」も条件にしていたため、
+     全員を名簿から外すと導出へフォールバックして勤務表から全員復活していた
+     （Firebaseは空オブジェクトを保存しないので、再読込後も同じ経路に落ちる）。 */
+  if (p && p.fixed) return (p.people && typeof p.people === 'object' && !Array.isArray(p.people)) ? p.people : {};
   return plDerive(ds);
 }
 /* 名簿を固定する（書き込み系はすべて先にこれを呼ぶ）。以後この日は勤務表を自動で追わない */
 function plFix(ds){
   var dat = D.pages[ds]; if (!dat) return null;
   var p = ensurePlacement(ds);
-  if (!p.fixed || !Object.keys(p.people).length) { p.people = plDerive(ds); p.fixed = true; }
+  if (!p.fixed) { p.people = plDerive(ds); p.fixed = true; } /* 空の名簿も「固定済み」として尊重する（plPeople と同じ判定） */
   return p;
 }
 /* 表示順：スタッフマスタの並び → それ以外は五十音 */
@@ -5551,7 +5572,10 @@ function plSpot(ds, name){
   if (!p) return {kind:'none', side:'ce'};
   if (p.spot === 'surplus') return {kind:'surplus', side:p.side};
   if (plZone(p.spot))       return {kind:'zone', side:p.side, zone:p.spot};
-  if (p.side === 'hd')      return {kind:'hdrole', side:'hd', role:p.spot || p.shift || '応援'};
+  /* HD側の役割。勤務表由来の人は spot が空なら本来のシフトコードへ戻る。
+     応援で来た人（base が hd でない）は役割を持たないので空欄のままにする
+     ——ここで shift を拾うとCEの勤務コード 'CE' が役割名として出てしまう。 */
+  if (p.side === 'hd')      return {kind:'hdrole', side:'hd', role:p.spot || (p.base === 'hd' ? plHdRole(p.shift) : '')};
   return {kind:'pool', side:'ce'};
 }
 
@@ -5592,13 +5616,20 @@ function plMove(ds, name, spec){
     pp.side = 'ce'; pp.spot = '';
     markDutyEdited(ds);
   } else if (spec.kind === 'hdrole') {
-    /* 同じ役割を既に持っている人が居たらHDの余剰へ押し出す（役割は1人が持つもの） */
-    Object.keys(p.people).forEach(function(n2){
-      if (n2 === name) return;
-      var q = p.people[n2];
-      if (q.side === 'hd' && (q.spot || q.shift) === spec.role) { q.spot = 'surplus'; }
-    });
-    pp.side = 'hd'; pp.spot = spec.role || '応援';
+    /* 同じ役割を既に持っている人が居たらHDの余剰へ押し出す（役割は1人が持つもの）。
+       役割が空（「—」＝役割なし）のときは押し出さない——空同士がマッチして、
+       まだ役割の付いていない別の応援者まで余剰へ落ちてしまうため。
+       役割の解決は plSpot と同じ式にする（base が hd でない人の shift は役割ではない）。 */
+    if (spec.role) {
+      Object.keys(p.people).forEach(function(n2){
+        if (n2 === name) return;
+        var q = p.people[n2];
+        if (q.side !== 'hd') return;
+        var qRole = q.spot || (q.base === 'hd' ? plHdRole(q.shift) : '');
+        if (qRole === spec.role) q.spot = 'surplus';
+      });
+    }
+    pp.side = 'hd'; pp.spot = spec.role || '';
     if (pp.base !== 'hd' && !pp.from) pp.from = 'ce';
   } else if (spec.kind === 'surplus') {
     pp.side = spec.side || pp.side || 'ce'; pp.spot = 'surplus';
@@ -5623,7 +5654,7 @@ function plSpotLabel(sp){
   if (!sp) return '';
   if (sp.kind === 'duty')   return sp.label;
   if (sp.kind === 'free')   return 'フリー';
-  if (sp.kind === 'hdrole') return 'HD '+(sp.role||'');
+  if (sp.kind === 'hdrole') return 'HD '+(sp.role||'（役割なし）');
   if (sp.kind === 'surplus')return (sp.side==='hd'?'HD':'CE')+'余剰';
   if (sp.kind === 'zone')   { var z = plZone(sp.zone); return z?z.label:sp.zone; }
   return '未割当';
@@ -5650,25 +5681,58 @@ function plAccept(ds, name){
   var p = plFix(ds); var pp = p.people[name]; if (!pp || !pp.offer) return;
   var to = pp.offer;
   pp.offer = ''; pp.from = (to === 'hd') ? 'ce' : 'hd'; pp.side = to;
-  pp.spot = (to === 'hd') ? '応援' : 'pool';
+  pp.spot = (to === 'hd') ? '' : 'pool'; /* 応援は役割なしで受け取る（あとで役割を選べる） */
   saveD(); renderPlacementBoard(ds, D.pages[ds], !can('duty'));
   updateStaffZoneBadge(ds); updateCloseBar(ds); safeRenderPage();
   writeLog('応援の受け取り', fmtJ(ds)+' '+name+' → '+(to==='hd'?'HD':'CE'));
   toast(name+' さんを受け取りました', 'ok');
 }
-function plSetRole(ds, name, role){
-  if (!can('duty')) return;
-  plMove(ds, name, {kind:'hdrole', role: role || '応援'});
+/* 配置盤の確認・入力ダイアログ。prompt()/confirm() は環境によっては出ない
+   （アプリ内ブラウザやプレビュー用のブラウザでは無効化されている）ため使わない。
+   opts = {title, body(HTML), input:{label,value,placeholder}, okLabel, danger} */
+function plDialog(opts, onOk){
+  var old = document.getElementById('pl-dlg-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'pl-dlg-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '380px';
+  var h = '<h3>' + escH(opts.title || '') + '</h3>';
+  if (opts.body) h += '<div style="font-size:12px;line-height:1.8;color:var(--txt2);white-space:pre-wrap;max-height:40vh;overflow:auto">' + opts.body + '</div>';
+  if (opts.input) {
+    h += '<div style="font-size:12px;font-weight:700;margin:10px 0 4px">' + escH(opts.input.label || '') + '</div>';
+    h += '<input type="text" id="pl-dlg-input" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(opts.input.value || '') + '" placeholder="' + escH(opts.input.placeholder || '') + '">';
+  }
+  h += '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" id="pl-dlg-cancel">キャンセル</button>'
+    + '<button class="btn ' + (opts.danger ? 'btn-d' : 'btn-p') + '" id="pl-dlg-ok">' + escH(opts.okLabel || 'OK') + '</button></div>';
+  md.innerHTML = h;
+  ov.appendChild(md); document.body.appendChild(ov);
+  var inp = document.getElementById('pl-dlg-input');
+  if (inp) { inp.focus(); inp.select(); }
+  document.getElementById('pl-dlg-cancel').onclick = function(){ ov.remove(); };
+  document.getElementById('pl-dlg-ok').onclick = function(){
+    var v = inp ? inp.value : null;
+    ov.remove();
+    onOk(v);
+  };
+  if (inp) inp.onkeydown = function(e){ if (e.key === 'Enter') document.getElementById('pl-dlg-ok').click(); };
 }
+
 function plEditMemo(ds, name){
   if (!can('duty')) return;
-  var p = plFix(ds); var pp = p.people[name]; if (!pp) return;
-  var v = prompt(name + ' さんのメモ（例：午後半休、学会）', pp.memo || '');
-  if (v === null) return;
-  phiGuardText(v, function(){
-    var p2 = plFix(ds); if (!p2.people[name]) return;
-    p2.people[name].memo = v.trim();
-    saveD(); renderPlacementBoard(ds, D.pages[ds], !can('duty'));
+  /* 読み取りに plFix を使わない——ダイアログを開いて閉じただけで名簿が固定され、
+     その日が勤務表に追随しなくなってしまう。固定は保存側でだけ行う。 */
+  var pp = plPeople(ds)[name]; if (!pp) return;
+  plDialog({
+    title: '📝 ' + name + ' さんのメモ',
+    input: {label:'ひとこと（空にすると消えます）', value: pp.memo || '', placeholder:'例：午後半休、学会'},
+    okLabel: '保存'
+  }, function(v){
+    if (v === null) return;
+    phiGuardText(v, function(){
+      var p2 = plFix(ds); if (!p2.people[name]) return;
+      p2.people[name].memo = String(v).trim();
+      saveD(); renderPlacementBoard(ds, D.pages[ds], !can('duty'));
+    });
   });
 }
 
@@ -5681,13 +5745,26 @@ function plAddPerson(ds, side){
 }
 function plRemovePerson(ds, name){
   if (!can('duty')) return;
-  if (!confirm(name + ' さんをこの日の名簿から外しますか？\n（担当枠に入っていればそれも外れます）')) return;
-  var p = plFix(ds);
-  plClearSpot(ds, name);
-  delete p.people[name];
-  saveD(); renderPlacementBoard(ds, D.pages[ds], !can('duty'));
-  updateStaffZoneBadge(ds); updateCloseBar(ds); safeRenderPage();
-  writeLog('名簿から除外', fmtJ(ds)+' '+name);
+  var sp = plSpot(ds, name);
+  var where = (sp.kind === 'duty' || sp.kind === 'free')
+    ? '<br><strong style="color:var(--rd)">いま「' + escH(plSpotLabel(sp)) + '」に入っています。その割り当ても外れます。</strong>' : '';
+  plDialog({
+    title: '名簿から外す',
+    body: escH(name) + ' さんをこの日の名簿から外します。' + where,
+    okLabel: '外す', danger: true
+  }, function(){
+    var p = plFix(ds);
+    plClearSpot(ds, name);
+    /* オンコールは持ち場ではなく属性なので plClearSpot では外れない。
+       名簿から居なくなる人がOC担当のまま残らないよう、ここで明示的に外す。 */
+    var pg = D.pages[ds];
+    if (pg && pg.ocData && pg.ocData.staff === name) pg.ocData.staff = '';
+    delete p.people[name];
+    saveD(); renderPlacementBoard(ds, D.pages[ds], !can('duty'));
+    updateStaffZoneBadge(ds); updateCloseBar(ds); safeRenderPage();
+    writeLog('名簿から除外', fmtJ(ds)+' '+name);
+    toast(name + ' さんを名簿から外しました', 'ok');
+  });
 }
 
 /* ===== 勤務表から取り込み直す ===== */
@@ -5701,12 +5778,17 @@ function plResync(ds){
     return cur[n] && (cur[n].shift||'') !== (fresh[n].shift||'');
   });
   if (!added.length && !removed.length && !changed.length) { toast('勤務表と一致しています。変更はありません', 'ok'); return; }
-  var msg = '勤務表から取り込み直します。\n\n';
-  if (added.length)   msg += '＋ 追加：' + added.join('、') + '\n';
-  if (removed.length) msg += '－ 除外：' + removed.join('、') + '\n';
-  if (changed.length) msg += '↻ 勤務コード変更：' + changed.map(function(n){ return n+'（'+(cur[n].shift||'—')+'→'+(fresh[n].shift||'—')+'）'; }).join('、') + '\n';
-  msg += '\n担当枠に入っている人の割り当ては変えません。よろしいですか？';
-  if (!confirm(msg)) return;
+  var msg = '';
+  if (added.length)   msg += '<div style="margin-bottom:6px"><strong style="color:var(--gr)">＋ 追加</strong>　' + escH(added.join('、')) + '</div>';
+  if (removed.length) msg += '<div style="margin-bottom:6px"><strong style="color:var(--rd)">－ 除外</strong>　' + escH(removed.join('、')) + '</div>';
+  if (changed.length) msg += '<div style="margin-bottom:6px"><strong style="color:var(--or)">↻ 勤務コード変更</strong>　'
+    + escH(changed.map(function(n){ return n+'（'+(cur[n].shift||'—')+'→'+(fresh[n].shift||'—')+'）'; }).join('、')) + '</div>';
+  msg += '<div style="margin-top:8px;color:var(--txt3)">担当枠に入っている人の割り当ては変えません。</div>';
+  plDialog({ title:'🔄 勤務表から取り込み直す', body: msg, okLabel:'反映する' }, function(){
+    plResyncApply(ds, added, removed, changed, fresh);
+  });
+}
+function plResyncApply(ds, added, removed, changed, fresh){
   var p = plFix(ds);
   added.forEach(function(n){ p.people[n] = fresh[n]; });
   removed.forEach(function(n){ plClearSpot(ds, n); delete p.people[n]; });
@@ -5752,7 +5834,6 @@ function plSurplusNames(ds){
 function plChipHTML(ds, name, opts){
   opts = opts || {};
   var ppl = plPeople(ds), pp = ppl[name] || plNewPerson({});
-  var sp = plSpot(ds, name);
   var dlk = !can('duty');
   var cls = 'pl-chip';
   if (pp.from) cls += ' from-' + pp.from;
@@ -5766,26 +5847,82 @@ function plChipHTML(ds, name, opts){
   if (pp.oc) h += '<span class="pl-chip-oc">OC</span>';
   if (pp.from) h += '<span class="pl-chip-from" title="応援で来ています">'+(pp.from==='ce'?'🩺':'🩸')+'から</span>';
   if (opts.slotLabel) h += '<span class="pl-chip-slot" style="'+dutyChipStyle(opts.slotCfg||{id:'__free'})+'">'+escH(opts.slotLabel)+'</span>';
+  if (opts.roleSel && !opts.slotLabel) h += '<span class="pl-chip-norole">役割なし</span>';
   if (pp.offer) h += '<span class="pl-chip-offer">→'+(pp.offer==='hd'?'HD':'CE')+' 提供中</span>';
   if (pp.memo) h += '<span class="pl-chip-memo" title="'+escH(pp.memo)+'">📝'+escH(pp.memo)+'</span>';
   if (!dlk) {
-    h += '<span class="pl-chip-acts">';
+    /* 操作は「⋯」1つに畳む。以前は［→HDへ出す］［取り下げ］［役割▼］［📝］［×］を
+       チップ内に並べていたが、ボタンの上からはドラッグが始まらないため、
+       提供中のチップはつかめる面積が半分以下になり「ゾーンへ入れられない」状態だった。
+       受け取りだけは主操作なのでボタンのまま残す。 */
     if (opts.acceptBtn) h += '<button type="button" class="pl-btn ok" data-pl-act="accept" data-name="'+escH(name)+'">受け取る</button>';
-    if (opts.offerBtn)  h += '<button type="button" class="pl-btn" data-pl-act="offer" data-to="'+opts.offerBtn+'" data-name="'+escH(name)+'">→'+(opts.offerBtn==='hd'?'HD':'CE')+'へ出す</button>';
-    if (pp.offer)       h += '<button type="button" class="pl-btn" data-pl-act="cancelOffer" data-name="'+escH(name)+'">取り下げ</button>';
-    if (opts.roleSel)   h += plRoleSelHTML(ds, name, sp.role||'');
-    h += '<button type="button" class="pl-btn ic" data-pl-act="memo" data-name="'+escH(name)+'" title="メモ">📝</button>';
-    h += '<button type="button" class="pl-btn ic del" data-pl-act="remove" data-name="'+escH(name)+'" title="この日の名簿から外す">×</button>';
-    h += '</span>';
+    h += '<button type="button" class="pl-btn ic" data-pl-act="menu" data-name="'+escH(name)+'" title="移動・メモ・名簿から外す">⋯</button>';
   }
   return h + '</div>';
 }
-function plRoleSelHTML(ds, name, cur){
-  var opts = '<option value="応援"'+(cur==='応援'?' selected':'')+'>応援</option>';
-  HD_DAY_CODES.forEach(function(c){ opts += '<option value="'+escH(c)+'"'+(cur===c?' selected':'')+'>'+escH(c)+'</option>'; });
-  opts += '<option value="準"'+(cur==='準'?' selected':'')+'>準夜</option>';
-  if (cur && cur!=='応援' && cur!=='準' && HD_DAY_CODES.indexOf(cur)===-1) opts += '<option value="'+escH(cur)+'" selected>'+escH(cur)+'</option>';
-  return '<select class="pl-role-sel" data-pl-act="role" data-name="'+escH(name)+'" title="HDの役割">'+opts+'</select>';
+
+/* チップの「⋯」メニュー。ドラッグが使えない・使いづらい場面でも、
+   ここから同じ移動が全部できる（スマホやアプリ内ブラウザでの唯一の導線にもなる）。 */
+function plMenu(ds, name){
+  if (!can('duty')) return;
+  var pp = plPeople(ds)[name]; if (!pp) return;
+  var sp = plSpot(ds, name);
+  var here = function(kind, extra){
+    if (kind === 'pool')    return sp.kind === 'pool';
+    if (kind === 'surplus') return sp.kind === 'surplus' && sp.side === extra;
+    if (kind === 'zone')    return sp.kind === 'zone' && sp.zone === extra;
+    return false;
+  };
+  var row = function(act, label, sub, disabled){
+    return '<button type="button" class="pl-mrow'+(disabled?' on':'')+'"'+(disabled?' disabled':'')+' data-plm="'+escH(act)+'">'
+      + '<span>'+label+'</span>'+(sub?'<span class="pl-mrow-sub">'+escH(sub)+'</span>':'')+'</button>';
+  };
+  var h = '<div class="pl-mgrp">移動する</div>';
+  h += row('pool',        '📋 未割当（CE）', '', here('pool'));
+  h += row('sur:ce',      '🔄 CE 余剰人員', '', here('surplus','ce'));
+  h += row('sur:hd',      '🔄 HD 余剰人員', '', here('surplus','hd'));
+  PL_ZONES.forEach(function(z){ h += row('zone:'+z.key, z.icon+' '+escH(z.label), '', here('zone', z.key)); });
+
+  if (sp.kind === 'hdrole' || sp.side === 'hd') {
+    h += '<div class="pl-mgrp">HDの役割</div><div class="pl-mroles">';
+    h += '<button type="button" class="pl-mrole'+(!sp.role?' on':'')+'" data-plm="role:">—</button>';
+    HD_DAY_CODES.forEach(function(c){ h += '<button type="button" class="pl-mrole'+(sp.role===c?' on':'')+'" data-plm="role:'+escH(c)+'">'+escH(c)+'</button>'; });
+    h += '<button type="button" class="pl-mrole'+(sp.role==='準'?' on':'')+'" data-plm="role:準">準夜</button>';
+    h += '</div>';
+  }
+
+  var offerRows = '';
+  if (pp.offer) offerRows += row('cancelOffer', '↩ 提供を取り下げる', (pp.offer==='hd'?'HD':'CE')+'へ提供中');
+  else if (sp.kind === 'surplus') offerRows += row('offer:'+(sp.side==='ce'?'hd':'ce'), '🤝 '+(sp.side==='ce'?'HD':'CE')+'へ出す（提供）', '相手が受け取ると移ります');
+  if (offerRows) h = h + '<div class="pl-mgrp">応援</div>' + offerRows;
+
+  h += '<div class="pl-mgrp">その他</div>';
+  h += row('memo', '📝 メモ', pp.memo || '');
+  h += row('remove', '<span style="color:var(--rd)">✕ この日の名簿から外す</span>', '');
+
+  var old = document.getElementById('pl-dlg-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'pl-dlg-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '340px';
+  md.innerHTML = '<h3 style="margin-bottom:2px">'+escH(name)+'</h3>'
+    + '<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">いま：'+escH(plSpotLabel(sp))+'</div>'
+    + '<div class="pl-menu">'+h+'</div>'
+    + '<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-g" id="pl-dlg-cancel">閉じる</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('pl-dlg-cancel').onclick = function(){ ov.remove(); };
+  md.addEventListener('click', function(e){
+    var b = e.target.closest('[data-plm]'); if (!b || b.disabled) return;
+    var v = b.getAttribute('data-plm');
+    if (v === 'memo')   { ov.remove(); plEditMemo(ds, name); return; }
+    if (v === 'remove') { ov.remove(); plRemovePerson(ds, name); return; }
+    if (v === 'cancelOffer') { ov.remove(); plCancelOffer(ds, name); return; }
+    if (v.indexOf('offer:') === 0) { ov.remove(); plOffer(ds, name, v.slice(6)); return; }
+    ov.remove();
+    if (v === 'pool') plMove(ds, name, {kind:'pool'});
+    else if (v.indexOf('sur:')  === 0) plMove(ds, name, {kind:'surplus', side:v.slice(4)});
+    else if (v.indexOf('zone:') === 0) plMove(ds, name, {kind:'zone', zone:v.slice(5)});
+    else if (v.indexOf('role:') === 0) plMove(ds, name, {kind:'hdrole', role:v.slice(5)});
+  });
 }
 function plSlotHTML(id, label, spec, chips, emptyMsg, extraCls){
   var attrs = '';
@@ -5806,8 +5943,14 @@ function renderPlacementBoard(ds, dat, locked){
   var ce = {duty:[], pool:[], surplus:[], offeredToCe:[]};
   var hd = {role:[], surplus:[], offeredToHd:[]};
   var zones = {}; PL_ZONES.forEach(function(z){ zones[z.key] = []; });
+  /* 列見出しの人数は plCounts（セクションの「当日N名」）と同じく sp.side で数える。
+     枠ごとの配列の長さを足す数え方だと、ゾーン（メンテ・休み・その他）に居る人が
+     どちらの列にも数えられず、見出しの合計とバッジが食い違っていた。 */
+  var sideN = {ce:0, hd:0};
+  var ppl = plPeople(ds);
   names.forEach(function(n){
-    var pp = plPeople(ds)[n], sp = plSpot(ds, n);
+    var pp = ppl[n] || plNewPerson({}), sp = plSpot(ds, n);
+    sideN[sp.side === 'hd' ? 'hd' : 'ce']++;
     if (pp.offer === 'hd') { ce.surplus.push(n); hd.offeredToHd.push(n); return; }
     if (pp.offer === 'ce') { hd.surplus.push(n); ce.offeredToCe.push(n); return; }
     if (sp.kind === 'zone')    { zones[sp.zone].push(n); return; }
@@ -5830,7 +5973,7 @@ function renderPlacementBoard(ds, dat, locked){
   }).join(''); }
 
   /* --- CE列 --- */
-  var ceH = '<div class="pl-col" data-pl-col="ce"><div class="pl-col-hd"><span>🩺 CE</span><span class="pl-col-n">'+(ce.duty.length+ce.pool.length+ce.surplus.length)+'名</span></div>';
+  var ceH = '<div class="pl-col" data-pl-col="ce"><div class="pl-col-hd"><span>🩺 CE</span><span class="pl-col-n">'+sideN.ce+'名</span></div>';
   ceH += plSlotHTML('pl-ce-pool', '📋 未割当', {kind:'pool'}, chips(ce.pool, {showShift:true, tapAssign:true}), '全員に持ち場があります');
   ceH += plSlotHTML('pl-ce-duty', '🎯 担当', {}, chips(ce.duty, {withSlot:true}), 'まだ誰も割り当てられていません', 'ro');
   ceH += plSlotHTML('pl-ce-sur',  '🔄 余剰人員', {kind:'surplus', side:'ce'}, chips(ce.surplus, {showShift:true, offerBtn:'hd'}), 'ここへドラッグすると余剰になります');
@@ -5838,7 +5981,7 @@ function renderPlacementBoard(ds, dat, locked){
   ceH += '</div>';
 
   /* --- HD列 --- */
-  var hdH = '<div class="pl-col" data-pl-col="hd"><div class="pl-col-hd"><span>🩸 HD</span><span class="pl-col-n">'+(hd.role.length+hd.surplus.length)+'名</span></div>';
+  var hdH = '<div class="pl-col" data-pl-col="hd"><div class="pl-col-hd"><span>🩸 HD</span><span class="pl-col-n">'+sideN.hd+'名</span></div>';
   hdH += plSlotHTML('pl-hd-role', '🩸 役割', {kind:'hdrole'}, chips(hd.role, {withSlot:true, roleSel:true}), '勤務表にHD勤務者がいません');
   hdH += plSlotHTML('pl-hd-sur',  '🔄 余剰人員', {kind:'surplus', side:'hd'}, chips(hd.surplus, {showShift:true, offerBtn:'ce'}), 'ここへドラッグすると余剰になります');
   if (hd.offeredToHd.length) hdH += plSlotHTML('pl-hd-in', '⇦ CEから提供されています', {}, chips(hd.offeredToHd, {acceptBtn:true}), '', 'pl-in');
@@ -5873,28 +6016,29 @@ function bindPlacementDnD(ds){
   wrap._plBound = true;
 
   wrap.addEventListener('click', function(e){
+    /* タッチでドラッグが成立した直後は合成clickが飛んでくるので1回だけ無視する。
+       どの経路を通っても必ずここでガードを下ろす——以前はチップ本体に当たった
+       ときしか解除しておらず、合成clickがボタンに当たると意図しないメニューが開き、
+       さらにガードが立ったままになって次のタップ割り当てが効かなくなっていた。 */
+    var guarded = wrap._plTapGuard; wrap._plTapGuard = false;
+    if (guarded) return;
     var b = e.target.closest('[data-pl-act]');
     if (!b || b.tagName === 'SELECT') {
-      /* チップ本体のタップ＝空いている担当枠へ自動割り当て（旧「当日勤務者一覧」の操作感を残す）。
-         タッチでドラッグが成立した直後は合成clickが飛んでくるので1回だけ無視する */
+      /* チップ本体のタップ＝空いている担当枠へ自動割り当て（旧「当日勤務者一覧」の操作感を残す） */
       var chip = e.target.closest('.pl-chip[data-pl-tap]');
-      if (chip && !wrap._plTapGuard) poolAssign(wrap.getAttribute('data-ds') || ds, chip.getAttribute('data-name'));
-      wrap._plTapGuard = false;
+      if (chip) poolAssign(wrap.getAttribute('data-ds') || ds, chip.getAttribute('data-name'));
       return;
     }
     var act = b.getAttribute('data-pl-act'), nm = b.getAttribute('data-name');
     var cds = wrap.getAttribute('data-ds') || ds;
-    if (act === 'accept')      plAccept(cds, nm);
+    if (act === 'menu')        plMenu(cds, nm);
+    else if (act === 'accept') plAccept(cds, nm);
     else if (act === 'offer')  plOffer(cds, nm, b.getAttribute('data-to'));
     else if (act === 'cancelOffer') plCancelOffer(cds, nm);
     else if (act === 'memo')   plEditMemo(cds, nm);
     else if (act === 'remove') plRemovePerson(cds, nm);
     else if (act === 'add')    plAddPerson(cds, b.getAttribute('data-side'));
     else if (act === 'resync') plResync(cds);
-  });
-  wrap.addEventListener('change', function(e){
-    var sel = e.target.closest('select[data-pl-act="role"]'); if (!sel) return;
-    plSetRole(wrap.getAttribute('data-ds') || ds, sel.getAttribute('data-name'), sel.value);
   });
 
   /* 目的地の解決。担当カード（.dc[data-duty-id]）と配置盤の枠を同じ入口で扱う */
@@ -5941,41 +6085,74 @@ function bindPlacementDnD(ds){
     if (spec) plMove(wrap.getAttribute('data-ds') || ds, name, spec);
   });
 
-  /* スマホ（タッチ） */
-  var ghost = null, dragName = '';
-  wrap.addEventListener('touchstart', function(e){
-    if (e.target.closest('button,select,input,textarea,a')) return;
-    var chip = e.target.closest('.pl-chip[draggable]'); if (!chip) return;
-    dragName = chip.getAttribute('data-name') || ''; if (!dragName) return;
+  /* スマホ（タッチ）。長押し（250ms）でドラッグを開始する。
+     以前は touchstart の時点で即ドラッグ状態に入り、以降の touchmove を
+     preventDefault していたため、チップの上から始めたスワイプがページスクロールに
+     ならず、指を離した位置の枠へその人が移動してしまっていた（配置盤は面積の
+     大半がチップなので誤操作が起きやすい）。長押しするまではブラウザに任せる。 */
+  var ghost = null, dragName = '', holdTimer = null, holdStart = null, holdChip = null;
+  var HOLD_MS = 250, HOLD_SLOP = 8;
+
+  function cancelHold(){
+    if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+    holdStart = null; holdChip = null;
+  }
+  function startDrag(x, y){
+    if (!holdChip) return;
+    dragName = holdChip.getAttribute('data-name') || '';
+    if (!dragName) { cancelHold(); return; }
     ghost = document.createElement('div');
     ghost.textContent = dragName;
     ghost.style.cssText = 'position:fixed;z-index:9999;background:var(--ac);color:var(--on-ac);border-radius:8px;'
       + 'padding:6px 12px;font-size:13px;font-weight:700;pointer-events:none;opacity:.85;white-space:nowrap;transform:translate(-50%,-50%)';
     document.body.appendChild(ghost);
-    chip.classList.add('dragging');
-    var t = e.touches[0]; ghost.style.left = t.clientX+'px'; ghost.style.top = t.clientY+'px';
-  }, {passive:true});
-  wrap.addEventListener('touchmove', function(e){
-    if (!ghost || !dragName) return;
-    e.preventDefault();
+    ghost.style.left = x+'px'; ghost.style.top = y+'px';
+    holdChip.classList.add('dragging');
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch(e){} } /* 掴めたことを触覚で伝える */
+    holdTimer = null;
+  }
+  function endTouchDrag(){
+    if (ghost) { try { document.body.removeChild(ghost); } catch(e){} ghost = null; }
+    highlight(null);
+    document.querySelectorAll('.pl-chip.dragging').forEach(function(c){ c.classList.remove('dragging'); });
+    dragName = '';
+    cancelHold();
+  }
+
+  wrap.addEventListener('touchstart', function(e){
+    if (e.target.closest('button,select,input,textarea,a')) return;
+    var chip = e.target.closest('.pl-chip[draggable]'); if (!chip) return;
     var t = e.touches[0];
+    holdChip = chip; holdStart = {x:t.clientX, y:t.clientY};
+    holdTimer = setTimeout(function(){ startDrag(holdStart.x, holdStart.y); }, HOLD_MS);
+  }, {passive:true});
+
+  wrap.addEventListener('touchmove', function(e){
+    var t = e.touches[0];
+    /* 長押しが成立する前に指が動いたらスクロールとみなしてドラッグ候補を捨てる */
+    if (!ghost) {
+      if (holdStart && (Math.abs(t.clientX-holdStart.x) > HOLD_SLOP || Math.abs(t.clientY-holdStart.y) > HOLD_SLOP)) cancelHold();
+      return;
+    }
+    e.preventDefault();
     ghost.style.left = t.clientX+'px'; ghost.style.top = t.clientY+'px';
     ghost.style.display = 'none';
     highlight(document.elementFromPoint(t.clientX, t.clientY));
     ghost.style.display = '';
   }, {passive:false});
+
   wrap.addEventListener('touchend', function(e){
-    if (!ghost || !dragName) return;
+    if (!ghost || !dragName) { cancelHold(); return; }
     var t = e.changedTouches[0];
     ghost.style.display = 'none';
     var el = document.elementFromPoint(t.clientX, t.clientY);
-    document.body.removeChild(ghost); ghost = null;
-    highlight(null);
-    document.querySelectorAll('.pl-chip.dragging').forEach(function(c){ c.classList.remove('dragging'); });
+    var name = dragName;
+    endTouchDrag();
     var spec = targetSpec(el);
-    if (spec) { wrap._plTapGuard = true; plMove(wrap.getAttribute('data-ds') || ds, dragName, spec); }
-    dragName = '';
+    if (spec) { wrap._plTapGuard = true; plMove(wrap.getAttribute('data-ds') || ds, name, spec); }
   }, {passive:true});
+
+  wrap.addEventListener('touchcancel', function(){ endTouchDrag(); }, {passive:true});
 }
 
 /* 旧APIの受け皿：呼び出し箇所が多いので名前は残し、中身は配置盤の再描画に寄せる */
@@ -10173,7 +10350,7 @@ function confirmPoolStaffSelect() {
   if (!D.pages[ds] || !can('duty')) return;
   var pl = plFix(ds);
   if (pl.people[name]) { toast(name + ' さんは既にこの日の名簿にいます', 'warn'); return; }
-  pl.people[name] = plNewPerson({ base:'', side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '応援' : 'pool' });
+  pl.people[name] = plNewPerson({ base:'', side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '' : 'pool' });
   saveD();
   renderPlacementBoard(ds, D.pages[ds], !can('duty'));
   updateStaffZoneBadge(ds); updateCloseBar(ds);
@@ -11676,7 +11853,7 @@ function hdRosterRowHTML(dat, r, locked) {
   var support = !!r.from; /* CEから受け取った応援 */
   var staffCell;
   if (locked) {
-    staffCell = escH(r.name) + (support ? ' <span class="hd-changed-badge">🩺 応援</span>' : '');
+    staffCell = escH(r.name) + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '');
   } else {
     var hasMatch = false, opts = '';
     for (var j = 0; j < D.stf.length; j++) {
@@ -11687,7 +11864,7 @@ function hdRosterRowHTML(dat, r, locked) {
     }
     if (r.name && !hasMatch) opts += '<option value="' + escH(r.name) + '" selected>' + escH(r.name) + '（名簿外）</option>';
     staffCell = '<select class="ds2 hd-name-sel' + (support ? ' changed' : '') + '" data-derived="' + escH(r.name) + '" data-role="' + escH(r.role || '') + '" style="margin-bottom:0">' + opts + '</select>'
-      + (support ? '<span class="hd-changed-badge" title="CEから受け取った応援です">🩺 応援</span>' : '');
+      + (support ? '<span class="hd-changed-badge" title="CEから受け取った応援です">🩺 CEから</span>' : '');
   }
   var noteCell;
   if (locked) {
