@@ -434,6 +434,8 @@ All class names are abbreviated:
 
 **HDモードのタブ構成**：**タブの並び自体は主観で変わらない**（予定 / 担当表 / 集計 / タスク / 資料、＋管理者専用タブ）。主観で切り替わるのは担当表タブの中のサブタブだけで、`updateTabVisibility()` が HD主観で `subtab-at`（CE担当表）と `subtab-fair`（公平性）を隠す。管理者専用タブはHD主観でも管理者には出したままにする（モード切替はボタン1回なので締め出さない）。マスタタブ（`master`）はタブ自体は両モードで出し、**中身のセクションを `data-mode` で出し分ける**（pane-master Section Gating 節を参照）——HD主観ではHD共通業務・HD曜日別業務・HD特殊治療マスタと、CE/HD共通の設置部署マスタだけが残る。
 
+**マイ担当（`renderMySchedule`）は担当表と同じ表示月（`asY`/`asM`）の1か月だけを出す。** 以前は「当月1日〜今日+30日」の固定窓で、月ナビ（`‹ ›`）を動かしても中身が変わらず常に2か月ぶんが混ざっていた。`asPrevM()`/`asNextM()` は `#subpane-my` が表示中なら `renderMySchedule()` を呼び直す。表示対象のスタッフは `_mySchedName`（非永続、ログアウトで破棄）にキャッシュし、「変更」ボタンは `_mySchedPick=true` を立てて選択画面を強制表示する — このフラグが無いと、アカウントが自分のスタッフ名に紐づいている人（＝ほぼ全員）は `_mySchedName` を空にしても即座に自分へ再解決され、ボタンが無反応に見える。
+
 **マイ担当（`renderMySchedule`）はHDの役割も出す**：CE担当枠（`getDutyCfg`＋`dat.duties`）とスケジュールブロックに加えて、`buildHdRoster(ds)` から自分の行のシフトコード（M・A1・準夜等）を `🩸 ` 付きで並べる。**`_viewMode` で分岐させない** — その人がその日HD勤務かどうかは主観と無関係な事実で、HD勤務が無い人は `getShiftForDay(ds).hd` に載らず何も出ない。`buildHdRoster` 経由なので `dat.hdDuty.overrides` の手動修正も反映される。
 
 **CE⇄HD 相互参照（読み取り専用の担当表）**：同じ日の同じ現場を別主観で見ているだけなので、相手側の割り当ては見えるべき、という方針。`ceRosterRefHTML(ds,dat)` がHD日ページに「🩺 CE担当表」（`getDutyCfg`＋`dat.duties`、枠の色は`dutyColorFor(slot)`）を、`hdRosterRefHTML(ds,dat)` がCE日ページに「🩸 HD担当表」（`buildHdRoster(ds)`＋`dat.hdNotes`）を出す。どちらも**`<select>`/`<textarea>`を使わないテキスト表示**で、編集はそれぞれの主観の自分の担当表で行う。折りたたみの外枠は人員配置管理と同じ`.staffz`シェルを流用（新規CSS不要・見た目も揃う）、開閉は`_ceRefOpen`/`_hdRefOpen`（非永続、既定は閉じる）。対象が0件のときは見出しごと出さない。印刷CSSでは`#ce-ref-body`/`#hd-ref-body`を`#staffz-body`と同様に強制表示する。
@@ -455,6 +457,7 @@ All class names are abbreviated:
 
 - **掲示板だけは保存先を分けない。** `/board` 1つのまま投稿に `kind` を付けて振り分ける——**Firebaseのセキュリティルールを触らずに済み**（別パス新設は管理画面での手作業が要る）、既読・ピン留め・タグ・返信の仕組みをそのまま使えるため。`renderBoard`/`boardUnreadCount`/既読マークの3箇所すべてで `boardInView` を通す（画面に出ていない投稿を既読にしないため）。
 - **`kind`／`hdMemos`／`hdSchedule` が無い既存データは全てCE扱い**になるので、移行処理は不要。
+- **読み取りは `*Of`、要素を足し引きするときは `ensure*` を使う。** `memosOf`/`schedOf` は `normArr` を通すため、Firebaseがオブジェクト形状で返したときには**正規化した別配列**を返す。その戻り値に対して `splice`/`push` しても元データは変わらないので、削除が効かない・移動すると移動元に残って二重になる、という形で壊れる（`delMemo`/`moveMemo` で実際に起きていた）。`ensure*` は `dat[k]` を実配列に置き換えてからその実体を返すので、破壊的操作はこちらを通すこと。
 - **`*Of` / `ensure*` アクセサは必ず `normArr(v)` を通す。** Firebaseは疎な配列をオブジェクトとして返すことがあり（`ensureStaffZone` で実害が出たのと同じ罠）、`Array.isArray` だけで判定して空配列に差し替えると**既存データを破壊する**。`renderSched` は開くたびに `ensureSched` を呼ぶため、その日のスケジュールが消える事故になる。
 - **既読の基準時刻も主観ごとに分ける**（`boardReadKey()` が `ce2_boardread` / `ce2_boardread_hd` を返す）。1つのキーを共有すると、HDの掲示板を開いただけでCEの未読バッジが0になる。
 - **`schedImportDuties`（🔄 業務割当から取込）はCE専用。** 取り込み元の `dat.duties`/`getDutyCfg` がCEのデータなので、HD主観ではボタンを出さず実行側でも弾く（通すとCEの担当枠が `hdSchedule` に流れ込む）。
@@ -474,6 +477,13 @@ All class names are abbreviated:
 
 **CE勤務者チップの`data-from`に`'ce'`のような新しい値を作ってはいけない。** `dropToStatusZone`は`from==='hd'?'hd':'ce'`で振り分けるので`'surplus'`でも分類は正しく落ちるが、`removeFromZoneSource`（担当枠へドロップしたときの後始末）は`'surplus'`/`'status'`しか見ておらず、新値だと後始末が効かなくなる。ソースパネルの自動オープン判定（`_hdPanelUserOverride===null`のとき）も主観で切り替え、HD主観では「未分類のCE勤務者がいるか」を見る。HD主観では`.staffz`の外枠見出しが「🔄 余剰人員」を出すため`renderSurplusArea`側の`.surplus-ttl`は出さず、見出しバッジ`#hdz-badge`（未分類N）は`renderSurplusArea`の末尾で直接書き換える（`staffZoneCounts()`はCE前提の数字なので流用しない）。HD日ページの折りたたみは`#staffz-body`と`toggleStaffZone()`/`_staffZoneOpen`をCEとそのまま共有する。**開閉の矢印は必ず`id`で引く**（`#staffz-arrow`/`#ce-ref-arrow`/`#hd-ref-arrow`）——HD日ページには`.staffz`シェルを流用したセクションが複数並ぶため、`querySelector('.staffz-arrow')`で先頭1つを取ると別セクションの矢印が反転して本体と食い違う。
 
+> **⚠️ チェックリスト周りを次に変更するときは、機能を足す前に双子関数の共通化を先に行うこと。**
+> CE版とHD版の双子関数が33組あり、うち14組は変数名を置き換えると1文字も違わない完全な複製（`mkCk`↔`mkHdCk` 95行、`clStatus`↔`hdClStatus`、`getPct`↔`getHdPct`、`remapDlyChecks`↔`remapHdDlyChecks`、`remapWdChecks`↔`remapHdWdChecks`、`wdOnceDoneOn`↔`hdWdOnceDoneOn`、`togWdWeek`↔`togHdWdWeek`、`setWdWeeks`↔`setHdWdWeeks` ほか）。26組が95%以上一致。
+> **片方だけ直しても例外は出ず、CE主観で動作確認すると正常に見えるため気づけない** — HD主観で開いた透析スタッフだけが古い挙動に当たる。チェックリストは機器点検の記録なので、月次リセット絡み（`wdOnceDoneOn`）でズレると月末まで発覚しない。
+> 共通化の方針：関数を引数で分岐させるのではなく、**名前空間の記述子**（`{dlyKey:'dly', wdKey:'wd', checksKey:'checks', prefix:''}` のような組）を渡す形にする。`wdText`/`dlyText`/`itemRebuild`/`isDlyShownOnDate`/`wdApplies` などは既に「渡された項目オブジェクトだけを見る純粋な関数」なので、そのまま両方から使える。
+> 優先度：`mkCk`（最大かつ最も触られる）→ `clStatus`/`getPct`（進捗率の計算）→ `remap*`（マスタ並べ替え時のチェック移動。壊れるとデータが消える）→ 残り。上位4組でリスクの大半が消える。
+> 2026-08-23 時点でズレは発生していない（`renderDlyList`↔`renderHdDlyList` と `buildCL`↔`buildHdCL` の差は下記の意図的なもの）。
+
 **HDチェックリスト（`D.hdDly`/`D.hdWd` + `dat.hdChecks`）**：CE側（`D.dly`/`D.wd` + `dat.checks`、[Checklist Items & Week-of-Month Filtering](#checklist-items--week-of-month-filtering) 節を参照）とは名前空間もdat上のキーも完全に別。**`dat.checks`に相乗りしてはいけない** — `remapDlyChecks`/`remapWdChecks`は`D.dly.length`基準の固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にするとCE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は`dat.checks`しか触らずHD側は自動的に無傷になる（逆も同様）。
 
 - `wdText`/`dlyText`/`dlyNotif`/`itemRebuild`/`isDlyShownOnDate`/`wdWeeks`/`wdOnce`/`wdSubs`/`wdSid`/`newSid`/`nthWk`/`isLastWeek`/`wdApplies`/`wdSubProgress`/`renderSubPanel`は渡された項目オブジェクトだけを見る純粋な関数（`D.dly`/`D.wd`を直接参照しない）なので、CE版をそのままHD版にも使い回す。`renderSubPanel`が書く`dat.subChecks`と設置部署マスタ`D.wdDepts`もCE/HD共通——院内の部署は主観と無関係なため、ここだけは別マスタを持たない。
@@ -481,7 +491,7 @@ All class names are abbreviated:
 - `buildHdCL`は冒頭で`if(!el) return;`する（`#hdcl`/`#hdwcl`が無い状態で呼ばれても安全）ため、CE版`buildCL`と違い呼び出し側でのnullガードは不要。`renderPageHD`から無条件に呼ぶ。
 - マスタ編集UI：`renderHdDlyList`/`addHdDly`/`rmHdDly`/`mvHdDly`/`editHdDly`/`togHdDlyDay`（共通業務）と`renderHdWdTabs`/`renderHdWdlyList`/`addHdWdly`/`rmHdWdly`/`mvHdWdly`/`editHdWdly`/`setHdWdWeeks`/`togHdWdWeek`/`togHdWdOnce`/`openHdWdSubsModal`/`saveHdWdSubs`（曜日別業務、選択中の曜日は`_hdSelWd`＝CE版`selWd`のHD版）。`pane-master`の`.sp`直下にCE版と同じ`data-perm="dm"`/`"wm"`の別セクションとして追加する（新規ロックIDは作らない）。**通知設定（🔔）の入力欄はCE版と違い出さない** — `itemRebuild`が`notif`キーを保持できる形状はCE版と揃えてあるが、実際に監視して通知を飛ばす`checkTimeNotifs`側のHD対応は別スコープのため、「設定したのに鳴らない」状態を画面に出さない判断。`confirmEditModal`の`state.type`に`'hdDly'`/`'hdWdly'`分岐を追加。
 - `renderPageHD`は`buildHdCL(ds, dat, clk)`を呼ぶ（`clk = !can('cl')`、CE版と同じ`cl`ロックを流用）。チェックリストのラッパー`<div class="clg">`はCE版と**同じクラス名**を使う——`dashJump('.clg')`と`closeItems`の`{key:'checklist', sel:'.clg', ...}`が`#main`内を`querySelector`するだけの実装なので、クラス名さえ揃えれば新規分岐なしでHD日ページでも正しくジャンプ・消し込みバー連動する。
-- `closeItems(ds)`の`checklist`カテゴリは`_viewMode`で分岐：HDモードは`hdClStatus(ds).undone`を数える（CE版の`clStatus`のままだとCE共通業務がHD日ページの消し込みバーに出てしまう）。`mine`判定もCE側「オペ/カテ担当枠が無い人だけ自分ごと」はHDに担当枠の概念自体が無いため意味を成さず、HDでは`!!self`（自分が特定できていれば自分ごと）に単純化する。`ope`/`cath`/`oc`の3カテゴリは分岐させていない——HD日ページには`dat.ops`/`dat.ocData`が存在しないため自然に0件になり実害がない。
+- `closeItems(ds)`の`checklist`カテゴリは`_viewMode`で分岐：HDモードは`hdClStatus(ds).undone`を数える（CE版の`clStatus`のままだとCE共通業務がHD日ページの消し込みバーに出てしまう）。`mine`判定もCE側「オペ/カテ担当枠が無い人だけ自分ごと」はHDに担当枠の概念自体が無いため意味を成さず、HDでは`!!self`（自分が特定できていれば自分ごと）に単純化する。`ope`/`cath`/`oc`の3カテゴリはHD主観では**丸ごと数えない**（`if (_viewMode === 'hd') return cats;` で打ち切る）。`dat.ops`/`dat.ocData`はCE・HDで**同じページオブジェクトを共有している**ので、分岐させないとHD日ページでCEの未了が数えられてしまい、しかもジャンプ先（`#ops-card-ope`/`.oc-card`）はHD日ページに存在しないため「→」も「▶次へ」も無反応になる（`dashJump`は要素が無いと黙って何もしない）。
 
 ### OPE / カテカード（buildOPS内）
 
@@ -503,6 +513,8 @@ All class names are abbreviated:
 - `cath_note` — 備考
 
 **opeN / cathN の集計ルール**: `ope_items` / `cath_items` の配列長ではなく、`opsItemFilled(it)` が true の行だけをカウントする（科・中カテゴリのみの選択、自由記述、入室時間、順番、使用物品、担当者、終了時刻など何らかの入力があれば1件。完全に空の初期行は除外）。`updateOpsHeader()`・`renderPage()`・`renderOpsSummary()`・`opsDetailRows()`・`exportOpsCsv()` すべてでこの共通ヘルパーを使用する。
+
+**症例行の取得は必ず `opsItemsOf(pg, 'ope'|'cath')` を経由する**（`pg.ops.ope_items` を直接読まない）。`pg.ops_cards` が配列で、その中に当該カードが無ければ空を返す — カードを削除した日の残骸を数えないための門で、フリーカードの `opsFreeCards(pg)` と同じ方針。`ops_cards` が `null`/`undefined` のときはテンプレ表示中なので従来どおり全部数える（ここで `D.opsCfg` を見に行かないこと。テンプレからカードを1つ外すだけで、過去の全ページの件数が集計から消えてしまう）。`removeOpsCard()` 側でもオペ/カテを消すときは入力済み症例数を出して `confirm()` し、OKなら `ops.ope_items`/`cath_items` ごと削除する（PSG・フリーと揃えた）。**横断検索（`_doSearch`）だけは意図的に `opsItemsOf` を通していない** — 「どこかに書いたはず」を探す機能なので、カードを消した日の記録もヒットさせる。
 
 **業務終了フラグ・担当者・終了時刻**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
 - `opsToggleDone(items, idx)` — 押した行は配列内の位置を変えずその場に残す（どれを押したか見失うため並べ替えはしない）。終了にした瞬間、`item.endTime` が未設定なら現在時刻（0時からの分）を、`item.staff`（担当者名の配列）に誰もいなければ `opsSelfName()` で解決したログイン中スタッフ名を自動追加し `item.doneBy` にも記録する。取り消し時は `endTime`/`staff` のどちらかに値があるときだけ `confirm()` で確認し、OKなら `endTime`/`doneBy`/`staff` を全てクリア、キャンセルなら `done` フラグだけ外して他は残す（値が無ければ確認なしでそのまま外す）
@@ -601,6 +613,8 @@ Fixed bar at the bottom of the screen, shown only while a day page is open — `
 `closeItems(ds)` is the **single counting source** for 6 categories of "not finished today": ①自分あてメンションを含む未完了の申し送り（`extractMentions` に自分の名前が含まれ `m.done` でない `memos`） ②チェックリスト未了（`clStatus(ds).undone`） ③オペ終了未チェック（`opsItemFilled(it) && !it.done`） ④カテ終了未チェック（同上） ⑤タブレット未返却（当日分＋`tabletCarryOver(ds)` の前日以前持ち越し分） ⑥オンコール担当未設定（`!dat.ocData.staff`）。各カテゴリは `{mine:boolean}` を持つ `items[]` を返し、`mine` の判定は `taskSelfName()`（表示名がスタッフ名簿と完全一致→その名前／一致しなければ `D.stfLinks` で逆引き）。**アカウントが未紐づけのユーザーは常に `mine:false`**。
 
 **`mine` はその日の担当枠と連動する**（`myDutyLabels(ds)`、`closeItems` 内で1回だけ呼ぶ）。スロットの `id` は「追加」のたびに `'slot_'+Date.now()` で再採番されるため、`dutyColorFor`/`FAIR_MERGE` と同じくスロットの `label` 文字列（部分一致：`オペ|OPE` → ope、`カテ` → cath）で照合する。オペ/カテ担当枠を持つ人は、症例行に自分の名前がまだ無くてもその日の ope/cath が `mine:true`。逆にどちらの枠も持たない人（フリー・機器管理・担当なしなど）は checklist が `mine:true` になる——共通業務の担い手という実際の運用に合わせたもの。担当枠の割り当て（`<select>` onchange・タッチ/マウスドロップ・`poolAssign`）は必ず `updateCloseBar(ds)` も呼び、割り当て直後に `mine` の再評価を反映させる。
+
+**HD主観では③④⑥（オペ・カテ・オンコール）を数えない。** 詳細は「HD主観モード」節を参照。ジャンプ先が存在しないカテゴリを数えると「→」も「▶次へ」も無反応になる（`dashJump` は要素が無いと黙って何もしない）ので、**新しいカテゴリを足すときは、そのセレクタが両主観の日ページに存在するかを必ず確認すること。**
 
 `D.pages[ds].closeSkip[key]`（`key` はカテゴリの `key`、`saveDPage(ds)` で保存）で「今日は対象外」をカテゴリ単位・その日限りで持てる。`closeBarSkip(ds, key)` がトグル、`renderCbarDetail()` の「対象外」／「戻す」ボタンから呼ぶ。
 
@@ -703,6 +717,8 @@ Self-only notes shown at the bottom of the タスク tab (`#pane-task`). **Separ
 - `sumCtlHTML(pfx)` renders the 月／年／期間指定 switcher; `pfx` (`'oc'`/`'ops'`/`'hd'`) keeps the date-input ids unique because all three subpanes are in the DOM at once. 期間の指定・前後の月移動は `sumCtlHTML` が自前で持つので、`pane-sum` のヘッダーには月ナビを置かない（置くと同じ操作が画面に2つ並ぶ）。
 
 When `multi` is true all three renderers add a per-month breakdown, the ops trend graph buckets by month instead of week (bar width shrinks via `BW`/`BG` so 12 groups still fit), and date cells show `M/D` instead of `D日`. `exportOcCsv()` / `exportOpsCsv()` / `exportHdCsv()` follow the same range and name the file via `sumFileLabel()`.
+
+`sumShift(d)` は月モードなら前後の月（`asPrevM()`/`asNextM()` に委譲）、年モードなら `asY` を±1して3集計を描き直す。`sumCtlHTML` が期間ラベルの左右に `‹ ›` として出す（期間指定モードでは出さない）。**集計タブのヘッダーには月ナビを置かない**方針なので、ここを消すと「📅 月」を選んでいるのに表示月を変える手段が画面から無くなる（担当表タブで月を変えてから戻る、という操作を強いていた）。印刷見出しも `printSumTab()` が `sumRange().label` を `_printSubPane(phId, subId, periodLabel)` へ渡す — `asY/asM` 固定だと「2026年」を集計しているのに紙には「2026年8月」と刷られる。
 
 `setSumMode(m)` and `applySumRange(pfx)` call all three renderers unconditionally (`renderOCSummary(); renderOpsSummary(); renderHdSummary();`) regardless of which pane is actually visible — each renderer's own `if(!el) return` (element-existence, not visibility) is the only guard, and writing into a hidden pane's `innerHTML` is harmless. The calendar month-nav `asPrevM()`/`asNextM()`, by contrast, checks whether `pane-sum` is open and re-renders only `_curSumTab`'s sheet, since walking `D.pages` on every month click is wasted work when nothing will be shown — follow this existing asymmetry (unconditional in the two setters, display-gated in the month-nav) rather than "fixing" it to be consistent.
 
