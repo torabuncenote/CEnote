@@ -74,7 +74,7 @@ var D = {
 };
 ```
 
-Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, `staffZone`, `ops_cards`, `tabletLogs`, etc.
+Each `D.pages["YYYY-MM-DD"]` contains all data for a single day: `duties`, `checks`, `memos`, `ops`, `ocData`, `schedule`, `placement`, `ops_cards`, `tabletLogs`, etc.（`staffZone`/`staffAdj`/`hdDuty` は `placement` に統合済みの旧フィールド。削除はせず読み出し時に吸収する）
 
 ### Adding New D Properties
 
@@ -359,8 +359,14 @@ All class names are abbreviated:
 | `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board (also handles read-receipt marking, tag/resolved rendering, pin-expiry sort/cleanup, filter chips) |
 | `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
 | `toggleBoardReads(id)` / `setBoardFilter(f)` | Board: 既読者一覧の開閉／フィルタチップ切替（`_boardFilter`） |
-| `renderSurplusArea(ds, dat, locked)` | 余剰人員・HD勤務者ゾーンエリア（`ensureStaffZone(dat)`ベース。開閉は`.staffz`本体のみ、中身は常時表示） |
-| `staffZoneCounts(ds)` / `updateStaffZoneBadge(ds)` | 「👥 人員配置管理」見出しの「当日N名」「未割当N」バッジの唯一の集計元／DOM部分更新 |
+| `renderPlacementBoard(ds, dat, locked)` / `bindPlacementDnD(ds)` | 配置盤の描画／クリック・ドラッグの委譲登録（`#placement-wrap` に1回だけ） |
+| `plPeople(ds)` / `plDerive(ds)` / `plFix(ds)` / `plNames(ds)` | 名簿の取得／勤務表＋旧フィールドからの導出／名簿の固定／表示順 |
+| `plSpot(ds, name)` / `plSpotLabel(sp)` / `plClearSpot(ds, name)` | いま居る場所の判定／その表示名／どこからでも外す（保存しない） |
+| `plMove(ds, name, spec)` | **配置を変える唯一の口**。担当枠・フリー枠・HD役割・余剰・ゾーン・未割当のすべてがここを通る |
+| `plOffer` / `plCancelOffer` / `plAccept` / `plSetRole` / `plEditMemo` | 提供／取り下げ／受け取り／HD役割の付与／メモ |
+| `plAddPerson(ds, side)` / `plRemovePerson(ds, name)` / `plResync(ds)` | 名簿への追加（スタッフ選択モーダル）／除外／勤務表から取り込み直す |
+| `plCounts(ds)` / `plSurplusNames(ds)` | 見出しバッジの集計／担当表・CSVの「余剰」列 |
+| `staffZoneCounts(ds)` / `updateStaffZoneBadge(ds)` | 「👥 人員配置管理」見出しの「当日N名」「未割当N」バッジ（集計の実体は `plCounts(ds)`）／DOM部分更新 |
 | `dashJump(sel)` / `dashJumpTop(el)` | ダッシュボードカード・消し込みバーからの共通ジャンプ＋2秒ハイライト（詳細は下記 Dashboard Jump 節） |
 | `closeItems(ds)` / `updateCloseBar(ds)` | 消し込みバー（`.cbar`）の6カテゴリ集計の唯一の入口／バー本体の再描画（詳細は下記 消し込みバー 節） |
 | `renderOpsSummary()` | CE集計サブタブ（旧「業務集計」）— monthly OPE/cath/6MW/PSG counts |
@@ -403,7 +409,7 @@ All class names are abbreviated:
 
 `DUTIES` defines fixed slot types. `DEF_DUTY_MASTER` is the admin-editable master. Each day stores assignments as `{ ope: "name", cath: "name", ... }` plus a pool of unassigned staff for drag-and-drop.
 
-**Pool ↔ Surplus**: `refreshPool(ds)` only touches `#pool-chips .pchip:not(.hd)` — do not broaden this selector or surplus zone chips will be hidden. Surplus/HD-zone membership lives in `dat.staffZone = { ce:{}, hd:{} }` (`ensureStaffZone(dat)` lazily initializes it and absorbs the legacy `dat.surplus`/`dat.surplusStatus`/`dat.hdStatus` fields on first read — those legacy fields are never deleted, so old exported backups restore correctly). `ce[name]` existing as a key means the person is in the CE surplus pool; an empty-string value means unclassified, a non-empty value (`hd`/`to_ce`/`maint`/`off`/`other` — see `SS_ZONES`) means classified into that zone. `hd` (label "CE→HD") and `to_ce` (label "HD→CE") both exist so the shift-change direction is visible at a glance; **`key:'hd'` must never be renamed** — it is persisted in old pages' `staffZone.ce`/`staffZone.hd` values, and changing the key would make those chips match no zone and silently disappear (data intact, just unrendered). Only the label string may change. `hd[name]` existing means an HD-shift worker is classified into that zone (HD workers with no key are still unclassified, since HD membership itself is always derived from shift data, never stored). `classifyStaff(ds, name, kind, zoneKey)` / `unclassifyStaff(ds, name, kind)` (`kind` is `'ce'|'hd'`) are the single entry points for zone assignment/removal and also write to `/logs`. `removeFromZoneSource(ds, name, from)` is the drop-onto-duty-slot cleanup-only helper (no `saveD()`/log — the caller's duty-write covers persistence).
+**人員配置台帳（`dat.placement`）**: 「その日この人はどこにいるか」を1人1レコードで持つ唯一の台帳。詳細は下記「人員配置管理（配置盤）」節を参照。担当枠の割り当ては従来どおり `dat.duties` が正本で、台帳側は `plSpot()` がそれを読んで答える。**割り当て・移動はすべて `plMove(ds, name, spec)` を通すこと** — その中で担当枠・フリー枠・台帳から一旦外してから入れるので、1人が2か所に居る状態は作れない。
 
 **Duty assignment paths** (3 total — all must call `maybeLateToast` and `writeLog`):
 1. `<select>` onchange in `buildDutyCard`
@@ -412,19 +418,47 @@ All class names are abbreviated:
 
 **Staff visibility**: `D.stfHidden[name] = true` hides staff from `renderAT()` columns, `renderFairness()` names, and duty dropdown options. Hidden staff who are already assigned show as `（非表示）` in the dropdown. HD workers (from shift data) are unaffected.
 
-### 人員配置管理バッジ（`staffZoneCounts` / `updateStaffZoneBadge`）
+### 人員配置管理（配置盤 / `dat.placement`）
 
-「当日勤務者一覧」と「余剰人員」は `.staffz` 1セクションにまとめられ（中身のDOM構造・IDは変えていない）、見出し（`.staffz-hd`, `toggleStaffZone()`）クリックで開閉する（`_staffZoneOpen`、既定 `false`）。`staffZoneCounts(ds)` が見出しバッジの唯一の集計元：`staffN`（`getShiftForDay(ds)` の当日勤務者数）と `unassignedN`（`getDutyCfg(dat)` の枠のうち `dat.duties` に未割当のもの）。`updateStaffZoneBadge(ds)` は2つの `<span>`（`#staffz-badge-staff` / `#staffz-badge-unassigned`）だけを差し替える部分更新で、フルページ再描画を避ける。**両方のカウントが変わりうる箇所すべてから呼ぶこと**：担当割り当ての3経路（下記）、`refreshPool(ds)`、`renderSurplusArea(ds, ...)` の末尾。
+その日の人員配置は **`dat.placement` 1本**が正本。
 
-開閉は2段階（3段階から統合済み）：①`_staffZoneOpen`（`.staffz`本体、既定`false`）②`_hdPanelOpen`（HD勤務者パネル、`#hd-worker-panel`）。旧`_surplusOpen`（余剰人員チップ・ゾーンカード本体の折りたたみ、`#surplus-body`）は廃止し、`.staffz`が開いていれば余剰人員チップ・ゾーンカードは常時表示する。`_hdPanelOpen`は「未分類のHD勤務者が1人でもいる」間は`renderSurplusArea`が自動でtrueにする（`_hdPanelUserOverride`が`null`＝そのセッションでユーザーが未操作の間だけ）。`toggleHDPanel()`をユーザーが押すと`_hdPanelUserOverride`にその時の開閉状態を記録し、以降そのセッション中は自動判定より優先される。
+```js
+dat.placement = {
+  fixed: true,                 // その日の名簿を固定したか（一度でも書き込むと true）
+  people: {
+    "氏名": {
+      base:'ce'|'hd'|'oc'|'',  // 勤務表由来の所属（写し取り）
+      shift:'CE'|'A1'|'準'|'', oc:false, night:false,
+      side:'ce'|'hd',          // いま居る側
+      spot:''|'pool'|'surplus'|'maint'|'off'|'other'|'<HD役割>',
+      offer:''|'ce'|'hd',      // 相手側へ提供中（まだ受け取られていない）
+      from:''|'ce'|'hd',       // 応援で来た元の側
+      memo:''
+    }
+  }
+}
+```
 
-分類・解除の監査ログ：`classifyStaff`/`unclassifyStaff`が`writeLog('余剰人員分類'|'HD勤務者分類'|'余剰人員分類解除'|'HD勤務者分類解除', ...)`を、`dropToSurplus`/`removeFromSurplus`が`writeLog('余剰人員へ移動'|'余剰人員から削除', ...)`をそれぞれ呼ぶ。
+**これ以前は同じ人の居場所が7か所（`D.shift` / `staffAdj` / `duties` / `extra_free` / `ocData.staff` / `staffZone.ce`+`.hd` / `hdDuty.overrides`）に分散していた。** 「移動」が『片方から消して、もう片方に足す』2操作でしか表せず、片方だけ動かすと中途半端な状態が残る——`refreshPool` が「担当・余剰・フリーに居る人はプールから隠す」という隠蔽ルールで辻褄を合わせ、隠れた理由を説明するためだけの `poolHiddenReason()` まで存在していた。これらは配置盤の導入で全て削除済み。
+
+- **書き込みは必ず `plMove(ds, name, spec)` を通す。** `spec` は `{kind:'duty',slot}` / `{kind:'free'}` / `{kind:'pool'}` / `{kind:'surplus',side}` / `{kind:'zone',zone,side}` / `{kind:'hdrole',role}`。冒頭で `plClearSpot()` を呼び、担当枠・フリー枠・台帳のすべてから外してから入れるので、**1人が2か所に居る状態は原理的に作れない**。担当枠の `<select>`・担当カードへのドロップ・配置盤のドラッグ・タップ割り当ての4経路すべてがここを通る。
+- **担当枠（`dat.duties`）とフリー枠（`dat.extra_free`）だけは従来どおりそこが正本**。担当表・公平性・マイ担当・CSVがすべて `dat.duties` を読んでいるため。`plSpot()` が duties/extra_free を先に見て「いま担当枠にいる」と答えるので、台帳と二重管理にはならない。**`placement.people[name].spot` に担当枠IDを入れてはいけない**（正本が2つになる）。
+- **名簿は書き込むまで導出、書き込んだら固定**。`plPeople(ds)` は `placement.fixed` が立っていれば `people` を、立っていなければ `plDerive(ds)`（勤務表＋旧フィールド）を返す。**判定に「人が1人以上いること」を混ぜないこと** — 全員を名簿から外した日が導出へフォールバックして勤務表から全員復活する（Firebaseは空オブジェクトを保存しないので再読込後も同じ経路に落ちる）。同じ理由で `plFix` の再スナップショット条件も `!p.fixed` だけを見る。
+- **読み取りのために `plFix()` を呼ばないこと。** `plFix` は名簿を固定する副作用を持つので、表示・ダイアログの初期値取得には `plPeople(ds)[name]` を使う。以前 `plEditMemo` がこれを誤り、メモを開いて閉じただけでその日が勤務表に追随しなくなっていた。
+- **HDの役割コードは `plHdRole(code)` を通す**（`HD_DAY_CODES` と `'準'` 以外は空＝役割なし）。勤務表に `shift:'CE'` かつ `hd:'day'` の行があるとHD側にも載るため、素通しすると役割名として `'CE'` や内部値がそのまま画面に出る。`plDerive`・`plSpot`・`plMove` の押し出し判定の3か所で同じ式を使う。`plFix(ds)` が書き込み前に必ず呼ばれてスナップショットを取る。あとから勤務表を直したときは `plResync(ds)` が差分（追加／除外／勤務コード変更）を出して確認のうえ反映する——**担当枠に入っている人の割り当ては変えない**。
+- **旧フィールドは消さない。** `plDerive()` が読み出し時に吸収する（`ensureStaffZone` と同じ方針）。`staffZone.ce[名前]==='hd'` は「HDへ応援（受け取り済み）」、`staffZone.hd[名前]==='to_ce'` は「CEへ応援」として読む。`hdDuty.overrides` の `{元の人:差し替え後}` は、元の人を名簿から外して差し替え後の人にその役割を持たせる形に読み替える。**`spot` を空にしてHDへ移すと、CEの勤務コード（`shift='CE'`）が役割名として表示されてしまう** ので、応援は必ず `spot:'応援'` を入れる。
+- **提供 → 受け取りの2段階**。`plOffer(ds,name,to)` は自分側の余剰に残したまま `offer` を立て、相手側の「⇦ 提供されています」枠にも出す（同じ人が2か所に見えるのはこの状態だけで、意図的）。`plAccept(ds,name)` で初めて `side` が移り `from` が付く。`plCancelOffer()` で取り下げ。**直接ドラッグして相手側へ移すことも許している** — 提供は「相手に判断を委ねたいとき」の手段であって、責任者が両方を見て決める操作を禁じるものではない。
+- **HD担当表（`buildHdRoster`/`hdShiftWorkers`）は台帳から作る。** `side==='hd'` かつ `plSpot().kind==='hdrole'` の人だけが並ぶ（余剰・ゾーンの人は配置盤側に出る）。役割は `spot || shift`。行の `<select>` は「その役割を誰が持つか」を変える操作で、`plMove(…,{kind:'hdrole',role})` に落ちる（同じ役割を持っていた人はHDの余剰へ押し出される）。
+- 見出しバッジは `.staffz`（`toggleStaffZone()` / `_staffZoneOpen`、既定 `false`）に出す。集計の実体は `plCounts(ds)` ひとつで、`staffZoneCounts()` はその別名。`updateStaffZoneBadge(ds)` が `#staffz-badge-staff` / `#staffz-badge-unassigned` だけを差し替える。
+- **スマホのドラッグは長押し（250ms）で開始する。** `touchstart` で即ドラッグ状態に入ると、以降の `touchmove` を `preventDefault` するせいでチップの上から始めたスワイプがページスクロールにならず、指を離した枠へその人が移動してしまう（配置盤は面積の大半がチップなので誤操作が起きやすい）。長押しが成立する前に8px以上動いたらスクロールとみなしてドラッグ候補を捨てる。
+- 監査ログは `plMove`（`人員配置変更`）・`plOffer`/`plCancelOffer`/`plAccept`（`応援の提供`／`取り下げ`／`受け取り`）・`plAddPerson`/`plRemovePerson`（`名簿に追加`／`名簿から除外`）・`plResync`（`勤務表から取り込み直し`）が書く。
+- **配置盤は主観で中身を変えない。** `_viewMode` が効くのは「自分側の列を先に並べる」ことだけ（スマホでは自分側が上に来る）。CE主観・HD主観で別の画面を作らないこと——CE/HDの双子関数がこれ以上増えるのを避けるため、`renderPlacementBoard` は1つしかない。
 
 ### HD主観モード（`_viewMode`）
 
 `_viewMode`（`'ce'|'hd'`）は端末ローカル設定（localStorage `ce2_viewmode`、`getViewMode()`/`setViewMode(m)`/`toggleViewMode()`）で、`D`には入れずログアウトでもリセットしない。トップバーの `#mode-toggle` ボタン（`updateModeToggleBtn()` が絵文字とラベル・`.hd-on`クラスを付け替え）で切り替える。`renderPage(ds)` は冒頭で `if(_viewMode==='hd'){ renderPageHD(ds); return; }` と分岐する。
 
-`renderPageHD(ds)` はCE版と別の日ページビルダー。並び順は **ヘッダー → イベント → 血液浄化ダッシュボード → HD担当表 → CE担当表（読み取り専用） → 進捗バー → HDチェックリスト → 余剰人員 → 申し送り**。「今日の件数と人員」を上にまとめたいのでHD担当表をダッシュボードの真下に置いている（HD担当表のイベント委譲は `innerHTML` 差し込み後に `#hd-roster-wrap` を引き直しているので、組み立て順を変えても動く）。余剰人員は `renderSurplusArea` をCEと共有し、申し送りは `dat.memos` をCEと共有する。**`#dg`/`#pool-chips`/`#ops-grid` は絶対に作らない**（`buildDG`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。CE専用の`#dcl`/`#wcl`（`buildCL`が対象、nullガード無し）とは別に、HD版の`#hdcl`/`#hdwcl`は`buildHdCL`が冒頭で`if(!el) return;`する独自実装なので作ってよい。
+`renderPageHD(ds)` はCE版と別の日ページビルダー。並び順は **ヘッダー → イベント → 血液浄化ダッシュボード → HD担当表 → CE担当表（読み取り専用） → 進捗バー → HDチェックリスト → 人員配置管理 → 申し送り**。「今日の件数と人員」を上にまとめたいのでHD担当表をダッシュボードの真下に置いている（HD担当表のイベント委譲は `innerHTML` 差し込み後に `#hd-roster-wrap` を引き直しているので、組み立て順を変えても動く）。人員配置管理は `renderPlacementBoard` をCEとそのまま共有し、申し送りは `dat.memos` をCEと共有する。**`#dg`/`#pool-chips`/`#ops-grid` は絶対に作らない**（`buildDG`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。CE専用の`#dcl`/`#wcl`（`buildCL`が対象、nullガード無し）とは別に、HD版の`#hdcl`/`#hdwcl`は`buildHdCL`が冒頭で`if(!el) return;`する独自実装なので作ってよい。
 
 `dat.hdDuty = { overrides: { 元の氏名: 差し替え後の氏名 } }` — HD担当表の手動修正（`hdRosterRowHTML`の`<select>`）。`dat.hdNotes = { 実効氏名: 'テキスト' }` — 担当表の備考欄。どちらも`saveDPage(ds)`。`buildHdRoster(ds)`は`hdShiftWorkers(ds)`（`getShiftForDay(ds).hd`に`hdDuty.overrides`を適用した実効HD勤務者一覧。HD担当表と余剰人員パネルの両方がこの1関数を共通の入口にする）を`HD_DAY_CODES`順にソートして返す。
 
@@ -468,14 +502,7 @@ All class names are abbreviated:
 
 **イベントはCE/HD共通で見せ、登録した側で色分けする**（`evtAreaHTML(ds,dat,allEvts)`／`evtKindOf(dat,name)`）。同じ日の同じ現場の予定なので両方から見えるべきだが、どちら発かは分かったほうがよい。出所は `dat.evtKinds = { イベント名:'hd' }` の**別マップ**で持つ——イベント本体は文字列の配列（`dat.events` / `D.evts[ym][day]`）で既存データが入っているため、形を変えずに横へ足せる。**印が無いものはCE扱い**（CE発＝橙・📅／HD発＝紫・🩸）。`removeEvt` は削除時に印も片付ける。
 
-**余剰人員は主観で上下が入れ替わる（`renderSurplusArea`）**：どちらの主観でも「未分類の自分たち」を上のチップ行（`#surplus-chips`）に、「引っ張ってこられる相手」を折りたたみのソースパネル（`#hd-worker-panel`）に置く。
-
-| | 上のチップ行 | ソースパネル |
-|---|---|---|
-| CE主観 | CE余剰人員（`sz.ce`の未分類） `data-from="surplus"` | 🩸 HD勤務者 `data-from="hd"` |
-| HD主観 | HD勤務者（`sz.hd`の未分類） `data-from="hd"` | 🩺 CE勤務者（`getShiftForDay(ds).ce`の未分類） `data-from="surplus"` |
-
-**CE勤務者チップの`data-from`に`'ce'`のような新しい値を作ってはいけない。** `dropToStatusZone`は`from==='hd'?'hd':'ce'`で振り分けるので`'surplus'`でも分類は正しく落ちるが、`removeFromZoneSource`（担当枠へドロップしたときの後始末）は`'surplus'`/`'status'`しか見ておらず、新値だと後始末が効かなくなる。ソースパネルの自動オープン判定（`_hdPanelUserOverride===null`のとき）も主観で切り替え、HD主観では「未分類のCE勤務者がいるか」を見る。HD主観では`.staffz`の外枠見出しが「🔄 余剰人員」を出すため`renderSurplusArea`側の`.surplus-ttl`は出さず、見出しバッジ`#hdz-badge`（未分類N）は`renderSurplusArea`の末尾で直接書き換える（`staffZoneCounts()`はCE前提の数字なので流用しない）。HD日ページの折りたたみは`#staffz-body`と`toggleStaffZone()`/`_staffZoneOpen`をCEとそのまま共有する。**開閉の矢印は必ず`id`で引く**（`#staffz-arrow`/`#ce-ref-arrow`/`#hd-ref-arrow`）——HD日ページには`.staffz`シェルを流用したセクションが複数並ぶため、`querySelector('.staffz-arrow')`で先頭1つを取ると別セクションの矢印が反転して本体と食い違う。
+**人員配置管理は主観で中身を変えない（`renderPlacementBoard`）**：CE列とHD列を1枚に並べ、`_viewMode` は**並び順だけ**を変える（自分側を先に置くので、スマホでは自分側が上に来る）。以前は主観ごとに「上のチップ行」と「折りたたみのソースパネル」を入れ替えて出し分けていたが、同じものを2通りに描き分ける必要は無くなった。開閉（`#staffz-body` / `toggleStaffZone()` / `_staffZoneOpen`）と見出しバッジ（`#staffz-badge-staff` / `#staffz-badge-unassigned`）はCE/HDで共有する。**開閉の矢印は必ず`id`で引く**（`#staffz-arrow`/`#ce-ref-arrow`/`#hd-ref-arrow`）——HD日ページには`.staffz`シェルを流用したセクションが複数並ぶため、`querySelector('.staffz-arrow')`で先頭1つを取ると別セクションの矢印が反転して本体と食い違う。
 
 > **⚠️ チェックリスト周りを次に変更するときは、機能を足す前に双子関数の共通化を先に行うこと。**
 > CE版とHD版の双子関数が33組あり、うち14組は変数名を置き換えると1文字も違わない完全な複製（`mkCk`↔`mkHdCk` 95行、`clStatus`↔`hdClStatus`、`getPct`↔`getHdPct`、`remapDlyChecks`↔`remapHdDlyChecks`、`remapWdChecks`↔`remapHdWdChecks`、`wdOnceDoneOn`↔`hdWdOnceDoneOn`、`togWdWeek`↔`togHdWdWeek`、`setWdWeeks`↔`setHdWdWeeks` ほか）。26組が95%以上一致。
