@@ -4445,8 +4445,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/29-51';
+var APP_VERSION = 'Ver.2026/08/29-52';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/29-52', date:'2026-08-29', title:'応援をどこからでも出せるようにしました', items:[
+    {t:'imp', d:'🤝 相手側への「提供」を、未割当の人からも担当枠に入っている人からも直接できるようにしました。これまでは一度「余剰人員」に移してからでないとメニューに出てきませんでした'},
+    {t:'imp', d:'🤝 担当枠に入っている人を提供するときは、メニューに「「◯◯」を外して提供します」と出て、その担当は自動で外れます'}
+  ]},
   { ver:'Ver.2026/08/29-51', date:'2026-08-29', title:'人員配置管理を作り直しました', items:[
     {t:'new', d:'👥 人員配置管理を「配置盤」に作り直しました。CEとHDが1枚に並び、その日誰がどこにいるかをまとめて見られます。CEモード・HDモードのどちらで開いても同じ画面が出ます（自分のモード側が左＝スマホでは上）'},
     {t:'imp', d:'👥 1人は必ず1か所にだけ表示されるようになりました。名前を別の場所へドラッグすると元の場所から自動で消えるので、「担当枠から余剰へ動かしたのに担当枠にも残っている」といったことが起きません'},
@@ -5524,9 +5528,20 @@ function plDerive(ds){
   });
 
   /* 担当枠・フリー枠・OCに名前があるのに名簿に居ない人を拾う（勤務表に無い応援者など） */
+  /* 担当枠・フリー枠に居る人は spot を空にする。そこが正本なので台帳側に 'pool' を
+     残すと「担当枠に居るのに台帳では未割当」という食い違った値になる（plSpot は
+     duties を先に見るので画面は正しく出るが、spot を直接読むコードを足したときに事故る）。 */
   var cfg = getDutyCfg(dat);
-  cfg.forEach(function(s){ var n = dat.duties && dat.duties[s.id]; if (n && !people[n]) put(n, {base:'', side:'ce', spot:'pool'}); });
-  (dat.extra_free||[]).forEach(function(f){ if (f && f.name && !people[f.name]) put(f.name, {base:'', side:'ce', spot:'pool'}); });
+  cfg.forEach(function(s){
+    var n = dat.duties && dat.duties[s.id]; if (!n) return;
+    if (!people[n]) put(n, {base:'', side:'ce', spot:''});
+    else { people[n].spot = ''; people[n].side = 'ce'; }
+  });
+  (dat.extra_free||[]).forEach(function(f){
+    if (!f || !f.name) return;
+    if (!people[f.name]) put(f.name, {base:'', side:'ce', spot:''});
+    else { people[f.name].spot = ''; people[f.name].side = 'ce'; }
+  });
   if (dat.ocData && dat.ocData.staff && !people[dat.ocData.staff]) put(dat.ocData.staff, {base:'oc', oc:true, side:'ce', spot:'pool'});
   return people;
 }
@@ -5664,9 +5679,17 @@ function plSpotLabel(sp){
 function plOffer(ds, name, to){
   if (!can('duty')) return;
   var p = plFix(ds); var pp = p.people[name]; if (!pp) return;
+  var was = plSpot(ds, name);
+  /* 提供＝自分側の余剰へ移して相手に候補として見せること。担当枠・フリー枠から
+     直接出す経路があるので、ここで必ず元の持ち場から外す（外さないと担当枠に
+     名前が残ったまま提供中にもなり、1人が2か所に居る状態ができてしまう）。 */
+  plClearSpot(ds, name);
+  if (was.kind === 'duty' || was.kind === 'free') markDutyEdited(ds);
   pp.offer = to; pp.spot = 'surplus'; pp.side = (to === 'hd') ? 'ce' : 'hd';
   saveD(); renderPlacementBoard(ds, D.pages[ds], !can('duty'));
-  writeLog('応援の提供', fmtJ(ds)+' '+name+' → '+(to==='hd'?'HD':'CE')+'へ');
+  updateStaffZoneBadge(ds); updateCloseBar(ds);
+  if (was.kind === 'duty' || was.kind === 'free') safeRenderPage(); /* 担当カードからも消す */
+  writeLog('応援の提供', fmtJ(ds)+' '+name+' → '+(to==='hd'?'HD':'CE')+'へ'+((was.kind==='duty'||was.kind==='free')?'（'+plSpotLabel(was)+'を解除）':''));
   toast(name+' さんを'+(to==='hd'?'HD':'CE')+'へ提供中にしました', 'ok');
 }
 function plCancelOffer(ds, name){
@@ -5891,10 +5914,19 @@ function plMenu(ds, name){
     h += '</div>';
   }
 
+  /* 提供はどの持ち場からでも選べる。以前は余剰人員に居るときだけ出していたため、
+     未割当の人を出すのに「まず余剰へ移す → もう一度メニューを開いて出す」の2手が要った。
+     担当枠・フリー枠から出す場合はその割り当てが外れるので、それを行に明記する。 */
   var offerRows = '';
-  if (pp.offer) offerRows += row('cancelOffer', '↩ 提供を取り下げる', (pp.offer==='hd'?'HD':'CE')+'へ提供中');
-  else if (sp.kind === 'surplus') offerRows += row('offer:'+(sp.side==='ce'?'hd':'ce'), '🤝 '+(sp.side==='ce'?'HD':'CE')+'へ出す（提供）', '相手が受け取ると移ります');
-  if (offerRows) h = h + '<div class="pl-mgrp">応援</div>' + offerRows;
+  if (pp.offer) {
+    offerRows += row('cancelOffer', '↩ 提供を取り下げる', (pp.offer==='hd'?'HD':'CE')+'へ提供中');
+  } else {
+    var offerTo = (sp.side === 'hd') ? 'ce' : 'hd';
+    var assigned = (sp.kind === 'duty' || sp.kind === 'free');
+    offerRows += row('offer:'+offerTo, '🤝 '+(offerTo==='hd'?'HD':'CE')+'へ出す（提供）',
+      assigned ? ('「'+plSpotLabel(sp)+'」を外して提供します') : '相手が受け取ると移ります');
+  }
+  h = h + '<div class="pl-mgrp">応援</div>' + offerRows;
 
   h += '<div class="pl-mgrp">その他</div>';
   h += row('memo', '📝 メモ', pp.memo || '');
@@ -5988,7 +6020,7 @@ function renderPlacementBoard(ds, dat, locked){
   hdH += '</div>';
 
   var h = '<div class="pl-toolbar">';
-  h += '<span class="pl-hint">💡 名前をドラッグすると持ち場を移せます（担当枠へは下の「担当割り当て」のカードへドロップ）。相手側に判断を委ねたいときは「→HDへ出す」で提供します</span>';
+  h += '<span class="pl-hint">💡 名前をドラッグすると持ち場を移せます（担当枠へは下の「担当割り当て」のカードへドロップ）。「⋯」からは移動・役割変更・相手側への提供ができます</span>';
   if (!dlk) {
     h += '<button type="button" class="btn btn-g btn-sm" data-pl-act="add" data-side="ce">＋ CEに追加</button>';
     h += '<button type="button" class="btn btn-g btn-sm" data-pl-act="add" data-side="hd">＋ HDに追加</button>';
@@ -7223,7 +7255,8 @@ function renderGuide() {
     + '<tr><td>🔧 メンテ / 🏖️ 休み / 📝 その他</td><td>持ち場の種類。「📝」ボタンで一言メモを添えられます（例：午後半休）</td></tr>'
     + '</table>';
   S += h2('相手側へ人を出す（提供 → 受け取り）');
-  S += '<div class="gd-p">余剰人員の名前にある「→HDへ出す」を押すと、<strong>相手側の画面に「⇦ CEから提供されています」として並びます</strong>。この時点ではまだこちらの余剰人員のままで、相手が「受け取る」を押して初めて相手側の人員になります。気が変わったら「取り下げ」で戻せます。逆方向（HD→CE）もまったく同じです。</div>';
+  S += '<div class="gd-p">名前の右にある「⋯」を押して「🤝 HDへ出す（提供）」を選ぶと、<strong>相手側の画面に「⇦ CEから提供されています」として並びます</strong>。この時点ではまだこちらの余剰人員のままで、相手が「受け取る」を押して初めて相手側の人員になります。気が変わったら「⋯」→「↩ 提供を取り下げる」で戻せます。逆方向（HD→CE）もまったく同じです。</div>';
+  S += '<div class="gd-p">提供は<strong>どの持ち場からでもできます</strong>。未割当の人でも、担当枠に入っている人でも、そのまま「⋯」から出せます（担当枠に入っている人を出すと、その担当は自動で外れます。メニューにも「「◯◯」を外して提供します」と出ます）。</div>';
   S += '<div class="gd-p">受け取った人はHD担当表に「🩺 応援」として並びます。必要なら役割（M・A1など）を選んで与えられます。相談せずにこちらで決めてよいときは、提供せずにそのままドラッグして動かしても構いません。</div>';
   S += h2('名簿の増減と勤務表');
   S += '<div class="gd-p">その日の名簿は勤務表から作られますが、<strong>一度でも配置を動かすとその日の名簿が確定します</strong>（あとから勤務表を直しても勝手には変わりません）。勤務表を直したあとは「🔄 勤務表から取り込み直す」を押してください。増えた人・減った人・勤務コードが変わった人を確認してから反映できます。担当枠に入っている人の割り当ては変わりません。</div>';
@@ -12389,33 +12422,28 @@ function dcExpandField(did, kind){
    当日勤務者一覧は配置盤（renderPlacementBoard）の「📋 未割当」枠に統合された。
    refreshPool / toggleStaffZone は配置盤側で定義している。
    ここに残すのは「名前をタップして空き枠へ入れる」導線だけ。 */
+/* 名前タップで空いている枠へ入れる。枠を決めたあとの書き込みは必ず plMove に通す
+   ——直接 dat.duties へ書くと台帳側の spot が古い値（'pool' など）のまま残り、
+   plSpot は duties を優先するので画面は正しく見えるのに台帳だけ食い違う。 */
 function poolAssign(ds,name) {
   var dat=D.pages[ds]; if(!dat)return;
-  /* カスタム担当枠のID順に空きを探す */
   var duties=getDutyCfg(dat);
-  var order=duties.map(function(d){return d.id;});
-  var target=null;
-  for(var i=0;i<order.length;i++){if(!(dat.duties&&dat.duties[order[i]])){target=order[i];break;}}
-  if(!target){
-    /* extra_freeの空きも探す */
-    if(dat.extra_free){
-      for(var ef=0;ef<dat.extra_free.length;ef++){
-        if(!dat.extra_free[ef].name){dat.extra_free[ef].name=name;saveD();refreshPool(ds);renderExtraFrees(ds,dat,dat.extra_free,!can('duty'),!(D.lk&&D.lk.show_phs===true),!can('phs'));return;}
-      }
-    }
-    if(dat.ocData&&!dat.ocData.staff){
-      dat.ocData.staff=name; saveD();
-      var os=document.getElementById('oc-staff');if(os){os.value=name;os.classList.add('set');}
-      refreshPool(ds); updateCloseBar(ds); return;
-    }
-    toast(name+'さん：全スロットが埋まっています。手動で割り当ててください。', 'warn'); return;
+  for(var i=0;i<duties.length;i++){
+    if(!(dat.duties && dat.duties[duties[i].id])){ plMove(ds, name, {kind:'duty', slot:duties[i].id}); return; }
   }
-  if(!dat.duties)dat.duties={};
-  var _oldTgt=dat.duties[target];
-  dat.duties[target]=name; markDutyEdited(ds); saveD();
-  maybeLateToast(dat, target, name, _oldTgt);
-  var sel=document.getElementById('sel-'+target);if(sel){sel.value=name;sel.classList.add('set');}
-  refreshPool(ds); updateCloseBar(ds);
+  /* 担当枠が満杯ならフリー枠の空きへ */
+  if(dat.extra_free){
+    for(var ef=0;ef<dat.extra_free.length;ef++){
+      if(!dat.extra_free[ef].name){ plMove(ds, name, {kind:'free'}); return; }
+    }
+  }
+  /* オンコールは持ち場ではなく属性なので台帳を経由しない */
+  if(dat.ocData && !dat.ocData.staff){
+    dat.ocData.staff=name; saveD();
+    var os=document.getElementById('oc-staff'); if(os){ os.value=name; os.classList.add('set'); }
+    refreshPool(ds); updateCloseBar(ds); return;
+  }
+  toast(name+'さん：全スロットが埋まっています。手動で割り当ててください。', 'warn');
 }
 
 /* ===== MEMO POSTS ===== */
