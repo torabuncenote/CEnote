@@ -375,9 +375,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .oc-sel.set{border-color:var(--oc);background:var(--oc-bg);color:var(--oc);font-weight:700}
 .oc-txt{flex:1;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn)}
 .oc-txt:focus{border-color:var(--oc)}
-.oc-done-row{flex-wrap:nowrap;justify-content:space-between}
+/* 対応チェックは2種別＋対応フローの3つが並ぶ。狭い画面では「項目の途中で折り返す」のではなく
+   「項目単位で次の行へ送る」——各項目は white-space:nowrap のまま、行だけを wrap させる。
+   nowrap のままだと3つ目のボタンがカードの外へはみ出す（スマホ375pxで実測23px超過）。
+   対応フローは余白があれば右端、無ければ次行の右端に置く（margin-left:auto）。 */
+.oc-done-row{flex-wrap:wrap;justify-content:flex-start;gap:8px 14px}
 .oc-done-lbl{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:var(--oc);white-space:nowrap;flex-shrink:0}
-.oc-flow-btn{flex-shrink:0;white-space:nowrap}
+.oc-flow-btn{flex-shrink:0;white-space:nowrap;margin-left:auto}
 .oc-hint{font-size:11px;color:var(--txt3);margin:-3px 0 7px;line-height:1.4}
 /* minmax(0,1fr) にしないと、グリッドの列は「中身の最小幅」まで押し広げられる。
    長い行が1つあるだけでカードが画面幅を超え、ページ全体が横スクロールになる */
@@ -11835,9 +11839,9 @@ function renderPage(ds) {
   for(var i=0;i<D.stf.length;i++) h+='<option value="'+D.stf[i]+'"'+(dat.ocData.staff===D.stf[i]?' selected':'')+'>'+D.stf[i]+'</option>';
   h+='</select></div>';
   h+='<div class="oc-row"><span class="oc-lbl">備考</span><textarea class="oc-txt" id="oc-note" placeholder="備考など..." rows="2"'+(dlk?' disabled':'')+'>'+(dat.ocData.note||'')+'</textarea></div>';
-  /* 対応チェックボックス。狭い画面でも「対応」チェックと「対応フロー」ボタンが横並びのまま
-     崩れないよう、幅の読めない補足テキストは別行（.oc-hint）に逃がす（同じ行に入れて
-     flex-shrinkに任せると、チェックのラベルやボタンの文字自体が折り返ってしまっていた） */
+  /* 対応チェックボックス。幅の読めない補足テキストは別行（.oc-hint）に逃がす
+     （同じ行に入れて flex-shrink に任せると、チェックのラベルやボタンの文字自体が
+     折り返ってしまう）。行そのものは .oc-done-row の flex-wrap で項目単位に折り返す。 */
   /* 対応は2種別。どちらか一方だけがONになる（排他は ocSetDone 側で担保） */
   var ocDone = !!(dat.ocData.done), ocK = ocKind(dat.ocData);
   h+='<div class="oc-row oc-done-row">';
