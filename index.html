@@ -376,13 +376,18 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .oc-sel.set{border-color:var(--oc);background:var(--oc-bg);color:var(--oc);font-weight:700}
 .oc-txt{flex:1;font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur);color:var(--txt);outline:none;font-family:var(--fn)}
 .oc-txt:focus{border-color:var(--oc)}
-/* 対応チェックは2種別＋対応フローの3つが並ぶ。狭い画面では「項目の途中で折り返す」のではなく
-   「項目単位で次の行へ送る」——各項目は white-space:nowrap のまま、行だけを wrap させる。
-   nowrap のままだと3つ目のボタンがカードの外へはみ出す（スマホ375pxで実測23px超過）。
-   対応フローは余白があれば右端、無ければ次行の右端に置く（margin-left:auto）。 */
-.oc-done-row{flex-wrap:wrap;justify-content:flex-start;gap:8px 14px}
-.oc-done-lbl{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:700;color:var(--oc);white-space:nowrap;flex-shrink:0}
-.oc-flow-btn{flex-shrink:0;white-space:nowrap;margin-left:auto}
+/* 対応チェック2種別＋対応フローの3つを1行に収める。折り返すと「対応フローだけが次の行」
+   という座りの悪い見た目になるので、画面幅に対する比率（vw）で文字とチェックを縮めて
+   最後まで横並びを保つ。clamp の下限＝小さい端末での最小サイズ、上限＝PCでの通常サイズ。
+   固定pxで組むと端末ごとに入る／入らないが変わるため、比率で効かせている。 */
+.oc-done-row{flex-wrap:nowrap;justify-content:flex-start;gap:clamp(4px,1.6vw,14px);min-width:0}
+/* flex:0 0 auto。縮めてよいのは「文字サイズ」だけで、枠を縮めさせると文字が切れてしまう */
+.oc-done-lbl{display:flex;align-items:center;gap:clamp(3px,1vw,6px);cursor:pointer;font-weight:700;color:var(--oc);white-space:nowrap;flex:0 0 auto;font-size:clamp(11px,3.05vw,13px)}
+.oc-done-lbl input[type=checkbox]{width:clamp(13px,3.6vw,16px)!important;height:clamp(13px,3.6vw,16px)!important;flex-shrink:0}
+.oc-flow-btn{flex:0 0 auto;white-space:nowrap;margin-left:auto;font-size:clamp(10px,2.7vw,12px);padding:clamp(3px,1vw,6px) clamp(6px,2vw,12px)}
+/* 360px未満（SEなど）は比率だけでは収まらないので、ボタンの文字だけ畳んで📄を残す
+   （アプリ内の .btn-at-text / .hd-btn-text と同じ扱い。tooltip で意味は残る） */
+@media(max-width:359px){.oc-flow-text{display:none}}
 .oc-hint{font-size:11px;color:var(--txt3);margin:-3px 0 7px;line-height:1.4}
 /* minmax(0,1fr) にしないと、グリッドの列は「中身の最小幅」まで押し広げられる。
    長い行が1つあるだけでカードが画面幅を超え、ページ全体が横スクロールになる */
@@ -4479,8 +4484,13 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/29-54';
+var APP_VERSION = 'Ver.2026/09/02-55';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/02-55', date:'2026-09-02', title:'準夜が1枠しか出ない不具合を修正', items:[
+    {t:'fix', d:'🩸 HD担当表で、準夜のように同じ役割を複数人で受け持つ枠が1人分しか残らず、他の人が余剰人員へ移ってしまう不具合を修正しました。準夜3名がそのまま3名並びます'},
+    {t:'imp', d:'🩸 HD担当表で担当者を差し替えたときは、その行にいた人だけが余剰人員へ移ります（同じ役割の他の人はそのまま残ります）'},
+    {t:'fix', d:'📞 オンコールの「OC出動対応」「残り当番」と「対応フロー」が、画面の幅によっては折り返して見づらくなっていたのを修正しました。画面幅に合わせて文字の大きさが変わり、1行に収まります'}
+  ]},
   { ver:'Ver.2026/08/29-54', date:'2026-08-29', title:'他部署からのヘルプを入力できるようにしました', items:[
     {t:'new', d:'🆘 勤務表の「サポート」欄に書かれた人を、取り込みのときに自動で名簿に入れるようにしました。名前の下の行に書かれた役割（A1・A2など）も読み取って、HDのその役割に入った状態になります。苗字だけで書かれていても、そのままの名前で入ります'},
     {t:'new', d:'🆘 あとからヘルプが来ることになったときは、勤務表を取り込み直さなくても、人員配置管理の「＋ CEに追加」「＋ HDに追加」から名前と役割を入れて1回で追加できます。分院のスタッフ一覧（マスタ）には登録されないので、毎回マスタを増やす必要はありません'},
@@ -5693,19 +5703,11 @@ function plMove(ds, name, spec){
     pp.side = 'ce'; pp.spot = '';
     markDutyEdited(ds);
   } else if (spec.kind === 'hdrole') {
-    /* 同じ役割を既に持っている人が居たらHDの余剰へ押し出す（役割は1人が持つもの）。
-       役割が空（「—」＝役割なし）のときは押し出さない——空同士がマッチして、
-       まだ役割の付いていない別の応援者まで余剰へ落ちてしまうため。
-       役割の解決は plSpot と同じ式にする（base が hd でない人の shift は役割ではない）。 */
-    if (spec.role) {
-      Object.keys(p.people).forEach(function(n2){
-        if (n2 === name) return;
-        var q = p.people[n2];
-        if (q.side !== 'hd') return;
-        var qRole = q.spot || (q.base === 'hd' ? plHdRole(q.shift) : '');
-        if (qRole === spec.role) q.spot = 'surplus';
-      });
-    }
+    /* 同じ役割を複数人で持つ枠がある（準夜は3名固定）。以前はここで「同じ役割の人を
+       全員HDの余剰へ押し出す」ことで担当表の差し替えを表現していたが、そのせいで
+       準夜3名のうち1人を触ると残り2名が余剰へ落ち、担当表に1枠しか残らなかった。
+       役割の付け替えは「その人の役割を変える」だけにし、押し出しは行わない。
+       担当表の行で担当者を差し替える操作は、呼び出し側が「その行に居た人」だけを外す。 */
     pp.side = 'hd'; pp.spot = spec.role || '';
     if (pp.base !== 'hd' && !pp.from) pp.from = 'ce';
   } else if (spec.kind === 'surplus') {
@@ -11994,7 +11996,7 @@ function renderPage(ds) {
   h+='<input type="checkbox" id="oc-done-leftover"'+(ocDone&&ocK===OC_KIND_LEFTOVER?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
   h+='🕔 残り当番</label>';
   /* 対応フローは閲覧のみのため、担当ロック中でも押せるようにする（disabledにしない） */
-  h+='<button type="button" class="btn btn-g btn-sm oc-flow-btn" onclick="openOcFlowModal()">📄 対応フロー</button>';
+  h+='<button type="button" class="btn btn-g btn-sm oc-flow-btn" onclick="openOcFlowModal()" title="OC対応フローを開く">📄<span class="oc-flow-text"> 対応フロー</span></button>';
   h+='</div>';
   h+='<div class="oc-hint">開始と退勤が揃うと自動でチェックが付きます。残り当番は日勤から引き継ぐので、開始に '+OC_LEFTOVER_START+' が入ります</div>';
   /* 対応時間・年休。「退勤時間を入れたら対応済み」を成立させるため、チェックの有無に関わらず常時表示する
@@ -12593,8 +12595,9 @@ function renderPageHD(ds) {
      dlk（!can('duty')）のときは<select>/<textarea>自体を描画していないのでここは何もしない。 */
   var hdRosterWrap = document.getElementById('hd-roster-wrap');
   if (hdRosterWrap && !dlk) {
-    /* 役割の担当者差し替え。旧 hdDuty.overrides（差分メモ）ではなく台帳を直接動かす：
-       選ばれた人をその役割へ移し、元その役割に居た人はHDの余剰へ回る（plMove がまとめて行う）。 */
+    /* 役割の担当者差し替え。旧 hdDuty.overrides（差分メモ）ではなく台帳を直接動かす。
+       同じ役割を複数人で持つ枠（準夜は3名）があるので、「同じ役割の人を全員外す」のではなく
+       <strong>その行に居た人だけ</strong>をHDの余剰へ回す（data-derived がその行の現担当者）。 */
     hdRosterWrap.addEventListener('change', function (e) {
       var sel = e.target.closest('select.hd-name-sel');
       if (!sel) return;
@@ -12602,6 +12605,10 @@ function renderPageHD(ds) {
       var role = sel.getAttribute('data-role') || '';
       var val = sel.value;
       if (!val || val === prev) return;
+      if (prev) {
+        var pl = plFix(ds);
+        if (pl.people[prev]) { plClearSpot(ds, prev); pl.people[prev].side = 'hd'; pl.people[prev].spot = 'surplus'; }
+      }
       plMove(ds, val, { kind: 'hdrole', role: role });
       renderPageHD(ds); /* 行の再構成を伴うため全体を再描画 */
     });
