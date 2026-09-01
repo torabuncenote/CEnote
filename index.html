@@ -3606,8 +3606,8 @@ function renderSpec() {
   // 4. 連絡表
   S += '<div class="spec-h1">4. 連絡表の構成</div>';
   S += '<div class="spec-h2">4-0. ヘルプ（他部署からの応援）</div>';
-  S += '<div class="spec-p">勤務表の「サポート」行（見出しに サポート／ヘルプ／応援 を含む行）は、日付セルに勤務コードではなく<strong>来てくれる人の名前</strong>が書かれている。<code>parseShiftSheet</code> がこの行を見分けて <code>D.shift[ym][名前][日] = {shift:\'ヘルプ\', help:true}</code> として取り込み、<code>getShiftForDay(ds).help</code> に載せる。複数名は「、・,／改行」で区切る（<strong>空白では割らない</strong>——「田中 太郎」を2人に割ってしまうため）。</div>';
-  S += '<div class="spec-p">分院のスタッフではないので <code>D.stf</code>（スタッフマスタ）には登録しない。書かれた名前のまま、その日の台帳に <code>base:\'help\'</code> で載せる（配置盤では 🆘 ヘルプ のバッジ付き）。配置盤の「＋ CEに追加／＋ HDに追加」からは名前を直接打って追加もできる。名簿未登録の警告（<code>validateShiftData</code>）はヘルプには出さない。</div>';
+  S += '<div class="spec-p">勤務表の下部にある「サポート」行は<strong>2行1組</strong>：見出し行（col2が サポート／ヘルプ／応援）の日付セルに<strong>来てくれる人の名前</strong>、そのすぐ下の行の同じ日付セルに<strong>役割</strong>（ヘルプは基本HDへ入るのでHDのコード）が入る。スタッフ行が「職員番号行→氏名行」の2行組なのと同じ考え方。実データでは この組が2つ並ぶ（1日に最大2名）。<code>parseShiftSheet</code> がこれを読み、<code>D.shift[ym][名前][日] = {shift:役割, help:true}</code> として取り込む。役割は <code>plHdRole()</code> を通すので「休」等は役割にならない。複数名は「、・,／改行」で区切る（<strong>空白では割らない</strong>——「田中 太郎」を2人に割ってしまうため）。</div>';
+  S += '<div class="spec-p">分院のスタッフではないので <code>D.stf</code>（スタッフマスタ）には登録しない。書かれた名前のまま、その日の台帳に <code>base:\'help\'</code> で載せる。役割があればHD側のその持ち場に、無ければCEの未割当に入る（配置盤では 🆘 ヘルプ のバッジ付き）。<code>getShiftForDay</code> ではCE/OC/HDのどの枠にも入れない——HDの役割コードを持つので、素通しすると通常のHD勤務者として二重に数えられる。配置盤の「＋ CEに追加／＋ HDに追加」からは名前を直接打って追加もできる。名簿未登録の警告（<code>validateShiftData</code>）はヘルプには出さない。</div>';
   S += '<div class="spec-h2">4-1. 人員配置管理（配置盤 / <code>dat.placement</code>）</div>';
   S += '<div class="spec-p">その日の「誰がどこにいるか」を1人1レコードで持つ唯一の台帳。CE・HDを1枚の盤に並べ、主観モードでは左右の並び順だけが入れ替わる。書き込みは必ず <code>plMove(ds,name,spec)</code> を通り、その中で担当枠・フリー枠・台帳のすべてから一旦外してから入れるため、1人が2か所に居る状態は作れない。担当枠（<code>dat.duties</code>）とフリー枠（<code>dat.extra_free</code>）だけは従来どおりそこが正本で、<code>plSpot()</code> がそれを読んで「いま担当枠にいる」と答える。</div>';
   S += '<div class="spec-p">名簿は勤務表から導出するが、一度でも書き込むと <code>placement.fixed=true</code> になりその日の名簿が確定する（以後は勤務表を自動で追わない。<code>plResync()</code> が差分を出して明示的に反映する）。旧フィールド <code>staffZone</code> / <code>staffAdj</code> / <code>hdDuty.overrides</code> は削除せず、<code>plDerive()</code> が読み出し時に吸収する。</div>';
@@ -4481,7 +4481,7 @@ function doRegister() {
 var APP_VERSION = 'Ver.2026/08/29-54';
 var APP_CHANGELOG = [
   { ver:'Ver.2026/08/29-54', date:'2026-08-29', title:'他部署からのヘルプを入力できるようにしました', items:[
-    {t:'new', d:'🆘 勤務表の「サポート」行に書かれた人を、取り込みのときに自動で名簿に入れるようにしました。苗字だけで書かれていても、そのままの名前で入ります（1つのセルに複数名いる場合は「、」「・」「,」で区切ってください）'},
+    {t:'new', d:'🆘 勤務表の「サポート」欄に書かれた人を、取り込みのときに自動で名簿に入れるようにしました。名前の下の行に書かれた役割（A1・A2など）も読み取って、HDのその役割に入った状態になります。苗字だけで書かれていても、そのままの名前で入ります'},
     {t:'new', d:'🆘 あとから来ることになったヘルプの人は、人員配置管理の「＋ CEに追加」「＋ HDに追加」から名前を直接入力して追加できます。分院のスタッフ一覧（マスタ）には登録されないので、毎回マスタを増やす必要はありません'},
     {t:'imp', d:'🆘 ヘルプの人も、他の人と同じようにHDの役割（M・A1など）やメンテ・休みへ動かせます。配置盤では「🆘 ヘルプ」の印が付きます'},
     {t:'fix', d:'📋 勤務表の取り込みで、ヘルプの人まで「名簿に未登録です（新スタッフ？）」と警告が出ていたのをやめました。本当に確認すべき新スタッフが埋もれなくなります'}
@@ -5545,7 +5545,13 @@ function plDerive(ds){
   (si.hd||[]).forEach(function(h){ var c = h.night ? '準' : plHdRole(h.shift); put(h.name, {base:'hd', shift:c || h.shift || '', night:h.night, side:'hd', spot:c}); });
   /* ヘルプ（他部署からの応援）。分院のスタッフマスタには居ないので、書かれた名前のまま
      その日の名簿に載せる。CE側の未割当から始めて、必要ならHDの役割へ動かせる。 */
-  (si.help||[]).forEach(function(h){ put(h.name, {base:'help', shift:h.shift || 'ヘルプ', side:'ce', spot:'pool'}); });
+  (si.help||[]).forEach(function(h){
+    /* ヘルプは基本HDへ入る。勤務表のサポート行に書かれた役割（A1・A2等）を
+       そのままHD側の持ち場にする。役割が読めなかった人はCEの未割当から始める。 */
+    var hr = plHdRole(h.shift);
+    put(h.name, hr ? {base:'help', shift:hr, side:'hd', spot:hr}
+                   : {base:'help', shift:'ヘルプ', side:'ce', spot:'pool'});
+  });
 
   /* 旧 hdDuty.overrides（HD担当表での差し替え）を読み替える：
      元の人はその日いなかったことになり、差し替え先の人がその役割を持つ */
@@ -5919,8 +5925,8 @@ function plChipHTML(ds, name, opts){
     + (opts.tapAssign && !dlk ? ' data-pl-tap="1" title="タップで空いている担当枠へ入ります"' : '')
     + (dlk?'':' draggable="true"')+'>';
   h += '<span class="pl-chip-n">'+escH(name)+'</span>';
-  /* base:'help' の人は shift が 'ヘルプ' なので、🆘バッジと二重になるシフト値は出さない */
-  if (opts.showShift && pp.shift && pp.base !== 'help') h += '<span class="pl-chip-s">'+escH(pp.shift)+'</span>';
+  /* 🆘バッジと二重になる 'ヘルプ' という値だけ出さない（役割コードは出す） */
+  if (opts.showShift && pp.shift && pp.shift !== 'ヘルプ') h += '<span class="pl-chip-s">'+escH(pp.shift)+'</span>';
   if (pp.oc) h += '<span class="pl-chip-oc">OC</span>';
   if (pp.base === 'help') h += '<span class="pl-chip-help" title="他部署からのヘルプ（分院のスタッフマスタには登録されません）">🆘 ヘルプ</span>';
   if (pp.from) h += '<span class="pl-chip-from" title="応援で来ています">'+(pp.from==='ce'?'🩺':'🩸')+'から</span>';
@@ -7479,7 +7485,7 @@ function renderGuide() {
   S += '<div class="gd-p">その日の名簿は勤務表から作られますが、<strong>一度でも配置を動かすとその日の名簿が確定します</strong>（あとから勤務表を直しても勝手には変わりません）。勤務表を直したあとは「🔄 勤務表から取り込み直す」を押してください。増えた人・減った人・勤務コードが変わった人を確認してから反映できます。担当枠に入っている人の割り当ては変わりません。</div>';
   S += '<div class="gd-p">勤務交代などでその日だけ人を足すときは「＋ CEに追加」「＋ HDに追加」から選びます。名前の「×」でその日の名簿から外せます。</div>';
   S += h2('🆘 他部署からのヘルプ');
-  S += '<div class="gd-p">勤務表の「サポート」行に名前が書かれている人は、<strong>取り込みのときに自動で名簿に入ります</strong>（🆘 ヘルプ の印が付きます）。苗字だけで書かれていても、書かれたとおりの名前で入ります。</div>';
+  S += '<div class="gd-p">勤務表の下にある「サポート」の欄に名前が書かれている人は、<strong>取り込みのときに自動で名簿に入ります</strong>（🆘 ヘルプ の印が付きます）。苗字だけで書かれていても、書かれたとおりの名前で入ります。名前の下の行に書かれた役割（A1・A2など）も一緒に読み取って、<strong>HDのその役割に入った状態</strong>になります。</div>';
   S += '<div class="gd-p">あとから来ることになった人は、「＋ CEに追加」「＋ HDに追加」を押して、一覧の下にある「🆘 名簿に無い人（他部署からのヘルプ）」に名前を入力して「追加」を押してください。<strong>分院のスタッフ一覧（マスタ）には登録されません</strong>——その日の名簿にだけ載るので、毎回マスタを増やす必要はありません。</div>';
   S += '<div class="gd-p">ヘルプの人も、他の人と同じようにHDの役割（M・A1など）やメンテ・休みへ動かせます。</div>';
 
@@ -9828,6 +9834,10 @@ function getShiftForDay(ds) {
     for (var name in md) {
       var info = md[name] && md[name][day];
       if (!info) continue;
+      /* ヘルプ（他部署からの応援）は独立した枠。CE/OC/HD のどれにも入れない
+         ——HDの役割コード（A1・A2等）を持つので、素通しすると通常のHD勤務者として
+         二重に数えられ、HD担当表にも分院スタッフとして並んでしまう。 */
+      if (info.help) { res.help.push({name:name, shift:info.shift || 'ヘルプ'}); continue; }
       /* CE：シフト値が "CE" に完全一致 → プール表示（OC兼任でも勤務者一覧に表示） */
       if (info.shift === 'CE') {
         res.ce.push({name:name, shift:'CE', oc:!!info.oc});
@@ -9846,10 +9856,6 @@ function getShiftForDay(ds) {
       /* 宿直 */
       if (info.nd) {
         res.nd.push({name:name, shift:info.shift});
-      }
-      /* ヘルプ（他部署からの応援）。CE/HD/OCのいずれにも属さない独立した枠 */
-      if (info.help) {
-        res.help.push({name:name, shift:info.shift || 'ヘルプ'});
       }
     }
   }
@@ -10242,10 +10248,15 @@ function parseShiftSheet(wb, fileName) {
        複数名は「、」「・」「,」「/」改行で区切る——空白では割らない
        （「田中 太郎」のようなフルネームの区切りを2人に割ってしまうため）。 */
     if (SUPPORT_ROW_RE.test(col2)) {
+      /* 「サポート」行は2行1組：この行の日付セルに<strong>名前</strong>、すぐ下の行の
+         同じ日付セルに<strong>役割</strong>が入る（ヘルプは基本HDへ入るのでHDのコード）。
+         スタッフ行が「職員番号行→氏名行」の2行組なのと同じ考え方。 */
+      var roleRow = grid[ri + 1] || [];
       for (var sci in colToDay) {
-        var sDay = colToDay[sci];
-        var sRaw = grid[ri][parseInt(sci)];
+        var sDay = colToDay[sci], scIdx = parseInt(sci);
+        var sRaw = grid[ri][scIdx];
         if (sRaw == null) continue;
+        var hRole = plHdRole(normShiftCode(roleRow[scIdx])); /* HD_DAY_CODES と 準 だけ通す（「休」等は役割にしない） */
         String(sRaw).split(/[、・,，\/／\n\r]+/).forEach(function(hn){
           hn = hn.toString().trim().replace(/[\u3000\s]+/g, ' ').trim();
           if (!hn || hn.length > 20) return;
@@ -10253,7 +10264,7 @@ function parseShiftSheet(wb, fileName) {
           if (!result[hn]) result[hn] = {};
           if (!result[hn][sDay]) result[hn][sDay] = {};
           result[hn][sDay].help = true;
-          if (!result[hn][sDay].shift) result[hn][sDay].shift = 'ヘルプ';
+          result[hn][sDay].shift = hRole || 'ヘルプ';
         });
       }
       continue; /* 「サポート」自体はスタッフとして登録しない */
