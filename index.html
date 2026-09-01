@@ -2069,11 +2069,12 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <!-- 他部署からのヘルプ。分院のスタッフマスタには登録せず、その日の名簿にだけ載せる -->
     <div style="border-top:1px dashed var(--bdr2);padding-top:8px;margin-bottom:8px">
       <div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:4px">🆘 名簿に無い人（他部署からのヘルプ）</div>
-      <div style="display:flex;gap:6px">
-        <input type="text" id="pool-staff-help" class="fi" placeholder="名前を入力（例：田中）" style="flex:1;margin:0">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input type="text" id="pool-staff-help" class="fi" placeholder="名前を入力（例：田中）" style="flex:1;min-width:120px;margin:0">
+        <select id="pool-staff-help-role" class="fi" style="width:auto;margin:0"></select>
         <button class="btn btn-g btn-sm" onclick="addHelpStaffFromModal()" style="white-space:nowrap">追加</button>
       </div>
-      <div style="font-size:10px;color:var(--txt3);margin-top:4px">スタッフマスタには登録されません（この日だけの名前として扱います）</div>
+      <div style="font-size:10px;color:var(--txt3);margin-top:4px">スタッフマスタには登録されません（この日だけの名前として扱います）。役割を選ぶとHD担当表のその枠に入ります</div>
     </div>
     <div class="mdb">
       <button class="btn btn-g" onclick="closePoolStaffModal()">キャンセル</button>
@@ -4482,7 +4483,8 @@ var APP_VERSION = 'Ver.2026/08/29-54';
 var APP_CHANGELOG = [
   { ver:'Ver.2026/08/29-54', date:'2026-08-29', title:'他部署からのヘルプを入力できるようにしました', items:[
     {t:'new', d:'🆘 勤務表の「サポート」欄に書かれた人を、取り込みのときに自動で名簿に入れるようにしました。名前の下の行に書かれた役割（A1・A2など）も読み取って、HDのその役割に入った状態になります。苗字だけで書かれていても、そのままの名前で入ります'},
-    {t:'new', d:'🆘 あとから来ることになったヘルプの人は、人員配置管理の「＋ CEに追加」「＋ HDに追加」から名前を直接入力して追加できます。分院のスタッフ一覧（マスタ）には登録されないので、毎回マスタを増やす必要はありません'},
+    {t:'new', d:'🆘 あとからヘルプが来ることになったときは、勤務表を取り込み直さなくても、人員配置管理の「＋ CEに追加」「＋ HDに追加」から名前と役割を入れて1回で追加できます。分院のスタッフ一覧（マスタ）には登録されないので、毎回マスタを増やす必要はありません'},
+    {t:'imp', d:'🆘 手で足した人は、あとで「勤務表から取り込み直す」を押しても消えないようにしました（勤務表には載っていないため、以前は除外の対象になっていました）'},
     {t:'imp', d:'🆘 ヘルプの人も、他の人と同じようにHDの役割（M・A1など）やメンテ・休みへ動かせます。配置盤では「🆘 ヘルプ」の印が付きます'},
     {t:'fix', d:'📋 勤務表の取り込みで、ヘルプの人まで「名簿に未登録です（新スタッフ？）」と警告が出ていたのをやめました。本当に確認すべき新スタッフが埋もれなくなります'}
   ]},
@@ -5508,7 +5510,8 @@ function plSideLabel(side){ return side==='hd' ? '🩸 HD' : '🩺 CE'; }
 function plNewPerson(o){
   o = o || {};
   return { base:o.base||'', shift:o.shift||'', oc:!!o.oc, night:!!o.night,
-           side:o.side||'ce', spot:o.spot||'', offer:'', from:o.from||'', memo:'' };
+           side:o.side||'ce', spot:o.spot||'', offer:'', from:o.from||'', memo:'',
+           manual:!!o.manual }; /* 手で名簿に足した人。勤務表から取り込み直しても外さない目印 */
 }
 
 function ensurePlacement(ds){
@@ -5668,7 +5671,7 @@ function plMove(ds, name, spec){
   if (!can('duty')) return false;
   var dat = D.pages[ds]; if (!dat || !name || !spec) return false;
   var p = plFix(ds);
-  if (!p.people[name]) p.people[name] = plNewPerson({base:'', side:'ce', spot:'pool'});
+  if (!p.people[name]) p.people[name] = plNewPerson({base:'', side:'ce', spot:'pool', manual:true});
   var pp = p.people[name];
   var beforeSlot = plSpot(ds, name);
   var oldDuty = (spec.kind === 'duty') ? ((dat.duties||{})[spec.slot] || '') : '';
@@ -5855,7 +5858,12 @@ function plResync(ds){
   var cur = plPeople(ds);
   var fresh = plDerive(ds);
   var added = Object.keys(fresh).filter(function(n){ return !cur[n]; });
-  var removed = Object.keys(cur).filter(function(n){ return !fresh[n] && plSpot(ds,n).kind !== 'duty'; });
+  /* 手で足した人（ヘルプ含む）は勤務表に居なくて当たり前なので除外候補にしない。
+     「勤務表を直したから取り込み直す」だけのつもりが、あとから足したヘルプまで
+     消えてしまうため。担当枠に入っている人も従来どおり触らない。 */
+  var removed = Object.keys(cur).filter(function(n){
+    return !fresh[n] && !cur[n].manual && plSpot(ds,n).kind !== 'duty';
+  });
   var changed = Object.keys(fresh).filter(function(n){
     return cur[n] && (cur[n].shift||'') !== (fresh[n].shift||'');
   });
@@ -7486,7 +7494,8 @@ function renderGuide() {
   S += '<div class="gd-p">勤務交代などでその日だけ人を足すときは「＋ CEに追加」「＋ HDに追加」から選びます。名前の「×」でその日の名簿から外せます。</div>';
   S += h2('🆘 他部署からのヘルプ');
   S += '<div class="gd-p">勤務表の下にある「サポート」の欄に名前が書かれている人は、<strong>取り込みのときに自動で名簿に入ります</strong>（🆘 ヘルプ の印が付きます）。苗字だけで書かれていても、書かれたとおりの名前で入ります。名前の下の行に書かれた役割（A1・A2など）も一緒に読み取って、<strong>HDのその役割に入った状態</strong>になります。</div>';
-  S += '<div class="gd-p">あとから来ることになった人は、「＋ CEに追加」「＋ HDに追加」を押して、一覧の下にある「🆘 名簿に無い人（他部署からのヘルプ）」に名前を入力して「追加」を押してください。<strong>分院のスタッフ一覧（マスタ）には登録されません</strong>——その日の名簿にだけ載るので、毎回マスタを増やす必要はありません。</div>';
+  S += '<div class="gd-p"><strong>あとからヘルプが来ることになったとき</strong>は、勤務表を取り込み直す必要はありません。「＋ CEに追加」「＋ HDに追加」を押して、一覧の下にある「🆘 名簿に無い人（他部署からのヘルプ）」に<strong>名前を入れて、隣で役割（A1・A2など）を選んで「追加」</strong>を押すだけです。役割を選べばHD担当表のその枠まで一度に入ります（役割が決まっていなければ「役割なし」のままでも追加できます）。</div>';
+  S += '<div class="gd-p"><strong>分院のスタッフ一覧（マスタ）には登録されません</strong>——その日の名簿にだけ載るので、毎回マスタを増やす必要はありません。手で足した人は、あとで「🔄 勤務表から取り込み直す」を押しても消えません。</div>';
   S += '<div class="gd-p">ヘルプの人も、他の人と同じようにHDの役割（M・A1など）やメンテ・休みへ動かせます。</div>';
 
   S += h1('📊 業務件数');
@@ -10577,6 +10586,16 @@ function openPoolStaffModal(ds, type) {
   document.getElementById('pool-staff-search').value = '';
   var helpInp = document.getElementById('pool-staff-help');
   if (helpInp) { helpInp.value = ''; helpInp.onkeydown = function(e){ if (e.key === 'Enter') addHelpStaffFromModal(); }; }
+  /* 役割を選べば1回の操作でHD担当表のその枠まで入る（あとからメニューで選び直す手間を省く）。
+     ヘルプは基本HDへ入るので、選択肢はHDの役割コード。 */
+  var helpRoleSel = document.getElementById('pool-staff-help-role');
+  if (helpRoleSel) {
+    var ro = '<option value="">役割なし</option>';
+    HD_DAY_CODES.forEach(function(c){ ro += '<option value="'+escH(c)+'">'+escH(c)+'</option>'; });
+    ro += '<option value="準">準夜</option>';
+    helpRoleSel.innerHTML = ro;
+    helpRoleSel.value = '';
+  }
   document.getElementById('pool-staff-search').focus();
   document.getElementById('pool-staff-add-btn').style.display = 'none';
   populatePoolStaffList(poolStaffOnRoster(), '');
@@ -10654,17 +10673,22 @@ function addHelpStaffFromModal() {
     showPHIPopup({ result: phiRes, mode:'field', onProceed:null, onFix:function(){} });
     return;
   }
+  var roleSel = document.getElementById('pool-staff-help-role');
+  var hRole = plHdRole(roleSel ? roleSel.value : '');
   (function(){
     var pl = plFix(ds);
     if (pl.people[v]) { toast(v + ' さんは既にこの日の名簿にいます', 'warn'); return; }
-    pl.people[v] = plNewPerson({ base:'help', shift:'ヘルプ',
-      side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '' : 'pool' });
+    /* 役割を選んでいればHD側のその持ち場へ（押したボタンがCE側でも役割優先）。
+       選んでいなければ押したボタンの側へ入れる。 */
+    pl.people[v] = hRole
+      ? plNewPerson({ base:'help', shift:hRole, side:'hd', spot:hRole, manual:true })
+      : plNewPerson({ base:'help', shift:'ヘルプ', side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '' : 'pool', manual:true });
     saveD();
     closePoolStaffModal();
     renderPlacementBoard(ds, D.pages[ds], !can('duty'));
     updateStaffZoneBadge(ds); updateCloseBar(ds);
-    writeLog('ヘルプを名簿に追加', fmtJ(ds) + ' ' + (type === 'hd' ? 'HD' : 'CE') + ' → ' + v);
-    toast(v + ' さんをヘルプとして追加しました', 'ok');
+    writeLog('ヘルプを名簿に追加', fmtJ(ds) + ' ' + (hRole ? 'HD ' + hRole : (type === 'hd' ? 'HD' : 'CE')) + ' → ' + v);
+    toast(v + ' さんをヘルプとして追加しました' + (hRole ? '（' + hRole + '）' : ''), 'ok');
   })();
 }
 /* すでにその日の名簿にいる人（＝もう追加できない人）。判定元は台帳ひとつ */
@@ -10689,7 +10713,7 @@ function confirmPoolStaffSelect() {
   if (!D.pages[ds] || !can('duty')) return;
   var pl = plFix(ds);
   if (pl.people[name]) { toast(name + ' さんは既にこの日の名簿にいます', 'warn'); return; }
-  pl.people[name] = plNewPerson({ base:'', side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '' : 'pool' });
+  pl.people[name] = plNewPerson({ base:'', side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '' : 'pool', manual:true });
   saveD();
   renderPlacementBoard(ds, D.pages[ds], !can('duty'));
   updateStaffZoneBadge(ds); updateCloseBar(ds);
