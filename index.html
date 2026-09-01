@@ -528,7 +528,6 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .data-tbl th.sortable:hover{color:var(--ac)}
 .sort-arw{font-size:9px;margin-left:3px;color:var(--ac)}
 .card-sort-sel{font-size:10px;border:1px solid var(--bdr);border-radius:var(--rs);padding:2px 4px;background:var(--sur);color:var(--txt2);margin:0 0 0 auto;font-family:var(--fn);cursor:pointer}
-.sum-card-ttl{display:flex;align-items:center;gap:6px}
 .status-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
 .status-pill.done{background:var(--gr-bg);color:var(--gr)}
 /* ===== 階層マスタ ===== */
@@ -6552,18 +6551,22 @@ function opsFreqMap(rows, keyFn) {
 function opsFreqSortedKeys(m) { return Object.keys(m).sort(function(a,b){ return m[b]-m[a]; }); }
 /* 集計カード（科別・術式別・担当者別・使用物品別）の並べ替え。
    表と違って列見出しが無いので、カード見出しの <select> で切り替える。 */
-var _opsCardSort = 'count'; /* 'count'（件数の多い順・既定）| 'name'（名前順）| 'dur'（平均所要の長い順） */
-function setOpsCardSort(v) { _opsCardSort = v; renderOpsSummary(); }
-function opsCardSortSel(withDur) {
+/* カードごとに独立した状態を持つ。1つの変数を4枚で共有すると、1枚の並べ替えを
+   変えただけで他の3枚まで変わり（各カードに選択欄があるので「このカードだけ」と読める）、
+   さらに担当者別で「平均所要順」にすると他3枚の選択欄が「件数順」表示に戻ってちぐはぐになる。 */
+var _opsCardSort = { dept:'count', name:'count', staff:'count', sup:'count' }; /* 'count' | 'name' | 'dur' */
+function setOpsCardSort(card, v) { _opsCardSort[card] = v; renderOpsSummary(); }
+function opsCardSortSel(card, withDur) {
+  var cur = _opsCardSort[card] || 'count';
   var opts = [['count','件数順'],['name','名前順']];
   if (withDur) opts.push(['dur','平均所要順']);
-  var h = '<select class="card-sort-sel" onchange="setOpsCardSort(this.value)">';
-  opts.forEach(function(o){ h += '<option value="'+o[0]+'"'+(_opsCardSort===o[0]?' selected':'')+'>'+o[1]+'</option>'; });
+  var h = '<select class="card-sort-sel" onchange="setOpsCardSort(\''+card+'\',this.value)">';
+  opts.forEach(function(o){ h += '<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+o[1]+'</option>'; });
   return h + '</select>';
 }
-/* キー配列を _opsCardSort に従って並べ替える。getN=件数、getDur=平均所要（省略可） */
-function opsCardSortKeys(keys, getN, getDur) {
-  var mode = _opsCardSort;
+/* キー配列をそのカードの指定順に並べ替える。getN=件数、getDur=平均所要（省略可） */
+function opsCardSortKeys(card, keys, getN, getDur) {
+  var mode = _opsCardSort[card] || 'count';
   if (mode === 'dur' && !getDur) mode = 'count'; /* 平均所要を持たないカードは件数順に落とす */
   return keys.slice().sort(function(a, b){
     if (mode === 'name') return String(a).localeCompare(String(b), 'ja');
@@ -6645,8 +6648,8 @@ function renderOpsDetailBody(allRows) {
 
   h += '<div class="sum-card-grid">';
 
-  h += '<div class="sum-card"><div class="sum-card-ttl">🏥 科別'+opsCardSortSel(false)+'</div>';
-  var deptKeys = opsCardSortKeys(Object.keys(deptAgg), function(d){ return deptAgg[d].ope+deptAgg[d].cath; });
+  h += '<div class="sum-card"><div class="sum-card-ttl">🏥 科別'+opsCardSortSel('dept',false)+'</div>';
+  var deptKeys = opsCardSortKeys('dept', Object.keys(deptAgg), function(d){ return deptAgg[d].ope+deptAgg[d].cath; });
   deptKeys.forEach(function(d){
     var a=deptAgg[d];
     h += '<div class="sum-card-row"><span class="lbl">'+escH(d)+'</span><span class="n">オペ'+a.ope+'・カテ'+a.cath+'（計'+(a.ope+a.cath)+'）</span></div>';
@@ -6654,15 +6657,15 @@ function renderOpsDetailBody(allRows) {
   if (!deptKeys.length) h += '<div class="sum-card-empty">記録がありません</div>';
   h += '</div>';
 
-  h += '<div class="sum-card"><div class="sum-card-ttl">🔪 術式別 TOP10'+opsCardSortSel(false)+'</div>';
-  var nameKeys = opsCardSortKeys(Object.keys(nameAgg), function(k){ return nameAgg[k]; });
+  h += '<div class="sum-card"><div class="sum-card-ttl">🔪 術式別 TOP10'+opsCardSortSel('name',false)+'</div>';
+  var nameKeys = opsCardSortKeys('name', Object.keys(nameAgg), function(k){ return nameAgg[k]; });
   nameKeys.slice(0,10).forEach(function(k){ h += '<div class="sum-card-row"><span class="lbl">'+escH(k)+'</span><span class="n">'+nameAgg[k]+'件</span></div>'; });
   if (!nameKeys.length) h += '<div class="sum-card-empty">記録がありません</div>';
   if (nameKeys.length>10) h += '<div class="sum-card-note">他 '+(nameKeys.length-10)+' 種</div>';
   h += '</div>';
 
-  h += '<div class="sum-card"><div class="sum-card-ttl">👤 担当者別'+opsCardSortSel(true)+'</div>';
-  var staffKeys = opsCardSortKeys(Object.keys(staffAgg),
+  h += '<div class="sum-card"><div class="sum-card-ttl">👤 担当者別'+opsCardSortSel('staff',true)+'</div>';
+  var staffKeys = opsCardSortKeys('staff', Object.keys(staffAgg),
     function(n){ return staffAgg[n].n; },
     function(n){ var a=staffAgg[n]; return a.durN ? Math.round(a.dur/a.durN) : null; });
   staffKeys.forEach(function(n){
@@ -6673,8 +6676,8 @@ function renderOpsDetailBody(allRows) {
   h += '<div class="sum-card-note">※ 所要時間は入室時間と終了時刻が両方ある行のみ算入</div>';
   h += '</div>';
 
-  h += '<div class="sum-card"><div class="sum-card-ttl">🧰 使用物品別'+opsCardSortSel(false)+'</div>';
-  var supKeys = opsCardSortKeys(Object.keys(supAgg), function(k){ return supAgg[k]; });
+  h += '<div class="sum-card"><div class="sum-card-ttl">🧰 使用物品別'+opsCardSortSel('sup',false)+'</div>';
+  var supKeys = opsCardSortKeys('sup', Object.keys(supAgg), function(k){ return supAgg[k]; });
   supKeys.slice(0,15).forEach(function(s){ h += '<div class="sum-card-row"><span class="lbl">'+escH(s)+'</span><span class="n">'+supAgg[s]+'件</span></div>'; });
   if (!supKeys.length) h += '<div class="sum-card-empty">使用物品の記録がありません</div>';
   if (supKeys.length>15) h += '<div class="sum-card-note">他 '+(supKeys.length-15)+' 種</div>';
@@ -15701,7 +15704,12 @@ function ocSetDone(ds, val, kind) {
   var od = dat.ocData;
   var wasDone = !!od.done, wasKind = od.kind || '';
   val = !!val;
-  var nextKind = val ? (kind || od.kind || OC_KIND_DISPATCH) : '';
+  /* val=false でも kind は捨てない。捨てると「退勤時刻を打ち間違えて消して入れ直す」
+     「開始時刻を直す」といった操作で ocSyncFromTimes が一度 done=false を通るたびに
+     種別が失われ、次に true へ戻ったとき既定の出動対応に化けてしまう
+     （残り当番として記録したはずの日が黙ってOC出動対応になる）。
+     done=false の間は種別が残っていても画面にも集計にも出ない（どちらも done で判定する）。 */
+  var nextKind = val ? (kind || od.kind || OC_KIND_DISPATCH) : (od.kind || '');
   if (wasDone === val && wasKind === nextKind) { updateOcDashChip(ds); return; }
   od.done = val;
   if (nextKind) od.kind = nextKind; else delete od.kind;

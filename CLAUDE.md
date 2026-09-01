@@ -569,6 +569,7 @@ dat.placement = {
 
 **対応は2種別（`ocData.kind`）**：`'dispatch'`（🚑 OC出動対応＝病院からのコールで出動）と `'leftover'`（🕔 残り当番＝日勤帯で終わらない手術の残りを引き継ぐ）。日ページでは横並びの2つのチェックボックス（`#oc-done-dispatch` / `#oc-done-leftover`）で**排他選択**する。対応時間（開始・退勤）と年休の欄は**両種別で共用**で、どちらにチェックを入れたかで計上先が変わる。
 
+- **`done` を false にするときも `kind` は消さないこと。** `ocSyncFromTimes` は「開始と退勤が両方揃っているか」で done を切り替えるので、退勤を打ち間違えて消す・開始を直すといった操作のたびに done=false を通る。そこで kind を捨てると、次に true へ戻ったとき既定の出動対応に化け、残り当番として記録したはずの日が黙って書き換わる（実際に再現した）。done=false の間は kind が残っていても画面にも集計にも出ない（どちらも done で判定するため）
 - **読み取りは必ず `ocKind(od)` を通す**（`kind` を持たない過去の記録はすべて出動対応として読むので、移行処理は不要）。表示名は `ocKindLabel(k)`、アイコンは `ocKindIcon(k)`
 - 残り当番をONにしたとき `startTime` が空なら `OC_LEFTOVER_START`（`'16:45'`）を入れる。日勤から引き継ぐのでそこから退勤までが対応時間になる（手で直せる）
 - **翌日の出勤ルール（`calcOcNextDayRule` / `notifyOcRule` / `ocAlertFor`）は種別を見ない**。実際に遅くまで働いた事実は同じなので両方に適用する。文言にだけ種別を出す
@@ -758,7 +759,7 @@ When `multi` is true all three renderers add a per-month breakdown, the ops tren
 
 `sumShift(d)` は月モードなら前後の月（`asPrevM()`/`asNextM()` に委譲）、年モードなら `asY` を±1して3集計を描き直す。`sumCtlHTML` が期間ラベルの左右に `‹ ›` として出す（期間指定モードでは出さない）。**集計タブのヘッダーには月ナビを置かない**方針なので、ここを消すと「📅 月」を選んでいるのに表示月を変える手段が画面から無くなる（担当表タブで月を変えてから戻る、という操作を強いていた）。印刷見出しも `printSumTab()` が `sumRange().label` を `_printSubPane(phId, subId, periodLabel)` へ渡す — `asY/asM` 固定だと「2026年」を集計しているのに紙には「2026年8月」と刷られる。
 
-**表の並べ替え（`_sumSort` / `setSumSort` / `sumSortTh` / `sumSortRows`）**：CE明細・OC集計・HD集計の3つの表で同じ仕組みを共有する（表ごとに実装を書き写さない）。列見出しをクリックすると昇順→降順で反転し、**値が空の行は方向に関わらず常に末尾**に置く（未入力が先頭に並ぶのを避けるため）。`sumSortRows` は安定ソートなので、CE明細のグルーピングは「全体をソートしてからグループに割る」だけでグループ内も指定順になる。OC集計の「対応時間」列は開始時刻ではなく**対応の長さ（分）**で並べる（日跨ぎの退勤は24時間足して負にしない）。集計カード（科別・術式別・担当者別・使用物品別）は列が無いので `_opsCardSort`（件数順／名前順／平均所要順）を見出しの `<select>` で切り替える。
+**表の並べ替え（`_sumSort` / `setSumSort` / `sumSortTh` / `sumSortRows`）**：CE明細・OC集計・HD集計の3つの表で同じ仕組みを共有する（表ごとに実装を書き写さない）。列見出しをクリックすると昇順→降順で反転し、**値が空の行は方向に関わらず常に末尾**に置く（未入力が先頭に並ぶのを避けるため）。`sumSortRows` は安定ソートなので、CE明細のグルーピングは「全体をソートしてからグループに割る」だけでグループ内も指定順になる。OC集計の「対応時間」列は開始時刻ではなく**対応の長さ（分）**で並べる（日跨ぎの退勤は24時間足して負にしない）。集計カード（科別・術式別・担当者別・使用物品別）は列が無いので `_opsCardSort`（件数順／名前順／平均所要順）を見出しの `<select>` で切り替える。**この状態はカードごとに持つこと**——1つの変数を4枚で共有すると、1枚を変えただけで他の3枚まで並びが変わり（各カードに選択欄があるので「このカードだけ」と読める）、担当者別だけにある「平均所要順」を選んだときに他3枚の選択欄が「件数順」表示に戻ってちぐはぐになる。
 
 `setSumMode(m)` and `applySumRange(pfx)` call all three renderers unconditionally (`renderOCSummary(); renderOpsSummary(); renderHdSummary();`) regardless of which pane is actually visible — each renderer's own `if(!el) return` (element-existence, not visibility) is the only guard, and writing into a hidden pane's `innerHTML` is harmless. The calendar month-nav `asPrevM()`/`asNextM()`, by contrast, checks whether `pane-sum` is open and re-renders only `_curSumTab`'s sheet, since walking `D.pages` on every month click is wasted work when nothing will be shown — follow this existing asymmetry (unconditional in the two setters, display-gated in the month-nav) rather than "fixing" it to be consistent.
 
