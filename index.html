@@ -303,6 +303,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .pl-chip-s{font-size:9px;font-weight:700;color:var(--txt3);background:var(--sur2);border-radius:3px;padding:1px 4px}
 .pl-chip-oc{font-size:9px;background:var(--oc-bg);color:var(--oc);border-radius:3px;padding:1px 4px}
 .pl-chip-from{font-size:9px;color:var(--txt3)}
+.pl-chip-help{font-size:9px;font-weight:700;color:var(--gd);background:var(--gd-bg,var(--sur2));border:1px solid var(--gd);border-radius:3px;padding:0 4px}
 .pl-chip-slot{font-size:9px;border-radius:3px;padding:1px 5px}
 .pl-chip-offer{font-size:9px;font-weight:700;color:var(--pu);background:var(--pu-bg);border-radius:3px;padding:1px 5px}
 .pl-chip-memo{font-size:9px;color:var(--txt3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2064,7 +2065,17 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <div class="md" style="max-width:360px">
     <h3 id="pool-staff-modal-title">スタッフを選択</h3>
     <input type="text" id="pool-staff-search" class="fi" placeholder="スタッフ名を検索..." style="margin-bottom:8px">
-    <div id="pool-staff-list" style="max-height:300px;overflow-y:auto;border:1px solid var(--bdr);border-radius:4px;margin-bottom:8px"></div>
+    <div id="pool-staff-list" style="max-height:260px;overflow-y:auto;border:1px solid var(--bdr);border-radius:4px;margin-bottom:8px"></div>
+    <!-- 他部署からのヘルプ。分院のスタッフマスタには登録せず、その日の名簿にだけ載せる -->
+    <div style="border-top:1px dashed var(--bdr2);padding-top:8px;margin-bottom:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:4px">🆘 名簿に無い人（他部署からのヘルプ）</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input type="text" id="pool-staff-help" class="fi" placeholder="名前を入力（例：田中）" style="flex:1;min-width:120px;margin:0">
+        <select id="pool-staff-help-role" class="fi" style="width:auto;margin:0"></select>
+        <button class="btn btn-g btn-sm" onclick="addHelpStaffFromModal()" style="white-space:nowrap">追加</button>
+      </div>
+      <div style="font-size:10px;color:var(--txt3);margin-top:4px">スタッフマスタには登録されません（この日だけの名前として扱います）。役割を選ぶとHD担当表のその枠に入ります</div>
+    </div>
     <div class="mdb">
       <button class="btn btn-g" onclick="closePoolStaffModal()">キャンセル</button>
       <button class="btn btn-p" id="pool-staff-add-btn" onclick="confirmPoolStaffSelect()" style="display:none">追加する</button>
@@ -3595,6 +3606,9 @@ function renderSpec() {
 
   // 4. 連絡表
   S += '<div class="spec-h1">4. 連絡表の構成</div>';
+  S += '<div class="spec-h2">4-0. ヘルプ（他部署からの応援）</div>';
+  S += '<div class="spec-p">勤務表の下部にある「サポート」行は<strong>2行1組</strong>：見出し行（col2が サポート／ヘルプ／応援）の日付セルに<strong>来てくれる人の名前</strong>、そのすぐ下の行の同じ日付セルに<strong>役割</strong>（ヘルプは基本HDへ入るのでHDのコード）が入る。スタッフ行が「職員番号行→氏名行」の2行組なのと同じ考え方。実データでは この組が2つ並ぶ（1日に最大2名）。<code>parseShiftSheet</code> がこれを読み、<code>D.shift[ym][名前][日] = {shift:役割, help:true}</code> として取り込む。役割は <code>plHdRole()</code> を通すので「休」等は役割にならない。複数名は「、・,／改行」で区切る（<strong>空白では割らない</strong>——「田中 太郎」を2人に割ってしまうため）。</div>';
+  S += '<div class="spec-p">分院のスタッフではないので <code>D.stf</code>（スタッフマスタ）には登録しない。書かれた名前のまま、その日の台帳に <code>base:\'help\'</code> で載せる。役割があればHD側のその持ち場に、無ければCEの未割当に入る（配置盤では 🆘 ヘルプ のバッジ付き）。<code>getShiftForDay</code> ではCE/OC/HDのどの枠にも入れない——HDの役割コードを持つので、素通しすると通常のHD勤務者として二重に数えられる。配置盤の「＋ CEに追加／＋ HDに追加」からは名前を直接打って追加もできる。名簿未登録の警告（<code>validateShiftData</code>）はヘルプには出さない。</div>';
   S += '<div class="spec-h2">4-1. 人員配置管理（配置盤 / <code>dat.placement</code>）</div>';
   S += '<div class="spec-p">その日の「誰がどこにいるか」を1人1レコードで持つ唯一の台帳。CE・HDを1枚の盤に並べ、主観モードでは左右の並び順だけが入れ替わる。書き込みは必ず <code>plMove(ds,name,spec)</code> を通り、その中で担当枠・フリー枠・台帳のすべてから一旦外してから入れるため、1人が2か所に居る状態は作れない。担当枠（<code>dat.duties</code>）とフリー枠（<code>dat.extra_free</code>）だけは従来どおりそこが正本で、<code>plSpot()</code> がそれを読んで「いま担当枠にいる」と答える。</div>';
   S += '<div class="spec-p">名簿は勤務表から導出するが、一度でも書き込むと <code>placement.fixed=true</code> になりその日の名簿が確定する（以後は勤務表を自動で追わない。<code>plResync()</code> が差分を出して明示的に反映する）。旧フィールド <code>staffZone</code> / <code>staffAdj</code> / <code>hdDuty.overrides</code> は削除せず、<code>plDerive()</code> が読み出し時に吸収する。</div>';
@@ -4465,8 +4479,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/29-53';
+var APP_VERSION = 'Ver.2026/08/29-54';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/29-54', date:'2026-08-29', title:'他部署からのヘルプを入力できるようにしました', items:[
+    {t:'new', d:'🆘 勤務表の「サポート」欄に書かれた人を、取り込みのときに自動で名簿に入れるようにしました。名前の下の行に書かれた役割（A1・A2など）も読み取って、HDのその役割に入った状態になります。苗字だけで書かれていても、そのままの名前で入ります'},
+    {t:'new', d:'🆘 あとからヘルプが来ることになったときは、勤務表を取り込み直さなくても、人員配置管理の「＋ CEに追加」「＋ HDに追加」から名前と役割を入れて1回で追加できます。分院のスタッフ一覧（マスタ）には登録されないので、毎回マスタを増やす必要はありません'},
+    {t:'imp', d:'🆘 手で足した人は、あとで「勤務表から取り込み直す」を押しても消えないようにしました（勤務表には載っていないため、以前は除外の対象になっていました）'},
+    {t:'imp', d:'🆘 ヘルプの人も、他の人と同じようにHDの役割（M・A1など）やメンテ・休みへ動かせます。配置盤では「🆘 ヘルプ」の印が付きます'},
+    {t:'fix', d:'📋 勤務表の取り込みで、ヘルプの人まで「名簿に未登録です（新スタッフ？）」と警告が出ていたのをやめました。本当に確認すべき新スタッフが埋もれなくなります'}
+  ]},
   { ver:'Ver.2026/08/29-53', date:'2026-08-29', title:'OC対応の種別・急患/スコープの計上・集計の並べ替え', items:[
     {t:'new', d:'📞 オンコールの対応を「🚑 OC出動対応」と「🕔 残り当番」の2つに分けました。横並びのチェックでどちらかを選ぶと、集計もその種別に分かれて計上されます'},
     {t:'new', d:'🕔 「残り当番」にチェックを入れると、日勤から引き継ぐ時間として開始に 16:45 が自動で入ります（あとから手で直せます）。対応時間と年休の欄は2種別で共通です'},
@@ -5489,7 +5510,8 @@ function plSideLabel(side){ return side==='hd' ? '🩸 HD' : '🩺 CE'; }
 function plNewPerson(o){
   o = o || {};
   return { base:o.base||'', shift:o.shift||'', oc:!!o.oc, night:!!o.night,
-           side:o.side||'ce', spot:o.spot||'', offer:'', from:o.from||'', memo:'' };
+           side:o.side||'ce', spot:o.spot||'', offer:'', from:o.from||'', memo:'',
+           manual:!!o.manual }; /* 手で名簿に足した人。勤務表から取り込み直しても外さない目印 */
 }
 
 function ensurePlacement(ds){
@@ -5512,6 +5534,8 @@ function plDerive(ds){
     else {
       var q = people[name];
       if (o.oc) q.oc = true;
+      /* 既に勤務表のスタッフとして入っている人は、ヘルプ扱いに落とさない */
+      if (o.base === 'help' && !q.base) q.base = 'help';
       /* spot も必ず上書きする。CE勤務かつHD日勤の行（shift:'CE' + hd:'day'）は
          si.ce → si.hd の順で put されるため、ここで spot を更新しないと 'pool' が
          残り、plSpot がそれを役割名として返して画面に "pool" と出てしまう。 */
@@ -5522,6 +5546,15 @@ function plDerive(ds){
   (si.ce||[]).forEach(function(c){ put(c.name, {base:'ce', shift:c.shift||'CE', oc:c.oc, side:'ce', spot:'pool'}); });
   (si.oc||[]).forEach(function(o){ put(o.name, {base:'oc', shift:o.shift||'', oc:true,  side:'ce', spot:'pool'}); });
   (si.hd||[]).forEach(function(h){ var c = h.night ? '準' : plHdRole(h.shift); put(h.name, {base:'hd', shift:c || h.shift || '', night:h.night, side:'hd', spot:c}); });
+  /* ヘルプ（他部署からの応援）。分院のスタッフマスタには居ないので、書かれた名前のまま
+     その日の名簿に載せる。CE側の未割当から始めて、必要ならHDの役割へ動かせる。 */
+  (si.help||[]).forEach(function(h){
+    /* ヘルプは基本HDへ入る。勤務表のサポート行に書かれた役割（A1・A2等）を
+       そのままHD側の持ち場にする。役割が読めなかった人はCEの未割当から始める。 */
+    var hr = plHdRole(h.shift);
+    put(h.name, hr ? {base:'help', shift:hr, side:'hd', spot:hr}
+                   : {base:'help', shift:'ヘルプ', side:'ce', spot:'pool'});
+  });
 
   /* 旧 hdDuty.overrides（HD担当表での差し替え）を読み替える：
      元の人はその日いなかったことになり、差し替え先の人がその役割を持つ */
@@ -5638,7 +5671,7 @@ function plMove(ds, name, spec){
   if (!can('duty')) return false;
   var dat = D.pages[ds]; if (!dat || !name || !spec) return false;
   var p = plFix(ds);
-  if (!p.people[name]) p.people[name] = plNewPerson({base:'', side:'ce', spot:'pool'});
+  if (!p.people[name]) p.people[name] = plNewPerson({base:'', side:'ce', spot:'pool', manual:true});
   var pp = p.people[name];
   var beforeSlot = plSpot(ds, name);
   var oldDuty = (spec.kind === 'duty') ? ((dat.duties||{})[spec.slot] || '') : '';
@@ -5825,7 +5858,12 @@ function plResync(ds){
   var cur = plPeople(ds);
   var fresh = plDerive(ds);
   var added = Object.keys(fresh).filter(function(n){ return !cur[n]; });
-  var removed = Object.keys(cur).filter(function(n){ return !fresh[n] && plSpot(ds,n).kind !== 'duty'; });
+  /* 手で足した人（ヘルプ含む）は勤務表に居なくて当たり前なので除外候補にしない。
+     「勤務表を直したから取り込み直す」だけのつもりが、あとから足したヘルプまで
+     消えてしまうため。担当枠に入っている人も従来どおり触らない。 */
+  var removed = Object.keys(cur).filter(function(n){
+    return !fresh[n] && !cur[n].manual && plSpot(ds,n).kind !== 'duty';
+  });
   var changed = Object.keys(fresh).filter(function(n){
     return cur[n] && (cur[n].shift||'') !== (fresh[n].shift||'');
   });
@@ -5895,8 +5933,10 @@ function plChipHTML(ds, name, opts){
     + (opts.tapAssign && !dlk ? ' data-pl-tap="1" title="タップで空いている担当枠へ入ります"' : '')
     + (dlk?'':' draggable="true"')+'>';
   h += '<span class="pl-chip-n">'+escH(name)+'</span>';
-  if (opts.showShift && pp.shift) h += '<span class="pl-chip-s">'+escH(pp.shift)+'</span>';
+  /* 🆘バッジと二重になる 'ヘルプ' という値だけ出さない（役割コードは出す） */
+  if (opts.showShift && pp.shift && pp.shift !== 'ヘルプ') h += '<span class="pl-chip-s">'+escH(pp.shift)+'</span>';
   if (pp.oc) h += '<span class="pl-chip-oc">OC</span>';
+  if (pp.base === 'help') h += '<span class="pl-chip-help" title="他部署からのヘルプ（分院のスタッフマスタには登録されません）">🆘 ヘルプ</span>';
   if (pp.from) h += '<span class="pl-chip-from" title="応援で来ています">'+(pp.from==='ce'?'🩺':'🩸')+'から</span>';
   if (opts.slotLabel) h += '<span class="pl-chip-slot" style="'+dutyChipStyle(opts.slotCfg||{id:'__free'})+'">'+escH(opts.slotLabel)+'</span>';
   if (opts.roleSel && !opts.slotLabel) h += '<span class="pl-chip-norole">役割なし</span>';
@@ -7452,6 +7492,11 @@ function renderGuide() {
   S += h2('名簿の増減と勤務表');
   S += '<div class="gd-p">その日の名簿は勤務表から作られますが、<strong>一度でも配置を動かすとその日の名簿が確定します</strong>（あとから勤務表を直しても勝手には変わりません）。勤務表を直したあとは「🔄 勤務表から取り込み直す」を押してください。増えた人・減った人・勤務コードが変わった人を確認してから反映できます。担当枠に入っている人の割り当ては変わりません。</div>';
   S += '<div class="gd-p">勤務交代などでその日だけ人を足すときは「＋ CEに追加」「＋ HDに追加」から選びます。名前の「×」でその日の名簿から外せます。</div>';
+  S += h2('🆘 他部署からのヘルプ');
+  S += '<div class="gd-p">勤務表の下にある「サポート」の欄に名前が書かれている人は、<strong>取り込みのときに自動で名簿に入ります</strong>（🆘 ヘルプ の印が付きます）。苗字だけで書かれていても、書かれたとおりの名前で入ります。名前の下の行に書かれた役割（A1・A2など）も一緒に読み取って、<strong>HDのその役割に入った状態</strong>になります。</div>';
+  S += '<div class="gd-p"><strong>あとからヘルプが来ることになったとき</strong>は、勤務表を取り込み直す必要はありません。「＋ CEに追加」「＋ HDに追加」を押して、一覧の下にある「🆘 名簿に無い人（他部署からのヘルプ）」に<strong>名前を入れて、隣で役割（A1・A2など）を選んで「追加」</strong>を押すだけです。役割を選べばHD担当表のその枠まで一度に入ります（役割が決まっていなければ「役割なし」のままでも追加できます）。</div>';
+  S += '<div class="gd-p"><strong>分院のスタッフ一覧（マスタ）には登録されません</strong>——その日の名簿にだけ載るので、毎回マスタを増やす必要はありません。手で足した人は、あとで「🔄 勤務表から取り込み直す」を押しても消えません。</div>';
+  S += '<div class="gd-p">ヘルプの人も、他の人と同じようにHDの役割（M・A1など）やメンテ・休みへ動かせます。</div>';
 
   S += h1('📊 業務件数');
   S += '<div class="gd-p">連絡表上部のヘッダーに当日の業務件数が自動集計されて表示されます。</div>';
@@ -9782,6 +9827,8 @@ var HD_DAY_CODES  = ['M','A1','A2','A3','S','B1','B2','B']; /* 日勤 */
 var HD_NIGHT_VALS = ['準','準夜'];                          /* 準夜 */
 var NIGHT_DUTY_VALS = ['宿直'];                             /* 宿直（CE以外の出勤扱い） */
 /* シフトコード正規化（全角英数字→半角 + 大文字化）。準/準夜は漢字なので大文字化の影響なし */
+/* 勤務表の「サポート」行（他部署からのヘルプ）を見分ける見出し */
+var SUPPORT_ROW_RE = /サポート|ヘルプ|応援/;
 function normShiftCode(raw){
   if (raw == null) return '';
   var s = raw.toString().trim()
@@ -9790,12 +9837,16 @@ function normShiftCode(raw){
 }
 function getShiftForDay(ds) {
   var pt = ds.split('-'); var ym = pt[0]+'-'+pt[1]; var day = parseInt(pt[2]);
-  var res = {ce:[], oc:[], evts:[], hd:[], nd:[]};
+  var res = {ce:[], oc:[], evts:[], hd:[], nd:[], help:[]};
   var md = D.shift[ym];
   if (md) {
     for (var name in md) {
       var info = md[name] && md[name][day];
       if (!info) continue;
+      /* ヘルプ（他部署からの応援）は独立した枠。CE/OC/HD のどれにも入れない
+         ——HDの役割コード（A1・A2等）を持つので、素通しすると通常のHD勤務者として
+         二重に数えられ、HD担当表にも分院スタッフとして並んでしまう。 */
+      if (info.help) { res.help.push({name:name, shift:info.shift || 'ヘルプ'}); continue; }
       /* CE：シフト値が "CE" に完全一致 → プール表示（OC兼任でも勤務者一覧に表示） */
       if (info.shift === 'CE') {
         res.ce.push({name:name, shift:'CE', oc:!!info.oc});
@@ -10199,6 +10250,35 @@ function parseShiftSheet(wb, fileName) {
     if (WD_CHARS.indexOf(col2) !== -1) continue;
     if (col2.length < 2 || col2.length > 20) continue;
 
+    /* ===== サポート（ヘルプ）行 =====
+       他部署から応援に来てくれる人は、スタッフ一覧とは別の「サポート」行に、
+       その日のセルへ名前が直接書かれている（勤務コードではない）。分院のスタッフでは
+       ないのでマスタ登録はせず、その日限りの名前としてそのまま取り込む。
+       複数名は「、」「・」「,」「/」改行で区切る——空白では割らない
+       （「田中 太郎」のようなフルネームの区切りを2人に割ってしまうため）。 */
+    if (SUPPORT_ROW_RE.test(col2)) {
+      /* 「サポート」行は2行1組：この行の日付セルに<strong>名前</strong>、すぐ下の行の
+         同じ日付セルに<strong>役割</strong>が入る（ヘルプは基本HDへ入るのでHDのコード）。
+         スタッフ行が「職員番号行→氏名行」の2行組なのと同じ考え方。 */
+      var roleRow = grid[ri + 1] || [];
+      for (var sci in colToDay) {
+        var sDay = colToDay[sci], scIdx = parseInt(sci);
+        var sRaw = grid[ri][scIdx];
+        if (sRaw == null) continue;
+        var hRole = plHdRole(normShiftCode(roleRow[scIdx])); /* HD_DAY_CODES と 準 だけ通す（「休」等は役割にしない） */
+        String(sRaw).split(/[、・,，\/／\n\r]+/).forEach(function(hn){
+          hn = hn.toString().trim().replace(/[\u3000\s]+/g, ' ').trim();
+          if (!hn || hn.length > 20) return;
+          if (SUPPORT_ROW_RE.test(hn)) return; /* 見出しがセルに重複しているケースを弾く */
+          if (!result[hn]) result[hn] = {};
+          if (!result[hn][sDay]) result[hn][sDay] = {};
+          result[hn][sDay].help = true;
+          result[hn][sDay].shift = hRole || 'ヘルプ';
+        });
+      }
+      continue; /* 「サポート」自体はスタッフとして登録しない */
+    }
+
     var name   = col2;
     var numRow = grid[ri - 1] || [];
     if (!result[name]) result[name] = {};
@@ -10239,7 +10319,7 @@ function parseShiftSheet(wb, fileName) {
   /* ===== 集計 ===== */
   var ymParts   = ym.split('-');
   var totalDays = new Date(parseInt(ymParts[0]), parseInt(ymParts[1]), 0).getDate();
-  var ceCount = 0, ocCount = 0, evtCount = 0, hdCount = 0;
+  var ceCount = 0, ocCount = 0, evtCount = 0, hdCount = 0, helpCount = 0;
   var preview = {};
 
   for (var nm in result) {
@@ -10261,6 +10341,12 @@ function parseShiftSheet(wb, fileName) {
         if (!preview[day].hd) preview[day].hd = [];
         preview[day].hd.push({name:nm, night:info.hd==='night'});
       }
+      if (info.help) {
+        helpCount++;
+        if (!preview[day]) preview[day] = {ce:[], oc:[], evts:[]};
+        if (!preview[day].help) preview[day].help = [];
+        preview[day].help.push(nm);
+      }
     }
   }
   for (var day in evts) {
@@ -10272,7 +10358,7 @@ function parseShiftSheet(wb, fileName) {
   /* ===== プレビュー ===== */
   var html = '<div style="background:var(--gr-bg);border:1px solid #a7d9d0;border-radius:8px;padding:12px 14px;margin-bottom:10px">';
   html += '<div style="font-size:12px;font-weight:700;color:var(--gr);margin-bottom:4px">\u2705 \u8aad\u307f\u8fbc\u307f\u5b8c\u4e86\uff1a' + ym + '\uff08' + sheetName + '\uff09</div>';
-  html += '<div style="font-size:11px;color:var(--txt2)">CE: ' + ceCount + '\u4ef6\u3000OC: ' + ocCount + '\u4ef6\u3000HD: ' + hdCount + '\u4ef6\u3000\u30a4\u30d9\u30f3\u30c8: ' + evtCount + '\u4ef6</div>';
+  html += '<div style="font-size:11px;color:var(--txt2)">CE: ' + ceCount + '\u4ef6\u3000OC: ' + ocCount + '\u4ef6\u3000HD: ' + hdCount + '\u4ef6\u3000\ud83c\udd98 \u30d8\u30eb\u30d7: ' + helpCount + '\u4ef6\u3000\u30a4\u30d9\u30f3\u30c8: ' + evtCount + '\u4ef6</div>';
   html += '<div style="font-size:10px;color:var(--txt3);margin-top:2px">\u65e5\u4ed8\u884c: ' + (dateRowIdx+1) + '\u884c\u76ee\u3000\u30a4\u30d9\u30f3\u30c8\u884c: ' + (evtRowIdx !== -1 ? evtRowIdx+1 : '\u691c\u51fa\u306a\u3057') + '\u884c\u76ee</div>';
   html += '</div>';
   html += '<div style="font-size:11px;font-weight:700;color:var(--txt3);margin-bottom:6px">\u78ba\u8a8d\u7528\u30b5\u30de\u30ea\u30fc\uff08\u6700\u521d\u306e7\u65e5\uff09</div>';
@@ -10287,6 +10373,7 @@ function parseShiftSheet(wb, fileName) {
       var hdNm = p.hd.map(function(x){ return x.name + (x.night ? '(\u6e96)' : ''); });
       html += '<span style="color:var(--pu);margin-left:8px">\ud83e\ude78 ' + hdNm.join('\u30fb') + '</span>';
     }
+    if (p.help && p.help.length) html += '<span style="color:var(--gd);margin-left:8px">\ud83c\udd98 ' + p.help.join('\u30fb') + '</span>';
     if (p.evts && p.evts.length) html += '<span style="color:var(--or);margin-left:8px">\ud83d\udcc5 ' + p.evts.join('\u30fb') + '</span>';
     html += '</div>';
   }
@@ -10358,11 +10445,15 @@ function validateShiftData(result, ym) {
     }
   }
 
-  /* 3. 名簿未登録スタッフ */
+  /* 3. 名簿未登録スタッフ。サポート行から入ったヘルプ（他部署からの応援）は
+     そもそもマスタに登録しない運用なので警告しない——毎月のインポートで
+     同じ警告が並び、本当に見るべき「新スタッフ？」が埋もれてしまう。 */
   for (var nm3 in result) {
-    if (D.stf.indexOf(nm3) === -1) {
-      issues.push({type:'warn', msg: '「' + escH(nm3) + '」は名簿に未登録です（新スタッフ？）'});
-    }
+    if (D.stf.indexOf(nm3) !== -1) continue;
+    var onlyHelp = true;
+    for (var hd3 in result[nm3]) { if (!result[nm3][hd3].help) { onlyHelp = false; break; } }
+    if (onlyHelp) continue;
+    issues.push({type:'warn', msg: '「' + escH(nm3) + '」は名簿に未登録です（新スタッフ？）'});
   }
 
   /* 4. 名簿にいるがシートに出てこないスタッフ（情報のみ） */
@@ -10493,6 +10584,18 @@ function openPoolStaffModal(ds, type) {
   var label = type === 'hd' ? '🩸 HD側' : '🩺 CE側';
   document.getElementById('pool-staff-modal-title').textContent = label + 'の名簿に追加するスタッフを選択';
   document.getElementById('pool-staff-search').value = '';
+  var helpInp = document.getElementById('pool-staff-help');
+  if (helpInp) { helpInp.value = ''; helpInp.onkeydown = function(e){ if (e.key === 'Enter') addHelpStaffFromModal(); }; }
+  /* 役割を選べば1回の操作でHD担当表のその枠まで入る（あとからメニューで選び直す手間を省く）。
+     ヘルプは基本HDへ入るので、選択肢はHDの役割コード。 */
+  var helpRoleSel = document.getElementById('pool-staff-help-role');
+  if (helpRoleSel) {
+    var ro = '<option value="">役割なし</option>';
+    HD_DAY_CODES.forEach(function(c){ ro += '<option value="'+escH(c)+'">'+escH(c)+'</option>'; });
+    ro += '<option value="準">準夜</option>';
+    helpRoleSel.innerHTML = ro;
+    helpRoleSel.value = '';
+  }
   document.getElementById('pool-staff-search').focus();
   document.getElementById('pool-staff-add-btn').style.display = 'none';
   populatePoolStaffList(poolStaffOnRoster(), '');
@@ -10552,6 +10655,42 @@ function searchPoolStaff(query) {
   if (!poolStaffModalState.ds) return; /* モーダルが閉じている場合は何もしない */
   populatePoolStaffList(poolStaffOnRoster(), query);
 }
+/* 他部署からのヘルプを名簿に足す。スタッフマスタ（D.stf）には登録せず、
+   その日の台帳にだけ base:'help' で載せる（勤務表のサポート行から入る人と同じ扱い）。
+   モーダル外なので initPHIGuard の委譲が効かない＝ここで明示的に患者情報チェックを通す。 */
+function addHelpStaffFromModal() {
+  var inp = document.getElementById('pool-staff-help');
+  var v = (inp && inp.value || '').trim().replace(/[\u3000\s]+/g, ' ');
+  if (!v) { toast('名前を入力してください', 'warn'); return; }
+  if (v.length > 20) { toast('名前が長すぎます', 'warn'); return; }
+  var ds = poolStaffModalState.ds, type = poolStaffModalState.type;
+  if (!ds || !D.pages[ds] || !can('duty')) return;
+  /* この欄は職員の名前を入れるためのものなので、氏名パターンの警告（黄色）では止めない
+     ——メーカー担当者名と同じ判断。止めると本来の用途が成立しなくなる。
+     患者IDや生年月日といったブロック対象（phiHasBlock）だけは弾く。 */
+  var phiRes = detectPHI(v);
+  if (phiHasBlock(phiRes)) {
+    showPHIPopup({ result: phiRes, mode:'field', onProceed:null, onFix:function(){} });
+    return;
+  }
+  var roleSel = document.getElementById('pool-staff-help-role');
+  var hRole = plHdRole(roleSel ? roleSel.value : '');
+  (function(){
+    var pl = plFix(ds);
+    if (pl.people[v]) { toast(v + ' さんは既にこの日の名簿にいます', 'warn'); return; }
+    /* 役割を選んでいればHD側のその持ち場へ（押したボタンがCE側でも役割優先）。
+       選んでいなければ押したボタンの側へ入れる。 */
+    pl.people[v] = hRole
+      ? plNewPerson({ base:'help', shift:hRole, side:'hd', spot:hRole, manual:true })
+      : plNewPerson({ base:'help', shift:'ヘルプ', side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '' : 'pool', manual:true });
+    saveD();
+    closePoolStaffModal();
+    renderPlacementBoard(ds, D.pages[ds], !can('duty'));
+    updateStaffZoneBadge(ds); updateCloseBar(ds);
+    writeLog('ヘルプを名簿に追加', fmtJ(ds) + ' ' + (hRole ? 'HD ' + hRole : (type === 'hd' ? 'HD' : 'CE')) + ' → ' + v);
+    toast(v + ' さんをヘルプとして追加しました' + (hRole ? '（' + hRole + '）' : ''), 'ok');
+  })();
+}
 /* すでにその日の名簿にいる人（＝もう追加できない人）。判定元は台帳ひとつ */
 function poolStaffOnRoster() {
   var on = {};
@@ -10574,7 +10713,7 @@ function confirmPoolStaffSelect() {
   if (!D.pages[ds] || !can('duty')) return;
   var pl = plFix(ds);
   if (pl.people[name]) { toast(name + ' さんは既にこの日の名簿にいます', 'warn'); return; }
-  pl.people[name] = plNewPerson({ base:'', side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '' : 'pool' });
+  pl.people[name] = plNewPerson({ base:'', side: type === 'hd' ? 'hd' : 'ce', spot: type === 'hd' ? '' : 'pool', manual:true });
   saveD();
   renderPlacementBoard(ds, D.pages[ds], !can('duty'));
   updateStaffZoneBadge(ds); updateCloseBar(ds);
