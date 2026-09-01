@@ -411,6 +411,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
 .ops-card-done-badge{display:inline-block;margin-left:8px;background:var(--gr);color:var(--on-ac);font-size:10px;font-weight:700;border-radius:10px;padding:2px 8px;vertical-align:middle}
 .ops-done-btn.on{background:var(--gr);color:var(--on-ac)}
+/* 症例ごとの印（急患・スコープ）。作りは .ops-done-btn と同じで色だけ変える */
+.ops-tag-btn.em{border-color:var(--rd);color:var(--rd)}
+.ops-tag-btn.em.on{background:var(--rd);color:var(--on-ac)}
+.ops-tag-btn.sc{border-color:var(--pu);color:var(--pu)}
+.ops-tag-btn.sc.on{background:var(--pu);color:var(--on-ac)}
+.ops-tag-badge{font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px;margin-right:3px}
 .ops-item-wrap.ops-item-done{opacity:.45;filter:grayscale(.6);transition:opacity .2s}
 .ops-meta-lbl{font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0}
 .ops-staff-row,.ops-end-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin:2px 0 4px}
@@ -514,6 +520,11 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .data-tbl tbody tr.group-hd td{background:var(--sur2);color:var(--txt2);font-size:11px;font-weight:800;padding:6px 10px}
 .data-tbl .num{text-align:center;font-family:var(--mo)}
 .data-tbl .muted{color:var(--txt3)}
+.data-tbl th.sortable{cursor:pointer;user-select:none}
+.data-tbl th.sortable:hover{color:var(--ac)}
+.sort-arw{font-size:9px;margin-left:3px;color:var(--ac)}
+.card-sort-sel{font-size:10px;border:1px solid var(--bdr);border-radius:var(--rs);padding:2px 4px;background:var(--sur);color:var(--txt2);margin:0 0 0 auto;font-family:var(--fn);cursor:pointer}
+.sum-card-ttl{display:flex;align-items:center;gap:6px}
 .status-pill{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
 .status-pill.done{background:var(--gr-bg);color:var(--gr)}
 /* ===== 階層マスタ ===== */
@@ -1135,7 +1146,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   .pool-chip-x,.dg .dc-del,.dg .dc-drag,.dg .dc-edit,.oc-sel,.oc-txt,
   #evt-area button,#aa-trigger,.print-btn,.srch-btn,.stale-banner,
   .db-add-link,.ops-now-btn,.cbar,
-  .staffz-arrow,.pl-toolbar,.pl-chip-acts{display:none!important}
+  .staffz-arrow,.pl-toolbar,.pl-chip-acts,.sort-arw{display:none!important}
   .ab{display:block!important}
   .main{margin:0!important;padding:0 8px!important;box-shadow:none!important;max-width:100%!important}
   .pt2{font-size:16px;font-weight:700;margin-bottom:8px}
@@ -3597,10 +3608,11 @@ function renderSpec() {
   S += '<div class="spec-p">各枠にPHS番号（<code>D.pages[ds].phsNums</code>）・備考欄（<code>D.pages[ds].dutyNotes</code>）あり。PHS番号は常時表示、備考は入力があるときだけ表示（空欄時は「＋備考」リンク）。PHS番号はロック設定タブでOFF可。dutyNotes の内容は横断検索の対象。</div>';
   S += '<div class="spec-h2">4-3. OC（オンコール）担当</div>';
   S += '<div class="spec-p">担当者プルダウン＋備考欄。Excelインポート時にOCフラグがある人を自動セット。</div>';
+  S += '<div class="spec-p">対応は2種別（<code>ocData.kind</code>）。<strong>🚑 OC出動対応</strong>（病院からのコールで出動）と <strong>🕔 残り当番</strong>（日勤帯で終わらない手術の残りを引き継ぐ）を横並びのチェックで排他選択する。対応時間（開始・退勤）と年休の欄は両種別で共用し、どちらにチェックを入れたかで計上先が変わる。残り当番をONにすると開始が空なら <code>OC_LEFTOVER_START</code>（16:45）を自動で入れる。読み取りは必ず <code>ocKind(od)</code> / <code>ocKindLabel(k)</code> を経由する（<code>kind</code> を持たない過去の記録はすべて出動対応として読むので移行処理は不要）。<code>done</code> と <code>kind</code> の書き換え口は <code>ocSetDone(ds, val, kind)</code> ひとつ。翌日の出勤ルール（<code>calcOcNextDayRule</code>）は種別を問わず両方に適用する。</div>';
   S += '<div class="spec-h2">4-4. 当日業務内容</div>';
   S += '<div class="spec-p">管理者がページごとに表示するカードを選択して構成。デフォルトは0枠。テンプレート保存・個別設定切り替えが可能。</div>';
   S += '<table class="spec-tbl"><tr><th>カード</th><th>詳細</th></tr>';
-  S += '<tr><td>🔪 オペ</td><td>科→中カテゴリ→フルネーム術式の3階層選択（自由記述可）＋入室時間＋使用物品＋備考。行を複数追加可</td></tr>';
+  S += '<tr><td>🔪 オペ</td><td>科→中カテゴリ→フルネーム術式の3階層選択（自由記述可）＋入室時間＋使用物品＋備考。症例ごとに 🚑 急患 / 🔭 スコープ の印（<code>item.emergency</code> / <code>item.scope</code>）。行を複数追加可</td></tr>';
   S += '<tr><td>🫀 カテ</td><td>治療順番号（1〜10）＋科→中カテゴリ→種別の3階層選択＋備考。行を複数追加可</td></tr>';
   S += '<tr><td>🚶 6MW</td><td>件数＋備考</td></tr>';
   S += '<tr><td>🌙 PSG</td><td>装着（号室等）＋付箋入力済チェック＋外し＋解析残件数</td></tr>';
@@ -3836,6 +3848,10 @@ function renderManual() {
   S += '<div class="mn-p">・<strong>PHS番号</strong>：プルダウンから選択します。<br>・<strong>備考欄</strong>：自由にテキスト入力できます。</div>';
   S += h2('OC（オンコール）担当');
   S += '<div class="mn-p">Excelインポート時にOCフラグがある人が自動セットされます。変更はプルダウンから選択してください。</div>';
+  S += '<div class="mn-p">対応した日は、内容に合わせて<strong>どちらか一方</strong>にチェックを入れます。<br>'
+    + '・<strong>🚑 OC出動対応</strong>：病院からコールがあって出動した場合<br>'
+    + '・<strong>🕔 残り当番</strong>：日勤帯で終わらない手術の残りを引き継いだ場合。日勤から引き継ぐので、チェックを入れると<strong>開始時刻に 16:45 が自動で入ります</strong>（あとから手で直せます）<br>'
+    + '対応時間（開始・退勤）と年休の欄は共通です。集計ではチェックした種別ごとに分かれて計上されます。退勤が遅い場合の翌日の出勤ルール（遅出・翌日休み）は、どちらの種別でも同じように出ます。</div>';
   S += h2('チェックボックス');
   S += '<div class="mn-p">各枠の上部にチェックボックスがあります（HDプライミング・PSG取り外しなど、管理者が設定）。作業が完了したらチェックを入れてください。</div>';
 
@@ -3847,6 +3863,7 @@ function renderManual() {
   S += step(1,'術式を選ぶ','プルダウンから選択。一覧にない場合は「自由記述...」を選んでテキスト入力。');
   S += step(2,'入室時間を選ぶ','「○時：△分」の2つのプルダウンで選択（ブリーフィング欄と同じ方式）。○は8〜16時＋AM／PM、△は0〜55分（5分刻み）＋OC。「自由入力」ボタンでテキスト入力にも切替可。');
   S += step(3,'術式を追加する','「＋ 術式を追加」ボタンで行を増やせます。');
+  S += step(4,'急患・スコープを記録する','各症例の「🏷」の行にある「🚑 急患」「🔭 スコープ」を押すと、その症例に印が付きます（もう一度押すと外れます）。📈 集計タブのCE集計に件数が出て、明細では「🚑 急患のみ」「🔭 スコープのみ」で絞り込めます。');
   S += h2('🫀 カテ（カテーテル）');
   S += step(1,'治療順番号を選ぶ','左端のプルダウンで1〜10から選択。');
   S += step(2,'種別を選ぶ','CAG・PCI・EVTなどから選択。「自由記述...」でテキスト入力も可。');
@@ -4445,8 +4462,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/08/29-52';
+var APP_VERSION = 'Ver.2026/08/29-53';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/08/29-53', date:'2026-08-29', title:'OC対応の種別・急患/スコープの計上・集計の並べ替え', items:[
+    {t:'new', d:'📞 オンコールの対応を「🚑 OC出動対応」と「🕔 残り当番」の2つに分けました。横並びのチェックでどちらかを選ぶと、集計もその種別に分かれて計上されます'},
+    {t:'new', d:'🕔 「残り当番」にチェックを入れると、日勤から引き継ぐ時間として開始に 16:45 が自動で入ります（あとから手で直せます）。対応時間と年休の欄は2種別で共通です'},
+    {t:'new', d:'🚑 手術の各症例に「🚑 急患」「🔭 スコープ」の印を付けられるようにしました。📈 集計タブのCE集計に件数が出て、明細では「急患のみ」「スコープのみ」で絞り込めます'},
+    {t:'new', d:'🔀 集計の表を並べ替えられるようにしました。列の見出しを押すと昇順・降順が切り替わります（CE集計の明細／OC集計／HD集計）。所要時間の長い順、対応時間の長い順といった見方ができます'},
+    {t:'new', d:'🔀 科別・術式別・担当者別・使用物品別の集計カードも、件数順／名前順／平均所要順で並べ替えられるようにしました'},
+    {t:'imp', d:'📥 CSVにも反映しました。OC集計に「種別」、CE集計の明細に「急患」「スコープ」の列が増えています'},
+    {t:'imp', d:'📞 退勤が遅かった翌日の出勤ルール（遅出・翌日休み）は、出動対応でも残り当番でも同じように出ます。お知らせにどちらの対応だったかが入ります'}
+  ]},
   { ver:'Ver.2026/08/29-52', date:'2026-08-29', title:'応援をどこからでも出せるようにしました', items:[
     {t:'imp', d:'🤝 相手側への「提供」を、未割当の人からも担当枠に入っている人からも直接できるようにしました。これまでは一度「余剰人員」に移してからでないとメニューに出てきませんでした'},
     {t:'imp', d:'🤝 担当枠に入っている人を提供するときは、メニューに「「◯◯」を外して提供します」と出て、その担当は自動で外れます'}
@@ -5052,7 +5078,7 @@ function renderDev() {
     '      ope_note, cath_note, mw_n, mw_note,',
     '      psg_on, psg_off, psg_rest, psg_fusen',
     '    },',
-    '    ocData: {staff, note, done, startTime, endTime, nenkyu},',
+    '    ocData: {staff, note, done, kind:\'dispatch\'|\'leftover\', startTime, endTime, nenkyu},',
     '    placement: {fixed:true, people:{名前:{base,shift,oc,night,side,spot,offer,from,memo}}},',
     '    staffAdj: {addCe:[], addOc:[], removeCe:{名前:true}, removeOc:{名前:true}} // 旧・読み出しのみ',
     '  }},',
@@ -5244,7 +5270,7 @@ function downloadDevMd() {
     '      ope_note, cath_note, mw_n, mw_note,',
     '      psg_on, psg_off, psg_rest, psg_fusen',
     '    },',
-    '    ocData: {staff, note, done, startTime, endTime, nenkyu}',
+    '    ocData: {staff, note, done, kind:\'dispatch\'|\'leftover\', startTime, endTime, nenkyu}',
     '  }},',
     '  stf, phs, dly, wd, lk, ope, cath,',
     '  shift: {\'YYYY-MM\': {\'氏名\': {1:{shift,oc}}}},',
@@ -6382,6 +6408,44 @@ function applySumRange(pfx) {
   renderOCSummary(); renderOpsSummary(); renderHdSummary();
 }
 /* 期間切替のコントロール。OC集計と業務集計の両方に同じものを出すので id は接頭辞で分ける */
+/* ===== 集計テーブルの並べ替え =====
+   CE明細・OC集計・HD集計の3つの表で同じ仕組みを使う（表ごとに実装を書き写さない）。
+   列見出しをクリックすると昇順→降順で切り替わり、同じ列を押すたびに反転する。
+   値が空の行は昇順でも降順でも常に末尾に置く（「未入力が先頭に並ぶ」のを避けるため）。 */
+var _sumSort = { opsdet:{key:'',dir:'asc'}, oc:{key:'',dir:'asc'}, hd:{key:'',dir:'asc'} };
+function setSumSort(tbl, key) {
+  var st = _sumSort[tbl]; if (!st) return;
+  if (st.key === key) st.dir = (st.dir === 'asc') ? 'desc' : 'asc';
+  else { st.key = key; st.dir = 'asc'; }
+  /* どの表を開いていても各レンダラの element-existence ガードで安全に空振りする
+     （setSumMode / applySumRange と同じ方針） */
+  renderOpsSummary(); renderOCSummary(); renderHdSummary();
+}
+function sumSortTh(tbl, key, label, style) {
+  var st = _sumSort[tbl] || {};
+  var on = st.key === key;
+  return '<th class="sortable"' + (style ? ' style="'+style+'"' : '')
+    + ' onclick="setSumSort(\''+tbl+'\',\''+key+'\')" title="クリックで並べ替え">'
+    + label + '<span class="sort-arw">' + (on ? (st.dir==='asc' ? '▲' : '▼') : '') + '</span></th>';
+}
+/* accessors = { 列キー: function(row){ return 値 } }。数値は数値として、それ以外は日本語順で比較する。
+   元の並び順を保つ安定ソート（同値なら元の順）。 */
+function sumSortRows(tbl, rows, accessors) {
+  var st = _sumSort[tbl];
+  if (!st || !st.key || !accessors || !accessors[st.key]) return rows;
+  var get = accessors[st.key], dir = (st.dir === 'desc') ? -1 : 1;
+  return rows.map(function(r, i){ return {r:r, i:i}; }).sort(function(a, b){
+    var va = get(a.r), vb = get(b.r);
+    var ea = (va === null || va === undefined || va === ''), eb = (vb === null || vb === undefined || vb === '');
+    if (ea && eb) return a.i - b.i;
+    if (ea) return 1;   /* 空は方向に関わらず末尾 */
+    if (eb) return -1;
+    if (typeof va === 'number' && typeof vb === 'number') { if (va !== vb) return (va - vb) * dir; }
+    else { var c = String(va).localeCompare(String(vb), 'ja'); if (c) return c * dir; }
+    return a.i - b.i;
+  }).map(function(x){ return x.r; });
+}
+
 function sumCtlHTML(pfx) {
   var r = sumRange();
   var seg = function(mode, label){
@@ -6423,7 +6487,7 @@ function sumMonthLabel(ym) { var p = ym.split('-'); return p[0]+'/'+parseInt(p[1
    既定は 'day'。フィルタ状態は明細ビューを開いている間だけ意味を持つが、
    タブを行き来しても条件を覚えていた方が使いやすいのでモジュール変数に保持する。 */
 var _opsSumView = 'day'; /* 'day' | 'detail' */
-var _opsDetFilter = { kind:'all', dept:'', staff:'', sup:'', doneOnly:false, group:'none' };
+var _opsDetFilter = { kind:'all', dept:'', staff:'', sup:'', doneOnly:false, emOnly:false, scOnly:false, group:'none' };
 function setOpsSumView(v) { _opsSumView = v; renderOpsSummary(); }
 function setOpsDetFilter(key, val) { _opsDetFilter[key] = val; renderOpsSummary(); }
 
@@ -6446,7 +6510,8 @@ function opsDetailRows() {
         out.push({
           ds: ds, kind: kind, dept: dept, cat: opsItemCat(it), name: name,
           startMin: startMin, endMin: endMin, dur: dur,
-          staff: opsItemStaff(it), sup: opsItemSup(it), done: !!it.done
+          staff: opsItemStaff(it), sup: opsItemSup(it), done: !!it.done,
+          emergency: !!it.emergency, scope: !!it.scope
         });
       });
     });
@@ -6466,6 +6531,8 @@ function opsDetailFiltered(rows) {
     if (f.staff && r.staff.indexOf(f.staff) === -1) return false;
     if (f.sup && r.sup.indexOf(f.sup) === -1) return false;
     if (f.doneOnly && !r.done) return false;
+    if (f.emOnly && !r.emergency) return false;
+    if (f.scOnly && !r.scope) return false;
     return true;
   });
 }
@@ -6479,7 +6546,43 @@ function opsFreqMap(rows, keyFn) {
   return m;
 }
 function opsFreqSortedKeys(m) { return Object.keys(m).sort(function(a,b){ return m[b]-m[a]; }); }
+/* 集計カード（科別・術式別・担当者別・使用物品別）の並べ替え。
+   表と違って列見出しが無いので、カード見出しの <select> で切り替える。 */
+var _opsCardSort = 'count'; /* 'count'（件数の多い順・既定）| 'name'（名前順）| 'dur'（平均所要の長い順） */
+function setOpsCardSort(v) { _opsCardSort = v; renderOpsSummary(); }
+function opsCardSortSel(withDur) {
+  var opts = [['count','件数順'],['name','名前順']];
+  if (withDur) opts.push(['dur','平均所要順']);
+  var h = '<select class="card-sort-sel" onchange="setOpsCardSort(this.value)">';
+  opts.forEach(function(o){ h += '<option value="'+o[0]+'"'+(_opsCardSort===o[0]?' selected':'')+'>'+o[1]+'</option>'; });
+  return h + '</select>';
+}
+/* キー配列を _opsCardSort に従って並べ替える。getN=件数、getDur=平均所要（省略可） */
+function opsCardSortKeys(keys, getN, getDur) {
+  var mode = _opsCardSort;
+  if (mode === 'dur' && !getDur) mode = 'count'; /* 平均所要を持たないカードは件数順に落とす */
+  return keys.slice().sort(function(a, b){
+    if (mode === 'name') return String(a).localeCompare(String(b), 'ja');
+    if (mode === 'dur') {
+      var da = getDur(a), db = getDur(b);
+      if (da == null && db == null) return getN(b) - getN(a);
+      if (da == null) return 1;
+      if (db == null) return -1;
+      if (da !== db) return db - da;
+      return getN(b) - getN(a);
+    }
+    var d = getN(b) - getN(a);
+    return d || String(a).localeCompare(String(b), 'ja');
+  });
+}
 function opsDurLabel(min) { return min == null ? '—' : (min >= 60 ? Math.floor(min/60)+'時間'+(min%60?(min%60)+'分':'') : min+'分'); }
+/* 明細表の「印」列。急患・スコープを小さなバッジで並べる */
+function opsTagLabel(r) {
+  var t = '';
+  if (r.emergency) t += '<span class="ops-tag-badge" style="background:var(--rd-bg);color:var(--rd)">🚑急患</span>';
+  if (r.scope)     t += '<span class="ops-tag-badge" style="background:var(--pu-bg);color:var(--pu)">🔭スコープ</span>';
+  return t || '<span class="muted">—</span>';
+}
 function opsSupLabel(sup) {
   if (!sup.length) return '—';
   if (sup.length <= 3) return escH(sup.join('、'));
@@ -6514,13 +6617,15 @@ function renderOpsDetailBody(allRows) {
   opsFreqSortedKeys(supFreq).forEach(function(s){ h += '<option value="'+escH(s)+'"'+(f.sup===s?' selected':'')+'>'+escH(s)+' ('+supFreq[s]+')</option>'; });
   h += '</select>';
   h += '<label class="flt-check"><input type="checkbox" '+(f.doneOnly?'checked':'')+' onchange="setOpsDetFilter(\'doneOnly\',this.checked)">終了済のみ</label>';
+  h += '<label class="flt-check"><input type="checkbox" '+(f.emOnly?'checked':'')+' onchange="setOpsDetFilter(\'emOnly\',this.checked)">🚑 急患のみ</label>';
+  h += '<label class="flt-check"><input type="checkbox" '+(f.scOnly?'checked':'')+' onchange="setOpsDetFilter(\'scOnly\',this.checked)">🔭 スコープのみ</label>';
   h += '<select class="flt-sel flt-clear" onchange="setOpsDetFilter(\'group\',this.value)">';
   [['none','グルーピング：なし'],['dept','科ごと'],['date','日付ごと'],['staff','担当者ごと']].forEach(function(g){
     h += '<option value="'+g[0]+'"'+(f.group===g[0]?' selected':'')+'>'+g[1]+'</option>';
   });
   h += '</select>';
-  if (f.kind!=='all'||f.dept||f.staff||f.sup||f.doneOnly||f.group!=='none') {
-    h += '<button class="btn btn-g btn-sm" onclick="_opsDetFilter={kind:\'all\',dept:\'\',staff:\'\',sup:\'\',doneOnly:false,group:\'none\'};renderOpsSummary();">✕ 条件クリア</button>';
+  if (f.kind!=='all'||f.dept||f.staff||f.sup||f.doneOnly||f.emOnly||f.scOnly||f.group!=='none') {
+    h += '<button class="btn btn-g btn-sm" onclick="_opsDetFilter={kind:\'all\',dept:\'\',staff:\'\',sup:\'\',doneOnly:false,emOnly:false,scOnly:false,group:\'none\'};renderOpsSummary();">✕ 条件クリア</button>';
   }
   h += '</div>';
 
@@ -6536,8 +6641,8 @@ function renderOpsDetailBody(allRows) {
 
   h += '<div class="sum-card-grid">';
 
-  h += '<div class="sum-card"><div class="sum-card-ttl">🏥 科別</div>';
-  var deptKeys = Object.keys(deptAgg).sort(function(a,b){ return (deptAgg[b].ope+deptAgg[b].cath)-(deptAgg[a].ope+deptAgg[a].cath); });
+  h += '<div class="sum-card"><div class="sum-card-ttl">🏥 科別'+opsCardSortSel(false)+'</div>';
+  var deptKeys = opsCardSortKeys(Object.keys(deptAgg), function(d){ return deptAgg[d].ope+deptAgg[d].cath; });
   deptKeys.forEach(function(d){
     var a=deptAgg[d];
     h += '<div class="sum-card-row"><span class="lbl">'+escH(d)+'</span><span class="n">オペ'+a.ope+'・カテ'+a.cath+'（計'+(a.ope+a.cath)+'）</span></div>';
@@ -6545,15 +6650,17 @@ function renderOpsDetailBody(allRows) {
   if (!deptKeys.length) h += '<div class="sum-card-empty">記録がありません</div>';
   h += '</div>';
 
-  h += '<div class="sum-card"><div class="sum-card-ttl">🔪 術式別 TOP10</div>';
-  var nameKeys = Object.keys(nameAgg).sort(function(a,b){ return nameAgg[b]-nameAgg[a]; });
+  h += '<div class="sum-card"><div class="sum-card-ttl">🔪 術式別 TOP10'+opsCardSortSel(false)+'</div>';
+  var nameKeys = opsCardSortKeys(Object.keys(nameAgg), function(k){ return nameAgg[k]; });
   nameKeys.slice(0,10).forEach(function(k){ h += '<div class="sum-card-row"><span class="lbl">'+escH(k)+'</span><span class="n">'+nameAgg[k]+'件</span></div>'; });
   if (!nameKeys.length) h += '<div class="sum-card-empty">記録がありません</div>';
   if (nameKeys.length>10) h += '<div class="sum-card-note">他 '+(nameKeys.length-10)+' 種</div>';
   h += '</div>';
 
-  h += '<div class="sum-card"><div class="sum-card-ttl">👤 担当者別</div>';
-  var staffKeys = Object.keys(staffAgg).sort(function(a,b){ return staffAgg[b].n-staffAgg[a].n; });
+  h += '<div class="sum-card"><div class="sum-card-ttl">👤 担当者別'+opsCardSortSel(true)+'</div>';
+  var staffKeys = opsCardSortKeys(Object.keys(staffAgg),
+    function(n){ return staffAgg[n].n; },
+    function(n){ var a=staffAgg[n]; return a.durN ? Math.round(a.dur/a.durN) : null; });
   staffKeys.forEach(function(n){
     var a=staffAgg[n], avg = a.durN ? Math.round(a.dur/a.durN) : null;
     h += '<div class="sum-card-row"><span class="lbl">'+escH(n)+'</span><span class="n">'+a.n+'件'+(avg!=null?'・平均'+opsDurLabel(avg):'')+'</span></div>';
@@ -6562,8 +6669,8 @@ function renderOpsDetailBody(allRows) {
   h += '<div class="sum-card-note">※ 所要時間は入室時間と終了時刻が両方ある行のみ算入</div>';
   h += '</div>';
 
-  h += '<div class="sum-card"><div class="sum-card-ttl">🧰 使用物品別</div>';
-  var supKeys = Object.keys(supAgg).sort(function(a,b){ return supAgg[b]-supAgg[a]; });
+  h += '<div class="sum-card"><div class="sum-card-ttl">🧰 使用物品別'+opsCardSortSel(false)+'</div>';
+  var supKeys = opsCardSortKeys(Object.keys(supAgg), function(k){ return supAgg[k]; });
   supKeys.slice(0,15).forEach(function(s){ h += '<div class="sum-card-row"><span class="lbl">'+escH(s)+'</span><span class="n">'+supAgg[s]+'件</span></div>'; });
   if (!supKeys.length) h += '<div class="sum-card-empty">使用物品の記録がありません</div>';
   if (supKeys.length>15) h += '<div class="sum-card-note">他 '+(supKeys.length-15)+' 種</div>';
@@ -6591,18 +6698,41 @@ function renderOpsDetailBody(allRows) {
       + '<td class="num">'+(r.dur!=null?opsDurLabel(r.dur):'<span class="muted">—</span>')+'</td>'
       + '<td>'+(r.staff.length?escH(r.staff.join('・')):'<span class="muted">—</span>')+'</td>'
       + '<td>'+opsSupLabel(r.sup)+'</td>'
+      + '<td class="num">'+opsTagLabel(r)+'</td>'
       + '<td class="num">'+(r.done?'<span class="status-pill done">済</span>':'<span class="muted">—</span>')+'</td>'
       + '</tr>';
   };
+  /* 並べ替え。グルーピングありのときは、先に全体を並べ替えてからグループに割るので
+     グループ内が指定順になる（sumSortRows は安定ソート） */
+  var sorted = sumSortRows('opsdet', rows, {
+    ds:       function(r){ return r.ds; },
+    kind:     function(r){ return r.kind; },
+    dept:     function(r){ return r.dept; },
+    cat:      function(r){ return r.cat; },
+    name:     function(r){ return r.name; },
+    startMin: function(r){ return r.startMin; },
+    endMin:   function(r){ return r.endMin; },
+    dur:      function(r){ return r.dur; },
+    staff:    function(r){ return r.staff.join('・'); },
+    tag:      function(r){ var v=(r.emergency?2:0)+(r.scope?1:0); return v||null; },
+    done:     function(r){ return r.done ? 1 : null; }
+  });
   h += '<div class="data-wrap"><table class="data-tbl ops-det-tbl" style="min-width:900px">';
-  h += '<thead><tr><th>日付</th><th>種別</th><th>科</th><th>中カテ</th><th>術式/種別</th><th>入室</th><th>終了</th><th>所要</th><th>担当者</th><th>使用物品</th><th>状態</th></tr></thead><tbody>';
+  h += '<thead><tr>'
+    + sumSortTh('opsdet','ds','日付') + sumSortTh('opsdet','kind','種別')
+    + sumSortTh('opsdet','dept','科') + sumSortTh('opsdet','cat','中カテ')
+    + sumSortTh('opsdet','name','術式/種別') + sumSortTh('opsdet','startMin','入室')
+    + sumSortTh('opsdet','endMin','終了') + sumSortTh('opsdet','dur','所要')
+    + sumSortTh('opsdet','staff','担当者') + '<th>使用物品</th>'
+    + sumSortTh('opsdet','tag','印') + sumSortTh('opsdet','done','状態')
+    + '</tr></thead><tbody>';
   if (f.group === 'none') {
-    rows.forEach(function(r){ h += rowHTML(r); });
+    sorted.forEach(function(r){ h += rowHTML(r); });
   } else {
     var groups = {}, order = [];
-    rows.forEach(function(r){ var g = groupOf(r); if(!groups[g]){groups[g]=[];order.push(g);} groups[g].push(r); });
+    sorted.forEach(function(r){ var g = groupOf(r); if(!groups[g]){groups[g]=[];order.push(g);} groups[g].push(r); });
     order.forEach(function(g){
-      h += '<tr class="group-hd"><td colspan="11">'+escH(g)+'（'+groups[g].length+'件）</td></tr>';
+      h += '<tr class="group-hd"><td colspan="12">'+escH(g)+'（'+groups[g].length+'件）</td></tr>';
       groups[g].forEach(function(r){ h += rowHTML(r); });
     });
   }
@@ -6626,45 +6756,77 @@ function renderOCSummary() {
     el.innerHTML = h + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'にOC担当の記録がありません</div>';
     return;
   }
-  /* 集計 */
-  var totalDone   = rows.filter(function(r){return r.pg.ocData.done;}).length;
+  /* 集計。対応は種別ごとに分けて数える（計上先が変わるのが今回の目的） */
+  var totalDisp   = rows.filter(function(r){return r.pg.ocData.done && ocKind(r.pg.ocData)===OC_KIND_DISPATCH;}).length;
+  var totalLeft   = rows.filter(function(r){return r.pg.ocData.done && ocKind(r.pg.ocData)===OC_KIND_LEFTOVER;}).length;
+  var totalDone   = totalDisp + totalLeft;
   var totalNenkyu = rows.filter(function(r){return r.pg.ocData.nenkyu;}).length;
   /* サマリーバッジ */
   h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+escH(rng.label)+'　OC集計</span></div>';
   h += '<div class="sum-badges">';
-  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--oc)"></span>対応件数 <b style="color:var(--oc)">'+totalDone+'</b>/'+rows.length+'件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--rd)"></span>🚑 出動 <b style="color:var(--rd)">'+totalDisp+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--or)"></span>🕔 残り当番 <b style="color:var(--or)">'+totalLeft+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--oc)"></span>対応計 <b style="color:var(--oc)">'+totalDone+'</b>/'+rows.length+'件</span>';
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--ac)"></span>年休取得 <b style="color:var(--ac)">'+totalNenkyu+'</b>件</span>';
   h += '</div>';
   /* 複数月にまたがるときは月別の内訳を先に出す（年間集計で日別だけだと読み取れないため） */
   if (rng.multi) {
     var mk = sumMonthKeys(rows.map(function(r){ return r.ds; }));
     var per = {};
-    mk.forEach(function(k){ per[k] = {n:0, done:0, nen:0, staff:{}}; });
+    mk.forEach(function(k){ per[k] = {n:0, disp:0, left:0, nen:0, staff:{}}; });
     rows.forEach(function(r){
-      var k = r.ds.slice(0,7), p = per[k];
-      p.n++; if (r.pg.ocData.done) p.done++; if (r.pg.ocData.nenkyu) p.nen++;
-      var s = r.pg.ocData.staff || ''; if (s) p.staff[s] = (p.staff[s]||0)+1;
+      var k = r.ds.slice(0,7), p = per[k], od = r.pg.ocData;
+      p.n++;
+      if (od.done) { if (ocKind(od)===OC_KIND_LEFTOVER) p.left++; else p.disp++; }
+      if (od.nenkyu) p.nen++;
+      var s = od.staff || ''; if (s) p.staff[s] = (p.staff[s]||0)+1;
     });
-    h += '<div class="data-wrap" style="margin-bottom:14px"><table class="data-tbl" style="min-width:420px">';
-    h += '<thead><tr><th style="width:90px">月</th><th style="width:90px">OC担当日数</th><th style="width:90px">対応件数</th><th style="width:80px">年休</th><th>担当者内訳</th></tr></thead><tbody>';
+    h += '<div class="data-wrap" style="margin-bottom:14px"><table class="data-tbl" style="min-width:520px">';
+    h += '<thead><tr><th style="width:90px">月</th><th style="width:90px">OC担当日数</th><th style="width:80px">🚑 出動</th><th style="width:90px">🕔 残り当番</th><th style="width:70px">年休</th><th>担当者内訳</th></tr></thead><tbody>';
     mk.forEach(function(k){
       var p = per[k];
       var names = Object.keys(p.staff).sort(function(a,b){ return p.staff[b]-p.staff[a]; })
         .map(function(n){ return escH(n)+' '+p.staff[n]; }).join('、');
       h += '<tr><td style="white-space:nowrap"><strong>'+sumMonthLabel(k)+'</strong></td>'
         + '<td class="num">'+p.n+'</td>'
-        + '<td class="num" style="font-weight:700;color:var(--oc)">'+p.done+'</td>'
+        + '<td class="num" style="font-weight:700;color:var(--rd)">'+(p.disp||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num" style="font-weight:700;color:var(--or)">'+(p.left||'<span class="muted">—</span>')+'</td>'
         + '<td class="num">'+(p.nen||'<span class="muted">—</span>')+'</td>'
         + '<td style="font-size:11px">'+names+'</td></tr>';
     });
     h += '<tr class="total"><td>合計</td><td class="num">'+rows.length+'</td>'
-      + '<td class="num" style="color:var(--oc)">'+totalDone+'</td><td class="num">'+totalNenkyu+'</td><td></td></tr>';
+      + '<td class="num" style="color:var(--rd)">'+totalDisp+'</td>'
+      + '<td class="num" style="color:var(--or)">'+totalLeft+'</td>'
+      + '<td class="num">'+totalNenkyu+'</td><td></td></tr>';
     h += '</tbody></table></div>';
   }
   /* テーブル */
-  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:520px">';
-  h += '<thead><tr><th style="width:'+(rng.multi?100:70)+'px">日付</th><th style="width:80px">担当者</th><th>備考</th><th style="width:80px">対応</th><th style="width:110px">対応時間</th><th style="width:70px">年休</th></tr></thead><tbody>';
-  rows.forEach(function(r) {
+  var ocSorted = sumSortRows('oc', rows, {
+    ds:    function(r){ return r.ds; },
+    staff: function(r){ return r.pg.ocData.staff || null; },
+    kind:  function(r){ return r.pg.ocData.done ? ocKindLabel(ocKind(r.pg.ocData)) : null; },
+    /* 「対応時間」は開始時刻ではなく対応の長さ（分）で並べる——知りたいのは
+       「長く対応した日はどれか」であって、開始時刻順は日付順とほぼ同じ情報しか出ない。
+       日をまたいだ退勤（19:00→翌1:30 など）は24時間ぶん足して負の値にならないようにする。 */
+    time:  function(r){
+      var od = r.pg.ocData;
+      if (!od.startTime || !od.endTime) return null;
+      var a = tabletHMToMin(od.startTime), b = tabletHMToMin(od.endTime);
+      if (a == null || b == null) return null;
+      return (b < a) ? (b + 24*60 - a) : (b - a);
+    },
+    nenkyu:function(r){ return r.pg.ocData.nenkyu ? 1 : null; }
+  });
+  h += '<div class="data-wrap"><table class="data-tbl" style="min-width:600px">';
+  h += '<thead><tr>'
+    + sumSortTh('oc','ds','日付','width:'+(rng.multi?100:70)+'px')
+    + sumSortTh('oc','staff','担当者','width:80px')
+    + '<th>備考</th>'
+    + sumSortTh('oc','kind','種別','width:110px')
+    + sumSortTh('oc','time','対応時間','width:110px')  /* 並べ替えは対応の長さ順 */
+    + sumSortTh('oc','nenkyu','年休','width:70px')
+    + '</tr></thead><tbody>';
+  ocSorted.forEach(function(r) {
     var oc = r.pg.ocData;
     var w  = new Date(r.ds).getDay();
     var wdCls = w===0?'color:var(--rd)':w===6?'color:var(--ac)':'';
@@ -6674,7 +6836,9 @@ function renderOCSummary() {
     h += '<td style="white-space:nowrap;'+wdCls+'"><strong>'+dn+'</strong> '+WDL[w]+'</td>';
     h += '<td style="font-weight:700">'+escH(oc.staff||'')+'</td>';
     h += '<td style="white-space:pre-wrap;font-size:11px">'+escH(oc.note||'')+'</td>';
-    h += '<td class="num">'+(oc.done?'<span class="status-pill done">✔ 対応</span>':'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(oc.done
+      ? '<span class="status-pill done">'+ocKindIcon(ocKind(oc))+' '+escH(ocKindLabel(ocKind(oc)))+'</span>'
+      : '<span class="muted">—</span>')+'</td>';
     var ocTimeStr = '';
     if (oc.startTime || oc.endTime) { ocTimeStr = (oc.startTime||'--:--') + '〜' + (oc.endTime||'--:--'); }
     else if (oc.time) { ocTimeStr = oc.time; }
@@ -6772,9 +6936,23 @@ function renderHdSummary() {
     h += '</div></div>';
   }
   /* 日別テーブル */
+  var hdSorted = sumSortRows('hd', rows, {
+    ds:    function(r){ return r.ds; },
+    day:   function(r){ return r.day || null; },
+    night: function(r){ return r.night || null; },
+    bw:    function(r){ return r.bw || null; },
+    ward:  function(r){ return r.ward || null; },
+    sp:    function(r){ return r.sp.length || null; },
+    total: function(r){ return r.total; }
+  });
   h += '<div class="data-wrap"><table class="data-tbl" style="min-width:520px">';
-  h += '<thead><tr><th style="width:'+(rng.multi?100:70)+'px">日付</th><th>日中</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>計</th></tr></thead><tbody>';
-  rows.forEach(function(r) {
+  h += '<thead><tr>'
+    + sumSortTh('hd','ds','日付','width:'+(rng.multi?100:70)+'px')
+    + sumSortTh('hd','day','日中') + sumSortTh('hd','night','準夜')
+    + sumSortTh('hd','bw','BW') + sumSortTh('hd','ward','病棟')
+    + sumSortTh('hd','sp','特殊') + sumSortTh('hd','total','計')
+    + '</tr></thead><tbody>';
+  hdSorted.forEach(function(r) {
     var w = new Date(r.ds).getDay();
     var wdCls = w===0?'color:var(--rd)':w===6?'color:var(--ac)':'';
     var pt = r.ds.split('-');
@@ -6843,17 +7021,23 @@ function renderOpsSummary() {
     + '<span class="sum-period-label">'+escH(rng.label)+'　CE集計</span>'
     + '</div>';
   /* バッジ色は担当表の担当枠チップ（dutyColorFor）と同系色に揃え、画面をまたいだ一貫性を作る */
+  /* 急患・スコープは症例行の印なので、日別の totals ではなく明細行から数える */
+  var tagRows = opsDetailRows();
+  var totalEm = tagRows.filter(function(r){ return r.emergency; }).length;
+  var totalSc = tagRows.filter(function(r){ return r.scope; }).length;
   var badge = '<div class="sum-badges">'
     + [['sum-ope','🔪 オペ', totals.ope],['sum-cath','🫀 カテ', totals.cath],['sum-mw','🚶 6MW', totals.mw],['sum-psg','🌙 PSG', totals.psg],['sum-free','➕ フリー', totals.free]].map(function(t){
         return '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--'+t[0]+')"></span>'+t[1]+' <b style="color:var(--'+t[0]+')">'+t[2]+'</b>件</span>';
       }).join('')
+    + '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--rd)"></span>🚑 急患 <b style="color:var(--rd)">'+totalEm+'</b>件</span>'
+    + '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>🔭 スコープ <b style="color:var(--pu)">'+totalSc+'</b>件</span>'
     + '</div>';
   if (!rows.length) {
     el.innerHTML = ctl + toggle + badge + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'に業務記録がありません</div>';
     return;
   }
   if (_opsSumView === 'detail') {
-    el.innerHTML = ctl + toggle + badge + renderOpsDetailBody(opsDetailRows());
+    el.innerHTML = ctl + toggle + badge + renderOpsDetailBody(tagRows);
     return;
   }
 
@@ -10553,6 +10737,7 @@ function opsItemFilled(it){
   if (it.sup && it.sup.length) return true;
   if (it.endTime != null || (it.staff && (Array.isArray(it.staff) ? it.staff.length : Object.keys(it.staff).length))) return true;
   if (it.note && String(it.note).trim().length > 0) return true;
+  if (it.emergency || it.scope) return true; /* 印だけ押した行も1件として数える（数えないと集計から漏れる） */
   return false;
 }
 /* ===== フリー業務カードの走査（唯一の入口） =====
@@ -11611,11 +11796,11 @@ function renderPage(ds) {
   h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone)+'</span></div>' : '') +'</div>';
   var _ocStaff = dat.ocData.staff || '';
   var _ocCls = !_ocStaff ? ' dash-warn' : (dat.ocData.done ? ' pv-p' : '');
-  h+='<div class="pr dash-chip" id="oc-dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'" id="oc-dash-val">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅対応済':'')+'</span></div>';
+  h+='<div class="pr dash-chip" id="oc-dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'" id="oc-dash-val">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅'+ocKindLabel(ocKind(dat.ocData)):'')+'</span></div>';
   var _memoUndone = memosOf(dat).filter(function(m){return !m.done;}).length;
   h+='<div class="pr dash-chip" onclick="dashJump(\'#memo-list\')" title="申し送りへジャンプ"><span class="pl">📝 申し送り</span><span class="pv'+(_memoUndone?'':' dash-muted')+'">'+_memoUndone+'件</span></div>';
   h+='</div>';
-  if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日OC対応：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
+  if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日'+escH(ocKindLabel(al.kind))+'：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
   /* 人員配置管理：CE/HDを1枚にまとめた配置盤（renderPlacementBoard が中身を描く）。
      当日勤務者一覧・余剰人員・HD勤務者パネルはすべてこの中に統合済み。 */
@@ -11653,15 +11838,19 @@ function renderPage(ds) {
   /* 対応チェックボックス。狭い画面でも「対応」チェックと「対応フロー」ボタンが横並びのまま
      崩れないよう、幅の読めない補足テキストは別行（.oc-hint）に逃がす（同じ行に入れて
      flex-shrinkに任せると、チェックのラベルやボタンの文字自体が折り返ってしまっていた） */
-  var ocDone = !!(dat.ocData.done);
+  /* 対応は2種別。どちらか一方だけがONになる（排他は ocSetDone 側で担保） */
+  var ocDone = !!(dat.ocData.done), ocK = ocKind(dat.ocData);
   h+='<div class="oc-row oc-done-row">';
-  h+='<label class="oc-done-lbl">';
-  h+='<input type="checkbox" id="oc-done"'+(ocDone?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
-  h+='対応</label>';
+  h+='<label class="oc-done-lbl" title="病院からのコールで出動した場合">';
+  h+='<input type="checkbox" id="oc-done-dispatch"'+(ocDone&&ocK===OC_KIND_DISPATCH?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
+  h+='🚑 OC出動対応</label>';
+  h+='<label class="oc-done-lbl" title="日勤帯で終わらない手術の残りを引き継いだ場合">';
+  h+='<input type="checkbox" id="oc-done-leftover"'+(ocDone&&ocK===OC_KIND_LEFTOVER?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
+  h+='🕔 残り当番</label>';
   /* 対応フローは閲覧のみのため、担当ロック中でも押せるようにする（disabledにしない） */
   h+='<button type="button" class="btn btn-g btn-sm oc-flow-btn" onclick="openOcFlowModal()">📄 対応フロー</button>';
   h+='</div>';
-  h+='<div class="oc-hint">開始と退勤が揃うと自動でチェックが付きます</div>';
+  h+='<div class="oc-hint">開始と退勤が揃うと自動でチェックが付きます。残り当番は日勤から引き継ぐので、開始に '+OC_LEFTOVER_START+' が入ります</div>';
   /* 対応時間・年休。「退勤時間を入れたら対応済み」を成立させるため、チェックの有無に関わらず常時表示する
      （以前はチェックONのときだけ展開していたので、時間を入れる前にチェックを押す必要があった） */
   h+='<div id="oc-done-detail" style="margin-top:4px;display:flex;flex-direction:column;gap:6px">';
@@ -11793,16 +11982,20 @@ function renderPage(ds) {
     /* OC対応チェック・時間・年休。
        done の書き換えは必ず ocSetDone(ds,val) を通す（保存・チェックボックス同期・翌日ルール通知・
        ダッシュボードチップ更新・管理者通知が1か所にまとまる） */
-    var ocDoneCb=document.getElementById('oc-done');
+    var ocCbDispatch=document.getElementById('oc-done-dispatch');
+    var ocCbLeftover=document.getElementById('oc-done-leftover');
     var ocStartTime=document.getElementById('oc-start-time');
     var ocEndTime=document.getElementById('oc-end-time');
     var ocNenkyu=document.getElementById('oc-nenkyu');
-    if(ocDoneCb){
-      ocDoneCb.onchange=function(){
+    /* 2つのチェックは排他。ONにした方の種別で対応済みにし、OFFにしたら対応自体を外す。
+       もう一方から乗り換えたときは種別だけ差し替える（時間はそのまま引き継ぐ）。 */
+    function bindOcKindCb(cb, kind){
+      if(!cb) return;
+      cb.onchange=function(){
         var od=D.pages[ds].ocData;
         if(this.checked){
           /* 時間未入力でも手動で対応済みにできる（先にチェックして後から時間を入れる運用を残す） */
-          ocSetDone(ds,true);
+          ocSetDone(ds,true,kind);
           return;
         }
         /* 手動でOFF：入力済みの時間を巻き添えで消さないよう確認してから消す */
@@ -11817,7 +12010,10 @@ function renderPage(ds) {
         ocSetDone(ds,false);
       };
     }
-    /* 開始と退勤が両方そろったら対応済み、片方でも空なら対応済みを外す */
+    bindOcKindCb(ocCbDispatch, OC_KIND_DISPATCH);
+    bindOcKindCb(ocCbLeftover, OC_KIND_LEFTOVER);
+    /* 開始と退勤が両方そろったら対応済み、片方でも空なら対応済みを外す。
+       種別が未選択のまま時間だけ入れた場合は出動対応として計上する（従来の挙動） */
     function ocSyncFromTimes(){
       var od=D.pages[ds].ocData;
       ocSetDone(ds, !!(od.startTime && od.endTime));
@@ -14315,6 +14511,24 @@ function buildOPS(ds,dat,locked) {
   function buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn) {
     var item = items[idx];
 
+    /* 症例ごとの印：🚑 急患／🔭 スコープ。オペにだけ出す（カテには概念が無い）。
+       作りは「終了」トグルと同じで、押すと items[idx] を直接書き換えて保存・再描画する。 */
+    if (itemId === 'ope') {
+      var tagRow2 = document.createElement('div'); tagRow2.className = 'ops-staff-row';
+      var tagLbl = document.createElement('span'); tagLbl.className = 'ops-meta-lbl'; tagLbl.textContent = '🏷';
+      tagRow2.appendChild(tagLbl);
+      [['emergency','em','🚑 急患'], ['scope','sc','🔭 スコープ']].forEach(function(t){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ops-done-btn ops-tag-btn ' + t[1] + (item[t[0]] ? ' on' : '');
+        b.textContent = t[2];
+        b.disabled = !!locked;
+        if (!locked) b.onclick = function(){ items[idx][t[0]] = !items[idx][t[0]]; saveItems(); renderItems(); };
+        tagRow2.appendChild(b);
+      });
+      itemWrap.appendChild(tagRow2);
+    }
+
     var staffRow = document.createElement('div'); staffRow.className = 'ops-staff-row';
     var staffLbl = document.createElement('span'); staffLbl.className = 'ops-meta-lbl'; staffLbl.textContent = '👤';
     staffRow.appendChild(staffLbl);
@@ -15430,6 +15644,17 @@ function savePsgBannerTime() {
 }
 
 /* ===== OC出勤ルール計算 ===== */
+/* ===== OC対応の種別 =====
+   OC担当の実務は2種類ある：病院からのコールで出動する「OC出動対応」と、
+   日勤帯で終わらない手術の残りを引き継ぐ「残り当番」。対応時間の枠（開始・退勤）は
+   共用で、どちらのチェックを入れたかで計上先が変わる。
+   kind を持たない過去の記録はすべて出動対応として読むので、移行処理は不要。 */
+var OC_KIND_DISPATCH = 'dispatch', OC_KIND_LEFTOVER = 'leftover';
+var OC_LEFTOVER_START = '16:45'; /* 残り当番は日勤から引き継ぐので、ここから退勤までを対応時間とする */
+function ocKind(od){ return (od && od.kind === OC_KIND_LEFTOVER) ? OC_KIND_LEFTOVER : OC_KIND_DISPATCH; }
+function ocKindLabel(k){ return k === OC_KIND_LEFTOVER ? '残り当番' : 'OC出動対応'; }
+function ocKindIcon(k){ return k === OC_KIND_LEFTOVER ? '🕔' : '🚑'; }
+
 function calcOcNextDayRule(endTimeStr) {
   if (!endTimeStr) return null;
   var p = endTimeStr.split(':');
@@ -15455,36 +15680,57 @@ function ocAlertFor(ds) {
   if (!pdat || !pdat.ocData || !pdat.ocData.done || !pdat.ocData.endTime) return null;
   var rule = calcOcNextDayRule(pdat.ocData.endTime);
   if (!rule || rule.type === 'normal') return null;
-  return { staff: pdat.ocData.staff||'', rule: rule, endTime: pdat.ocData.endTime, sourceDs: getPrevDs(ds) };
+  return { staff: pdat.ocData.staff||'', rule: rule, endTime: pdat.ocData.endTime, sourceDs: getPrevDs(ds), kind: ocKind(pdat.ocData) };
 }
 /* OC「対応済み」フラグを書き換える唯一の入口。
    done は「対応チェックの手動操作」と「開始＋退勤の入力」の2経路から変わるため、
    保存・DOM同期・翌日ルール通知・ダッシュボード更新をここに集約する。
    管理者への完了通知は false→true の遷移でだけ送る（時間が揃ってから送られるので、
    以前のようにチェック直後＝時間未入力のまま中身の薄い通知が飛ぶことがない）。 */
-function ocSetDone(ds, val) {
+/* done と kind の唯一の書き換え口。kind を省略すると現在の種別を保つ
+   （未設定なら出動対応）。val=false のときは種別も落とす。
+   種別を変えただけ（done は true のまま）でも保存・再描画が要るので、
+   「値が変わっていなければ何もしない」判定は done と kind の両方で行う。 */
+function ocSetDone(ds, val, kind) {
   var dat = D.pages[ds]; if (!dat) return;
   if (!dat.ocData) dat.ocData = {};
   var od = dat.ocData;
-  var was = !!od.done;
+  var wasDone = !!od.done, wasKind = od.kind || '';
   val = !!val;
-  if (was === val) { updateOcDashChip(ds); return; }
+  var nextKind = val ? (kind || od.kind || OC_KIND_DISPATCH) : '';
+  if (wasDone === val && wasKind === nextKind) { updateOcDashChip(ds); return; }
   od.done = val;
+  if (nextKind) od.kind = nextKind; else delete od.kind;
+  /* 残り当番は日勤から引き継ぐので、開始が空なら 16:45 を入れておく（手で直せる） */
+  if (val && nextKind === OC_KIND_LEFTOVER && !od.startTime) {
+    od.startTime = OC_LEFTOVER_START;
+    var si2 = document.getElementById('oc-start-time');
+    if (si2) si2.value = od.startTime;
+  }
   saveD();
-  var cb = document.getElementById('oc-done');
-  if (cb) cb.checked = val;
+  syncOcKindCheckboxes(ds);
   updateOcDashChip(ds);
   updateCloseBar(ds);
   notifyOcRule(ds);
-  if (val) {
-    var lines = [ds.replace(/-/g,'/') + '  OC対応完了'];
+  if (val && !wasDone) {
+    var lines = [ds.replace(/-/g,'/') + '  ' + ocKindLabel(nextKind) + '完了'];
     if (od.staff)     lines.push('担当：' + od.staff);
     if (od.startTime) lines.push('開始：' + od.startTime);
     if (od.endTime)   lines.push('退勤：' + od.endTime);
     if (od.nenkyu)    lines.push('年休取得あり');
     if (od.note)      lines.push('備考：' + od.note);
-    sendAdminNotification('🌙 OC対応完了', lines.join('\n'));
+    sendAdminNotification(ocKindIcon(nextKind) + ' ' + ocKindLabel(nextKind) + '完了', lines.join('\n'));
   }
+}
+/* 2つのチェックボックスの見た目を台帳の値に合わせる（排他はここで担保する） */
+function syncOcKindCheckboxes(ds) {
+  var dat = D.pages[ds]; if (!dat || ds !== curDs) return;
+  var od = dat.ocData || {};
+  var cbD = document.getElementById('oc-done-dispatch');
+  var cbL = document.getElementById('oc-done-leftover');
+  var on = !!od.done, k = ocKind(od);
+  if (cbD) cbD.checked = on && k === OC_KIND_DISPATCH;
+  if (cbL) cbL.checked = on && k === OC_KIND_LEFTOVER;
 }
 /* ダッシュボードの📞オンコールチップだけを部分更新する（フルページ再描画を避ける） */
 function updateOcDashChip(ds) {
@@ -15494,7 +15740,7 @@ function updateOcDashChip(ds) {
   var od = dat.ocData || {};
   var staff = od.staff || '';
   el.className = 'pv' + (!staff ? ' dash-warn' : (od.done ? ' pv-p' : ''));
-  el.textContent = (staff || '未設定') + (od.done ? ' ✅対応済' : '');
+  el.textContent = (staff || '未設定') + (od.done ? ' ✅' + ocKindLabel(ocKind(od)) : '');
 }
 /* OCデータ確定時のトースト通知（翌日バナーは ocAlertFor で都度算出するため保存しない） */
 function notifyOcRule(ds) {
@@ -15503,7 +15749,7 @@ function notifyOcRule(ds) {
   if (!od.done || !od.endTime) return;
   var rule = calcOcNextDayRule(od.endTime);
   if (!rule || rule.type === 'normal') return;
-  showNotifToast('🌙 OC翌出勤ルール', (od.staff||'担当者') + '：' + rule.label);
+  showNotifToast('🌙 OC翌出勤ルール', (od.staff||'担当者') + '（' + ocKindLabel(ocKind(od)) + '）：' + rule.label);
   /* 翌日ページが既に確認済み扱いなら、内容が変わった可能性があるので再表示できるよう解除 */
   var nextDs = getNextDs(ds);
   if (D.pages[nextDs] && D.pages[nextDs].ocAlertSeen) { delete D.pages[nextDs].ocAlertSeen; saveD(); }
@@ -17141,7 +17387,7 @@ function downloadCsv(filename, rows) {
 function sumFileLabel() { return sumRange().label.replace(/[\s〜\/]/g, function(c){ return c==='〜' ? '-' : (c==='/' ? '' : ''); }); }
 
 function exportOcCsv() {
-  var rng = sumRange(), rows = [['日付','曜日','担当者','備考','対応','対応時間','年休']];
+  var rng = sumRange(), rows = [['日付','曜日','担当者','備考','対応','種別','対応時間','年休']];
   sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
     if (!pg||!pg.ocData||!pg.ocData.staff) return;
@@ -17149,7 +17395,7 @@ function exportOcCsv() {
     /* 対応時間は画面表示（renderOCSummary）と同じ式で出す。
        旧 oc.time はどこからも書き込まれないレガシー項目で、これだけを見ると列が常に空になる */
     var ocT = (oc.startTime||oc.endTime) ? ((oc.startTime||'--:--')+'〜'+(oc.endTime||'--:--')) : (oc.time||'');
-    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[w], oc.staff||'', oc.note||'', oc.done?'✔':'', ocT, oc.nenkyu?'✔':'']);
+    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[w], oc.staff||'', oc.note||'', oc.done?'✔':'', oc.done?ocKindLabel(ocKind(oc)):'', ocT, oc.nenkyu?'✔':'']);
   });
   if (rows.length===1){toast(rng.label+'にOC担当の記録がありません', 'warn');return;}
   downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
@@ -17193,13 +17439,13 @@ function exportOpsDetailCsv() {
   var rng = sumRange();
   var all = opsDetailRows(), rows = opsDetailFiltered(all);
   if (!rows.length) { toast(rng.label+'に条件に一致する記録がありません', 'warn'); return; }
-  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','終了']];
+  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','急患','スコープ','終了']];
   rows.forEach(function(r){
     var pt = r.ds.split('-');
     out.push([
       pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(r.ds).getDay()], r.kind, r.dept, r.cat, r.name,
       r.startMin!=null?schedMinToHM(r.startMin):'', r.endMin!=null?schedMinToHM(r.endMin):'', r.dur!=null?r.dur:'',
-      r.staff.join('/'), r.sup.join('/'), r.done?'済':''
+      r.staff.join('/'), r.sup.join('/'), r.emergency?'✔':'', r.scope?'✔':'', r.done?'済':''
     ]);
   });
   downloadCsv('分院CE_CE明細_'+sumFileLabel()+'.csv', out);

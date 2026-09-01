@@ -544,6 +544,8 @@ dat.placement = {
 
 **症例行の取得は必ず `opsItemsOf(pg, 'ope'|'cath')` を経由する**（`pg.ops.ope_items` を直接読まない）。`pg.ops_cards` が配列で、その中に当該カードが無ければ空を返す — カードを削除した日の残骸を数えないための門で、フリーカードの `opsFreeCards(pg)` と同じ方針。`ops_cards` が `null`/`undefined` のときはテンプレ表示中なので従来どおり全部数える（ここで `D.opsCfg` を見に行かないこと。テンプレからカードを1つ外すだけで、過去の全ページの件数が集計から消えてしまう）。`removeOpsCard()` 側でもオペ/カテを消すときは入力済み症例数を出して `confirm()` し、OKなら `ops.ope_items`/`cath_items` ごと削除する（PSG・フリーと揃えた）。**横断検索（`_doSearch`）だけは意図的に `opsItemsOf` を通していない** — 「どこかに書いたはず」を探す機能なので、カードを消した日の記録もヒットさせる。
 
+**症例ごとの印（急患・スコープ）**: `item.emergency` / `item.scope`（true のときだけ持つ）。**オペカードのみ**に出す（`buildItemMetaRows` の `itemId === 'ope'` で分岐。カテには概念が無い）。`.ops-done-btn` と同じ作りのトグルで、`.ops-tag-btn.em` / `.sc` が色だけ変える。**`opsItemFilled()` に `it.emergency || it.scope` を含めてある** — 含めないと「急患だけ押して他は未入力」の行が件数・明細・CSVから丸ごと漏れる。集計側は `opsDetailRows()` の `emergency`/`scope`、フィルタは `_opsDetFilter.emOnly`/`scOnly`、CE集計のサマリーバッジと明細の「印」列（`opsTagLabel`）、`exportOpsDetailCsv` の2列。
+
 **業務終了フラグ・担当者・終了時刻**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
 - `opsToggleDone(items, idx)` — 押した行は配列内の位置を変えずその場に残す（どれを押したか見失うため並べ替えはしない）。終了にした瞬間、`item.endTime` が未設定なら現在時刻（0時からの分）を、`item.staff`（担当者名の配列）に誰もいなければ `opsSelfName()` で解決したログイン中スタッフ名を自動追加し `item.doneBy` にも記録する。取り消し時は `endTime`/`staff` のどちらかに値があるときだけ `confirm()` で確認し、OKなら `endTime`/`doneBy`/`staff` を全てクリア、キャンセルなら `done` フラグだけ外して他は残す（値が無ければ確認なしでそのまま外す）
 - `item.staff` は行の「👤 担当者」行（常時表示、`buildItemMetaRows()` が Tree版・フラット版共通で描画）でチップの追加・削除が手動でも可能。候補は `opsStaffCandidates(ds)`（当日の `duties`/`extra_free`/`ocData.staff` を「本日の担当」、`D.stf` を「スタッフ」としてoptgroup分け）。Firebase の配列オブジェクト化対策として読み出しは必ず `opsItemStaff(it)` を通す
@@ -563,14 +565,22 @@ dat.placement = {
 
 ### On-Call (OC) 対応済み判定
 
-`D.pages[ds].ocData` is a single object (one OC record per day): `{staff, note, done, startTime, endTime, nenkyu}` (plus a dead legacy `time` that nothing writes).
+`D.pages[ds].ocData` is a single object (one OC record per day): `{staff, note, done, kind, startTime, endTime, nenkyu}` (plus a dead legacy `time` that nothing writes).
 
-`done` is written from two places — the 対応 checkbox and the 開始/退勤 time inputs — so **every write goes through `ocSetDone(ds, val)`**, which updates `ocData.done`, `saveD()`s, syncs the checkbox DOM, refreshes the dashboard chip (`updateOcDashChip`), calls `updateCloseBar` and `notifyOcRule`, and fires the admin notification **only on the false→true edge**.
+**対応は2種別（`ocData.kind`）**：`'dispatch'`（🚑 OC出動対応＝病院からのコールで出動）と `'leftover'`（🕔 残り当番＝日勤帯で終わらない手術の残りを引き継ぐ）。日ページでは横並びの2つのチェックボックス（`#oc-done-dispatch` / `#oc-done-leftover`）で**排他選択**する。対応時間（開始・退勤）と年休の欄は**両種別で共用**で、どちらにチェックを入れたかで計上先が変わる。
+
+- **読み取りは必ず `ocKind(od)` を通す**（`kind` を持たない過去の記録はすべて出動対応として読むので、移行処理は不要）。表示名は `ocKindLabel(k)`、アイコンは `ocKindIcon(k)`
+- 残り当番をONにしたとき `startTime` が空なら `OC_LEFTOVER_START`（`'16:45'`）を入れる。日勤から引き継ぐのでそこから退勤までが対応時間になる（手で直せる）
+- **翌日の出勤ルール（`calcOcNextDayRule` / `notifyOcRule` / `ocAlertFor`）は種別を見ない**。実際に遅くまで働いた事実は同じなので両方に適用する。文言にだけ種別を出す
+- 「✅対応済」のような種別非依存の文言をUIに書かないこと。ダッシュボードチップは `renderPage` の初期描画と `updateOcDashChip` の**2か所**にあるので、片方だけ直すと開いた直後だけ古い表記が出る
+
+`done` と `kind` is written from two places — the 対応 checkboxes and the 開始/退勤 time inputs — so **every write goes through `ocSetDone(ds, val, kind)`**, which updates `ocData.done`/`.kind`, auto-fills 16:45 for 残り当番, `saveD()`s, syncs the checkbox DOM (`syncOcKindCheckboxes` — 排他はここで担保する), refreshes the dashboard chip (`updateOcDashChip`), calls `updateCloseBar` and `notifyOcRule`, and fires the admin notification **only on the false→true edge**. `kind` を省略すると現在の種別を保つ（未設定なら `'dispatch'`）。
 
 - The 対応時間/年休 block (`#oc-done-detail`) is now **always visible**. It used to be revealed only when the checkbox was ticked, which made "enter the leave time and it's done" impossible.
 - Entering both `startTime` and `endTime` sets `done`; clearing either one clears it. Ticking the checkbox by hand still works with no times entered (the tick-first-fill-later workflow is intact).
 - Un-ticking by hand `confirm()`s before wiping `startTime`/`endTime`/`nenkyu`; cancelling keeps the times. Previously they were destroyed silently.
-- `exportOcCsv` must format the time column from `startTime`/`endTime` the same way `renderOCSummary` does — reading the legacy `oc.time` alone leaves the column permanently blank.
+- `exportOcCsv` must format the time column from `startTime`/`endTime` the same way `renderOCSummary` does — reading the legacy `oc.time` alone leaves the column permanently blank. 種別列も `ocKindLabel(ocKind(oc))` で同じ表記にする。
+- OC集計（`renderOCSummary`）のバッジ・月別内訳・明細はすべて種別ごとに分けて数える。「対応件数」という種別をまたいだ数え方に戻さないこと（分けるのが今回の目的）
 
 ### PSG外し Detection
 
@@ -747,6 +757,8 @@ Self-only notes shown at the bottom of the タスク tab (`#pane-task`). **Separ
 When `multi` is true all three renderers add a per-month breakdown, the ops trend graph buckets by month instead of week (bar width shrinks via `BW`/`BG` so 12 groups still fit), and date cells show `M/D` instead of `D日`. `exportOcCsv()` / `exportOpsCsv()` / `exportHdCsv()` follow the same range and name the file via `sumFileLabel()`.
 
 `sumShift(d)` は月モードなら前後の月（`asPrevM()`/`asNextM()` に委譲）、年モードなら `asY` を±1して3集計を描き直す。`sumCtlHTML` が期間ラベルの左右に `‹ ›` として出す（期間指定モードでは出さない）。**集計タブのヘッダーには月ナビを置かない**方針なので、ここを消すと「📅 月」を選んでいるのに表示月を変える手段が画面から無くなる（担当表タブで月を変えてから戻る、という操作を強いていた）。印刷見出しも `printSumTab()` が `sumRange().label` を `_printSubPane(phId, subId, periodLabel)` へ渡す — `asY/asM` 固定だと「2026年」を集計しているのに紙には「2026年8月」と刷られる。
+
+**表の並べ替え（`_sumSort` / `setSumSort` / `sumSortTh` / `sumSortRows`）**：CE明細・OC集計・HD集計の3つの表で同じ仕組みを共有する（表ごとに実装を書き写さない）。列見出しをクリックすると昇順→降順で反転し、**値が空の行は方向に関わらず常に末尾**に置く（未入力が先頭に並ぶのを避けるため）。`sumSortRows` は安定ソートなので、CE明細のグルーピングは「全体をソートしてからグループに割る」だけでグループ内も指定順になる。OC集計の「対応時間」列は開始時刻ではなく**対応の長さ（分）**で並べる（日跨ぎの退勤は24時間足して負にしない）。集計カード（科別・術式別・担当者別・使用物品別）は列が無いので `_opsCardSort`（件数順／名前順／平均所要順）を見出しの `<select>` で切り替える。
 
 `setSumMode(m)` and `applySumRange(pfx)` call all three renderers unconditionally (`renderOCSummary(); renderOpsSummary(); renderHdSummary();`) regardless of which pane is actually visible — each renderer's own `if(!el) return` (element-existence, not visibility) is the only guard, and writing into a hidden pane's `innerHTML` is harmless. The calendar month-nav `asPrevM()`/`asNextM()`, by contrast, checks whether `pane-sum` is open and re-renders only `_curSumTab`'s sheet, since walking `D.pages` on every month click is wasted work when nothing will be shown — follow this existing asymmetry (unconditional in the two setters, display-gated in the month-nav) rather than "fixing" it to be consistent.
 
