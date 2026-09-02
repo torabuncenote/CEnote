@@ -70,6 +70,8 @@ var D = {
   ocFlow: '',       // OC対応フローチャート本文（複数行テキスト。OC集計タブのボタン→openOcFlowModal で全員閲覧、業務マスタの mst セクションで編集）
   makers: { cats: [], list: [] }, // メーカー担当者連絡先。cats:[{id,name}]（表示順）、list:[{id,cat,maker,person,tel1,tel2,mail,note,upd,ts,by}]。詳細は下記「メーカー担当者連絡先」節
   wdDepts: [],      // 設置部署マスタ（D.wd項目のsubsで選ぶ部署名の共通リスト。PHSマスタ/tabletsと同型の単純な文字列配列）
+  eduProgress: {},  // 教育到達度 { 氏名: { 項目key: {lv,by,ts,hist[],goalFy?} } }。詳細は下記「実績・教育到達度」節
+  eduCfg: { ceEdu:false }, // オペ・カテ症例行に教育者欄を出すか（既定OFF）
   _migVer: 5        // data migration version flag (increment when running one-time migrations)
 };
 ```
@@ -372,6 +374,11 @@ All class names are abbreviated:
 | `renderOpsSummary()` | CE集計サブタブ（旧「業務集計」）— monthly OPE/cath/6MW/PSG counts |
 | `renderOCSummary()` | OC集計サブタブ — on-call response log |
 | `fairnessHTML(o)` | 公平性マトリクスの表組み。CE/HDで共通（複製しないこと） |
+| `canEdu()` | 教育到達度の閲覧・記録権限（`isAdmin` または `perm_edu` 付与）。`D.lk` ロックではなく明示付与 |
+| `eduStats(dsList)` | 期間内の症例・治療・配置日数・指導・OCを1回の走査で全スタッフ分集計する唯一の入口 |
+| `eduGet/eduSet/eduSetBulk/eduAddGoal/eduRemoveGoal` | 到達度レコードの読み取り／段階変更（履歴に必ず追記）／一括設定／目標の追加・削除。書き込みはこの4関数だけを通す |
+| `eduExperiencedKeys(name)` / `eduChildItems(name, kind)` | 全期間の経験済み細目（症例担当者/HD特殊治療実施者ベース）／それに手動目標を足した細目一覧（マスタ全項目は並べない） |
+| `renderPerf()` / `renderPerfPersonHTML(name)` / `renderPerfMapHTML()` | 実績サブタブの入口／個人ビュー／スキルマップ（`_viewMode`で分岐しない） |
 | `updatePendingBadge()` | Media approval badge (debounced 200ms) |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
 | `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
@@ -699,6 +706,35 @@ All image/video uploads (memo, memo reply, board post, board reply, manual, task
 - HD側が `buildHdRoster` ではなく **`hdShiftWorkers(ds)` を直接使う**のは、並べ替えや行の組み立てが要らないため。どちらも同じ関数を通るので、日ページのHD担当表で担当を差し替えた分（`dat.hdDuty.overrides`）は自動で反映される。
 - 準夜は `getShiftForDay` が `shift:'準', night:true` に正規化して返すので、`h.night` を見て `'準夜'` の1列に寄せる。`'準'` と `'準夜'` の表記ゆれを列として分けないこと。
 - 警告列のヘッダーは地を `--warn-fg` で塗るので、文字色に `--sur` を当てて反転させている（これが無いとライトは暗地に暗字、ダークは明地に明字で読めない）。
+
+### 実績・教育到達度（担当表タブの🎓実績サブタブ）
+
+「誰がどの仕事・症例・治療にどれだけ携わったか」の個人実績と、教育の到達度（5段階）。症例ごとの主・サブは記録しない——「教育者が付いているか」が実質的にその役割を果たすので、**到達段階は必ず人が押す**。件数から自動推定してはいけない。
+
+```js
+D.eduProgress = {
+  "松野 敏宏": {
+    "duty:OPE担当":      { lv:4, by:"山田 太郎", ts:1756800000000, hist:[{lv,by,ts},...] },
+    "ope:オフポンプCABG": { lv:3, by:"…", ts:…, hist:[…] },
+    "cath:PCI":          { lv:1, by:"…", ts:…, hist:[…], goalFy:2026 },
+    "hdrole:準夜":       { lv:5, by:"…", ts:…, hist:[…] },
+    "hdsp:PMX":          { lv:4, by:"…", ts:…, hist:[…] }
+  }
+}
+D.eduCfg = { ceEdu:false }  // オペ・カテ症例行に教育者欄を出すか（既定OFF）
+```
+
+- **キーが存在しない＝未評価**（`lv:0` は使わない）。`lv`：1=未／2=見学／3=介助／4=単独／5=指導可。押すたびに `hist` へ `{lv,by,ts}` を追記——現在値の上書きだけでなく履歴を必ず残す。書き込みは `eduSet`/`eduSetBulk`/`eduAddGoal`/`eduRemoveGoal` の4関数だけを通し、`D.eduProgress` に直接代入しない。
+- **項目キーの名前空間**：`duty:<担当枠label>` / `hdrole:<コード>` / `hdspcat`（いずれも大分類）、`ope:<術式>` / `cath:<術式>` / `hdsp:<治療名>`（細目、親はそれぞれ `duty:OPE担当` / `duty:カテ担当` / `hdspcat`）。**担当枠は `slot.id` ではなく `label` 文字列で照合する**——`id` は「追加」のたびに `'slot_'+Date.now()` で再採番されるため、`dutyColorFor`/`FAIR_MERGE`/`myDutyLabels` と同じ理由。`eduDutyKind(label)` が `/オペ|OPE/`・`/カテ/` の部分一致で判定するが、**「サブ」「遅出」を含むラベルは除外**する（OPEサブ・遅出OPEにまで細目を持たせると、同じ `ope:*` 細目セットの親が2つになってしまうため）。
+- **細目は全期間の経験済みが自動で並ぶ**（`eduExperiencedKeys(name)` が全 `D.pages` を走査し、症例の担当者/HD特殊治療の実施者に名前があるものだけを拾う——教育者に名前があるだけでは経験済みにならない）＋**年度付きの目標を手で追加**できる（`eduAddGoal`、`goalFy`）。**マスタの全項目（術式ツリー）は自動で並べない**——初期マスタだけでオペ41+カテ26術式あり、実運用ではもっと多い可能性があるため、書かなくても始められる設計にしてある。「＋目標を追加」のときの候補だけツリー（`eduTreeItemNames(D.opeTree/D.cathTree)`）/`D.hdTreatments` から出す。
+- **未評価とレベル1（未）を画面上でも区別する**——分けないと導入直後にスキルマップが全項目「未＝できない」に見え、ベテランの実態と食い違う。
+- **`perm_edu` はロックにしない。** `tab_master` と同じ「明示付与」の権限（`canEdu() = isAdmin || currentUser.perms.perm_edu`）にしてある。`D.lk` の既定は全解放（`D.lk={}`）なので、ロックにすると既定で全員が押せてしまう。ユーザー管理の「📑 タブ表示」ブロックから付与する。閲覧・記録は管理者と `perm_edu` 保持者のみ全員分、本人は自分の分だけ常に閲覧可（記録・段階変更は不可）。
+- **`dat.hdCount.sp` の要素はオブジェクト形式**（`{n:治療名, staff:実施者[], edu:教育者[]}`）。旧形式（治療名だけの文字列）との後方互換は `hdSpNorm(v)` が担い、`hdCountSpArr`/`hdCountSpFilled`/`hdCountEnsureSpArr` の3アクセサが必ずこれを通す——**旧データを書き換えない**（読み出し時に正規化するだけ）。治療名を変更しても `arr[idx].n = ...` で `staff`/`edu` は保持される。
+- **CE症例行の教育者欄（`item.edu`）は `D.eduCfg.ceEdu` が真のときだけ表示**（既定OFF・マスタタブのCEセクションで管理者がON/OFF）。`opsItemFilled()` には `edu` を条件として含めない——教育者だけ入って他が空の行は実質存在しないため、含めると空行が件数に混ざるリスクだけが増える。
+- **対象スタッフは `D.stfHidden` でない `D.stf` のみ**（CE/HD公平性と同じ）。ヘルプ（`base:'help'`、`D.stf` 未登録）は実施者・教育者として記録は残る（`hdSpStaffCandidates`/`opsStaffCandidates` の候補には出る）が、実績ページ・スキルマップの対象一覧には並ばない。
+- 実績の集計（症例件数・配置日数・OC件数など）は `eduStats(dsList)` が1回の走査で全スタッフ分をまとめて作る——個人ビュー・スキルマップ・CSVはすべてこの戻り値だけを読み、自前で数え直さない。到達度の大分類一覧は `eduDutyCategories()`（`D.dutyCfg` 優先、空なら `getDutyMaster()`）＋ `eduHdRoleCategories()`（`HD_DAY_CODES`＋準夜）＋ `hdspcat` の3系統。
+- CE/HDの双子関数を増やさない方針を踏襲し、`renderPerf`/`eduStats` 等は**1つだけ**（`_viewMode` で分岐しない）——実績は「どちらの目で見るか」に依らない事実のため、CE公平性/HD公平性のような分割はしない。
+- サブタブ `perf` を担当表タブに追加した際、印刷CSS（`body[data-print-sub="perf"] #subpane-perf{display:block!important}`）と `printSubTab()`/`exportSubCsv()`/`asPrevM`/`asNextM` への配線を通常どおり全て行った。**サブタブの行（`.asub`）は3ボタンまでは290px幅のサイドバーに収まっていたが、4つ目（🎓実績）を足すと `.sb{overflow:hidden}` で見切れることが実際に発覚した**——`.asub{flex-wrap:wrap}` を追加して2行に折り返すようにした。新しいサブタブ・ボタンをこの行に足すときは、290px幅で見切れないか必ず確認すること。
 
 ### Task Management (`/tasks`)
 
