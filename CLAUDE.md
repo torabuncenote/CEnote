@@ -104,6 +104,23 @@ When adding a new top-level property to `D`, update **all five** of these locati
 
 **Critical guard**: `_fbDataLoaded` must be `true` before `saveD()` writes to Firebase. It is set when the `/data` listener first fires. This prevents empty-D overwrites on login. **Do not bypass this guard.**
 
+#### ユーザー入力がFirebaseのキーになる箇所（保存が止まる事故の元）
+
+Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` が **Promise の reject ではなく同期 throw** する。`_doFbWrite()` は try/catch していないので `_saveWriting = true` のまま中断し、以降の `saveD()` はすべて「書き込み中」と判断してキューに積むだけになる——**リロードするまでアプリ全体の保存が止まる**。localStorage には書けるので端末では正常に見え、他のスタッフに反映されていないことに気づけない。
+
+**対策は「入り口で `fbSafeKey()` を通す」に統一している。** 下流のキーを個別に守るのではなく、値が `D` に入る瞬間に正規化する（`透析/OPE` → `透析_OPE`）。こうすれば表示とキーが一致し続け、参照箇所を直して回る必要がない。
+
+| 入り口 | 正規化する値 | これで守られる下流 |
+|---|---|---|
+| `addStf()` / `confirmEditModal()` の `type:'stf'` | スタッフ氏名 | `D.stfLinks` `D.stfHidden` `D.stfEdu` `dat.placement.people` `dat.hdNotes` |
+| `addHelpStaffFromModal()` | ヘルプ職員名 | `dat.placement.people` |
+| `parseShiftSheet()`（`name` と `hn`） | 勤務表Excelの氏名 | `D.shift[ym]` |
+| `addEvtPrompt()` | イベント名 | `dat.evtKinds`（HD主観のみキーになる） |
+| `addWdDept()` / `addHdTreat()` / `addEduItem()` | 部署名・治療名・教育項目 | `dat.subChecks[sid]` ほか |
+| `eduKey(catId, dept, cat, name)` | 到達度の項目キー | `D.eduProgress[氏名]` |
+
+**`D` に入る値が新しくオブジェクトのキーになるときは、必ずこの表に足して入り口で正規化すること。** 保存前のサニタイズ（`sanitizeManualKeys` / `sanitizeEduProgressKeys`）は既存データの後始末であって、キーと値の対応が崩れる（`D.stf` の氏名は元のまま、`D.stfLinks` のキーだけ変わる等）ので、新規の防御には使わない。
+
 After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state.
 
 #### `saveDPage(ds)` — page-level partial write (limited use)

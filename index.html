@@ -9594,7 +9594,12 @@ function toggleStfHidden(name) {
   if (D.stfHidden[name]) { delete D.stfHidden[name]; } else { D.stfHidden[name] = true; }
   saveD(); renderStfList(); renderCal();
 }
-function addStf() { if(!isAdmin)return; var v=document.getElementById('in-stf').value.trim(); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
+/* 氏名は D.stfLinks / D.stfHidden / D.stfEdu / dat.placement.people / dat.hdNotes /
+   D.shift[ym] のキーになる。Firebase RTDB はキーに . # $ [ ] / を使えず、含まれると
+   set() が同期throwして _saveWriting が立ったままアプリ全体の保存が止まるため、
+   氏名が D に入る入り口（ここ・改名・ヘルプ職員の手入力・勤務表インポート）で必ず
+   fbSafeKey() を通す。入り口さえ押さえれば、下流のキーはすべて安全になる。 */
+function addStf() { if(!isAdmin)return; var v=fbSafeKey(document.getElementById('in-stf').value.trim()); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function rmStf(i) { if(!isAdmin)return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function mvStf(i,d) { if(!isAdmin)return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 
@@ -9626,6 +9631,9 @@ function confirmEditModal() {
   if (state.type === 'stf') {
     // スタッフ編集
     if (!isAdmin) return;
+    /* 改名も addStf と同じ理由で fbSafeKey を通す（氏名は各所でFirebaseキーになる） */
+    newValue = fbSafeKey(newValue);
+    if (!newValue) { toast('内容は空にできません', 'warn'); return; }
     for (var j = 0; j < D.stf.length; j++) {
       if (j !== state.index && D.stf[j].toLowerCase() === newValue.toLowerCase()) {
         toast('このスタッフ名は既に登録されています', 'warn');
@@ -10838,7 +10846,7 @@ function rmDutyMaster(idx) {
   saveD();
 }
 function editDutyMaster(idx) {
-  if(!can('dm'))return;
+  if (!can('dm')) return;
   var master=getDutyMaster(); var m=master[idx];
   _editModalState={type:'dutyMaster',index:idx};
   document.getElementById('edit-item-title').textContent=m.icon+' 担当スロット名を編集';
@@ -11084,7 +11092,11 @@ function addEvtPrompt(ds) {
   if(!can('pg')) return;
   var v = prompt('イベント名を入力してください');
   if (!v || !v.trim()) return;
-  v = v.trim();
+  /* HD主観だと pg.evtKinds[v] のキーになる。「透析/OPE合同」のような表記は現場に自然に出るが、
+     Firebase RTDB はキーに . # $ [ ] / を使えず、含むと保存が止まる。events 配列側の表記と
+     ズレないよう、ここで一度だけ正規化して以降は同じ文字列を使う。 */
+  v = fbSafeKey(v.trim());
+  if (!v) return;
   phiGuardText(v, function(){
     var pg = D.pages[ds]; if (!pg) return;
     if (!pg.events) pg.events = [];
@@ -11372,7 +11384,7 @@ function parseShiftSheet(wb, fileName) {
         if (sRaw == null) continue;
         var hRole = plHdRole(normShiftCode(roleRow[scIdx])); /* HD_DAY_CODES と 準 だけ通す（「休」等は役割にしない） */
         String(sRaw).split(/[、・,，\/／\n\r]+/).forEach(function(hn){
-          hn = hn.toString().trim().replace(/[\u3000\s]+/g, ' ').trim();
+          hn = fbSafeKey(hn.toString().trim().replace(/[\u3000\s]+/g, ' ').trim()); /* D.shift のキーになるので正規化 */
           if (!hn || hn.length > 20) return;
           if (SUPPORT_ROW_RE.test(hn)) return; /* 見出しがセルに重複しているケースを弾く */
           if (!result[hn]) result[hn] = {};
@@ -11384,7 +11396,7 @@ function parseShiftSheet(wb, fileName) {
       continue; /* 「サポート」自体はスタッフとして登録しない */
     }
 
-    var name   = col2;
+    var name   = fbSafeKey(col2); /* D.shift[ym] のキーになるので正規化（禁止文字を含むと保存が止まる） */
     var numRow = grid[ri - 1] || [];
     if (!result[name]) result[name] = {};
 
@@ -11765,7 +11777,8 @@ function searchPoolStaff(query) {
    モーダル外なので initPHIGuard の委譲が効かない＝ここで明示的に患者情報チェックを通す。 */
 function addHelpStaffFromModal() {
   var inp = document.getElementById('pool-staff-help');
-  var v = (inp && inp.value || '').trim().replace(/[\u3000\s]+/g, ' ');
+  /* ヘルプ職員名も placement.people のキーになるので fbSafeKey を通す（addStf と同じ理由） */
+  var v = fbSafeKey((inp && inp.value || '').trim().replace(/[\u3000\s]+/g, ' '));
   if (!v) { toast('名前を入力してください', 'warn'); return; }
   if (v.length > 20) { toast('名前が長すぎます', 'warn'); return; }
   var ds = poolStaffModalState.ds, type = poolStaffModalState.type;
@@ -18990,7 +19003,7 @@ function renderSchedPresetList(){
   var ar=document.getElementById('sched-preset-ar'); if(ar) ar.style.display=ok?'flex':'none';
 }
 function addSchedPreset(){
-  if(!can('dm'))return;
+  if (!can('dm')) return;
   var label=document.getElementById('in-sp-label').value.trim();
   if(!label){toast('プリセット名を入力してください', 'warn');return;}
   var color=document.getElementById('in-sp-color').value;
@@ -19002,7 +19015,7 @@ function addSchedPreset(){
   document.getElementById('in-sp-label').focus();
 }
 function rmSchedPreset(i){
-  if(!can('dm'))return;
+  if (!can('dm')) return;
   var ps=getSchedPresets();
   if(!confirm('「'+ps[i].label+'」を削除しますか？'))return;
   ps.splice(i,1); _schedSelPreset=null;
@@ -19010,7 +19023,7 @@ function rmSchedPreset(i){
   if(curDs) renderSched();
 }
 function mvSchedPreset(i,d){
-  if(!can('dm'))return;
+  if (!can('dm')) return;
   var ps=getSchedPresets(); var j=i+d;
   if(j<0||j>=ps.length)return;
   var t=ps[i];ps[i]=ps[j];ps[j]=t; _schedSelPreset=null;
@@ -19018,7 +19031,7 @@ function mvSchedPreset(i,d){
   if(curDs) renderSched();
 }
 function editSchedPreset(i){
-  if(!can('dm'))return;
+  if (!can('dm')) return;
   var ps=getSchedPresets(); var p=ps[i];
   _editModalState={type:'schedPreset',index:i};
   document.getElementById('edit-item-title').textContent='⏰ プリセット名を編集';
