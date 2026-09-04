@@ -293,6 +293,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .edu-child-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--bdr);flex-wrap:wrap}
 .edu-child-row:last-child{border-bottom:none}
 .edu-child-lbl{font-size:12px;flex:1;min-width:120px}
+.edu-dept-sep{font-size:10px;font-weight:700;color:var(--txt3);margin:8px 0 2px;padding-bottom:2px;border-bottom:1px solid var(--bdr)}
 .edu-child-exp{font-size:10px;color:var(--txt3);margin-left:4px}
 .edu-child-goal{font-size:10px;color:var(--pu);margin-left:4px}
 .edu-lv-row{display:flex;gap:3px;flex-wrap:wrap}
@@ -3769,13 +3770,14 @@ function renderSpec() {
   S += '<div class="spec-p">「誰が何にどれだけ携わったか」の個人実績と、教育の到達度（5段階）を扱う。担当表タブの🎓実績サブタブから開く（両主観で表示）。到達度・実績とも<b>OPE／カテ／病棟外回り／機器管理／透析／特殊治療の6分類</b>に統一している——担当枠やHD役割は「その日どこに立ったか」であってスキルではないため評価単位にせず、枠ごとの回数はCE/HD公平性タブが既に担当している。</div>';
   S += '<div class="spec-box">データは <code>D.eduProgress = { 氏名: { 項目key: {lv, by, ts, hist[], goalFy?} } }</code>（トップレベル<code>D</code>の一部、専用Firebaseパスは持たない）。<code>lv</code>は1=未／2=見学／3=介助／4=単独／5=指導可。<b>キーが存在しない＝未評価</b>（lv:0は使わない）。押すたびに<code>hist</code>に追記し、いつ・誰が・何段階にしたかを残す。<code>goalFy</code>は手動で追加した目標の年度（数値）。</div>';
   S += '<table class="spec-tbl"><tr><th>分類id</th><th>大分類key</th><th>細目keyのprefix</th><th>細目マスタ</th></tr>';
-  S += '<tr><td>OPE</td><td rowspan="6"><code>cat:&lt;分類id&gt;</code></td><td><code>ope:&lt;術式&gt;</code></td><td><code>D.opeTree</code>（既存）</td></tr>';
-  S += '<tr><td>カテ</td><td><code>cath:&lt;術式&gt;</code></td><td><code>D.cathTree</code>（既存）</td></tr>';
+  S += '<tr><td>OPE</td><td rowspan="6"><code>cat:&lt;分類id&gt;</code></td><td><code>ope:&lt;科&gt;|&lt;中カテゴリ&gt;|&lt;術式&gt;</code></td><td><code>D.opeTree</code>（既存）</td></tr>';
+  S += '<tr><td>カテ</td><td><code>cath:&lt;科&gt;|&lt;中カテゴリ&gt;|&lt;術式&gt;</code></td><td><code>D.cathTree</code>（既存）</td></tr>';
   S += '<tr><td>病棟外回り</td><td><code>ward:&lt;項目&gt;</code></td><td><code>D.eduItems.ward</code>（新設・空スタート）</td></tr>';
   S += '<tr><td>機器管理</td><td><code>device:&lt;項目&gt;</code></td><td><code>D.eduItems.device</code>（新設・空スタート）</td></tr>';
   S += '<tr><td>透析</td><td><code>hd:&lt;項目&gt;</code></td><td><code>D.eduItems.hd</code>（新設・空スタート）</td></tr>';
   S += '<tr><td>特殊治療</td><td><code>hdsp:&lt;治療名&gt;</code></td><td><code>D.hdTreatments</code>（既存）</td></tr>';
   S += '</table>';
+  S += '<div class="spec-box"><b>OPE/カテだけ階層をキーに含める。</b>実データの「低位前方切除術」は消化器外科の<b>腹腔鏡下とロボット支援下の両方</b>にあり（右半結腸切除術・左半結腸切除術・S状結腸切除術も同様）、術式名だけをキーにすると2つの到達度が同じレコードに混ざる。キー生成は必ず <code>eduKey(catId, dept, cat, name)</code> を通すこと——禁止文字（<code>. # $ [ ] /</code>）の除去もここで行う。キーは<code>fbSafeKey</code>済みで元の表記に戻せないので、画面には <code>eduCatItems()</code> が返す記述子の <code>label</code>（<code>中カテゴリ / 術式</code>）を使う。科は列見出しの<code>title</code>・個人ビューの区切り見出し・並び順に使う。</div>';
   S += '<div class="spec-p">大分類キーはラベル文字列に依存しない固定id（<code>eduCategories()</code>）。担当枠ラベル→分類idの変換（実績「配置の日数」の集計にだけ使う）は <code>eduDutyCat(label)</code> が部分一致で行う——<code>slot.id</code>ではなく<code>label</code>で照合するのは、idが枠を作り直すたびに再採番されるため（<code>FAIR_MERGE</code>/<code>myDutyLabels</code>と同じ）。フリー・遅出フリーは<code>eduDutyCat</code>が<code>\'free\'</code>を返し、到達度は持たず実績にだけ「その他」として日数を出す（フリー中心の人の実績が全項目0日にならないようにするため）。</div>';
   S += '<div class="spec-p">細目は<b>分類マスタの全件</b>（<code>eduCatItems(catId)</code>）が経験の有無に関わらず並ぶ。経験済み（症例に担当者として名前がある、またはHD特殊治療の実施者に入っている）には印を、年度付きの<b>目標</b>には🎯バッジを添える。マスタに無い自由入力の術式で経験があるものは列にはせず、個人ビューに件数だけ注記する。</div>';
   S += '<table class="spec-tbl"><tr><th>操作</th><th>できる人</th></tr>';
@@ -4685,8 +4687,13 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/03-56';
+var APP_VERSION = 'Ver.2026/09/04-57';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/04-57', date:'2026-09-04', title:'術式の科・中カテゴリを到達度に反映', items:[
+    {t:'imp', d:'🎓 教育到達度の術式を「腹腔鏡下 / 低位前方切除術」のように中カテゴリ付きで表示するようにしました。同じ術式名でも腹腔鏡下とロボット支援下は別々に記録できます（これまでは同じ扱いになっていました）'},
+    {t:'imp', d:'🎓 到達度の一覧を科（消化器外科・整形外科など）ごとに区切って並べ、スキルマップの列見出しにも科を出すようにしました'},
+    {t:'fix', d:'📋 マスタタブでグループを開くと表示が崩れ、それ以上スクロールできなくなる不具合を修正しました'}
+  ]},
   { ver:'Ver.2026/09/03-56', date:'2026-09-03', title:'実績・教育到達度を追加', items:[
     {t:'new', d:'🎓 「📊 担当表」タブに「🎓 実績」を追加しました。自分が携わったオペ・カテ・特殊治療の件数、OPE／カテ／病棟外回り／機器管理／透析（＋その他＝フリー）の配置日数、指導した回数、オンコールの対応件数を、今月・年度累計で確認できます'},
     {t:'new', d:'🎓 OPE／カテ／病棟外回り／機器管理／透析／特殊治療の6分類と、それぞれの術式・治療名などの細目に「未・見学・介助・単独・指導可」の5段階で教育の到達度を記録できるようにしました。押した人・日時・変化の履歴が残ります'},
@@ -8247,8 +8254,11 @@ function canEdu() { return isAdmin || !!(currentUser && currentUser.perms && cur
    教育の到達度（5段階）を載せる。症例ごとの主・サブは記録しない（教育者が付いているか
    どうかが実質的にその役割を果たす）ので、到達段階は必ず人が押す — 件数から自動推定しない。
    D.eduProgress[氏名][項目key] = {lv, by, ts, hist[], goalFy?}。キーが無い＝未評価（lv:0は使わない）。
-   項目keyの名前空間: cat:<分類id>（大分類）、ope:<術式> / cath:<術式> / ward:<項目> /
-   device:<項目> / hd:<項目> / hdsp:<治療名>（細目）。到達度・実績とも「OPE/カテ/病棟外回り/
+   項目keyの名前空間: cat:<分類id>（大分類）、ope:<科|中カテゴリ|術式> / cath:<同> /
+   ward:<項目> / device:<項目> / hd:<項目> / hdsp:<治療名>（細目）。OPE/カテだけ階層を
+   キーに含めるのは、同じ術式名が別の中カテゴリにも在るため——実データの「低位前方切除術」は
+   消化器外科の腹腔鏡下とロボット支援下の両方にあり、術式名だけをキーにすると
+   到達度の記録が混ざる。キー生成は必ず eduKey() を通すこと。到達度・実績とも「OPE/カテ/病棟外回り/
    機器管理/透析/特殊治療」の6分類に統一（担当枠・HD役割は「その日どこに立ったか」であって
    スキルではないので評価単位にしない——枠ごとの回数はCE/HD公平性タブが既に担当している）。
    担当枠ラベル→分類の照合は eduDutyCat() が label 文字列で行う（slot.id は「追加」のたびに
@@ -8310,36 +8320,53 @@ function eduDutyCat(label) {
   if (/フリー/.test(label)) return 'free';
   return '';
 }
-/* オペ/カテ術式ツリー（D.opeTree/D.cathTree、dept→cats→items）を術式名の配列に平坦化する。 */
-function eduTreeItemNames(tree) {
-  var out = [];
-  (tree || []).forEach(function (dept) {
-    (dept.cats || []).forEach(function (cat) {
-      (cat.items || []).forEach(function (nm) { if (nm) out.push(nm); });
-    });
-  });
-  return out;
+/* 到達度の項目キー。2つの理由でここを必ず通す。
+   ① 禁止文字：術式名にはFirebase RTDBが使えない文字（. # $ [ ] /）が入りうる——初期マスタの
+      「OCT/IVUS」「VT/PVC」が実例で、/ は医療の表記に自然に出る。素通しすると
+      fbDB.ref('/data').set() が同期throwし、_saveWriting が立ったままアプリ全体の保存が止まる。
+   ② 同名術式：実データの「低位前方切除術」は消化器外科の腹腔鏡下とロボット支援下の両方にある。
+      術式名だけをキーにすると2つの到達度が同じレコードに混ざるので、科と中カテゴリも含める。
+   マスタ側の術式名は変えない——現場は「OCT/IVUS」と読むので、表示は常に元のまま。 */
+function eduKey(catId, dept, cat, name) {
+  var parts = [];
+  [dept, cat, name].forEach(function (s) { if (s) parts.push(fbSafeKey(s)); });
+  return catId + ':' + parts.join('|');
+}
+/* 細目1件の記述子。key（保存用）と label（画面用）を必ずセットで持ち歩く——
+   キーは fbSafeKey 済みで元の表記に戻せないので、表示は label 側だけを使うこと。 */
+function eduItemOf(catId, dept, cat, name) {
+  return {
+    dept: dept || '', cat: cat || '', name: name,
+    key: eduKey(catId, dept, cat, name),
+    label: cat ? (cat + ' / ' + name) : name
+  };
 }
 /* 分類idに対する細目マスタ全件（経験の有無に関わらず）。スキルマップの列・個人ビューの
-   細目一覧はどちらもここを唯一の入口にする。ward/device/hd は D.eduItems の単純配列
-   （D.wdDepts/D.tablets と同型）で、新設のため初期値は空——現場が教育項目マスタから埋める。 */
+   細目一覧はどちらもここを唯一の入口にする。戻り値は eduItemOf() の記述子の配列。
+   OPE/カテはツリー順（科→中カテゴリ→術式）で返すので、科ごとにまとまって並ぶ。
+   ward/device/hd は D.eduItems の単純配列（D.wdDepts/D.tablets と同型）で階層を持たない。 */
 function eduCatItems(catId) {
-  if (catId === 'ope') return eduTreeItemNames(D.opeTree);
-  if (catId === 'cath') return eduTreeItemNames(D.cathTree);
-  if (catId === 'hdsp') return (D.hdTreatments || []).slice();
-  if (catId === 'ward' || catId === 'device' || catId === 'hd') return ((D.eduItems && D.eduItems[catId]) || []).slice();
-  return [];
+  if (catId === 'ope' || catId === 'cath') {
+    var tree = (catId === 'ope') ? D.opeTree : D.cathTree, out = [];
+    (tree || []).forEach(function (d) {
+      (d.cats || []).forEach(function (c) {
+        (c.items || []).forEach(function (nm) { if (nm) out.push(eduItemOf(catId, d.dept, c.name, nm)); });
+      });
+    });
+    return out;
+  }
+  var list = (catId === 'hdsp') ? (D.hdTreatments || [])
+           : (catId === 'ward' || catId === 'device' || catId === 'hd') ? ((D.eduItems && D.eduItems[catId]) || [])
+           : [];
+  return list.map(function (nm) { return eduItemOf(catId, '', '', nm); });
 }
-/* 到達度の項目キー。術式名にはFirebase RTDBが禁止する文字（. # $ [ ] /）が入りうる
-   ——初期マスタの「OCT/IVUS」「VT/PVC」が実例で、/ は医療の表記に自然に出る。
-   キーに素通しすると fbDB.ref('/data').set() が同期throwし、_saveWriting が立ったまま
-   固着してアプリ全体の保存が止まる。キー生成は必ずここを通すこと。
-   マスタ側の術式名は変えない——現場は「OCT/IVUS」と読むので、表示はそのまま。 */
-function eduKey(catId, itemName) { return catId + ':' + fbSafeKey(itemName); }
 /* その人が全期間で経験した細目（症例に担当者として名前が入っている／HD特殊治療の実施者に
    入っている）を分類idごとに返す。到達度セクションを描くときだけ呼ぶ全期間走査。
-   ward/device/hd は経験を自動判定するデータ源が無いため常に空配列（呼び出し側は
-   eduExperiencedKeys(name)[catId] || [] で受ける）。 */
+   戻り値は { 分類id: { 項目key: 表示ラベル } }——キーで突き合わせ、画面にはラベルを出す。
+   症例側の科・中カテゴリは自由入力もありうるが、opsItemDept/opsItemCat が表示用の文字列を
+   返すので、マスタから選んだ症例なら eduCatItems() のキーとそのまま一致する。
+   ward/device/hd は経験を自動判定するデータ源が無いため常に空（呼び出し側は
+   (exp && exp[catId]) || {} で受ける）。 */
 function eduExperiencedKeys(name) {
   var out = { ope: {}, cath: {}, hdsp: {} };
   Object.keys(D.pages || {}).forEach(function (ds) {
@@ -8350,15 +8377,17 @@ function eduExperiencedKeys(name) {
         if (!opsItemFilled(it)) return;
         if (opsItemStaff(it).indexOf(name) === -1) return;
         var nm = opsItemName(it);
-        if (nm) out[kind][nm] = true;
+        if (!nm) return;
+        var d = opsItemDept(it), c = opsItemCat(it);
+        out[kind][eduKey(kind, d, c, nm)] = c ? (c + ' / ' + nm) : nm;
       });
     });
     hdCountSpFilled(pg).forEach(function (sp) {
       if ((sp.staff || []).indexOf(name) === -1) return;
-      if (sp.n) out.hdsp[sp.n] = true;
+      if (sp.n) out.hdsp[eduKey('hdsp', '', '', sp.n)] = sp.n;
     });
   });
-  return { ope: Object.keys(out.ope).sort(), cath: Object.keys(out.cath).sort(), hdsp: Object.keys(out.hdsp).sort() };
+  return out;
 }
 /* 期間内を1回だけ走査して全スタッフ分の実績をまとめて作る。個人ページ・印刷・CSVは
    すべてこの戻り値だけを読む（自前で数え直さない）。D.stfHidden の除外はここではなく
@@ -8366,9 +8395,13 @@ function eduExperiencedKeys(name) {
 /* eduStats の1人分の空オブジェクト。外部（活動が無かった人の表示用フォールバック）からも使う。 */
 function eduEmptyStat() {
   return {
-    ope: { n: 0, byDept: {}, byName: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
-    cath: { n: 0, byDept: {}, byName: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
-    hdsp: { n: 0, byName: {} },
+    /* byName は術式名だけの集計で、実績ブロックの「トップN内訳」に使う（読みやすさ優先で
+       同名を合算してよい）。byKey は eduKey() の階層キーでの集計で、スキルマップのセルに
+       出す経験件数に使う——こちらは腹腔鏡下とロボット支援下の「低位前方切除術」を
+       別物として数える必要があるため。用途が違うので両方持つ。 */
+    ope: { n: 0, byDept: {}, byName: {}, byKey: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
+    cath: { n: 0, byDept: {}, byName: {}, byKey: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
+    hdsp: { n: 0, byName: {}, byKey: {} },
     cat: { ope: 0, cath: 0, ward: 0, device: 0, hd: 0 }, /* 6分類のうち配置日数を持つ5つ（特殊治療は件数のみ） */
     free: 0, /* フリー・遅出フリーの日数（実績にだけ「その他」として出す。到達度は持たない） */
     teach: { n: 0, ope: 0, cath: 0, hdsp: 0 },
@@ -8389,6 +8422,7 @@ function eduStats(dsList) {
         if (!opsItemFilled(it)) return;
         var dept = opsItemDept(it) || '（未分類）';
         var nm = opsItemName(it) || '（無題）';
+        var itemKey = eduKey(kind, opsItemDept(it), opsItemCat(it), nm);
         var startMin = opsItemStartMin(it);
         var endMin = it.endTime != null ? it.endTime : null;
         var dur = (startMin != null && endMin != null && endMin >= startMin) ? (endMin - startMin) : null;
@@ -8397,6 +8431,7 @@ function eduStats(dsList) {
           e.n++;
           e.byDept[dept] = (e.byDept[dept] || 0) + 1;
           e.byName[nm] = (e.byName[nm] || 0) + 1;
+          e.byKey[itemKey] = (e.byKey[itemKey] || 0) + 1;
           if (it.emergency) e.em++;
           if (it.scope) e.sc++;
           if (dur != null) { e.durSum += dur; e.durN++; }
@@ -8412,6 +8447,7 @@ function eduStats(dsList) {
         var e = ent(staffName).hdsp;
         e.n++;
         e.byName[sp.n] = (e.byName[sp.n] || 0) + 1;
+        e.byKey[eduKey('hdsp', '', '', sp.n)] = (e.byKey[eduKey('hdsp', '', '', sp.n)] || 0) + 1;
       });
       (sp.edu || []).forEach(function (teacherName) {
         var t = ent(teacherName).teach;
@@ -8647,8 +8683,9 @@ function renderPerfPersonHTML(name) {
 function eduFreeExpNoteHTML(name, catId, exp) {
   if (catId !== 'ope' && catId !== 'cath') return '';
   var masterSet = {};
-  eduCatItems(catId).forEach(function (m) { masterSet[m] = true; });
-  var extra = ((exp && exp[catId]) || []).filter(function (nm) { return !masterSet[nm]; });
+  eduCatItems(catId).forEach(function (m) { masterSet[m.key] = true; });
+  var expMap = (exp && exp[catId]) || {};
+  var extra = Object.keys(expMap).filter(function (k) { return !masterSet[k]; }).map(function (k) { return expMap[k]; });
   if (!extra.length) return '';
   return '<div class="edu-empty" style="color:var(--or)">⚠ マスタに無い術式の経験が' + extra.length + '件あります（' + escH(extra.join('・')) + '）。マスタへの追加を検討してください</div>';
 }
@@ -8667,18 +8704,24 @@ function eduCatHTML(name, cat, exp) {
   h += eduMetaHTML(name, cat.key, rec);
   h += eduFreeExpNoteHTML(name, cat.id, exp);
   var items = eduCatItems(cat.id);
-  var expSet = {};
-  ((exp && exp[cat.id]) || []).forEach(function (nm) { expSet[nm] = true; });
+  var expMap = (exp && exp[cat.id]) || {};
   if (canEdu()) h += '<div style="margin:6px 0"><button class="btn btn-g btn-sm" style="font-size:11px" data-action="edu-bulk" data-name="' + escH(name) + '" data-cat="' + escH(cat.id) + '">⚡ まとめて設定</button>'
     + '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:4px" data-action="edu-goal-add" data-name="' + escH(name) + '" data-cat="' + escH(cat.id) + '">＋ 目標を追加</button></div>';
   if (!items.length) h += '<div class="edu-empty">まだ項目が登録されていません' + ((cat.id === 'ward' || cat.id === 'device' || cat.id === 'hd') ? '（マスタタブの「🎓 教育項目マスタ」から追加できます）' : '') + '</div>';
-  items.forEach(function (itemName) {
-    var childKey = eduKey(cat.id, itemName);
+  /* 科が変わるところに小さな区切りを入れる（OPE/カテのみ。ツリー順で並んでいるので
+     ここで科ごとにまとまって見える）。 */
+  var lastDept = null;
+  items.forEach(function (item) {
+    if (item.dept && item.dept !== lastDept) {
+      lastDept = item.dept;
+      h += '<div class="edu-dept-sep">' + escH(item.dept) + '</div>';
+    }
+    var childKey = item.key;
     var crec = eduGet(name, childKey);
     var clv = crec ? crec.lv : 0;
-    var isExp = !!expSet[itemName];
+    var isExp = !!expMap[childKey];
     h += '<div class="edu-child-row">';
-    h += '<span class="edu-child-lbl">' + escH(itemName);
+    h += '<span class="edu-child-lbl">' + escH(item.label);
     if (isExp) h += '<span class="edu-child-exp">経験あり</span>';
     if (crec && crec.goalFy) h += '<span class="edu-child-goal">🎯' + crec.goalFy + '年度目標'
       + (canEdu() ? ' <button type="button" class="ops-staff-chip-x" data-action="edu-goal-remove" data-name="' + escH(name) + '" data-key="' + escH(childKey) + '" title="目標を外す">×</button>' : '') + '</span>';
@@ -8753,11 +8796,12 @@ function eduMapLegendHTML() {
 function eduMapCountSrc(catId) {
   if (catId !== 'ope' && catId !== 'cath' && catId !== 'hdsp') return null;
   var stats = eduStats(eduAllDsList());
-  var byNameKey = catId; /* stats[name].ope.byName / .cath.byName / .hdsp.byName */
-  return function (name, itemName) {
+  /* byName ではなく byKey で引く——同名術式（腹腔鏡下とロボット支援下の「低位前方切除術」）を
+     別々に数えるため。byName で引くと両方に同じ合算値が出てしまう。 */
+  return function (name, itemKey) {
     var s = stats[name];
     if (!s) return 0;
-    return (s[byNameKey].byName && s[byNameKey].byName[itemName]) || 0;
+    return (s[catId].byKey && s[catId].byKey[itemKey]) || 0;
   };
 }
 function renderPerfMapHTML() {
@@ -8776,17 +8820,18 @@ function renderPerfMapHTML() {
     h += eduMapLegendHTML();
     var countOf = eduMapCountSrc(catId);
     h += '<div style="overflow-x:auto"><table class="edu-map-tbl"><thead><tr><th>氏名</th>';
-    items.forEach(function (it) { h += '<th>' + escH(it) + '</th>'; });
+    /* 列見出しは「中カテゴリ / 術式」。科は title に入れて幅を節約する（列がマスタ全件ぶん並ぶため）。 */
+    items.forEach(function (it) { h += '<th' + (it.dept ? ' title="' + escH(it.dept) + '"' : '') + '>' + escH(it.label) + '</th>'; });
     h += '</tr></thead><tbody>';
     names.forEach(function (n) {
       h += '<tr><td>' + escH(n) + '</td>';
       items.forEach(function (it) {
-        var rec = eduGet(n, eduKey(catId, it));
+        var rec = eduGet(n, it.key);
         var lv = rec ? rec.lv : 0;
-        var cnt = countOf ? countOf(n, it) : 0;
+        var cnt = countOf ? countOf(n, it.key) : 0;
         var mark = lv ? eduLevelLabel(lv).charAt(0) : '−';
         var cellTxt = cnt ? (mark + ' ' + cnt) : mark;
-        var title = escH(it) + '：' + (lv ? eduLevelLabel(lv) : '未評価') + (cnt ? '（経験' + cnt + '件）' : '');
+        var title = escH((it.dept ? it.dept + ' / ' : '') + it.label) + '：' + (lv ? eduLevelLabel(lv) : '未評価') + (cnt ? '（経験' + cnt + '件）' : '');
         h += '<td><span class="edu-map-cell lv' + lv + '" title="' + title + '">' + cellTxt + '</span></td>';
       });
       h += '</tr>';
@@ -8820,12 +8865,13 @@ function exportEduMapCsv() {
     var catId = _perfMapCol;
     var items = eduCatItems(catId);
     var countOf = eduMapCountSrc(catId);
-    rows = [['氏名'].concat(items)];
+    /* CSVは列幅を気にしなくてよいので、科まで入れたフルの見出しにする（並べ替え・集計しやすい） */
+    rows = [['氏名'].concat(items.map(function (it) { return it.dept ? (it.dept + ' / ' + it.label) : it.label; }))];
     names.forEach(function (n) {
       rows.push([n].concat(items.map(function (it) {
-        var rec = eduGet(n, eduKey(catId, it));
+        var rec = eduGet(n, it.key);
         var lv = rec ? rec.lv : 0;
-        var cnt = countOf ? countOf(n, it) : 0;
+        var cnt = countOf ? countOf(n, it.key) : 0;
         var label = lv ? eduLevelLabel(lv) : '未評価';
         return cnt ? (label + '(' + cnt + '件)') : label;
       })));
@@ -8845,11 +8891,11 @@ function openEduBulkModal(name, catId) {
   if (!canEdu()) return;
   var items = eduCatItems(catId);
   if (!items.length) { toast('この区分にはまだ項目が登録されていません', 'warn'); return; }
-  var keys = items.map(function (it) { return eduKey(catId, it); });
+  var keys = items.map(function (it) { return it.key; });
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'edu-bulk-ov';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '320px';
   md.innerHTML = '<div class="md-ttl">⚡ まとめて設定</div>'
-    + '<div style="font-size:13px;margin-bottom:12px">「' + escH(name) + '」さんの ' + items.length + '件（' + escH(items.join('・')) + '）に段階をまとめて設定します。</div>'
+    + '<div style="font-size:13px;margin-bottom:12px">「' + escH(name) + '」さんの ' + items.length + '件（' + escH(items.map(function (it) { return it.label; }).join('・')) + '）に段階をまとめて設定します。</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'
     + [1, 2, 3, 4, 5].map(function (i) { return '<button class="btn btn-g btn-sm" data-action="edu-bulk-apply" data-lv="' + i + '">' + eduLevelLabel(i) + '</button>'; }).join('')
     + '</div>'
@@ -8870,15 +8916,18 @@ function openEduGoalModal(name, catId) {
   if (!canEdu()) return;
   var master = eduCatItems(catId);
   if (!master.length) { toast('この区分にはまだ項目が登録されていません。マスタタブの「🎓 教育項目マスタ」から追加してください', 'warn'); return; }
-  var cands = master.filter(function (nm) {
-    var r = eduGet(name, eduKey(catId, nm));
+  var cands = master.filter(function (it) {
+    var r = eduGet(name, it.key);
     return !(r && r.goalFy);
   });
   if (!cands.length) { toast('この区分の項目はすべて目標に設定済みです', 'warn'); return; }
   var curFy = eduFyOf(toDS(new Date()));
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'edu-goal-ov';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '320px';
-  var itemOpts = cands.map(function (nm) { return '<option value="' + escH(nm) + '">' + escH(nm) + '</option>'; }).join('');
+  /* option の value はキー（保存に使う）、表示は科まで入れたラベル（同名術式を選び分けるため） */
+  var itemOpts = cands.map(function (it) {
+    return '<option value="' + escH(it.key) + '">' + escH(it.dept ? (it.dept + ' / ' + it.label) : it.label) + '</option>';
+  }).join('');
   var fyOpts = [curFy, curFy + 1, curFy + 2].map(function (y) { return '<option value="' + y + '">' + y + '年度</option>'; }).join('');
   md.innerHTML = '<div class="md-ttl">＋ 目標を追加</div>'
     + '<div style="font-size:13px;margin-bottom:8px">「' + escH(name) + '」さんの目標にする項目と年度を選んでください。</div>'
@@ -8889,10 +8938,10 @@ function openEduGoalModal(name, catId) {
     + '<button class="btn btn-p btn-sm" id="edu-goal-save-btn">追加</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
   document.getElementById('edu-goal-save-btn').addEventListener('click', function () {
-    var itemName = document.getElementById('edu-goal-item').value;
-    if (!itemName) return;
+    var itemKey = document.getElementById('edu-goal-item').value;  /* value はすでにキー */
+    if (!itemKey) return;
     var fy = parseInt(document.getElementById('edu-goal-fy').value, 10);
-    eduAddGoal(name, eduKey(catId, itemName), fy);
+    eduAddGoal(name, itemKey, fy);
     ov.remove();
   });
 }
