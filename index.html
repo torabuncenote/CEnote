@@ -2537,7 +2537,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -4687,8 +4687,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/04-57';
+var APP_VERSION = 'Ver.2026/09/05-58';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/05-58', date:'2026-09-05', title:'保存が止まる不具合の修正と、権限まわりの見直し', items:[
+    {t:'fix', d:'💾 スタッフ名・イベント名・応援の方のお名前などに「/」などの記号が入ると、その端末の保存が止まってしまう不具合を修正しました。記号は自動的に「_」に置き換えて登録されます'},
+    {t:'fix', d:'📅 曜日別業務の週指定や「月内どれか1回でよい」を変更したとき、カレンダーの完了ドットが古いまま残る不具合を修正しました'},
+    {t:'fix', d:'📱 タブレット台帳（CE）で同じ名前を重複して登録できてしまう不具合を修正しました（HD側と同じ動作に揃えました）'},
+    {t:'imp', d:'🔒 記録が消える操作（データ自動削除・申し送りの削除）と、教育到達度の閲覧・CSV出力に、画面だけでなく処理側でも権限の確認を入れました', admin:true},
+    {t:'fix', d:'🔒 スケジュールプリセット・PSG通知設定・担当枠マスタの編集権限が、本来の「各種マスタの編集」ではなく「チェックリスト（共通）の編集」を見ていた不具合を修正しました', admin:true}
+  ]},
   { ver:'Ver.2026/09/04-57', date:'2026-09-04', title:'術式の科・中カテゴリを到達度に反映', items:[
     {t:'imp', d:'🎓 教育到達度の術式を「腹腔鏡下 / 低位前方切除術」のように中カテゴリ付きで表示するようにしました。同じ術式名でも腹腔鏡下とロボット支援下は別々に記録できます（これまでは同じ扱いになっていました）'},
     {t:'imp', d:'🎓 到達度の一覧を科（消化器外科・整形外科など）ごとに区切って並べ、スキルマップの列見出しにも科を出すようにしました'},
@@ -8570,6 +8577,9 @@ function renderPerf() {
   if (!el) return;
   if (!el._perfBound) { el._perfBound = true; bindPerfBodyEvents(el); }
   var selfName = _perfPick ? null : (_perfName || perfSelfName());
+  /* 自分以外を表示できるのは canEdu() だけ。_perfName はただのモジュール変数なので、
+     ここで毎回照合しないと「変更」ボタンを経由しない経路で他人の到達度が出てしまう。 */
+  if (selfName && selfName !== perfSelfName() && !canEdu()) { selfName = perfSelfName(); _perfName = selfName; }
   if (selfName) _perfName = selfName;
   if (!selfName && !canEdu()) {
     el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--txt2);font-size:13px">アカウントがスタッフ名に紐づいていないため、実績を表示できません。管理者にご相談ください。</div>';
@@ -8859,6 +8869,7 @@ function renderPerfMapHTML() {
   return h;
 }
 function exportEduMapCsv() {
+  if (!canEdu()) return; /* 全職員の到達度を書き出すので、閲覧権限と同じゲートを通す */
   var names = perfTargetStaffList();
   var rows;
   if (_perfMapCol) {
@@ -9785,7 +9796,7 @@ function renderTabletList() {
   }
   var ar = document.getElementById('tablet-master-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
 }
-function addTablet() { if(!can('mst'))return; var el=document.getElementById('in-tablet'); var v=el.value.trim(); if(!v)return; D.tablets=D.tablets||[]; D.tablets.push(v); el.value=''; renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
+function addTablet() { if(!can('mst'))return; var el=document.getElementById('in-tablet'); var v=el.value.trim(); if(!v)return; D.tablets=D.tablets||[]; if(D.tablets.indexOf(v)!==-1){ toast('すでに登録されています','warn'); return; } D.tablets.push(v); el.value=''; renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
 
 /* ===== OC対応フローチャート ===== */
 function saveOcFlow() {
@@ -10155,7 +10166,7 @@ function setWdWeeks(i, mode) {
   arr[i] = itemRebuild(arr[i], patch);
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
-  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn'); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 /* 第N週チップの個別トグル */
 function togWdWeek(i, wk) {
@@ -10175,7 +10186,7 @@ function togWdWeek(i, wk) {
   arr[i] = itemRebuild(arr[i], patch);
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
-  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn'); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 /* 月内1回でよいトグル。毎週の項目には意味がないため、週指定がある項目にのみ許可する */
 function togWdOnce(i) {
@@ -10297,7 +10308,7 @@ function setHdWdWeeks(i, mode) {
   arr[i] = itemRebuild(arr[i], patch);
   remapHdWdChecks(_hdSelWd, oldArr, arr);
   renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
-  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn'); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 function togHdWdWeek(i, wk) {
   if(!can('wm'))return;
@@ -10316,14 +10327,14 @@ function togHdWdWeek(i, wk) {
   arr[i] = itemRebuild(arr[i], patch);
   remapHdWdChecks(_hdSelWd, oldArr, arr);
   renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
-  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn'); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 function togHdWdOnce(i) {
   if(!can('wm'))return;
   var arr = D.hdWd[_hdSelWd]; if(!arr || arr[i]===undefined) return;
   if (!wdWeeks(arr[i])) { toast('「毎週」の業務には設定できません。先に第N週を指定してください', 'warn'); return; }
   arr[i] = itemRebuild(arr[i], { once: wdOnce(arr[i]) ? null : true });
-  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage(); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 
 /* ===== 設置部署マスタ（曜日別業務の「設置部署の消し込み」で使う共通リスト） =====
@@ -19603,7 +19614,7 @@ function saveTabletLend(ds){
   var phi=detectPHI(borrower);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
-      onProceed:function(){ _doSaveTabletLend(ds,name,borrower,timeStr); },
+      onProceed: phiHasBlock(phi) ? null : function(){ _doSaveTabletLend(ds,name,borrower,timeStr); },
       onFix:function(){ var inp=document.getElementById('tablet-md-borrower'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-borrower-sel'); if(e) e.focus(); } });
     return;
   }
@@ -19657,7 +19668,7 @@ function saveTabletReturn(ds, id){
   var phi=detectPHI(retby);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
-      onProceed:function(){ _doSaveTabletReturn(ds,id,retby,timeStr,retDs); },
+      onProceed: phiHasBlock(phi) ? null : function(){ _doSaveTabletReturn(ds,id,retby,timeStr,retDs); },
       onFix:function(){ var inp=document.getElementById('tablet-md-retby'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-retby-sel'); if(e) e.focus(); } });
     return;
   }
