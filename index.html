@@ -327,6 +327,18 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .edu-map-cell.lv4{background:var(--ac)}
 .edu-map-cell.lv5{background:var(--gr)}
 @media print{.edu-lv-row,.edu-cat-arrow,.perf-hd .btn{display:none!important}.edu-lv-cur-print{display:inline!important}}
+/* ===== マスタタブのグループ（.mgrp） =====
+   20近いセクションが縦一列に並んで探せなくなっていたので、意味ごとに6グループへ畳んだ。
+   既定は全部閉じる（開いた直後は見出しだけが並ぶ）。開閉は端末ローカルに覚えさせる。 */
+.mgrp{border:1px solid var(--bdr);border-radius:var(--rs);overflow:hidden;background:var(--sur)}
+.mgrp-hd{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:11px 12px;background:var(--sur2)}
+.mgrp-hd:hover{background:var(--ac-bg)}
+.mgrp-lbl{font-size:12px;font-weight:700;flex:1;min-width:0}
+.mgrp-cnt{font-size:10px;font-weight:700;color:var(--txt3);background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:1px 7px;flex-shrink:0}
+.mgrp-arrow{font-size:11px;color:var(--txt3);transition:transform .15s;flex-shrink:0}
+.mgrp.open .mgrp-arrow{transform:rotate(90deg)}
+.mgrp-body{display:none;padding:12px;border-top:1px solid var(--bdr);flex-direction:column;gap:12px}
+.mgrp.open .mgrp-body{display:flex}
 .staffz{margin-bottom:10px}
 .staffz-hd{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:9px 12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)}
 .staffz-ttl{font-size:11px;font-weight:700;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em}
@@ -1453,231 +1465,261 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <!-- 業務マスタタブ -->
     <div id="pane-master" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp">
-        <div data-perm="dm" data-mode="ce">
-          <div class="pt">📌 共通業務（毎日）</div>
-          <div class="rl" id="dly-list"></div>
-          <div class="ar" id="dly-ar">
-            <input type="text" id="in-dly" placeholder="業務内容を入力…">
-            <button onclick="addDly()">追加</button>
-          </div>
-        </div>
-        <div data-perm="wm" data-mode="ce">
-          <div class="pt">📅 曜日別業務</div>
-          <div class="wdt" id="wdt"></div>
-          <div class="rl" id="wdly-list"></div>
-          <div class="ar" id="wdly-ar">
-            <input type="text" id="in-wdly" placeholder="業務内容を入力…">
-            <button onclick="addWdly()">追加</button>
-          </div>
-        </div>
-        <!-- 設置部署マスタはCE曜日別業務の入れ子だったが、HD曜日別業務の「🏥 部署」モーダルからも使う
-             共通マスタ（D.wdDepts）なので独立セクションに切り出した。data-mode を付けず両モードで出す。
-             ※ data-perm の判定は .sp > div[data-perm] の直下セレクタなので、必ず .sp の直接の子に置くこと -->
-        <div data-perm="wm">
-          <div class="pt">🏥 設置部署マスタ</div>
-          <div class="pn" style="margin-bottom:8px;font-size:11px">各業務の「🏥 部署」で選ぶ設置部署（病棟名など）の共通リストです。ここに登録しておくと、業務ごとに毎回入力し直す必要がありません。CE・HDどちらの曜日別業務からも同じリストを使います。</div>
-          <div class="rl" id="wd-dept-list"></div>
-          <div class="ar" id="wd-dept-ar">
-            <input type="text" id="in-wd-dept" placeholder="部署名を入力…">
-            <button onclick="addWdDept()">追加</button>
-          </div>
-        </div>
-        <!-- HDチェックリストマスタ。CE側と同じdm/wmロックを流用し、別セクションとして表示する -->
-        <div data-perm="dm" data-mode="hd">
-          <div class="pt">🩸 HD共通業務（毎日）</div>
-          <div class="pn" style="margin-bottom:8px;font-size:11px">HDモードの日ページに出るチェックリストです。CE側の「共通業務（毎日）」とは別に管理されます。</div>
-          <div class="rl" id="hd-dly-list"></div>
-          <div class="ar" id="hd-dly-ar">
-            <input type="text" id="in-hd-dly" placeholder="業務内容を入力…">
-            <button onclick="addHdDly()">追加</button>
-          </div>
-        </div>
-        <div data-perm="wm" data-mode="hd">
-          <div class="pt">🩸 HD曜日別業務</div>
-          <div class="pn" style="margin-bottom:8px;font-size:11px">設置部署マスタはCE側と共通（上の🏥設置部署マスタ）です。</div>
-          <div class="wdt" id="hd-wdt"></div>
-          <div class="rl" id="hd-wdly-list"></div>
-          <div class="ar" id="hd-wdly-ar">
-            <input type="text" id="in-hd-wdly" placeholder="業務内容を入力…">
-            <button onclick="addHdWdly()">追加</button>
-          </div>
-        </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">🔪 オペ 術式マスタ（科→中カテゴリ→術式）</div>
-          <div class="pn" style="margin-bottom:8px;font-size:11px">科・中カテゴリ・術式の3階層で管理。▶をタップで展開。</div>
-          <div id="ope-tree-list"></div>
-          <div class="tree-add-row" style="margin-top:6px">
-            <input type="text" id="in-ope-dept" placeholder="＋ 新しい科を追加…">
-            <button onclick="addOpeTreeDept()">科を追加</button>
-          </div>
-        </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">🫀 カテ 種別マスタ（科→中カテゴリ→術式）</div>
-          <div class="pn" style="margin-bottom:8px;font-size:11px">検査・治療種別を3階層で管理。</div>
-          <div id="cath-tree-list"></div>
-          <div class="tree-add-row" style="margin-top:6px">
-            <input type="text" id="in-cath-dept" placeholder="＋ 新しい科を追加…">
-            <button onclick="addCathTreeDept()">科を追加</button>
-          </div>
-        </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">🧰 使用物品マスタ（カテゴリ→種別→品名）</div>
-          <div class="pn" style="margin-bottom:8px;font-size:11px">物品を3階層で管理。</div>
-          <div id="sup-tree-list"></div>
-          <div class="tree-add-row" style="margin-top:6px">
-            <input type="text" id="in-sup-dept" placeholder="＋ 新しいカテゴリを追加…">
-            <button onclick="addSupTreeDept()">カテゴリを追加</button>
-          </div>
-        </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">🎯 担当枠マスタ</div>
-          <div class="pn" style="margin-bottom:8px">連絡表で選べる担当枠の種類を管理します。各枠には名前・アイコン・チェックボックスの有無を設定できます。</div>
-          <div class="rl" id="duty-master-list"></div>
-          <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-            <select id="in-duty-icon" style="width:64px;font-size:16px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 4px">
-              <option>🔪</option><option>🩺</option><option>🫀</option>
-              <option>🏥</option><option>⚙</option><option>💉</option>
-              <option>🧪</option><option>💊</option><option>🩻</option>
-              <option>🔬</option><option>📋</option><option>⭐</option>
-              <option>🚑</option><option>🏃</option><option>📞</option>
-            </select>
-            <input type="text" id="in-duty-name" placeholder="担当枠の名前…" style="flex:1;min-width:100px">
-            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
-              <input type="checkbox" id="in-duty-checks"> チェック欄
-            </label>
-            <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
-              <input type="checkbox" id="in-duty-freerole" onchange="document.getElementById('new-role-opts-wrap').style.display=this.checked?'':'none'"> 役割選択
-            </label>
-            <button onclick="addDutyMaster()">追加</button>
-          </div>
-          <div id="new-role-opts-wrap" style="display:none;margin-top:6px">
-            <input type="text" id="in-duty-role-opts" class="fi" placeholder="役割選択肢（カンマ区切り） 例: フリー,PSG解析,自由記述" style="font-size:12px">
-            <div style="font-size:10px;color:var(--txt3);margin-top:2px">空欄の場合はデフォルト（フリー・PSG解析・自由記述）を使用</div>
-          </div>
-        </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">⏰ スケジュールプリセット</div>
-          <div class="pn" style="margin-bottom:8px">スケジュール画面で使う業務ブロックのプリセットを管理します。</div>
-          <div class="rl" id="sched-preset-list"></div>
-          <div class="ar" id="sched-preset-ar" style="flex-wrap:wrap;gap:6px">
-            <input type="text" id="in-sp-label" placeholder="プリセット名…" style="flex:1;min-width:100px">
-            <select id="in-sp-color" style="border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;font-size:12px">
-              <option value="o">🟠 OPE</option>
-              <option value="c">🔵 カテ</option>
-              <option value="g">🟢 透析</option>
-              <option value="ac">🩵 病棟</option>
-              <option value="pu">🟣 機器</option>
-              <option value="gd">🟡 会議</option>
-              <option value="gray">⚪ その他</option>
-              <option value="rd">🔴 注意</option>
-            </select>
-            <input type="number" id="in-sp-dur" placeholder="分" min="15" step="15" value="60" style="width:68px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;font-size:12px">
-            <button onclick="addSchedPreset()">追加</button>
-          </div>
-        </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">🌙 PSG通知設定</div>
-          <div class="pn" style="margin-bottom:8px">PSG装着者がいる日に付箋未入力の場合、指定時刻にトーストで通知します。</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <label style="font-size:13px;font-weight:600">付箋通知時刻</label>
-            <input type="time" id="psg-alert-time" onchange="savePsgAlertTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
-          </div>
-          <div class="pn" style="margin-bottom:8px">PSG外し日（前日装着あり）にバナーを表示する時間帯を設定します。</div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <label style="font-size:13px;font-weight:600">バナー表示</label>
-            <input type="time" id="psg-banner-start" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
-            <span style="font-size:13px">〜</span>
-            <input type="time" id="psg-banner-end" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
-          </div>
-        </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">🎓 教育者欄の設定</div>
-          <div class="pn" style="margin-bottom:8px">オペ・カテの症例行に「教育者」欄を出します。教育者が付いている＝まだ独り立ちしていない、という記録になります（実績・教育到達度のOPE担当/カテ担当の根拠に使われます）。既定はOFFです。</div>
-          <div class="lkr">
-            <div class="lkrl">
-              <span>🎓</span>
-              <div>
-                <div style="font-size:12px;font-weight:600">症例行に教育者欄を出す</div>
-                <span id="edu-ce-badge" class="lkb ul">🔓 無効</span>
+        <div class="mgrp" data-grp="task">
+          <div class="mgrp-hd" onclick="toggleMstGroup('task')"><span class="mgrp-arrow">▶</span><span class="mgrp-lbl">📋 業務・チェックリスト</span><span class="mgrp-cnt"></span></div>
+          <div class="mgrp-body">
+            <div data-perm="dm" data-mode="ce">
+              <div class="pt">📌 共通業務（毎日）</div>
+              <div class="rl" id="dly-list"></div>
+              <div class="ar" id="dly-ar">
+                <input type="text" id="in-dly" placeholder="業務内容を入力…">
+                <button onclick="addDly()">追加</button>
               </div>
             </div>
-            <label class="lkt"><input type="checkbox" id="edu-ce-toggle" onchange="saveEduCfg()"><span class="lks"></span></label>
-          </div>
-        </div>
-        <div id="edu-items-section">
-          <div class="pt">🎓 教育項目マスタ</div>
-          <div class="pn" style="margin-bottom:8px">教育到達度「病棟外回り」「機器管理」「透析」の細目を登録します（OPE・カテはOPE/カテ術式マスタ、特殊治療はHD特殊治療マスタをそのまま使うためここには含みません）。管理者、または「🎓 教育到達度」の権限を持つ人が編集できます。</div>
-          <div style="margin-bottom:14px">
-            <div style="font-size:12px;font-weight:600;margin-bottom:4px">🏥 病棟外回り</div>
-            <div class="rl" id="edu-item-list-ward"></div>
-            <div class="ar" id="edu-item-ar-ward">
-              <input type="text" id="in-edu-item-ward" placeholder="例: 人工呼吸器ラウンド" maxlength="30">
-              <button onclick="addEduItem('ward')" style="background:var(--pu)">追加</button>
+            <div data-perm="wm" data-mode="ce">
+              <div class="pt">📅 曜日別業務</div>
+              <div class="wdt" id="wdt"></div>
+              <div class="rl" id="wdly-list"></div>
+              <div class="ar" id="wdly-ar">
+                <input type="text" id="in-wdly" placeholder="業務内容を入力…">
+                <button onclick="addWdly()">追加</button>
+              </div>
+            </div>
+            <!-- 設置部署マスタはCE曜日別業務の入れ子だったが、HD曜日別業務の「🏥 部署」モーダルからも使う
+                 共通マスタ（D.wdDepts）なので独立セクションに切り出した。data-mode を付けず両モードで出す。
+                 ※ セクションは必ずどれかの .mgrp-body の直接の子に置くこと（どのグループにも入れないと画面に出ない） -->
+            <div data-perm="wm">
+              <div class="pt">🏥 設置部署マスタ</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">各業務の「🏥 部署」で選ぶ設置部署（病棟名など）の共通リストです。ここに登録しておくと、業務ごとに毎回入力し直す必要がありません。CE・HDどちらの曜日別業務からも同じリストを使います。</div>
+              <div class="rl" id="wd-dept-list"></div>
+              <div class="ar" id="wd-dept-ar">
+                <input type="text" id="in-wd-dept" placeholder="部署名を入力…">
+                <button onclick="addWdDept()">追加</button>
+              </div>
+            </div>
+            <!-- HDチェックリストマスタ。CE側と同じdm/wmロックを流用し、別セクションとして表示する -->
+            <div data-perm="dm" data-mode="hd">
+              <div class="pt">🩸 HD共通業務（毎日）</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">HDモードの日ページに出るチェックリストです。CE側の「共通業務（毎日）」とは別に管理されます。</div>
+              <div class="rl" id="hd-dly-list"></div>
+              <div class="ar" id="hd-dly-ar">
+                <input type="text" id="in-hd-dly" placeholder="業務内容を入力…">
+                <button onclick="addHdDly()">追加</button>
+              </div>
+            </div>
+            <div data-perm="wm" data-mode="hd">
+              <div class="pt">🩸 HD曜日別業務</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">設置部署マスタはCE側と共通（上の🏥設置部署マスタ）です。</div>
+              <div class="wdt" id="hd-wdt"></div>
+              <div class="rl" id="hd-wdly-list"></div>
+              <div class="ar" id="hd-wdly-ar">
+                <input type="text" id="in-hd-wdly" placeholder="業務内容を入力…">
+                <button onclick="addHdWdly()">追加</button>
+              </div>
             </div>
           </div>
-          <div style="margin-bottom:14px">
-            <div style="font-size:12px;font-weight:600;margin-bottom:4px">⚙ 機器管理</div>
-            <div class="rl" id="edu-item-list-device"></div>
-            <div class="ar" id="edu-item-ar-device">
-              <input type="text" id="in-edu-item-device" placeholder="例: 輸液ポンプ点検" maxlength="30">
-              <button onclick="addEduItem('device')" style="background:var(--pu)">追加</button>
+        </div>
+        <div class="mgrp" data-grp="ops">
+          <div class="mgrp-hd" onclick="toggleMstGroup('ops')"><span class="mgrp-arrow">▶</span><span class="mgrp-lbl">🔪 業務内容マスタ</span><span class="mgrp-cnt"></span></div>
+          <div class="mgrp-body">
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">🔪 オペ 術式マスタ（科→中カテゴリ→術式）</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">科・中カテゴリ・術式の3階層で管理。▶をタップで展開。</div>
+              <div id="ope-tree-list"></div>
+              <div class="tree-add-row" style="margin-top:6px">
+                <input type="text" id="in-ope-dept" placeholder="＋ 新しい科を追加…">
+                <button onclick="addOpeTreeDept()">科を追加</button>
+              </div>
+            </div>
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">🫀 カテ 種別マスタ（科→中カテゴリ→術式）</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">検査・治療種別を3階層で管理。</div>
+              <div id="cath-tree-list"></div>
+              <div class="tree-add-row" style="margin-top:6px">
+                <input type="text" id="in-cath-dept" placeholder="＋ 新しい科を追加…">
+                <button onclick="addCathTreeDept()">科を追加</button>
+              </div>
+            </div>
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">🧰 使用物品マスタ（カテゴリ→種別→品名）</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">物品を3階層で管理。</div>
+              <div id="sup-tree-list"></div>
+              <div class="tree-add-row" style="margin-top:6px">
+                <input type="text" id="in-sup-dept" placeholder="＋ 新しいカテゴリを追加…">
+                <button onclick="addSupTreeDept()">カテゴリを追加</button>
+              </div>
+            </div>
+            <div data-perm="mst" data-mode="hd">
+              <div class="pt">🩸 HD特殊治療マスタ</div>
+              <div class="pn" style="margin-bottom:8px">HDモードの血液浄化件数入力で「特殊」区分の選択肢になります（例: PMX、CHDF、二重濾過など）。1治療＝1件として数えます。</div>
+              <div class="rl" id="hd-treat-list"></div>
+              <div class="ar" id="hd-treat-ar">
+                <input type="text" id="in-hd-treat" placeholder="例: PMX" maxlength="20">
+                <button onclick="addHdTreat()" style="background:var(--pu)">追加</button>
+              </div>
             </div>
           </div>
-          <div>
-            <div style="font-size:12px;font-weight:600;margin-bottom:4px">🩸 透析</div>
-            <div class="rl" id="edu-item-list-hd"></div>
-            <div class="ar" id="edu-item-ar-hd">
-              <input type="text" id="in-edu-item-hd" placeholder="例: 穿刺" maxlength="30">
-              <button onclick="addEduItem('hd')" style="background:var(--pu)">追加</button>
+        </div>
+        <div class="mgrp" data-grp="duty">
+          <div class="mgrp-hd" onclick="toggleMstGroup('duty')"><span class="mgrp-arrow">▶</span><span class="mgrp-lbl">🎯 担当・スケジュール</span><span class="mgrp-cnt"></span></div>
+          <div class="mgrp-body">
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">🎯 担当枠マスタ</div>
+              <div class="pn" style="margin-bottom:8px">連絡表で選べる担当枠の種類を管理します。各枠には名前・アイコン・チェックボックスの有無を設定できます。</div>
+              <div class="rl" id="duty-master-list"></div>
+              <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+                <select id="in-duty-icon" style="width:64px;font-size:16px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 4px">
+                  <option>🔪</option><option>🩺</option><option>🫀</option>
+                  <option>🏥</option><option>⚙</option><option>💉</option>
+                  <option>🧪</option><option>💊</option><option>🩻</option>
+                  <option>🔬</option><option>📋</option><option>⭐</option>
+                  <option>🚑</option><option>🏃</option><option>📞</option>
+                </select>
+                <input type="text" id="in-duty-name" placeholder="担当枠の名前…" style="flex:1;min-width:100px">
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+                  <input type="checkbox" id="in-duty-checks"> チェック欄
+                </label>
+                <label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer">
+                  <input type="checkbox" id="in-duty-freerole" onchange="document.getElementById('new-role-opts-wrap').style.display=this.checked?'':'none'"> 役割選択
+                </label>
+                <button onclick="addDutyMaster()">追加</button>
+              </div>
+              <div id="new-role-opts-wrap" style="display:none;margin-top:6px">
+                <input type="text" id="in-duty-role-opts" class="fi" placeholder="役割選択肢（カンマ区切り） 例: フリー,PSG解析,自由記述" style="font-size:12px">
+                <div style="font-size:10px;color:var(--txt3);margin-top:2px">空欄の場合はデフォルト（フリー・PSG解析・自由記述）を使用</div>
+              </div>
+            </div>
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">⏰ スケジュールプリセット</div>
+              <div class="pn" style="margin-bottom:8px">スケジュール画面で使う業務ブロックのプリセットを管理します。</div>
+              <div class="rl" id="sched-preset-list"></div>
+              <div class="ar" id="sched-preset-ar" style="flex-wrap:wrap;gap:6px">
+                <input type="text" id="in-sp-label" placeholder="プリセット名…" style="flex:1;min-width:100px">
+                <select id="in-sp-color" style="border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;font-size:12px">
+                  <option value="o">🟠 OPE</option>
+                  <option value="c">🔵 カテ</option>
+                  <option value="g">🟢 透析</option>
+                  <option value="ac">🩵 病棟</option>
+                  <option value="pu">🟣 機器</option>
+                  <option value="gd">🟡 会議</option>
+                  <option value="gray">⚪ その他</option>
+                  <option value="rd">🔴 注意</option>
+                </select>
+                <input type="number" id="in-sp-dur" placeholder="分" min="15" step="15" value="60" style="width:68px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;font-size:12px">
+                <button onclick="addSchedPreset()">追加</button>
+              </div>
+            </div>
+            <div id="auto-assign-mode-cfg" data-perm="admin" data-mode="ce">
+              <div class="pt">🎲 月次自動割り当てモード</div>
+              <div id="auto-assign-mode-form"></div>
             </div>
           </div>
         </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">📱 タブレット台帳</div>
-          <div class="pn" style="margin-bottom:8px">貸出・返却を記録するタブレットを登録します。連絡表の「タブレット貸出・返却」で選択肢になります。</div>
-          <div class="rl" id="tablet-master-list"></div>
-          <div class="ar" id="tablet-master-ar">
-            <input type="text" id="in-tablet" placeholder="例: 1号機" maxlength="20">
-            <button onclick="addTablet()" style="background:var(--pu)">追加</button>
+        <div class="mgrp" data-grp="edu">
+          <div class="mgrp-hd" onclick="toggleMstGroup('edu')"><span class="mgrp-arrow">▶</span><span class="mgrp-lbl">🎓 教育</span><span class="mgrp-cnt"></span></div>
+          <div class="mgrp-body">
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">🎓 教育者欄の設定</div>
+              <div class="pn" style="margin-bottom:8px">オペ・カテの症例行に「教育者」欄を出します。教育者が付いている＝まだ独り立ちしていない、という記録になります（実績・教育到達度のOPE担当/カテ担当の根拠に使われます）。既定はOFFです。</div>
+              <div class="lkr">
+                <div class="lkrl">
+                  <span>🎓</span>
+                  <div>
+                    <div style="font-size:12px;font-weight:600">症例行に教育者欄を出す</div>
+                    <span id="edu-ce-badge" class="lkb ul">🔓 無効</span>
+                  </div>
+                </div>
+                <label class="lkt"><input type="checkbox" id="edu-ce-toggle" onchange="saveEduCfg()"><span class="lks"></span></label>
+              </div>
+            </div>
+            <div id="edu-items-section">
+              <div class="pt">🎓 教育項目マスタ</div>
+              <div class="pn" style="margin-bottom:8px">教育到達度「病棟外回り」「機器管理」「透析」の細目を登録します（OPE・カテはOPE/カテ術式マスタ、特殊治療はHD特殊治療マスタをそのまま使うためここには含みません）。管理者、または「🎓 教育到達度」の権限を持つ人が編集できます。</div>
+              <div style="margin-bottom:14px">
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">🏥 病棟外回り</div>
+                <div class="rl" id="edu-item-list-ward"></div>
+                <div class="ar" id="edu-item-ar-ward">
+                  <input type="text" id="in-edu-item-ward" placeholder="例: 人工呼吸器ラウンド" maxlength="30">
+                  <button onclick="addEduItem('ward')" style="background:var(--pu)">追加</button>
+                </div>
+              </div>
+              <div style="margin-bottom:14px">
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">⚙ 機器管理</div>
+                <div class="rl" id="edu-item-list-device"></div>
+                <div class="ar" id="edu-item-ar-device">
+                  <input type="text" id="in-edu-item-device" placeholder="例: 輸液ポンプ点検" maxlength="30">
+                  <button onclick="addEduItem('device')" style="background:var(--pu)">追加</button>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">🩸 透析</div>
+                <div class="rl" id="edu-item-list-hd"></div>
+                <div class="ar" id="edu-item-ar-hd">
+                  <input type="text" id="in-edu-item-hd" placeholder="例: 穿刺" maxlength="30">
+                  <button onclick="addEduItem('hd')" style="background:var(--pu)">追加</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div data-perm="mst" data-mode="hd">
-          <div class="pt">🩸 HD特殊治療マスタ</div>
-          <div class="pn" style="margin-bottom:8px">HDモードの血液浄化件数入力で「特殊」区分の選択肢になります（例: PMX、CHDF、二重濾過など）。1治療＝1件として数えます。</div>
-          <div class="rl" id="hd-treat-list"></div>
-          <div class="ar" id="hd-treat-ar">
-            <input type="text" id="in-hd-treat" placeholder="例: PMX" maxlength="20">
-            <button onclick="addHdTreat()" style="background:var(--pu)">追加</button>
+        <div class="mgrp" data-grp="item">
+          <div class="mgrp-hd" onclick="toggleMstGroup('item')"><span class="mgrp-arrow">▶</span><span class="mgrp-lbl">📱 備品・台帳</span><span class="mgrp-cnt"></span></div>
+          <div class="mgrp-body">
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">📱 タブレット台帳</div>
+              <div class="pn" style="margin-bottom:8px">貸出・返却を記録するタブレットを登録します。連絡表の「タブレット貸出・返却」で選択肢になります。</div>
+              <div class="rl" id="tablet-master-list"></div>
+              <div class="ar" id="tablet-master-ar">
+                <input type="text" id="in-tablet" placeholder="例: 1号機" maxlength="20">
+                <button onclick="addTablet()" style="background:var(--pu)">追加</button>
+              </div>
+            </div>
+            <div data-perm="mst" data-mode="hd">
+              <div class="pt">📱 HDタブレット台帳</div>
+              <div class="pn" style="margin-bottom:8px">透析室のタブレットを登録します。CEのタブレット台帳とは別管理で、貸出・返却の記録も混ざりません。</div>
+              <div class="rl" id="hd-tablet-master-list"></div>
+              <div class="ar" id="hd-tablet-master-ar">
+                <input type="text" id="in-hd-tablet" placeholder="例: HD1号機" maxlength="20">
+                <button onclick="addHdTablet()" style="background:var(--pu)">追加</button>
+              </div>
+            </div>
           </div>
         </div>
-        <div data-perm="mst" data-mode="hd">
-          <div class="pt">📱 HDタブレット台帳</div>
-          <div class="pn" style="margin-bottom:8px">透析室のタブレットを登録します。CEのタブレット台帳とは別管理で、貸出・返却の記録も混ざりません。</div>
-          <div class="rl" id="hd-tablet-master-list"></div>
-          <div class="ar" id="hd-tablet-master-ar">
-            <input type="text" id="in-hd-tablet" placeholder="例: HD1号機" maxlength="20">
-            <button onclick="addHdTablet()" style="background:var(--pu)">追加</button>
+        <div class="mgrp" data-grp="notif">
+          <div class="mgrp-hd" onclick="toggleMstGroup('notif')"><span class="mgrp-arrow">▶</span><span class="mgrp-lbl">🔔 通知・連絡</span><span class="mgrp-cnt"></span></div>
+          <div class="mgrp-body">
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">🌙 PSG通知設定</div>
+              <div class="pn" style="margin-bottom:8px">PSG装着者がいる日に付箋未入力の場合、指定時刻にトーストで通知します。</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <label style="font-size:13px;font-weight:600">付箋通知時刻</label>
+                <input type="time" id="psg-alert-time" onchange="savePsgAlertTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
+              </div>
+              <div class="pn" style="margin-bottom:8px">PSG外し日（前日装着あり）にバナーを表示する時間帯を設定します。</div>
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <label style="font-size:13px;font-weight:600">バナー表示</label>
+                <input type="time" id="psg-banner-start" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
+                <span style="font-size:13px">〜</span>
+                <input type="time" id="psg-banner-end" onchange="savePsgBannerTime()" style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">
+              </div>
+            </div>
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">📞 OC対応フローチャート</div>
+              <div class="pn" style="margin-bottom:8px">OC集計タブの「OC対応フローチャート」ボタン、または連絡表ページのオンコール（OC）担当枠にある「📄 対応フロー」ボタンで全員が閲覧できる内容です。改行・字下げ・矢印（→ ↓）はそのまま表示されます。</div>
+              <textarea id="oc-flow-text" rows="10" style="width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur2);color:var(--txt)" placeholder="例:&#10;1. OC携帯が鳴ったら病棟名・用件を確認&#10;2. 機器トラブル → 現地へ&#10;   ↓解決しない場合&#10;3. リーダーへ連絡"></textarea>
+              <div style="margin-top:6px;text-align:right"><button class="btn btn-p btn-sm" onclick="saveOcFlow()">保存</button></div>
+            </div>
+            <div id="emailjs-cfg-section" data-perm="admin" data-mode="ce">
+              <div class="pt">📧 メール通知設定（EmailJS）</div>
+              <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
+              <div id="emailjs-cfg-form"></div>
+            </div>
+            <div id="fcm-cfg-section" data-perm="admin" data-mode="ce">
+              <div class="pt">🔔 Web Push設定（FCM）</div>
+              <div class="pn" style="margin-bottom:8px">Firebase Cloud Messaging でアプリを閉じていても担当割り当て通知をプッシュ配信できます。Firebase コンソール → プロジェクト設定 → Cloud Messaging から VAPIDキー（公開鍵）とサーバーキーを取得してください。</div>
+              <div id="fcm-cfg-form"></div>
+            </div>
           </div>
-        </div>
-        <div data-perm="mst" data-mode="ce">
-          <div class="pt">📞 OC対応フローチャート</div>
-          <div class="pn" style="margin-bottom:8px">OC集計タブの「OC対応フローチャート」ボタン、または連絡表ページのオンコール（OC）担当枠にある「📄 対応フロー」ボタンで全員が閲覧できる内容です。改行・字下げ・矢印（→ ↓）はそのまま表示されます。</div>
-          <textarea id="oc-flow-text" rows="10" style="width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur2);color:var(--txt)" placeholder="例:&#10;1. OC携帯が鳴ったら病棟名・用件を確認&#10;2. 機器トラブル → 現地へ&#10;   ↓解決しない場合&#10;3. リーダーへ連絡"></textarea>
-          <div style="margin-top:6px;text-align:right"><button class="btn btn-p btn-sm" onclick="saveOcFlow()">保存</button></div>
-        </div>
-        <div id="emailjs-cfg-section" data-perm="admin" data-mode="ce">
-          <div class="pt">📧 メール通知設定（EmailJS）</div>
-          <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
-          <div id="emailjs-cfg-form"></div>
-        </div>
-        <div id="fcm-cfg-section" data-perm="admin" data-mode="ce">
-          <div class="pt">🔔 Web Push設定（FCM）</div>
-          <div class="pn" style="margin-bottom:8px">Firebase Cloud Messaging でアプリを閉じていても担当割り当て通知をプッシュ配信できます。Firebase コンソール → プロジェクト設定 → Cloud Messaging から VAPIDキー（公開鍵）とサーバーキーを取得してください。</div>
-          <div id="fcm-cfg-form"></div>
-        </div>
-        <div id="auto-assign-mode-cfg" data-perm="admin" data-mode="ce">
-          <div class="pt">🎲 月次自動割り当てモード</div>
-          <div id="auto-assign-mode-form"></div>
         </div>
         <div class="pn">変更はすぐに全連絡表に反映されます。</div>
       </div>
@@ -4342,12 +4384,24 @@ function renderAdminManual() {
   S += '<div class="a-p">頻度を「毎週」に戻すと、この設定は自動的に解除されます（トーストで通知）。</div>';
   S += '<div class="a-h2">設置部署の消し込み（subs）</div>';
   S += '<div class="a-p">「第3週・第4週の土曜で機器点検を部署ごとに分担する」のような業務向けの設定です。部署名は先に「設置部署マスタ」へ登録しておき、各業務ではそこからチェックで選びます（自由入力の積み重ねによる表記ゆれを避けるため）。</div>';
-  S += '<div class="a-step"><div class="a-num">1</div><div>「📅 曜日別業務」の下にある「🏥 設置部署マスタ」に、点検対象の部署名（病棟名など）を1件ずつ登録しておく</div></div>';
+  S += '<div class="a-step"><div class="a-num">1</div><div>マスタタブ →「📋 業務・チェックリスト」を開き、その中の「🏥 設置部署マスタ」に、点検対象の部署名（病棟名など）を1件ずつ登録しておく</div></div>';
   S += '<div class="a-step"><div class="a-num">2</div><div>対象の曜日別業務の「🏥 部署」ボタンをタップし、その業務で点検する部署にチェックを入れて保存</div></div>';
   S += '<div class="a-p">モーダル内に無い部署は、下の「＋ マスタに追加」からその場でマスタへ追加してチェック済みにできます（マスタ画面まで戻る必要はありません）。</div>';
   S += '<div class="a-p">登録すると、日ページのチェックリストにその項目の進捗チップ「🏥 3/8 ▾」が表示されます。タップするとその場で部署ごとのチェック欄が開閉し、実施済みの部署には実施日が表示されます。進捗は暦月ごとに集計され、月が変わると自動的に0件に戻ります。</div>';
   S += '<div class="a-warn">⚠ 部署ごとにチェックしても、親のチェックリスト項目自体（「各部署 生体情報モニタ点検」など）は自動でチェックされません。全部署の実施が終わったら、通常のチェックリスト操作で親の項目も手動でチェックしてください。</div>';
   S += '<div class="a-p">業務ごとの部署リストを全部解除しても、それまでの消し込み実績と紐付けIDは残ります。同じ部署を再度チェックすれば、過去の実施記録と再びつながります。マスタから部署自体を削除した場合も、過去の実施記録は消えません（その部署が選べなくなるだけです）。</div>';
+
+  S += '<div class="a-h1">19. マスタタブの構成（どこに何があるか）</div>';
+  S += '<div class="a-p">設定項目が20近くあるため、意味ごとに6つのグループへ畳んであります。見出しをタップすると開閉し、右端の数字はいま表示されている項目数です。開いた直後は全部畳まれた状態なので、まず見出しだけを見て目的のグループを探してください。開閉の状態はお使いの端末に記憶され、次に開いたときも同じ状態になります。</div>';
+  S += '<table class="a-tbl"><tr><th>グループ</th><th>入っている設定</th></tr>';
+  S += '<tr><td>📋 業務・チェックリスト</td><td>共通業務（毎日）／曜日別業務／設置部署マスタ（HDモードではHD版の共通業務・曜日別業務）</td></tr>';
+  S += '<tr><td>🔪 業務内容マスタ</td><td>オペ術式／カテ種別／使用物品（HDモードではHD特殊治療マスタ）</td></tr>';
+  S += '<tr><td>🎯 担当・スケジュール</td><td>担当枠マスタ／スケジュールプリセット／月次自動割り当てモード</td></tr>';
+  S += '<tr><td>🎓 教育</td><td>教育者欄の設定／教育項目マスタ</td></tr>';
+  S += '<tr><td>📱 備品・台帳</td><td>タブレット台帳（HDモードではHDタブレット台帳）</td></tr>';
+  S += '<tr><td>🔔 通知・連絡</td><td>PSG通知設定／OC対応フローチャート／メール通知（EmailJS）／Web Push（FCM）</td></tr>';
+  S += '</table>';
+  S += '<div class="a-p">グループの中身は、これまでどおり権限と主観モード（CE／HD）で出し分けられます。中の設定が1つも表示されないグループは、見出しごと隠れます（例：HDモードでは「担当・スケジュール」「通知・連絡」は出ません）。</div>';
 
   el.innerHTML = S;
 }
@@ -4637,7 +4691,8 @@ var APP_CHANGELOG = [
     {t:'new', d:'🔪 オペ・カテの症例にも同じ形の「教育者」欄を追加できます（📋業務タブの設定でON/OFF。既定はOFFです）', admin:true},
     {t:'new', d:'🗺 スタッフ×項目のスキルマップを追加しました。分類チップ（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療）で切り替えられ、各分類の項目を全件一覧・CSV出力できます'},
     {t:'new', d:'🎓 病棟外回り・機器管理・透析の到達度項目は、マスタタブの「🎓 教育項目マスタ」から登録します', admin:true},
-    {t:'imp', d:'👥 教育到達度の閲覧・記録には新しい権限「🎓 教育到達度」が必要です（ユーザー管理から付与）。自分の実績・到達度は誰でも見られます', admin:true}
+    {t:'imp', d:'👥 教育到達度の閲覧・記録には新しい権限「🎓 教育到達度」が必要です（ユーザー管理から付与）。自分の実績・到達度は誰でも見られます', admin:true},
+    {t:'imp', d:'📋 マスタタブの項目を「業務・チェックリスト／業務内容マスタ／担当・スケジュール／教育／備品・台帳／通知・連絡」の6つに分け、見出しをタップで開閉できるようにしました。開いた直後は全部畳まれているので、目的の設定を探しやすくなります（開閉の状態はお使いの端末に記憶されます）', admin:true}
   ]},
   { ver:'Ver.2026/09/02-55', date:'2026-09-02', title:'準夜が1枠しか出ない不具合を修正', items:[
     {t:'fix', d:'🩸 HD担当表で、準夜のように同じ役割を複数人で受け持つ枠が1人分しか残らず、他の人が余剰人員へ移ってしまう不具合を修正しました。準夜3名がそのまま3名並びます'},
@@ -10341,6 +10396,41 @@ function renderEduItemMaster() {
   var sec = document.getElementById('edu-items-section');
   if (sec) sec.style.display = eduItemMasterOk() ? '' : 'none';
   EDU_ITEM_KINDS.forEach(function (k) { renderEduItemList(k); });
+}
+
+/* ===== マスタタブのグループ開閉 =====
+   マスタは20近いセクションがあり、縦一列だと目的のものを探せない。意味ごとに
+   .mgrp でまとめ、既定は全部閉じた状態にしてある。開閉状態は端末ローカル
+   （localStorage 'ce2_mstgrp'）に持つ——D に入れると他の端末の管理者の開閉まで
+   動いてしまうため。_viewMode・テーマと同じ流儀。 */
+var _mstGrpOpen = null;
+function mstGrpState() {
+  if (_mstGrpOpen) return _mstGrpOpen;
+  try { _mstGrpOpen = JSON.parse(localStorage.getItem('ce2_mstgrp') || '{}') || {}; } catch (e) { _mstGrpOpen = {}; }
+  return _mstGrpOpen;
+}
+function toggleMstGroup(id) {
+  var st = mstGrpState();
+  st[id] = !st[id];
+  try { localStorage.setItem('ce2_mstgrp', JSON.stringify(st)); } catch (e) {}
+  applyMstGroups();
+}
+/* 各グループの開閉と表示を反映する。data-perm/data-mode の出し分けと
+   renderEduItemMaster() が先に走って各セクションの display を決めた「後」に呼ぶこと
+   ——中に表示中のセクションが1つも無いグループは見出しごと隠すため、順番が逆だと
+   権限や主観で中身が全部消えたグループの見出しだけが残る。 */
+function applyMstGroups() {
+  var st = mstGrpState();
+  document.querySelectorAll('#pane-master .mgrp').forEach(function (g) {
+    var visible = 0;
+    g.querySelectorAll(':scope > .mgrp-body > div').forEach(function (s) {
+      if (s.style.display !== 'none') visible++;
+    });
+    g.style.display = visible ? '' : 'none';
+    g.classList.toggle('open', !!st[g.getAttribute('data-grp')]);
+    var cnt = g.querySelector('.mgrp-cnt');
+    if (cnt) cnt.textContent = visible;
+  });
 }
 
 /* ===== 曜日別業務：設置部署の選択モーダル =====
@@ -19586,14 +19676,17 @@ function swTab(t) {
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
     /* data-perm = 権限による出し分け（従来どおり）。
        data-mode = 主観モードによる出し分け（'ce'|'hd'、属性なし＝両モードで表示）。
-       セレクタが .sp > div[...] の直下指定なので、新セクションは必ず .sp の直接の子に置くこと。 */
-    document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
+       セクションは .mgrp-body の中に入っているので子孫セレクタで拾う。新セクションは
+       必ずどれかの .mgrp-body の直接の子に置くこと（どのグループにも入れないと出ない）。 */
+    document.querySelectorAll('#pane-master .sp div[data-perm]').forEach(function(sec){
       var perm=sec.getAttribute('data-perm');
       var mode=sec.getAttribute('data-mode');
       var permOk=(perm==='admin'?isAdmin:can(perm));
       var modeOk=(!mode||mode===_viewMode);
       sec.style.display=(permOk&&modeOk)?'':'none';
     });
+    /* 各セクションの display が確定した「後」に呼ぶ（中身が全部消えたグループを畳むため） */
+    applyMstGroups();
   }
   if(t==='logs'){loadLogs();}
   if(t==='lock') { renderLockList(); loadAutoDelSettings(); }

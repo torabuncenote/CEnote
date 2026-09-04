@@ -191,16 +191,17 @@ function can(id) {
 
 #### pane-master Section Gating
 
-Each section div in `#pane-master .sp` carries a `data-perm` attribute (permission) and optionally a `data-mode` attribute (主観モード). `swTab('master')` evaluates both after rendering:
+Each section div in `#pane-master .sp` carries a `data-perm` attribute (permission) and optionally a `data-mode` attribute (主観モード). `swTab('master')` evaluates both after rendering, then folds the groups:
 
 ```js
-document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
+document.querySelectorAll('#pane-master .sp div[data-perm]').forEach(function(sec){
   var perm = sec.getAttribute('data-perm');
   var mode = sec.getAttribute('data-mode');
   var permOk = (perm === 'admin' ? isAdmin : can(perm));
   var modeOk = (!mode || mode === _viewMode);
   sec.style.display = (permOk && modeOk) ? '' : 'none';
 });
+applyMstGroups();   /* 各セクションの display が確定した「後」に呼ぶ */
 ```
 
 - `data-perm="dm"` — 共通チェックリスト section (CE and HD each have their own)
@@ -211,7 +212,13 @@ document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(
 
 **設置部署マスタ must stay its own top-level section.** It was originally nested inside the CE 📅 曜日別業務 block, but `D.wdDepts` is shared by both CE and HD 曜日別業務 (the 🏥 部署 modal on either side reads the same list). Leaving it nested meant hiding the CE block in HD mode also took away the only place to add or reorder departments.
 
-The selector is `.sp > div[data-perm]` — a **direct-child** selector — so a new section must be a direct child of `.sp`. Nesting it inside another section makes it invisible to both gates and it ends up shown to everyone in every mode.
+#### マスタタブのグループ（`.mgrp`）
+
+セクションが20近くまで増えて縦一列では目的のものを探せなくなったため、意味ごとに**6グループ**（`task` 業務・チェックリスト／`ops` 業務内容マスタ／`duty` 担当・スケジュール／`edu` 教育／`item` 備品・台帳／`notif` 通知・連絡）へ畳んである。各グループは `.mgrp > .mgrp-hd`（見出し・クリックで開閉）＋ `.mgrp-body`（中身）。
+
+- **新しいセクションは、必ずどれかの `.mgrp-body` の直接の子に置くこと。** どのグループにも入れないと画面に出ない。セレクタは `.sp div[data-perm]`（**子孫**セレクタ）なので、`.mgrp-body` の中でも権限・主観の出し分けはそのまま効く——以前の `.sp > div[data-perm]` 直接子セレクタから変更済み。
+- **`applyMstGroups()` は必ず「各セクションの `display` が確定した後」に呼ぶ。** 中に表示中のセクションが1つも無いグループを見出しごと隠す処理なので、順番が逆だと、権限や主観で中身が全部消えたグループの見出しだけが残る（HD主観では `duty` と `notif` の2グループが実際に空になる）。見出し右のバッジは「いま見えているセクション数」で、これも同じ集計を使う。
+- 開閉状態は端末ローカル（`localStorage` の `ce2_mstgrp`、`mstGrpState()`/`toggleMstGroup(id)`）。`D` に入れると他の端末の管理者の開閉まで動いてしまうため、`_viewMode`・テーマと同じ流儀にしている。**既定は全部閉じる**（開いた直後は見出しだけが並び、全体を見渡せる）。
 
 ### Firebase Listener Lifecycle
 
@@ -736,7 +743,7 @@ D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透�
 - **マスタに無い自由入力の術式（OPE/カテのみ）で経験があるものは、個人ビューに「マスタに無い術式の経験がN件あります」と件数だけ注記する**（`eduFreeExpNoteHTML`）。教育担当が気づいてマスタへ追加できるようにするための注記で、列には加えない。
 - **未評価とレベル1（未）を画面上でも区別する**——分けないと導入直後にスキルマップが全項目「未＝できない」に見え、ベテランの実態と食い違う。
 - **`perm_edu` はロックにしない。** `tab_master` と同じ「明示付与」の権限（`canEdu() = isAdmin || currentUser.perms.perm_edu`）にしてある。`D.lk` の既定は全解放（`D.lk={}`）なので、ロックにすると既定で全員が押せてしまう。ユーザー管理の「📑 タブ表示」ブロックから付与する。閲覧・記録は管理者と `perm_edu` 保持者のみ全員分、本人は自分の分だけ常に閲覧可（記録・段階変更は不可）。
-- **教育項目マスタ（`D.eduItems`）の編集権限もあえて `mst` ではなく `isAdmin || canEdu()`**（`eduItemMasterOk()`）。`mst` を渡すと OPE/カテ術式マスタや担当枠まで触れてしまうので、余分な権限を渡さずに済ませる。UIは `renderHdTreatList`（HD特殊治療マスタ）と同型の `renderEduItemList(kind)`/`addEduItem(kind)`/`rmEduItem(kind,i)`/`mvEduItem(kind,i,d)`（`kind` は `'ward'|'device'|'hd'`）。マスタタブの「🎓 教育項目マスタ」セクションは `data-perm` を使わない（pane-master Section Gating の対象外）——`renderEduItemMaster()` が `#edu-items-section` の表示切替を自前で行う。**`.sp` の直接の子**に置くこと自体は他セクションと同じ。
+- **教育項目マスタ（`D.eduItems`）の編集権限もあえて `mst` ではなく `isAdmin || canEdu()`**（`eduItemMasterOk()`）。`mst` を渡すと OPE/カテ術式マスタや担当枠まで触れてしまうので、余分な権限を渡さずに済ませる。UIは `renderHdTreatList`（HD特殊治療マスタ）と同型の `renderEduItemList(kind)`/`addEduItem(kind)`/`rmEduItem(kind,i)`/`mvEduItem(kind,i,d)`（`kind` は `'ward'|'device'|'hd'`）。マスタタブの「🎓 教育項目マスタ」セクションは `data-perm` を使わない（pane-master Section Gating の対象外）——`renderEduItemMaster()` が `#edu-items-section` の表示切替を自前で行う。置き場所は🎓教育グループの `.mgrp-body` 直下で、そこは他セクションと同じ（マスタタブのグループ節を参照）。
 - **`dat.hdCount.sp` の要素はオブジェクト形式**（`{n:治療名, staff:実施者[], edu:教育者[]}`）。旧形式（治療名だけの文字列）との後方互換は `hdSpNorm(v)` が担い、`hdCountSpArr`/`hdCountSpFilled`/`hdCountEnsureSpArr` の3アクセサが必ずこれを通す——**旧データを書き換えない**（読み出し時に正規化するだけ）。治療名を変更しても `arr[idx].n = ...` で `staff`/`edu` は保持される。
 - **CE症例行の教育者欄（`item.edu`）は `D.eduCfg.ceEdu` が真のときだけ表示**（既定OFF・マスタタブのCEセクションで管理者がON/OFF）。`opsItemFilled()` には `edu` を条件として含めない——教育者だけ入って他が空の行は実質存在しないため、含めると空行が件数に混ざるリスクだけが増える。
 - **対象スタッフは `D.stfHidden` でない `D.stf` のみ**（CE/HD公平性と同じ）。ヘルプ（`base:'help'`、`D.stf` 未登録）は実施者・教育者として記録は残る（`hdSpStaffCandidates`/`opsStaffCandidates` の候補には出る）が、実績ページ・スキルマップの対象一覧には並ばない。
