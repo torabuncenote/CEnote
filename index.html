@@ -2819,6 +2819,9 @@ function fbInit() {
         dataListenerOn = false;
         _tasksData = {}; _taskView = null; _taskFilter = 'all';
         _mySchedName = null; _mySchedPick = false; /* 次に別の人がログインしたとき、前の人の担当が出たままにならないように */
+        /* 実績サブタブも同じ理由でリセットする。_perfName が残ると次の人に前ユーザーの
+           実績・教育到達度が表示され続ける（宣言側コメントの「ログアウトで破棄する」を実装する） */
+        _perfView = 'person'; _perfName = null; _perfPick = false; _perfMapCol = null; _perfCatOpen = {}; _perfHistOpen = {};
         _memosData = {}; _memoDenied = false; /* 別の人がログインしたときに前の人のメモが残らないようにする */
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
@@ -5797,7 +5800,11 @@ function plNames(ds){
 }
 
 /* その人がいま実際に居る場所。担当枠・フリー枠は dat 側が正本なのでそちらを先に見る */
-function plSpot(ds, name){
+/* _ppl は plPeople(ds) の結果を呼び出し側が既に持っているときだけ渡す省略可能な引数。
+   人数分ループの中から呼ぶ場合（hdShiftWorkers）、渡さないと plPeople（未固定日は
+   plDerive のフル再計算）が人数分走る。配置盤の中核（plMove/plOffer 等）は従来どおり
+   省略して呼ぶ——省略時の挙動は一切変わらない。 */
+function plSpot(ds, name, _ppl){
   var dat = D.pages[ds] || {};
   var cfg = getDutyCfg(dat);
   for (var i=0;i<cfg.length;i++) if (dat.duties && dat.duties[cfg[i].id] === name)
@@ -5805,7 +5812,7 @@ function plSpot(ds, name){
   var ef = dat.extra_free || [];
   for (var j=0;j<ef.length;j++) if (ef[j] && ef[j].name === name)
     return {kind:'free', side:'ce', idx:j, label:'フリー'};
-  var p = plPeople(ds)[name];
+  var p = (_ppl || plPeople(ds))[name];
   if (!p) return {kind:'none', side:'ce'};
   if (p.spot === 'surplus') return {kind:'surplus', side:p.side};
   if (plZone(p.spot))       return {kind:'zone', side:p.side, zone:p.spot};
@@ -7937,6 +7944,30 @@ function sanitizeManualKeys() {
   });
 }
 
+/* D.eduProgress は { 氏名: { 項目key: {...} } } の2階層で、どちらの階層のキーにも
+   Firebase禁止文字が入りうる（術式名の「OCT/IVUS」、氏名の入力ミス）。eduKey() が
+   キー生成側の本命で、これは将来キー生成箇所が増えたときに保存を壊さないための安全網。
+   sanitizeManualKeys と同じく saveD/saveDPage の冒頭で毎回走らせる。 */
+function sanitizeEduProgressKeys() {
+  if (!D.eduProgress) return;
+  var re = /[.#$\[\]/]/;
+  Object.keys(D.eduProgress).forEach(function (name) {
+    var rec = D.eduProgress[name];
+    if (!rec || typeof rec !== 'object') return;
+    Object.keys(rec).forEach(function (k) {          /* 項目keyの階層 */
+      if (!re.test(k)) return;
+      var safe = fbSafeKey(k);
+      if (!rec[safe]) rec[safe] = rec[k];
+      delete rec[k];
+    });
+    if (re.test(name)) {                              /* 氏名の階層 */
+      var safeName = fbSafeKey(name);
+      if (!D.eduProgress[safeName]) D.eduProgress[safeName] = rec;
+      delete D.eduProgress[name];
+    }
+  });
+}
+
 var _savePending = false; /* 未保存変更フラグ（beforeunload用） */
 var _saveWriting = false; /* Firebase write in-flight */
 var _saveQueued  = null;  /* 直近のDスナップショット（write完了後に送る） */
@@ -7949,6 +7980,7 @@ var _savePageQueue   = {};    /* saveDPage() 書き込み中に追加された d
 function saveD() {
   /* D.manualのキーにFirebase禁止文字があると全体が失敗するため事前に修正 */
   sanitizeManualKeys();
+  sanitizeEduProgressKeys();
   /* localStorage には常に書く（Firebase失敗時のフォールバック兼オフライン対応） */
   try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
   if (!FB_ON || !fbDB) return;
@@ -8050,6 +8082,7 @@ function _doFbWrite(data, attempt) {
 function saveDPage(ds) {
   /* localStorageへの全体書き込みはsaveDと同じ（オフライン/フォールバック対応） */
   sanitizeManualKeys();
+  sanitizeEduProgressKeys();
   try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
   if (!FB_ON || !fbDB) return; /* Firebase OFF → ローカル保存のみ（saveDと同じ） */
   if (!currentUser) return;
@@ -8165,7 +8198,9 @@ function canEdu() { return isAdmin || !!(currentUser && currentUser.perms && cur
 var EDU_LEVELS = ['', '未', '見学', '介助', '単独', '指導可'];
 function eduLevelLabel(lv) { return EDU_LEVELS[lv] || '未評価'; }
 /* 項目keyの表示名。細目キー（ope:胆嚢摘出術 等）はprefixを外すだけでよいが、大分類キー
-   （cat:ope 等）はidそのままだと分からないので分類ラベル（"OPE"等）に変換する。 */
+   （cat:ope 等）はidそのままだと分からないので分類ラベル（"OPE"等）に変換する。
+   キーは eduKey() で fbSafeKey 済みなので、禁止文字（. # $ [ ] /）を含む項目名は
+   ログ（writeLog）上で「_」に置き換わって出る——ログ文言の話なので許容している。 */
 function eduKeyLabel(key) {
   var i = key.indexOf(':');
   if (i === -1) return key;
@@ -8234,9 +8269,15 @@ function eduCatItems(catId) {
   if (catId === 'ope') return eduTreeItemNames(D.opeTree);
   if (catId === 'cath') return eduTreeItemNames(D.cathTree);
   if (catId === 'hdsp') return (D.hdTreatments || []).slice();
-  if (catId === 'ward' || catId === 'device' || catId === 'hd') return (D.eduItems && D.eduItems[catId]) || [];
+  if (catId === 'ward' || catId === 'device' || catId === 'hd') return ((D.eduItems && D.eduItems[catId]) || []).slice();
   return [];
 }
+/* 到達度の項目キー。術式名にはFirebase RTDBが禁止する文字（. # $ [ ] /）が入りうる
+   ——初期マスタの「OCT/IVUS」「VT/PVC」が実例で、/ は医療の表記に自然に出る。
+   キーに素通しすると fbDB.ref('/data').set() が同期throwし、_saveWriting が立ったまま
+   固着してアプリ全体の保存が止まる。キー生成は必ずここを通すこと。
+   マスタ側の術式名は変えない——現場は「OCT/IVUS」と読むので、表示はそのまま。 */
+function eduKey(catId, itemName) { return catId + ':' + fbSafeKey(itemName); }
 /* その人が全期間で経験した細目（症例に担当者として名前が入っている／HD特殊治療の実施者に
    入っている）を分類idごとに返す。到達度セクションを描くときだけ呼ぶ全期間走査。
    ward/device/hd は経験を自動判定するデータ源が無いため常に空配列（呼び出し側は
@@ -8534,25 +8575,28 @@ function renderPerfPersonHTML(name) {
   h += '</div>';
   h += '</div>'; /* .perf-blocks */
 
-  /* 到達度（6分類固定） */
+  /* 到達度（6分類固定）。eduExperiencedKeys は全 D.pages 走査なので、6分類ぶん
+     呼ばずにここで1回だけ取って渡す（段階ボタンを押すたびに renderPerf が走るため、
+     呼び出し回数がそのまま体感速度に効く）。 */
   h += '<div class="perf-sec-ttl">🎓 到達度</div>';
-  eduCategories().forEach(function (cat) { h += eduCatHTML(name, cat); });
+  var exp = eduExperiencedKeys(name);
+  eduCategories().forEach(function (cat) { h += eduCatHTML(name, cat, exp); });
 
   return h;
 }
 /* マスタに無い（自由入力の）術式で経験があるものへの注記。OPE/カテだけ意味を持つ
    （症例の科・術式に自由入力欄があるため。ward/device/hd/hdspは自由入力の経路が無い）。 */
-function eduFreeExpNoteHTML(name, catId) {
+function eduFreeExpNoteHTML(name, catId, exp) {
   if (catId !== 'ope' && catId !== 'cath') return '';
   var masterSet = {};
   eduCatItems(catId).forEach(function (m) { masterSet[m] = true; });
-  var extra = (eduExperiencedKeys(name)[catId] || []).filter(function (nm) { return !masterSet[nm]; });
+  var extra = ((exp && exp[catId]) || []).filter(function (nm) { return !masterSet[nm]; });
   if (!extra.length) return '';
   return '<div class="edu-empty" style="color:var(--or)">⚠ マスタに無い術式の経験が' + extra.length + '件あります（' + escH(extra.join('・')) + '）。マスタへの追加を検討してください</div>';
 }
 /* 大分類1行分（開閉アコーディオン）。6分類すべてが細目を持つ——細目は分類マスタの全件
    （eduCatItems）から出す。経験の有無・目標は項目ごとに印を添えるだけで、列の絞り込みには使わない。 */
-function eduCatHTML(name, cat) {
+function eduCatHTML(name, cat, exp) {
   var rec = eduGet(name, cat.key);
   var lv = rec ? rec.lv : 0;
   var open = !!_perfCatOpen[cat.key];
@@ -8563,15 +8607,15 @@ function eduCatHTML(name, cat) {
   h += '</div>';
   h += '<div class="edu-cat-body">';
   h += eduMetaHTML(name, cat.key, rec);
-  h += eduFreeExpNoteHTML(name, cat.id);
+  h += eduFreeExpNoteHTML(name, cat.id, exp);
   var items = eduCatItems(cat.id);
   var expSet = {};
-  (eduExperiencedKeys(name)[cat.id] || []).forEach(function (nm) { expSet[nm] = true; });
+  ((exp && exp[cat.id]) || []).forEach(function (nm) { expSet[nm] = true; });
   if (canEdu()) h += '<div style="margin:6px 0"><button class="btn btn-g btn-sm" style="font-size:11px" data-action="edu-bulk" data-name="' + escH(name) + '" data-cat="' + escH(cat.id) + '">⚡ まとめて設定</button>'
     + '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:4px" data-action="edu-goal-add" data-name="' + escH(name) + '" data-cat="' + escH(cat.id) + '">＋ 目標を追加</button></div>';
   if (!items.length) h += '<div class="edu-empty">まだ項目が登録されていません' + ((cat.id === 'ward' || cat.id === 'device' || cat.id === 'hd') ? '（マスタタブの「🎓 教育項目マスタ」から追加できます）' : '') + '</div>';
   items.forEach(function (itemName) {
-    var childKey = cat.id + ':' + itemName;
+    var childKey = eduKey(cat.id, itemName);
     var crec = eduGet(name, childKey);
     var clv = crec ? crec.lv : 0;
     var isExp = !!expSet[itemName];
@@ -8679,7 +8723,7 @@ function renderPerfMapHTML() {
     names.forEach(function (n) {
       h += '<tr><td>' + escH(n) + '</td>';
       items.forEach(function (it) {
-        var rec = eduGet(n, catId + ':' + it);
+        var rec = eduGet(n, eduKey(catId, it));
         var lv = rec ? rec.lv : 0;
         var cnt = countOf ? countOf(n, it) : 0;
         var mark = lv ? eduLevelLabel(lv).charAt(0) : '−';
@@ -8721,7 +8765,7 @@ function exportEduMapCsv() {
     rows = [['氏名'].concat(items)];
     names.forEach(function (n) {
       rows.push([n].concat(items.map(function (it) {
-        var rec = eduGet(n, catId + ':' + it);
+        var rec = eduGet(n, eduKey(catId, it));
         var lv = rec ? rec.lv : 0;
         var cnt = countOf ? countOf(n, it) : 0;
         var label = lv ? eduLevelLabel(lv) : '未評価';
@@ -8743,7 +8787,7 @@ function openEduBulkModal(name, catId) {
   if (!canEdu()) return;
   var items = eduCatItems(catId);
   if (!items.length) { toast('この区分にはまだ項目が登録されていません', 'warn'); return; }
-  var keys = items.map(function (it) { return catId + ':' + it; });
+  var keys = items.map(function (it) { return eduKey(catId, it); });
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'edu-bulk-ov';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '320px';
   md.innerHTML = '<div class="md-ttl">⚡ まとめて設定</div>'
@@ -8769,7 +8813,7 @@ function openEduGoalModal(name, catId) {
   var master = eduCatItems(catId);
   if (!master.length) { toast('この区分にはまだ項目が登録されていません。マスタタブの「🎓 教育項目マスタ」から追加してください', 'warn'); return; }
   var cands = master.filter(function (nm) {
-    var r = eduGet(name, catId + ':' + nm);
+    var r = eduGet(name, eduKey(catId, nm));
     return !(r && r.goalFy);
   });
   if (!cands.length) { toast('この区分の項目はすべて目標に設定済みです', 'warn'); return; }
@@ -8790,7 +8834,7 @@ function openEduGoalModal(name, catId) {
     var itemName = document.getElementById('edu-goal-item').value;
     if (!itemName) return;
     var fy = parseInt(document.getElementById('edu-goal-fy').value, 10);
-    eduAddGoal(name, catId + ':' + itemName, fy);
+    eduAddGoal(name, eduKey(catId, itemName), fy);
     ov.remove();
   });
 }
@@ -10248,11 +10292,12 @@ function mvHdTreat(i, d) {
 
 /* ===== 教育項目マスタ（到達度6分類のうち病棟外回り/機器管理/透析の細目） =====
    D.wdDepts/D.tablets/D.hdTreatments と同型の単純な文字列配列を kind（'ward'|'device'|'hd'）
-   ごとに持つ。renderHdTreatList と同型だが、権限は mst ではなく isAdmin || canEdu() —
+   ごとに持つ。renderHdTreatList と同型だが、権限は mst ではなく canEdu() —
    mst を渡すと術式マスタや担当枠まで触れてしまうため、教育到達度の権限（perm_edu）だけで
-   完結させる。 */
-function eduItemMasterOk() { return isAdmin || canEdu(); }
-var EDU_ITEM_KINDS = [ { id: 'ward', label: '🏥 病棟外回り' }, { id: 'device', label: '⚙ 機器管理' }, { id: 'hd', label: '🩸 透析' } ];
+   完結させる。canEdu() は isAdmin も内包しているので、ここで isAdmin を別途見る必要はない
+   （関数自体は残す——この権限だけを将来変えるときの単一の口として意味がある）。 */
+function eduItemMasterOk() { return canEdu(); }
+var EDU_ITEM_KINDS = ['ward', 'device', 'hd'];
 function renderEduItemList(kind) {
   var l = document.getElementById('edu-item-list-' + kind); if (!l) return;
   l.innerHTML = '';
@@ -10295,7 +10340,7 @@ function mvEduItem(kind, i, d) {
 function renderEduItemMaster() {
   var sec = document.getElementById('edu-items-section');
   if (sec) sec.style.display = eduItemMasterOk() ? '' : 'none';
-  EDU_ITEM_KINDS.forEach(function (k) { renderEduItemList(k.id); });
+  EDU_ITEM_KINDS.forEach(function (k) { renderEduItemList(k); });
 }
 
 /* ===== 曜日別業務：設置部署の選択モーダル =====
@@ -13141,7 +13186,7 @@ function hdShiftWorkers(ds) {
   Object.keys(ppl).forEach(function (n) {
     var p = ppl[n];
     if (p.side !== 'hd' || p.offer) return;
-    var sp = plSpot(ds, n);
+    var sp = plSpot(ds, n, ppl);
     if (sp.kind !== 'hdrole') return;
     out.push({ name: n, derivedName: n, shift: sp.role || '', night: sp.role === '準' || !!p.night, from: p.from || '' });
   });
