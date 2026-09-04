@@ -309,9 +309,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .edu-hist{font-size:10px;color:var(--txt3);margin-top:3px;padding-left:2px}
 .edu-hist div{padding:1px 0}
 .edu-empty{font-size:11px;color:var(--txt3);padding:4px 0}
+.edu-map-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.edu-map-chip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:14px;border:1.5px solid var(--bdr2);background:var(--sur);color:var(--txt2);cursor:pointer}
+.edu-map-chip.cur{background:var(--ac);color:var(--on-ac);border-color:var(--ac)}
+.edu-map-legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:11px;color:var(--txt2)}
+.edu-map-legend-item{display:flex;align-items:center;gap:4px}
+.edu-map-legend-item .edu-map-cell{min-width:18px;padding:2px 6px}
 .edu-map-tbl{border-collapse:collapse;width:100%;font-size:11px}
 .edu-map-tbl th,.edu-map-tbl td{border:1px solid var(--bdr);padding:4px 6px;text-align:center;white-space:nowrap}
-.edu-map-tbl th{background:var(--sur2);font-weight:700;cursor:pointer}
+.edu-map-tbl th{background:var(--sur2);font-weight:700}
 .edu-map-tbl td:first-child,.edu-map-tbl th:first-child{text-align:left;position:sticky;left:0;background:var(--sur);z-index:1}
 .edu-map-cell{display:inline-block;min-width:44px;padding:2px 5px;border-radius:8px;font-weight:700;color:#fff}
 .edu-map-cell.lv0{background:var(--sur2);color:var(--txt3)}
@@ -1598,6 +1604,34 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
             <label class="lkt"><input type="checkbox" id="edu-ce-toggle" onchange="saveEduCfg()"><span class="lks"></span></label>
           </div>
         </div>
+        <div id="edu-items-section">
+          <div class="pt">🎓 教育項目マスタ</div>
+          <div class="pn" style="margin-bottom:8px">教育到達度「病棟外回り」「機器管理」「透析」の細目を登録します（OPE・カテはOPE/カテ術式マスタ、特殊治療はHD特殊治療マスタをそのまま使うためここには含みません）。管理者、または「🎓 教育到達度」の権限を持つ人が編集できます。</div>
+          <div style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:600;margin-bottom:4px">🏥 病棟外回り</div>
+            <div class="rl" id="edu-item-list-ward"></div>
+            <div class="ar" id="edu-item-ar-ward">
+              <input type="text" id="in-edu-item-ward" placeholder="例: 人工呼吸器ラウンド" maxlength="30">
+              <button onclick="addEduItem('ward')" style="background:var(--pu)">追加</button>
+            </div>
+          </div>
+          <div style="margin-bottom:14px">
+            <div style="font-size:12px;font-weight:600;margin-bottom:4px">⚙ 機器管理</div>
+            <div class="rl" id="edu-item-list-device"></div>
+            <div class="ar" id="edu-item-ar-device">
+              <input type="text" id="in-edu-item-device" placeholder="例: 輸液ポンプ点検" maxlength="30">
+              <button onclick="addEduItem('device')" style="background:var(--pu)">追加</button>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:12px;font-weight:600;margin-bottom:4px">🩸 透析</div>
+            <div class="rl" id="edu-item-list-hd"></div>
+            <div class="ar" id="edu-item-ar-hd">
+              <input type="text" id="in-edu-item-hd" placeholder="例: 穿刺" maxlength="30">
+              <button onclick="addEduItem('hd')" style="background:var(--pu)">追加</button>
+            </div>
+          </div>
+        </div>
         <div data-perm="mst" data-mode="ce">
           <div class="pt">📱 タブレット台帳</div>
           <div class="pn" style="margin-bottom:8px">貸出・返却を記録するタブレットを登録します。連絡表の「タブレット貸出・返却」で選択肢になります。</div>
@@ -2457,7 +2491,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -2680,6 +2714,7 @@ function loadD() {
     D.hdTablets = s.hdTablets || [];
     D.eduProgress = s.eduProgress || {};
     D.eduCfg = s.eduCfg || {ceEdu:false};
+    D.eduItems = s.eduItems || {ward:[],device:[],hd:[]};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -2792,7 +2827,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]};
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -2970,6 +3005,7 @@ function fbInit() {
             D.hdTablets = d.hdTablets || [];
             D.eduProgress = d.eduProgress || {};
             D.eduCfg = d.eduCfg || {ceEdu:false};
+            D.eduItems = d.eduItems || {ward:[],device:[],hd:[]};
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -3682,21 +3718,25 @@ function renderSpec() {
   S += '</table>';
 
   S += '<div class="spec-h2">🎓 実績・教育到達度</div>';
-  S += '<div class="spec-p">「誰が何にどれだけ携わったか」の個人実績と、教育の到達度（5段階）を扱う。担当表タブの🎓実績サブタブから開く（両主観で表示）。</div>';
+  S += '<div class="spec-p">「誰が何にどれだけ携わったか」の個人実績と、教育の到達度（5段階）を扱う。担当表タブの🎓実績サブタブから開く（両主観で表示）。到達度・実績とも<b>OPE／カテ／病棟外回り／機器管理／透析／特殊治療の6分類</b>に統一している——担当枠やHD役割は「その日どこに立ったか」であってスキルではないため評価単位にせず、枠ごとの回数はCE/HD公平性タブが既に担当している。</div>';
   S += '<div class="spec-box">データは <code>D.eduProgress = { 氏名: { 項目key: {lv, by, ts, hist[], goalFy?} } }</code>（トップレベル<code>D</code>の一部、専用Firebaseパスは持たない）。<code>lv</code>は1=未／2=見学／3=介助／4=単独／5=指導可。<b>キーが存在しない＝未評価</b>（lv:0は使わない）。押すたびに<code>hist</code>に追記し、いつ・誰が・何段階にしたかを残す。<code>goalFy</code>は手動で追加した目標の年度（数値）。</div>';
-  S += '<table class="spec-tbl"><tr><th>項目keyのprefix</th><th>中身</th><th>階層</th></tr>';
-  S += '<tr><td><code>duty:&lt;担当枠label&gt;</code></td><td>OPE担当・カテ担当・機器管理など（<code>slot.id</code>ではなく<code>label</code>文字列で照合——idは枠を作り直すたびに再採番されるため）</td><td>大分類</td></tr>';
-  S += '<tr><td><code>hdrole:&lt;コード&gt;</code></td><td>M・A1・…・B・準夜</td><td>大分類</td></tr>';
-  S += '<tr><td><code>hdspcat</code></td><td>HD特殊治療（区分そのもの）</td><td>大分類</td></tr>';
-  S += '<tr><td><code>ope:&lt;術式&gt;</code> / <code>cath:&lt;術式&gt;</code></td><td>オペ・カテの術式。親は<code>duty:OPE担当</code>/<code>duty:カテ担当</code>（<code>eduDutyKind()</code>が「サブ」「遅出」を除いた部分一致で判定）</td><td>細目</td></tr>';
-  S += '<tr><td><code>hdsp:&lt;治療名&gt;</code></td><td>PMX・PE・CHDFなど。親は<code>hdspcat</code></td><td>細目</td></tr>';
+  S += '<table class="spec-tbl"><tr><th>分類id</th><th>大分類key</th><th>細目keyのprefix</th><th>細目マスタ</th></tr>';
+  S += '<tr><td>OPE</td><td rowspan="6"><code>cat:&lt;分類id&gt;</code></td><td><code>ope:&lt;術式&gt;</code></td><td><code>D.opeTree</code>（既存）</td></tr>';
+  S += '<tr><td>カテ</td><td><code>cath:&lt;術式&gt;</code></td><td><code>D.cathTree</code>（既存）</td></tr>';
+  S += '<tr><td>病棟外回り</td><td><code>ward:&lt;項目&gt;</code></td><td><code>D.eduItems.ward</code>（新設・空スタート）</td></tr>';
+  S += '<tr><td>機器管理</td><td><code>device:&lt;項目&gt;</code></td><td><code>D.eduItems.device</code>（新設・空スタート）</td></tr>';
+  S += '<tr><td>透析</td><td><code>hd:&lt;項目&gt;</code></td><td><code>D.eduItems.hd</code>（新設・空スタート）</td></tr>';
+  S += '<tr><td>特殊治療</td><td><code>hdsp:&lt;治療名&gt;</code></td><td><code>D.hdTreatments</code>（既存）</td></tr>';
   S += '</table>';
-  S += '<div class="spec-p">細目は<b>全期間の経験済み</b>（症例に担当者として名前がある、またはHD特殊治療の実施者に入っている）が自動で並び、年度付きの<b>目標</b>を手で追加できる（マスタの全項目は並べない——術式数百件になり得るため）。大分類と細目は独立して評価する。</div>';
+  S += '<div class="spec-p">大分類キーはラベル文字列に依存しない固定id（<code>eduCategories()</code>）。担当枠ラベル→分類idの変換（実績「配置の日数」の集計にだけ使う）は <code>eduDutyCat(label)</code> が部分一致で行う——<code>slot.id</code>ではなく<code>label</code>で照合するのは、idが枠を作り直すたびに再採番されるため（<code>FAIR_MERGE</code>/<code>myDutyLabels</code>と同じ）。フリー・遅出フリーは<code>eduDutyCat</code>が<code>\'free\'</code>を返し、到達度は持たず実績にだけ「その他」として日数を出す（フリー中心の人の実績が全項目0日にならないようにするため）。</div>';
+  S += '<div class="spec-p">細目は<b>分類マスタの全件</b>（<code>eduCatItems(catId)</code>）が経験の有無に関わらず並ぶ。経験済み（症例に担当者として名前がある、またはHD特殊治療の実施者に入っている）には印を、年度付きの<b>目標</b>には🎯バッジを添える。マスタに無い自由入力の術式で経験があるものは列にはせず、個人ビューに件数だけ注記する。</div>';
   S += '<table class="spec-tbl"><tr><th>操作</th><th>できる人</th></tr>';
   S += '<tr><td>閲覧・押下（自分以外）／スキルマップ</td><td>管理者、または <code>perm_edu</code> を付与された教育担当（<code>canEdu()</code>）</td></tr>';
   S += '<tr><td>閲覧（自分の分のみ）</td><td>全員</td></tr>';
   S += '</table>';
   S += '<div class="spec-box"><code>perm_edu</code>は<code>D.lk</code>のロックではなく<code>tab_master</code>と同じ明示付与の権限（ユーザー管理の「📑 タブ表示」から付与）。<code>D.lk</code>の既定は全解放（<code>D.lk={}</code>）なので、ロックにすると既定で全員が押せてしまうため。</div>';
+  S += '<div class="spec-p"><b>教育項目マスタ</b>（<code>D.eduItems = {ward:[], device:[], hd:[]}</code>）は病棟外回り・機器管理・透析の細目を管理者/教育担当が登録する（マスタタブの「🎓 教育項目マスタ」）。編集権限はあえて<code>mst</code>ではなく<code>isAdmin || canEdu()</code>——<code>mst</code>を渡すとOPE/カテ術式マスタや担当枠まで触れてしまうため。</div>';
+  S += '<div class="spec-p"><b>🗺 スキルマップ</b>は分類チップ（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療）が常設され、押すと即座にその分類の細目マップに切り替わる（列見出しクリックという隠し導線は廃止）。細目マップの列はマスタの全件（未経験の項目も空白列として並ぶ）。セルは段階の頭文字＋経験件数（例「単 3」）で、経験があるのに未評価の項目が一目で分かる。経験件数はOPE/カテ/特殊治療のみ（症例・治療の実施記録から全期間で集計）、病棟外回り/機器管理/透析には記録源が無いため常に頭文字のみ。</div>';
   S += '<div class="spec-p">記録側：HD特殊治療の行に <b>実施者</b>／<b>教育者</b>（どちらもチップ、複数可、常時表示）を追加。<code>dat.hdCount.sp</code>の要素は旧形式（治療名の文字列）から <code>{n, staff[], edu[]}</code> のオブジェクトに拡張——<code>hdCountSpArr/hdCountSpFilled/hdCountEnsureSpArr</code>の3アクセサが<code>hdSpNorm()</code>で正規化するため旧データもそのまま読める。オペ・カテの症例行にも同型の<b>教育者</b>欄を追加できるが、<code>D.eduCfg.ceEdu</code>（既定false）でON/OFFするマスタ設定が必要（📋業務タブのCEセクション）。症例ごとの主・サブは記録しない——教育者が付いているかどうかが実質的にその役割を果たす。</div>';
   S += '<div class="spec-p">対象スタッフは<code>D.stfHidden</code>でない<code>D.stf</code>のみ（CE/HD公平性と同じ）。ヘルプ（<code>base:\'help\'</code>）は実施者・教育者として記録は残るが実績ページ・スキルマップには並ばない。</div>';
 
@@ -4588,11 +4628,12 @@ function doRegister() {
 var APP_VERSION = 'Ver.2026/09/03-56';
 var APP_CHANGELOG = [
   { ver:'Ver.2026/09/03-56', date:'2026-09-03', title:'実績・教育到達度を追加', items:[
-    {t:'new', d:'🎓 「📊 担当表」タブに「🎓 実績」を追加しました。自分が携わったオペ・カテ・HD特殊治療の件数、配置された担当枠・HD役割の日数、指導した回数、オンコールの対応件数を、今月・年度累計で確認できます'},
-    {t:'new', d:'🎓 各業務・術式・治療名ごとに「未・見学・介助・単独・指導可」の5段階で教育の到達度を記録できるようにしました。押した人・日時・変化の履歴が残ります'},
+    {t:'new', d:'🎓 「📊 担当表」タブに「🎓 実績」を追加しました。自分が携わったオペ・カテ・特殊治療の件数、OPE／カテ／病棟外回り／機器管理／透析（＋その他＝フリー）の配置日数、指導した回数、オンコールの対応件数を、今月・年度累計で確認できます'},
+    {t:'new', d:'🎓 OPE／カテ／病棟外回り／機器管理／透析／特殊治療の6分類と、それぞれの術式・治療名などの細目に「未・見学・介助・単独・指導可」の5段階で教育の到達度を記録できるようにしました。押した人・日時・変化の履歴が残ります'},
     {t:'new', d:'🩸 HD特殊治療（PMX・PEなど）の各行に「実施者」「教育者」を記録できるようにしました。教育者が付いていれば、まだ独り立ちしていない目印になります'},
     {t:'new', d:'🔪 オペ・カテの症例にも同じ形の「教育者」欄を追加できます（📋業務タブの設定でON/OFF。既定はOFFです）', admin:true},
-    {t:'new', d:'🗺 スタッフ×項目のスキルマップで、到達度を一覧・CSV出力できます', admin:true},
+    {t:'new', d:'🗺 スタッフ×項目のスキルマップを追加しました。分類チップ（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療）で切り替えられ、各分類の項目を全件一覧・CSV出力できます'},
+    {t:'new', d:'🎓 病棟外回り・機器管理・透析の到達度項目は、マスタタブの「🎓 教育項目マスタ」から登録します', admin:true},
     {t:'imp', d:'👥 教育到達度の閲覧・記録には新しい権限「🎓 教育到達度」が必要です（ユーザー管理から付与）。自分の実績・到達度は誰でも見られます', admin:true}
   ]},
   { ver:'Ver.2026/09/02-55', date:'2026-09-02', title:'準夜が1枠しか出ない不具合を修正', items:[
@@ -6476,7 +6517,7 @@ var _curSubTab = 'at';
 var _perfView = 'person';   /* 'person' | 'map' */
 var _perfName = null;       /* 表示中のスタッフ（個人ビュー） */
 var _perfPick = false;      /* 「変更」を押した直後だけ true */
-var _perfMapCol = null;     /* null=大分類マップ / 'ope'|'cath'|'hdsp'=細目マップ */
+var _perfMapCol = null;     /* null=総括（6分類） / 'ope'|'cath'|'ward'|'device'|'hd'|'hdsp'=細目マップ */
 /* 担当表タブ（pane-assign）のサブタブ。集計は別タブ（swSumTab）に分離済み。 */
 function swSubTab(id) {
   _curSubTab = id;
@@ -7657,11 +7698,12 @@ function renderGuide() {
   S += '<div class="gd-p">「📊 担当表」内の「⚖️ CE公平性」で、スタッフ別の担当回数マトリクスを確認できます。担当が偏っている列は赤・少ない列は青でハイライトされます。HDモードに切り替えると「⚖️ HD公平性」になり、M・A1・A2・B1・B・準夜といったHDの役割が誰に何回当たったかを同じ形で確認できます。</div>';
 
   S += h1('🎓 実績・教育到達度');
-  S += '<div class="gd-p">「📊 担当表」内の「🎓 実績」で、自分（または権限があれば他のスタッフ）が携わった症例・治療の件数や配置日数、教育の到達度を確認できます。CEモード・HDモードどちらからでも開けます。</div>';
+  S += '<div class="gd-p">「📊 担当表」内の「🎓 実績」で、自分（または権限があれば他のスタッフ）が携わった症例・治療の件数や配置日数、教育の到達度を確認できます。CEモード・HDモードどちらからでも開けます。到達度・実績はどちらも「OPE／カテ／病棟外回り／機器管理／透析／特殊治療」の6分類で統一されています（担当枠や役割ごとの回数は「⚖️ 公平性」で確認できます）。</div>';
   S += step(1,'「📊 担当表」→「🎓 実績」を開く','初めて開いたときは自分の分が表示されます（アカウントがスタッフ名に紐づいている場合）。');
-  S += step(2,'今月／年度累計の実績を見る','オペ・カテ・HD特殊治療の件数、担当した配置の日数、指導した回数、オンコールの件数が並びます。');
-  S += step(3,'教育の到達度を見る','各項目に「未・見学・介助・単独・指導可」の5段階があります。押した人・日時が記録され、いつ段階が上がったかの履歴も見られます。');
+  S += step(2,'今月／年度累計の実績を見る','オペ・カテ・特殊治療の件数、6分類（＋その他＝フリー）の配置日数、指導した回数、オンコールの件数が並びます。');
+  S += step(3,'教育の到達度を見る','6分類それぞれに「未・見学・介助・単独・指導可」の5段階があり、開くと術式・治療名などの細目も同じ5段階で記録できます。押した人・日時が記録され、いつ段階が上がったかの履歴も見られます。');
   S += ok('自分の実績・到達度は誰でもいつでも見られます。他のスタッフの分を見たり段階を押したりできるのは、管理者から「🎓 教育到達度」の権限をもらった人だけです（教育担当向け）。権限があれば「変更」で別のスタッフを選べ、「🗺 スキルマップ」で全員を一覧表にできます。');
+  S += '<div class="gd-p">スキルマップは【総括】【🔪OPE】【🫀カテ】【🏥病棟外回り】【⚙機器管理】【🩸透析】【💉特殊治療】のチップで切り替えます。総括は6分類の段階だけ、各分類のマップはその分類の項目（術式・治療名など）を全件横に並べ、セルには段階の頭文字と経験件数（例「単 3」）が入るので、経験があるのに未評価の項目もひと目で分かります。病棟外回り・機器管理・透析の項目は、マスタタブの「🎓 教育項目マスタ」から登録します（管理者または「🎓 教育到達度」権限を持つ人）。</div>';
   S += '<div class="gd-p">オペ・カテの症例に「🎓 教育者」欄が出ている場合、その症例を教えながら担当した人が入っています（未経験の技術に教育者が付いていれば、まだ独り立ちしていないという記録になります）。HD特殊治療も同じ考え方で、実施者と教育者の両方を記録できます。</div>';
 
   S += h1('🌙 画面の明るさ（ライト／ダーク）');
@@ -8114,16 +8156,26 @@ function canEdu() { return isAdmin || !!(currentUser && currentUser.perms && cur
    教育の到達度（5段階）を載せる。症例ごとの主・サブは記録しない（教育者が付いているか
    どうかが実質的にその役割を果たす）ので、到達段階は必ず人が押す — 件数から自動推定しない。
    D.eduProgress[氏名][項目key] = {lv, by, ts, hist[], goalFy?}。キーが無い＝未評価（lv:0は使わない）。
-   項目keyの名前空間: duty:<担当枠label> / hdrole:<コード> / hdspcat（いずれも大分類）、
-   ope:<術式> / cath:<術式> / hdsp:<治療名>（細目）。担当枠は slot.id ではなく label で
-   照合する（id は「追加」のたびに再採番されるため。dutyColorFor/FAIR_MERGE/myDutyLabels と同じ）。 */
+   項目keyの名前空間: cat:<分類id>（大分類）、ope:<術式> / cath:<術式> / ward:<項目> /
+   device:<項目> / hd:<項目> / hdsp:<治療名>（細目）。到達度・実績とも「OPE/カテ/病棟外回り/
+   機器管理/透析/特殊治療」の6分類に統一（担当枠・HD役割は「その日どこに立ったか」であって
+   スキルではないので評価単位にしない——枠ごとの回数はCE/HD公平性タブが既に担当している）。
+   担当枠ラベル→分類の照合は eduDutyCat() が label 文字列で行う（slot.id は「追加」のたびに
+   再採番されるため。dutyColorFor/FAIR_MERGE/myDutyLabels と同じ）。 */
 var EDU_LEVELS = ['', '未', '見学', '介助', '単独', '指導可'];
 function eduLevelLabel(lv) { return EDU_LEVELS[lv] || '未評価'; }
-/* 項目keyの表示名（prefixを外すだけ）。hdspcatだけprefix自体が表示名を兼ねる。 */
+/* 項目keyの表示名。細目キー（ope:胆嚢摘出術 等）はprefixを外すだけでよいが、大分類キー
+   （cat:ope 等）はidそのままだと分からないので分類ラベル（"OPE"等）に変換する。 */
 function eduKeyLabel(key) {
-  if (key === 'hdspcat') return 'HD特殊治療';
   var i = key.indexOf(':');
-  return i === -1 ? key : key.slice(i + 1);
+  if (i === -1) return key;
+  var prefix = key.slice(0, i), rest = key.slice(i + 1);
+  if (prefix === 'cat') {
+    var found = null;
+    EDU_CATEGORIES.forEach(function (c) { if (c.id === rest) found = c.label; });
+    return found || rest;
+  }
+  return rest;
 }
 /* 年度（4月始まり）ヘルパー */
 function eduFyOf(ds) { var y = +ds.slice(0, 4), m = +ds.slice(5, 7); return m >= 4 ? y : y - 1; }
@@ -8136,18 +8188,36 @@ function eduDsList(fromDs, toDs) {
   out.sort();
   return out;
 }
-/* 担当枠ラベルからオペ/カテの種別を判定する。myDutyLabels/FAIR_MERGEと同じ部分一致だが、
-   「サブ」「遅出」を含むラベルは主枠と区別し細目を持たせない（3つだけ＝OPE担当・カテ担当・
-   特殊治療、という決定を守るため。同じ種別のラベルが複数存在しても親は1つに絞られる）。 */
-function eduDutyKind(label) {
-  if (!label || /サブ|遅出/.test(label)) return '';
+/* 全期間の連絡表キー。スキルマップの細目セルに出す経験件数（術式別・治療名別）は
+   期間を絞らず全期間で数える（教育到達度は積み上げの記録のため）。 */
+function eduAllDsList() { return Object.keys(D.pages || {}).sort(); }
+/* 到達度・実績の6分類（固定・これ以上増やさない）。id が項目keyのprefixを兼ねる。
+   OPE/カテの細目は D.opeTree/D.cathTree、特殊治療は D.hdTreatments（いずれも既存マスタを
+   流用）、病棟外回り/機器管理/透析は D.eduItems.{ward,device,hd}（新設・空スタート）。 */
+var EDU_CATEGORIES = [
+  { id: 'ope',    label: 'OPE',      icon: '🔪' },
+  { id: 'cath',   label: 'カテ',     icon: '🫀' },
+  { id: 'ward',   label: '病棟外回り', icon: '🏥' },
+  { id: 'device', label: '機器管理', icon: '⚙' },
+  { id: 'hd',     label: '透析',     icon: '🩸' },
+  { id: 'hdsp',   label: '特殊治療', icon: '💉' }
+];
+function eduCategories() {
+  return EDU_CATEGORIES.map(function (c) { return { id: c.id, key: 'cat:' + c.id, label: c.label, icon: c.icon }; });
+}
+/* 担当枠ラベル→6分類id（実績「配置の日数」の集計にだけ使う。到達度の大分類キーは
+   常に cat:<id> 固定で、ラベル文字列には依存しない）。myDutyLabels/FAIR_MERGEと同じ
+   部分一致。フリー・遅出フリーは到達度を持たない「その他」なので 'free' を返す。 */
+function eduDutyCat(label) {
+  if (!label) return '';
   if (/オペ|OPE/.test(label)) return 'ope';
   if (/カテ/.test(label)) return 'cath';
+  if (/病棟外回り/.test(label)) return 'ward';
+  if (/機器管理/.test(label)) return 'device';
+  if (/フリー/.test(label)) return 'free';
   return '';
 }
-/* オペ/カテ術式ツリー（D.opeTree/D.cathTree、dept→cats→items）を術式名の配列に平坦化する。
-   「＋目標を追加」のときの候補（実際の症例入力と同じ表記に揃えるため）にだけ使う。
-   経験済み一覧の自動表示にはマスタを使わない（決定：全項目を並べると数百件になり得るため）。 */
+/* オペ/カテ術式ツリー（D.opeTree/D.cathTree、dept→cats→items）を術式名の配列に平坦化する。 */
 function eduTreeItemNames(tree) {
   var out = [];
   (tree || []).forEach(function (dept) {
@@ -8157,44 +8227,20 @@ function eduTreeItemNames(tree) {
   });
   return out;
 }
-/* 到達度の大分類一覧（CE担当枠）。D.dutyCfg（現行の共通テンプレート）を正本とし、
-   空ならマスタ（D.dutyCfgMaster）にフォールバックする。 */
-function eduDutyCategories() {
-  var master = (D.dutyCfg && D.dutyCfg.length) ? D.dutyCfg : getDutyMaster();
-  var seen = {}, out = [];
-  master.forEach(function (s) {
-    var lbl = s.label || s.id;
-    if (!lbl || seen[lbl]) return;
-    seen[lbl] = true;
-    out.push({ key: 'duty:' + lbl, label: lbl, child: eduDutyKind(lbl) });
-  });
-  return out;
-}
-/* 到達度の大分類一覧（HD役割）。HD_DAY_CODES の並び＋準夜。 */
-function eduHdRoleCategories() {
-  var out = HD_DAY_CODES.map(function (c) { return { key: 'hdrole:' + c, label: c, child: '' }; });
-  out.push({ key: 'hdrole:準夜', label: '準夜', child: '' });
-  return out;
-}
-/* 大分類の子キー種別（'ope'|'cath'|'hdsp'）に対する、その人の細目一覧を返す。
-   決定：細目は「全期間の経験済み」＋「手で追加した目標」のみを自動で並べる
-   （マスタの全項目を並べない。運用が進むまでは空でよい）。 */
-function eduChildItems(name, childKind) {
-  var exp = eduExperiencedKeys(name)[childKind] || [];
-  var progressKeys = Object.keys((D.eduProgress && D.eduProgress[name]) || {})
-    .filter(function (k) { return k.indexOf(childKind + ':') === 0; })
-    .map(function (k) { return k.slice(childKind.length + 1); });
-  var seen = {}, out = [];
-  exp.concat(progressKeys).forEach(function (nm) {
-    if (!nm || seen[nm]) return;
-    seen[nm] = true;
-    out.push(nm);
-  });
-  out.sort(function (a, b) { return String(a).localeCompare(String(b), 'ja'); });
-  return out;
+/* 分類idに対する細目マスタ全件（経験の有無に関わらず）。スキルマップの列・個人ビューの
+   細目一覧はどちらもここを唯一の入口にする。ward/device/hd は D.eduItems の単純配列
+   （D.wdDepts/D.tablets と同型）で、新設のため初期値は空——現場が教育項目マスタから埋める。 */
+function eduCatItems(catId) {
+  if (catId === 'ope') return eduTreeItemNames(D.opeTree);
+  if (catId === 'cath') return eduTreeItemNames(D.cathTree);
+  if (catId === 'hdsp') return (D.hdTreatments || []).slice();
+  if (catId === 'ward' || catId === 'device' || catId === 'hd') return (D.eduItems && D.eduItems[catId]) || [];
+  return [];
 }
 /* その人が全期間で経験した細目（症例に担当者として名前が入っている／HD特殊治療の実施者に
-   入っている）を種別ごとに返す。到達度セクションを描くときだけ呼ぶ全期間走査。 */
+   入っている）を分類idごとに返す。到達度セクションを描くときだけ呼ぶ全期間走査。
+   ward/device/hd は経験を自動判定するデータ源が無いため常に空配列（呼び出し側は
+   eduExperiencedKeys(name)[catId] || [] で受ける）。 */
 function eduExperiencedKeys(name) {
   var out = { ope: {}, cath: {}, hdsp: {} };
   Object.keys(D.pages || {}).forEach(function (ds) {
@@ -8224,7 +8270,8 @@ function eduEmptyStat() {
     ope: { n: 0, byDept: {}, byName: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
     cath: { n: 0, byDept: {}, byName: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
     hdsp: { n: 0, byName: {} },
-    duty: {}, hdrole: {},
+    cat: { ope: 0, cath: 0, ward: 0, device: 0, hd: 0 }, /* 6分類のうち配置日数を持つ5つ（特殊治療は件数のみ） */
+    free: 0, /* フリー・遅出フリーの日数（実績にだけ「その他」として出す。到達度は持たない） */
     teach: { n: 0, ope: 0, cath: 0, hdsp: 0 },
     oc: { dispatch: 0, leftover: 0 }
   };
@@ -8276,15 +8323,15 @@ function eduStats(dsList) {
       getDutyCfg(pg).forEach(function (slot) {
         var nm = pg.duties[slot.id];
         if (!nm) return;
-        var lbl = slot.label || slot.id;
-        var d = ent(nm).duty;
-        d[lbl] = (d[lbl] || 0) + 1;
+        var catId = eduDutyCat(slot.label || slot.id);
+        if (!catId) return;
+        var e = ent(nm);
+        if (catId === 'free') e.free++;
+        else e.cat[catId] = (e.cat[catId] || 0) + 1;
       });
     }
     hdShiftWorkers(ds).forEach(function (h) {
-      var code = h.night ? '準夜' : (h.shift || '（未設定）');
-      var d = ent(h.name).hdrole;
-      d[code] = (d[code] || 0) + 1;
+      ent(h.name).cat.hd++;
     });
     if (pg.ocData && pg.ocData.done && pg.ocData.staff) {
       var k = ocKind(pg.ocData);
@@ -8465,17 +8512,13 @@ function renderPerfPersonHTML(name) {
   h += perfMiniListHTML(fStats.hdsp.byName, 5);
   h += '</div>';
 
-  /* ② 配置の日数 */
+  /* ② 配置の日数（6分類のうち特殊治療を除く5つ＋その他=フリー） */
   h += '<div class="perf-block"><div class="perf-block-ttl">📋 配置の日数</div>';
-  var dutyKeys = {};
-  Object.keys(mStats.duty).concat(Object.keys(fStats.duty)).forEach(function (k) { dutyKeys[k] = true; });
-  var dutyList = Object.keys(dutyKeys).sort(function (a, b) { return (fStats.duty[b] || 0) - (fStats.duty[a] || 0); });
-  if (!dutyList.length) h += '<div class="edu-empty">記録がありません</div>';
-  dutyList.forEach(function (lbl) { h += perfNumRowHTML(lbl, mStats.duty[lbl] || 0, fStats.duty[lbl] || 0, '日'); });
-  var roleKeys = {};
-  Object.keys(mStats.hdrole).concat(Object.keys(fStats.hdrole)).forEach(function (k) { roleKeys[k] = true; });
-  var roleList = Object.keys(roleKeys).sort(function (a, b) { return (fStats.hdrole[b] || 0) - (fStats.hdrole[a] || 0); });
-  roleList.forEach(function (code) { h += perfNumRowHTML('🩸 ' + code, mStats.hdrole[code] || 0, fStats.hdrole[code] || 0, '日'); });
+  eduCategories().forEach(function (cat) {
+    if (cat.id === 'hdsp') return; /* 特殊治療は件数のみ、日数ブロックには出さない */
+    h += perfNumRowHTML(cat.icon + ' ' + cat.label, mStats.cat[cat.id] || 0, fStats.cat[cat.id] || 0, '日');
+  });
+  h += perfNumRowHTML('💉 その他（フリー）', mStats.free || 0, fStats.free || 0, '日');
   h += '</div>';
 
   /* ③ 指導した回数 */
@@ -8491,48 +8534,57 @@ function renderPerfPersonHTML(name) {
   h += '</div>';
   h += '</div>'; /* .perf-blocks */
 
-  /* 到達度 */
+  /* 到達度（6分類固定） */
   h += '<div class="perf-sec-ttl">🎓 到達度</div>';
-  var cats = eduDutyCategories().concat(eduHdRoleCategories());
-  cats.push({ key: 'hdspcat', label: 'HD特殊治療', child: 'hdsp' });
-  cats.forEach(function (cat) { h += eduCatHTML(name, cat); });
+  eduCategories().forEach(function (cat) { h += eduCatHTML(name, cat); });
 
   return h;
 }
-/* 大分類1行分（開閉アコーディオン）。child があれば細目一覧（経験済み＋目標）を中に持つ。 */
+/* マスタに無い（自由入力の）術式で経験があるものへの注記。OPE/カテだけ意味を持つ
+   （症例の科・術式に自由入力欄があるため。ward/device/hd/hdspは自由入力の経路が無い）。 */
+function eduFreeExpNoteHTML(name, catId) {
+  if (catId !== 'ope' && catId !== 'cath') return '';
+  var masterSet = {};
+  eduCatItems(catId).forEach(function (m) { masterSet[m] = true; });
+  var extra = (eduExperiencedKeys(name)[catId] || []).filter(function (nm) { return !masterSet[nm]; });
+  if (!extra.length) return '';
+  return '<div class="edu-empty" style="color:var(--or)">⚠ マスタに無い術式の経験が' + extra.length + '件あります（' + escH(extra.join('・')) + '）。マスタへの追加を検討してください</div>';
+}
+/* 大分類1行分（開閉アコーディオン）。6分類すべてが細目を持つ——細目は分類マスタの全件
+   （eduCatItems）から出す。経験の有無・目標は項目ごとに印を添えるだけで、列の絞り込みには使わない。 */
 function eduCatHTML(name, cat) {
   var rec = eduGet(name, cat.key);
   var lv = rec ? rec.lv : 0;
   var open = !!_perfCatOpen[cat.key];
   var h = '<div class="edu-cat' + (open ? ' open' : '') + '">';
   h += '<div class="edu-cat-hd" data-action="perf-cat-toggle" data-catkey="' + escH(cat.key) + '">';
-  h += '<span class="edu-cat-arrow">▶</span><span class="edu-cat-lbl">' + escH(cat.label) + '</span>';
+  h += '<span class="edu-cat-arrow">▶</span><span class="edu-cat-lbl">' + escH(cat.icon + ' ' + cat.label) + '</span>';
   h += eduLvRowHTML(name, cat.key, lv);
   h += '</div>';
   h += '<div class="edu-cat-body">';
   h += eduMetaHTML(name, cat.key, rec);
-  if (cat.child) {
-    var items = eduChildItems(name, cat.child);
-    if (canEdu()) h += '<div style="margin:6px 0"><button class="btn btn-g btn-sm" style="font-size:11px" data-action="edu-bulk" data-name="' + escH(name) + '" data-child="' + escH(cat.child) + '">⚡ まとめて設定</button>'
-      + '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:4px" data-action="edu-goal-add" data-name="' + escH(name) + '" data-child="' + escH(cat.child) + '">＋ 目標を追加</button></div>';
-    if (!items.length) h += '<div class="edu-empty">まだ経験の記録がありません</div>';
-    items.forEach(function (itemName) {
-      var childKey = cat.child + ':' + itemName;
-      var crec = eduGet(name, childKey);
-      var clv = crec ? crec.lv : 0;
-      var expArr = eduExperiencedKeys(name)[cat.child] || [];
-      var isExp = expArr.indexOf(itemName) !== -1;
-      h += '<div class="edu-child-row">';
-      h += '<span class="edu-child-lbl">' + escH(itemName);
-      if (isExp) h += '<span class="edu-child-exp">経験あり</span>';
-      if (crec && crec.goalFy) h += '<span class="edu-child-goal">🎯' + crec.goalFy + '年度目標'
-        + (canEdu() ? ' <button type="button" class="ops-staff-chip-x" data-action="edu-goal-remove" data-name="' + escH(name) + '" data-key="' + escH(childKey) + '" title="目標を外す">×</button>' : '') + '</span>';
-      h += '</span>';
-      h += eduLvRowHTML(name, childKey, clv);
-      h += '</div>';
-      h += eduMetaHTML(name, childKey, crec);
-    });
-  }
+  h += eduFreeExpNoteHTML(name, cat.id);
+  var items = eduCatItems(cat.id);
+  var expSet = {};
+  (eduExperiencedKeys(name)[cat.id] || []).forEach(function (nm) { expSet[nm] = true; });
+  if (canEdu()) h += '<div style="margin:6px 0"><button class="btn btn-g btn-sm" style="font-size:11px" data-action="edu-bulk" data-name="' + escH(name) + '" data-cat="' + escH(cat.id) + '">⚡ まとめて設定</button>'
+    + '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:4px" data-action="edu-goal-add" data-name="' + escH(name) + '" data-cat="' + escH(cat.id) + '">＋ 目標を追加</button></div>';
+  if (!items.length) h += '<div class="edu-empty">まだ項目が登録されていません' + ((cat.id === 'ward' || cat.id === 'device' || cat.id === 'hd') ? '（マスタタブの「🎓 教育項目マスタ」から追加できます）' : '') + '</div>';
+  items.forEach(function (itemName) {
+    var childKey = cat.id + ':' + itemName;
+    var crec = eduGet(name, childKey);
+    var clv = crec ? crec.lv : 0;
+    var isExp = !!expSet[itemName];
+    h += '<div class="edu-child-row">';
+    h += '<span class="edu-child-lbl">' + escH(itemName);
+    if (isExp) h += '<span class="edu-child-exp">経験あり</span>';
+    if (crec && crec.goalFy) h += '<span class="edu-child-goal">🎯' + crec.goalFy + '年度目標'
+      + (canEdu() ? ' <button type="button" class="ops-staff-chip-x" data-action="edu-goal-remove" data-name="' + escH(name) + '" data-key="' + escH(childKey) + '" title="目標を外す">×</button>' : '') + '</span>';
+    h += '</span>';
+    h += eduLvRowHTML(name, childKey, clv);
+    h += '</div>';
+    h += eduMetaHTML(name, childKey, crec);
+  });
   h += '</div>'; /* .edu-cat-body */
   h += '</div>'; /* .edu-cat */
   return h;
@@ -8576,31 +8628,64 @@ function fmtTs(ts) {
   var d = new Date(ts);
   return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
-/* ===== スキルマップ ===== */
+/* ===== スキルマップ =====
+   _perfMapCol: null=総括（6分類の5段階）、それ以外は分類id（'ope'|'cath'|'ward'|'device'|'hd'|'hdsp'）
+   の細目マップ。分類チップは常設（列見出しクリックの隠し導線は廃止）。 */
+function eduMapChipsHTML() {
+  var h = '<div class="edu-map-chips">';
+  h += '<button type="button" class="edu-map-chip' + (!_perfMapCol ? ' cur' : '') + '" data-action="perf-map-col" data-col="">📊 総括</button>';
+  eduCategories().forEach(function (c) {
+    h += '<button type="button" class="edu-map-chip' + (_perfMapCol === c.id ? ' cur' : '') + '" data-action="perf-map-col" data-col="' + escH(c.id) + '">' + c.icon + escH(c.label) + '</button>';
+  });
+  h += '</div>';
+  return h;
+}
+function eduMapLegendHTML() {
+  var h = '<div class="edu-map-legend">';
+  for (var i = 1; i <= 5; i++) h += '<span class="edu-map-legend-item"><span class="edu-map-cell lv' + i + '">' + EDU_LEVELS[i].charAt(0) + '</span>' + EDU_LEVELS[i] + '</span>';
+  h += '</div>';
+  return h;
+}
+/* 分類idの経験件数の元。ope/cath/hdspは症例・特殊治療の実施記録があるので全期間で数える。
+   ward/device/hdは記録源が無いので常にnull（セルは頭文字のみになる）。 */
+function eduMapCountSrc(catId) {
+  if (catId !== 'ope' && catId !== 'cath' && catId !== 'hdsp') return null;
+  var stats = eduStats(eduAllDsList());
+  var byNameKey = catId; /* stats[name].ope.byName / .cath.byName / .hdsp.byName */
+  return function (name, itemName) {
+    var s = stats[name];
+    if (!s) return 0;
+    return (s[byNameKey].byName && s[byNameKey].byName[itemName]) || 0;
+  };
+}
 function renderPerfMapHTML() {
   var mr = perfMonthRange();
   var fy = eduFyOf(mr.from);
   var h = perfHeaderHTML('', asY + '年' + (asM + 1) + '月 ／ ' + fy + '年度');
   var names = perfTargetStaffList();
   if (!names.length) { h += '<div class="edu-empty">対象スタッフがいません</div>'; return h; }
+  h += eduMapChipsHTML();
 
   if (_perfMapCol) {
-    /* 細目マップ：大分類1つぶんの経験済み＋目標を列にする（全項目ではない＝マスタの全件を並べない） */
-    var childKind = _perfMapCol;
-    var itemSet = {};
-    names.forEach(function (n) { (eduChildItems(n, childKind) || []).forEach(function (it) { itemSet[it] = true; }); });
-    var items = Object.keys(itemSet).sort(function (a, b) { return String(a).localeCompare(String(b), 'ja'); });
-    h += '<div style="margin-bottom:8px"><button class="btn btn-g btn-sm" data-action="perf-map-back">← 大分類に戻る</button></div>';
-    if (!items.length) { h += '<div class="edu-empty">この区分の経験・目標がまだありません</div>'; return h; }
+    /* 細目マップ：分類マスタの全件を列にする（経験の有無に関わらず＝未経験の項目も空白列として見える） */
+    var catId = _perfMapCol;
+    var items = eduCatItems(catId);
+    if (!items.length) { h += '<div class="edu-empty">この区分にはまだ項目が登録されていません' + ((catId === 'ward' || catId === 'device' || catId === 'hd') ? '（マスタタブの「🎓 教育項目マスタ」から追加できます）' : '') + '</div>'; return h; }
+    h += eduMapLegendHTML();
+    var countOf = eduMapCountSrc(catId);
     h += '<div style="overflow-x:auto"><table class="edu-map-tbl"><thead><tr><th>氏名</th>';
     items.forEach(function (it) { h += '<th>' + escH(it) + '</th>'; });
     h += '</tr></thead><tbody>';
     names.forEach(function (n) {
       h += '<tr><td>' + escH(n) + '</td>';
       items.forEach(function (it) {
-        var rec = eduGet(n, childKind + ':' + it);
+        var rec = eduGet(n, catId + ':' + it);
         var lv = rec ? rec.lv : 0;
-        h += '<td><span class="edu-map-cell lv' + lv + '">' + (lv ? eduLevelLabel(lv) : '−') + '</span></td>';
+        var cnt = countOf ? countOf(n, it) : 0;
+        var mark = lv ? eduLevelLabel(lv).charAt(0) : '−';
+        var cellTxt = cnt ? (mark + ' ' + cnt) : mark;
+        var title = escH(it) + '：' + (lv ? eduLevelLabel(lv) : '未評価') + (cnt ? '（経験' + cnt + '件）' : '');
+        h += '<td><span class="edu-map-cell lv' + lv + '" title="' + title + '">' + cellTxt + '</span></td>';
       });
       h += '</tr>';
     });
@@ -8608,13 +8693,11 @@ function renderPerfMapHTML() {
     return h;
   }
 
-  /* 大分類マップ */
-  var cats = eduDutyCategories().concat(eduHdRoleCategories());
-  cats.push({ key: 'hdspcat', label: 'HD特殊治療', child: 'hdsp' });
+  /* 総括：6分類の大分類段階だけ */
+  h += eduMapLegendHTML();
+  var cats = eduCategories();
   h += '<div style="overflow-x:auto"><table class="edu-map-tbl"><thead><tr><th>氏名</th>';
-  cats.forEach(function (cat) {
-    h += '<th' + (cat.child ? ' data-action="perf-map-col" data-col="' + escH(cat.child) + '" title="タップで細目を表示"' : '') + '>' + escH(cat.label) + (cat.child ? ' 🔎' : '') + '</th>';
-  });
+  cats.forEach(function (cat) { h += '<th>' + cat.icon + escH(cat.label) + '</th>'; });
   h += '</tr></thead><tbody>';
   names.forEach(function (n) {
     h += '<tr><td>' + escH(n) + '</td>';
@@ -8630,32 +8713,37 @@ function renderPerfMapHTML() {
 }
 function exportEduMapCsv() {
   var names = perfTargetStaffList();
-  var cats = eduDutyCategories().concat(eduHdRoleCategories());
-  cats.push({ key: 'hdspcat', label: 'HD特殊治療', child: 'hdsp' });
   var rows;
   if (_perfMapCol) {
-    var childKind = _perfMapCol;
-    var itemSet = {};
-    names.forEach(function (n) { (eduChildItems(n, childKind) || []).forEach(function (it) { itemSet[it] = true; }); });
-    var items = Object.keys(itemSet).sort(function (a, b) { return String(a).localeCompare(String(b), 'ja'); });
+    var catId = _perfMapCol;
+    var items = eduCatItems(catId);
+    var countOf = eduMapCountSrc(catId);
     rows = [['氏名'].concat(items)];
     names.forEach(function (n) {
-      rows.push([n].concat(items.map(function (it) { var rec = eduGet(n, childKind + ':' + it); return rec ? eduLevelLabel(rec.lv) : ''; })));
+      rows.push([n].concat(items.map(function (it) {
+        var rec = eduGet(n, catId + ':' + it);
+        var lv = rec ? rec.lv : 0;
+        var cnt = countOf ? countOf(n, it) : 0;
+        var label = lv ? eduLevelLabel(lv) : '未評価';
+        return cnt ? (label + '(' + cnt + '件)') : label;
+      })));
     });
   } else {
+    var cats = eduCategories();
     rows = [['氏名'].concat(cats.map(function (c) { return c.label; }))];
     names.forEach(function (n) {
-      rows.push([n].concat(cats.map(function (c) { var rec = eduGet(n, c.key); return rec ? eduLevelLabel(rec.lv) : ''; })));
+      rows.push([n].concat(cats.map(function (c) { var rec = eduGet(n, c.key); return rec ? eduLevelLabel(rec.lv) : '未評価'; })));
     });
   }
   downloadCsv('分院CE_スキルマップ_' + toDS(new Date()) + '.csv', rows);
 }
-/* ===== モーダル：一括設定・目標追加 ===== */
-function openEduBulkModal(name, childKind) {
+/* ===== モーダル：一括設定・目標追加 =====
+   どちらも対象の細目リストは eduCatItems(catId)（分類マスタ全件）から取る。 */
+function openEduBulkModal(name, catId) {
   if (!canEdu()) return;
-  var items = eduChildItems(name, childKind);
-  if (!items.length) { toast('まだ経験の記録が無いため、まとめて設定できる項目がありません', 'warn'); return; }
-  var keys = items.map(function (it) { return childKind + ':' + it; });
+  var items = eduCatItems(catId);
+  if (!items.length) { toast('この区分にはまだ項目が登録されていません', 'warn'); return; }
+  var keys = items.map(function (it) { return catId + ':' + it; });
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'edu-bulk-ov';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '320px';
   md.innerHTML = '<div class="md-ttl">⚡ まとめて設定</div>'
@@ -8673,37 +8761,37 @@ function openEduBulkModal(name, childKind) {
     eduSetBulk(name, keys, lv);
   });
 }
-function openEduGoalModal(name, childKind) {
+/* 候補はマスタ全件から既に目標が付いている項目を除いたもの——マスタに無い自由入力は
+   受け付けない（受け付けるとマスタ全件表示のeduCatHTMLに出てこなくなり、目標が
+   「見えない記録」になってしまうため。ward/device/hdが空の間はマスタタブへの登録を促す）。 */
+function openEduGoalModal(name, catId) {
   if (!canEdu()) return;
-  var master = childKind === 'ope' ? eduTreeItemNames(D.opeTree) : childKind === 'cath' ? eduTreeItemNames(D.cathTree) : (D.hdTreatments || []);
-  var existing = eduChildItems(name, childKind);
-  var cands = [];
-  var seen = {};
-  master.forEach(function (nm) { if (nm && !seen[nm] && existing.indexOf(nm) === -1) { seen[nm] = true; cands.push(nm); } });
+  var master = eduCatItems(catId);
+  if (!master.length) { toast('この区分にはまだ項目が登録されていません。マスタタブの「🎓 教育項目マスタ」から追加してください', 'warn'); return; }
+  var cands = master.filter(function (nm) {
+    var r = eduGet(name, catId + ':' + nm);
+    return !(r && r.goalFy);
+  });
+  if (!cands.length) { toast('この区分の項目はすべて目標に設定済みです', 'warn'); return; }
   var curFy = eduFyOf(toDS(new Date()));
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'edu-goal-ov';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '320px';
-  var itemOpts = cands.length
-    ? cands.map(function (nm) { return '<option value="' + escH(nm) + '">' + escH(nm) + '</option>'; }).join('')
-    : '';
-  var itemField = cands.length
-    ? '<select id="edu-goal-item" class="ds2">' + itemOpts + '</select>'
-    : '<input type="text" id="edu-goal-item-free" class="ds2" placeholder="項目名を入力">';
+  var itemOpts = cands.map(function (nm) { return '<option value="' + escH(nm) + '">' + escH(nm) + '</option>'; }).join('');
   var fyOpts = [curFy, curFy + 1, curFy + 2].map(function (y) { return '<option value="' + y + '">' + y + '年度</option>'; }).join('');
   md.innerHTML = '<div class="md-ttl">＋ 目標を追加</div>'
     + '<div style="font-size:13px;margin-bottom:8px">「' + escH(name) + '」さんの目標にする項目と年度を選んでください。</div>'
-    + '<div style="margin-bottom:10px">' + itemField + '</div>'
+    + '<div style="margin-bottom:10px"><select id="edu-goal-item" class="ds2">' + itemOpts + '</select></div>'
     + '<div style="margin-bottom:14px"><select id="edu-goal-fy" class="ds2">' + fyOpts + '</select></div>'
     + '<div style="display:flex;justify-content:flex-end;gap:8px">'
     + '<button class="btn btn-g btn-sm" onclick="document.getElementById(\'edu-goal-ov\').remove()">キャンセル</button>'
     + '<button class="btn btn-p btn-sm" id="edu-goal-save-btn">追加</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
   document.getElementById('edu-goal-save-btn').addEventListener('click', function () {
-    var itemName = cands.length ? document.getElementById('edu-goal-item').value : document.getElementById('edu-goal-item-free').value.trim();
+    var itemName = document.getElementById('edu-goal-item').value;
     if (!itemName) return;
     var fy = parseInt(document.getElementById('edu-goal-fy').value, 10);
-    var finish = function () { eduAddGoal(name, childKind + ':' + itemName, fy); ov.remove(); };
-    if (!cands.length) phiGuardText(itemName, finish); else finish();
+    eduAddGoal(name, catId + ':' + itemName, fy);
+    ov.remove();
   });
 }
 /* #perf-body への委譲イベント登録（1回だけ。renderPerf は innerHTML を差し替えるだけなので
@@ -8739,8 +8827,8 @@ function bindPerfBodyEvents(el) {
       eduSet(row.getAttribute('data-name'), row.getAttribute('data-key'), parseInt(btn.getAttribute('data-lv'), 10));
       return;
     }
-    if (action === 'edu-bulk') { openEduBulkModal(btn.getAttribute('data-name'), btn.getAttribute('data-child')); return; }
-    if (action === 'edu-goal-add') { openEduGoalModal(btn.getAttribute('data-name'), btn.getAttribute('data-child')); return; }
+    if (action === 'edu-bulk') { openEduBulkModal(btn.getAttribute('data-name'), btn.getAttribute('data-cat')); return; }
+    if (action === 'edu-goal-add') { openEduGoalModal(btn.getAttribute('data-name'), btn.getAttribute('data-cat')); return; }
     if (action === 'edu-goal-remove') {
       if (confirm('この目標を外しますか？')) eduRemoveGoal(btn.getAttribute('data-name'), btn.getAttribute('data-key'));
       return;
@@ -8751,8 +8839,7 @@ function bindPerfBodyEvents(el) {
       renderPerf();
       return;
     }
-    if (action === 'perf-map-col') { _perfMapCol = btn.getAttribute('data-col'); renderPerf(); return; }
-    if (action === 'perf-map-back') { _perfMapCol = null; renderPerf(); return; }
+    if (action === 'perf-map-col') { _perfMapCol = btn.getAttribute('data-col') || null; renderPerf(); return; }
   });
 }
 
@@ -10157,6 +10244,58 @@ function mvHdTreat(i, d) {
   var arr = D.hdTreatments || []; var j = i + d; if (j < 0 || j >= arr.length) return;
   var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
   renderHdTreatList(); saveD();
+}
+
+/* ===== 教育項目マスタ（到達度6分類のうち病棟外回り/機器管理/透析の細目） =====
+   D.wdDepts/D.tablets/D.hdTreatments と同型の単純な文字列配列を kind（'ward'|'device'|'hd'）
+   ごとに持つ。renderHdTreatList と同型だが、権限は mst ではなく isAdmin || canEdu() —
+   mst を渡すと術式マスタや担当枠まで触れてしまうため、教育到達度の権限（perm_edu）だけで
+   完結させる。 */
+function eduItemMasterOk() { return isAdmin || canEdu(); }
+var EDU_ITEM_KINDS = [ { id: 'ward', label: '🏥 病棟外回り' }, { id: 'device', label: '⚙ 機器管理' }, { id: 'hd', label: '🩸 透析' } ];
+function renderEduItemList(kind) {
+  var l = document.getElementById('edu-item-list-' + kind); if (!l) return;
+  l.innerHTML = '';
+  var ok = eduItemMasterOk();
+  if (!D.eduItems) D.eduItems = { ward: [], device: [], hd: [] };
+  var list = D.eduItems[kind] || [];
+  if (!list.length) { l.innerHTML = '<p class="cle">まだ登録されていません</p>'; }
+  else {
+    for (var i = 0; i < list.length; i++) {
+      var el = document.createElement('div'); el.className = 'ri';
+      var btns = ok ? '<button class="ru" onclick="mvEduItem(\'' + kind + '\',' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="rdw" onclick="mvEduItem(\'' + kind + '\',' + i + ',1)"' + (i === list.length - 1 ? ' disabled' : '') + '>↓</button><button class="rd2" onclick="rmEduItem(\'' + kind + '\',' + i + ')">×</button>' : '';
+      el.innerHTML = '<span class="rn">' + escH(list[i]) + '</span>' + btns;
+      l.appendChild(el);
+    }
+  }
+  var ar = document.getElementById('edu-item-ar-' + kind); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addEduItem(kind) {
+  if (!eduItemMasterOk()) return;
+  var el = document.getElementById('in-edu-item-' + kind); var v = fbSafeKey(el.value.trim()); if (!v) return;
+  if (!D.eduItems) D.eduItems = { ward: [], device: [], hd: [] };
+  D.eduItems[kind] = D.eduItems[kind] || [];
+  if (D.eduItems[kind].indexOf(v) !== -1) { toast('すでに登録されています', 'warn'); return; }
+  D.eduItems[kind].push(v); el.value = ''; renderEduItemList(kind); saveD();
+}
+function rmEduItem(kind, i) {
+  if (!eduItemMasterOk()) return;
+  D.eduItems[kind].splice(i, 1); renderEduItemList(kind); saveD();
+  /* マスタから外しても、既にその項目に付いている到達度レコード（D.eduProgress）は消さない。
+     表示上はマスタに無い項目として選べなくなるだけ（記録を消さないため）。 */
+}
+function mvEduItem(kind, i, d) {
+  if (!eduItemMasterOk()) return;
+  var arr = (D.eduItems && D.eduItems[kind]) || []; var j = i + d; if (j < 0 || j >= arr.length) return;
+  var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  renderEduItemList(kind); saveD();
+}
+/* pane-master が開くたびに呼ぶ入口。data-perm を使わない特別なセクション（教育到達度は
+   mst ではなく canEdu() で出し分けるため）なので、表示切替もここで自前に行う。 */
+function renderEduItemMaster() {
+  var sec = document.getElementById('edu-items-section');
+  if (sec) sec.style.display = eduItemMasterOk() ? '' : 'none';
+  EDU_ITEM_KINDS.forEach(function (k) { renderEduItemList(k.id); });
 }
 
 /* ===== 曜日別業務：設置部署の選択モーダル =====
@@ -19398,7 +19537,7 @@ function swTab(t) {
   if(t==='sum'){ swSumTab(_curSumTab); }
   if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
   if(t==='master'){
-    renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList(); renderEduCfgUI();
+    renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList(); renderEduCfgUI(); renderEduItemMaster();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
     /* data-perm = 権限による出し分け（従来どおり）。
        data-mode = 主観モードによる出し分け（'ce'|'hd'、属性なし＝両モードで表示）。
@@ -20742,7 +20881,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
@@ -20810,7 +20949,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     saveD();
@@ -20866,7 +21005,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       saveD();
