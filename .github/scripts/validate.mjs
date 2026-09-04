@@ -59,6 +59,71 @@ if (existsSync('sw.js')) {
   }
 }
 
+/* ===== 4. CLAUDE.md の規約チェック =====
+ * 構文エラーは new Function() で捕まるが、規約違反は捕まらない。
+ * CLAUDE.md に「〜すること」と書いただけの決まりは、破っても誰も気づかないまま本番に出る
+ * （実際に「復元キー配列の1本だけ更新漏れ → 12設定が復元されない」事故が起きている）。
+ * 機械的に判定できる規約だけをここで落とす。判定は保守的に——誤検知でCIを赤くしない。 */
+if (existsSync(htmlPath)) {
+  const H = readFileSync(htmlPath, 'utf8');
+  const seg = (from, len) => { const i = H.indexOf(from); return i === -1 ? '' : H.slice(i, i + len); };
+
+  /* --- 4-1. D のプロパティは5箇所すべてに登録する --- */
+  const dm = H.match(/^var D = \{([\s\S]*?)\};$/m);
+  if (!dm) fail('var D = {...} の初期化が見つかりません');
+  else {
+    /* ネストしたオブジェクトのキー（autoDelCfg の中身など）は対象外 */
+    const NESTED = new Set(['enabled','period','interval','lastClean','cats','list','ceEdu','ward','device','hd']);
+    const props = [...dm[1].matchAll(/([a-zA-Z_]\w*)\s*:/g)].map(m => m[1]).filter(p => !NESTED.has(p));
+    const loadD    = seg('function loadD()', 4000);
+    const listener = seg('D.pages = d.pages', 4000);
+    const logout   = seg('D.pages={}; D.stf=[]', 1600);
+    const arrays   = [...H.matchAll(/\[\s*'pages','stf','phs'[\s\S]*?\]\.forEach/g)].map(m => m[0]);
+    let miss = 0;
+    props.forEach(p => {
+      const where = [];
+      if (!new RegExp(`D\\.${p}\\s*=`).test(loadD))    where.push('loadD');
+      if (!new RegExp(`D\\.${p}\\s*=`).test(listener)) where.push('/dataリスナー');
+      if (!new RegExp(`D\\.${p}\\s*=`).test(logout))   where.push('ログアウトリセット');
+      arrays.forEach((a, i) => { if (!a.includes(`'${p}'`)) where.push(`復元配列${i + 1}`); });
+      if (where.length) { fail(`D.${p} が未登録: ${where.join(' / ')}`); miss++; }
+    });
+    if (arrays.length !== 3) fail(`バックアップ復元のキー配列が3本ではありません（${arrays.length}本）`);
+    else {
+      const n = arrays.map(a => a.replace(/\s+/g, ''));
+      if (n[0] !== n[1] || n[1] !== n[2]) fail('復元キー配列3本の中身が食い違っています（importBackup の更新漏れが再発）');
+      else if (!miss) ok(`D の5箇所ルールOK（${props.length}プロパティ / 復元配列3本一致）`);
+    }
+  }
+
+  /* --- 4-2. 権限判定は can() を使う（lk()&&!isAdmin は per-user 付与を無視する） --- */
+  const lkDirect = [...H.matchAll(/lk\(['"][a-z_]+['"]\)\s*&&\s*!\s*isAdmin/g)];
+  if (lkDirect.length) fail(`lk()&&!isAdmin での権限判定が${lkDirect.length}箇所（can() を使うこと）`);
+  else ok('権限判定は can() 経由');
+
+  /* --- 4-3. 到達度の項目キーは eduKey() で作る（禁止文字と同名術式の両方を吸収する） --- */
+  const rawKey = [...H.matchAll(/.*(?:catId|cat\.id)\s*\+\s*['"]:['"]\s*\+.*/g)]
+    .map(m => m[0]).filter(l => !l.includes('function eduKey') && !l.includes('parts.join'));
+  if (rawKey.length) fail(`到達度キーの直接連結が${rawKey.length}件（eduKey() を通すこと）`);
+  else ok('到達度キーは eduKey() 経由');
+
+  /* --- 4-4. サブタブは印刷CSSにも登録する（漏れると印刷が白紙になる） --- */
+  const subIds  = [...H.matchAll(/id="subpane-(\w+)"/g)].map(m => m[1]);
+  const printed = [...H.matchAll(/data-print-sub="(\w+)"/g)].map(m => m[1]);
+  const noPrint = subIds.filter(id => !printed.includes(id));
+  if (noPrint.length) fail(`印刷CSSに未登録のサブタブ: ${noPrint.join(', ')}`);
+  else ok(`サブタブの印刷CSS対応OK（${subIds.length}件）`);
+
+  /* --- 4-5. マスタタブのセクションはグループ(.mgrp-body)の中に置く（外に置くと画面に出ない） --- */
+  const pmStart = H.indexOf('<div id="pane-master"');
+  const pmEnd   = H.indexOf('<!-- ロックタブ -->');
+  if (pmStart !== -1 && pmEnd > pmStart) {
+    const outside = H.slice(pmStart, pmEnd).split('<div class="mgrp"')[0];
+    if (/data-perm=/.test(outside)) fail('マスタタブに、どのグループにも入っていないセクションがあります（画面に出ません）');
+    else ok('マスタタブのセクションは全てグループ内');
+  }
+}
+
 /* ===== 結果 ===== */
 if (failed) {
   console.error('\n❌ ' + failed + ' 件の問題が見つかりました');

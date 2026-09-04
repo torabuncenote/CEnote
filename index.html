@@ -293,6 +293,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .edu-child-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--bdr);flex-wrap:wrap}
 .edu-child-row:last-child{border-bottom:none}
 .edu-child-lbl{font-size:12px;flex:1;min-width:120px}
+.edu-dept-sep{font-size:10px;font-weight:700;color:var(--txt3);margin:8px 0 2px;padding-bottom:2px;border-bottom:1px solid var(--bdr)}
 .edu-child-exp{font-size:10px;color:var(--txt3);margin-left:4px}
 .edu-child-goal{font-size:10px;color:var(--pu);margin-left:4px}
 .edu-lv-row{display:flex;gap:3px;flex-wrap:wrap}
@@ -330,7 +331,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 /* ===== マスタタブのグループ（.mgrp） =====
    20近いセクションが縦一列に並んで探せなくなっていたので、意味ごとに6グループへ畳んだ。
    既定は全部閉じる（開いた直後は見出しだけが並ぶ）。開閉は端末ローカルに覚えさせる。 */
-.mgrp{border:1px solid var(--bdr);border-radius:var(--rs);overflow:hidden;background:var(--sur)}
+/* flex-shrink:0 は必須。.sp は flex column で、overflow:hidden を持つ子は
+   min-height:auto が効かなくなるため、これが無いと中身の高い（＝開いた）グループが
+   高さ2pxまで潰れ、スクロールもできなくなる（実際に業務内容マスタで発生した）。 */
+.mgrp{border:1px solid var(--bdr);border-radius:var(--rs);overflow:hidden;background:var(--sur);flex-shrink:0}
 .mgrp-hd{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;padding:11px 12px;background:var(--sur2)}
 .mgrp-hd:hover{background:var(--ac-bg)}
 .mgrp-lbl{font-size:12px;font-weight:700;flex:1;min-width:0}
@@ -2533,7 +2537,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3766,13 +3770,14 @@ function renderSpec() {
   S += '<div class="spec-p">「誰が何にどれだけ携わったか」の個人実績と、教育の到達度（5段階）を扱う。担当表タブの🎓実績サブタブから開く（両主観で表示）。到達度・実績とも<b>OPE／カテ／病棟外回り／機器管理／透析／特殊治療の6分類</b>に統一している——担当枠やHD役割は「その日どこに立ったか」であってスキルではないため評価単位にせず、枠ごとの回数はCE/HD公平性タブが既に担当している。</div>';
   S += '<div class="spec-box">データは <code>D.eduProgress = { 氏名: { 項目key: {lv, by, ts, hist[], goalFy?} } }</code>（トップレベル<code>D</code>の一部、専用Firebaseパスは持たない）。<code>lv</code>は1=未／2=見学／3=介助／4=単独／5=指導可。<b>キーが存在しない＝未評価</b>（lv:0は使わない）。押すたびに<code>hist</code>に追記し、いつ・誰が・何段階にしたかを残す。<code>goalFy</code>は手動で追加した目標の年度（数値）。</div>';
   S += '<table class="spec-tbl"><tr><th>分類id</th><th>大分類key</th><th>細目keyのprefix</th><th>細目マスタ</th></tr>';
-  S += '<tr><td>OPE</td><td rowspan="6"><code>cat:&lt;分類id&gt;</code></td><td><code>ope:&lt;術式&gt;</code></td><td><code>D.opeTree</code>（既存）</td></tr>';
-  S += '<tr><td>カテ</td><td><code>cath:&lt;術式&gt;</code></td><td><code>D.cathTree</code>（既存）</td></tr>';
+  S += '<tr><td>OPE</td><td rowspan="6"><code>cat:&lt;分類id&gt;</code></td><td><code>ope:&lt;科&gt;|&lt;中カテゴリ&gt;|&lt;術式&gt;</code></td><td><code>D.opeTree</code>（既存）</td></tr>';
+  S += '<tr><td>カテ</td><td><code>cath:&lt;科&gt;|&lt;中カテゴリ&gt;|&lt;術式&gt;</code></td><td><code>D.cathTree</code>（既存）</td></tr>';
   S += '<tr><td>病棟外回り</td><td><code>ward:&lt;項目&gt;</code></td><td><code>D.eduItems.ward</code>（新設・空スタート）</td></tr>';
   S += '<tr><td>機器管理</td><td><code>device:&lt;項目&gt;</code></td><td><code>D.eduItems.device</code>（新設・空スタート）</td></tr>';
   S += '<tr><td>透析</td><td><code>hd:&lt;項目&gt;</code></td><td><code>D.eduItems.hd</code>（新設・空スタート）</td></tr>';
   S += '<tr><td>特殊治療</td><td><code>hdsp:&lt;治療名&gt;</code></td><td><code>D.hdTreatments</code>（既存）</td></tr>';
   S += '</table>';
+  S += '<div class="spec-box"><b>OPE/カテだけ階層をキーに含める。</b>実データの「低位前方切除術」は消化器外科の<b>腹腔鏡下とロボット支援下の両方</b>にあり（右半結腸切除術・左半結腸切除術・S状結腸切除術も同様）、術式名だけをキーにすると2つの到達度が同じレコードに混ざる。キー生成は必ず <code>eduKey(catId, dept, cat, name)</code> を通すこと——禁止文字（<code>. # $ [ ] /</code>）の除去もここで行う。キーは<code>fbSafeKey</code>済みで元の表記に戻せないので、画面には <code>eduCatItems()</code> が返す記述子の <code>label</code>（<code>中カテゴリ / 術式</code>）を使う。科は列見出しの<code>title</code>・個人ビューの区切り見出し・並び順に使う。</div>';
   S += '<div class="spec-p">大分類キーはラベル文字列に依存しない固定id（<code>eduCategories()</code>）。担当枠ラベル→分類idの変換（実績「配置の日数」の集計にだけ使う）は <code>eduDutyCat(label)</code> が部分一致で行う——<code>slot.id</code>ではなく<code>label</code>で照合するのは、idが枠を作り直すたびに再採番されるため（<code>FAIR_MERGE</code>/<code>myDutyLabels</code>と同じ）。フリー・遅出フリーは<code>eduDutyCat</code>が<code>\'free\'</code>を返し、到達度は持たず実績にだけ「その他」として日数を出す（フリー中心の人の実績が全項目0日にならないようにするため）。</div>';
   S += '<div class="spec-p">細目は<b>分類マスタの全件</b>（<code>eduCatItems(catId)</code>）が経験の有無に関わらず並ぶ。経験済み（症例に担当者として名前がある、またはHD特殊治療の実施者に入っている）には印を、年度付きの<b>目標</b>には🎯バッジを添える。マスタに無い自由入力の術式で経験があるものは列にはせず、個人ビューに件数だけ注記する。</div>';
   S += '<table class="spec-tbl"><tr><th>操作</th><th>できる人</th></tr>';
@@ -4682,8 +4687,21 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/03-56';
+var APP_VERSION = 'Ver.2026/09/05-58';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/05-58', date:'2026-09-05', title:'保存が止まる不具合の修正と、権限まわりの見直し', items:[
+    {t:'fix', d:'💾 スタッフ名・イベント名・応援の方のお名前などに「/」などの記号が入ると、その端末の保存が止まってしまう不具合を修正しました。記号は自動的に「_」に置き換えて登録されます'},
+    {t:'fix', d:'📅 曜日別業務の週指定や「月内どれか1回でよい」を変更したとき、カレンダーの完了ドットが古いまま残る不具合を修正しました'},
+    {t:'fix', d:'📱 タブレット台帳（CE）で同じ名前を重複して登録できてしまう不具合を修正しました（HD側と同じ動作に揃えました）'},
+    {t:'imp', d:'🔒 記録が消える操作（データ自動削除・申し送りの削除）と、教育到達度の閲覧・CSV出力に、画面だけでなく処理側でも権限の確認を入れました', admin:true},
+    {t:'fix', d:'🔒 スケジュールプリセット・PSG通知設定・担当枠マスタの編集権限が、本来の「各種マスタの編集」ではなく「チェックリスト（共通）の編集」を見ていた不具合を修正しました', admin:true},
+    {t:'imp', d:'⚠️ 患者情報の警告が「委員会」「勉強会」「整形外科」など普通の業務用語にも出ていたのを修正しました。患者さんのお名前・ID・生年月日などの検知はこれまでどおり働きます'}
+  ]},
+  { ver:'Ver.2026/09/04-57', date:'2026-09-04', title:'術式の科・中カテゴリを到達度に反映', items:[
+    {t:'imp', d:'🎓 教育到達度の術式を「腹腔鏡下 / 低位前方切除術」のように中カテゴリ付きで表示するようにしました。同じ術式名でも腹腔鏡下とロボット支援下は別々に記録できます（これまでは同じ扱いになっていました）'},
+    {t:'imp', d:'🎓 到達度の一覧を科（消化器外科・整形外科など）ごとに区切って並べ、スキルマップの列見出しにも科を出すようにしました'},
+    {t:'fix', d:'📋 マスタタブでグループを開くと表示が崩れ、それ以上スクロールできなくなる不具合を修正しました'}
+  ]},
   { ver:'Ver.2026/09/03-56', date:'2026-09-03', title:'実績・教育到達度を追加', items:[
     {t:'new', d:'🎓 「📊 担当表」タブに「🎓 実績」を追加しました。自分が携わったオペ・カテ・特殊治療の件数、OPE／カテ／病棟外回り／機器管理／透析（＋その他＝フリー）の配置日数、指導した回数、オンコールの対応件数を、今月・年度累計で確認できます'},
     {t:'new', d:'🎓 OPE／カテ／病棟外回り／機器管理／透析／特殊治療の6分類と、それぞれの術式・治療名などの細目に「未・見学・介助・単独・指導可」の5段階で教育の到達度を記録できるようにしました。押した人・日時・変化の履歴が残ります'},
@@ -8244,8 +8262,11 @@ function canEdu() { return isAdmin || !!(currentUser && currentUser.perms && cur
    教育の到達度（5段階）を載せる。症例ごとの主・サブは記録しない（教育者が付いているか
    どうかが実質的にその役割を果たす）ので、到達段階は必ず人が押す — 件数から自動推定しない。
    D.eduProgress[氏名][項目key] = {lv, by, ts, hist[], goalFy?}。キーが無い＝未評価（lv:0は使わない）。
-   項目keyの名前空間: cat:<分類id>（大分類）、ope:<術式> / cath:<術式> / ward:<項目> /
-   device:<項目> / hd:<項目> / hdsp:<治療名>（細目）。到達度・実績とも「OPE/カテ/病棟外回り/
+   項目keyの名前空間: cat:<分類id>（大分類）、ope:<科|中カテゴリ|術式> / cath:<同> /
+   ward:<項目> / device:<項目> / hd:<項目> / hdsp:<治療名>（細目）。OPE/カテだけ階層を
+   キーに含めるのは、同じ術式名が別の中カテゴリにも在るため——実データの「低位前方切除術」は
+   消化器外科の腹腔鏡下とロボット支援下の両方にあり、術式名だけをキーにすると
+   到達度の記録が混ざる。キー生成は必ず eduKey() を通すこと。到達度・実績とも「OPE/カテ/病棟外回り/
    機器管理/透析/特殊治療」の6分類に統一（担当枠・HD役割は「その日どこに立ったか」であって
    スキルではないので評価単位にしない——枠ごとの回数はCE/HD公平性タブが既に担当している）。
    担当枠ラベル→分類の照合は eduDutyCat() が label 文字列で行う（slot.id は「追加」のたびに
@@ -8307,36 +8328,53 @@ function eduDutyCat(label) {
   if (/フリー/.test(label)) return 'free';
   return '';
 }
-/* オペ/カテ術式ツリー（D.opeTree/D.cathTree、dept→cats→items）を術式名の配列に平坦化する。 */
-function eduTreeItemNames(tree) {
-  var out = [];
-  (tree || []).forEach(function (dept) {
-    (dept.cats || []).forEach(function (cat) {
-      (cat.items || []).forEach(function (nm) { if (nm) out.push(nm); });
-    });
-  });
-  return out;
+/* 到達度の項目キー。2つの理由でここを必ず通す。
+   ① 禁止文字：術式名にはFirebase RTDBが使えない文字（. # $ [ ] /）が入りうる——初期マスタの
+      「OCT/IVUS」「VT/PVC」が実例で、/ は医療の表記に自然に出る。素通しすると
+      fbDB.ref('/data').set() が同期throwし、_saveWriting が立ったままアプリ全体の保存が止まる。
+   ② 同名術式：実データの「低位前方切除術」は消化器外科の腹腔鏡下とロボット支援下の両方にある。
+      術式名だけをキーにすると2つの到達度が同じレコードに混ざるので、科と中カテゴリも含める。
+   マスタ側の術式名は変えない——現場は「OCT/IVUS」と読むので、表示は常に元のまま。 */
+function eduKey(catId, dept, cat, name) {
+  var parts = [];
+  [dept, cat, name].forEach(function (s) { if (s) parts.push(fbSafeKey(s)); });
+  return catId + ':' + parts.join('|');
+}
+/* 細目1件の記述子。key（保存用）と label（画面用）を必ずセットで持ち歩く——
+   キーは fbSafeKey 済みで元の表記に戻せないので、表示は label 側だけを使うこと。 */
+function eduItemOf(catId, dept, cat, name) {
+  return {
+    dept: dept || '', cat: cat || '', name: name,
+    key: eduKey(catId, dept, cat, name),
+    label: cat ? (cat + ' / ' + name) : name
+  };
 }
 /* 分類idに対する細目マスタ全件（経験の有無に関わらず）。スキルマップの列・個人ビューの
-   細目一覧はどちらもここを唯一の入口にする。ward/device/hd は D.eduItems の単純配列
-   （D.wdDepts/D.tablets と同型）で、新設のため初期値は空——現場が教育項目マスタから埋める。 */
+   細目一覧はどちらもここを唯一の入口にする。戻り値は eduItemOf() の記述子の配列。
+   OPE/カテはツリー順（科→中カテゴリ→術式）で返すので、科ごとにまとまって並ぶ。
+   ward/device/hd は D.eduItems の単純配列（D.wdDepts/D.tablets と同型）で階層を持たない。 */
 function eduCatItems(catId) {
-  if (catId === 'ope') return eduTreeItemNames(D.opeTree);
-  if (catId === 'cath') return eduTreeItemNames(D.cathTree);
-  if (catId === 'hdsp') return (D.hdTreatments || []).slice();
-  if (catId === 'ward' || catId === 'device' || catId === 'hd') return ((D.eduItems && D.eduItems[catId]) || []).slice();
-  return [];
+  if (catId === 'ope' || catId === 'cath') {
+    var tree = (catId === 'ope') ? D.opeTree : D.cathTree, out = [];
+    (tree || []).forEach(function (d) {
+      (d.cats || []).forEach(function (c) {
+        (c.items || []).forEach(function (nm) { if (nm) out.push(eduItemOf(catId, d.dept, c.name, nm)); });
+      });
+    });
+    return out;
+  }
+  var list = (catId === 'hdsp') ? (D.hdTreatments || [])
+           : (catId === 'ward' || catId === 'device' || catId === 'hd') ? ((D.eduItems && D.eduItems[catId]) || [])
+           : [];
+  return list.map(function (nm) { return eduItemOf(catId, '', '', nm); });
 }
-/* 到達度の項目キー。術式名にはFirebase RTDBが禁止する文字（. # $ [ ] /）が入りうる
-   ——初期マスタの「OCT/IVUS」「VT/PVC」が実例で、/ は医療の表記に自然に出る。
-   キーに素通しすると fbDB.ref('/data').set() が同期throwし、_saveWriting が立ったまま
-   固着してアプリ全体の保存が止まる。キー生成は必ずここを通すこと。
-   マスタ側の術式名は変えない——現場は「OCT/IVUS」と読むので、表示はそのまま。 */
-function eduKey(catId, itemName) { return catId + ':' + fbSafeKey(itemName); }
 /* その人が全期間で経験した細目（症例に担当者として名前が入っている／HD特殊治療の実施者に
    入っている）を分類idごとに返す。到達度セクションを描くときだけ呼ぶ全期間走査。
-   ward/device/hd は経験を自動判定するデータ源が無いため常に空配列（呼び出し側は
-   eduExperiencedKeys(name)[catId] || [] で受ける）。 */
+   戻り値は { 分類id: { 項目key: 表示ラベル } }——キーで突き合わせ、画面にはラベルを出す。
+   症例側の科・中カテゴリは自由入力もありうるが、opsItemDept/opsItemCat が表示用の文字列を
+   返すので、マスタから選んだ症例なら eduCatItems() のキーとそのまま一致する。
+   ward/device/hd は経験を自動判定するデータ源が無いため常に空（呼び出し側は
+   (exp && exp[catId]) || {} で受ける）。 */
 function eduExperiencedKeys(name) {
   var out = { ope: {}, cath: {}, hdsp: {} };
   Object.keys(D.pages || {}).forEach(function (ds) {
@@ -8347,15 +8385,17 @@ function eduExperiencedKeys(name) {
         if (!opsItemFilled(it)) return;
         if (opsItemStaff(it).indexOf(name) === -1) return;
         var nm = opsItemName(it);
-        if (nm) out[kind][nm] = true;
+        if (!nm) return;
+        var d = opsItemDept(it), c = opsItemCat(it);
+        out[kind][eduKey(kind, d, c, nm)] = c ? (c + ' / ' + nm) : nm;
       });
     });
     hdCountSpFilled(pg).forEach(function (sp) {
       if ((sp.staff || []).indexOf(name) === -1) return;
-      if (sp.n) out.hdsp[sp.n] = true;
+      if (sp.n) out.hdsp[eduKey('hdsp', '', '', sp.n)] = sp.n;
     });
   });
-  return { ope: Object.keys(out.ope).sort(), cath: Object.keys(out.cath).sort(), hdsp: Object.keys(out.hdsp).sort() };
+  return out;
 }
 /* 期間内を1回だけ走査して全スタッフ分の実績をまとめて作る。個人ページ・印刷・CSVは
    すべてこの戻り値だけを読む（自前で数え直さない）。D.stfHidden の除外はここではなく
@@ -8363,9 +8403,13 @@ function eduExperiencedKeys(name) {
 /* eduStats の1人分の空オブジェクト。外部（活動が無かった人の表示用フォールバック）からも使う。 */
 function eduEmptyStat() {
   return {
-    ope: { n: 0, byDept: {}, byName: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
-    cath: { n: 0, byDept: {}, byName: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
-    hdsp: { n: 0, byName: {} },
+    /* byName は術式名だけの集計で、実績ブロックの「トップN内訳」に使う（読みやすさ優先で
+       同名を合算してよい）。byKey は eduKey() の階層キーでの集計で、スキルマップのセルに
+       出す経験件数に使う——こちらは腹腔鏡下とロボット支援下の「低位前方切除術」を
+       別物として数える必要があるため。用途が違うので両方持つ。 */
+    ope: { n: 0, byDept: {}, byName: {}, byKey: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
+    cath: { n: 0, byDept: {}, byName: {}, byKey: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
+    hdsp: { n: 0, byName: {}, byKey: {} },
     cat: { ope: 0, cath: 0, ward: 0, device: 0, hd: 0 }, /* 6分類のうち配置日数を持つ5つ（特殊治療は件数のみ） */
     free: 0, /* フリー・遅出フリーの日数（実績にだけ「その他」として出す。到達度は持たない） */
     teach: { n: 0, ope: 0, cath: 0, hdsp: 0 },
@@ -8386,6 +8430,7 @@ function eduStats(dsList) {
         if (!opsItemFilled(it)) return;
         var dept = opsItemDept(it) || '（未分類）';
         var nm = opsItemName(it) || '（無題）';
+        var itemKey = eduKey(kind, opsItemDept(it), opsItemCat(it), nm);
         var startMin = opsItemStartMin(it);
         var endMin = it.endTime != null ? it.endTime : null;
         var dur = (startMin != null && endMin != null && endMin >= startMin) ? (endMin - startMin) : null;
@@ -8394,6 +8439,7 @@ function eduStats(dsList) {
           e.n++;
           e.byDept[dept] = (e.byDept[dept] || 0) + 1;
           e.byName[nm] = (e.byName[nm] || 0) + 1;
+          e.byKey[itemKey] = (e.byKey[itemKey] || 0) + 1;
           if (it.emergency) e.em++;
           if (it.scope) e.sc++;
           if (dur != null) { e.durSum += dur; e.durN++; }
@@ -8409,6 +8455,7 @@ function eduStats(dsList) {
         var e = ent(staffName).hdsp;
         e.n++;
         e.byName[sp.n] = (e.byName[sp.n] || 0) + 1;
+        e.byKey[eduKey('hdsp', '', '', sp.n)] = (e.byKey[eduKey('hdsp', '', '', sp.n)] || 0) + 1;
       });
       (sp.edu || []).forEach(function (teacherName) {
         var t = ent(teacherName).teach;
@@ -8531,6 +8578,9 @@ function renderPerf() {
   if (!el) return;
   if (!el._perfBound) { el._perfBound = true; bindPerfBodyEvents(el); }
   var selfName = _perfPick ? null : (_perfName || perfSelfName());
+  /* 自分以外を表示できるのは canEdu() だけ。_perfName はただのモジュール変数なので、
+     ここで毎回照合しないと「変更」ボタンを経由しない経路で他人の到達度が出てしまう。 */
+  if (selfName && selfName !== perfSelfName() && !canEdu()) { selfName = perfSelfName(); _perfName = selfName; }
   if (selfName) _perfName = selfName;
   if (!selfName && !canEdu()) {
     el.innerHTML = '<div style="padding:16px;text-align:center;color:var(--txt2);font-size:13px">アカウントがスタッフ名に紐づいていないため、実績を表示できません。管理者にご相談ください。</div>';
@@ -8644,8 +8694,9 @@ function renderPerfPersonHTML(name) {
 function eduFreeExpNoteHTML(name, catId, exp) {
   if (catId !== 'ope' && catId !== 'cath') return '';
   var masterSet = {};
-  eduCatItems(catId).forEach(function (m) { masterSet[m] = true; });
-  var extra = ((exp && exp[catId]) || []).filter(function (nm) { return !masterSet[nm]; });
+  eduCatItems(catId).forEach(function (m) { masterSet[m.key] = true; });
+  var expMap = (exp && exp[catId]) || {};
+  var extra = Object.keys(expMap).filter(function (k) { return !masterSet[k]; }).map(function (k) { return expMap[k]; });
   if (!extra.length) return '';
   return '<div class="edu-empty" style="color:var(--or)">⚠ マスタに無い術式の経験が' + extra.length + '件あります（' + escH(extra.join('・')) + '）。マスタへの追加を検討してください</div>';
 }
@@ -8664,18 +8715,24 @@ function eduCatHTML(name, cat, exp) {
   h += eduMetaHTML(name, cat.key, rec);
   h += eduFreeExpNoteHTML(name, cat.id, exp);
   var items = eduCatItems(cat.id);
-  var expSet = {};
-  ((exp && exp[cat.id]) || []).forEach(function (nm) { expSet[nm] = true; });
+  var expMap = (exp && exp[cat.id]) || {};
   if (canEdu()) h += '<div style="margin:6px 0"><button class="btn btn-g btn-sm" style="font-size:11px" data-action="edu-bulk" data-name="' + escH(name) + '" data-cat="' + escH(cat.id) + '">⚡ まとめて設定</button>'
     + '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:4px" data-action="edu-goal-add" data-name="' + escH(name) + '" data-cat="' + escH(cat.id) + '">＋ 目標を追加</button></div>';
   if (!items.length) h += '<div class="edu-empty">まだ項目が登録されていません' + ((cat.id === 'ward' || cat.id === 'device' || cat.id === 'hd') ? '（マスタタブの「🎓 教育項目マスタ」から追加できます）' : '') + '</div>';
-  items.forEach(function (itemName) {
-    var childKey = eduKey(cat.id, itemName);
+  /* 科が変わるところに小さな区切りを入れる（OPE/カテのみ。ツリー順で並んでいるので
+     ここで科ごとにまとまって見える）。 */
+  var lastDept = null;
+  items.forEach(function (item) {
+    if (item.dept && item.dept !== lastDept) {
+      lastDept = item.dept;
+      h += '<div class="edu-dept-sep">' + escH(item.dept) + '</div>';
+    }
+    var childKey = item.key;
     var crec = eduGet(name, childKey);
     var clv = crec ? crec.lv : 0;
-    var isExp = !!expSet[itemName];
+    var isExp = !!expMap[childKey];
     h += '<div class="edu-child-row">';
-    h += '<span class="edu-child-lbl">' + escH(itemName);
+    h += '<span class="edu-child-lbl">' + escH(item.label);
     if (isExp) h += '<span class="edu-child-exp">経験あり</span>';
     if (crec && crec.goalFy) h += '<span class="edu-child-goal">🎯' + crec.goalFy + '年度目標'
       + (canEdu() ? ' <button type="button" class="ops-staff-chip-x" data-action="edu-goal-remove" data-name="' + escH(name) + '" data-key="' + escH(childKey) + '" title="目標を外す">×</button>' : '') + '</span>';
@@ -8750,11 +8807,12 @@ function eduMapLegendHTML() {
 function eduMapCountSrc(catId) {
   if (catId !== 'ope' && catId !== 'cath' && catId !== 'hdsp') return null;
   var stats = eduStats(eduAllDsList());
-  var byNameKey = catId; /* stats[name].ope.byName / .cath.byName / .hdsp.byName */
-  return function (name, itemName) {
+  /* byName ではなく byKey で引く——同名術式（腹腔鏡下とロボット支援下の「低位前方切除術」）を
+     別々に数えるため。byName で引くと両方に同じ合算値が出てしまう。 */
+  return function (name, itemKey) {
     var s = stats[name];
     if (!s) return 0;
-    return (s[byNameKey].byName && s[byNameKey].byName[itemName]) || 0;
+    return (s[catId].byKey && s[catId].byKey[itemKey]) || 0;
   };
 }
 function renderPerfMapHTML() {
@@ -8773,17 +8831,18 @@ function renderPerfMapHTML() {
     h += eduMapLegendHTML();
     var countOf = eduMapCountSrc(catId);
     h += '<div style="overflow-x:auto"><table class="edu-map-tbl"><thead><tr><th>氏名</th>';
-    items.forEach(function (it) { h += '<th>' + escH(it) + '</th>'; });
+    /* 列見出しは「中カテゴリ / 術式」。科は title に入れて幅を節約する（列がマスタ全件ぶん並ぶため）。 */
+    items.forEach(function (it) { h += '<th' + (it.dept ? ' title="' + escH(it.dept) + '"' : '') + '>' + escH(it.label) + '</th>'; });
     h += '</tr></thead><tbody>';
     names.forEach(function (n) {
       h += '<tr><td>' + escH(n) + '</td>';
       items.forEach(function (it) {
-        var rec = eduGet(n, eduKey(catId, it));
+        var rec = eduGet(n, it.key);
         var lv = rec ? rec.lv : 0;
-        var cnt = countOf ? countOf(n, it) : 0;
+        var cnt = countOf ? countOf(n, it.key) : 0;
         var mark = lv ? eduLevelLabel(lv).charAt(0) : '−';
         var cellTxt = cnt ? (mark + ' ' + cnt) : mark;
-        var title = escH(it) + '：' + (lv ? eduLevelLabel(lv) : '未評価') + (cnt ? '（経験' + cnt + '件）' : '');
+        var title = escH((it.dept ? it.dept + ' / ' : '') + it.label) + '：' + (lv ? eduLevelLabel(lv) : '未評価') + (cnt ? '（経験' + cnt + '件）' : '');
         h += '<td><span class="edu-map-cell lv' + lv + '" title="' + title + '">' + cellTxt + '</span></td>';
       });
       h += '</tr>';
@@ -8811,18 +8870,20 @@ function renderPerfMapHTML() {
   return h;
 }
 function exportEduMapCsv() {
+  if (!canEdu()) return; /* 全職員の到達度を書き出すので、閲覧権限と同じゲートを通す */
   var names = perfTargetStaffList();
   var rows;
   if (_perfMapCol) {
     var catId = _perfMapCol;
     var items = eduCatItems(catId);
     var countOf = eduMapCountSrc(catId);
-    rows = [['氏名'].concat(items)];
+    /* CSVは列幅を気にしなくてよいので、科まで入れたフルの見出しにする（並べ替え・集計しやすい） */
+    rows = [['氏名'].concat(items.map(function (it) { return it.dept ? (it.dept + ' / ' + it.label) : it.label; }))];
     names.forEach(function (n) {
       rows.push([n].concat(items.map(function (it) {
-        var rec = eduGet(n, eduKey(catId, it));
+        var rec = eduGet(n, it.key);
         var lv = rec ? rec.lv : 0;
-        var cnt = countOf ? countOf(n, it) : 0;
+        var cnt = countOf ? countOf(n, it.key) : 0;
         var label = lv ? eduLevelLabel(lv) : '未評価';
         return cnt ? (label + '(' + cnt + '件)') : label;
       })));
@@ -8842,11 +8903,11 @@ function openEduBulkModal(name, catId) {
   if (!canEdu()) return;
   var items = eduCatItems(catId);
   if (!items.length) { toast('この区分にはまだ項目が登録されていません', 'warn'); return; }
-  var keys = items.map(function (it) { return eduKey(catId, it); });
+  var keys = items.map(function (it) { return it.key; });
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'edu-bulk-ov';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '320px';
   md.innerHTML = '<div class="md-ttl">⚡ まとめて設定</div>'
-    + '<div style="font-size:13px;margin-bottom:12px">「' + escH(name) + '」さんの ' + items.length + '件（' + escH(items.join('・')) + '）に段階をまとめて設定します。</div>'
+    + '<div style="font-size:13px;margin-bottom:12px">「' + escH(name) + '」さんの ' + items.length + '件（' + escH(items.map(function (it) { return it.label; }).join('・')) + '）に段階をまとめて設定します。</div>'
     + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'
     + [1, 2, 3, 4, 5].map(function (i) { return '<button class="btn btn-g btn-sm" data-action="edu-bulk-apply" data-lv="' + i + '">' + eduLevelLabel(i) + '</button>'; }).join('')
     + '</div>'
@@ -8867,15 +8928,18 @@ function openEduGoalModal(name, catId) {
   if (!canEdu()) return;
   var master = eduCatItems(catId);
   if (!master.length) { toast('この区分にはまだ項目が登録されていません。マスタタブの「🎓 教育項目マスタ」から追加してください', 'warn'); return; }
-  var cands = master.filter(function (nm) {
-    var r = eduGet(name, eduKey(catId, nm));
+  var cands = master.filter(function (it) {
+    var r = eduGet(name, it.key);
     return !(r && r.goalFy);
   });
   if (!cands.length) { toast('この区分の項目はすべて目標に設定済みです', 'warn'); return; }
   var curFy = eduFyOf(toDS(new Date()));
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'edu-goal-ov';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '320px';
-  var itemOpts = cands.map(function (nm) { return '<option value="' + escH(nm) + '">' + escH(nm) + '</option>'; }).join('');
+  /* option の value はキー（保存に使う）、表示は科まで入れたラベル（同名術式を選び分けるため） */
+  var itemOpts = cands.map(function (it) {
+    return '<option value="' + escH(it.key) + '">' + escH(it.dept ? (it.dept + ' / ' + it.label) : it.label) + '</option>';
+  }).join('');
   var fyOpts = [curFy, curFy + 1, curFy + 2].map(function (y) { return '<option value="' + y + '">' + y + '年度</option>'; }).join('');
   md.innerHTML = '<div class="md-ttl">＋ 目標を追加</div>'
     + '<div style="font-size:13px;margin-bottom:8px">「' + escH(name) + '」さんの目標にする項目と年度を選んでください。</div>'
@@ -8886,10 +8950,10 @@ function openEduGoalModal(name, catId) {
     + '<button class="btn btn-p btn-sm" id="edu-goal-save-btn">追加</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
   document.getElementById('edu-goal-save-btn').addEventListener('click', function () {
-    var itemName = document.getElementById('edu-goal-item').value;
-    if (!itemName) return;
+    var itemKey = document.getElementById('edu-goal-item').value;  /* value はすでにキー */
+    if (!itemKey) return;
     var fy = parseInt(document.getElementById('edu-goal-fy').value, 10);
-    eduAddGoal(name, eduKey(catId, itemName), fy);
+    eduAddGoal(name, itemKey, fy);
     ov.remove();
   });
 }
@@ -9542,7 +9606,12 @@ function toggleStfHidden(name) {
   if (D.stfHidden[name]) { delete D.stfHidden[name]; } else { D.stfHidden[name] = true; }
   saveD(); renderStfList(); renderCal();
 }
-function addStf() { if(!isAdmin)return; var v=document.getElementById('in-stf').value.trim(); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
+/* 氏名は D.stfLinks / D.stfHidden / D.stfEdu / dat.placement.people / dat.hdNotes /
+   D.shift[ym] のキーになる。Firebase RTDB はキーに . # $ [ ] / を使えず、含まれると
+   set() が同期throwして _saveWriting が立ったままアプリ全体の保存が止まるため、
+   氏名が D に入る入り口（ここ・改名・ヘルプ職員の手入力・勤務表インポート）で必ず
+   fbSafeKey() を通す。入り口さえ押さえれば、下流のキーはすべて安全になる。 */
+function addStf() { if(!isAdmin)return; var v=fbSafeKey(document.getElementById('in-stf').value.trim()); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function rmStf(i) { if(!isAdmin)return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 function mvStf(i,d) { if(!isAdmin)return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 
@@ -9574,6 +9643,9 @@ function confirmEditModal() {
   if (state.type === 'stf') {
     // スタッフ編集
     if (!isAdmin) return;
+    /* 改名も addStf と同じ理由で fbSafeKey を通す（氏名は各所でFirebaseキーになる） */
+    newValue = fbSafeKey(newValue);
+    if (!newValue) { toast('内容は空にできません', 'warn'); return; }
     for (var j = 0; j < D.stf.length; j++) {
       if (j !== state.index && D.stf[j].toLowerCase() === newValue.toLowerCase()) {
         toast('このスタッフ名は既に登録されています', 'warn');
@@ -9725,7 +9797,7 @@ function renderTabletList() {
   }
   var ar = document.getElementById('tablet-master-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
 }
-function addTablet() { if(!can('mst'))return; var el=document.getElementById('in-tablet'); var v=el.value.trim(); if(!v)return; D.tablets=D.tablets||[]; D.tablets.push(v); el.value=''; renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
+function addTablet() { if(!can('mst'))return; var el=document.getElementById('in-tablet'); var v=el.value.trim(); if(!v)return; D.tablets=D.tablets||[]; if(D.tablets.indexOf(v)!==-1){ toast('すでに登録されています','warn'); return; } D.tablets.push(v); el.value=''; renderTabletList(); saveD(); if(curDs)safeRenderPage(); }
 
 /* ===== OC対応フローチャート ===== */
 function saveOcFlow() {
@@ -10095,7 +10167,7 @@ function setWdWeeks(i, mode) {
   arr[i] = itemRebuild(arr[i], patch);
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
-  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn'); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 /* 第N週チップの個別トグル */
 function togWdWeek(i, wk) {
@@ -10115,7 +10187,7 @@ function togWdWeek(i, wk) {
   arr[i] = itemRebuild(arr[i], patch);
   remapWdChecks(selWd, oldArr, arr);
   renderWdlyList(); saveD(); if(curDs)safeRenderPage();
-  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn'); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 /* 月内1回でよいトグル。毎週の項目には意味がないため、週指定がある項目にのみ許可する */
 function togWdOnce(i) {
@@ -10237,7 +10309,7 @@ function setHdWdWeeks(i, mode) {
   arr[i] = itemRebuild(arr[i], patch);
   remapHdWdChecks(_hdSelWd, oldArr, arr);
   renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
-  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+  if (!weeks && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn'); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 function togHdWdWeek(i, wk) {
   if(!can('wm'))return;
@@ -10256,14 +10328,14 @@ function togHdWdWeek(i, wk) {
   arr[i] = itemRebuild(arr[i], patch);
   remapHdWdChecks(_hdSelWd, oldArr, arr);
   renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
-  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn');
+  if (collapsed && wasOnce) toast('毎週に戻したため「月内1回」を解除しました', 'warn'); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 function togHdWdOnce(i) {
   if(!can('wm'))return;
   var arr = D.hdWd[_hdSelWd]; if(!arr || arr[i]===undefined) return;
   if (!wdWeeks(arr[i])) { toast('「毎週」の業務には設定できません。先に第N週を指定してください', 'warn'); return; }
   arr[i] = itemRebuild(arr[i], { once: wdOnce(arr[i]) ? null : true });
-  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage();
+  renderHdWdlyList(); saveD(); if(curDs)safeRenderPage(); renderCal(); /* 週指定・月内1回で分母が変わる＝カレンダーの完了ドットも変わる */
 }
 
 /* ===== 設置部署マスタ（曜日別業務の「設置部署の消し込み」で使う共通リスト） =====
@@ -10750,6 +10822,7 @@ function renderDutyMasterList() {
   }
 }
 function addDutyMaster() {
+  if(!can('mst'))return; /* セクションは data-perm="mst"。関数側でも揃える */
   var icon = document.getElementById('in-duty-icon').value.trim() || '⭐';
   var name = document.getElementById('in-duty-name').value.trim();
   if (!name) { document.getElementById('in-duty-name').focus(); return; }
@@ -10780,13 +10853,14 @@ function addDutyMaster() {
   document.getElementById('in-duty-name').focus();
 }
 function rmDutyMaster(idx) {
+  if(!can('mst'))return; /* セクションは data-perm="mst"。関数側でも揃える */
   if (!D.dutyCfgMaster) D.dutyCfgMaster = getDutyMaster();
   D.dutyCfgMaster.splice(idx, 1);
   renderDutyMasterList();
   saveD();
 }
 function editDutyMaster(idx) {
-  if(!can('dm'))return;
+  if(!can('mst'))return;
   var master=getDutyMaster(); var m=master[idx];
   _editModalState={type:'dutyMaster',index:idx};
   document.getElementById('edit-item-title').textContent=m.icon+' 担当スロット名を編集';
@@ -11032,7 +11106,11 @@ function addEvtPrompt(ds) {
   if(!can('pg')) return;
   var v = prompt('イベント名を入力してください');
   if (!v || !v.trim()) return;
-  v = v.trim();
+  /* HD主観だと pg.evtKinds[v] のキーになる。「透析/OPE合同」のような表記は現場に自然に出るが、
+     Firebase RTDB はキーに . # $ [ ] / を使えず、含むと保存が止まる。events 配列側の表記と
+     ズレないよう、ここで一度だけ正規化して以降は同じ文字列を使う。 */
+  v = fbSafeKey(v.trim());
+  if (!v) return;
   phiGuardText(v, function(){
     var pg = D.pages[ds]; if (!pg) return;
     if (!pg.events) pg.events = [];
@@ -11320,7 +11398,7 @@ function parseShiftSheet(wb, fileName) {
         if (sRaw == null) continue;
         var hRole = plHdRole(normShiftCode(roleRow[scIdx])); /* HD_DAY_CODES と 準 だけ通す（「休」等は役割にしない） */
         String(sRaw).split(/[、・,，\/／\n\r]+/).forEach(function(hn){
-          hn = hn.toString().trim().replace(/[\u3000\s]+/g, ' ').trim();
+          hn = fbSafeKey(hn.toString().trim().replace(/[\u3000\s]+/g, ' ').trim()); /* D.shift のキーになるので正規化 */
           if (!hn || hn.length > 20) return;
           if (SUPPORT_ROW_RE.test(hn)) return; /* 見出しがセルに重複しているケースを弾く */
           if (!result[hn]) result[hn] = {};
@@ -11332,7 +11410,7 @@ function parseShiftSheet(wb, fileName) {
       continue; /* 「サポート」自体はスタッフとして登録しない */
     }
 
-    var name   = col2;
+    var name   = fbSafeKey(col2); /* D.shift[ym] のキーになるので正規化（禁止文字を含むと保存が止まる） */
     var numRow = grid[ri - 1] || [];
     if (!result[name]) result[name] = {};
 
@@ -11713,7 +11791,8 @@ function searchPoolStaff(query) {
    モーダル外なので initPHIGuard の委譲が効かない＝ここで明示的に患者情報チェックを通す。 */
 function addHelpStaffFromModal() {
   var inp = document.getElementById('pool-staff-help');
-  var v = (inp && inp.value || '').trim().replace(/[\u3000\s]+/g, ' ');
+  /* ヘルプ職員名も placement.people のキーになるので fbSafeKey を通す（addStf と同じ理由） */
+  var v = fbSafeKey((inp && inp.value || '').trim().replace(/[\u3000\s]+/g, ' '));
   if (!v) { toast('名前を入力してください', 'warn'); return; }
   if (v.length > 20) { toast('名前が長すぎます', 'warn'); return; }
   var ds = poolStaffModalState.ds, type = poolStaffModalState.type;
@@ -14462,6 +14541,7 @@ function loadAutoDelSettings() {
   if (iv) iv.checked = true;
 }
 function saveAutoDelSettings() {
+  if (!isAdmin) return; /* 設定・実行系は管理者限定。UIはロックタブ内だが関数側でも守る */
   var toggle   = document.getElementById('auto-del-toggle');
   var opts     = document.getElementById('auto-del-options');
   var badge    = document.getElementById('auto-del-badge');
@@ -14479,11 +14559,13 @@ function saveAutoDelSettings() {
   if (badge) { badge.textContent = enabled ? '✅ 有効' : '🔓 無効'; badge.className = 'lkb ' + (enabled ? 'ul' : 'lk'); }
 }
 function runAutoDelNow() {
+  if (!isAdmin) return; /* 連絡表・画像・ログを不可逆に消すので管理者限定 */
   if (!confirm('今すぐ自動削除を実行しますか？\nこの操作は元に戻せません。')) return;
   checkAndDeleteOldData(true);
 }
 
 function checkAndDeleteOldData(force) {
+  if (!isAdmin) return; /* 実削除の唯一の入口。呼び出し元(checkAutoDelTiming/runAutoDelNow)と二重に守る */
   if (!FB_ON || !fbDB) return;
   /* 設定値を読み込む */
   if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
@@ -14747,8 +14829,13 @@ function detectPHI(text) {
   }
   /* ② 漢字2〜4文字の連続（苗字リスト外の名前もカバー） → ⚠️ 黄（確認後送信可）
      業務用語・スタッフ名はホワイトリストで除外 */
+  /* ホワイトリストに載せてよいのは「氏名になりえない業務語」だけ。実在する姓と重なる語を
+     足すと本物の患者名を見逃すので入れないこと。ここを増やしても見逃しリスクは上がらない一方、
+     載っていない業務語（委員会・勉強会・整形外科など）は氏名として警告が出る——普通の業務語で
+     毎回警告が出ると、現場が警告に慣れて本物の患者名も流してしまう（警告疲れ）。
+     現場語彙で誤検知に気づいたら、姓と重ならないことを確かめた上でここに足す。 */
   if (!foundName) {
-    var KANJI_WL = /手術|看護|医師|病院|処置|業務|確認|連絡|対応|実施|完了|開始|終了|予定|担当|報告|依頼|検査|装着|外し|解析|件数|入室|退室|術式|種別|備考|管理|点検|記録|入力|更新|設定|変更|削除|追加|保存|送信|受信|準備|片付|清潔|滅菌|消毒|洗浄|補充|交換|確保|調整|修正|訂正|承認|許可|禁止|対処|処方|薬品|機材|装置|設備|機器|配置|担架|搬送|呼吸|循環|透析|観察|測定|採血|注射|投薬|輸血|ケア/;
+    var KANJI_WL = /手術|看護|医師|病院|処置|業務|確認|連絡|対応|実施|完了|開始|終了|予定|担当|報告|依頼|検査|装着|外し|解析|件数|入室|退室|術式|種別|備考|管理|点検|記録|入力|更新|設定|変更|削除|追加|保存|送信|受信|準備|片付|清潔|滅菌|消毒|洗浄|補充|交換|確保|調整|修正|訂正|承認|許可|禁止|対処|処方|薬品|機材|装置|設備|機器|配置|担架|搬送|呼吸|循環|透析|観察|測定|採血|注射|投薬|輸血|ケア|病棟|外来|部署|部門|診療|科長|師長|技士|技師|職員|新人|研修|講習|会議|委員|委員会|勉強|勉強会|朝礼|夕礼|合同|全体|定例|臨時|緊急|通常|定期|月次|週次|年次|当番|待機|巡視|巡回|内科|外科|整形|循環|消化|泌尿|脳外|心外|呼吸器|麻酔|放射|検体|生理|薬剤|栄養|事務|立会|棚卸|在庫|発注|納品|搬入|搬出|貸出|返却|修理|故障|不具|導入|更新|廃棄|保守|校正|穿刺|返血|脱血|除水|回収|開催|参加|出席|欠席|中止|延期|変更|中材|滅菌室|材料|供給/;
     var kanjiPat = /[一-鿿]{2,4}/g;
     var km;
     while ((km = kanjiPat.exec(text)) !== null) {
@@ -15174,6 +15261,9 @@ function delMemo(ds, idx) {
   if (!D.pages[ds]) return;
   var m = memosOf(D.pages[ds])[idx];
   if (!m) return;
+  /* 投稿者本人か管理者だけが消せる（delMemoReply と同じ条件）。UIでボタンを隠すだけでなく
+     関数側でも判定する——申し送りは患者ケアの引き継ぎ記録なので、誤った経路から消えないようにする */
+  if (!(isAdmin || (currentUser && currentUser.uid === m.uid))) return;
   if (!confirm('この申し送りを削除しますか？')) return;
   /* Storageファイルも削除 */
   if (fbST) {
@@ -17012,7 +17102,7 @@ function runPsgFusenCheck() {
 }
 
 function savePsgAlertTime() {
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var v = document.getElementById('psg-alert-time');
   if (!v) return;
   D.psgAlertTime = v.value || '10:00';
@@ -17020,7 +17110,7 @@ function savePsgAlertTime() {
   saveD();
 }
 function savePsgBannerTime() {
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var s = document.getElementById('psg-banner-start'), e = document.getElementById('psg-banner-end');
   if (s) { D.psgBannerStart = s.value || '07:30'; s.value = D.psgBannerStart; }
   if (e) { D.psgBannerEnd   = e.value || '08:30'; e.value = D.psgBannerEnd; }
@@ -18938,7 +19028,7 @@ function renderSchedPresetList(){
   var ar=document.getElementById('sched-preset-ar'); if(ar) ar.style.display=ok?'flex':'none';
 }
 function addSchedPreset(){
-  if(!can('dm'))return;
+  if(!can('mst'))return;
   var label=document.getElementById('in-sp-label').value.trim();
   if(!label){toast('プリセット名を入力してください', 'warn');return;}
   var color=document.getElementById('in-sp-color').value;
@@ -18950,7 +19040,7 @@ function addSchedPreset(){
   document.getElementById('in-sp-label').focus();
 }
 function rmSchedPreset(i){
-  if(!can('dm'))return;
+  if(!can('mst'))return;
   var ps=getSchedPresets();
   if(!confirm('「'+ps[i].label+'」を削除しますか？'))return;
   ps.splice(i,1); _schedSelPreset=null;
@@ -18958,7 +19048,7 @@ function rmSchedPreset(i){
   if(curDs) renderSched();
 }
 function mvSchedPreset(i,d){
-  if(!can('dm'))return;
+  if(!can('mst'))return;
   var ps=getSchedPresets(); var j=i+d;
   if(j<0||j>=ps.length)return;
   var t=ps[i];ps[i]=ps[j];ps[j]=t; _schedSelPreset=null;
@@ -18966,7 +19056,7 @@ function mvSchedPreset(i,d){
   if(curDs) renderSched();
 }
 function editSchedPreset(i){
-  if(!can('dm'))return;
+  if(!can('mst'))return;
   var ps=getSchedPresets(); var p=ps[i];
   _editModalState={type:'schedPreset',index:i};
   document.getElementById('edit-item-title').textContent='⏰ プリセット名を編集';
@@ -19530,7 +19620,7 @@ function saveTabletLend(ds){
   var phi=detectPHI(borrower);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
-      onProceed:function(){ _doSaveTabletLend(ds,name,borrower,timeStr); },
+      onProceed: phiHasBlock(phi) ? null : function(){ _doSaveTabletLend(ds,name,borrower,timeStr); },
       onFix:function(){ var inp=document.getElementById('tablet-md-borrower'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-borrower-sel'); if(e) e.focus(); } });
     return;
   }
@@ -19584,7 +19674,7 @@ function saveTabletReturn(ds, id){
   var phi=detectPHI(retby);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
-      onProceed:function(){ _doSaveTabletReturn(ds,id,retby,timeStr,retDs); },
+      onProceed: phiHasBlock(phi) ? null : function(){ _doSaveTabletReturn(ds,id,retby,timeStr,retDs); },
       onFix:function(){ var inp=document.getElementById('tablet-md-retby'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-retby-sel'); if(e) e.focus(); } });
     return;
   }

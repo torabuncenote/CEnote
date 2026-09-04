@@ -104,6 +104,23 @@ When adding a new top-level property to `D`, update **all five** of these locati
 
 **Critical guard**: `_fbDataLoaded` must be `true` before `saveD()` writes to Firebase. It is set when the `/data` listener first fires. This prevents empty-D overwrites on login. **Do not bypass this guard.**
 
+#### ユーザー入力がFirebaseのキーになる箇所（保存が止まる事故の元）
+
+Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` が **Promise の reject ではなく同期 throw** する。`_doFbWrite()` は try/catch していないので `_saveWriting = true` のまま中断し、以降の `saveD()` はすべて「書き込み中」と判断してキューに積むだけになる——**リロードするまでアプリ全体の保存が止まる**。localStorage には書けるので端末では正常に見え、他のスタッフに反映されていないことに気づけない。
+
+**対策は「入り口で `fbSafeKey()` を通す」に統一している。** 下流のキーを個別に守るのではなく、値が `D` に入る瞬間に正規化する（`透析/OPE` → `透析_OPE`）。こうすれば表示とキーが一致し続け、参照箇所を直して回る必要がない。
+
+| 入り口 | 正規化する値 | これで守られる下流 |
+|---|---|---|
+| `addStf()` / `confirmEditModal()` の `type:'stf'` | スタッフ氏名 | `D.stfLinks` `D.stfHidden` `D.stfEdu` `dat.placement.people` `dat.hdNotes` |
+| `addHelpStaffFromModal()` | ヘルプ職員名 | `dat.placement.people` |
+| `parseShiftSheet()`（`name` と `hn`） | 勤務表Excelの氏名 | `D.shift[ym]` |
+| `addEvtPrompt()` | イベント名 | `dat.evtKinds`（HD主観のみキーになる） |
+| `addWdDept()` / `addHdTreat()` / `addEduItem()` | 部署名・治療名・教育項目 | `dat.subChecks[sid]` ほか |
+| `eduKey(catId, dept, cat, name)` | 到達度の項目キー | `D.eduProgress[氏名]` |
+
+**`D` に入る値が新しくオブジェクトのキーになるときは、必ずこの表に足して入り口で正規化すること。** 保存前のサニタイズ（`sanitizeManualKeys` / `sanitizeEduProgressKeys`）は既存データの後始末であって、キーと値の対応が崩れる（`D.stf` の氏名は元のまま、`D.stfLinks` のキーだけ変わる等）ので、新規の防御には使わない。
+
 After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state.
 
 #### `saveDPage(ds)` — page-level partial write (limited use)
@@ -164,6 +181,15 @@ function can(id) {
 | `show_phs` | PHS番号欄の表示切替 | 反転ロジック（ON=表示、OFF=非表示） |
 | `tablet` | タブレット貸出の記録 | 貸出/返却/削除の操作をゲート。台帳マスタ編集は `mst` |
 | `maker` | メーカー連絡先の編集 | 閲覧・検索・コピーは常に全員可。追加/編集/削除のみゲート。既定は未ロック。Excel一括取り込みはこのロックと無関係に常に管理者限定（`isAdmin` 判定） |
+
+**セクションの `data-perm` と、その中身を書き換える関数の `can()` は必ず同じidにすること。** かつて スケジュールプリセット（`addSchedPreset`/`rmSchedPreset`/`mvSchedPreset`/`editSchedPreset`）・PSG通知設定（`savePsgAlertTime`/`savePsgBannerTime`）・担当枠マスタ（`editDutyMaster`）の7関数が、セクションは `data-perm="mst"` なのに `can('dm')` で判定していた（`dm` だけ付与された人がコンソール経由でマスタを編集できる状態）。`addDutyMaster`/`rmDutyMaster` に至ってはチェック自体が無かった。すべて `mst` に統一済み。
+
+**UIでボタンを隠すだけで済ませないこと。** `/data` は Firebase ルール上「認証済みなら誰でも読み書き可」なので、クライアント側のチェックは鍵ではなく**ガードレール**（誤操作の防止と、将来の変更で誤った経路から呼ばれることの防止）。それでも、破壊的な操作と機微情報の露出は関数側でも必ず判定する：
+
+- `runAutoDelNow` / `checkAndDeleteOldData` / `saveAutoDelSettings` — `isAdmin`（連絡表・画像・ログを**不可逆に**消すため）
+- `delMemo` — `isAdmin || 本人`（`delMemoReply` と同じ条件。申し送りは患者ケアの引き継ぎ記録）
+- `exportEduMapCsv` — `canEdu()`（全職員の到達度を書き出す）
+- `renderPerf` — 表示対象が自分以外なら `canEdu()`。`_perfName` はただのモジュール変数なので、**毎回照合しないと**「変更」ボタンを経由しない経路で他人の到達度が出る
 
 #### Tab Visibility
 
@@ -724,11 +750,12 @@ All image/video uploads (memo, memo reply, board post, board reply, manual, task
 ```js
 D.eduProgress = {
   "松野 敏宏": {
-    "cat:ope":            { lv:4, by:"山田 太郎", ts:1756800000000, hist:[{lv,by,ts},...] }, // 大分類
-    "ope:オフポンプCABG": { lv:3, by:"…", ts:…, hist:[…] },                                   // 細目
-    "cath:PCI":           { lv:1, by:"…", ts:…, hist:[…], goalFy:2026 },
-    "hd:穿刺":            { lv:5, by:"…", ts:…, hist:[…] },
-    "hdsp:PMX":           { lv:4, by:"…", ts:…, hist:[…] }
+    "cat:ope":                              { lv:4, by:"山田 太郎", ts:1756800000000, hist:[{lv,by,ts},...] }, // 大分類
+    "ope:消化器外科|腹腔鏡下|低位前方切除術": { lv:3, by:"…", ts:…, hist:[…] },        // 細目（OPE/カテは科|中カテゴリ|術式）
+    "ope:消化器外科|ロボット支援下|低位前方切除術": { lv:1, by:"…", ts:…, hist:[…] },  // ↑と同名だが別項目
+    "cath:循環器内科|治療|PCI（ステント留置）":     { lv:1, by:"…", ts:…, hist:[…], goalFy:2026 },
+    "hd:穿刺":                              { lv:5, by:"…", ts:…, hist:[…] },        // 階層なしの分類はそのまま
+    "hdsp:PMX":                             { lv:4, by:"…", ts:…, hist:[…] }
   }
 }
 D.eduCfg = { ceEdu:false }  // オペ・カテ症例行に教育者欄を出すか（既定OFF）
@@ -736,10 +763,12 @@ D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透�
 ```
 
 - **キーが存在しない＝未評価**（`lv:0` は使わない）。`lv`：1=未／2=見学／3=介助／4=単独／5=指導可。押すたびに `hist` へ `{lv,by,ts}` を追記——現在値の上書きだけでなく履歴を必ず残す。書き込みは `eduSet`/`eduSetBulk`/`eduAddGoal`/`eduRemoveGoal` の4関数だけを通し、`D.eduProgress` に直接代入しない。
-- **項目キーの名前空間**：大分類は `cat:<分類id>`（`eduCategories()` が返す固定6分類、id は `ope`/`cath`/`ward`/`device`/`hd`/`hdsp`）。細目は `ope:<術式>` / `cath:<術式>` / `ward:<項目>` / `device:<項目>` / `hd:<項目>` / `hdsp:<治療名>`。6分類**すべて**が細目を持つ（旧設計はOPE/カテ/特殊治療の3つだけだった）。
+- **項目キーの名前空間**：大分類は `cat:<分類id>`（`eduCategories()` が返す固定6分類、id は `ope`/`cath`/`ward`/`device`/`hd`/`hdsp`）。細目は **OPE/カテだけ階層をキーに含める**（`ope:<科>|<中カテゴリ>|<術式>` / `cath:<同>`）。`ward`/`device`/`hd`/`hdsp` は階層が無いので `hd:<項目>` のまま。
+- **キー生成は必ず `eduKey(catId, dept, cat, name)` を通すこと。** 理由が2つある。①**禁止文字**：術式名にFirebase RTDBが使えない文字（`. # $ [ ] /`）が入りうる（初期マスタの「OCT/IVUS」「VT/PVC」が実例）。素通しすると `set()` が同期throwし `_saveWriting` が立ったままアプリ全体の保存が止まる。②**同名術式**：実データの「低位前方切除術」は消化器外科の腹腔鏡下とロボット支援下の**両方**にあり（他に右半結腸切除術・左半結腸切除術・S状結腸切除術も同様）、術式名だけをキーにすると2つの到達度が同じレコードに混ざる。
+- **キーと表示は別物として持ち歩く。** `eduCatItems()` が返すのは `eduItemOf()` の記述子 `{dept, cat, name, key, label}` で、`key` は `fbSafeKey` 済みなので**元の表記に戻せない**（`OCT/IVUS` → `OCT_IVUS`）。画面には必ず `label`（`中カテゴリ / 術式`）を使うこと。科は列見出しの `title` 属性と個人ビューの区切り見出し（`.edu-dept-sep`）に出し、並び順にも使う（ツリー順で返すので科ごとにまとまる）。
 - **細目マスタの出どころ**：OPE=`D.opeTree`・カテ=`D.cathTree`・特殊治療=`D.hdTreatments`（いずれも既存マスタを流用）、病棟外回り/機器管理/透析=`D.eduItems.{ward,device,hd}`（新設・初期値は空。現場が「🎓 教育項目マスタ」から埋める）。**唯一の入口は `eduCatItems(catId)`**——マスタ全件を経験の有無に関わらず返す（決定：以前は「経験済み＋目標だけ」だったが、実データで確認したところOPE34+カテ15=計49術式に収まる規模だったため、マスタ全件を列にしてよいと判断を変えた）。
 - **担当枠ラベル→分類idの変換は `eduDutyCat(label)`**（実績「配置の日数」の集計にだけ使う。到達度の大分類キーは常に `cat:<id>` 固定でラベル文字列に依存しない）。`/オペ|OPE/`・`/カテ/`・`/病棟外回り/`・`/機器管理/`・`/フリー/` の部分一致。**`slot.id` ではなく `label` 文字列で照合する**——`id` は「追加」のたびに `'slot_'+Date.now()` で再採番されるため、`dutyColorFor`/`FAIR_MERGE`/`myDutyLabels` と同じ理由。フリー・遅出フリーは `'free'` を返す（到達度分類ではなく実績の「その他」用）。
-- **経験の有無・目標は項目ごとの印として添えるだけで、列の絞り込みには使わない。** `eduExperiencedKeys(name)` が全 `D.pages` を走査し、症例の担当者/HD特殊治療の実施者に名前があるものだけを拾う（`ope`/`cath`/`hdsp` の3キーのみ返す——`ward`/`device`/`hd` は経験を自動判定するデータ源が無いため常に空。教育者に名前があるだけでは経験済みにならない）。年度付きの目標は `eduAddGoal`（`goalFy`）で手動追加できるが、**候補はマスタ全件から選ぶ（自由入力は受け付けない）**——受け付けるとマスタ全件表示の細目一覧に出てこなくなり、目標が「見えない記録」になってしまうため。
+- **経験の有無・目標は項目ごとの印として添えるだけで、列の絞り込みには使わない。** `eduExperiencedKeys(name)` が全 `D.pages` を走査し、症例の担当者/HD特殊治療の実施者に名前があるものだけを拾う。戻り値は `{ 分類id: { 項目key: 表示ラベル } }` で、**キーで突き合わせ・ラベルを表示する**（`ope`/`cath`/`hdsp` の3キーのみ——`ward`/`device`/`hd` は経験を自動判定するデータ源が無いため常に空。教育者に名前があるだけでは経験済みにならない）。症例側の科・中カテゴリは `opsItemDept`/`opsItemCat` を通すので、自由入力の症例もマスタ選択の症例も同じ規則でキーになる。年度付きの目標は `eduAddGoal`（`goalFy`）で手動追加できるが、**候補はマスタ全件から選ぶ（自由入力は受け付けない）**——受け付けるとマスタ全件表示の細目一覧に出てこなくなり、目標が「見えない記録」になってしまうため。
 - **マスタに無い自由入力の術式（OPE/カテのみ）で経験があるものは、個人ビューに「マスタに無い術式の経験がN件あります」と件数だけ注記する**（`eduFreeExpNoteHTML`）。教育担当が気づいてマスタへ追加できるようにするための注記で、列には加えない。
 - **未評価とレベル1（未）を画面上でも区別する**——分けないと導入直後にスキルマップが全項目「未＝できない」に見え、ベテランの実態と食い違う。
 - **`perm_edu` はロックにしない。** `tab_master` と同じ「明示付与」の権限（`canEdu() = isAdmin || currentUser.perms.perm_edu`）にしてある。`D.lk` の既定は全解放（`D.lk={}`）なので、ロックにすると既定で全員が押せてしまう。ユーザー管理の「📑 タブ表示」ブロックから付与する。閲覧・記録は管理者と `perm_edu` 保持者のみ全員分、本人は自分の分だけ常に閲覧可（記録・段階変更は不可）。
@@ -748,7 +777,7 @@ D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透�
 - **CE症例行の教育者欄（`item.edu`）は `D.eduCfg.ceEdu` が真のときだけ表示**（既定OFF・マスタタブのCEセクションで管理者がON/OFF）。`opsItemFilled()` には `edu` を条件として含めない——教育者だけ入って他が空の行は実質存在しないため、含めると空行が件数に混ざるリスクだけが増える。
 - **対象スタッフは `D.stfHidden` でない `D.stf` のみ**（CE/HD公平性と同じ）。ヘルプ（`base:'help'`、`D.stf` 未登録）は実施者・教育者として記録は残る（`hdSpStaffCandidates`/`opsStaffCandidates` の候補には出る）が、実績ページ・スキルマップの対象一覧には並ばない。
 - 実績の集計（症例件数・配置日数・OC件数など）は `eduStats(dsList)` が1回の走査で全スタッフ分をまとめて作る——個人ビュー・スキルマップ・CSVはすべてこの戻り値だけを読み、自前で数え直さない。`eduStats` の返り値は `cat:{ope,cath,ward,device,hd}`（配置日数）＋`free`（フリー日数）＋`ope`/`cath`/`hdsp`（件数・byName等、従来どおり）。透析は `hdShiftWorkers(ds)` に載っていれば役割コードを問わず `cat.hd` を+1（役割ごとの内訳は持たない——HD公平性タブの役目）。
-- **スキルマップ（`renderPerfMapHTML`）は分類チップを常設**（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療、`_perfMapCol`：`null`=総括、それ以外は分類id）。**列見出しクリックという隠し導線は廃止した**。総括は6分類の大分類段階のみ、各分類の細目マップはマスタ全件を列にし、セルは「段階の頭文字＋経験件数」（例`単 3`。経験件数は`eduMapCountSrc(catId)`が全期間`eduStats`のbyNameから引く。OPE/カテ/特殊治療のみ算出でき、ward/device/hdは常に頭文字のみ）——経験があるのに未評価の項目を見分けられるようにするため。
+- **スキルマップ（`renderPerfMapHTML`）は分類チップを常設**（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療、`_perfMapCol`：`null`=総括、それ以外は分類id）。**列見出しクリックという隠し導線は廃止した**。総括は6分類の大分類段階のみ、各分類の細目マップはマスタ全件を列にし、セルは「段階の頭文字＋経験件数」（例`単 3`）——経験があるのに未評価の項目を見分けられるようにするため。経験件数は`eduMapCountSrc(catId)`が全期間`eduStats`の**`byKey`**から引く（OPE/カテ/特殊治療のみ算出でき、ward/device/hdは常に頭文字のみ）。**`byName`から引いてはいけない**——`byName`は術式名だけの集計なので、腹腔鏡下とロボット支援下の「低位前方切除術」に同じ合算値が出てしまう。`byName`は実績ブロックの「トップN内訳」用に別途残してある（あちらは読みやすさ優先で同名を合算してよい）。
 - CE/HDの双子関数を増やさない方針を踏襲し、`renderPerf`/`eduStats` 等は**1つだけ**（`_viewMode` で分岐しない）——実績は「どちらの目で見るか」に依らない事実のため、CE公平性/HD公平性のような分割はしない。
 - サブタブ `perf` を担当表タブに追加した際、印刷CSS（`body[data-print-sub="perf"] #subpane-perf{display:block!important}`）と `printSubTab()`/`exportSubCsv()`/`asPrevM`/`asNextM` への配線を通常どおり全て行った。**サブタブの行（`.asub`）は3ボタンまでは290px幅のサイドバーに収まっていたが、4つ目（🎓実績）を足すと `.sb{overflow:hidden}` で見切れることが実際に発覚した**——`.asub{flex-wrap:wrap}` を追加して2行に折り返すようにした。新しいサブタブ・ボタンをこの行に足すときは、290px幅で見切れないか必ず確認すること。
 
