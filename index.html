@@ -10810,6 +10810,7 @@ function renderDutyMasterList() {
   }
 }
 function addDutyMaster() {
+  if(!can('mst'))return; /* セクションは data-perm="mst"。関数側でも揃える */
   var icon = document.getElementById('in-duty-icon').value.trim() || '⭐';
   var name = document.getElementById('in-duty-name').value.trim();
   if (!name) { document.getElementById('in-duty-name').focus(); return; }
@@ -10840,13 +10841,14 @@ function addDutyMaster() {
   document.getElementById('in-duty-name').focus();
 }
 function rmDutyMaster(idx) {
+  if(!can('mst'))return; /* セクションは data-perm="mst"。関数側でも揃える */
   if (!D.dutyCfgMaster) D.dutyCfgMaster = getDutyMaster();
   D.dutyCfgMaster.splice(idx, 1);
   renderDutyMasterList();
   saveD();
 }
 function editDutyMaster(idx) {
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var master=getDutyMaster(); var m=master[idx];
   _editModalState={type:'dutyMaster',index:idx};
   document.getElementById('edit-item-title').textContent=m.icon+' 担当スロット名を編集';
@@ -14527,6 +14529,7 @@ function loadAutoDelSettings() {
   if (iv) iv.checked = true;
 }
 function saveAutoDelSettings() {
+  if (!isAdmin) return; /* 設定・実行系は管理者限定。UIはロックタブ内だが関数側でも守る */
   var toggle   = document.getElementById('auto-del-toggle');
   var opts     = document.getElementById('auto-del-options');
   var badge    = document.getElementById('auto-del-badge');
@@ -14544,11 +14547,13 @@ function saveAutoDelSettings() {
   if (badge) { badge.textContent = enabled ? '✅ 有効' : '🔓 無効'; badge.className = 'lkb ' + (enabled ? 'ul' : 'lk'); }
 }
 function runAutoDelNow() {
+  if (!isAdmin) return; /* 連絡表・画像・ログを不可逆に消すので管理者限定 */
   if (!confirm('今すぐ自動削除を実行しますか？\nこの操作は元に戻せません。')) return;
   checkAndDeleteOldData(true);
 }
 
 function checkAndDeleteOldData(force) {
+  if (!isAdmin) return; /* 実削除の唯一の入口。呼び出し元(checkAutoDelTiming/runAutoDelNow)と二重に守る */
   if (!FB_ON || !fbDB) return;
   /* 設定値を読み込む */
   if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
@@ -15239,6 +15244,9 @@ function delMemo(ds, idx) {
   if (!D.pages[ds]) return;
   var m = memosOf(D.pages[ds])[idx];
   if (!m) return;
+  /* 投稿者本人か管理者だけが消せる（delMemoReply と同じ条件）。UIでボタンを隠すだけでなく
+     関数側でも判定する——申し送りは患者ケアの引き継ぎ記録なので、誤った経路から消えないようにする */
+  if (!(isAdmin || (currentUser && currentUser.uid === m.uid))) return;
   if (!confirm('この申し送りを削除しますか？')) return;
   /* Storageファイルも削除 */
   if (fbST) {
@@ -17077,7 +17085,7 @@ function runPsgFusenCheck() {
 }
 
 function savePsgAlertTime() {
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var v = document.getElementById('psg-alert-time');
   if (!v) return;
   D.psgAlertTime = v.value || '10:00';
@@ -17085,7 +17093,7 @@ function savePsgAlertTime() {
   saveD();
 }
 function savePsgBannerTime() {
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var s = document.getElementById('psg-banner-start'), e = document.getElementById('psg-banner-end');
   if (s) { D.psgBannerStart = s.value || '07:30'; s.value = D.psgBannerStart; }
   if (e) { D.psgBannerEnd   = e.value || '08:30'; e.value = D.psgBannerEnd; }
@@ -19003,7 +19011,7 @@ function renderSchedPresetList(){
   var ar=document.getElementById('sched-preset-ar'); if(ar) ar.style.display=ok?'flex':'none';
 }
 function addSchedPreset(){
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var label=document.getElementById('in-sp-label').value.trim();
   if(!label){toast('プリセット名を入力してください', 'warn');return;}
   var color=document.getElementById('in-sp-color').value;
@@ -19015,7 +19023,7 @@ function addSchedPreset(){
   document.getElementById('in-sp-label').focus();
 }
 function rmSchedPreset(i){
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var ps=getSchedPresets();
   if(!confirm('「'+ps[i].label+'」を削除しますか？'))return;
   ps.splice(i,1); _schedSelPreset=null;
@@ -19023,7 +19031,7 @@ function rmSchedPreset(i){
   if(curDs) renderSched();
 }
 function mvSchedPreset(i,d){
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var ps=getSchedPresets(); var j=i+d;
   if(j<0||j>=ps.length)return;
   var t=ps[i];ps[i]=ps[j];ps[j]=t; _schedSelPreset=null;
@@ -19031,7 +19039,7 @@ function mvSchedPreset(i,d){
   if(curDs) renderSched();
 }
 function editSchedPreset(i){
-  if (!can('dm')) return;
+  if(!can('mst'))return;
   var ps=getSchedPresets(); var p=ps[i];
   _editModalState={type:'schedPreset',index:i};
   document.getElementById('edit-item-title').textContent='⏰ プリセット名を編集';

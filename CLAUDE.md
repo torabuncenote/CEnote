@@ -182,6 +182,15 @@ function can(id) {
 | `tablet` | タブレット貸出の記録 | 貸出/返却/削除の操作をゲート。台帳マスタ編集は `mst` |
 | `maker` | メーカー連絡先の編集 | 閲覧・検索・コピーは常に全員可。追加/編集/削除のみゲート。既定は未ロック。Excel一括取り込みはこのロックと無関係に常に管理者限定（`isAdmin` 判定） |
 
+**セクションの `data-perm` と、その中身を書き換える関数の `can()` は必ず同じidにすること。** かつて スケジュールプリセット（`addSchedPreset`/`rmSchedPreset`/`mvSchedPreset`/`editSchedPreset`）・PSG通知設定（`savePsgAlertTime`/`savePsgBannerTime`）・担当枠マスタ（`editDutyMaster`）の7関数が、セクションは `data-perm="mst"` なのに `can('dm')` で判定していた（`dm` だけ付与された人がコンソール経由でマスタを編集できる状態）。`addDutyMaster`/`rmDutyMaster` に至ってはチェック自体が無かった。すべて `mst` に統一済み。
+
+**UIでボタンを隠すだけで済ませないこと。** `/data` は Firebase ルール上「認証済みなら誰でも読み書き可」なので、クライアント側のチェックは鍵ではなく**ガードレール**（誤操作の防止と、将来の変更で誤った経路から呼ばれることの防止）。それでも、破壊的な操作と機微情報の露出は関数側でも必ず判定する：
+
+- `runAutoDelNow` / `checkAndDeleteOldData` / `saveAutoDelSettings` — `isAdmin`（連絡表・画像・ログを**不可逆に**消すため）
+- `delMemo` — `isAdmin || 本人`（`delMemoReply` と同じ条件。申し送りは患者ケアの引き継ぎ記録）
+- `exportEduMapCsv` — `canEdu()`（全職員の到達度を書き出す）
+- `renderPerf` — 表示対象が自分以外なら `canEdu()`。`_perfName` はただのモジュール変数なので、**毎回照合しないと**「変更」ボタンを経由しない経路で他人の到達度が出る
+
 #### Tab Visibility
 
 `updateTabVisibility()` controls which sidebar tabs non-admin users can see. It must be called after any change to `currentUser.perms` (e.g., inside `saveUserPerm()` when the current user's own permissions change).
