@@ -70,6 +70,9 @@ var D = {
   ocFlow: '',       // OC対応フローチャート本文（複数行テキスト。OC集計タブのボタン→openOcFlowModal で全員閲覧、業務マスタの mst セクションで編集）
   makers: { cats: [], list: [] }, // メーカー担当者連絡先。cats:[{id,name}]（表示順）、list:[{id,cat,maker,person,tel1,tel2,mail,note,upd,ts,by}]。詳細は下記「メーカー担当者連絡先」節
   wdDepts: [],      // 設置部署マスタ（D.wd項目のsubsで選ぶ部署名の共通リスト。PHSマスタ/tabletsと同型の単純な文字列配列）
+  eduProgress: {},  // 教育到達度 { 氏名: { 項目key: {lv,by,ts,hist[],goalFy?} } }。詳細は下記「実績・教育到達度」節
+  eduCfg: { ceEdu:false }, // オペ・カテ症例行に教育者欄を出すか（既定OFF）
+  eduItems: { ward:[], device:[], hd:[] }, // 教育到達度6分類のうち病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
   _migVer: 5        // data migration version flag (increment when running one-time migrations)
 };
 ```
@@ -188,16 +191,17 @@ function can(id) {
 
 #### pane-master Section Gating
 
-Each section div in `#pane-master .sp` carries a `data-perm` attribute (permission) and optionally a `data-mode` attribute (主観モード). `swTab('master')` evaluates both after rendering:
+Each section div in `#pane-master .sp` carries a `data-perm` attribute (permission) and optionally a `data-mode` attribute (主観モード). `swTab('master')` evaluates both after rendering, then folds the groups:
 
 ```js
-document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(sec){
+document.querySelectorAll('#pane-master .sp div[data-perm]').forEach(function(sec){
   var perm = sec.getAttribute('data-perm');
   var mode = sec.getAttribute('data-mode');
   var permOk = (perm === 'admin' ? isAdmin : can(perm));
   var modeOk = (!mode || mode === _viewMode);
   sec.style.display = (permOk && modeOk) ? '' : 'none';
 });
+applyMstGroups();   /* 各セクションの display が確定した「後」に呼ぶ */
 ```
 
 - `data-perm="dm"` — 共通チェックリスト section (CE and HD each have their own)
@@ -208,7 +212,13 @@ document.querySelectorAll('#pane-master .sp > div[data-perm]').forEach(function(
 
 **設置部署マスタ must stay its own top-level section.** It was originally nested inside the CE 📅 曜日別業務 block, but `D.wdDepts` is shared by both CE and HD 曜日別業務 (the 🏥 部署 modal on either side reads the same list). Leaving it nested meant hiding the CE block in HD mode also took away the only place to add or reorder departments.
 
-The selector is `.sp > div[data-perm]` — a **direct-child** selector — so a new section must be a direct child of `.sp`. Nesting it inside another section makes it invisible to both gates and it ends up shown to everyone in every mode.
+#### マスタタブのグループ（`.mgrp`）
+
+セクションが20近くまで増えて縦一列では目的のものを探せなくなったため、意味ごとに**6グループ**（`task` 業務・チェックリスト／`ops` 業務内容マスタ／`duty` 担当・スケジュール／`edu` 教育／`item` 備品・台帳／`notif` 通知・連絡）へ畳んである。各グループは `.mgrp > .mgrp-hd`（見出し・クリックで開閉）＋ `.mgrp-body`（中身）。
+
+- **新しいセクションは、必ずどれかの `.mgrp-body` の直接の子に置くこと。** どのグループにも入れないと画面に出ない。セレクタは `.sp div[data-perm]`（**子孫**セレクタ）なので、`.mgrp-body` の中でも権限・主観の出し分けはそのまま効く——以前の `.sp > div[data-perm]` 直接子セレクタから変更済み。
+- **`applyMstGroups()` は必ず「各セクションの `display` が確定した後」に呼ぶ。** 中に表示中のセクションが1つも無いグループを見出しごと隠す処理なので、順番が逆だと、権限や主観で中身が全部消えたグループの見出しだけが残る（HD主観では `duty` と `notif` の2グループが実際に空になる）。見出し右のバッジは「いま見えているセクション数」で、これも同じ集計を使う。
+- 開閉状態は端末ローカル（`localStorage` の `ce2_mstgrp`、`mstGrpState()`/`toggleMstGroup(id)`）。`D` に入れると他の端末の管理者の開閉まで動いてしまうため、`_viewMode`・テーマと同じ流儀にしている。**既定は全部閉じる**（開いた直後は見出しだけが並び、全体を見渡せる）。
 
 ### Firebase Listener Lifecycle
 
@@ -372,6 +382,11 @@ All class names are abbreviated:
 | `renderOpsSummary()` | CE集計サブタブ（旧「業務集計」）— monthly OPE/cath/6MW/PSG counts |
 | `renderOCSummary()` | OC集計サブタブ — on-call response log |
 | `fairnessHTML(o)` | 公平性マトリクスの表組み。CE/HDで共通（複製しないこと） |
+| `canEdu()` | 教育到達度の閲覧・記録権限（`isAdmin` または `perm_edu` 付与）。`D.lk` ロックではなく明示付与 |
+| `eduStats(dsList)` | 期間内の症例・治療・配置日数・指導・OCを1回の走査で全スタッフ分集計する唯一の入口 |
+| `eduGet/eduSet/eduSetBulk/eduAddGoal/eduRemoveGoal` | 到達度レコードの読み取り／段階変更（履歴に必ず追記）／一括設定／目標の追加・削除。書き込みはこの4関数だけを通す |
+| `eduExperiencedKeys(name)` / `eduChildItems(name, kind)` | 全期間の経験済み細目（症例担当者/HD特殊治療実施者ベース）／それに手動目標を足した細目一覧（マスタ全項目は並べない） |
+| `renderPerf()` / `renderPerfPersonHTML(name)` / `renderPerfMapHTML()` | 実績サブタブの入口／個人ビュー／スキルマップ（`_viewMode`で分岐しない） |
 | `updatePendingBadge()` | Media approval badge (debounced 200ms) |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
 | `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
@@ -699,6 +714,43 @@ All image/video uploads (memo, memo reply, board post, board reply, manual, task
 - HD側が `buildHdRoster` ではなく **`hdShiftWorkers(ds)` を直接使う**のは、並べ替えや行の組み立てが要らないため。どちらも同じ関数を通るので、日ページのHD担当表で担当を差し替えた分（`dat.hdDuty.overrides`）は自動で反映される。
 - 準夜は `getShiftForDay` が `shift:'準', night:true` に正規化して返すので、`h.night` を見て `'準夜'` の1列に寄せる。`'準'` と `'準夜'` の表記ゆれを列として分けないこと。
 - 警告列のヘッダーは地を `--warn-fg` で塗るので、文字色に `--sur` を当てて反転させている（これが無いとライトは暗地に暗字、ダークは明地に明字で読めない）。
+
+### 実績・教育到達度（担当表タブの🎓実績サブタブ）
+
+「誰がどの仕事・症例・治療にどれだけ携わったか」の個人実績と、教育の到達度（5段階）。症例ごとの主・サブは記録しない——「教育者が付いているか」が実質的にその役割を果たすので、**到達段階は必ず人が押す**。件数から自動推定してはいけない。
+
+**到達度・実績は「OPE／カテ／病棟外回り／機器管理／透析／特殊治療」の6分類に統一している。** 担当枠やHD役割（M・A1・…・B・準夜）は「その日どこに立ったか」であってスキルではないので評価単位にしない——枠ごとの回数は CE公平性/HD公平性タブが既に担当しているため重複させない。フリー・遅出フリーは実績にだけ「その他」として日数を出す（到達度は持たない。フリー中心の人の実績が全項目0日になって「何もしていない」ように見えるのを防ぐため）。
+
+```js
+D.eduProgress = {
+  "松野 敏宏": {
+    "cat:ope":            { lv:4, by:"山田 太郎", ts:1756800000000, hist:[{lv,by,ts},...] }, // 大分類
+    "ope:オフポンプCABG": { lv:3, by:"…", ts:…, hist:[…] },                                   // 細目
+    "cath:PCI":           { lv:1, by:"…", ts:…, hist:[…], goalFy:2026 },
+    "hd:穿刺":            { lv:5, by:"…", ts:…, hist:[…] },
+    "hdsp:PMX":           { lv:4, by:"…", ts:…, hist:[…] }
+  }
+}
+D.eduCfg = { ceEdu:false }  // オペ・カテ症例行に教育者欄を出すか（既定OFF）
+D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
+```
+
+- **キーが存在しない＝未評価**（`lv:0` は使わない）。`lv`：1=未／2=見学／3=介助／4=単独／5=指導可。押すたびに `hist` へ `{lv,by,ts}` を追記——現在値の上書きだけでなく履歴を必ず残す。書き込みは `eduSet`/`eduSetBulk`/`eduAddGoal`/`eduRemoveGoal` の4関数だけを通し、`D.eduProgress` に直接代入しない。
+- **項目キーの名前空間**：大分類は `cat:<分類id>`（`eduCategories()` が返す固定6分類、id は `ope`/`cath`/`ward`/`device`/`hd`/`hdsp`）。細目は `ope:<術式>` / `cath:<術式>` / `ward:<項目>` / `device:<項目>` / `hd:<項目>` / `hdsp:<治療名>`。6分類**すべて**が細目を持つ（旧設計はOPE/カテ/特殊治療の3つだけだった）。
+- **細目マスタの出どころ**：OPE=`D.opeTree`・カテ=`D.cathTree`・特殊治療=`D.hdTreatments`（いずれも既存マスタを流用）、病棟外回り/機器管理/透析=`D.eduItems.{ward,device,hd}`（新設・初期値は空。現場が「🎓 教育項目マスタ」から埋める）。**唯一の入口は `eduCatItems(catId)`**——マスタ全件を経験の有無に関わらず返す（決定：以前は「経験済み＋目標だけ」だったが、実データで確認したところOPE34+カテ15=計49術式に収まる規模だったため、マスタ全件を列にしてよいと判断を変えた）。
+- **担当枠ラベル→分類idの変換は `eduDutyCat(label)`**（実績「配置の日数」の集計にだけ使う。到達度の大分類キーは常に `cat:<id>` 固定でラベル文字列に依存しない）。`/オペ|OPE/`・`/カテ/`・`/病棟外回り/`・`/機器管理/`・`/フリー/` の部分一致。**`slot.id` ではなく `label` 文字列で照合する**——`id` は「追加」のたびに `'slot_'+Date.now()` で再採番されるため、`dutyColorFor`/`FAIR_MERGE`/`myDutyLabels` と同じ理由。フリー・遅出フリーは `'free'` を返す（到達度分類ではなく実績の「その他」用）。
+- **経験の有無・目標は項目ごとの印として添えるだけで、列の絞り込みには使わない。** `eduExperiencedKeys(name)` が全 `D.pages` を走査し、症例の担当者/HD特殊治療の実施者に名前があるものだけを拾う（`ope`/`cath`/`hdsp` の3キーのみ返す——`ward`/`device`/`hd` は経験を自動判定するデータ源が無いため常に空。教育者に名前があるだけでは経験済みにならない）。年度付きの目標は `eduAddGoal`（`goalFy`）で手動追加できるが、**候補はマスタ全件から選ぶ（自由入力は受け付けない）**——受け付けるとマスタ全件表示の細目一覧に出てこなくなり、目標が「見えない記録」になってしまうため。
+- **マスタに無い自由入力の術式（OPE/カテのみ）で経験があるものは、個人ビューに「マスタに無い術式の経験がN件あります」と件数だけ注記する**（`eduFreeExpNoteHTML`）。教育担当が気づいてマスタへ追加できるようにするための注記で、列には加えない。
+- **未評価とレベル1（未）を画面上でも区別する**——分けないと導入直後にスキルマップが全項目「未＝できない」に見え、ベテランの実態と食い違う。
+- **`perm_edu` はロックにしない。** `tab_master` と同じ「明示付与」の権限（`canEdu() = isAdmin || currentUser.perms.perm_edu`）にしてある。`D.lk` の既定は全解放（`D.lk={}`）なので、ロックにすると既定で全員が押せてしまう。ユーザー管理の「📑 タブ表示」ブロックから付与する。閲覧・記録は管理者と `perm_edu` 保持者のみ全員分、本人は自分の分だけ常に閲覧可（記録・段階変更は不可）。
+- **教育項目マスタ（`D.eduItems`）の編集権限もあえて `mst` ではなく `isAdmin || canEdu()`**（`eduItemMasterOk()`）。`mst` を渡すと OPE/カテ術式マスタや担当枠まで触れてしまうので、余分な権限を渡さずに済ませる。UIは `renderHdTreatList`（HD特殊治療マスタ）と同型の `renderEduItemList(kind)`/`addEduItem(kind)`/`rmEduItem(kind,i)`/`mvEduItem(kind,i,d)`（`kind` は `'ward'|'device'|'hd'`）。マスタタブの「🎓 教育項目マスタ」セクションは `data-perm` を使わない（pane-master Section Gating の対象外）——`renderEduItemMaster()` が `#edu-items-section` の表示切替を自前で行う。置き場所は🎓教育グループの `.mgrp-body` 直下で、そこは他セクションと同じ（マスタタブのグループ節を参照）。
+- **`dat.hdCount.sp` の要素はオブジェクト形式**（`{n:治療名, staff:実施者[], edu:教育者[]}`）。旧形式（治療名だけの文字列）との後方互換は `hdSpNorm(v)` が担い、`hdCountSpArr`/`hdCountSpFilled`/`hdCountEnsureSpArr` の3アクセサが必ずこれを通す——**旧データを書き換えない**（読み出し時に正規化するだけ）。治療名を変更しても `arr[idx].n = ...` で `staff`/`edu` は保持される。
+- **CE症例行の教育者欄（`item.edu`）は `D.eduCfg.ceEdu` が真のときだけ表示**（既定OFF・マスタタブのCEセクションで管理者がON/OFF）。`opsItemFilled()` には `edu` を条件として含めない——教育者だけ入って他が空の行は実質存在しないため、含めると空行が件数に混ざるリスクだけが増える。
+- **対象スタッフは `D.stfHidden` でない `D.stf` のみ**（CE/HD公平性と同じ）。ヘルプ（`base:'help'`、`D.stf` 未登録）は実施者・教育者として記録は残る（`hdSpStaffCandidates`/`opsStaffCandidates` の候補には出る）が、実績ページ・スキルマップの対象一覧には並ばない。
+- 実績の集計（症例件数・配置日数・OC件数など）は `eduStats(dsList)` が1回の走査で全スタッフ分をまとめて作る——個人ビュー・スキルマップ・CSVはすべてこの戻り値だけを読み、自前で数え直さない。`eduStats` の返り値は `cat:{ope,cath,ward,device,hd}`（配置日数）＋`free`（フリー日数）＋`ope`/`cath`/`hdsp`（件数・byName等、従来どおり）。透析は `hdShiftWorkers(ds)` に載っていれば役割コードを問わず `cat.hd` を+1（役割ごとの内訳は持たない——HD公平性タブの役目）。
+- **スキルマップ（`renderPerfMapHTML`）は分類チップを常設**（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療、`_perfMapCol`：`null`=総括、それ以外は分類id）。**列見出しクリックという隠し導線は廃止した**。総括は6分類の大分類段階のみ、各分類の細目マップはマスタ全件を列にし、セルは「段階の頭文字＋経験件数」（例`単 3`。経験件数は`eduMapCountSrc(catId)`が全期間`eduStats`のbyNameから引く。OPE/カテ/特殊治療のみ算出でき、ward/device/hdは常に頭文字のみ）——経験があるのに未評価の項目を見分けられるようにするため。
+- CE/HDの双子関数を増やさない方針を踏襲し、`renderPerf`/`eduStats` 等は**1つだけ**（`_viewMode` で分岐しない）——実績は「どちらの目で見るか」に依らない事実のため、CE公平性/HD公平性のような分割はしない。
+- サブタブ `perf` を担当表タブに追加した際、印刷CSS（`body[data-print-sub="perf"] #subpane-perf{display:block!important}`）と `printSubTab()`/`exportSubCsv()`/`asPrevM`/`asNextM` への配線を通常どおり全て行った。**サブタブの行（`.asub`）は3ボタンまでは290px幅のサイドバーに収まっていたが、4つ目（🎓実績）を足すと `.sb{overflow:hidden}` で見切れることが実際に発覚した**——`.asub{flex-wrap:wrap}` を追加して2行に折り返すようにした。新しいサブタブ・ボタンをこの行に足すときは、290px幅で見切れないか必ず確認すること。
 
 ### Task Management (`/tasks`)
 
