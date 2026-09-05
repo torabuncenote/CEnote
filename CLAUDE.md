@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Structure
 
-This is a **single-file web app**: all HTML, CSS, and JavaScript lives in `index.html` (~480KB). There is no build system, no bundler, no package manager, and no test framework.
+This is a **single-file web app**: all HTML, CSS, and JavaScript lives in `index.html` (about 1.3MB / 21,000+ lines — grep for a function name or CSS class to navigate). There is no build system, no bundler, no package manager, and no test framework.
 
 Additional files:
 - `manifest.json` / `sw.js` — PWA support (offline caching, cache name `cenote-v5`)
@@ -22,7 +22,9 @@ Additional files:
 node .github/scripts/validate.mjs
 ```
 
-Checks: merge conflict markers, inline JS syntax (`new Function()`), manifest.json validity, sw.js syntax. **Run this before every commit.**
+Checks: merge conflict markers, inline JS syntax (`new Function()`), manifest.json validity, sw.js syntax, plus project-specific rules — the `D` five-location rule, permission checks going through `can()`, edu keys going through `eduKey()`, every subtab being registered in the print CSS, master-tab sections living inside a `.mgrp-body`, and **every function this file names actually existing in `index.html`**. **Run this before every commit.**
+
+That last check exists because this file doubles as an index of "which function is the entry point" — a name left behind after the function was deleted sends the next reader (or agent) to call something that isn't there. It caught `updatePendingBadge()`, still listed in Key Functions while the Media Uploads section said the badge had been deleted outright. Names deliberately kept as a record of something removed (e.g. `poolHiddenReason`) are listed in the check's `IGNORE` set.
 
 ## Running Locally
 
@@ -413,7 +415,6 @@ All class names are abbreviated:
 | `eduGet/eduSet/eduSetBulk/eduAddGoal/eduRemoveGoal` | 到達度レコードの読み取り／段階変更（履歴に必ず追記）／一括設定／目標の追加・削除。書き込みはこの4関数だけを通す |
 | `eduExperiencedKeys(name)` / `eduChildItems(name, kind)` | 全期間の経験済み細目（症例担当者/HD特殊治療実施者ベース）／それに手動目標を足した細目一覧（マスタ全項目は並べない） |
 | `renderPerf()` / `renderPerfPersonHTML(name)` / `renderPerfMapHTML()` | 実績サブタブの入口／個人ビュー／スキルマップ（`_viewMode`で分岐しない） |
-| `updatePendingBadge()` | Media approval badge (debounced 200ms) |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
 | `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
 | `saveFirebaseSnapshot(label)` | Write to `/backups/YYYY-MM-DD_HH` |
@@ -552,7 +553,9 @@ dat.placement = {
 > **片方だけ直しても例外は出ず、CE主観で動作確認すると正常に見えるため気づけない** — HD主観で開いた透析スタッフだけが古い挙動に当たる。チェックリストは機器点検の記録なので、月次リセット絡み（`wdOnceDoneOn`）でズレると月末まで発覚しない。
 > 共通化の方針：関数を引数で分岐させるのではなく、**名前空間の記述子**（`{dlyKey:'dly', wdKey:'wd', checksKey:'checks', prefix:''}` のような組）を渡す形にする。`wdText`/`dlyText`/`itemRebuild`/`isDlyShownOnDate`/`wdApplies` などは既に「渡された項目オブジェクトだけを見る純粋な関数」なので、そのまま両方から使える。
 > 優先度：`mkCk`（最大かつ最も触られる）→ `clStatus`/`getPct`（進捗率の計算）→ `remap*`（マスタ並べ替え時のチェック移動。壊れるとデータが消える）→ 残り。上位4組でリスクの大半が消える。
-> 2026-08-23 時点でズレは発生していない（`renderDlyList`↔`renderHdDlyList` と `buildCL`↔`buildHdCL` の差は下記の意図的なもの）。
+> **2026-09-05 時点でロジックのズレは発生していない**（`renderDlyList`↔`renderHdDlyList` と `buildCL`↔`buildHdCL` の差は下記の意図的なもの）。ただし**コメントは片方にしか無い** — 最大の `mkCk`↔`mkHdCk` では、CE版にある「なぜチェックボックスを`disabled`にしているか」等の判断の記録10行がHD版に移植されていない。HD版を先に読んだ人はその理由を知らないまま直すことになる。
+>
+> 確認手順：`grep -oE "^function [A-Za-z0-9_]+" index.html` で関数名を集め、HD版の名前から `Hd`/`hd` を落としたCE版が存在するペアを抽出して本体を突き合わせる。名前空間の差（`hdDly`→`dly`、`hdChecks`→`checks` 等）を潰したうえで残る差分が、本当のズレ。**チェックリストに手を入れる前に毎回これを回すこと。**
 
 **HDチェックリスト（`D.hdDly`/`D.hdWd` + `dat.hdChecks`）**：CE側（`D.dly`/`D.wd` + `dat.checks`、[Checklist Items & Week-of-Month Filtering](#checklist-items--week-of-month-filtering) 節を参照）とは名前空間もdat上のキーも完全に別。**`dat.checks`に相乗りしてはいけない** — `remapDlyChecks`/`remapWdChecks`は`D.dly.length`基準の固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にするとCE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は`dat.checks`しか触らずHD側は自動的に無傷になる（逆も同様）。
 
