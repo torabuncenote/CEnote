@@ -270,6 +270,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /recent_backup              — latest successful write snapshot (always 1 entry)
 ```
 
+**操作ログのCE/HD主観**: `writeLog()` writes the current `_viewMode` into each entry as `view` (`'ce'|'hd'`) — the ~80 existing call sites need no changes, it's picked up automatically. Logs written before this field existed have no `view`; reading always goes through `logViewOf(l)` (defaults to `'ce'`, mirrors the board's `boardKindOf`). Admin actions (master-data edits, user permissions, backups, etc.) are classified by whatever subjective mode was open at the time, so the ログ screen's default tab is **「すべて」**, not `'ce'`/`_viewMode`-linked — otherwise an admin watching only one tab would miss the other's admin actions. Display filters by subjective mode first, then caps at `LOG_SHOW_MAX` (100); fetch size is `_logFetchN` (default 400, +400 per「さらに読み込む」).
+
 ### Backup System (3 layers)
 
 | Layer | Where | Retention | Trigger |
