@@ -1783,9 +1783,13 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <div id="pane-logs" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp">
         <div class="log-hd">
-          <div class="pt">📋 操作ログ（最新100件）</div>
-          <button class="btn btn-g btn-sm" onclick="loadLogs()">🔄 更新</button>
+          <div class="pt">📋 操作ログ</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-g btn-sm" onclick="loadMoreLogs()">⬇️ さらに読み込む</button>
+            <button class="btn btn-g btn-sm" onclick="loadLogs()">🔄 更新</button>
+          </div>
         </div>
+        <div id="log-views" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
         <div class="log-ctrl">
           <input type="text" id="log-filter" class="log-filter" placeholder="🔍 絞り込み（ユーザー・操作・内容）" oninput="renderLogList()">
           <select id="log-sort" class="log-sort" onchange="renderLogList()">
@@ -2439,6 +2443,7 @@ var LATEST_DB_RULES = [
 '    "recent_backup": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", ".write": "auth != null" },',
 '    "logs": {',
 '      ".read": "auth != null",',
+'      ".indexOn": ["ts"],',
 '      "$logId": { ".write": "auth != null && (!data.exists() || root.child(\'admins\').child(auth.uid).val() === true)" }',
 '    },',
 '    "admins": { ".read": "auth != null", "$uid": { ".write": "root.child(\'admins\').child(auth.uid).val() === true" } },',
@@ -3687,6 +3692,7 @@ function writeLog(action, detail) {
     name: currentUser.displayName,
     action: action,
     detail: detail || '',
+    view: (_viewMode === 'hd' ? 'hd' : 'ce'), /* 記録した時点で開いていた主観。呼び出し側は意識しなくてよい */
     ts: firebase.database.ServerValue.TIMESTAMP
   };
   fbDB.ref('/logs').push(entry);
@@ -4687,8 +4693,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/05-58';
+var APP_VERSION = 'Ver.2026/09/05-59';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/05-59', date:'2026-09-05', title:'操作ログをCE/HDで切り替えて確認できるようにしました', items:[
+    {t:'new', d:'📋 操作ログをCE主観／HD主観で切り替えて確認できるようにしました。記録した時点で開いていた主観がそのまま印になります（既定は「すべて」）', admin:true},
+    {t:'imp', d:'📋 操作ログの取得件数を100件から400件に増やし、「⬇️ さらに読み込む」でさらに遡れるようにしました。画面には主観で絞ったうち直近100件を表示します', admin:true}
+  ]},
   { ver:'Ver.2026/09/05-58', date:'2026-09-05', title:'保存が止まる不具合の修正と、権限まわりの見直し', items:[
     {t:'fix', d:'💾 スタッフ名・イベント名・応援の方のお名前などに「/」などの記号が入ると、その端末の保存が止まってしまう不具合を修正しました。記号は自動的に「_」に置き換えて登録されます'},
     {t:'fix', d:'📅 曜日別業務の週指定や「月内どれか1回でよい」を変更したとき、カレンダーの完了ドットが古いまま残る不具合を修正しました'},
@@ -7932,13 +7942,38 @@ function renderGuide() {
 }
 
 var _logsData = null; /* 読み込んだログを保持（ソート・絞り込み用） */
+var LOG_SHOW_MAX = 100; /* 画面に表示する上限件数（取得件数とは別。主観で絞ってからこの件数で切る） */
+var _logFetchN = 400; /* 現在の取得件数。「さらに読み込む」で+400ずつ増える（更新しても値は保持） */
+
+/* view を持たない既存ログはCE扱い（掲示板の boardKindOf と同型）。
+   ログの主観判定はすべてこの関数を通すこと。 */
+function logViewOf(l) { return (l && l.view === 'hd') ? 'hd' : 'ce'; }
+
+/* 'all' | 'ce' | 'hd'。非永続。既定は「すべて」——HD主観中に行った管理操作
+   （マスタ編集・ユーザー権限・バックアップ等）もview:'hd'として記録されるため、
+   既定を絞ってしまうと片方のタブしか見ない管理者が見落とす */
+var _logView = 'all';
+function setLogView(v) { _logView = v; renderLogList(); }
+
+function renderLogViewChips() {
+  var el = document.getElementById('log-views');
+  if (!el) return;
+  var defs = [
+    { id:'all', label:'すべて' },
+    { id:'ce',  label:'🩺 CE' },
+    { id:'hd',  label:'🩸 HD' }
+  ];
+  el.innerHTML = defs.map(function(f) {
+    return '<button class="btn ' + (_logView === f.id ? 'btn-p' : 'btn-g') + ' btn-sm" onclick="setLogView(\'' + f.id + '\')">' + f.label + '</button>';
+  }).join('');
+}
 
 function loadLogs() {
   if (!FB_ON || !fbDB) return;
   var el = document.getElementById('log-list');
   if (!el) return;
   el.innerHTML = '<div class="pool-empty">読み込み中...</div>';
-  fbDB.ref('/logs').orderByChild('ts').limitToLast(100).once('value', function(snap) {
+  fbDB.ref('/logs').orderByChild('ts').limitToLast(_logFetchN).once('value', function(snap) {
     var logs = [];
     snap.forEach(function(c) { logs.push(c.val()); });
     _logsData = logs;
@@ -7946,9 +7981,16 @@ function loadLogs() {
   });
 }
 
+/* 取得件数を+400して読み込み直す（「🔄 更新」では件数を戻さない） */
+function loadMoreLogs() {
+  _logFetchN += 400;
+  loadLogs();
+}
+
 function renderLogList() {
   var el = document.getElementById('log-list');
   if (!el) return;
+  renderLogViewChips(); /* 絞り込んだ結果が0件でもチップは出す（消えると戻れなくなる） */
   if (!_logsData) { el.innerHTML = '<div class="pool-empty">ログタブを開くと読み込まれます</div>'; return; }
   if (!_logsData.length) {
     el.innerHTML = '<div class="pool-empty">ログはありません</div>';
@@ -7956,37 +7998,60 @@ function renderLogList() {
     return;
   }
 
+  /* 主観フィルタ（テキスト絞り込みより先に効かせる） */
+  var rows = _logsData.filter(function(l) { return _logView === 'all' || logViewOf(l) === _logView; });
+
   /* 絞り込み */
   var fEl = document.getElementById('log-filter');
   var q = fEl ? fEl.value.trim().toLowerCase() : '';
-  var rows = _logsData.filter(function(l) {
-    if (!q) return true;
-    return ((l.name||'') + ' ' + (l.action||'') + ' ' + (l.detail||'')).toLowerCase().indexOf(q) !== -1;
-  });
+  var viewN = rows.length; /* 主観で絞った後・テキスト絞り込み前の件数 */
+  if (q) {
+    rows = rows.filter(function(l) {
+      return ((l.name||'') + ' ' + (l.action||'') + ' ' + (l.detail||'')).toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  /* 上限で切るのは「指定ソート」より先。ここを逆にすると、並び順を
+     👤ユーザー順に変えただけで対象が「名前の若い100件」に入れ替わり、
+     直近の操作が画面から消える。表示対象は常に最新100件で固定し、
+     指定ソートはその中の並べ替えだけを担う。 */
+  var matchedN = rows.length; /* 上限で切る前の該当件数 */
+  var shown = rows.slice().sort(function(a, b) { return (b.ts||0) - (a.ts||0); }).slice(0, LOG_SHOW_MAX);
 
   /* ソート */
   var sEl = document.getElementById('log-sort');
   var sortVal = sEl ? sEl.value : 'ts-desc';
   var parts = sortVal.split('-'), key = parts[0], dir = parts[1] === 'asc' ? 1 : -1;
-  rows = rows.slice().sort(function(a, b) {
+  shown.sort(function(a, b) {
     var av, bv;
     if (key === 'ts') { av = a.ts||0; bv = b.ts||0; return (av - bv) * dir; }
     av = (a[key]||'').toString(); bv = (b[key]||'').toString();
     return av.localeCompare(bv, 'ja') * dir;
   });
 
+  var viewLabel = _logView === 'hd' ? '🩸 HD' : (_logView === 'ce' ? '🩺 CE' : 'すべて');
   var cEl = document.getElementById('log-count');
-  if (cEl) cEl.textContent = q ? (rows.length + ' / ' + _logsData.length + ' 件') : (_logsData.length + ' 件');
+  if (cEl) {
+    /* 「N件表示（内訳）」の一本の形に揃える。上限で切ったこと・絞り込み中であることを
+       それぞれ別のカッコで足すと括弧が二重三重になって読めなくなるため、内訳は中黒で並べる */
+    var sub = [];
+    if (shown.length < matchedN) sub.push('該当' + matchedN + '件');
+    if (q) sub.push('絞り込み前' + viewN + '件');
+    sub.push('取得' + _logsData.length + '件');
+    cEl.textContent = viewLabel + ' ' + shown.length + '件表示（' + sub.join('・') + '）';
+  }
 
-  if (!rows.length) { el.innerHTML = '<div class="pool-empty">該当するログはありません</div>'; return; }
+  if (!shown.length) { el.innerHTML = '<div class="pool-empty">該当するログはありません</div>'; return; }
 
   var h = '';
-  rows.forEach(function(l) {
+  shown.forEach(function(l) {
     var dt = l.ts ? new Date(l.ts) : new Date();
     var ts = dt.getFullYear()+'/'+(dt.getMonth()+1).toString().padStart(2,'0')+'/'+
              dt.getDate().toString().padStart(2,'0')+' '+
              dt.getHours().toString().padStart(2,'0')+':'+dt.getMinutes().toString().padStart(2,'0');
+    var vIc = logViewOf(l) === 'hd' ? '🩸' : '🩺';
     h += '<div class="log-item">';
+    h += '<span style="flex-shrink:0">'+vIc+'</span>';
     h += '<span class="li-time">'+ts+'</span>';
     h += '<span class="li-user">'+escH(l.name||'')+'</span>';
     h += '<span class="li-msg">'+escH(l.action);
