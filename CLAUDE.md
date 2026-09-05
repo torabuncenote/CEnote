@@ -14,6 +14,7 @@ Additional files:
 - `manifest.json` / `sw.js` — PWA support (offline caching, cache name `cenote-v5`)
 - `icon-192.svg` / `icon-512.svg` — PWA icons
 - `.github/scripts/validate.mjs` — lightweight syntax checker (run after every change)
+- `firebase.json` / `.firebaserc` — Firebase CLI config, **deliberately scoped to `database` only**. Deploy with `firebase deploy --only database`. Storage rules and Hosting are intentionally absent: the app is published via GitHub Pages, so a bare `firebase deploy` must never be able to push Hosting, and `storage.rules` has not been verified against production. Add either one only after verifying it.
 - `AGENTS.md` — pointer file for other AI agents (Codex etc.): it references this CLAUDE.md as the single source of truth. Do **not** duplicate rules there — update only CLAUDE.md.
 
 ## Validation
