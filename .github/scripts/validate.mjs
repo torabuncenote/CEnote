@@ -114,6 +114,33 @@ if (existsSync(htmlPath)) {
   if (noPrint.length) fail(`印刷CSSに未登録のサブタブ: ${noPrint.join(', ')}`);
   else ok(`サブタブの印刷CSS対応OK（${subIds.length}件）`);
 
+  /* --- 4-6. CLAUDE.md が参照する関数が実在するか ---
+     CLAUDE.md は「どれが正本の入口か」を示す索引でもあるので、消した関数の名前が
+     残っていると、次に読む人（や別のエージェント）が存在しない関数を呼びに行く。
+     実際に updatePendingBadge() が、同じ文書の別の節に「バッジごと削除した」と
+     書いてあるのに Key Functions 表だけ残っていた。
+     「削除済み」と本文で明記している名前は対象外にするため、除外リストを持つ。 */
+  if (existsSync('CLAUDE.md')) {
+    const MD = readFileSync('CLAUDE.md', 'utf8');
+    /* JSの組み込み・DOM API・「もう無いことの記録」として意図的に残している名前 */
+    const IGNORE = new Set([
+      'confirm', 'alert', 'prompt', 'set', 'get', 'parseInt', 'push', 'map', 'filter',
+      'addEventListener', 'querySelector', 'scrollIntoView', 'scrollTo', 'splice',
+      /* 以下は「もう無いこと」自体を記録するために本文が名前を挙げているもの。
+         消したという事実は残す価値があるので、名前ごと消させない。 */
+      'poolHiddenReason',  /* 配置盤の導入で削除済み */
+      'updatePendingBadge' /* メディア承認フローの廃止で削除済み。このチェックを入れた発端 */
+    ]);
+    const names = new Set();
+    for (const m of MD.matchAll(/`([a-zA-Z_][a-zA-Z0-9_]*)\(\)`/g)) names.add(m[1]);
+    for (const row of MD.matchAll(/^\|\s*`([^`]+)`/gm))
+      for (const f of row[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) names.add(f[1]);
+    const ghosts = [...names].filter(n =>
+      !IGNORE.has(n) && !new RegExp('\\bfunction ' + n + '\\s*\\(').test(H));
+    if (ghosts.length) fail(`CLAUDE.md が存在しない関数を参照: ${ghosts.join(', ')}`);
+    else ok(`CLAUDE.md の関数参照OK（${names.size}件）`);
+  }
+
   /* --- 4-5. マスタタブのセクションはグループ(.mgrp-body)の中に置く（外に置くと画面に出ない） --- */
   const pmStart = H.indexOf('<div id="pane-master"');
   const pmEnd   = H.indexOf('<!-- ロックタブ -->');
