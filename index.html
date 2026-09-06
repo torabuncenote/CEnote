@@ -1784,10 +1784,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
       <div class="sp">
         <div class="log-hd">
           <div class="pt">📋 操作ログ</div>
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-g btn-sm" onclick="loadMoreLogs()">⬇️ さらに読み込む</button>
-            <button class="btn btn-g btn-sm" onclick="loadLogs()">🔄 更新</button>
-          </div>
+          <button class="btn btn-g btn-sm" onclick="loadLogs()">🔄 更新</button>
         </div>
         <div id="log-views" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
         <div class="log-ctrl">
@@ -3116,6 +3113,7 @@ function fbInit() {
             if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動'); }
             updateMonthSize();
             checkAutoDelTiming();
+            cleanOldLogs(); /* 連絡表の自動削除がオフでもログは掃除したいので、checkAutoDelTiming()とは別に呼ぶ */
             renderCal();
             renderStfList(); renderPhsList(); renderTabletList();
             renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
@@ -4698,8 +4696,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/05-59';
+var APP_VERSION = 'Ver.2026/09/06-60';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/06-60', date:'2026-09-06', title:'操作ログを60日でところてん式に自動削除するようにしました', items:[
+    {t:'new', d:'📋 操作ログを60日を過ぎたぶんから自動的に削除するようにしました（連絡表の自動削除設定とは無関係に動きます）', admin:true},
+    {t:'imp', d:'📋 分かりにくかった「⬇️ さらに読み込む」ボタンを廃止しました。表示件数の内訳は「取得◯件」から「保存60日分◯件」に変わります', admin:true}
+  ]},
   { ver:'Ver.2026/09/05-59', date:'2026-09-05', title:'操作ログをCE/HDで切り替えて確認できるようにしました', items:[
     {t:'new', d:'📋 操作ログをCE主観／HD主観で切り替えて確認できるようにしました。記録した時点で開いていた主観がそのまま印になります（既定は「すべて」）', admin:true},
     {t:'imp', d:'📋 操作ログの取得件数を100件から400件に増やし、「⬇️ さらに読み込む」でさらに遡れるようにしました。画面には主観で絞ったうち直近100件を表示します', admin:true}
@@ -7948,7 +7950,20 @@ function renderGuide() {
 
 var _logsData = null; /* 読み込んだログを保持（ソート・絞り込み用） */
 var LOG_SHOW_MAX = 100; /* 画面に表示する上限件数（取得件数とは別。主観で絞ってからこの件数で切る） */
-var _logFetchN = 400; /* 現在の取得件数。「さらに読み込む」で+400ずつ増える（更新しても値は保持） */
+var LOG_FETCH_MAX = 3000; /* 取得件数は固定（「さらに読み込む」は表示上限が変わらず紛らわしいため廃止）。
+                              保存期間60日・実測35件/日で約2,100件のため余裕を持たせた値 */
+
+var LOG_KEEP_DAYS_DEF = 60; /* ログの保存日数の既定 */
+
+/* ログの保存日数。0 なら自動削除しない。
+   D.autoDelCfg の既定値リテラル {enabled:false,period:365,...} はファイル内に何箇所も散らばっており、
+   新キーをそこへ足すと必ず足し忘れが出る（足し忘れた経路を通ったときだけ古い値になり、再現しづらい）。
+   なので設定側は触らず、読み出し時にここで既定を補う。ensureStaffZone / hdCountSpArr と同じ方針。 */
+function logKeepDays() {
+  var v = D.autoDelCfg && D.autoDelCfg.logKeepDays;
+  if (v === 0) return 0;
+  return v || LOG_KEEP_DAYS_DEF;
+}
 
 /* view を持たない既存ログはCE扱い（掲示板の boardKindOf と同型）。
    ログの主観判定はすべてこの関数を通すこと。 */
@@ -7978,18 +7993,12 @@ function loadLogs() {
   var el = document.getElementById('log-list');
   if (!el) return;
   el.innerHTML = '<div class="pool-empty">読み込み中...</div>';
-  fbDB.ref('/logs').orderByChild('ts').limitToLast(_logFetchN).once('value', function(snap) {
+  fbDB.ref('/logs').orderByChild('ts').limitToLast(LOG_FETCH_MAX).once('value', function(snap) {
     var logs = [];
     snap.forEach(function(c) { logs.push(c.val()); });
     _logsData = logs;
     renderLogList();
   });
-}
-
-/* 取得件数を+400して読み込み直す（「🔄 更新」では件数を戻さない） */
-function loadMoreLogs() {
-  _logFetchN += 400;
-  loadLogs();
 }
 
 function renderLogList() {
@@ -8042,7 +8051,8 @@ function renderLogList() {
     var sub = [];
     if (shown.length < matchedN) sub.push('該当' + matchedN + '件');
     if (q) sub.push('絞り込み前' + viewN + '件');
-    sub.push('取得' + _logsData.length + '件');
+    var kd = logKeepDays(); /* 「さらに読み込む」廃止に伴い、取得件数ではなく保存期間で見せる */
+    sub.push((kd ? '保存' + kd + '日分' : '全') + _logsData.length + '件');
     cEl.textContent = viewLabel + ' ' + shown.length + '件表示（' + sub.join('・') + '）';
   }
 
@@ -14666,10 +14676,9 @@ function checkAndDeleteOldData(force) {
       }
     }
   }
-  /* ログの削除 */
-  fbDB.ref('/logs').orderByChild('ts').endAt(cutoff).once('value', function(snap) {
-    snap.forEach(function(child) { child.ref.remove(); });
-  });
+  /* ログの削除はここでは行わない。連絡表の保存期間（既定365日・この関数の対象）とログの
+     保存期間（既定60日）は別物で、かつ連絡表の自動削除がオフでもログは掃除したいため、
+     cleanOldLogs() に一本化した。 */
   if (deleted > 0 || force) {
     saveD();
     writeLog('自動削除実行', period + '日以上前のデータを削除（' + deleted + '件）');
@@ -14694,6 +14703,61 @@ function checkAutoDelTiming() {
     saveD();
     setTimeout(checkAndDeleteOldData, 5000);
   }
+}
+
+/* ログのところてん式自動削除（ログイン成功時に checkAutoDelTiming() と並べて呼ぶ）。
+   連絡表の自動削除（D.autoDelCfg.enabled）とは独立して常時動く——ログは業務データと違い
+   消えても業務が止まらない一方、溜まると全員の通信量に効くため、オフの状態に引きずられたくない。
+   checkAutoDelTiming() の中に入れると、あちらの冒頭ガード(!enabled で return)に巻き込まれる。 */
+function cleanOldLogs() {
+  if (!isAdmin) return; /* /logs の削除はルール上も管理者のみ */
+  if (!FB_ON || !fbDB) return;
+  var keepDays = logKeepDays();
+  if (!keepDays) return; /* 0 なら削除しない */
+  if (!D.autoDelCfg) D.autoDelCfg = {enabled:false,period:365,interval:30,lastClean:0};
+  var lastClean = D.autoDelCfg.logLastClean || 0;
+  var now4 = Date.now();
+  if (now4 - lastClean < 24 * 60 * 60 * 1000) return; /* 1日1回まで */
+  D.autoDelCfg.logLastClean = now4;
+  saveD();
+  setTimeout(function() { _doCleanOldLogs(keepDays); }, 5000);
+}
+
+/* keysをまとめて消す。1件ずつ remove すると初回1,000件超で時間がかかりすぎるため、
+   キーを集めてupdate({key:null,...})でまとめて消す。1回あたり500件までに分割
+   （RTDBの1リクエスト上限に配慮）。分割ロジックは単体テストできるよう純関数にしてある */
+function logSplitBatches(keys) {
+  var BATCH = 500;
+  var batches = [];
+  for (var i = 0; i < keys.length; i += BATCH) batches.push(keys.slice(i, i + BATCH));
+  return batches;
+}
+function _doCleanOldLogs(keepDays) {
+  var cutoff = Date.now() - keepDays * 24 * 60 * 60 * 1000;
+  fbDB.ref('/logs').orderByChild('ts').endAt(cutoff).once('value', function(snap) {
+    var keys = [];
+    snap.forEach(function(c) { keys.push(c.key); });
+    if (!keys.length) return;
+    var batches = logSplitBatches(keys);
+    var idx = 0;
+    function nextBatch() {
+      if (idx >= batches.length) {
+        /* ここ自体も1件のログになる。削除の記録は残る */
+        writeLog('ログ自動削除', keepDays + '日より古いログを削除（' + keys.length + '件）');
+        return;
+      }
+      var upd = {};
+      batches[idx].forEach(function(k) { upd[k] = null; });
+      idx++;
+      fbDB.ref('/logs').update(upd).then(nextBatch).catch(function(err) {
+        /* 失敗しても業務は止まらない（古いログが残るだけ）が、握りつぶすと
+           ずっと失敗し続けても誰も気づかない。翌日また試されるので、ここでは知らせるだけ。 */
+        console.warn('ログの自動削除に失敗:', err);
+        toast('操作ログの自動削除に失敗しました（古いログが残ります）', 'warn');
+      });
+    }
+    nextBatch();
+  });
 }
 
 function onMemoMediaAdd(input) {
