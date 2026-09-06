@@ -2874,7 +2874,7 @@ function fbInit() {
         _mySchedName = null; _mySchedPick = false; /* 次に別の人がログインしたとき、前の人の担当が出たままにならないように */
         /* 実績サブタブも同じ理由でリセットする。_perfName が残ると次の人に前ユーザーの
            実績・教育到達度が表示され続ける（宣言側コメントの「ログアウトで破棄する」を実装する） */
-        _perfView = 'person'; _perfName = null; _perfPick = false; _perfMapCol = null; _perfCatOpen = {}; _perfHistOpen = {};
+        _perfView = 'person'; _perfName = null; _perfPick = false; _perfMapCol = null; _perfCatOpen = {}; _perfHistOpen = {}; _perfDetOpen = {};
         _memosData = {}; _memoDenied = false; /* 別の人がログインしたときに前の人のメモが残らないようにする */
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
@@ -4696,8 +4696,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/06-60';
+var APP_VERSION = 'Ver.2026/09/06-61';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/06-61', date:'2026-09-06', title:'実績のオペ・カテ内訳を科→中カテゴリ→術式で詳しく見られるようにしました', items:[
+    {t:'imp', d:'🎓 実績サブタブのオペ・カテ内訳に「詳しく見る（年度）」を追加しました。開くと科→中カテゴリ→術式の3階層で年度累計の全件を件数の多い順に確認できます'}
+  ]},
   { ver:'Ver.2026/09/06-60', date:'2026-09-06', title:'操作ログを60日でところてん式に自動削除するようにしました', items:[
     {t:'new', d:'📋 操作ログを60日を過ぎたぶんから自動的に削除するようにしました（連絡表の自動削除設定とは無関係に動きます）', admin:true},
     {t:'imp', d:'📋 分かりにくかった「⬇️ さらに読み込む」ボタンを廃止しました。表示件数の内訳は「取得◯件」から「保存60日分◯件」に変わります', admin:true}
@@ -8486,9 +8489,13 @@ function eduEmptyStat() {
     /* byName は術式名だけの集計で、実績ブロックの「トップN内訳」に使う（読みやすさ優先で
        同名を合算してよい）。byKey は eduKey() の階層キーでの集計で、スキルマップのセルに
        出す経験件数に使う——こちらは腹腔鏡下とロボット支援下の「低位前方切除術」を
-       別物として数える必要があるため。用途が違うので両方持つ。 */
-    ope: { n: 0, byDept: {}, byName: {}, byKey: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
-    cath: { n: 0, byDept: {}, byName: {}, byKey: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
+       別物として数える必要があるため。用途が違うので両方持つ。
+       byTree は 科→中カテゴリ→術式 の3階層内訳（実績ブロックの詳細トグル用）。byKey を
+       流用しない理由は、byKey が eduKey() 経由＝Firebase禁止文字を'_'に潰した表示不能な
+       キーになっているため（マスタに無い自由入力の術式で表記が失われる）。byTree は保存せず
+       画面表示だけの一時集計なので、正規化前の生の表示名をそのままキーにしてよい。 */
+    ope: { n: 0, byDept: {}, byName: {}, byKey: {}, byTree: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
+    cath: { n: 0, byDept: {}, byName: {}, byKey: {}, byTree: {}, em: 0, sc: 0, durSum: 0, durN: 0 },
     hdsp: { n: 0, byName: {}, byKey: {} },
     cat: { ope: 0, cath: 0, ward: 0, device: 0, hd: 0 }, /* 6分類のうち配置日数を持つ5つ（特殊治療は件数のみ） */
     free: 0, /* フリー・遅出フリーの日数（実績にだけ「その他」として出す。到達度は持たない） */
@@ -8509,6 +8516,7 @@ function eduStats(dsList) {
       opsItemsOf(pg, kind).forEach(function (it) {
         if (!opsItemFilled(it)) return;
         var dept = opsItemDept(it) || '（未分類）';
+        var mid = opsItemCat(it) || '（未分類）';
         var nm = opsItemName(it) || '（無題）';
         var itemKey = eduKey(kind, opsItemDept(it), opsItemCat(it), nm);
         var startMin = opsItemStartMin(it);
@@ -8520,6 +8528,9 @@ function eduStats(dsList) {
           e.byDept[dept] = (e.byDept[dept] || 0) + 1;
           e.byName[nm] = (e.byName[nm] || 0) + 1;
           e.byKey[itemKey] = (e.byKey[itemKey] || 0) + 1;
+          if (!e.byTree[dept]) e.byTree[dept] = {};
+          if (!e.byTree[dept][mid]) e.byTree[dept][mid] = {};
+          e.byTree[dept][mid][nm] = (e.byTree[dept][mid][nm] || 0) + 1;
           if (it.emergency) e.em++;
           if (it.scope) e.sc++;
           if (dur != null) { e.durSum += dur; e.durN++; }
@@ -8646,6 +8657,7 @@ function eduRemoveGoal(name, key) {
 function perfSelfName() { return taskSelfName(); }
 var _perfCatOpen = {};  /* 到達度アコーディオンの開閉状態（キー: 大分類key、非永続） */
 var _perfHistOpen = {}; /* 履歴の開閉状態（キー: name+'|'+項目key、非永続） */
+var _perfDetOpen = {};  /* 症例・治療の内訳詳細トグルの開閉状態（キー: 'ope'|'cath'|'hdsp'、非永続） */
 function perfMonthRange() {
   var last = new Date(asY, asM + 1, 0).getDate();
   return { from: asY + '-' + pad(asM + 1) + '-01', to: asY + '-' + pad(asM + 1) + '-' + pad(last) };
@@ -8711,6 +8723,66 @@ function perfMiniListHTML(countMap, limit) {
   h += '</div>';
   return h;
 }
+/* 科→中カテゴリ→術式の3階層内訳（年度累計のみ）。全階層とも件数の多い順。
+   新規CSSは足さず、既存の .perf-mini-list（ラベル/件数の2列行）と .edu-dept-sep（区切り見出し）
+   を階層の深さぶん padding-left で字下げして使い回す。件数0の枝は出さない・空なら空文字。 */
+function perfTreeListHTML(tree) {
+  var depts = Object.keys(tree || {});
+  if (!depts.length) return '';
+  /* 科ごとの合計を出しつつ、多い順に並べる */
+  var deptTotals = {};
+  depts.forEach(function (d) {
+    var t = 0;
+    Object.keys(tree[d]).forEach(function (m) { Object.keys(tree[d][m]).forEach(function (n) { t += tree[d][m][n]; }); });
+    deptTotals[d] = t;
+  });
+  depts.sort(function (a, b) { return deptTotals[b] - deptTotals[a]; });
+  var h = '';
+  depts.forEach(function (d) {
+    if (!deptTotals[d]) return;
+    h += '<div class="edu-dept-sep">' + escH(d) + '（' + deptTotals[d] + '件）</div>';
+    var mids = Object.keys(tree[d]);
+    var midTotals = {};
+    mids.forEach(function (m) {
+      var t = 0;
+      Object.keys(tree[d][m]).forEach(function (n) { t += tree[d][m][n]; });
+      midTotals[m] = t;
+    });
+    mids.sort(function (a, b) { return midTotals[b] - midTotals[a]; });
+    mids.forEach(function (m) {
+      if (!midTotals[m]) return;
+      /* .perf-mini-list div は既定 flex-wrap:nowrap なので、中カテゴリ・術式名が長いとき
+         そのままでは折り返さず横にはみ出す。ラベル側だけ縮められるよう flex/min-width/word-break
+         を行div自体にインラインで上書きする（新規CSSクラスは足さない）。 */
+      h += '<div class="perf-mini-list" style="margin-top:2px;padding-top:2px;border-top:none;padding-left:6px">';
+      h += '<div style="flex-wrap:wrap"><span style="flex:1;min-width:0;word-break:break-all">' + escH(m) + '</span><span style="white-space:nowrap">' + midTotals[m] + '件</span></div>';
+      h += '</div>';
+      var names = Object.keys(tree[d][m]).sort(function (a, b) { return tree[d][m][b] - tree[d][m][a]; });
+      h += '<div class="perf-mini-list" style="margin-top:0;padding-top:0;border-top:none;padding-left:14px">';
+      names.forEach(function (n) {
+        if (!tree[d][m][n]) return;
+        h += '<div style="flex-wrap:wrap"><span style="flex:1;min-width:0;word-break:break-all">' + escH(n) + '</span><span style="white-space:nowrap">' + tree[d][m][n] + '件</span></div>';
+      });
+      h += '</div>';
+    });
+  });
+  return h;
+}
+/* 症例・治療の内訳の詳細トグル。上の「件数」行は月/年度の2値だが詳細は年度累計のみのため、
+   文言に「（年度）」を明示して数が合わないように見えないようにする。対象データが無い
+   （bodyHTMLが空文字）ブロックではトグル自体を出さない。開閉は既存の到達度アコーディオン
+   （.edu-cat/.edu-cat-hd/.edu-cat-body/.edu-cat-arrow）をそのまま流用（新規CSS不要）。 */
+function perfDetToggleHTML(kind, bodyHTML) {
+  if (!bodyHTML) return '';
+  var open = !!_perfDetOpen[kind];
+  var h = '<div class="edu-cat' + (open ? ' open' : '') + '" style="margin-top:6px">';
+  h += '<div class="edu-cat-hd" data-action="perf-det-toggle" data-kind="' + kind + '">';
+  h += '<span class="edu-cat-arrow">▶</span><span class="edu-cat-lbl" style="font-size:11px;font-weight:400;color:var(--txt2)">詳しく見る（年度）</span>';
+  h += '</div>';
+  h += '<div class="edu-cat-body">' + bodyHTML + '</div>';
+  h += '</div>';
+  return h;
+}
 function renderPerfPersonHTML(name) {
   var mr = perfMonthRange();
   var fy = eduFyOf(mr.from);
@@ -8726,16 +8798,22 @@ function renderPerfPersonHTML(name) {
   if (fStats.ope.em || fStats.ope.sc) h += '<div class="perf-num-row"><span>印</span><span>' + (fStats.ope.em ? '🚑' + fStats.ope.em + '件 ' : '') + (fStats.ope.sc ? '🔭' + fStats.ope.sc + '件' : '') + '</span></div>';
   if (fStats.ope.durN) h += '<div class="perf-num-row"><span>平均所要</span><span>' + opsDurLabel(Math.round(fStats.ope.durSum / fStats.ope.durN)) + '</span></div>';
   h += perfMiniListHTML(fStats.ope.byDept, 5);
+  h += perfDetToggleHTML('ope', perfTreeListHTML(fStats.ope.byTree));
   h += '</div>';
   h += '<div class="perf-block"><div class="perf-block-ttl">🫀 カテ</div>';
   h += perfNumRowHTML('件数', mStats.cath.n, fStats.cath.n, '件');
   if (fStats.cath.em || fStats.cath.sc) h += '<div class="perf-num-row"><span>印</span><span>' + (fStats.cath.em ? '🚑' + fStats.cath.em + '件 ' : '') + (fStats.cath.sc ? '🔭' + fStats.cath.sc + '件' : '') + '</span></div>';
   if (fStats.cath.durN) h += '<div class="perf-num-row"><span>平均所要</span><span>' + opsDurLabel(Math.round(fStats.cath.durSum / fStats.cath.durN)) + '</span></div>';
   h += perfMiniListHTML(fStats.cath.byDept, 5);
+  h += perfDetToggleHTML('cath', perfTreeListHTML(fStats.cath.byTree));
   h += '</div>';
   h += '<div class="perf-block"><div class="perf-block-ttl">🩸 HD特殊治療</div>';
   h += perfNumRowHTML('件数', mStats.hdsp.n, fStats.hdsp.n, '件');
   h += perfMiniListHTML(fStats.hdsp.byName, 5);
+  /* HD特殊治療は階層が無く、詳細＝「トップ5で切られた残り」でしかない。治療が5種類以下なら
+     開いても上と同じものが出るだけなので、6種類以上あるときだけトグルを出す。
+     オペ・カテは開くと中カテゴリ・術式の段が増えるので、件数によらず常に出してよい。 */
+  if (Object.keys(fStats.hdsp.byName || {}).length > 5) h += perfDetToggleHTML('hdsp', perfMiniListHTML(fStats.hdsp.byName, 999));
   h += '</div>';
 
   /* ② 配置の日数（6分類のうち特殊治療を除く5つ＋その他=フリー） */
@@ -9061,6 +9139,12 @@ function bindPerfBodyEvents(el) {
     if (action === 'perf-cat-toggle') {
       var ck = btn.getAttribute('data-catkey');
       _perfCatOpen[ck] = !_perfCatOpen[ck];
+      renderPerf();
+      return;
+    }
+    if (action === 'perf-det-toggle') {
+      var dk = btn.getAttribute('data-kind');
+      _perfDetOpen[dk] = !_perfDetOpen[dk];
       renderPerf();
       return;
     }
