@@ -9158,22 +9158,56 @@ function wdApplies(ds, it){
 /* 指定日に表示すべき曜日別項目を「本文＋マスタ項目そのもの」で返す。wdItemsForDate（本文だけ）
    はこれに委譲する。once（月内1回でよい）のようにマスタ項目自身のフラグを見たい集計側から
    参照できるようにするための追加で、返す本文の並び・件数はwdItemsForDateと完全に同一。 */
-function wdEntriesForDate(ds){
+/* ===== CE/HDチェックリスト 共通実装 =====
+   CE版（D.dly/D.wd + dat.checks）とHD版（D.hdDly/D.hdWd + dat.hdChecks）は
+   数え方・並べ替え方が完全に同一で、読みに行くDのキー・dat上のキー・DOM idだけが違う。
+   以前はこれを丸ごと複製していたため、片方だけ直しても例外は出ず、CE主観で動作確認すると
+   正常に見える——HD主観で開いた透析スタッフだけが古い挙動に当たる、という事故の温床だった。
+   ここでは「名前空間の記述子」を渡す形に共通化する（isHdのような真偽値で分岐させない）。
+   既存の関数名（wdEntriesForDate/clStatus/mkCk/…とそのHD版）は薄いラッパーとして残す
+   ——呼び出し箇所が数十あり、CLAUDE.mdの関数一覧やvalidate.mjsの実在チェックも
+   既存名に依存しているため。
+   dat.checksとdat.hdChecksを別キーにしている理由：remap系はD.dly.length基準の固定
+   オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にすると、CE側マスタを
+   1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は
+   dat.checksしか触らずHD側は自動的に無傷になる（逆も同様）。
+   wdText/dlyText/dlyNotif/itemRebuild/isDlyShownOnDate/wdWeeks/wdOnce/wdSubs/wdSid/
+   newSid/nthWk/isLastWeek/wdApplies/wdSubProgress/renderSubPanel は渡された item
+   オブジェクトだけを見る純粋な関数（D.dly/D.wdを直接参照しない）なので、記述子を渡す
+   必要はなくCE/HD共通のまま呼び出す。 */
+var CL_CE = {
+  dly:'dly', wd:'wd', checks:'checks',
+  elDly:'dcl', elWd:'wcl', elPgf:'pgf', elPgt:'pgt', elPgp:'pgp', elPrp:'prp',
+  logDone:'チェック完了', logUndo:'チェック解除'
+};
+var CL_HD = {
+  dly:'hdDly', wd:'hdWd', checks:'hdChecks',
+  elDly:'hdcl', elWd:'hdwcl', elPgf:'hd-pgf', elPgt:'hd-pgt', elPgp:'hd-pgp', elPrp:null,
+  logDone:'HDチェック完了', logUndo:'HDチェック解除'
+};
+
+/* 指定日に表示すべき曜日別項目を「本文＋マスタ項目そのもの」で返す（wdEntriesForDate/hdWdEntriesForDateの共通実装） */
+function _clWdEntries(ns, ds){
   var w = new Date(ds).getDay(), ws = WDL[w];
-  var arr = D.wd[ws] || [], out = [];
+  var arr = D[ns.wd][ws] || [], out = [];
   for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push({ t: wdText(arr[i]), it: arr[i] }); }
   return out;
 }
+function wdEntriesForDate(ds){ return _clWdEntries(CL_CE, ds); }
+function hdWdEntriesForDate(ds){ return _clWdEntries(CL_HD, ds); }
 /* 指定日に表示すべき曜日別項目を「本文文字列の配列」で返す（描画は全箇所これを使う＝index整合） */
-function wdItemsForDate(ds){
-  return wdEntriesForDate(ds).map(function(e){ return e.t; });
+function _clWdItems(ns, ds){
+  return _clWdEntries(ns, ds).map(function(e){ return e.t; });
 }
+function wdItemsForDate(ds){ return _clWdItems(CL_CE, ds); }
+function hdWdItemsForDate(ds){ return _clWdItems(CL_HD, ds); }
 /* once 指定の項目が、同じ月の「自分より前」の該当日で既に実施済みならその日付を返す。
    未来方向は見ない — 見てしまうと過去の点検記録が後の操作で塗り替わって見える事故になる
    （第2月曜のページが、後で第4月曜をチェックした瞬間に緑へ変わるのは点検記録として事故）。
    第2は常に第4より先に来るので、過去方向だけでユーザーの要件（「どちらかで済ませればOK」）
-   は満たせる。昇順に見て最初に見つかった日を返すため、複数回実施していても表示日は安定する。 */
-function wdOnceDoneOn(ds, ent) {
+   は満たせる。昇順に見て最初に見つかった日を返すため、複数回実施していても表示日は安定する。
+   （wdOnceDoneOn/hdWdOnceDoneOnの共通実装） */
+function _clWdOnceDoneOn(ns, ds, ent) {
   var it = ent.it;
   if (!it || typeof it !== 'object' || !it.once) return null;
   var ym = ds.slice(0, 7), dow = new Date(ds).getDay(), day = +ds.split('-')[2];
@@ -9181,16 +9215,19 @@ function wdOnceDoneOn(ds, ent) {
     var other = ym + '-' + pad(d);
     if (new Date(other).getDay() !== dow) continue;
     if (!wdApplies(other, it)) continue;
-    var pg = D.pages[other]; if (!pg || !pg.checks) continue;
-    var idx = wdItemsForDate(other).indexOf(ent.t);   // 添字は日ごとに変わるため引き直す
-    if (idx !== -1 && pg.checks[D.dly.length + idx]) return other;
+    var pg = D.pages[other]; if (!pg || !pg[ns.checks]) continue;
+    var idx = _clWdItems(ns, other).indexOf(ent.t);   // 添字は日ごとに変わるため引き直す
+    if (idx !== -1 && pg[ns.checks][D[ns.dly].length + idx]) return other;
   }
   return null;
 }
+function wdOnceDoneOn(ds, ent) { return _clWdOnceDoneOn(CL_CE, ds, ent); }
+function hdWdOnceDoneOn(ds, ent) { return _clWdOnceDoneOn(CL_HD, ds, ent); }
 /* 設置部署の消し込み進捗。同じ月（YYYY-MM）のページを走査して、部署ごとに
    最初に実施された日を集める。実績は実施した日のページに残るだけで、どこにも
    コピーしない——月が変われば走査対象から外れて自動的に0件へ戻る（これが月次
-   リセットの仕組みの全て）。新しいトップレベルDプロパティは作らない。 */
+   リセットの仕組みの全て）。新しいトップレベルDプロパティは作らない。
+   CE/HD共通（dat.subChecksはCE/HD問わず同じ場所に書く設計のため）。 */
 function wdSubProgress(ds, sid) {
   var ym = ds.slice(0, 7), doneMap = {};
   Object.keys(D.pages || {}).forEach(function(pds) {
@@ -9206,187 +9243,98 @@ function wdSubProgress(ds, sid) {
 }
 
 /* ===== チェックリスト添字の付け替え =====
-   dat.checks は「D.dly 内の位置」と「D.dly.length + その日に表示される曜日別項目の位置」を
-   キーにして保存されている。そのためマスタ側で項目を増減・並べ替え・週設定変更すると、
-   何も手当てしなければ過去の全ページでチェックが1つずつずれる（点検記録が実態と食い違う）。
-   マスタを編集する各関数から下の2つを呼び、既存ページの checks を新しい位置へ付け替える。 */
+   dat.checks（HDはdat.hdChecks）は「D.dly内の位置」と「D.dly.length + その日に表示される
+   曜日別項目の位置」をキーにして保存されている。そのためマスタ側で項目を増減・並べ替え・
+   週設定変更すると、何も手当てしなければ過去の全ページでチェックが1つずつずれる
+   （点検記録が実態と食い違う）。マスタを編集する各関数から下の2つを呼び、既存ページの
+   checksを新しい位置へ付け替える。CE版・HD版は読みに行くDのキー・dat上のキーが違うだけ
+   なので、記述子nsを受け取る共通実装1本にまとめてある。 */
 
-/* 共通業務（D.dly）用。mapFn(oldIdx) → 新添字（null を返すとそのチェックを破棄） */
-function remapDlyChecks(mapFn) {
+/* 共通業務（D.dly/D.hdDly）用。mapFn(oldIdx) → 新添字（null を返すとそのチェックを破棄） */
+function _clRemapDly(ns, mapFn) {
   Object.keys(D.pages || {}).forEach(function(ds) {
     var dat = D.pages[ds];
-    if (!dat || !dat.checks) return;
+    if (!dat || !dat[ns.checks]) return;
     var next = {};
-    Object.keys(dat.checks).forEach(function(k) {
+    Object.keys(dat[ns.checks]).forEach(function(k) {
       var ni = mapFn(parseInt(k, 10));
       if (ni === null || ni === undefined) return;
-      next[ni] = dat.checks[k];
+      next[ni] = dat[ns.checks][k];
     });
-    dat.checks = next;
+    dat[ns.checks] = next;
   });
 }
+function remapDlyChecks(mapFn) { _clRemapDly(CL_CE, mapFn); }
+function remapHdDlyChecks(mapFn) { _clRemapDly(CL_HD, mapFn); }
 
-/* 曜日別業務（D.wd[曜日]）用。表示される項目は日付ごとに違うため、
+/* 曜日別業務（D.wd/D.hdWd の[曜日]）用。表示される項目は日付ごとに違うため、
    対象曜日のページを1日ずつ「変更前後で表示される項目リスト」を作って本文で突き合わせる。
-   ※本文を変えるだけの編集（editWdly / 通知設定）は位置が動かないので呼ばなくてよい。 */
-function remapWdChecks(wdKey, oldArr, newArr) {
-  var base = D.dly.length;
+   ※本文を変えるだけの編集（editWdly / 通知設定）は位置が動かないので呼ばなくてよい。
+   呼ぶタイミングはCE版・HD版とも共通でマスタ変更の「後」（oldArrのコピーを先に取ってから
+   変更し、その後これを呼ぶ）。 */
+function _clRemapWd(ns, wdKey, oldArr, newArr) {
+  var base = D[ns.dly].length;
   Object.keys(D.pages || {}).forEach(function(ds) {
     var dat = D.pages[ds];
-    if (!dat || !dat.checks) return;
+    if (!dat || !dat[ns.checks]) return;
     if (WDL[new Date(ds).getDay()] !== wdKey) return;
     var oldF = [], newF = [], a;
     for (a = 0; a < oldArr.length; a++) if (wdApplies(ds, oldArr[a])) oldF.push(wdText(oldArr[a]));
     for (a = 0; a < newArr.length; a++) if (wdApplies(ds, newArr[a])) newF.push(wdText(newArr[a]));
     var next = {};
-    Object.keys(dat.checks).forEach(function(k) {
+    Object.keys(dat[ns.checks]).forEach(function(k) {
       var idx = parseInt(k, 10);
-      if (idx < base) { next[idx] = dat.checks[k]; return; } /* 共通業務はそのまま */
+      if (idx < base) { next[idx] = dat[ns.checks][k]; return; } /* 共通業務はそのまま */
       var text = oldF[idx - base];
       if (text === undefined) return;
       var ni = newF.indexOf(text);
       if (ni === -1) return;                                 /* その日に出なくなった項目 */
-      next[base + ni] = dat.checks[k];
+      next[base + ni] = dat[ns.checks][k];
     });
-    dat.checks = next;
+    dat[ns.checks] = next;
   });
 }
+function remapWdChecks(wdKey, oldArr, newArr) { _clRemapWd(CL_CE, wdKey, oldArr, newArr); }
+function remapHdWdChecks(wdKey, oldArr, newArr) { _clRemapWd(CL_HD, wdKey, oldArr, newArr); }
 
-/* チェックリストの集計はここが唯一の入口。getPct / renderPage / updProg / closeItems は
-   すべてこれを呼ぶ。以前は同じ数え方が4箇所に複製されており、条件を1つ足すたびに
+/* チェックリストの集計はここが唯一の入口。getPct/getHdPct・renderPage・updProg/updHdProg・
+   closeItems はすべてこれを呼ぶ。以前は同じ数え方が複製されており、条件を1つ足すたびに
    食い違う危険があった（コメントで「getPctと完全に同じ数え方でなければならない」と
    警告されていたのはこの状態）。dat が存在しないときは exists:false を返す —
    getPct の「ページが無ければ0%」という判定と「ページはあるが項目0件なら100%」という
-   判定を区別するために必要（total===0 だけでは両者を見分けられない）。 */
-function clStatus(ds) {
+   判定を区別するために必要（total===0 だけでは両者を見分けられない）。
+   （clStatus/hdClStatusの共通実装） */
+function _clStatusNs(ns, ds) {
   var dat = D.pages[ds];
   if (!dat) return { done:0, total:0, undone:[], exists:false };
   var out = { done:0, total:0, undone:[], exists:true };
-  for (var i = 0; i < D.dly.length; i++) {
-    if (!isDlyShownOnDate(D.dly[i], ds)) continue;
+  for (var i = 0; i < D[ns.dly].length; i++) {
+    if (!isDlyShownOnDate(D[ns.dly][i], ds)) continue;
     out.total++;
-    if (dat.checks && dat.checks[i]) out.done++;
-    else out.undone.push({ label: dlyText(D.dly[i]) });
+    if (dat[ns.checks] && dat[ns.checks][i]) out.done++;
+    else out.undone.push({ label: dlyText(D[ns.dly][i]) });
   }
-  var ents = wdEntriesForDate(ds);
+  var ents = _clWdEntries(ns, ds);
   for (var j = 0; j < ents.length; j++) {
     out.total++;
-    if ((dat.checks && dat.checks[D.dly.length + j]) || wdOnceDoneOn(ds, ents[j])) out.done++;
+    if ((dat[ns.checks] && dat[ns.checks][D[ns.dly].length + j]) || _clWdOnceDoneOn(ns, ds, ents[j])) out.done++;
     else out.undone.push({ label: ents[j].t });
   }
   return out;
 }
+function clStatus(ds) { return _clStatusNs(CL_CE, ds); }
+function hdClStatus(ds) { return _clStatusNs(CL_HD, ds); }
 
-/* ===== HDチェックリスト（HD主観モード。D.hdDly/D.hdWd + dat.hdChecks） =====
-   CE側（D.dly/D.wd + dat.checks）とは名前空間もdat上のキーも完全に別。
-   dat.checksに相乗りしない理由：remapDlyChecks/remapWdChecksはD.dly.length基準の
-   固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にすると
-   CE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。dat.hdChecksを
-   別キーにすることで、CE側マスタ編集はdat.checksしか触らず、HD側は自動的に無傷になる。
-   wdText/dlyText/dlyNotif/itemRebuild/isDlyShownOnDate/wdWeeks/wdOnce/wdSubs/wdSid/
-   newSid/nthWk/isLastWeek/wdApplies/wdSubProgress/renderSubPanel は渡された item
-   オブジェクトだけを見る純粋な関数（D.dly/D.wdを直接参照しない）ため、そのままHD版にも
-   使い回せる。CE版と同じ2段オフセット規約（0..D.hdDly.length-1がHD共通、
-   D.hdDly.length+jがHD曜日別）を踏襲する。 */
-/* 指定日に表示すべきHD曜日別項目を「本文＋マスタ項目そのもの」で返す（wdEntriesForDateのHD版） */
-function hdWdEntriesForDate(ds){
-  var w = new Date(ds).getDay(), ws = WDL[w];
-  var arr = D.hdWd[ws] || [], out = [];
-  for (var i = 0; i < arr.length; i++) { if (wdApplies(ds, arr[i])) out.push({ t: wdText(arr[i]), it: arr[i] }); }
-  return out;
-}
-/* 本文文字列の配列だけを返す（wdItemsForDateのHD版。描画側のindex整合に使う） */
-function hdWdItemsForDate(ds){
-  return hdWdEntriesForDate(ds).map(function(e){ return e.t; });
-}
-/* once指定のHD項目が同月の前の該当日で実施済みならその日付を返す（wdOnceDoneOnのHD版）。
-   D.dly.length→D.hdDly.length、pg.checks→pg.hdChecks、wdItemsForDate→hdWdItemsForDateの
-   3箇所だけがCE版との違い。過去方向のみ走査する理由・安定性の理由はwdOnceDoneOnと同じ。 */
-function hdWdOnceDoneOn(ds, ent) {
-  var it = ent.it;
-  if (!it || typeof it !== 'object' || !it.once) return null;
-  var ym = ds.slice(0, 7), dow = new Date(ds).getDay(), day = +ds.split('-')[2];
-  for (var d = 1; d < day; d++) {
-    var other = ym + '-' + pad(d);
-    if (new Date(other).getDay() !== dow) continue;
-    if (!wdApplies(other, it)) continue;
-    var pg = D.pages[other]; if (!pg || !pg.hdChecks) continue;
-    var idx = hdWdItemsForDate(other).indexOf(ent.t);
-    if (idx !== -1 && pg.hdChecks[D.hdDly.length + idx]) return other;
-  }
-  return null;
-}
-/* HD共通業務（D.hdDly）用のremap（remapDlyChecksのHD版）。dat.hdChecksだけを付け替え、
-   dat.checksには一切触れない。呼ぶタイミングもCE版と同じくマスタ変更の「前」。 */
-function remapHdDlyChecks(mapFn) {
-  Object.keys(D.pages || {}).forEach(function(ds) {
-    var dat = D.pages[ds];
-    if (!dat || !dat.hdChecks) return;
-    var next = {};
-    Object.keys(dat.hdChecks).forEach(function(k) {
-      var ni = mapFn(parseInt(k, 10));
-      if (ni === null || ni === undefined) return;
-      next[ni] = dat.hdChecks[k];
-    });
-    dat.hdChecks = next;
-  });
-}
-/* HD曜日別業務（D.hdWd[曜日]）用のremap（remapWdChecksのHD版）。呼ぶタイミングもCE版と
-   同じくマスタ変更の「後」（oldArrのコピーを先に取ってから変更し、その後これを呼ぶ）。 */
-function remapHdWdChecks(wdKey, oldArr, newArr) {
-  var base = D.hdDly.length;
-  Object.keys(D.pages || {}).forEach(function(ds) {
-    var dat = D.pages[ds];
-    if (!dat || !dat.hdChecks) return;
-    if (WDL[new Date(ds).getDay()] !== wdKey) return;
-    var oldF = [], newF = [], a;
-    for (a = 0; a < oldArr.length; a++) if (wdApplies(ds, oldArr[a])) oldF.push(wdText(oldArr[a]));
-    for (a = 0; a < newArr.length; a++) if (wdApplies(ds, newArr[a])) newF.push(wdText(newArr[a]));
-    var next = {};
-    Object.keys(dat.hdChecks).forEach(function(k) {
-      var idx = parseInt(k, 10);
-      if (idx < base) { next[idx] = dat.hdChecks[k]; return; }
-      var text = oldF[idx - base];
-      if (text === undefined) return;
-      var ni = newF.indexOf(text);
-      if (ni === -1) return;
-      next[base + ni] = dat.hdChecks[k];
-    });
-    dat.hdChecks = next;
-  });
-}
-/* HDチェックリストの集計はここが唯一の入口（clStatusのHD版）。updHdProg/closeItems(HD分岐)は
-   すべてこれを呼ぶ。D.hdDly/dat.hdChecks/hdWdEntriesForDate/hdWdOnceDoneOnを使う点だけがclStatusと違う。 */
-function hdClStatus(ds) {
-  var dat = D.pages[ds];
-  if (!dat) return { done:0, total:0, undone:[], exists:false };
-  var out = { done:0, total:0, undone:[], exists:true };
-  for (var i = 0; i < D.hdDly.length; i++) {
-    if (!isDlyShownOnDate(D.hdDly[i], ds)) continue;
-    out.total++;
-    if (dat.hdChecks && dat.hdChecks[i]) out.done++;
-    else out.undone.push({ label: dlyText(D.hdDly[i]) });
-  }
-  var ents = hdWdEntriesForDate(ds);
-  for (var j = 0; j < ents.length; j++) {
-    out.total++;
-    if ((dat.hdChecks && dat.hdChecks[D.hdDly.length + j]) || hdWdOnceDoneOn(ds, ents[j])) out.done++;
-    else out.undone.push({ label: ents[j].t });
-  }
-  return out;
-}
-function getHdPct(ds) {
-  var s = hdClStatus(ds);
+/* チェックリスト進捗％の共通実装（getPct/getHdPct） */
+function _clPct(ns, ds) {
+  var s = _clStatusNs(ns, ds);
   if (!s.exists) return 0;
   return s.total===0?100:Math.round(s.done/s.total*100);
 }
+function getHdPct(ds) { return _clPct(CL_HD, ds); }
 
 /* ===== CALENDAR ===== */
-function getPct(ds) {
-  var s = clStatus(ds);
-  if (!s.exists) return 0;
-  return s.total===0?100:Math.round(s.done/s.total*100);
-}
+function getPct(ds) { return _clPct(CL_CE, ds); }
 /* カレンダーの日セルの塗り分けに使う進捗。CE主観ならCEのチェックリスト、HD主観ならHDのを見る。
    HD勤務者にCEの未完了を見せても意味が無いため主観に追従させる。
    担当表（renderAT）はCE専用の画面なのでそちらは getPct のまま。 */
@@ -17809,10 +17757,12 @@ function buildCL(ds,dat,wtl,all,locked) {
   var ents = wdEntriesForDate(ds);
   for(var j=0;j<ents.length;j++) we.appendChild(mkCk(ds,D.dly.length+j,ents[j].t,dat,locked,ents[j].it));
 }
-/* it は曜日別業務のマスタ項目（once判定に使う）。共通業務からの呼び出しはnull。 */
-function mkCk(ds,idx,task,dat,locked,it) {
-  var own=!!(dat.checks&&dat.checks[idx]);
-  var onceDs = own ? null : wdOnceDoneOn(ds, {t:task, it:it});
+/* it は曜日別業務のマスタ項目（once判定に使う）。共通業務からの呼び出しはnull。
+   mkCk/mkHdCkの共通実装。読みに行くdat上のキー・onceDoneOn判定・updProg呼び出し・
+   writeLogのアクション名だけがCE/HDで違うため、記述子nsで吸収する。 */
+function _clMkCk(ns, ds,idx,task,dat,locked,it) {
+  var own=!!(dat[ns.checks]&&dat[ns.checks][idx]);
+  var onceDs = own ? null : _clWdOnceDoneOn(ns, ds, {t:task, it:it});
   var ck=own||!!onceDs;
   var div=document.createElement('div'); div.className='cli'+(ck?' dn':'')+(locked?' lki':'')+(onceDs?' onced':'');
   var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=ck; cb.disabled=locked||!!onceDs;
@@ -17836,18 +17786,18 @@ function mkCk(ds,idx,task,dat,locked,it) {
     (function(ds,idx,div,cb){
       function toggle(){
         cb.checked=!cb.checked;
-        if(!D.pages[ds].checks)D.pages[ds].checks={};
-        D.pages[ds].checks[idx]=cb.checked;
+        if(!D.pages[ds][ns.checks])D.pages[ds][ns.checks]={};
+        D.pages[ds][ns.checks][idx]=cb.checked;
         div.classList.toggle('dn',cb.checked);
-        saveDPage(ds); updProg(ds);
-        writeLog(cb.checked?'チェック完了':'チェック解除', fmtJ(ds)+' '+task);
+        saveDPage(ds); _clUpdProg(ns, ds);
+        writeLog(cb.checked?ns.logDone:ns.logUndo, fmtJ(ds)+' '+task);
       }
       cb.onchange=function(){
-        if(!D.pages[ds].checks)D.pages[ds].checks={};
-        D.pages[ds].checks[idx]=cb.checked;
+        if(!D.pages[ds][ns.checks])D.pages[ds][ns.checks]={};
+        D.pages[ds][ns.checks][idx]=cb.checked;
         div.classList.toggle('dn',cb.checked);
-        saveDPage(ds); updProg(ds);
-        writeLog(cb.checked?'チェック完了':'チェック解除', fmtJ(ds)+' '+task);
+        saveDPage(ds); _clUpdProg(ns, ds);
+        writeLog(cb.checked?ns.logDone:ns.logUndo, fmtJ(ds)+' '+task);
       };
       div.onclick=function(e){
         if(e.target===cb||e.target===peekBtn||e.target===subBtn) return;
@@ -17904,6 +17854,7 @@ function mkCk(ds,idx,task,dat,locked,it) {
   });
   return wrap;
 }
+function mkCk(ds,idx,task,dat,locked,it) { return _clMkCk(CL_CE, ds,idx,task,dat,locked,it); }
 /* ===== HDチェックリスト（buildCL/mkCkのHD版） =====
    #hdcl/#hdwclへ描画する。CE版と違い呼び出し元で必ずnullチェック済みで呼ぶ規約はやめ、
    ここ自身が冒頭でnullガードする——renderPageHDのコメントで「#hdclは絶対に作らない」と
@@ -17923,94 +17874,9 @@ function buildHdCL(ds,dat,locked) {
   if(!ents.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
   for(var j=0;j<ents.length;j++) we.appendChild(mkHdCk(ds,D.hdDly.length+j,ents[j].t,dat,locked,ents[j].it));
 }
-/* it は曜日別業務のマスタ項目（once判定に使う）。共通業務からの呼び出しはnull。
-   構造はmkCkと完全に同一で、dat.checks→dat.hdChecks、wdOnceDoneOn→hdWdOnceDoneOn、
-   updProg→updHdProgの3点だけが違う。writeLogのアクション名は先頭にHDを付け、
-   ログ画面でCE側のチェックと区別できるようにする。 */
-function mkHdCk(ds,idx,task,dat,locked,it) {
-  var own=!!(dat.hdChecks&&dat.hdChecks[idx]);
-  var onceDs = own ? null : hdWdOnceDoneOn(ds, {t:task, it:it});
-  var ck=own||!!onceDs;
-  var div=document.createElement('div'); div.className='cli'+(ck?' dn':'')+(locked?' lki':'')+(onceDs?' onced':'');
-  var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=ck; cb.disabled=locked||!!onceDs;
-  var lb=document.createElement('label'); lb.textContent=task;
-
-  var hasManual = !!(D.manual && D.manual[task] && (typeof D.manual[task]==='string' ? D.manual[task].trim() : (D.manual[task].text||D.manual[task].media&&D.manual[task].media.length)));
-  var peekBtn=document.createElement('button');
-  peekBtn.className='cli-peek'+(hasManual?' has-manual':'');
-  peekBtn.title='マニュアルを見る';
-  peekBtn.textContent='···';
-  peekBtn.type='button';
-
-  var subs = it ? wdSubs(it) : null;
-  var subBtn = null;
-  if (subs) { subBtn=document.createElement('button'); subBtn.type='button'; subBtn.className='cli-subbtn'; }
-
-  if(!locked && !onceDs){
-    (function(ds,idx,div,cb){
-      function toggle(){
-        cb.checked=!cb.checked;
-        if(!D.pages[ds].hdChecks)D.pages[ds].hdChecks={};
-        D.pages[ds].hdChecks[idx]=cb.checked;
-        div.classList.toggle('dn',cb.checked);
-        saveDPage(ds); updHdProg(ds);
-        writeLog(cb.checked?'HDチェック完了':'HDチェック解除', fmtJ(ds)+' '+task);
-      }
-      cb.onchange=function(){
-        if(!D.pages[ds].hdChecks)D.pages[ds].hdChecks={};
-        D.pages[ds].hdChecks[idx]=cb.checked;
-        div.classList.toggle('dn',cb.checked);
-        saveDPage(ds); updHdProg(ds);
-        writeLog(cb.checked?'HDチェック完了':'HDチェック解除', fmtJ(ds)+' '+task);
-      };
-      div.onclick=function(e){
-        if(e.target===cb||e.target===peekBtn||e.target===subBtn) return;
-        toggle();
-      };
-    })(ds,idx,div,cb);
-  }
-  peekBtn.onclick=function(e){ e.stopPropagation(); openSP(task); };
-
-  div.appendChild(cb); div.appendChild(lb);
-  if (onceDs) {
-    var note=document.createElement('span'); note.className='cli-note';
-    note.textContent='✓ '+fmtMD(onceDs)+'に実施済み（月内1回）';
-    div.appendChild(note);
-  }
-  if (subs) div.appendChild(subBtn);
-  div.appendChild(peekBtn);
-
-  if (!subs) return div;
-
-  var wrap=document.createElement('div'); wrap.className='cli-wrap'+(_subOpen[wdSid(it)]?' open':'');
-  var subsEl=document.createElement('div'); subsEl.className='cli-subs';
-  wrap.appendChild(div); wrap.appendChild(subsEl);
-  renderSubPanel(ds, it, wrap);
-  subBtn.onclick=function(e){
-    e.stopPropagation();
-    var sid=wdSid(it); wrap.classList.toggle('open'); _subOpen[sid]=wrap.classList.contains('open');
-  };
-  subsEl.addEventListener('change', function(e){
-    var cb2=e.target; if(cb2.tagName!=='INPUT') return;
-    var name=cb2.getAttribute('data-dep'); var sid=wdSid(it); if(!sid) return;
-    if (cb2.checked) {
-      if(!D.pages[ds].subChecks) D.pages[ds].subChecks={};
-      if(!D.pages[ds].subChecks[sid]) D.pages[ds].subChecks[sid]={};
-      D.pages[ds].subChecks[sid][name]={by:(typeof taskSelfName==='function'?(taskSelfName()||''):''),ts:Date.now()};
-      saveDPage(ds);
-      writeLog('設置部署を消し込み', fmtJ(ds)+' '+task+' '+name);
-    } else {
-      var owner=wdSubProgress(ds, sid)[name];
-      if (owner && D.pages[owner] && D.pages[owner].subChecks && D.pages[owner].subChecks[sid]) {
-        delete D.pages[owner].subChecks[sid][name];
-        saveDPage(owner);
-        writeLog('設置部署の消し込みを解除', fmtJ(owner)+' '+task+' '+name);
-      }
-    }
-    renderSubPanel(ds, it, wrap);
-  });
-  return wrap;
-}
+/* mkCkの共通実装（_clMkCk）をHD名前空間で呼ぶだけの薄いラッパー。writeLogのアクション名は
+   先頭にHDを付け、ログ画面でCE側のチェックと区別できるようにする（ns.logDone/logUndoで解決）。 */
+function mkHdCk(ds,idx,task,dat,locked,it) { return _clMkCk(CL_HD, ds,idx,task,dat,locked,it); }
 
 /* 部署パネルの開閉状態。sidキーで持ち、renderPage/safeRenderPageで再描画しても
    開いたままになるようにする（_treeOpenと同じ考え方）。 */
@@ -18033,10 +17899,12 @@ function renderSubPanel(ds, it, wrapEl) {
   if (chipBtn) chipBtn.textContent = '🏥 '+doneN+'/'+subs.length+' ▾';
   if (subsEl) subsEl.innerHTML = '<div class="dc-cbs">'+html+'</div>';
 }
-function updProg(ds) {
-  var _cls=clStatus(ds), done=_cls.done, total=_cls.total;
+/* チェックリスト進捗バーの更新（updProg/updHdProgの共通実装）。DOM idと「prp」要素の
+   有無だけがCE/HDで違う。ns.elPrpがfalsy（HD）なら取得も更新もしない。 */
+function _clUpdProg(ns, ds) {
+  var _cls=_clStatusNs(ns, ds), done=_cls.done, total=_cls.total;
   var pct=total===0?100:Math.round(done/total*100);
-  var f=document.getElementById('pgf'), t=document.getElementById('pgt'), p=document.getElementById('pgp'), pr=document.getElementById('prp');
+  var f=document.getElementById(ns.elPgf), t=document.getElementById(ns.elPgt), p=document.getElementById(ns.elPgp), pr=ns.elPrp?document.getElementById(ns.elPrp):null;
   if(f)f.style.width=pct+'%';
   if(t)t.textContent='進捗：'+pct+'%（'+done+' / '+total+' 完了）';
   if(p){p.textContent=pct+'%';p.className='pgp'+(pct===100?' dn':'');}
@@ -18044,18 +17912,9 @@ function updProg(ds) {
   renderCal();
   updateCloseBar(ds);
 }
-/* updProgのHD版。DOM idが#hd-pgf/#hd-pgt/#hd-pgpと別なのでCE版と同じ関数にできない。
-   カレンダーの日セルは pctForView 経由で主観に追従するようになったので、CE版と同じく renderCal() を呼ぶ。 */
-function updHdProg(ds) {
-  var _cls=hdClStatus(ds), done=_cls.done, total=_cls.total;
-  var pct=total===0?100:Math.round(done/total*100);
-  var f=document.getElementById('hd-pgf'), t=document.getElementById('hd-pgt'), p=document.getElementById('hd-pgp');
-  if(f)f.style.width=pct+'%';
-  if(t)t.textContent='進捗：'+pct+'%（'+done+' / '+total+' 完了）';
-  if(p){p.textContent=pct+'%';p.className='pgp'+(pct===100?' dn':'');}
-  renderCal();
-  updateCloseBar(ds);
-}
+function updProg(ds) { _clUpdProg(CL_CE, ds); }
+/* カレンダーの日セルは pctForView 経由で主観に追従するようになったので、CE版と同じく renderCal() を呼ぶ。 */
+function updHdProg(ds) { _clUpdProg(CL_HD, ds); }
 
 /* ===== ASSIGN TABLE ===== */
 /* ===== 担当表ピンチズーム ===== */

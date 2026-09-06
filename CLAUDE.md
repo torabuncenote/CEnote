@@ -553,14 +553,26 @@ dat.placement = {
 
 **人員配置管理は主観で中身を変えない（`renderPlacementBoard`）**：CE列とHD列を1枚に並べ、`_viewMode` は**並び順だけ**を変える（自分側を先に置くので、スマホでは自分側が上に来る）。以前は主観ごとに「上のチップ行」と「折りたたみのソースパネル」を入れ替えて出し分けていたが、同じものを2通りに描き分ける必要は無くなった。開閉（`#staffz-body` / `toggleStaffZone()` / `_staffZoneOpen`）と見出しバッジ（`#staffz-badge-staff` / `#staffz-badge-unassigned`）はCE/HDで共有する。**開閉の矢印は必ず`id`で引く**（`#staffz-arrow`/`#ce-ref-arrow`/`#hd-ref-arrow`）——HD日ページには`.staffz`シェルを流用したセクションが複数並ぶため、`querySelector('.staffz-arrow')`で先頭1つを取ると別セクションの矢印が反転して本体と食い違う。
 
-> **⚠️ チェックリスト周りを次に変更するときは、機能を足す前に双子関数の共通化を先に行うこと。**
-> CE版とHD版の双子関数が33組あり、うち14組は変数名を置き換えると1文字も違わない完全な複製（`mkCk`↔`mkHdCk` 95行、`clStatus`↔`hdClStatus`、`getPct`↔`getHdPct`、`remapDlyChecks`↔`remapHdDlyChecks`、`remapWdChecks`↔`remapHdWdChecks`、`wdOnceDoneOn`↔`hdWdOnceDoneOn`、`togWdWeek`↔`togHdWdWeek`、`setWdWeeks`↔`setHdWdWeeks` ほか）。26組が95%以上一致。
-> **片方だけ直しても例外は出ず、CE主観で動作確認すると正常に見えるため気づけない** — HD主観で開いた透析スタッフだけが古い挙動に当たる。チェックリストは機器点検の記録なので、月次リセット絡み（`wdOnceDoneOn`）でズレると月末まで発覚しない。
-> 共通化の方針：関数を引数で分岐させるのではなく、**名前空間の記述子**（`{dlyKey:'dly', wdKey:'wd', checksKey:'checks', prefix:''}` のような組）を渡す形にする。`wdText`/`dlyText`/`itemRebuild`/`isDlyShownOnDate`/`wdApplies` などは既に「渡された項目オブジェクトだけを見る純粋な関数」なので、そのまま両方から使える。
-> 優先度：`mkCk`（最大かつ最も触られる）→ `clStatus`/`getPct`（進捗率の計算）→ `remap*`（マスタ並べ替え時のチェック移動。壊れるとデータが消える）→ 残り。上位4組でリスクの大半が消える。
-> **2026-09-05 時点でロジックのズレは発生していない**（`renderDlyList`↔`renderHdDlyList` と `buildCL`↔`buildHdCL` の差は下記の意図的なもの）。ただし**コメントは片方にしか無い** — 最大の `mkCk`↔`mkHdCk` では、CE版にある「なぜチェックボックスを`disabled`にしているか」等の判断の記録10行がHD版に移植されていない。HD版を先に読んだ人はその理由を知らないまま直すことになる。
+> **⚠️ チェックリスト系の関数は CE/HD で共通化済み。CE版とHD版を新しく複製しないこと。**
+> 中核の9組は `CL_CE` / `CL_HD` という**名前空間の記述子**を受け取る共通実装1本になっている。記述子は「読む `D` のキー・`dat` のキー・DOM id・ログ文言」を1組にまとめたもので、既存の関数名（`clStatus` / `hdClStatus` など）は**薄いラッパーとして残してある**ので、呼び出し側は今までどおり書ける。
 >
-> 確認手順：`grep -oE "^function [A-Za-z0-9_]+" index.html` で関数名を集め、HD版の名前から `Hd`/`hd` を落としたCE版が存在するペアを抽出して本体を突き合わせる。名前空間の差（`hdDly`→`dly`、`hdChecks`→`checks` 等）を潰したうえで残る差分が、本当のズレ。**チェックリストに手を入れる前に毎回これを回すこと。**
+> | 共通実装 | ラッパー（CE / HD） |
+> |---|---|
+> | `_clWdEntries(ns, ds)` | `wdEntriesForDate` / `hdWdEntriesForDate` |
+> | `_clWdItems(ns, ds)` | `wdItemsForDate` / `hdWdItemsForDate` |
+> | `_clWdOnceDoneOn(ns, ds, ent)` | `wdOnceDoneOn` / `hdWdOnceDoneOn` |
+> | `_clRemapDly(ns, mapFn)` | `remapDlyChecks` / `remapHdDlyChecks` |
+> | `_clRemapWd(ns, wdKey, oldArr, newArr)` | `remapWdChecks` / `remapHdWdChecks` |
+> | `_clStatusNs(ns, ds)` | `clStatus` / `hdClStatus` |
+> | `_clPct(ns, ds)` | `getPct` / `getHdPct` |
+> | `_clMkCk(ns, ds, idx, task, dat, locked, it)` | `mkCk` / `mkHdCk` |
+> | `_clUpdProg(ns, ds)` | `updProg` / `updHdProg` |
+>
+> **共通実装の中から別の共通実装を呼ぶときは、必ず `ns` を引き回すこと。** ここでラッパー（`wdItemsForDate` など）を呼ぶと、HD側からの呼び出しがCEのデータを読む——例外は出ず、CE主観で動作確認すると正常に見えるので、透析スタッフだけが壊れた記録に当たる。チェックリストは機器点検の記録なので、月次リセット絡み（`_clWdOnceDoneOn`）でズレると月末まで発覚しない。**新しくチェックリスト系の関数を足すときも、CE版/HD版を複製せず記述子を受け取る形で書くこと。**
+>
+> **`buildCL` / `buildHdCL` はあえて共通化していない。** 引数が違い（`(ds,dat,wtl,all,locked)` vs `(ds,dat,locked)`）、CE版は呼び出し側のnullガード前提・HD版は冒頭で `if(!el) return;` して `innerHTML=''` もする、という意図的な差があるため。統一すると呼び出し側（`renderPage`）まで巻き込む。
+>
+> **マスタ編集UIの双子（`renderHdDlyList` / `addHdDly` / `togHdWdWeek` / `renderHdWdlyList` / `renderHdTabletList` ほか約24組）も残してある。** 壊れても点検記録は消えず画面の見た目だけの問題であること、HD版は通知設定（🔔）を出さないなどの**意図的な差**があること、DOM構造とidがバラバラで記述子が肥大化することが理由。ここを共通化するなら、記述子にUI用のキーを足すのではなく、まず「意図的な差」を洗い出してからにすること。
 
 **HDチェックリスト（`D.hdDly`/`D.hdWd` + `dat.hdChecks`）**：CE側（`D.dly`/`D.wd` + `dat.checks`、[Checklist Items & Week-of-Month Filtering](#checklist-items--week-of-month-filtering) 節を参照）とは名前空間もdat上のキーも完全に別。**`dat.checks`に相乗りしてはいけない** — `remapDlyChecks`/`remapWdChecks`は`D.dly.length`基準の固定オフセット規約に強く依存しており、HD項目をその末尾に継ぎ足す実装にするとCE側マスタを1回並べ替えるだけでHD側のチェックが全部ずれる／消える。別キーにすることで、CE側マスタ編集は`dat.checks`しか触らずHD側は自動的に無傷になる（逆も同様）。
 
