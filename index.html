@@ -3116,6 +3116,11 @@ function fbInit() {
             updateMonthSize();
             checkAutoDelTiming();
             cleanOldLogs(); /* 連絡表の自動削除がオフでもログは掃除したいので、checkAutoDelTiming()とは別に呼ぶ */
+            /* 古いバックアップの掃除も、スナップショット作成の成否に関わらず走らせる。
+               以前は saveFirebaseSnapshot が成功したときだけ呼ばれており、スナップが
+               取れない日は掃除も止まっていた（数日開けると保持日数を超えて溜まる）。
+               関数側に1日1回のガードがあるので、ここで呼んでも二重には走らない。 */
+            cleanOldSnapshots();
             renderCal();
             renderStfList(); renderPhsList(); renderTabletList();
             renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
@@ -4846,8 +4851,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/08-63';
+var APP_VERSION = 'Ver.2026/09/09-66';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/09-66', date:'2026-09-09', title:'古いバックアップが消えずに残る不具合を修正しました', items:[
+    {t:'fix', d:'☁️ 保持期間（7日）を過ぎたバックアップが消えずに残ることがある不具合を修正しました。掃除はログイン時にも走るようになり、失敗したときは次回やり直します', admin:true}
+  ]},
   { ver:'Ver.2026/09/08-63', date:'2026-09-08', title:'ストレージ使用状況に画像・動画（Firebase Storage）の実測を追加', items:[
     {t:'new', d:'☁️ 管理資料のストレージ使用状況に「画像・動画（Firebase Storage）」を追加しました。ボタンを押すと申し送り・掲示板・マニュアル・タスク等の添付ファイルを用途別に集計します（自動計測はしません）', admin:true}
   ]},
@@ -21327,15 +21335,21 @@ function saveFirebaseSnapshot(label) {
     });
   }
   var meta = { ts: Date.now(), label: label||'自動', pages: Object.keys(D.pages||{}).length, stf: (D.stf||[]).length };
-  fbDB.ref('/backups/'+snapKey).set(copy)
+  /* メタを先に書き、本体はその後。逆にすると「本体だけができてメタの書き込みに失敗した」
+     ときに、掃除の手が届かない実体が残る——cleanOldSnapshots は /backup_meta を走査する
+     ので、メタの無い実体は永久に消えず0.6MBを占め続ける（実際に1個できていた）。
+     メタだけが残る形なら容量はごくわずかで、次の掃除で消える。 */
+  fbDB.ref('/backup_meta/'+snapKey).set(meta)
     .then(function(){
-      /* メタ書き込み失敗時はスナップ本体を孤立させないよう削除する */
-      return fbDB.ref('/backup_meta/'+snapKey).set(meta)
+      return fbDB.ref('/backups/'+snapKey).set(copy)
         .then(function(){
           localStorage.setItem(FB_SNAP_KEY, today);
           cleanOldSnapshots();
         })
-        .catch(function(){ fbDB.ref('/backups/'+snapKey).remove().catch(function(){}); });
+        .catch(function(){
+          /* 本体が書けなかったらメタも取り消す（復元一覧に中身の無い項目を残さない） */
+          fbDB.ref('/backup_meta/'+snapKey).remove().catch(function(){});
+        });
     })
     .catch(function(){});
 }
@@ -21353,12 +21367,21 @@ function cleanOldSnapshots() {
   var cutoff = toDS(d);
   fbDB.ref('/backup_meta').once('value', function(snap){
     var meta = snap.val() || {};
-    Object.keys(meta).forEach(function(key){
-      var datePart = key.slice(0, 10); /* "YYYY-MM-DD" 部分で比較 */
-      if (datePart < cutoff) {
-        fbDB.ref('/backups/'+key).remove().catch(function(){});
-        fbDB.ref('/backup_meta/'+key).remove().catch(function(){});
-      }
+    var keys = Object.keys(meta).filter(function(key){
+      return key.slice(0, 10) < cutoff; /* "YYYY-MM-DD" 部分で比較 */
+    });
+    if (!keys.length) return;
+    /* 1件ずつ remove を投げるのではなく、マルチパス更新でまとめて消す。
+       通信が1回で済み、失敗も1箇所で拾える（以前は remove ごとの .catch で
+       握りつぶしており、消えていないことに誰も気づけなかった）。 */
+    var upd = {};
+    keys.forEach(function(k){ upd['/backups/'+k] = null; upd['/backup_meta/'+k] = null; });
+    fbDB.ref().update(upd).then(function(){
+      writeLog('古いバックアップを削除', FB_SNAP_DAYS + '日より前 ' + keys.length + '件');
+    }).catch(function(err){
+      console.warn('古いバックアップの削除に失敗:', err);
+      /* 次の機会に必ず再試行させる。ここを戻さないと、その日はもう走らない */
+      _lastCleanupDate = '';
     });
   }, function(){});
 }
