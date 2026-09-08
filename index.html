@@ -3606,11 +3606,100 @@ function updateMonthSize() {
   el.style.display = '';
 }
 
+/* ===== DBに直接埋め込まれた画像・動画（base64）の集計 =====
+   Firebase Storageへの書き込みに失敗すると uploadToStorage → _uploadFallback が
+   base64データURL（'data:image/...'）に切り替わり、RTDBの media.url（または .data）へ
+   そのまま保存される。本番環境はCloud Storage for Firebase未対応のSparkプランのままのため
+   実質すべてこの経路を通っており、Storage実測（measureStorageUsage）が0件でも
+   画像はDB側でRTDB無料枠(1GB)を確実に消費している。ここを可視化しないと気づけないので、
+   クライアント側にキャッシュ済みのデータ（追加の通信なし）から件数・バイト数を数える。
+   バイト数は「その文字列（url/data）の長さそのもの」——RTDBに実際に保存されている量であり、
+   base64のデコード後サイズに換算しない。 */
+function _isEmbeddedMedia(m) {
+  var v = (m && (m.url || m.data)) || '';
+  return typeof v === 'string' && v.indexOf('data:') === 0;
+}
+function _embeddedMediaBytes(m) {
+  var v = (m && (m.url || m.data)) || '';
+  return typeof v === 'string' ? v.length : 0;
+}
+function _addEmbeddedMedia(byCat, cat, arr) {
+  arr.forEach(function(m) {
+    if (!_isEmbeddedMedia(m)) return;
+    if (!byCat[cat]) byCat[cat] = { count: 0, bytes: 0 };
+    byCat[cat].count++;
+    byCat[cat].bytes += _embeddedMediaBytes(m);
+  });
+}
+function countEmbeddedMedia() {
+  var byCat = {};
+  /* 申し送り（CE dat.memos / HD dat.hdMemos）— 本文と返信の両方 */
+  for (var ds in D.pages) {
+    if (!Object.prototype.hasOwnProperty.call(D.pages, ds)) continue;
+    var pg = D.pages[ds];
+    ['memos', 'hdMemos'].forEach(function(k) {
+      normArr(pg[k]).forEach(function(m) {
+        _addEmbeddedMedia(byCat, 'memo', memoMediaArr(m));
+        memoReplies(m).forEach(function(r) { _addEmbeddedMedia(byCat, 'memo', memoReplyMediaArr(r)); });
+      });
+    });
+  }
+  /* マニュアル */
+  if (D.manual) {
+    for (var task in D.manual) {
+      if (!Object.prototype.hasOwnProperty.call(D.manual, task)) continue;
+      var e = D.manual[task];
+      if (!e || typeof e === 'string') continue;
+      _addEmbeddedMedia(byCat, 'manual', normArr(e.media));
+    }
+  }
+  /* 掲示板（投稿＋返信） */
+  for (var pid in _boardData) {
+    if (!Object.prototype.hasOwnProperty.call(_boardData, pid)) continue;
+    var post = _boardData[pid];
+    _addEmbeddedMedia(byCat, 'board', _boardMediaArr(post));
+    if (post.replies) {
+      for (var rid in post.replies) {
+        if (!Object.prototype.hasOwnProperty.call(post.replies, rid)) continue;
+        _addEmbeddedMedia(byCat, 'board', _boardMediaArr(post.replies[rid]));
+      }
+    }
+  }
+  /* タスク */
+  for (var tid in _tasksData) {
+    if (!Object.prototype.hasOwnProperty.call(_tasksData, tid)) continue;
+    _addEmbeddedMedia(byCat, 'task', taskMediaArr(_tasksData[tid]));
+  }
+  /* 自分専用メモ（taskMediaArrは形が同じなので使い回す） */
+  for (var mid in _memosData) {
+    if (!Object.prototype.hasOwnProperty.call(_memosData, mid)) continue;
+    _addEmbeddedMedia(byCat, 'taskMemo', taskMediaArr(_memosData[mid]));
+  }
+  var total = { count: 0, bytes: 0 };
+  for (var k in byCat) { total.count += byCat[k].count; total.bytes += byCat[k].bytes; }
+  return { total: total, byCat: byCat };
+}
+
 /* ===== ストレージ使用状況（管理者設定パネル） ===== */
 /* クラウド(Firebase Realtime Database)の概算使用量を表示する。
    /data はクライアント側で保持している D の実バイト数から算出、
    /logs は別パスのため別途読み取る。請求画面の数値とは多少ずれる目安。 */
 var RTDB_FREE_LIMIT = 1073741824; /* 無料枠 1GB */
+/* ストレージ画面の内訳。/logs と /backups は非同期で後から入るので、揃った時点で総量を出し直す。
+   コンソールの「Realtime Database ストレージ」と突き合わせられるようにするための数字で、
+   実測ではその大半（45MBのうちほぼ全部）が /backups だった。 */
+var _storageDbBase = 0;     /* /data + /board + /tasks + /taskMemos（同期で出せる分） */
+var _storageLogsBytes = -1; /* /logs（-1 = まだ取得できていない） */
+var _storageBackupEst = -1; /* /backups の概算（-1 = まだ取得できていない） */
+function _updateStorageGrandTotal() {
+  var el = document.getElementById('storage-grand');
+  if (!el) return;
+  if (_storageLogsBytes < 0 || _storageBackupEst < 0) return; /* 両方揃うまで出さない */
+  var grand = _storageDbBase + _storageLogsBytes + _storageBackupEst;
+  var pct = Math.min(100, grand / RTDB_FREE_LIMIT * 100);
+  el.innerHTML = '🧮 DB総量（バックアップ・ログ込み）: ' + fmtBytes(grand) + ' / 1GB（' + pct.toFixed(1) + '%）'
+    + '<div style="font-size:11px;font-weight:400;color:var(--txt3);margin-top:3px">Firebaseコンソールの「Realtime Database ストレージ」に近い数字です。ずれる場合はバックアップの概算誤差か、アプリが使っていない古いデータが残っています。</div>';
+}
 function renderStorageUsage() {
   var el = document.getElementById('storage-usage');
   if (!el || !isAdmin) return;
@@ -3633,18 +3722,52 @@ function renderStorageUsage() {
     dly:'✅ 毎日チェック', wd:'✅ 曜日別チェック', opsCfg:'⚙ 運用設定', oc:'📞 オンコール'
   };
 
-  var pct = Math.min(100, dataBytes / RTDB_FREE_LIMIT * 100);
+  /* /data のほかにも独立したパス（/board /tasks /taskMemos）がある。
+     以前はここを合計に含めず「実際より少ない」数値をバーに出していた
+     （例：掲示板の画像0.6MBが丸ごと計上漏れしていた）。DB全体の実量として合算する。
+     いずれもクライアント側にキャッシュ済みなので /logs と違って非同期の後埋めは不要。 */
+  var boardBytes = calcBytes(_boardData);
+  var tasksBytes = calcBytes(_tasksData);
+  var taskMemosBytes = calcBytes(_memosData); /* 自分（ログイン中）の分だけ。ルール上他ユーザー分は読めない */
+  var dbTotal = dataBytes + boardBytes + tasksBytes + taskMemosBytes;
+  /* 後から入る /logs・/backups と足し合わせて総量を出すために控えておく */
+  _storageDbBase = dbTotal; _storageLogsBytes = -1; _storageBackupEst = -1;
+
+  var pct = Math.min(100, dbTotal / RTDB_FREE_LIMIT * 100);
   var barColor = pct < 60 ? 'var(--gr)' : pct < 85 ? 'var(--or)' : 'var(--rd)';
+
+  /* DBに直接埋め込まれた画像（base64）。Storageを使わず運用しているため、
+     この数字がそのままDB容量の増加分になる — 気づけるように必ず1行出す。 */
+  var emb = countEmbeddedMedia();
+  var embPct = dbTotal ? (emb.total.bytes / dbTotal * 100) : 0;
 
   var S = '';
   S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:12px;line-height:1.6">クラウド(Firebase Realtime Database)の概算使用量です。無料枠は <b>1GB</b>。<br><span style="color:var(--txt3)">※ブラウザ側で算出した目安です。Firebaseの請求画面の数値とは多少ずれます。</span></div>';
 
-  /* メインバー：/data 合計 */
-  S += '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px"><span>📊 /data 合計</span><span>' + fmtBytes(dataBytes) + ' / 1GB（' + pct.toFixed(2) + '%）</span></div>';
-  S += '<div style="height:14px;background:var(--bg);border:1px solid var(--bdr);border-radius:7px;overflow:hidden;margin-bottom:14px"><div style="height:100%;width:' + pct.toFixed(2) + '%;background:' + barColor + '"></div></div>';
+  /* メインバー：DB全体合計（/data + /board + /tasks + /taskMemos） */
+  S += '<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;margin-bottom:4px"><span>📊 DB全体合計</span><span>' + fmtBytes(dbTotal) + ' / 1GB（' + pct.toFixed(2) + '%）</span></div>';
+  S += '<div style="height:14px;background:var(--bg);border:1px solid var(--bdr);border-radius:7px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:' + pct.toFixed(2) + '%;background:' + barColor + '"></div></div>';
+  S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:14px">🖼 うち画像（DB埋め込み）: ' + emb.total.count + '枚 / ' + fmtBytes(emb.total.bytes) + '（全体の' + embPct.toFixed(1) + '%）</div>';
 
-  /* 内訳（上位8件） */
-  S += '<div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">内訳</div>';
+  /* パス別内訳（/data /board /tasks /taskMemos） */
+  S += '<div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px">パス別内訳</div>';
+  var pathParts = [
+    { name: '📅 /data', sz: dataBytes },
+    { name: '📢 /board', sz: boardBytes },
+    { name: '📋 /tasks', sz: tasksBytes },
+    { name: '🔒 /taskMemos（自分の分のみ）', sz: taskMemosBytes }
+  ];
+  pathParts.forEach(function(p) {
+    var ipct = dbTotal ? (p.sz / dbTotal * 100) : 0;
+    S += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">';
+    S += '<span style="font-size:11px;width:150px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escH(p.name) + '</span>';
+    S += '<div style="flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden"><div style="height:100%;width:' + ipct.toFixed(1) + '%;background:var(--ac)"></div></div>';
+    S += '<span style="font-size:11px;color:var(--txt3);width:78px;text-align:right;flex-shrink:0">' + fmtBytes(p.sz) + '</span>';
+    S += '</div>';
+  });
+
+  /* /data 内の内訳（上位8件） */
+  S += '<div style="font-size:11px;font-weight:700;color:var(--txt2);margin:10px 0 6px">/data の内訳（上位8件）</div>';
   parts.slice(0, 8).forEach(function(p) {
     var ipct = dataBytes ? (p.sz / dataBytes * 100) : 0;
     var name = labels[p.k] || p.k;
@@ -3655,8 +3778,13 @@ function renderStorageUsage() {
     S += '</div>';
   });
 
-  /* ログ（別パス /logs）は非同期で後埋め */
+  /* ログ（別パス /logs）は非同期で後埋め。DB全体合計には含めない（従来どおり別枠扱い） */
   S += '<div id="storage-logs" style="font-size:11px;color:var(--txt3);margin-top:12px;padding-top:10px;border-top:1px solid var(--bdr)">📋 ログ容量を確認中...</div>';
+  /* 時間ごとのスナップショット（/backups）。1個が D 全体のコピーなので、溜まると
+     ここが DB 使用量の大半を占める。実測ではコンソールの45MBのほぼ全部がこれだった。
+     全部取ると数十MBの通信になるので、1個の実サイズ×個数で概算する。 */
+  S += '<div id="storage-backups" style="font-size:11px;color:var(--txt3);margin-top:6px">☁️ バックアップ容量を確認中...</div>';
+  S += '<div id="storage-grand" style="font-size:12px;font-weight:700;margin-top:8px;padding-top:8px;border-top:1px dashed var(--bdr)"></div>';
   S += '<button class="btn btn-g btn-sm" style="margin-top:12px" onclick="renderStorageUsage()">🔄 再計算</button>';
 
   /* Firebase Storage（画像・動画）の使用量。RTDBとは別サービスなので別枠で扱う。
@@ -3677,9 +3805,32 @@ function renderStorageUsage() {
       var v = snap.val() || {};
       var cnt = Object.keys(v).length;
       var t = le();
-      if (t) t.innerHTML = '📋 ログ: ' + fmtBytes(calcBytes(v)) + '（' + cnt + '件・/logs に別途保存）';
+      var lb = calcBytes(v);
+      if (t) t.innerHTML = '📋 ログ: ' + fmtBytes(lb) + '（' + cnt + '件・/logs に別途保存）';
+      _storageLogsBytes = lb;
+      _updateStorageGrandTotal();
     }).catch(function() {
       var t = le(); if (t) t.textContent = '📋 ログ容量: 取得できませんでした';
+    });
+
+    /* バックアップは「メタの個数 × 実体1個のサイズ」で概算する。/backups を丸ごと読むと
+       数十MBを転送することになり、確認のたびにダウンロード無料枠を食うため。 */
+    var be = function(){ return document.getElementById('storage-backups'); };
+    Promise.all([
+      fbDB.ref('/backup_meta').once('value'),
+      fbDB.ref('/backups').limitToLast(1).once('value')
+    ]).then(function(res) {
+      var cnt = Object.keys(res[0].val() || {}).length;
+      var one = null;
+      res[1].forEach(function(c){ one = c.val(); });
+      var oneSz = one ? calcBytes(one) : 0;
+      var est = cnt * oneSz;
+      var t = be();
+      if (t) t.innerHTML = '☁️ バックアップ: 約' + fmtBytes(est) + '（' + cnt + '個 × 約' + fmtBytes(oneSz) + '・/backups に別途保存）';
+      _storageBackupEst = est;
+      _updateStorageGrandTotal();
+    }).catch(function() {
+      var t = be(); if (t) t.textContent = '☁️ バックアップ容量: 取得できませんでした';
     });
   } else {
     var t = le(); if (t) t.textContent = '📋 ログ: ローカルモードでは未使用';
@@ -3803,16 +3954,26 @@ function measureStorageUsage() {
 function renderStorageFbResult(sum) {
   var box = document.getElementById('storage-fb-result');
   if (!box) return;
-  var order = ['memo', 'board', 'manual', 'task', 'taskMemo', 'other'];
   var S = '';
-  S += '<div style="font-size:13px;font-weight:800;margin-bottom:8px">合計: ' + fmtBytes(sum.total.bytes) + '（' + sum.total.count + '件）</div>';
-  order.forEach(function(k) {
-    var c = sum.byCat[k];
-    if (!c) return;
-    S += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bdr)">';
-    S += '<span>' + STORAGE_CAT_LABELS[k] + '</span><span style="color:var(--txt3)">' + c.count + '件 / ' + fmtBytes(c.bytes) + '</span>';
-    S += '</div>';
-  });
+  if (sum.total.count === 0) {
+    /* Storageに1件も無い＝使われていない、ということが実際に判明している（本番データで確認済み）。
+       この場合「合計 0B（0件）」とだけ出すと「画像は無い」と誤解される。実際は画像が
+       データベース（RTDB）側にbase64で直接入っているので、その実量をここで示す。 */
+    var emb = countEmbeddedMedia();
+    S += '<div style="font-size:13px;font-weight:800;margin-bottom:6px;color:var(--or)">Firebase Storage は使われていません</div>';
+    S += '<div style="font-size:12px;line-height:1.7">画像はデータベース側に直接保存されています（<b>' + emb.total.count + '枚 / ' + fmtBytes(emb.total.bytes) + '</b>）。</div>';
+    S += '<div style="font-size:11px;color:var(--txt3);margin-top:6px">Storageへの保存に失敗した場合、自動的にデータベース側（base64）へ切り替わる作りのためです。</div>';
+  } else {
+    var order = ['memo', 'board', 'manual', 'task', 'taskMemo', 'other'];
+    S += '<div style="font-size:13px;font-weight:800;margin-bottom:8px">合計: ' + fmtBytes(sum.total.bytes) + '（' + sum.total.count + '件）</div>';
+    order.forEach(function(k) {
+      var c = sum.byCat[k];
+      if (!c) return;
+      S += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bdr)">';
+      S += '<span>' + STORAGE_CAT_LABELS[k] + '</span><span style="color:var(--txt3)">' + c.count + '件 / ' + fmtBytes(c.bytes) + '</span>';
+      S += '</div>';
+    });
+  }
   /* 一覧やサイズを取れなかった分があれば必ず添える。黙って0として合計に混ぜると、
      実際より少ない数字を正確な値だと思って見ることになる。 */
   if (_storageScanSkipped) {
@@ -4846,8 +5007,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/08-63';
+var APP_VERSION = 'Ver.2026/09/08-64';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/08-64', date:'2026-09-08', title:'ストレージ使用状況の表示を実態（DB埋め込み画像）に合わせて修正', items:[
+    {t:'fix', d:'☁️ Firebase Storageの実測が0件のとき「合計0B」とだけ出て画像が無いように見えてしまう不具合を修正しました。実際は画像がデータベース側に直接保存されているため、その枚数・容量を表示します', admin:true},
+    {t:'fix', d:'☁️ ストレージ使用状況のDB全体合計・容量バーが /data のみで計算され、/board・/tasks・/taskMemosの容量が抜けていた不具合を修正しました。あわせて「うち画像」の割合も表示します', admin:true}
+  ]},
   { ver:'Ver.2026/09/08-63', date:'2026-09-08', title:'ストレージ使用状況に画像・動画（Firebase Storage）の実測を追加', items:[
     {t:'new', d:'☁️ 管理資料のストレージ使用状況に「画像・動画（Firebase Storage）」を追加しました。ボタンを押すと申し送り・掲示板・マニュアル・タスク等の添付ファイルを用途別に集計します（自動計測はしません）', admin:true}
   ]},
