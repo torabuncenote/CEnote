@@ -613,13 +613,17 @@ dat.placement = {
 - `item.staff` は行の「👤 担当者」行（常時表示、`buildItemMetaRows()` が Tree版・フラット版共通で描画）でチップの追加・削除が手動でも可能。候補は `opsStaffCandidates(ds)`（当日の `duties`/`extra_free`/`ocData.staff` を「本日の担当」、`D.stf` を「スタッフ」としてoptgroup分け）。Firebase の配列オブジェクト化対策として読み出しは必ず `opsItemStaff(it)` を通す
 - `item.endTime`（終了時刻、0時からの分）は `done || endTime != null` のときだけ「🏁 終了」行を表示し、`<input type="time">` で手動修正できる（`schedMinToHM`/`tabletHMToMin` を流用）。入室時間 `item.time` とは別物 — `item.time` は `'8:15'`/`'AMOC'`/`'PMOC'`/自由入力という予定を大づかみに入れる語彙で実時刻を表せないため、所要時間計算のために分単位で別途持たせている（`opsItemStartMin(it)` が入室時間を分に変換、表せない値は `null`）
 - `updateOpsCardDoneBadge(cardEl, items)` — 入力済み全行が終了ならカードタイトルに「✅ 本日終了」バッジ（`.ops-card-done-badge`）を表示
-- ヘッダーチップは終了数があると「🔪 オペ 2/3件終了」形式になり、全件終了で緑色+✅表示（`opsHeaderChips` の第6・7引数 `opeDone`/`cathDone`）
+- ヘッダーチップは終了数があると「🔪 オペ 2/3件終了」形式になり、全件終了で緑色+✅表示（`opsHeaderChips` の第6・7引数 `opeDone`/`cathDone`）。中止症例がある日は「うちN件中止」を併記し、分母（「/3件」の3）は中止を除いた数になる（第8・9引数 `opeCancelled`/`cathCancelled`。詳細は次項）
+
+**症例の中止（⛔）**: `item.cancelled`（true のときだけ持つ。`emergency`/`scope`と同じ流儀）。終了と排他——`opsToggleCancel(items, idx)` でONにする際は `done`/`endTime`/`doneBy` を消す（`opsToggleDone` の取り消しとまったく同じ流儀で、`endTime` か `staff` に値があるときだけ `confirm()` する。キャンセルなら何もしない）。`opsToggleDone` 側もONにするとき `cancelled` を消し、両者が同時に立たないようにしている。ボタンは `buildItemMetaRows` の `endRow`（終了トグルの右）に1箇所だけ実装——オペ・カテ両方に出す（急患・スコープと違い、中止はカテにも起こる）。
+
+**中止行は連絡表の件数には含めるが、集計・実績からは除く。** `opsItemFilled()` は中止行も true を返すので、その日の症例数（ヘッダーチップ・`updateOpsHeader`）には中止も含めて数える——「その日なぜ人を多めに配置していたか」を後から説明できるようにするための予定ベースの件数で、これが今回の目的そのもの。一方 `renderOpsSummary()`（CE集計）は中止行を件数から除いて「⛔ 中止 N件」を別バッジで出し、`eduStats()`（実績）は担当者・教育者どちらの実績にも一切加算しない——こちらは「実際にやった量」なので、やらなかった症例を混ぜると実績が水増しされる。`closeItems()` の終了未チェック判定と `updateOpsCardDoneBadge()` の「本日終了」判定も中止行を除く（中止した症例に「終了を押せ」と迫らないため）。**将来「中止も件数に入れるべきでは」と揺り戻さないこと** — 見出しと集計で分母が違って見えるのは意図的な仕様。
 
 **フリー業務カード**: `buildFreeCard(uid)` は本文 `ops['free_'+uid]`（単一文字列）に加え、`.ops-ttl` 内に業務名入力欄（`ops.freeNames[uid]`）を持つ。カードの走査（件数集計・削除）は必ず `opsFreeCards(pg)` / `opsFreeFilled(f)` を経由する — `ops` のキーを直接 `indexOf('free_')===0` で走査すると、`removeOpsCard()` でカードを消した後も本文が残って集計され続けるバグを再発させる（`opsFreeCards` は `pg.ops_cards` が配列ならそれを正として走査し、削除済みカードの残骸を数えない）。
 
 ### 業務集計サブタブ（renderOpsSummary）
 
-`_opsSumView`（`'day'|'detail'`、既定 `'day'`）で日別ビュー（既存・週/月別グラフ＋日別テーブル・印刷対象）と明細ビューを切替。明細ビューは `opsDetailRows()`（期間内の全 `ope_items`/`cath_items` を `{ds,kind,dept,cat,name,startMin,endMin,dur,staff,sup,done}` に平坦化、`opsItemFilled` で採否を揃える）と `_opsDetFilter`（種別/科/担当者/使用物品/終了済/グルーピング）を `renderOpsDetailBody()` が描画。集計カードは科別・術式別TOP10・担当者別（所要時間の平均は入室と終了が両方揃った行のみ算入）・使用物品別（カテには使用物品欄が無いため常にオペのみ）の4枚。CSVは `exportOpsCsv()` が `_opsSumView` で `exportOpsDetailCsv()` に分岐する。
+`_opsSumView`（`'day'|'detail'`、既定 `'day'`）で日別ビュー（既存・週/月別グラフ＋日別テーブル・印刷対象）と明細ビューを切替。明細ビューは `opsDetailRows()`（期間内の全 `ope_items`/`cath_items` を `{ds,kind,dept,cat,name,startMin,endMin,dur,staff,sup,done,emergency,scope,cancelled}` に平坦化、`opsItemFilled` で採否を揃える——中止行も除外せずそのまま含める）と `_opsDetFilter`（種別/科/担当者/使用物品/終了済/急患/スコープ/中止/グルーピング）を `renderOpsDetailBody()` が描画。集計カードは科別・術式別TOP10・担当者別（所要時間の平均は入室と終了が両方揃った行のみ算入）・使用物品別（カテには使用物品欄が無いため常にオペのみ）の4枚。CSVは `exportOpsCsv()` が `_opsSumView` で `exportOpsDetailCsv()` に分岐する。
 
 ### 担当表の色分け（dutyColorFor）
 

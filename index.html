@@ -500,6 +500,8 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-tag-btn.em.on{background:var(--rd);color:var(--on-ac)}
 .ops-tag-btn.sc{border-color:var(--pu);color:var(--pu)}
 .ops-tag-btn.sc.on{background:var(--pu);color:var(--on-ac)}
+.ops-tag-btn.cx{border-color:var(--rd);color:var(--rd)}
+.ops-tag-btn.cx.on{background:var(--rd);color:var(--on-ac)}
 .ops-tag-badge{font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px;margin-right:3px}
 .ops-item-wrap.ops-item-done{opacity:.45;filter:grayscale(.6);transition:opacity .2s}
 .ops-meta-lbl{font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0}
@@ -4844,10 +4846,13 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/08-62';
+var APP_VERSION = 'Ver.2026/09/08-63';
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/09/08-62', date:'2026-09-08', title:'ストレージ使用状況に画像・動画（Firebase Storage）の実測を追加', items:[
+  { ver:'Ver.2026/09/08-63', date:'2026-09-08', title:'ストレージ使用状況に画像・動画（Firebase Storage）の実測を追加', items:[
     {t:'new', d:'☁️ 管理資料のストレージ使用状況に「画像・動画（Firebase Storage）」を追加しました。ボタンを押すと申し送り・掲示板・マニュアル・タスク等の添付ファイルを用途別に集計します（自動計測はしません）', admin:true}
+  ]},
+  { ver:'Ver.2026/09/08-62', date:'2026-09-08', title:'オペ・カテの症例に「⛔ 中止」を記録できるようにしました', items:[
+    {t:'new', d:'🔪🫀 オペ・カテの症例行に「⛔ 中止」を記録できるようにしました。当日中止になった症例も、後から「なぜ人を多めに配置していたか」を説明できるよう連絡表の件数には残りますが、業務集計・実績（携わった件数）からは除きます'}
   ]},
   { ver:'Ver.2026/09/06-61', date:'2026-09-06', title:'実績のオペ・カテ内訳を科→中カテゴリ→術式で詳しく見られるようにしました', items:[
     {t:'imp', d:'🎓 実績サブタブのオペ・カテ内訳に「詳しく見る（年度）」を追加しました。開くと科→中カテゴリ→術式の3階層で年度累計の全件を件数の多い順に確認できます'}
@@ -6943,7 +6948,7 @@ function sumMonthLabel(ym) { var p = ym.split('-'); return p[0]+'/'+parseInt(p[1
    既定は 'day'。フィルタ状態は明細ビューを開いている間だけ意味を持つが、
    タブを行き来しても条件を覚えていた方が使いやすいのでモジュール変数に保持する。 */
 var _opsSumView = 'day'; /* 'day' | 'detail' */
-var _opsDetFilter = { kind:'all', dept:'', staff:'', sup:'', doneOnly:false, emOnly:false, scOnly:false, group:'none' };
+var _opsDetFilter = { kind:'all', dept:'', staff:'', sup:'', doneOnly:false, emOnly:false, scOnly:false, cxOnly:false, cxHide:false, group:'none' };
 function setOpsSumView(v) { _opsSumView = v; renderOpsSummary(); }
 function setOpsDetFilter(key, val) { _opsDetFilter[key] = val; renderOpsSummary(); }
 
@@ -6967,7 +6972,7 @@ function opsDetailRows() {
           ds: ds, kind: kind, dept: dept, cat: opsItemCat(it), name: name,
           startMin: startMin, endMin: endMin, dur: dur,
           staff: opsItemStaff(it), sup: opsItemSup(it), done: !!it.done,
-          emergency: !!it.emergency, scope: !!it.scope
+          emergency: !!it.emergency, scope: !!it.scope, cancelled: !!it.cancelled
         });
       });
     });
@@ -6989,6 +6994,8 @@ function opsDetailFiltered(rows) {
     if (f.doneOnly && !r.done) return false;
     if (f.emOnly && !r.emergency) return false;
     if (f.scOnly && !r.scope) return false;
+    if (f.cxOnly && !r.cancelled) return false;
+    if (f.cxHide && r.cancelled) return false;
     return true;
   });
 }
@@ -7041,6 +7048,7 @@ function opsTagLabel(r) {
   var t = '';
   if (r.emergency) t += '<span class="ops-tag-badge" style="background:var(--rd-bg);color:var(--rd)">🚑急患</span>';
   if (r.scope)     t += '<span class="ops-tag-badge" style="background:var(--pu-bg);color:var(--pu)">🔭スコープ</span>';
+  if (r.cancelled) t += '<span class="ops-tag-badge" style="background:var(--rd-bg);color:var(--rd)">⛔中止</span>';
   return t || '<span class="muted">—</span>';
 }
 function opsSupLabel(sup) {
@@ -7079,13 +7087,15 @@ function renderOpsDetailBody(allRows) {
   h += '<label class="flt-check"><input type="checkbox" '+(f.doneOnly?'checked':'')+' onchange="setOpsDetFilter(\'doneOnly\',this.checked)">終了済のみ</label>';
   h += '<label class="flt-check"><input type="checkbox" '+(f.emOnly?'checked':'')+' onchange="setOpsDetFilter(\'emOnly\',this.checked)">🚑 急患のみ</label>';
   h += '<label class="flt-check"><input type="checkbox" '+(f.scOnly?'checked':'')+' onchange="setOpsDetFilter(\'scOnly\',this.checked)">🔭 スコープのみ</label>';
+  h += '<label class="flt-check"><input type="checkbox" '+(f.cxOnly?'checked':'')+' onchange="setOpsDetFilter(\'cxOnly\',this.checked)">⛔ 中止のみ</label>';
+  h += '<label class="flt-check"><input type="checkbox" '+(f.cxHide?'checked':'')+' onchange="setOpsDetFilter(\'cxHide\',this.checked)">中止を除く</label>';
   h += '<select class="flt-sel flt-clear" onchange="setOpsDetFilter(\'group\',this.value)">';
   [['none','グルーピング：なし'],['dept','科ごと'],['date','日付ごと'],['staff','担当者ごと']].forEach(function(g){
     h += '<option value="'+g[0]+'"'+(f.group===g[0]?' selected':'')+'>'+g[1]+'</option>';
   });
   h += '</select>';
-  if (f.kind!=='all'||f.dept||f.staff||f.sup||f.doneOnly||f.emOnly||f.scOnly||f.group!=='none') {
-    h += '<button class="btn btn-g btn-sm" onclick="_opsDetFilter={kind:\'all\',dept:\'\',staff:\'\',sup:\'\',doneOnly:false,emOnly:false,scOnly:false,group:\'none\'};renderOpsSummary();">✕ 条件クリア</button>';
+  if (f.kind!=='all'||f.dept||f.staff||f.sup||f.doneOnly||f.emOnly||f.scOnly||f.cxOnly||f.cxHide||f.group!=='none') {
+    h += '<button class="btn btn-g btn-sm" onclick="_opsDetFilter={kind:\'all\',dept:\'\',staff:\'\',sup:\'\',doneOnly:false,emOnly:false,scOnly:false,cxOnly:false,cxHide:false,group:\'none\'};renderOpsSummary();">✕ 条件クリア</button>';
   }
   h += '</div>';
 
@@ -7440,7 +7450,7 @@ function renderOpsSummary() {
   if (!el) return;
   var rng = sumRange();
   var rows = [];
-  var totals = {ope:0, cath:0, mw:0, psg:0, free:0};
+  var totals = {ope:0, cath:0, mw:0, psg:0, free:0, cx:0};
 
   sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
@@ -7448,13 +7458,14 @@ function renderOpsSummary() {
     var ops = pg.ops || {};
     var cards = pg.ops_cards;
 
-    /* 件数を集計（それぞれ入力行の数） */
-    var opeN  = 0, cathN = 0, mwN = 0, psgN = 0, freeN = 0;
+    /* 件数を集計（それぞれ入力行の数）。中止行は「実際にやった量」ではないので
+       件数からは除き、cxNとして別に数える（サマリー・日別テーブルとも同じ方針）。 */
+    var opeN  = 0, cathN = 0, mwN = 0, psgN = 0, freeN = 0, cxN = 0;
     var hasAny = false;
 
     /* オペ・カテ：何らかの入力がある行数（カードを消した日の残骸は opsItemsOf が除く） */
-    opsItemsOf(pg,'ope').forEach(function(it){ if(opsItemFilled(it)){ opeN++; hasAny=true; } });
-    opsItemsOf(pg,'cath').forEach(function(it){ if(opsItemFilled(it)){ cathN++; hasAny=true; } });
+    opsItemsOf(pg,'ope').forEach(function(it){ if(opsItemFilled(it)){ hasAny=true; if(it.cancelled){cxN++;}else{opeN++;} } });
+    opsItemsOf(pg,'cath').forEach(function(it){ if(opsItemFilled(it)){ hasAny=true; if(it.cancelled){cxN++;}else{cathN++;} } });
     /* 6MW：mw_nの値 */
     if (ops.mw_n) { mwN = parseInt(ops.mw_n)||0; if(mwN) hasAny=true; }
     /* PSG：装着欄に入力があれば1件（外しはカウントしない） */
@@ -7464,12 +7475,13 @@ function renderOpsSummary() {
 
     if (!hasAny && (!cards || !cards.length)) return; /* 業務なし日はスキップ */
 
-    rows.push({ds:ds, opeN:opeN, cathN:cathN, mwN:mwN, psgN:psgN, freeN:freeN});
+    rows.push({ds:ds, opeN:opeN, cathN:cathN, mwN:mwN, psgN:psgN, freeN:freeN, cxN:cxN});
     totals.ope  += opeN;
     totals.cath += cathN;
     totals.mw   += mwN;
     totals.psg  += psgN;
     totals.free += freeN;
+    totals.cx   += cxN;
   });
 
   var ctl = sumCtlHTML('ops');
@@ -7491,6 +7503,7 @@ function renderOpsSummary() {
       }).join('')
     + '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--rd)"></span>🚑 急患 <b style="color:var(--rd)">'+totalEm+'</b>件</span>'
     + '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>🔭 スコープ <b style="color:var(--pu)">'+totalSc+'</b>件</span>'
+    + '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--rd)"></span>⛔ 中止 <b style="color:var(--rd)">'+totals.cx+'</b>件</span>'
     + '</div>';
   if (!rows.length) {
     el.innerHTML = ctl + toggle + badge + '<div class="pool-empty" style="padding:20px 0">'+escH(rng.label)+'に業務記録がありません</div>';
@@ -8666,6 +8679,7 @@ function eduStats(dsList) {
     ['ope', 'cath'].forEach(function (kind) {
       opsItemsOf(pg, kind).forEach(function (it) {
         if (!opsItemFilled(it)) return;
+        if (it.cancelled) return; /* 中止症例は実際にやった量ではないので、担当者・教育者の実績どちらにも加算しない */
         var dept = opsItemDept(it) || '（未分類）';
         var mid = opsItemCat(it) || '（未分類）';
         var nm = opsItemName(it) || '（無題）';
@@ -9651,10 +9665,10 @@ function closeItems(ds) {
      症例行に自分の名前が入っている場合に加え、まだ誰も入力していなくても
      自分がオペ/カテ系の担当枠を持っていればその日の自分の仕事として数える */
   opsItemsOf(dat,'ope').forEach(function(it){
-    if (opsItemFilled(it) && !it.done) byKey.ope.items.push({mine: myOpe || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
+    if (opsItemFilled(it) && !it.done && !it.cancelled) byKey.ope.items.push({mine: myOpe || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
   });
   opsItemsOf(dat,'cath').forEach(function(it){
-    if (opsItemFilled(it) && !it.done) byKey.cath.items.push({mine: myCath || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
+    if (opsItemFilled(it) && !it.done && !it.cancelled) byKey.cath.items.push({mine: myCath || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
   });
 
   /* 5. タブレット未返却（ヘッダーバッジと同じ式：当日分＋前日以前からの持ち越し分） */
@@ -12278,7 +12292,7 @@ function opsItemFilled(it){
   if (it.sup && it.sup.length) return true;
   if (it.endTime != null || (it.staff && (Array.isArray(it.staff) ? it.staff.length : Object.keys(it.staff).length))) return true;
   if (it.note && String(it.note).trim().length > 0) return true;
-  if (it.emergency || it.scope) return true; /* 印だけ押した行も1件として数える（数えないと集計から漏れる） */
+  if (it.emergency || it.scope || it.cancelled) return true; /* 印だけ押した行も1件として数える（数えないと集計から漏れる） */
   return false;
 }
 /* ===== フリー業務カードの走査（唯一の入口） =====
@@ -13216,6 +13230,7 @@ function opsToggleDone(items, idx) {
   var it = items[idx];
   it.done = !it.done;
   if (it.done) {
+    delete it.cancelled; /* 中止と終了は排他（両方同時には立たない） */
     if (it.endTime == null) it.endTime = opsNowMin();
     var me = opsSelfName();
     if (me) {
@@ -13237,13 +13252,39 @@ function opsToggleDone(items, idx) {
     toast('↩ 終了を取り消しました（担当者と終了時刻もクリアしました）', 'warn');
   }
 }
-/* 入力済みの全行が終了ならカードタイトルに「✅ 本日終了」バッジを表示 */
+/* 症例中止トグル：終了と排他（両方同時には立たない）。
+   ONにするとき：終了時刻か担当者が既に入っていれば、それらを消してよいか確認する
+   （opsToggleDoneの取り消し時とまったく同じ流儀）。キャンセルなら何もしない
+   （opsToggleDoneと違い、確認前にフラグを反転させない——中止は「予定通りできなかった」
+   という取り返しの要らない記録なので、慎重側に倒す）。
+   OFFにするとき：cancelledを消すだけ（他の記録には触れない）。
+   戻り値はtrue=実際に切り替わった／false=キャンセルで何もしていない
+   （呼び出し側はfalseならログ・保存をしない）。 */
+function opsToggleCancel(items, idx) {
+  var it = items[idx];
+  if (!it.cancelled) {
+    /* 担当者（staff）は消さない——中止でも「誰が担当する予定だったか」は人員配置を
+       後から振り返るときの手がかりになるため。したがって確認を出すのは、実際に失われる
+       終了時刻が入っているときだけでよい（担当者だけの行で確認を出すと、何も消えないのに
+       引き止めることになる）。 */
+    if (it.endTime != null && !confirm('終了時刻を消して中止にしますか？（担当者は残ります）')) return false;
+    it.cancelled = true;
+    it.done = false; delete it.endTime; delete it.doneBy;
+    toast('⛔ 症例を中止にしました', 'warn');
+  } else {
+    delete it.cancelled;
+    toast('↩ 中止を取り消しました', 'warn');
+  }
+  return true;
+}
+/* 入力済みの全行（中止を除く）が終了ならカードタイトルに「✅ 本日終了」バッジを表示。
+   中止行を含めて数えると、中止症例がある日は永久にバッジが出なくなる。 */
 function updateOpsCardDoneBadge(cardEl, items) {
   var ttl = cardEl.querySelector('.ops-ttl');
   if (!ttl) return;
   var old = ttl.querySelector('.ops-card-done-badge');
   if (old) old.parentNode.removeChild(old);
-  var filled = items.filter(opsItemFilled);
+  var filled = items.filter(opsItemFilled).filter(function(it){ return !it.cancelled; });
   if (filled.length && filled.every(function(it){ return !!it.done; })) {
     var b = document.createElement('span');
     b.className = 'ops-card-done-badge';
@@ -13251,19 +13292,27 @@ function updateOpsCardDoneBadge(cardEl, items) {
     ttl.appendChild(b);
   }
 }
-function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone){
-  opeDone=opeDone||0; cathDone=cathDone||0;
+function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone,opeCancelled,cathCancelled){
+  opeDone=opeDone||0; cathDone=cathDone||0; opeCancelled=opeCancelled||0; cathCancelled=cathCancelled||0;
   var s='';
   var GR_CHIP='background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer';
   if(psgRemoval) s+='<span style="background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">🌙 PSG外し</span> ';
   if(opeN){
-    var opeAll=(opeDone>=opeN);
-    var opeTxt=opeDone>0?('🔪 オペ '+opeDone+'/'+opeN+'件終了'+(opeAll?' ✅':'')):('🔪 オペ '+opeN+'件');
+    /* 終了の進捗は中止を除いた分母で数える（中止症例に「終了を押せ」と迫らないため） */
+    var opeActive=opeN-opeCancelled;
+    var opeAll=(opeActive>0&&opeDone>=opeActive);
+    /* 終了の進捗を出すときは分母が中止を除いた数になるので、予定していた総数（opeN）が
+       画面から消える。人を多めに配置した根拠はその総数なので、そのときだけ「3件中1件中止」と
+       総数を添える。件数だけを出すときは opeN 自体が総数なので「うち1件中止」で足りる。 */
+    var opeCxTxt=opeCancelled?(opeDone>0?('（'+opeN+'件中'+opeCancelled+'件中止）'):('（うち'+opeCancelled+'件中止）')):'';
+    var opeTxt=opeDone>0?('🔪 オペ '+opeDone+'/'+opeActive+'件終了'+opeCxTxt+(opeAll?' ✅':'')):('🔪 オペ '+opeN+'件'+opeCxTxt);
     s+='<span style="'+(opeAll?GR_CHIP:'background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer')+'" onclick="dashJump(\'#ops-card-ope\')">'+opeTxt+'</span> ';
   }
   if(cathN){
-    var cathAll=(cathDone>=cathN);
-    var cathTxt=cathDone>0?('🫀 カテ '+cathDone+'/'+cathN+'件終了'+(cathAll?' ✅':'')):('🫀 カテ '+cathN+'件');
+    var cathActive=cathN-cathCancelled;
+    var cathAll=(cathActive>0&&cathDone>=cathActive);
+    var cathCxTxt=cathCancelled?(cathDone>0?('（'+cathN+'件中'+cathCancelled+'件中止）'):('（うち'+cathCancelled+'件中止）')):'';
+    var cathTxt=cathDone>0?('🫀 カテ '+cathDone+'/'+cathActive+'件終了'+cathCxTxt+(cathAll?' ✅':'')):('🫀 カテ '+cathN+'件'+cathCxTxt);
     s+='<span style="'+(cathAll?GR_CHIP:'background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer')+'" onclick="dashJump(\'#ops-card-cath\')">'+cathTxt+'</span> ';
   }
   if(mwN)   s+='<span style="'+GR_CHIP+'" onclick="dashJump(\'#ops-card-mw\')">🚶 6MW '+mwN+'件</span> ';
@@ -13274,9 +13323,9 @@ function updateOpsHeader(ds){
   var el=document.getElementById('ops-header-row'); if(!el||!D.pages[ds]) return;
   var o=D.pages[ds].ops||{};
   var cards=D.pages[ds].ops_cards!=null?D.pages[ds].ops_cards:(D.opsCfg||[]);
-  /* オペ・カテ：何らかの入力がある行数（術式追加した行を反映）+ 業務終了済みの行数 */
-  var opeN=0,opeDone=0; opsItemsOf(D.pages[ds],'ope').forEach(function(it){if(opsItemFilled(it)){opeN++;if(it.done)opeDone++;}});
-  var cathN=0,cathDone=0; opsItemsOf(D.pages[ds],'cath').forEach(function(it){if(opsItemFilled(it)){cathN++;if(it.done)cathDone++;}});
+  /* オペ・カテ：何らかの入力がある行数（術式追加した行を反映）+ 業務終了済みの行数+中止済みの行数 */
+  var opeN=0,opeDone=0,opeCancelled=0; opsItemsOf(D.pages[ds],'ope').forEach(function(it){if(opsItemFilled(it)){opeN++;if(it.done)opeDone++;if(it.cancelled)opeCancelled++;}});
+  var cathN=0,cathDone=0,cathCancelled=0; opsItemsOf(D.pages[ds],'cath').forEach(function(it){if(opsItemFilled(it)){cathN++;if(it.done)cathDone++;if(it.cancelled)cathCancelled++;}});
   /* 6MW：カード存在で1、件数入力があればその値 */
   var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
   /* PSG：カードが追加されているか、または psg_on に入力があれば1 */
@@ -13285,7 +13334,7 @@ function updateOpsHeader(ds){
   /* PSG外し：前日にPSGがあれば当日は外し作業あり */
   var prevDsOH=getPrevDs(ds),prevDatOH=D.pages[prevDsOH];
   var psgRemoval=!!(prevDatOH&&((prevDatOH.ops_cards&&prevDatOH.ops_cards.indexOf('psg')!==-1)||(prevDatOH.ops&&prevDatOH.ops.psg_on)));
-  var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone);
+  var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone,opeCancelled,cathCancelled);
   el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
   updateCloseBar(ds);
 }
@@ -13350,8 +13399,8 @@ function renderPage(ds) {
   /* 業務件数集計 */
   var _ops=dat.ops||{};
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
-  var _opeN=0,_opeDone=0; opsItemsOf(dat,'ope').forEach(function(it){if(opsItemFilled(it)){_opeN++;if(it.done)_opeDone++;}});
-  var _cathN=0,_cathDone=0; opsItemsOf(dat,'cath').forEach(function(it){if(opsItemFilled(it)){_cathN++;if(it.done)_cathDone++;}});
+  var _opeN=0,_opeDone=0,_opeCancelled=0; opsItemsOf(dat,'ope').forEach(function(it){if(opsItemFilled(it)){_opeN++;if(it.done)_opeDone++;if(it.cancelled)_opeCancelled++;}});
+  var _cathN=0,_cathDone=0,_cathCancelled=0; opsItemsOf(dat,'cath').forEach(function(it){if(opsItemFilled(it)){_cathN++;if(it.done)_cathDone++;if(it.cancelled)_cathCancelled++;}});
   var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
   var _opsCardsRP=dat.ops_cards;
   var _psgN=!!(_ops.psg_on||(_opsCardsRP&&_opsCardsRP.indexOf('psg')!==-1))?1:0;
@@ -13360,7 +13409,7 @@ function renderPage(ds) {
   var _hasOps=_opeN||_cathN||_mwN||_psgN||_psgRemoval;
   h+='<div class="pp">';
   h+='<div class="pr dash-chip" onclick="dashJump(\'.clg\')" title="チェックリストへジャンプ"><span class="pl">✅ 進捗</span><span class="pv pv-p" id="prp">'+done+' / '+total+' 完了</span></div>';
-  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone)+'</span></div>' : '') +'</div>';
+  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone,_opeCancelled,_cathCancelled)+'</span></div>' : '') +'</div>';
   var _ocStaff = dat.ocData.staff || '';
   var _ocCls = !_ocStaff ? ' dash-warn' : (dat.ocData.done ? ' pv-p' : '');
   h+='<div class="pr dash-chip" id="oc-dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'" id="oc-dash-val">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅'+ocKindLabel(ocKind(dat.ocData)):'')+'</span></div>';
@@ -16381,6 +16430,21 @@ function buildOPS(ds,dat,locked) {
        時刻は終了にした行だけに出すので、未終了の行は［終了］と［×］だけになる */
     var endRow = document.createElement('div'); endRow.className = 'ops-end-row';
     if (doneBtn) endRow.appendChild(doneBtn);
+    /* 症例中止トグル：終了の右に置く。オペ・カテ両方に出す（急患・スコープと違いカテにも中止はある）。
+       予定を組んだ根拠を残すため連絡表の見出しには件数に含めて出すが、集計・実績からは除く
+       （opsItemFilled/eduStats参照。CLAUDE.md「OPE / カテカード」節に理由を記載）。 */
+    var cxBtn = document.createElement('button');
+    cxBtn.type = 'button';
+    cxBtn.className = 'ops-done-btn ops-tag-btn cx' + (item.cancelled ? ' on' : '');
+    cxBtn.textContent = item.cancelled ? '⛔ 中止済' : '⛔ 中止';
+    cxBtn.title = item.cancelled ? 'タップで中止を取り消す' : 'タップで症例を中止にする';
+    cxBtn.disabled = !!locked;
+    if (!locked) cxBtn.onclick = function(){
+      if (!opsToggleCancel(items, idx)) return; /* 確認をキャンセルした場合は何もしない */
+      writeLog(item.cancelled ? '症例を中止' : '症例の中止を取消', fmtJ(ds) + ' ' + (opsItemName(item) || '（無題）'));
+      saveItems(); renderItems();
+    };
+    endRow.appendChild(cxBtn);
     if (item.done || item.endTime != null) {
       var endLbl = document.createElement('span'); endLbl.className = 'ops-meta-lbl'; endLbl.textContent = '🏁';
       endRow.appendChild(endLbl);
@@ -16537,7 +16601,7 @@ function buildOPS(ds,dat,locked) {
         /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
         var itemWrap = document.createElement('div');
         itemWrap.className = 'ops-item-wrap';
-        if (item.done) itemWrap.classList.add('ops-item-done');
+        if (item.done || item.cancelled) itemWrap.classList.add('ops-item-done');
         if (!locked) {
           itemWrap.draggable = true;
           itemWrap.setAttribute('data-item-idx', idx);
@@ -16860,7 +16924,7 @@ function buildOPS(ds,dat,locked) {
         /* item全体（術式行 + 使用物品行）をラッパーdivでまとめてD&D単位にする */
         var itemWrap = document.createElement('div');
         itemWrap.className = 'ops-item-wrap';
-        if (item.done) itemWrap.classList.add('ops-item-done');
+        if (item.done || item.cancelled) itemWrap.classList.add('ops-item-done');
         if (!locked) {
           itemWrap.draggable = true;
           itemWrap.setAttribute('data-item-idx', idx);
@@ -19156,13 +19220,13 @@ function exportOpsDetailCsv() {
   var rng = sumRange();
   var all = opsDetailRows(), rows = opsDetailFiltered(all);
   if (!rows.length) { toast(rng.label+'に条件に一致する記録がありません', 'warn'); return; }
-  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','急患','スコープ','終了']];
+  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','急患','スコープ','中止','終了']];
   rows.forEach(function(r){
     var pt = r.ds.split('-');
     out.push([
       pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(r.ds).getDay()], r.kind, r.dept, r.cat, r.name,
       r.startMin!=null?schedMinToHM(r.startMin):'', r.endMin!=null?schedMinToHM(r.endMin):'', r.dur!=null?r.dur:'',
-      r.staff.join('/'), r.sup.join('/'), r.emergency?'✔':'', r.scope?'✔':'', r.done?'済':''
+      r.staff.join('/'), r.sup.join('/'), r.emergency?'✔':'', r.scope?'✔':'', r.cancelled?'✔':'', r.done?'済':''
     ]);
   });
   downloadCsv('分院CE_CE明細_'+sumFileLabel()+'.csv', out);
