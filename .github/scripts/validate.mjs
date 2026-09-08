@@ -126,6 +126,7 @@ if (existsSync(htmlPath)) {
     const IGNORE = new Set([
       'confirm', 'alert', 'prompt', 'set', 'get', 'parseInt', 'push', 'map', 'filter',
       'addEventListener', 'querySelector', 'scrollIntoView', 'scrollTo', 'splice',
+      'remove', 'update', 'once', 'listAll', 'getMetadata', /* Firebase SDK / DOM のメソッド */
       /* 以下は「もう無いこと」自体を記録するために本文が名前を挙げているもの。
          消したという事実は残す価値があるので、名前ごと消させない。 */
       'poolHiddenReason',  /* 配置盤の導入で削除済み */

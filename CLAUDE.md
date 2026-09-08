@@ -287,6 +287,10 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 | ⚡ Recent backup | `/recent_backup` | Latest 1 | Every successful `saveD()` write |
 | 🔄 PC local auto-backup | `localStorage ce2_autobk` | Latest 5 | Firebase first-load, 30-min interval, before destructive ops |
 
+**スナップショットは `/backup_meta` → `/backups` の順で書く。** 逆にすると、本体だけができてメタの書き込みに失敗したとき **掃除の手が届かない実体が残る** — `cleanOldSnapshots()` は `/backup_meta` のキーを走査して `/backups` を消すので、メタの無い実体は保持日数を過ぎても永久に残り0.6MBを占め続ける（実際に1個できていた）。メタだけが残る形なら容量はごくわずかで次の掃除で消え、本体の書き込みに失敗したときはメタ側を取り消すので復元一覧に中身の無い項目も出ない。**この順序を入れ替えないこと。**
+
+`cleanOldSnapshots()` は `fbInit` のログイン処理と `saveFirebaseSnapshot()` の成功時の**両方**から呼ぶ（関数側に1日1回のガードがあるので二重には走らない）。以前はスナップショット成功時だけで、スナップが取れない日は掃除も止まり、数日空けると保持日数を超えて溜まった。削除はマルチパス更新で一度に行い、**失敗を握りつぶさず `_lastCleanupDate` を戻して次の機会に再試行させる** — 以前は `remove()` ごとの `.catch(function(){})` で捨てており、消えていないことに誰も気づけなかった。
+
 `autoSaveSnapshot(label)` adds to the local ring buffer. It is called **after Firebase first load** (not at `init()` time) to ensure fresh data is saved.
 
 **Auto-delete settings** (`D.autoDelCfg`, used by `checkAndDeleteOldData()`/`checkAutoDelTiming()`) live in the synced `D` object, not per-PC `localStorage` — previously they were `localStorage` keys (`autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean`), which meant the auto-delete schedule could disagree between devices. `_migVer` 4 migrates any existing per-PC values into `D.autoDelCfg` once.
