@@ -4846,8 +4846,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/08-63';
+var APP_VERSION = 'Ver.2026/09/08-65';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/08-65', date:'2026-09-08', title:'タスクを振られた人も、内容を編集できるようにしました', items:[
+    {t:'imp', d:'📋 自分が担当のタスクは、進捗だけでなく期限・内容・添付も編集できるようにしました。削除だけは作成した人と管理者に限ります'}
+  ]},
   { ver:'Ver.2026/09/08-63', date:'2026-09-08', title:'ストレージ使用状況に画像・動画（Firebase Storage）の実測を追加', items:[
     {t:'new', d:'☁️ 管理資料のストレージ使用状況に「画像・動画（Firebase Storage）」を追加しました。ボタンを押すと申し送り・掲示板・マニュアル・タスク等の添付ファイルを用途別に集計します（自動計測はしません）', admin:true}
   ]},
@@ -18633,7 +18636,17 @@ function taskSelfName() {
 function taskCanDelete(t) {
   return isAdmin || !!(currentUser && t.createdBy && t.createdBy.uid === currentUser.uid);
 }
-function taskCanEditAll(t) { return taskCanDelete(t); } /* 全項目編集=作成者/管理者 */
+/* 内容の編集は担当者にも開く。自分に振られた仕事の進捗・期限・中身を直せないと、
+   担当者は受け取るだけで何も進められない（カードのタグを押せばステータスは変えられるが、
+   編集モーダルは開けないままだった）。削除だけは作成者/管理者に限る——消えると
+   誰にも見えなくなるので、受け取った側の判断だけで消せないようにしておく。
+   担当者の付け替えもここに含まれる。少人数で回している運用なので、割り振り直しを
+   禁じるより「誰でも直せて、消すのは限られる」ほうが実態に合う。 */
+function taskCanEditAll(t) {
+  if (taskCanDelete(t)) return true;
+  var self = taskSelfName();
+  return !!(self && taskAssignees(t).indexOf(self) !== -1);
+}
 function taskCanStatus(t) {
   if (taskCanDelete(t)) return true;
   var self = taskSelfName();
