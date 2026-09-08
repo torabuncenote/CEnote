@@ -3385,7 +3385,7 @@ function onSPMediaAdd(input) {
     var processFile = function(dataUrl, blob) {
       var uploadData = blob || dataUrl; /* blobがあればblobを優先 */
       var path = 'manual/' + encodeURIComponent(_spTask) + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-      uploadToStorage(path, uploadData, function(url, fallback) {
+      uploadToStorage(path, uploadData, function(url, fallback, size) {
         if (!url && !fallback) {
           /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
           pending--;
@@ -3397,6 +3397,7 @@ function onSPMediaAdd(input) {
           name: file.name,
           url:  url || fallback,
           storagePath: url ? path : null,
+          size: size || null,
           data: url ? null : fallback
         });
         pending--;
@@ -3656,6 +3657,15 @@ function renderStorageUsage() {
   S += '<div id="storage-logs" style="font-size:11px;color:var(--txt3);margin-top:12px;padding-top:10px;border-top:1px solid var(--bdr)">📋 ログ容量を確認中...</div>';
   S += '<button class="btn btn-g btn-sm" style="margin-top:12px" onclick="renderStorageUsage()">🔄 再計算</button>';
 
+  /* Firebase Storage（画像・動画）の使用量。RTDBとは別サービスなので別枠で扱う。
+     無料枠との比較バーは出さない — Storageの無料枠はプラン・リージョンで変わり、
+     2024年9月以降 Spark（無料）プランはCloud Storage for Firebaseを新規サポートしていないため、
+     固定値を書くと誤った安心・不安を与える。実量とコンソールへの導線だけを示す。 */
+  S += '<div style="font-size:13px;font-weight:800;margin-top:18px;padding-top:14px;border-top:1px solid var(--bdr)">🖼 画像・動画（Firebase Storage）</div>';
+  S += '<div style="font-size:12px;color:var(--txt2);margin:6px 0 10px;line-height:1.6">申し送り・掲示板・マニュアル・タスク等に添付した画像/動画の使用量です。ファイル数ぶんの通信が発生するため、開くたびには自動計算しません。</div>';
+  S += '<div id="storage-fb-result"><button id="storage-fb-btn" class="btn btn-p btn-sm" onclick="measureStorageUsage()">📊 使用量を測定</button></div>';
+  S += '<div style="font-size:11px;color:var(--txt3);margin-top:10px">正確な使用量・請求額は <a href="https://console.firebase.google.com/project/torabunce-ce814/usage" target="_blank" rel="noopener">Firebaseコンソールの使用状況ページ</a> でご確認ください。</div>';
+
   el.innerHTML = S;
 
   /* /logs は /data と別枠。件数と容量を読んで後から差し込む */
@@ -3672,6 +3682,142 @@ function renderStorageUsage() {
   } else {
     var t = le(); if (t) t.textContent = '📋 ログ: ローカルモードでは未使用';
   }
+}
+
+/* ===== Firebase Storage 使用量の実測（ボタン押下時のみ・自動実行しない） ===== */
+/* fbST.ref(path).listAll() は {items, prefixes} を返すが子孫を再帰しない。
+   memo/{ds}/ のような日付フォルダやtaskMemo/{uid}/{memoId}/ のような多階層があるため、
+   ここで自前に prefixes を辿って全item（ファイル）一覧を集める。DOM非依存でテスト可能。 */
+var _storageScanSkipped = 0; /* 測定中に一覧・サイズを取れなかった数（結果に添えて過小表示に気づけるようにする） */
+function _storageListAllRecursive(ref) {
+  return ref.listAll().then(function(res) {
+    var subPromises = res.prefixes.map(function(p) { return _storageListAllRecursive(p); });
+    return Promise.all(subPromises).then(function(subLists) {
+      var items = res.items.slice();
+      subLists.forEach(function(list) { items = items.concat(list); });
+      return items;
+    });
+  }).catch(function(err) {
+    /* フォルダ1つの一覧取得に失敗しても全体を止めない。数百ファイルを数十秒かけて数える
+       処理なので、途中の1回の失敗で最初からやり直しになるほうが困る。飛ばした数は
+       結果に添えて、合計が実際より少ない可能性を隠さない。 */
+    console.warn('Storage list failed:', ref.fullPath, err);
+    _storageScanSkipped++;
+    return [];
+  });
+}
+
+/* 同時実行数を制限しながら複数の非同期タスク（引数無し・Promiseを返す関数の配列）を回す極小のキュー。
+   数百ファイルへ一斉に getMetadata() を投げるとStorage側・回線への負荷が大きいため8本程度に絞る。
+   onEach(doneCount, totalCount, result) は1件終わるたびに呼ばれる（進捗表示用）。 */
+function _runLimited(tasks, limit, onEach) {
+  return new Promise(function(resolve, reject) {
+    var total = tasks.length;
+    if (!total) { resolve([]); return; }
+    var i = 0, active = 0, done = 0, results = new Array(total), failed = false;
+    function runOne(idx) {
+      active++;
+      tasks[idx]().then(function(v) {
+        results[idx] = v;
+        active--; done++;
+        if (onEach) onEach(done, total, v);
+        if (failed) return;
+        if (done === total) { resolve(results); return; }
+        pump();
+      }).catch(function(e) {
+        if (!failed) { failed = true; reject(e); }
+      });
+    }
+    function pump() {
+      if (failed) return;
+      while (active < limit && i < total) {
+        var idx = i; i++;
+        runOne(idx);
+      }
+    }
+    pump();
+  });
+}
+
+/* トップレベルフォルダ名 → 用途別カテゴリ。一致しないものは 'other' にまとめる。 */
+var STORAGE_CAT_LABELS = {
+  memo: '📝 申し送り', board: '📢 掲示板', manual: '📘 マニュアル',
+  task: '📋 タスク', taskMemo: '🔒 自分専用メモ', other: 'その他'
+};
+function storageCategoryOf(fullPath) {
+  var top = (fullPath || '').split('/')[0];
+  return STORAGE_CAT_LABELS.hasOwnProperty(top) ? top : 'other';
+}
+/* 集めたファイル一覧（{fullPath,size}[]）から合計・用途別の集計を作る。DOM非依存でテスト可能。 */
+function summarizeStorageFiles(files) {
+  var byCat = {}, total = { count: 0, bytes: 0 };
+  files.forEach(function(f) {
+    var cat = storageCategoryOf(f.fullPath);
+    if (!byCat[cat]) byCat[cat] = { count: 0, bytes: 0 };
+    byCat[cat].count++;
+    byCat[cat].bytes += (f.size || 0);
+    total.count++;
+    total.bytes += (f.size || 0);
+  });
+  return { total: total, byCat: byCat };
+}
+
+function measureStorageUsage() {
+  if (!isAdmin) return;
+  var box = document.getElementById('storage-fb-result');
+  if (!fbST) {
+    if (box) box.innerHTML = '<div style="color:var(--rd);font-size:12px">測定できませんでした（Storage未接続）</div>';
+    return;
+  }
+  if (box) box.innerHTML = '<button id="storage-fb-btn" class="btn btn-p btn-sm" disabled>測定中...</button><div style="font-size:12px;color:var(--txt3);margin-top:8px">ファイル一覧を取得中...</div>';
+
+  _storageScanSkipped = 0;
+  _storageListAllRecursive(fbST.ref('/')).then(function(items) {
+    var progEl = box;
+    if (progEl) progEl.innerHTML = '<button id="storage-fb-btn" class="btn btn-p btn-sm" disabled>測定中...</button><div style="font-size:12px;color:var(--txt3);margin-top:8px">0 / ' + items.length + ' 個を確認中...</div>';
+    var tasks = items.map(function(item) {
+      return function() {
+        return item.getMetadata().then(function(meta) {
+          return { fullPath: item.fullPath, size: meta.size || 0 };
+        }).catch(function() {
+          /* 1件のメタ取得失敗で全体を止めない。ただし0として黙って合計に混ぜると
+             実際より少ない数字が出たことに気づけないので、飛ばした数を数えておく。 */
+          _storageScanSkipped++;
+          return { fullPath: item.fullPath, size: 0 };
+        });
+      };
+    });
+    return _runLimited(tasks, 8, function(done, total) {
+      if (box) box.innerHTML = '<button id="storage-fb-btn" class="btn btn-p btn-sm" disabled>測定中...</button><div style="font-size:12px;color:var(--txt3);margin-top:8px">' + done + ' / ' + total + ' 個を確認中...</div>';
+    });
+  }).then(function(files) {
+    renderStorageFbResult(summarizeStorageFiles(files));
+  }).catch(function(err) {
+    console.error('Storage usage measure error:', err);
+    if (box) box.innerHTML = '<div style="color:var(--rd);font-size:12px">測定できませんでした（' + escH(String(err && err.message || err)) + '）</div><button class="btn btn-g btn-sm" style="margin-top:8px" onclick="measureStorageUsage()">🔄 再試行</button>';
+  });
+}
+
+function renderStorageFbResult(sum) {
+  var box = document.getElementById('storage-fb-result');
+  if (!box) return;
+  var order = ['memo', 'board', 'manual', 'task', 'taskMemo', 'other'];
+  var S = '';
+  S += '<div style="font-size:13px;font-weight:800;margin-bottom:8px">合計: ' + fmtBytes(sum.total.bytes) + '（' + sum.total.count + '件）</div>';
+  order.forEach(function(k) {
+    var c = sum.byCat[k];
+    if (!c) return;
+    S += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--bdr)">';
+    S += '<span>' + STORAGE_CAT_LABELS[k] + '</span><span style="color:var(--txt3)">' + c.count + '件 / ' + fmtBytes(c.bytes) + '</span>';
+    S += '</div>';
+  });
+  /* 一覧やサイズを取れなかった分があれば必ず添える。黙って0として合計に混ぜると、
+     実際より少ない数字を正確な値だと思って見ることになる。 */
+  if (_storageScanSkipped) {
+    S += '<div style="font-size:11px;color:var(--or);margin-top:8px">⚠ ' + _storageScanSkipped + '件は情報を取得できませんでした。合計はその分だけ少なく出ています</div>';
+  }
+  S += '<button class="btn btn-g btn-sm" style="margin-top:10px" onclick="measureStorageUsage()">🔄 再測定</button>';
+  box.innerHTML = S;
 }
 
 function setSyncLbl(text) {
@@ -4305,7 +4451,9 @@ function renderAdminManual() {
   S += '<div class="a-h1">9. データ容量の確認方法</div>';
   S += '<div class="a-step"><div class="a-num">DB</div><div>Firebase Console → Realtime Database → 「使用状況」タブ。500MB超えたら要注意。</div></div>';
   S += '<div class="a-step"><div class="a-num">画像</div><div>Firebase Console → Storage → 「使用状況」タブ。3GB超えたら古いファイルを整理。</div></div>';
-  S += '<div class="a-warn">⚠ 無料枠：DB 1GB / Storage 5GB。画像1枚は圧縮後約200KB、動画は最大50MB/本。</div>';
+  /* Storage の無料枠は書かない——2024年9月以降 Cloud Storage for Firebase は無料プランをサポートせず、
+     枠と料金はプラン・リージョンで変わる。固定値を書くと「5GBまでは無料」と誤解させる。 */
+  S += '<div class="a-warn">⚠ DBの無料枠は1GB。画像1枚は圧縮後約200KB、動画は最大50MB/本。画像・動画の容量と料金はプランにより異なります（📦 ストレージ使用状況の測定ボタンと、Firebaseコンソールで確認できます）。</div>';
 
   // 第10章: アプリ内ユーザー管理
   S += '<div class="a-h1">10. アプリ内ユーザー管理（管理者設定タブ）</div>';
@@ -4696,8 +4844,11 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/06-61';
+var APP_VERSION = 'Ver.2026/09/08-62';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/08-62', date:'2026-09-08', title:'ストレージ使用状況に画像・動画（Firebase Storage）の実測を追加', items:[
+    {t:'new', d:'☁️ 管理資料のストレージ使用状況に「画像・動画（Firebase Storage）」を追加しました。ボタンを押すと申し送り・掲示板・マニュアル・タスク等の添付ファイルを用途別に集計します（自動計測はしません）', admin:true}
+  ]},
   { ver:'Ver.2026/09/06-61', date:'2026-09-06', title:'実績のオペ・カテ内訳を科→中カテゴリ→術式で詳しく見られるようにしました', items:[
     {t:'imp', d:'🎓 実績サブタブのオペ・カテ内訳に「詳しく見る（年度）」を追加しました。開くと科→中カテゴリ→術式の3階層で年度累計の全件を件数の多い順に確認できます'}
   ]},
@@ -5331,7 +5482,7 @@ function renderDev() {
   [['ホスティング','GitHub Pages（無料）'],
    ['DB','Firebase Realtime Database・無料枠1GB'],
    ['DBパス','/data（本体）/board /backups /backup_meta /recent_backup /logs /admins /users /userPerms'],
-   ['ストレージ','Firebase Storage（画像・動画）・無料枠5GB'],
+   ['ストレージ','Firebase Storage（画像・動画）。容量と料金はプランによる（コンソールで確認）'],
    ['認証','Firebase Authentication（メール+パスワード）'],
    ['管理者判定','Firebase /admins/{uid}: true（アプリ内 管理者設定タブからも付与可）'],
    ['localStorageキー','ce2（本体FB未接続フォールバック）/ ce2_autobk（PC自動BK・5件）/ ce2_boardread（掲示板既読時刻）/ ce2_lastfbsnap（最終FBスナップ日）'],
@@ -14489,7 +14640,7 @@ function _doPostMemoReply(ds, mkey, text) {
   var pending = buf.length;
   buf.forEach(function(mm, idx) {
     var path = 'memo/' + ds + '/reply_' + ts + '_' + idx + '_' + mm.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, mm.blob || mm.data, function(url, fallback) {
+    uploadToStorage(path, mm.blob || mm.data, function(url, fallback, size) {
       if (!url && !fallback) { /* Storage未接続かつ大きすぎ → この画像はあきらめる */
         pending--; if (pending === 0) _finishPostMemoReply(ds, mkey, reply, text, sendBtn);
         return;
@@ -14498,6 +14649,7 @@ function _doPostMemoReply(ds, mkey, text) {
         type: 'image', name: mm.name,
         url: url || fallback,
         storagePath: url ? path : null,
+        size: size || null,
         data: url ? null : fallback
       });
       pending--;
@@ -14598,15 +14750,16 @@ function _uploadFallback(dataOrBlob, callback) {
     : (typeof dataOrBlob === 'string' ? dataOrBlob.length * 0.75 : 0);
   if (FB_ON && size > B64_FALLBACK_SIZE_LIMIT) {
     _b64FallbackAlertOnce();
-    callback(null, null);
+    callback(null, null, null);
     return;
   }
   if (dataOrBlob instanceof Blob) {
     var reader = new FileReader();
-    reader.onload = function(e){ callback(null, e.target.result); };
+    /* base64フォールバックはRTDB側の容量なのでsizeは常にnull（Storage使用量の集計に混ぜない） */
+    reader.onload = function(e){ callback(null, e.target.result, null); };
     reader.readAsDataURL(dataOrBlob);
   } else {
-    callback(null, dataOrBlob);
+    callback(null, dataOrBlob, null);
   }
 }
 function uploadToStorage(path, dataOrBlob, callback) {
@@ -14621,10 +14774,13 @@ function uploadToStorage(path, dataOrBlob, callback) {
     ? ref.put(dataOrBlob)
     : ref.putString(dataOrBlob, 'data_url');
 
-  uploadPromise.then(function() {
+  var uploadedSize = null;
+  uploadPromise.then(function(snapshot) {
+    /* snapshot.metadata.size がアップロード済みバイト数。取れなければnullのまま */
+    uploadedSize = (snapshot && snapshot.metadata && typeof snapshot.metadata.size === 'number') ? snapshot.metadata.size : null;
     return ref.getDownloadURL();
   }).then(function(url) {
-    callback(url, null);
+    callback(url, null, uploadedSize);
   }).catch(function(err) {
     console.error('Storage upload error:', err);
     /* エラー時：フォールバック（サイズにより添付自体を諦める場合あり） */
@@ -15378,7 +15534,7 @@ function _doPostMemo(ds) {
   var pending = buf.length;
   buf.forEach(function(m, idx) {
     var path = 'memo/' + ds + '/' + ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+    uploadToStorage(path, m.blob || m.data, function(url, fallback, size) {
       if (!url && !fallback) {
         /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
         pending--;
@@ -15390,6 +15546,7 @@ function _doPostMemo(ds) {
         name:        m.name,
         url:         url || fallback,     /* StorageURL or base64 */
         storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
+        size:        size || null,
         data:        url ? null : fallback /* base64フォールバック時 */
       });
       pending--;
@@ -18828,12 +18985,13 @@ function _uploadTaskMedia(pathPrefix, onDone) {
   var ts = Date.now(), pending = buf.length;
   buf.forEach(function(mm, idx){
     var path = pathPrefix + ts + '_' + idx + '_' + mm.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, mm.blob || mm.data, function(url, fallback){
+    uploadToStorage(path, mm.blob || mm.data, function(url, fallback, size){
       if (url || fallback) {
         media.push({
           type: 'image', name: mm.name,
           url: url || fallback,
           storagePath: url ? path : null,
+          size: size || null,
           data: url ? null : fallback
         });
       }
@@ -20480,7 +20638,7 @@ function _doPostBoard(text) {
   var pending = buf.length;
   buf.forEach(function(m, idx) {
     var path = 'board/' + post.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+    uploadToStorage(path, m.blob || m.data, function(url, fallback, size) {
       if (!url && !fallback) {
         /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
         pending--;
@@ -20492,6 +20650,7 @@ function _doPostBoard(text) {
         name:        m.name,
         url:         url || fallback,     /* StorageURL or base64 */
         storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
+        size:        size || null,
         data:        null
       });
       pending--;
@@ -20555,7 +20714,7 @@ function _doPostBoardReply(postId, text) {
   var pending = buf.length;
   buf.forEach(function(m, idx) {
     var path = 'board/reply_' + reply.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, m.blob || m.data, function(url, fallback) {
+    uploadToStorage(path, m.blob || m.data, function(url, fallback, size) {
       if (!url && !fallback) {
         /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
         pending--;
@@ -20567,6 +20726,7 @@ function _doPostBoardReply(postId, text) {
         name:        m.name,
         url:         url || fallback,
         storagePath: url ? path : null,
+        size:        size || null,
         data:        null
       });
       pending--;

@@ -746,6 +746,10 @@ Storage paths: `manual/{taskName}/…`, `memo/{ds}/…`, `memo/{ds}/reply_…`, 
 
 All image/video uploads (memo, memo reply, board post, board reply, manual, task) display immediately regardless of uploader — there is no admin approval gate. This was removed after real-world feedback that the review step was unnecessary friction; the earlier `pending: true` flag, the approve/reject UI, and the toolbar's pending-count badge were deleted outright rather than left dormant, since nothing sets `pending` anymore and no legacy `pending:true` records are known to exist in production. If a stray `pending:true` value is ever found on an old record, it is simply inert — no code reads that field anymore, so the media just displays like any other.
 
+**Media records carry `size`** (uploaded byte count, `null` for the base64 fallback path — that data lives in RTDB, not Storage, so it must not be mixed into Storage usage totals). `uploadToStorage(path, dataOrBlob, callback)`'s callback is `callback(url, fallback, size)` — `size` comes from `snapshot.metadata.size` on successful Storage upload. All 6 call sites (manual/memo/memo-reply/board/board-reply/task+taskMemo) attach it next to `storagePath`. Existing records predating this change simply have no `size` key — nothing back-fills them.
+
+**管理者向けストレージ画面（`renderStorageUsage`）の Firebase Storage 使用量は、開くたびに自動計測しない。** `measureStorageUsage()` がボタン押下時にだけ `fbST.ref('/').listAll()` を自前で再帰して全ファイルを集め（`listAll` は子孫を再帰しない）、Storage SDKの `getMetadata` を同時実行8本に絞って呼ぶ。用途別（`memo`/`board`/`manual`/`task`/`taskMemo`＋その他）の件数・合計サイズだけを表示し、**無料枠との比較バーは出さない**——RTDBの1GBと違い Storage の無料枠はプラン・リージョンで変わり、2024年9月以降 Spark（無料）プランは Cloud Storage for Firebase を新規サポートしていないため、固定値をアプリに書くと誤った安心・不安を与える。正確な使用量・請求額は Firebase コンソールの使用状況ページへのリンクに委ねる。
+
 ### Fairness Check（CE公平性 / HD公平性）
 
 担当表タブのサブタブ2枚。どちらも `asY/asM` の1か月ぶんを「スタッフ×列」の回数マトリクスにし、列ごとに最多(赤)/最少(青)を強調、`max−min ≥ FAIR_GAP_WARN`（既定3）で偏り警告を出す。`D.stfHidden` のスタッフは除外する。
