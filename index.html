@@ -514,6 +514,24 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-end-time{font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:3px 6px;background:var(--sur2);color:var(--txt)}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
 .ops-add-btn:hover{background:var(--ac);color:var(--on-ac)}
+/* 使用物品チップ（症例行・選択パネル共通）。.ops-staff-chipと同じ作りで、
+   マスタに無い品名（過去の自由記述・パネルの自由記述）だけ点線枠にする */
+.sup-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:2px 4px 2px 8px}
+.sup-chip.free{border-style:dotted}
+.sup-chip-x{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:12px;padding:0 3px;line-height:1}
+.sup-chip-x:hover{color:var(--rd)}
+/* 使用物品の選択パネル（下からせり上がるシート）。色は既存のCSS変数のみを使う */
+.ov.sup-sheet-ov{align-items:flex-end;padding:0}
+.sup-sheet{background:var(--sur);width:100%;max-width:520px;max-height:80vh;border-radius:14px 14px 0 0;box-shadow:var(--shl);display:flex;flex-direction:column;box-sizing:border-box;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px))}
+.sup-sheet-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;padding-bottom:8px;border-bottom:1px solid var(--bdr);margin-bottom:10px}
+.sup-sheet-body{overflow-y:auto;flex:1;min-height:0}
+.sup-sheet-sec{margin-bottom:14px}
+.sup-sheet-sec:last-child{margin-bottom:0}
+.sup-sheet-lbl{font-size:11px;font-weight:700;color:var(--txt3);margin-bottom:5px}
+.sup-pick-chip{font-size:12px;border:1.5px solid var(--bdr);border-radius:14px;padding:5px 12px;background:var(--sur2);color:var(--txt2);cursor:pointer}
+.sup-pick-chip.on{background:var(--ac);color:var(--on-ac);border-color:var(--ac)}
+.sup-pick-btn{font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:7px 12px;background:var(--sur2);color:var(--txt);cursor:pointer;text-align:left}
+.sup-pick-btn.on{background:var(--ac);color:var(--on-ac);border-color:var(--ac)}
 
 /* ===== 集計画面（OC集計・業務集計）共通UI =====
    期間・ビュー切替は同じ視覚言語の「セグメントコントロール」に統一し、バッジ・カード・
@@ -1547,12 +1565,12 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
               </div>
             </div>
             <div data-perm="mst" data-mode="ce">
-              <div class="pt">🧰 使用物品マスタ（カテゴリ→種別→品名）</div>
-              <div class="pn" style="margin-bottom:8px;font-size:11px">物品を3階層で管理。</div>
+              <div class="pt">🧰 使用物品マスタ（科→種類→品名）</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">物品を3階層で管理。症例の科でパネルを開けるよう、術式マスタと同じ科名で揃えてください。</div>
               <div id="sup-tree-list"></div>
               <div class="tree-add-row" style="margin-top:6px">
-                <input type="text" id="in-sup-dept" placeholder="＋ 新しいカテゴリを追加…">
-                <button onclick="addSupTreeDept()">カテゴリを追加</button>
+                <input type="text" id="in-sup-dept" placeholder="＋ 新しい科を追加…">
+                <button onclick="addSupTreeDept()">科を追加</button>
               </div>
             </div>
             <div data-perm="mst" data-mode="hd">
@@ -2526,24 +2544,49 @@ var DEF_CATH_TREE = [
   ]}
 ];
 
+/* 使用物品マスタは 科→種類→品名 の3階層（DEF_OPE_TREEの科名に揃える）。
+   症例の科でパネルを最初から開けるようにするための形で、共通物品（清潔手袋など）は
+   科ごとに重複登録している（表記ゆれ対策はマスタ品名追加時の候補表示で補う）。 */
 var DEF_SUP_TREE = [
-  { dept:'電気デバイス', cats:[
+  { dept:'一般外科', cats:[
     { name:'電気メス',   items:['バイポーラ鑷子','モノポーラ電気メス','アルゴンプラズマ凝固（APC）'] },
-    { name:'超音波',     items:['ハーモニックスカルペル','CUSA（超音波外科吸引器）','LigaSure'] }
+    { name:'自動縫合器', items:['直線型自動縫合器（Endo TA）','円形吻合器（EEA）','Endo GIA'] },
+    { name:'滅菌用品',   items:['清潔手袋（サージカル）','ドレープセット','吸引管（ヤンカー）','電極板'] }
   ]},
-  { dept:'縫合・吻合', cats:[
-    { name:'自動縫合器', items:['直線型自動縫合器（Endo TA）','円形吻合器（EEA）','Endo GIA','自動縫合器（TX/TL）'] },
-    { name:'クリップ等', items:['血管クリップ（ヘモロック）','チタンクリップ','吸収性クリップ'] }
+  { dept:'心臓外科', cats:[
+    { name:'モニタリング', items:['Swan-Ganzカテーテル','FloTrac（心拍出量）','IABPバルーン','BIS（脳波）モニタ'] },
+    { name:'縫合・吻合',   items:['血管クリップ（ヘモロック）','チタンクリップ','自動縫合器（TX/TL）'] },
+    { name:'滅菌用品',     items:['清潔手袋（サージカル）','ドレープセット','電極板'] }
   ]},
-  { dept:'モニタリング', cats:[
-    { name:'脳神経',   items:['BIS（脳波）モニタ','神経刺激装置（筋弛緩）','脳酸素モニタ（NIRS）'] },
-    { name:'循環',     items:['Swan-Ganzカテーテル','FloTrac（心拍出量）','IABPバルーン'] }
+  { dept:'整形外科', cats:[
+    { name:'モニタリング', items:['神経刺激装置（筋弛緩）','BIS（脳波）モニタ'] },
+    { name:'滅菌用品',     items:['清潔手袋（サージカル）','ドレープセット','電極板'] },
+    { name:'特殊器材',     items:['3Mドレープ（透明）','Ioban（ヨードドレープ）'] }
   ]},
-  { dept:'滅菌用品', cats:[
-    { name:'基本',  items:['清潔手袋（サージカル）','ドレープセット','吸引管（ヤンカー）','電極板'] },
-    { name:'特殊',  items:['3Mドレープ（透明）','Ioban（ヨードドレープ）'] }
+  { dept:'泌尿器科', cats:[
+    { name:'電気デバイス', items:['モノポーラ電気メス','バイポーラ鑷子','ハーモニックスカルペル'] },
+    { name:'滅菌用品',     items:['清潔手袋（サージカル）','ドレープセット','吸引管（ヤンカー）'] }
+  ]},
+  { dept:'その他', cats:[
+    { name:'電気デバイス', items:['モノポーラ電気メス','バイポーラ鑷子'] },
+    { name:'滅菌用品',     items:['清潔手袋（サージカル）','ドレープセット'] }
   ]}
 ];
+
+/* _migVer 6：旧・使用物品マスタ（大カテゴリ→種類→品名）を「共通（旧マスタ）」科の下へ
+   機械的に移す。旧の大カテゴリ名はそのまま「種類」名として使い、旧の中カテゴリは畳んで
+   品名を種類の下へ直接まとめる（品名が重複していたら1つに）。データは何も消えない。 */
+function migrateSupTreeToDept(oldTree){
+  if (!oldTree || !oldTree.length) return oldTree;
+  var cats = oldTree.map(function(d){
+    var seen = {}, items = [];
+    (d.cats||[]).forEach(function(c){
+      (c.items||[]).forEach(function(nm){ if(nm && !seen[nm]){ seen[nm]=true; items.push(nm); } });
+    });
+    return { name: d.dept, items: items };
+  });
+  return [{ dept:'共通（旧マスタ）', cats: cats }];
+}
 
 /* ===== STATE ===== */
 var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
@@ -2800,6 +2843,13 @@ function loadD() {
     if (!D._migVer || D._migVer < 5) {
       Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg) ensureStaffZone(pg); });
       D._migVer = 5;
+    }
+    /* v6: 使用物品マスタを 科→種類→品名 の形に組み替え。旧データが有る（s.supTreeが空でない）
+       ときだけ「共通（旧マスタ）」科へ移す。旧データが無い新規環境はD.supTreeが既に
+       新形式のDEF_SUP_TREEなので、ここでは何もしない（二重包みを防ぐ） */
+    if (!D._migVer || D._migVer < 6) {
+      if (s.supTree && s.supTree.length) D.supTree = migrateSupTreeToDept(D.supTree);
+      D._migVer = 6;
     }
     ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
@@ -3108,6 +3158,14 @@ function fbInit() {
             if (!D._migVer || D._migVer < 5) {
               Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg) ensureStaffZone(pg); });
               D._migVer = 5;
+              saveD();
+            }
+            /* v6: 使用物品マスタを 科→種類→品名 の形に組み替え。旧データが有る（d.supTreeが
+               空でない）ときだけ「共通（旧マスタ）」科へ移す。新規環境（旧データ無し）は
+               既に新形式のDEF_SUP_TREEなので何もしない（二重包みを防ぐ） */
+            if (!D._migVer || D._migVer < 6) {
+              if (d.supTree && d.supTree.length) D.supTree = migrateSupTreeToDept(D.supTree);
+              D._migVer = 6;
               saveD();
             }
             setSyncLbl('同期済');
@@ -5012,8 +5070,12 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/09-66';
+var APP_VERSION = 'Ver.2026/09/10-67';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/10-67', date:'2026-09-10', title:'オペの使用物品を続けて選べるようにしました', items:[
+    {t:'imp', d:'🔪 オペの症例行「使用物品」を、下から出るパネルでボタンをタップし続けて選ぶ方式にしました。1つ選んでもパネルは閉じないので、複数の物品を続けて選べます。直接入力欄は廃止し、自由記述はパネル内の「✏️ 自由記述」ボタンから入力します'},
+    {t:'imp', d:'📋 使用物品マスタを「科→種類→品名」の3階層に組み替えました。既存のマスタは自動で「共通（旧マスタ）」科の下へ移り、内容は消えません。品名を追加するとき、他の科に登録済みの品名を候補として表示します（表記ゆれ対策）', admin:true}
+  ]},
   { ver:'Ver.2026/09/09-66', date:'2026-09-09', title:'古いバックアップが消えずに残る不具合を修正しました', items:[
     {t:'fix', d:'☁️ 保持期間（7日）を過ぎたバックアップが消えずに残ることがある不具合を修正しました。掃除はログイン時にも走るようになり、失敗したときは次回やり直します', admin:true}
   ]},
@@ -11110,6 +11172,13 @@ function renderTree(elId, tree, saveKey, icons) {
   var l = document.getElementById(elId); if (!l) return;
   l.innerHTML = '';
   var openSt = treeOpenState(elId);
+  /* 使用物品マスタだけ、品名追加欄に全科の登録済み品名を datalist で添える
+     （表記ゆれ対策。術式マスタ（opeTree/cathTree）には出さない）。 */
+  if (saveKey === 'supTree') {
+    var supDL = document.createElement('datalist'); supDL.id = 'sup-master-item-datalist';
+    supAllItemNames().forEach(function(nm){ var o=document.createElement('option'); o.value=nm; supDL.appendChild(o); });
+    l.appendChild(supDL);
+  }
   (tree || []).forEach(function(dept, di) {
     var deptDiv = document.createElement('div'); deptDiv.className = 'tree-dept';
     var deptHd = document.createElement('div'); deptHd.className = 'tree-dept-hd';
@@ -11171,6 +11240,7 @@ function renderTree(elId, tree, saveKey, icons) {
       /* 術式追加 */
       var addItemRow = document.createElement('div'); addItemRow.className='tree-add-row';
       var addItemInp = document.createElement('input'); addItemInp.type='text'; addItemInp.placeholder='術式・品名を追加…';
+      if (saveKey === 'supTree') addItemInp.setAttribute('list', 'sup-master-item-datalist');
       var addItemBtn = document.createElement('button'); addItemBtn.textContent='追加';
       addItemBtn.onclick=(function(di2,ci2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;if(!tr[di2].cats[ci2].items)tr[di2].cats[ci2].items=[];tr[di2].cats[ci2].items.push(v);inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+tr[di2].cats[ci2].name]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);_focusTreeInput(eid,di2,ci2,'item');}})(di,ci,addItemInp,elId,tree,saveKey,icons);
       addItemInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addItemBtn);
@@ -11192,7 +11262,7 @@ function renderTree(elId, tree, saveKey, icons) {
 }
 function renderOpeTree()  { renderTree('ope-tree-list',  D.opeTree,  'opeTree',  ['🔬','📂','🔪']); }
 function renderCathTree() { renderTree('cath-tree-list', D.cathTree, 'cathTree', ['🔬','📂','🫀']); }
-function renderSupTree()  { renderTree('sup-tree-list',  D.supTree,  'supTree',  ['📦','📂','🧰']); }
+function renderSupTree()  { renderTree('sup-tree-list',  D.supTree,  'supTree',  ['🔬','📂','🧰']); }
 
 function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById('in-ope-dept').value='';treeOpenState('ope-tree-list').depts[v]=true;saveD();renderOpeTree();_focusTreeInput('ope-tree-list',D.opeTree.length-1,null,'cat'); }
 function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';treeOpenState('cath-tree-list').depts[v]=true;saveD();renderCathTree();_focusTreeInput('cath-tree-list',D.cathTree.length-1,null,'cat'); }
@@ -13271,10 +13341,24 @@ function opsItemSup(it){
   if (!it || !it.sup) return [];
   return Array.isArray(it.sup) ? it.sup : Object.keys(it.sup).map(function(k){ return it.sup[k]; });
 }
+/* 使用物品マスタ（D.supTree）の全品名（科をまたいで重複除去）。マスタで品名を追加する
+   ときの表記ゆれ対策の候補（他の科の登録済み品名）と、症例行チップの「マスタに無い
+   品名」判定（点線枠）、自由記述の datalist で使う。 */
+function supAllItemNames(){
+  var seen = {}, out = [];
+  (D.supTree||[]).forEach(function(d){
+    (d.cats||[]).forEach(function(c){
+      (c.items||[]).forEach(function(nm){ if(nm && !seen[nm]){ seen[nm]=true; out.push(nm); } });
+    });
+  });
+  return out;
+}
 /* 使用物品の折り返し表示。<input>は1行しか見えず、件数が多いと未フォーカス時に
    枠外が見切れるため、入力欄の下に読み取り用のビューを添える。品目名の内部
    （.sup-tok）は white-space:nowrap で改行させず、品目と品目の間（カンマの後）
-   だけで折り返す。 */
+   だけで折り返す。**フラット版 `buildItemList`（D.opeTreeが空のときだけ使う旧経路）
+   専用**——ツリー版 `buildItemListTree` は物品選択パネル（openSupPicker）＋チップ表示に
+   置き換わり、この折り返しビューを使わなくなった。 */
 function supViewHTML(supArr){
   if (!supArr || !supArr.length) return '';
   return '<div class="ops-sup-view">' + supArr.map(function(s){
@@ -13298,6 +13382,166 @@ function opsItemName(it){
   if (it.name === '__free__') return it.nameTxt || '';
   if (it.sel === '__free__') return it.txt || '';
   return it.sel || '';
+}
+
+/* ===== 使用物品の選択パネル（下から出るシート） =====
+   症例行の「🧰 物品を選ぶ」から開く。プルダウンを何度も開かずに、品名ボタンを
+   タップし続けて選べるようにするためのもの（トグル＝もう一度タップで外れる）。
+   症例行の items はその行を描画したときのクロージャなので、パネル側は毎回
+   D.pages[ds].ops[key][idx] を引き直して読み書きする（Stale closure bug対策。
+   引き直せなければトーストを出して閉じる）。「完了」（またはシート外タップ）で
+   閉じたら safeRenderPage() を呼び、症例行を作り直す——これをしないと、古い
+   クロージャの items が次の入力（担当者・終了など）でここでの変更を上書きする。 */
+function supPickerLiveItem(ds, key, idx){
+  var pg = D.pages[ds];
+  if (!pg || !pg.ops || !pg.ops[key] || !pg.ops[key][idx]) return null;
+  return pg.ops[key][idx];
+}
+function openSupPicker(ds, key, idx){
+  if (!supPickerLiveItem(ds, key, idx)) { toast('この症例行は見つかりませんでした', 'warn'); return; }
+  var state = { dept:'', type:'', freeOpen:false };
+  var initDept = opsItemDept(supPickerLiveItem(ds, key, idx));
+  if ((D.supTree||[]).some(function(d){ return d.dept === initDept; })) state.dept = initDept;
+
+  var ov = document.createElement('div'); ov.id = 'sup-picker-ov'; ov.className = 'ov sup-sheet-ov';
+  ov.onclick = function(e){ if (e.target === ov) closeSheet(); };
+  var sheet = document.createElement('div'); sheet.className = 'sup-sheet';
+  var hd = document.createElement('div'); hd.className = 'sup-sheet-hd';
+  var hdTtl = document.createElement('h3'); hdTtl.style.margin = '0'; hdTtl.textContent = '🧰 使用物品を選ぶ';
+  var doneBtn = document.createElement('button'); doneBtn.type = 'button'; doneBtn.className = 'btn btn-p btn-sm'; doneBtn.textContent = '完了';
+  doneBtn.onclick = function(){ closeSheet(); };
+  hd.appendChild(hdTtl); hd.appendChild(doneBtn);
+  var body = document.createElement('div'); body.className = 'sup-sheet-body';
+  sheet.appendChild(hd); sheet.appendChild(body);
+  ov.appendChild(sheet); document.body.appendChild(ov);
+
+  function closeSheet(){
+    var o = document.getElementById('sup-picker-ov'); if (o) o.remove();
+    safeRenderPage(); /* 古いクロージャのitemsを作り直す（Stale closure bug対策） */
+  }
+
+  function render(){
+    var liveIt = supPickerLiveItem(ds, key, idx);
+    if (!liveIt) { toast('この症例行は見つかりませんでした', 'warn'); closeSheet(); return; }
+    var sel = opsItemSup(liveIt);
+    var masterNames = supAllItemNames();
+    /* タップのたびに中身を作り直すので、スクロール位置を保持する。保持しないと
+       品名が多い種類で下の方を選ぶたびに先頭へ戻され、続けて選べなくなる */
+    var keepTop = body.scrollTop;
+    body.innerHTML = '';
+
+    /* 選択中の一覧 */
+    var selSec = document.createElement('div'); selSec.className = 'sup-sheet-sec';
+    if (sel.length) {
+      var selWrap = document.createElement('div'); selWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px';
+      sel.forEach(function(s, si){
+        var chip = document.createElement('span'); chip.className = 'sup-chip' + (masterNames.indexOf(s) === -1 ? ' free' : '');
+        var t = document.createElement('span'); t.textContent = s; chip.appendChild(t);
+        var x = document.createElement('button'); x.type = 'button'; x.className = 'sup-chip-x'; x.textContent = '×'; x.title = 'この物品を外す';
+        x.onclick = (function(si2){ return function(){
+          var it2 = supPickerLiveItem(ds, key, idx); if (!it2) { toast('この症例行は見つかりませんでした', 'warn'); closeSheet(); return; }
+          var arr = opsItemSup(it2).slice(); arr.splice(si2, 1); it2.sup = arr;
+          saveDPage(ds); updateOpsHeader(ds); render();
+        }; })(si);
+        chip.appendChild(x);
+        selWrap.appendChild(chip);
+      });
+      selSec.appendChild(selWrap);
+    } else {
+      var empty = document.createElement('div'); empty.style.cssText = 'font-size:12px;color:var(--txt3)'; empty.textContent = 'まだ選んでいません';
+      selSec.appendChild(empty);
+    }
+    body.appendChild(selSec);
+
+    /* 科チップ（症例の科と一致すれば最初から選択） */
+    var deptSec = document.createElement('div'); deptSec.className = 'sup-sheet-sec';
+    var deptLbl = document.createElement('div'); deptLbl.className = 'sup-sheet-lbl'; deptLbl.textContent = '科';
+    deptSec.appendChild(deptLbl);
+    var deptWrap = document.createElement('div'); deptWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px';
+    (D.supTree||[]).forEach(function(d){
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'sup-pick-chip' + (d.dept === state.dept ? ' on' : ''); b.textContent = d.dept;
+      b.onclick = function(){ state.dept = (state.dept === d.dept) ? '' : d.dept; state.type = ''; render(); };
+      deptWrap.appendChild(b);
+    });
+    deptSec.appendChild(deptWrap);
+    body.appendChild(deptSec);
+
+    var dObj = (D.supTree||[]).filter(function(d){ return d.dept === state.dept; })[0];
+    if (!dObj) {
+      var hint = document.createElement('div'); hint.style.cssText = 'font-size:12px;color:var(--txt3);padding:2px 0 4px'; hint.textContent = '科を選んでください';
+      body.appendChild(hint);
+    } else {
+      if (!(dObj.cats||[]).some(function(c){ return c.name === state.type; })) state.type = (dObj.cats && dObj.cats[0]) ? dObj.cats[0].name : '';
+      /* 種類タブ */
+      var typeSec = document.createElement('div'); typeSec.className = 'sup-sheet-sec';
+      var typeLbl = document.createElement('div'); typeLbl.className = 'sup-sheet-lbl'; typeLbl.textContent = '種類';
+      typeSec.appendChild(typeLbl);
+      var typeWrap = document.createElement('div'); typeWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:5px';
+      (dObj.cats||[]).forEach(function(c){
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'sup-pick-chip' + (c.name === state.type ? ' on' : ''); b.textContent = c.name;
+        b.onclick = function(){ state.type = c.name; render(); };
+        typeWrap.appendChild(b);
+      });
+      typeSec.appendChild(typeWrap);
+      body.appendChild(typeSec);
+
+      /* 品名ボタン（トグル。タップで追加、もう一度で外す。押しても閉じない） */
+      var cObj = (dObj.cats||[]).filter(function(c){ return c.name === state.type; })[0];
+      if (cObj) {
+        var itemSec = document.createElement('div'); itemSec.className = 'sup-sheet-sec';
+        var itemWrapEl = document.createElement('div'); itemWrapEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px';
+        (cObj.items||[]).forEach(function(nm){
+          var on = sel.indexOf(nm) !== -1;
+          var b = document.createElement('button'); b.type = 'button'; b.className = 'sup-pick-btn' + (on ? ' on' : ''); b.textContent = nm;
+          b.onclick = function(){
+            var it2 = supPickerLiveItem(ds, key, idx); if (!it2) { toast('この症例行は見つかりませんでした', 'warn'); closeSheet(); return; }
+            var arr = opsItemSup(it2).slice();
+            var pos = arr.indexOf(nm);
+            if (pos === -1) arr.push(nm); else arr.splice(pos, 1);
+            it2.sup = arr;
+            saveDPage(ds); updateOpsHeader(ds); render();
+          };
+          itemWrapEl.appendChild(b);
+        });
+        itemSec.appendChild(itemWrapEl);
+        body.appendChild(itemSec);
+      }
+    }
+
+    /* 自由記述（マスタに無い品名を入れる唯一の経路。#mainの外なのでinitPHIGuardが
+       効かず、ここで明示的にphiGuardTextを通す） */
+    var freeSec = document.createElement('div'); freeSec.className = 'sup-sheet-sec';
+    if (state.freeOpen) {
+      var freeInp = document.createElement('input'); freeInp.type = 'text'; freeInp.className = 'fi';
+      freeInp.style.cssText = 'width:100%;box-sizing:border-box;margin:0 0 6px'; freeInp.placeholder = '品名を直接入力（、区切りで複数可）';
+      freeInp.setAttribute('list', 'sup-picker-item-datalist');
+      var freeDL = document.getElementById('sup-picker-item-datalist');
+      if (!freeDL) { freeDL = document.createElement('datalist'); freeDL.id = 'sup-picker-item-datalist'; document.body.appendChild(freeDL); }
+      freeDL.innerHTML = ''; masterNames.forEach(function(nm){ var o = document.createElement('option'); o.value = nm; freeDL.appendChild(o); });
+      var freeAddBtn = document.createElement('button'); freeAddBtn.type = 'button'; freeAddBtn.className = 'btn btn-p btn-sm'; freeAddBtn.textContent = '追加';
+      freeAddBtn.onclick = function(){
+        var names = freeInp.value.split(/[、,，]/).map(function(s){ return s.trim(); }).filter(Boolean);
+        if (!names.length) return;
+        phiGuardText(names.join('、'), function(){
+          var it2 = supPickerLiveItem(ds, key, idx); if (!it2) { toast('この症例行は見つかりませんでした', 'warn'); closeSheet(); return; }
+          var arr = opsItemSup(it2).slice();
+          names.forEach(function(n){ if (arr.indexOf(n) === -1) arr.push(n); });
+          it2.sup = arr;
+          saveDPage(ds); updateOpsHeader(ds);
+          state.freeOpen = false; render();
+        }, function(){ freeInp.focus(); });
+      };
+      freeSec.appendChild(freeInp); freeSec.appendChild(freeAddBtn);
+    } else {
+      var freeBtn = document.createElement('button'); freeBtn.type = 'button'; freeBtn.className = 'ops-staff-add'; freeBtn.textContent = '✏️ 自由記述';
+      freeBtn.onclick = function(){ state.freeOpen = true; render(); };
+      freeSec.appendChild(freeBtn);
+    }
+    body.appendChild(freeSec);
+    body.scrollTop = keepTop;
+  }
+
+  render();
 }
 
 /* ===== 選択ボックスの文字を枠内に収める =====
@@ -16746,25 +16990,6 @@ function buildOPS(ds,dat,locked) {
       h+='<option value="__free__">自由入力...</option>';
       return h;
     }
-    /* 使用物品ツリーセレクタ */
-    function makeSupTreeRow(onAdd) {
-      var wrap2=document.createElement('div'); wrap2.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px';
-      var dSel2=document.createElement('select'); dSel2.className='ops-sel'; dSel2.style.cssText='flex:1;min-width:80px;font-size:11px'; dSel2.disabled=!!locked;
-      var cSel2=document.createElement('select'); cSel2.className='ops-sel'; cSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; cSel2.disabled=!!locked;
-      var iSel2=document.createElement('select'); iSel2.className='ops-sel'; iSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; iSel2.disabled=!!locked;
-      var addBtn2=document.createElement('button'); addBtn2.type='button'; addBtn2.textContent='追加'; addBtn2.disabled=!!locked;
-      addBtn2.style.cssText='font-size:11px;padding:4px 10px;border:none;border-radius:var(--rs);background:var(--ac);color:var(--on-ac);cursor:pointer;flex-shrink:0';
-      var dOpts2='<option value="">+ 物品カテゴリ</option>';
-      (D.supTree||[]).forEach(function(d){ dOpts2+='<option value="'+escH(d.dept)+'">'+escH(d.dept)+'</option>'; });
-      dSel2.innerHTML=dOpts2;
-      if(!locked){
-        dSel2.onchange=function(){ var v=this.value; cSel2.style.display=v?'':'none'; var h2='<option value="">-- 種別 --</option>'; var dObj2=(D.supTree||[]).filter(function(d){return d.dept===v;})[0]; if(dObj2)(dObj2.cats||[]).forEach(function(c){ h2+='<option value="'+escH(c.name)+'">'+escH(c.name)+'</option>'; }); cSel2.innerHTML=h2; iSel2.style.display='none'; iSel2.innerHTML='<option value="">-- 品名 --</option>'; };
-        cSel2.onchange=function(){ var dept3=dSel2.value; var v=this.value; iSel2.style.display=v?'':'none'; var h3='<option value="">-- 品名 --</option>'; var dObj3=(D.supTree||[]).filter(function(d){return d.dept===dept3;})[0]; if(dObj3){var cObj3=(dObj3.cats||[]).filter(function(c){return c.name===v;})[0]; if(cObj3)(cObj3.items||[]).forEach(function(it){ h3+='<option value="'+escH(it)+'">'+escH(it)+'</option>'; });} iSel2.innerHTML=h3; };
-        addBtn2.onclick=function(){ var v=iSel2.value||cSel2.value||dSel2.value; if(!v)return; onAdd(v); dSel2.value=''; cSel2.innerHTML='<option value="">-- 種別 --</option>'; cSel2.style.display='none'; iSel2.style.display='none'; iSel2.innerHTML='<option value="">-- 品名 --</option>'; };
-      }
-      wrap2.appendChild(dSel2); wrap2.appendChild(cSel2); wrap2.appendChild(iSel2); wrap2.appendChild(addBtn2);
-      return wrap2;
-    }
 
     var wrap = document.createElement('div');
     wrap.id = 'ops-'+itemId+'-wrap';
@@ -16945,39 +17170,41 @@ function buildOPS(ds,dat,locked) {
         /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
         buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
 
-        /* 使用物品行（オペのみ）- itemWrapに追加してD&Dで一緒に動く */
+        /* 使用物品行（オペのみ）- itemWrapに追加してD&Dで一緒に動く。
+           品名は下から出るパネル（openSupPicker）で続けて選ぶ方式。選択中の品名は
+           チップで表示し、×で外せる（ロック時は×も選ぶボタンも出さない）。
+           マスタ（D.supTree）に無い品名（過去の自由記述・パネルの自由記述）は
+           点線チップにして、マスタ登録の手がかりが一目で分かるようにする。 */
         if(withSup){
           var supRow2=document.createElement('div'); supRow2.style.cssText='margin-top:4px;margin-bottom:4px;padding:8px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)';
           var supLbl2=document.createElement('div'); supLbl2.style.cssText='font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:5px'; supLbl2.textContent='🧰 使用物品';
           supRow2.appendChild(supLbl2);
-          /* 3段カスケード選択 */
-          var supTreeRow=makeSupTreeRow(function(v){
-            var cur=(item.sup&&item.sup.length)?item.sup.join(', '):'';
-            item.sup=(cur?cur+', '+v:v).split(',').map(function(s){return s.trim();}).filter(Boolean);
-            supInpEl.value=item.sup.join(', '); supViewEl2.innerHTML=supViewHTML(item.sup); saveItems();
-          });
-          supRow2.appendChild(supTreeRow);
-          /* テキスト入力（直接入力・カンマ区切り） */
-          var supInpEl=document.createElement('input'); supInpEl.type='text'; supInpEl.className='ops-txt'; supInpEl.style.cssText='width:100%;font-size:12px';
-          supInpEl.placeholder='または直接入力（カンマ区切りで複数可）'; supInpEl.disabled=!!locked;
-          supInpEl.value=(item.sup&&item.sup.length)?item.sup.join(', '):'';
-          /* 入力欄は1行しか見えず未フォーカス時に枠外が見切れるため、下に折り返し表示を添える */
-          var supViewEl2=document.createElement('div'); supViewEl2.innerHTML=supViewHTML(item.sup);
-          if(!locked){
-            supInpEl.oninput=(function(i2,el2){return function(){
-              items[i2].sup=el2.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-              supViewEl2.innerHTML=supViewHTML(items[i2].sup);
-              saveItems();
-            };})(idx,supInpEl);
-            supInpEl.onblur=(function(i2){return function(){
-              this.value=this.value.replace(/[,\s]+$/,'');
-              items[i2].sup=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-              supViewEl2.innerHTML=supViewHTML(items[i2].sup);
-              saveItems();
-            };})(idx);
+          var supArr2=opsItemSup(item);
+          var supMasterNames2=supAllItemNames();
+          if(supArr2.length){
+            var supChipsWrap2=document.createElement('div'); supChipsWrap2.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin-bottom:'+(locked?'0':'6px');
+            supArr2.forEach(function(s,si){
+              var chip=document.createElement('span'); chip.className='sup-chip'+(supMasterNames2.indexOf(s)===-1?' free':'');
+              var chipTxt=document.createElement('span'); chipTxt.textContent=s; chip.appendChild(chipTxt);
+              if(!locked){
+                var chipX=document.createElement('button'); chipX.type='button'; chipX.className='sup-chip-x'; chipX.textContent='×'; chipX.title='この物品を外す';
+                chipX.onclick=(function(i2,si2){return function(){
+                  var arr=opsItemSup(items[i2]).slice(); arr.splice(si2,1); items[i2].sup=arr;
+                  saveItems(); renderItems();
+                };})(idx,si);
+                chip.appendChild(chipX);
+              }
+              supChipsWrap2.appendChild(chip);
+            });
+            supRow2.appendChild(supChipsWrap2);
           }
-          supRow2.appendChild(supInpEl);
-          supRow2.appendChild(supViewEl2);
+          if(!locked){
+            var supPickBtn2=document.createElement('button'); supPickBtn2.type='button'; supPickBtn2.className='ops-staff-add'; supPickBtn2.textContent='🧰 物品を選ぶ';
+            /* パネルはこの行のクロージャの外（#mainの外）で動くため、開く前に一旦保存して
+               Dにこの行の実体を作っておく（未保存の初期行だとパネル側が見つけられない） */
+            supPickBtn2.onclick=(function(i2){return function(){ saveItems(); openSupPicker(ds, key, i2); };})(idx);
+            supRow2.appendChild(supPickBtn2);
+          }
           itemWrap.appendChild(supRow2);
         }
         wrap.appendChild(itemWrap);

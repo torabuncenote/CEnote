@@ -434,6 +434,7 @@ All class names are abbreviated:
 | `can(id)` / `lk(id)` | Access control helpers |
 | `opsHeaderChips(opeN, cathN, mwN, psgN, psgRemoval, opeDone, cathDone)` | Builds 業務 header chips (5th arg = PSG外し flag; 6th/7th = 業務終了済み件数 → 「2/3件終了」進捗表示) |
 | `updateOpsHeader(ds)` | Refreshes `#ops-header-row` DOM element dynamically |
+| `openSupPicker(ds, key, idx)` | 症例行の使用物品を続けて選ぶ下シート型パネル（詳細は OPE/カテカード節） |
 | `updatePsgRemovalBanner(ds)` | Shows/hides `#psg-removal-banner` (today only, within `psgBannerStart`–`psgBannerEnd`) |
 | `toggleStfHidden(name)` | Toggle `D.stfHidden[name]`; affects AT columns, dropdowns, fairness matrix |
 | `setAtZoom(z)` / `initAtPinchZoom()` | 担当表ピンチズーム（ease-out animation for buttons, GPU transform during pinch） |
@@ -591,6 +592,8 @@ dat.placement = {
 
 ### OPE / カテカード（buildOPS内）
 
+3階層マスタは `D.opeTree`/`D.cathTree`/`D.supTree` の3本。`opeTree`/`cathTree` は「科→中カテゴリ→術式」（症例そのものを選ぶ）だが、**`D.supTree` は「科→種類→品名」**（症例で使う物品を選ぶ）で階層の意味が違う——症例の科（`opsItemDept(it)`）に合わせて `openSupPicker()` を開けるように、術式マスタと同じ科名で揃える設計。共通物品（清潔手袋など）は科ごとに重複登録してよい（表記ゆれ対策はマスタ品名追加時の他科候補表示で補う）。
+
 `buildItemList(card, key, masterList, labelName, itemId, withTime, withOrder, withSup, withDept)` and `buildItemListTree(card, key, masterTree, labelName, itemId, withTime, withOrder, withSup)` build per-item rows inside an ops card.
 
 - OPE card: `withTime=true, withOrder=false, withSup=true`
@@ -602,7 +605,9 @@ dat.placement = {
 
 **症例ごとの備考**: `item.note`（1症例=1行ごとの備考、`buildItemList`/`buildItemListTree` 共通）。値が空なら「＋備考」リンクのみ表示し、1文字でも入っていれば開いたまま（担当カードの備考欄と同じ開閉パターン）。カード全体で1つだけの旧仕様（`ops.ope_note`/`ops.cath_note`）は新規作成不可になったが、既存値があるカードだけ「📝 備考（旧・カード共通）」として表示・編集を残す（値は消さない）。横断検索も `item.note` を対象に含む。
 
-**使用物品の折り返し表示**: `item.sup`（カンマ区切りで直接入力する `<input>`）は仕様上1行しか見えず、品目を入れすぎると未フォーカス時に枠外が見切れる。`supViewHTML(supArr)`（`opsItemSup` の直後で定義）が入力欄の下に読み取り専用の折り返しビュー（`.ops-sup-view`）を生成する — 各品目を `.sup-tok`（`white-space:nowrap`）で包むことで、品目名の途中では改行させず、品目とカンマの間でだけ折り返す。`buildItemList`/`buildItemListTree` 双方の入力（`oninput`/`onblur`/カスケード選択の追記）が値を変えるたびに `supViewEl.innerHTML = supViewHTML(...)` で更新する。
+**使用物品（`item.sup`、品名の文字列配列）はツリー版とフラット版で入力方法が違う。** フラット版 `buildItemList`（`D.opeTree` が空のときだけ使う旧経路）は今もカンマ区切りの `<input>` 直接入力で、1行しか見えず品目を入れすぎると未フォーカス時に枠外が見切れるため、`supViewHTML(supArr)`（`opsItemSup` の直後で定義）が入力欄の下に読み取り専用の折り返しビュー（`.ops-sup-view`、各品目を `.sup-tok` で包み品目名の途中では改行させない）を添える。**ツリー版 `buildItemListTree`（通常経路）は自由記述の `<input>` を廃止し**、選択中の品名を `.sup-chip`（×で外せる）で表示、「🧰 物品を選ぶ」ボタンから `openSupPicker()` の選択パネルを開く方式に変えた——自由記述だとマスタにある物品を別の書き方で書いてしまい、CE集計の使用物品別カードで同じ物品が表記ゆれで分かれてしまう問題があったため。自由記述はパネル内の「✏️ 自由記述」ボタンからのみ入力でき、マスタ（`D.supTree`）に無い品名は `.sup-chip.free`（点線枠）で区別する。過去に保存された自由記述の値はそのまま表示し、書き換えない。
+
+**使用物品の選択パネル（`openSupPicker(ds, key, idx)`）**：症例行の「🧰 物品を選ぶ」から開く、`<body>` 直下の動的モーダル（下から出るシート、`.sup-sheet`）。上から「選択中の一覧」→「科チップ」（症例の `opsItemDept(it)` と一致する科を最初から選択）→「種類タブ」→「品名ボタン」（タップで追加・もう一度で外すトグル。押しても閉じない）→「✏️ 自由記述」の順。症例行の `items` は描画時のクロージャなので、パネル内の操作は毎回 `supPickerLiveItem(ds, key, idx)`（＝ `D.pages[ds].ops[key][idx]`）を引き直して読み書きし、`saveDPage(ds)` ＋ `updateOpsHeader(ds)` で保存する（引き直せなければトーストを出して閉じる）。「完了」（またはシート外タップ）で閉じると `safeRenderPage()` を呼び症例行を作り直す——呼ばないと、古いクロージャの `items` が次の入力（担当者・終了など）でパネルでの変更を上書きする（Stale closure bug）。ボタンは開く直前に `saveItems()` を呼んでから `openSupPicker` を呼ぶ（未保存の初期行でも `D` に実体を作っておくため）。自由記述は `#main` の外なので `initPHIGuard` が効かず、`phiGuardText()` を明示的に通す。`writeLog` はこの症例行の他の編集（担当者・終了時刻など）に合わせて出さない。
 
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
@@ -965,6 +970,6 @@ Since everything is in one file, search for function names or CSS classes to loc
 - After mutating `D`, call `saveD()`.
 - For rendering, call the targeted function (e.g., `renderStfList()`) rather than `renderPage()` to avoid full re-renders.
 - `renderPage()` must sometimes be called **before** `saveD()` to avoid the Firebase echo overwriting the new UI state.
-- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **5** (v4: migrates auto-delete settings from per-PC `localStorage` keys `autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean` into `D.autoDelCfg`, applied in both `loadD()` and the Firebase `/data` listener. v5: migrates each page's `surplus`/`surplusStatus`/`hdStatus` fields into `dat.staffZone={ce,hd}` via `ensureStaffZone(pg)`, applied the same way in both locations — this migration is a convenience only, not the safety net; the legacy fields are never deleted, so `ensureStaffZone()` keeps absorbing them lazily on read even for pages the migration never touched, e.g. pages restored from a pre-v5 backup via `importBackup()`, which does not re-run `_migVer` gating).
+- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **6** (v4: migrates auto-delete settings from per-PC `localStorage` keys `autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean` into `D.autoDelCfg`, applied in both `loadD()` and the Firebase `/data` listener. v5: migrates each page's `surplus`/`surplusStatus`/`hdStatus` fields into `dat.staffZone={ce,hd}` via `ensureStaffZone(pg)`, applied the same way in both locations — this migration is a convenience only, not the safety net; the legacy fields are never deleted, so `ensureStaffZone()` keeps absorbing them lazily on read even for pages the migration never touched, e.g. pages restored from a pre-v5 backup via `importBackup()`, which does not re-run `_migVer` gating. v6: rewraps a pre-existing `D.supTree` (旧・大カテゴリ→種類→品名) into the new 科→種類→品名 shape via `migrateSupTreeToDept()`, landing everything under a single `共通（旧マスタ）` 科 — guarded on the *raw pre-default* `s.supTree`/`d.supTree` being non-empty, not on `D.supTree`, so a brand-new install (which has already been defaulted to the new-shaped `DEF_SUP_TREE` earlier in the same function) is never re-wrapped).
 - Stale closure bug: closures that capture `dat` become stale after Firebase updates `D`. Always reference `D.pages[ds]` (live) inside async callbacks, not the closed-over `dat`.
 - When changing `currentUser.perms` (e.g., in `saveUserPerm`), call `updateTabVisibility()` if the change affects the currently logged-in user.
