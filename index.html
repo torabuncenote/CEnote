@@ -2573,19 +2573,35 @@ var DEF_SUP_TREE = [
   ]}
 ];
 
-/* _migVer 6：旧・使用物品マスタ（大カテゴリ→種類→品名）を「共通（旧マスタ）」科の下へ
-   機械的に移す。旧の大カテゴリ名はそのまま「種類」名として使い、旧の中カテゴリは畳んで
-   品名を種類の下へ直接まとめる（品名が重複していたら1つに）。データは何も消えない。 */
-function migrateSupTreeToDept(oldTree){
+/* _migVer 6：旧・使用物品マスタ（大カテゴリ＝物品の種類→中カテゴリ→品名）を 科→種類→品名 に
+   組み替える。実データでは旧の中カテゴリの多くが既に科名（スコープ→消化器外科→…）だったため、
+   **中カテゴリ名が術式マスタの科名と一致すれば、その科の下へ「旧・大カテゴリ名」を種類として移す**
+   （スコープ→消化器外科→品名 ⇒ 消化器外科→スコープ→品名）。一致しない中カテゴリ（高周波手術器
+   など）だけを「共通（旧マスタ）」科の下へ集める。以前は全部を共通へ畳んでおり、実データで
+   試したところ科の情報が消えて、どの症例でも「科を選んでください」から始まっていた。
+   同じ種類に同じ品名が重なれば1つにまとめるだけで、データは何も消えない。 */
+function migrateSupTreeToDept(oldTree, deptNames){
   if (!oldTree || !oldTree.length) return oldTree;
-  var cats = oldTree.map(function(d){
-    var seen = {}, items = [];
-    (d.cats||[]).forEach(function(c){
-      (c.items||[]).forEach(function(nm){ if(nm && !seen[nm]){ seen[nm]=true; items.push(nm); } });
+  var COMMON = '共通（旧マスタ）';
+  var isDept = {}; (deptNames||[]).forEach(function(n){ if(n) isDept[n] = true; });
+  var out = [];
+  function deptOf(name){
+    var x = out.filter(function(o){ return o.dept === name; })[0];
+    if (!x) { x = { dept:name, cats:[] }; out.push(x); }
+    return x;
+  }
+  oldTree.forEach(function(t){
+    if (!t) return;
+    (t.cats||[]).forEach(function(c){
+      if (!c) return;
+      var dObj = deptOf(isDept[c.name] ? c.name : COMMON);
+      var cat = dObj.cats.filter(function(z){ return z.name === t.dept; })[0];
+      if (!cat) { cat = { name:t.dept, items:[] }; dObj.cats.push(cat); }
+      (c.items||[]).forEach(function(nm){ if (nm && cat.items.indexOf(nm) === -1) cat.items.push(nm); });
     });
-    return { name: d.dept, items: items };
   });
-  return [{ dept:'共通（旧マスタ）', cats: cats }];
+  /* 共通（旧マスタ）は振り分け待ちの置き場なので末尾に置く */
+  return out.filter(function(o){ return o.dept !== COMMON; }).concat(out.filter(function(o){ return o.dept === COMMON; }));
 }
 
 /* ===== STATE ===== */
@@ -2848,7 +2864,7 @@ function loadD() {
        ときだけ「共通（旧マスタ）」科へ移す。旧データが無い新規環境はD.supTreeが既に
        新形式のDEF_SUP_TREEなので、ここでは何もしない（二重包みを防ぐ） */
     if (!D._migVer || D._migVer < 6) {
-      if (s.supTree && s.supTree.length) D.supTree = migrateSupTreeToDept(D.supTree);
+      if (s.supTree && s.supTree.length) D.supTree = migrateSupTreeToDept(D.supTree, (D.opeTree||[]).map(function(x){ return x && x.dept; }));
       D._migVer = 6;
     }
     ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
@@ -3164,7 +3180,7 @@ function fbInit() {
                空でない）ときだけ「共通（旧マスタ）」科へ移す。新規環境（旧データ無し）は
                既に新形式のDEF_SUP_TREEなので何もしない（二重包みを防ぐ） */
             if (!D._migVer || D._migVer < 6) {
-              if (d.supTree && d.supTree.length) D.supTree = migrateSupTreeToDept(D.supTree);
+              if (d.supTree && d.supTree.length) D.supTree = migrateSupTreeToDept(D.supTree, (D.opeTree||[]).map(function(x){ return x && x.dept; }));
               D._migVer = 6;
               saveD();
             }
@@ -5074,7 +5090,8 @@ var APP_VERSION = 'Ver.2026/09/10-67';
 var APP_CHANGELOG = [
   { ver:'Ver.2026/09/10-67', date:'2026-09-10', title:'オペの使用物品を続けて選べるようにしました', items:[
     {t:'imp', d:'🔪 オペの症例行「使用物品」を、下から出るパネルでボタンをタップし続けて選ぶ方式にしました。1つ選んでもパネルは閉じないので、複数の物品を続けて選べます。直接入力欄は廃止し、自由記述はパネル内の「✏️ 自由記述」ボタンから入力します'},
-    {t:'imp', d:'📋 使用物品マスタを「科→種類→品名」の3階層に組み替えました。既存のマスタは自動で「共通（旧マスタ）」科の下へ移り、内容は消えません。品名を追加するとき、他の科に登録済みの品名を候補として表示します（表記ゆれ対策）', admin:true}
+    {t:'imp', d:'📊 「5mm、VIO」のように読点（、）で区切って入力された使用物品を、1品ずつ別々に表示・集計するようにしました。使用物品別の集計で同じ物品が正しく数えられます'},
+    {t:'imp', d:'📋 使用物品マスタを「科→種類→品名」の3階層に組み替えました。既存のマスタは、中カテゴリが科名のものはその科の下へ自動で移り、それ以外は「共通（旧マスタ）」科の下へ移ります（内容は消えません）。品名を追加するとき、他の科に登録済みの品名を候補として表示します（表記ゆれ対策）', admin:true}
   ]},
   { ver:'Ver.2026/09/09-66', date:'2026-09-09', title:'古いバックアップが消えずに残る不具合を修正しました', items:[
     {t:'fix', d:'☁️ 保持期間（7日）を過ぎたバックアップが消えずに残ることがある不具合を修正しました。掃除はログイン時にも走るようになり、失敗したときは次回やり直します', admin:true}
@@ -13337,9 +13354,22 @@ function saveEduCfg() {
   if (curDs && D.pages[curDs]) safeRenderPage();
   writeLog('教育者欄設定変更', toggle.checked ? '有効化' : '無効化');
 }
+/* 使用物品の正規化。Firebaseの配列→オブジェクト化に加え、1要素の中に「、」「，」「,」で
+   複数品がつながった値を別々の品名に分ける。旧・自由記述欄はカンマ(,)でしか分けていなかったため、
+   「5mm、VIO、ウロタワー」のように読点で打たれた入力が1品として保存されている（実データで
+   約3割の症例）。保存データは書き換えず読むときだけ分けるので、表示・集計・CSVは1品ずつになり、
+   その症例を一度でも編集すると分けた形で保存し直される。 */
 function opsItemSup(it){
   if (!it || !it.sup) return [];
-  return Array.isArray(it.sup) ? it.sup : Object.keys(it.sup).map(function(k){ return it.sup[k]; });
+  var raw = Array.isArray(it.sup) ? it.sup : Object.keys(it.sup).map(function(k){ return it.sup[k]; });
+  var out = [];
+  raw.forEach(function(s){
+    String(s == null ? '' : s).split(/[、，,]/).forEach(function(t){
+      t = t.trim();
+      if (t && out.indexOf(t) === -1) out.push(t);
+    });
+  });
+  return out;
 }
 /* 使用物品マスタ（D.supTree）の全品名（科をまたいで重複除去）。マスタで品名を追加する
    ときの表記ゆれ対策の候補（他の科の登録済み品名）と、症例行チップの「マスタに無い
