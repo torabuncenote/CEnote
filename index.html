@@ -490,6 +490,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-sup-view{width:100%;margin-top:4px;font-size:11px;color:var(--txt2);line-height:1.7}
 .ops-sup-view .sup-tok{white-space:nowrap;overflow-wrap:break-word}
 .ops-sup-view .sup-sep{color:var(--txt3)}
+/* 使用物品：症例行には「選ぶ」ボタンと記録済みの一覧だけを出し、選択そのものは
+   中央のポップアップ（openSupPickerModal）で行う。行の下に3段セレクトを埋め込むと
+   症例行が縦に長いぶん端末によって枠外へ出て見切れたため。 */
+.ops-sup-trigger{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+.ops-sup-lbl{font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0}
+.ops-sup-btn{font-size:11px;font-weight:700;padding:4px 12px;border:1.5px solid var(--ac);border-radius:14px;background:var(--sur);color:var(--ac);cursor:pointer;font-family:var(--fn);white-space:nowrap;flex-shrink:0}
+.ops-sup-btn:disabled{border-color:var(--bdr);color:var(--txt3);cursor:default}
+.sup-pick-x{border:none;background:transparent;color:inherit;font-size:11px;line-height:1;cursor:pointer;padding:0 0 0 3px;font-family:var(--fn)}
+.sup-pick-empty{font-size:11px;color:var(--txt3);padding:6px 2px}
 .ops-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:0 2px;line-height:1;flex-shrink:0}
 .ops-item-del:hover{color:var(--rd)}
 .ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
@@ -1038,7 +1047,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
 .dc-cb-item.subdone{font-size:10px}
 /* 担当カード内チェックボックス */
 .dc-cbs{display:flex;gap:8px;margin-bottom:7px;flex-wrap:wrap}
-.dc-cb-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2);background:var(--sur2);border:1.5px solid var(--bdr);border-radius:20px;padding:3px 9px;cursor:pointer;user-select:none;transition:all .15s}
+.dc-cb-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2);background:var(--sur2);border:1.5px solid var(--bdr);border-radius:20px;padding:3px 9px;cursor:pointer;user-select:none;font-family:var(--fn);transition:all .15s}
 .dc-cb-item:hover{border-color:var(--ac);color:var(--ac)}
 .dc-cb-item.checked{background:var(--ac-bg);border-color:var(--ac);color:var(--ac);font-weight:700}
 .dc-cb-item input{width:13px;height:13px;accent-color:var(--ac);cursor:pointer}
@@ -13281,6 +13290,176 @@ function supViewHTML(supArr){
     return '<span class="sup-tok">' + escH(s) + '</span>';
   }).join('<span class="sup-sep">, </span>') + '</div>';
 }
+
+/* ===== 使用物品ピッカー（中央ポップアップ） =====
+   以前は症例行の一番下に3段セレクトの箱を埋め込んでいたが、症例行は
+   科/中カテゴリ/術式・入室時間・担当者・終了時刻…と縦に長く、その下に置くと
+   端末やスクロール位置によって枠外へ出て見切れた。さらに1品ずつしか追加できず、
+   1症例に複数品目を入れる実運用と噛み合っていなかった。
+   画面中央のモーダルへ移し、品名はチェックボックスでまとめて選べるようにしている。
+   呼び出し側は「今の配列」と「確定したときに受け取る関数」だけを渡す
+   （items/saveItems のクロージャは呼び出し側に閉じ込める）。 */
+var _supPickCtx = null;
+
+/* 物品マスタの正規化。D.supTree があればそれを、無ければフラットな D.sup を
+   「カテゴリ無しの1グループ」として同じ形で返す（呼び出し側で分岐しないため）。 */
+function supPickTree(){
+  var t = (D.supTree || []).filter(function(d){ return d && d.dept; });
+  if (t.length) return t;
+  var flat = (D.sup || []).filter(Boolean);
+  if (!flat.length) return [];
+  return [{ dept:'', cats:[{ name:'', items:flat }] }];
+}
+
+/* opts = { title, current:[], locked, onApply:function(arr){} } */
+function openSupPickerModal(opts){
+  opts = opts || {};
+  var old = document.getElementById('sup-pick-ov'); if (old) old.remove();
+  _supPickCtx = {
+    sel: (opts.current || []).slice(),
+    locked: !!opts.locked,
+    title: opts.title || '',
+    onApply: (typeof opts.onApply === 'function') ? opts.onApply : function(){},
+    di: null, ci: null
+  };
+  var ov = document.createElement('div'); ov.id = 'sup-pick-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeSupPicker(); };
+  var md = document.createElement('div'); md.id = 'sup-pick-md'; md.className = 'md';
+  md.style.maxWidth = '560px';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderSupPickBody();
+}
+function closeSupPicker(){
+  var ov = document.getElementById('sup-pick-ov'); if (ov) ov.remove();
+  _supPickCtx = null;
+}
+
+/* カテゴリ・種別・品名はユーザーが付けた名前なので、onclick には必ず「添字」だけを渡す。
+   名前を埋め込むと 'ジェルパッド'sダブルクォート等のアポストロフィで onclick 文字列が壊れる
+   （スタッフ名・メーカー名で実際に踏んだ罠と同じ）。 */
+function renderSupPickBody(){
+  var c = _supPickCtx; if (!c) return;
+  var md = document.getElementById('sup-pick-md'); if (!md) return;
+  var tree = supPickTree();
+  /* フラットマスタしか無い環境ではカテゴリ・種別の段を出さず、品名だけ並べる */
+  var flatOnly = (tree.length === 1 && !tree[0].dept);
+  if (flatOnly) { c.di = 0; c.ci = 0; }
+
+  var h = '<h3>🧰 使用物品を選ぶ</h3>';
+  h += '<p>' + (c.title ? escH(c.title) + '<br>' : '')
+    + (c.locked ? '閲覧のみです。' : '品名はまとめて選べます。一覧に無いものは下の自由入力から足してください。') + '</p>';
+
+  h += '<div class="md-flbl">選択中（' + c.sel.length + '件）</div>';
+  h += c.sel.length
+    ? '<div class="dc-cbs">' + c.sel.map(function(s, i){
+        return '<span class="dc-cb-item checked">' + escH(s)
+          + (c.locked ? '' : '<button type="button" class="sup-pick-x" onclick="supPickRemove(' + i + ')" title="外す">✕</button>')
+          + '</span>';
+      }).join('') + '</div>'
+    : '<div class="sup-pick-empty">まだ選ばれていません</div>';
+
+  if (!c.locked) {
+    if (!tree.length) {
+      h += '<div class="sup-pick-empty" style="margin-top:12px">物品マスタが未登録です。業務マスタの「使用物品」から登録すると一覧から選べます。</div>';
+    } else if (!flatOnly) {
+      h += '<div class="md-flbl" style="margin-top:14px">① 物品カテゴリ</div><div class="dc-cbs">';
+      tree.forEach(function(d, di){
+        h += '<button type="button" class="dc-cb-item' + (c.di === di ? ' checked' : '') + '" onclick="supPickSetDept(' + di + ')">' + escH(d.dept) + '</button>';
+      });
+      h += '</div>';
+    }
+    var dObj = (c.di != null) ? tree[c.di] : null;
+    if (dObj && !flatOnly) {
+      var cats = (dObj.cats || []).filter(function(x){ return x && x.name; });
+      h += '<div class="md-flbl" style="margin-top:10px">② 種別</div>';
+      h += cats.length
+        ? '<div class="dc-cbs">' + cats.map(function(ct, ci){
+            return '<button type="button" class="dc-cb-item' + (c.ci === ci ? ' checked' : '') + '" onclick="supPickSetCat(' + ci + ')">' + escH(ct.name) + '</button>';
+          }).join('') + '</div>'
+        : '<div class="sup-pick-empty">このカテゴリに種別が登録されていません</div>';
+    }
+    var cObj = (dObj && c.ci != null) ? supPickCats(dObj)[c.ci] : null;
+    if (cObj) {
+      var its = (cObj.items || []).filter(Boolean);
+      h += '<div class="md-flbl" style="margin-top:10px">' + (flatOnly ? '品名（複数選択できます）' : '③ 品名（複数選択できます）') + '</div>';
+      h += its.length
+        ? '<div class="dc-cbs">' + its.map(function(it, ii){
+            var on = c.sel.indexOf(it) !== -1;
+            return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="supPickToggleItem(' + ii + ')">' + escH(it) + '</label>';
+          }).join('') + '</div>'
+        : '<div class="sup-pick-empty">この種別に品名が登録されていません</div>';
+    }
+
+    h += '<div class="md-flbl" style="margin-top:14px">一覧に無いものを足す</div>';
+    h += '<div style="display:flex;gap:8px;align-items:center">'
+      + '<input id="sup-pick-free" class="fi" style="flex:1;margin-bottom:0" placeholder="物品名を入力" autocomplete="off">'
+      + '<button type="button" class="btn btn-g" onclick="supPickAddFree()">追加</button></div>';
+  }
+
+  h += '<div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="closeSupPicker()">' + (c.locked ? '閉じる' : 'キャンセル') + '</button>'
+    + (c.locked ? '' : '<button class="btn btn-p" onclick="supPickApply()">決定</button>') + '</div>';
+  md.innerHTML = h;
+
+  var fi = document.getElementById('sup-pick-free');
+  if (fi) fi.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); supPickAddFree(); } };
+}
+/* 種別の並びは描画と添字解決で必ず同じものを使う（片方だけ filter すると添字がずれる） */
+function supPickCats(dObj){
+  if (!dObj) return [];
+  var cats = (dObj.cats || []).filter(function(x){ return x && x.name; });
+  return cats.length ? cats : (dObj.cats || []).filter(Boolean);
+}
+function supPickSetDept(di){ if (!_supPickCtx) return; _supPickCtx.di = di; _supPickCtx.ci = null; renderSupPickBody(); }
+function supPickSetCat(ci){ if (!_supPickCtx) return; _supPickCtx.ci = ci; renderSupPickBody(); }
+function supPickToggleItem(ii){
+  var c = _supPickCtx; if (!c) return;
+  var dObj = supPickTree()[c.di]; if (!dObj) return;
+  var cObj = supPickCats(dObj)[c.ci]; if (!cObj) return;
+  var name = (cObj.items || []).filter(Boolean)[ii]; if (!name) return;
+  var at = c.sel.indexOf(name);
+  if (at === -1) c.sel.push(name); else c.sel.splice(at, 1);
+  renderSupPickBody();
+}
+function supPickRemove(i){ var c = _supPickCtx; if (!c || c.locked) return; c.sel.splice(i, 1); renderSupPickBody(); }
+function supPickAddFree(){
+  var c = _supPickCtx; if (!c || c.locked) return;
+  var el = document.getElementById('sup-pick-free'); if (!el) return;
+  var v = (el.value || '').trim(); if (!v) return;
+  /* ここは物品名を入れる欄なので、氏名パターンの警告（黄色）では止めない
+     ——ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名は
+     ほとんどが氏名パターンに当たる（中心静脈カテーテル / 生体情報モニタ /
+     自己血回収装置 / 電気メス先端チップ / 吸収糸 …）。毎回警告を挟むと
+     アラート疲れを起こし、本物の患者情報の警告まで読み飛ばされる。
+     患者IDや生年月日といったブロック対象（phiHasBlock）だけは弾く。 */
+  var phiRes = detectPHI(v);
+  if (phiHasBlock(phiRes)) {
+    showPHIPopup({ result: phiRes, mode:'field', onProceed:null,
+      onFix:function(){ var e2 = document.getElementById('sup-pick-free'); if (e2) { e2.value = v; e2.focus(); } } });
+    return;
+  }
+  if (_supPickCtx.sel.indexOf(v) === -1) _supPickCtx.sel.push(v);
+  renderSupPickBody();
+}
+function supPickApply(){
+  var c = _supPickCtx; if (!c || c.locked) return;
+  var arr = c.sel.slice(), fn = c.onApply;
+  /* 先に閉じてから書き戻す（onApply が renderItems() を呼ぶので、開いたままだと描画と競合する） */
+  closeSupPicker();
+  fn(arr);
+}
+
+/* 症例行に出す「使用物品」の1行。埋め込みの3段セレクトはここから
+   openSupPickerModal に移した。記録済みの品目は行内に出したままにする
+   （開かなくても何を使ったか読めるようにするため）。 */
+function supTriggerRowHTML(sup, locked){
+  var n = (sup || []).length;
+  return '<div class="ops-sup-trigger">'
+    + '<span class="ops-sup-lbl">🧰 使用物品</span>'
+    + '<button type="button" class="ops-sup-btn"' + (locked ? ' disabled' : '') + '>'
+    + (n ? '選び直す（' + n + '件）' : '＋ 選ぶ') + '</button>'
+    + '</div>';
+}
 /* 科・中カテゴリ・術式/種別の表示値。'__free__'（自由入力に切替中）のときは対応する
    *Txt を返し、内部値の '__free__' が画面・CSVに出ないようにする（表示・集計はこの3つを必ず経由）。
    opsItemName はツリー版（item.name/'nameTxt'）とフラット版（buildItemListの既存 item.sel==='__free__'/item.txt）の
@@ -16746,26 +16925,6 @@ function buildOPS(ds,dat,locked) {
       h+='<option value="__free__">自由入力...</option>';
       return h;
     }
-    /* 使用物品ツリーセレクタ */
-    function makeSupTreeRow(onAdd) {
-      var wrap2=document.createElement('div'); wrap2.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px';
-      var dSel2=document.createElement('select'); dSel2.className='ops-sel'; dSel2.style.cssText='flex:1;min-width:80px;font-size:11px'; dSel2.disabled=!!locked;
-      var cSel2=document.createElement('select'); cSel2.className='ops-sel'; cSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; cSel2.disabled=!!locked;
-      var iSel2=document.createElement('select'); iSel2.className='ops-sel'; iSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; iSel2.disabled=!!locked;
-      var addBtn2=document.createElement('button'); addBtn2.type='button'; addBtn2.textContent='追加'; addBtn2.disabled=!!locked;
-      addBtn2.style.cssText='font-size:11px;padding:4px 10px;border:none;border-radius:var(--rs);background:var(--ac);color:var(--on-ac);cursor:pointer;flex-shrink:0';
-      var dOpts2='<option value="">+ 物品カテゴリ</option>';
-      (D.supTree||[]).forEach(function(d){ dOpts2+='<option value="'+escH(d.dept)+'">'+escH(d.dept)+'</option>'; });
-      dSel2.innerHTML=dOpts2;
-      if(!locked){
-        dSel2.onchange=function(){ var v=this.value; cSel2.style.display=v?'':'none'; var h2='<option value="">-- 種別 --</option>'; var dObj2=(D.supTree||[]).filter(function(d){return d.dept===v;})[0]; if(dObj2)(dObj2.cats||[]).forEach(function(c){ h2+='<option value="'+escH(c.name)+'">'+escH(c.name)+'</option>'; }); cSel2.innerHTML=h2; iSel2.style.display='none'; iSel2.innerHTML='<option value="">-- 品名 --</option>'; };
-        cSel2.onchange=function(){ var dept3=dSel2.value; var v=this.value; iSel2.style.display=v?'':'none'; var h3='<option value="">-- 品名 --</option>'; var dObj3=(D.supTree||[]).filter(function(d){return d.dept===dept3;})[0]; if(dObj3){var cObj3=(dObj3.cats||[]).filter(function(c){return c.name===v;})[0]; if(cObj3)(cObj3.items||[]).forEach(function(it){ h3+='<option value="'+escH(it)+'">'+escH(it)+'</option>'; });} iSel2.innerHTML=h3; };
-        addBtn2.onclick=function(){ var v=iSel2.value||cSel2.value||dSel2.value; if(!v)return; onAdd(v); dSel2.value=''; cSel2.innerHTML='<option value="">-- 種別 --</option>'; cSel2.style.display='none'; iSel2.style.display='none'; iSel2.innerHTML='<option value="">-- 品名 --</option>'; };
-      }
-      wrap2.appendChild(dSel2); wrap2.appendChild(cSel2); wrap2.appendChild(iSel2); wrap2.appendChild(addBtn2);
-      return wrap2;
-    }
-
     var wrap = document.createElement('div');
     wrap.id = 'ops-'+itemId+'-wrap';
 
@@ -16945,39 +17104,28 @@ function buildOPS(ds,dat,locked) {
         /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
         buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
 
-        /* 使用物品行（オペのみ）- itemWrapに追加してD&Dで一緒に動く */
+        /* 使用物品（オペのみ）- itemWrapに追加してD&Dで一緒に動く。
+           選択は中央のポップアップ（openSupPickerModal）で行い、行内には
+           「選ぶ」ボタンと記録済みの一覧だけを置く（3段セレクトを行の下に
+           埋め込むと、症例行が縦に長いぶん端末によって枠外へ出て見切れた）。 */
         if(withSup){
-          var supRow2=document.createElement('div'); supRow2.style.cssText='margin-top:4px;margin-bottom:4px;padding:8px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)';
-          var supLbl2=document.createElement('div'); supLbl2.style.cssText='font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:5px'; supLbl2.textContent='🧰 使用物品';
-          supRow2.appendChild(supLbl2);
-          /* 3段カスケード選択 */
-          var supTreeRow=makeSupTreeRow(function(v){
-            var cur=(item.sup&&item.sup.length)?item.sup.join(', '):'';
-            item.sup=(cur?cur+', '+v:v).split(',').map(function(s){return s.trim();}).filter(Boolean);
-            supInpEl.value=item.sup.join(', '); supViewEl2.innerHTML=supViewHTML(item.sup); saveItems();
-          });
-          supRow2.appendChild(supTreeRow);
-          /* テキスト入力（直接入力・カンマ区切り） */
-          var supInpEl=document.createElement('input'); supInpEl.type='text'; supInpEl.className='ops-txt'; supInpEl.style.cssText='width:100%;font-size:12px';
-          supInpEl.placeholder='または直接入力（カンマ区切りで複数可）'; supInpEl.disabled=!!locked;
-          supInpEl.value=(item.sup&&item.sup.length)?item.sup.join(', '):'';
-          /* 入力欄は1行しか見えず未フォーカス時に枠外が見切れるため、下に折り返し表示を添える */
-          var supViewEl2=document.createElement('div'); supViewEl2.innerHTML=supViewHTML(item.sup);
-          if(!locked){
-            supInpEl.oninput=(function(i2,el2){return function(){
-              items[i2].sup=el2.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-              supViewEl2.innerHTML=supViewHTML(items[i2].sup);
-              saveItems();
-            };})(idx,supInpEl);
-            supInpEl.onblur=(function(i2){return function(){
-              this.value=this.value.replace(/[,\s]+$/,'');
-              items[i2].sup=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-              supViewEl2.innerHTML=supViewHTML(items[i2].sup);
-              saveItems();
-            };})(idx);
-          }
-          supRow2.appendChild(supInpEl);
+          var supRow2=document.createElement('div');
+          supRow2.innerHTML=supTriggerRowHTML(opsItemSup(item), locked);
+          var supViewEl2=document.createElement('div'); supViewEl2.innerHTML=supViewHTML(opsItemSup(item));
           supRow2.appendChild(supViewEl2);
+          if(!locked){
+            (function(i2, btn2){
+              if(!btn2) return;
+              btn2.onclick=function(){
+                openSupPickerModal({
+                  title: opsItemName(items[i2]) || '',
+                  current: opsItemSup(items[i2]),
+                  locked: false,
+                  onApply: function(arr){ items[i2].sup=arr; saveItems(); renderItems(); }
+                });
+              };
+            })(idx, supRow2.querySelector('.ops-sup-btn'));
+          }
           itemWrap.appendChild(supRow2);
         }
         wrap.appendChild(itemWrap);
@@ -17207,102 +17355,28 @@ function buildOPS(ds,dat,locked) {
           row.appendChild(timeWrap);
         }
 
-        /* 使用物品（withSup=trueのとき術式行の下に1行追加） */
+        /* 使用物品（オペのみ）。選択は中央のポップアップ（openSupPickerModal）で行い、
+           行内には「選ぶ」ボタンと記録済みの一覧だけを置く。ツリー版と同じ作りに揃えている。 */
         var supRow = null;
-        var supViewEl = null;
         if (withSup) {
           supRow = document.createElement('div');
-          supRow.className = 'ops-item-row ops-sup-row';
-          supRow.style.cssText = 'margin-top:2px;margin-bottom:4px;gap:6px;align-items:center';
-
-          var supLbl = document.createElement('span');
-          supLbl.style.cssText = 'font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0';
-          supLbl.textContent = '🧰 使用物品';
-          supRow.appendChild(supLbl);
-
-          /* datalist（マスタ候補） */
-          var dlId = 'sup-dl-' + idx;
-          var dl = document.createElement('datalist');
-          dl.id = dlId;
-          if (D.sup) D.sup.forEach(function(sm){ var op=document.createElement('option'); op.value=sm; dl.appendChild(op); });
-          supRow.appendChild(dl);
-
-          /* テキスト入力（直接編集・カンマ区切り） */
-          var supInp = document.createElement('input');
-          supInp.type = 'text';
-          supInp.className = 'ops-txt';
-          supInp.style.cssText = 'flex:1;font-size:12px';
-          supInp.placeholder = 'プルダウンから選択または直接入力（カンマ区切りで複数可）';
-          supInp.disabled = !!locked;
-          /* 保存値を「カンマ区切り文字列」として復元 */
-          supInp.value = (item.sup && item.sup.length) ? item.sup.join(', ') : '';
-          /* 入力欄は1行しか見えず未フォーカス時に枠外が見切れるため、下に折り返し表示を添える */
-          supViewEl = document.createElement('div');
-          supViewEl.innerHTML = supViewHTML(item.sup);
-
-          /* プルダウン（選ぶたびにテキスト欄に追記） */
-          var supSel = document.createElement('select');
-          supSel.className = 'ops-sel';
-          supSel.style.cssText = 'flex-shrink:0;min-width:100px;font-size:11px';
-          supSel.disabled = !!locked;
-          var supSelOpts = '<option value="">+ 物品を追加</option>';
-          if (D.sup) D.sup.forEach(function(sm){ supSelOpts += '<option value="'+sm+'">'+sm+'</option>'; });
-          supSelOpts += '<option value="__free__">自由記述...</option>';
-          supSel.innerHTML = supSelOpts;
-
+          supRow.innerHTML = supTriggerRowHTML(opsItemSup(item), locked);
+          var supViewEl = document.createElement('div');
+          supViewEl.innerHTML = supViewHTML(opsItemSup(item));
+          supRow.appendChild(supViewEl);
           if (!locked) {
-            (function(idx5, supInp5, supSel5, supViewEl5){
-              var saveT5 = null;
-
-              function parseSup(val) {
-                return val.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-              }
-              function saveSup() {
-                items[idx5].sup = parseSup(supInp5.value);
-                supViewEl5.innerHTML = supViewHTML(items[idx5].sup);
-                saveItems();
-              }
-
-              /* テキスト欄の直接入力 */
-              supInp5.oninput = function(){
-                items[idx5].sup = parseSup(this.value);
-                supViewEl5.innerHTML = supViewHTML(items[idx5].sup);
-                clearTimeout(saveT5);
-                saveT5 = setTimeout(saveItems, 600);
+            (function(i2, btn2){
+              if (!btn2) return;
+              btn2.onclick = function(){
+                openSupPickerModal({
+                  title: opsItemName(items[i2]) || '',
+                  current: opsItemSup(items[i2]),
+                  locked: false,
+                  onApply: function(arr){ items[i2].sup = arr; saveItems(); renderItems(); }
+                });
               };
-              supInp5.onblur = function(){
-                /* フォーカスが外れたら末尾のカンマ・スペースを除去 */
-                this.value = this.value.replace(/[,\s]+$/, '');
-                saveSup();
-              };
-
-              /* プルダウンから選択 → テキスト欄に追記 */
-              supSel5.onchange = function(){
-                var v = this.value;
-                if (!v) return;
-                var append = function(val){
-                  /* 現在のテキストに追記 */
-                  var cur = supInp5.value.replace(/[,\s]+$/, '');
-                  supInp5.value = cur ? cur + ', ' + val : val;
-                  supInp5.focus();
-                  saveSup();
-                };
-                if (v === '__free__') {
-                  v = prompt('使用物品を入力してください');
-                  if (!v || !v.trim()) { this.value = ''; return; }
-                  v = v.trim();
-                  this.value = ''; /* プルダウンを元に戻す */
-                  phiGuardText(v, function(){ append(v); }); /* 自由入力なのでPHIチェックを通す */
-                  return;
-                }
-                this.value = '';
-                append(v);
-              };
-            })(idx, supInp, supSel, supViewEl);
+            })(idx, supRow.querySelector('.ops-sup-btn'));
           }
-
-          supRow.appendChild(supSel);
-          supRow.appendChild(supInp);
         }
 
         /* 業務終了トグルボタン */
@@ -17320,7 +17394,6 @@ function buildOPS(ds,dat,locked) {
         /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
         buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
         if (supRow) itemWrap.appendChild(supRow);
-        if (supViewEl) itemWrap.appendChild(supViewEl);
         wrap.appendChild(itemWrap);
 
         if(!locked) {
