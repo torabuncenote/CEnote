@@ -342,7 +342,9 @@ CSVは対象を持つサブタブにだけ出す：担当表は `at` のみ（�
 
 **font-size の変数化ではなく `zoom` で実装している。** この画面は `font-size` が px 直書きで818箇所あり、うち77%が10〜12px。`font-size` だけを動かしても固定pxの `padding`・`min-width` は付いてこないので、**大きくした文字が変わらない箱の中でかえって見切れる**。`zoom` なら文字・余白・枠線・幅がまとめて拡大される。`#at-zoom-inner` に前例がある。**トークン化に作り替えるなら、padding/min-width まで一緒に動かす手当てが要る。**
 
-- 適用先は `#main`（連絡表本体）と `.md`（モーダル）。**`#pane-assign` は対象外** — 独自のピンチズーム（`_atZoom` / `#at-zoom-inner`）を持っており、掛け合わせると `initAtPinchZoom` の座標計算が合わなくなる
+- 適用先は `#main`（連絡表本体）・`.md`（モーダル）・サイドバーの各タブ（`.stabs`・サブメニュー・`pane-*`）。**`#pane-assign` は対象外** — 独自のピンチズーム（`_atZoom` / `#at-zoom-inner`）を持っており、掛け合わせると `initAtPinchZoom` の座標計算が合わなくなる。**`#pane-sum` は本体ではなく中の `.atw` に掛ける** — スマホで `position:fixed` になるので、本体に掛けると `top`（トップバーの高さ）まで拡大されて隙間ができる。PCの細いサイドバーは `@media (min-width:769px)` で幅も `var(--sw) * var(--ui-zoom)` に広げる（広げないと中身が窮屈になる。スマホは `--sw:100vw` なので広げない）
+- **zoom の掛かった要素の中で `vh` を使うときは `calc(85vh / var(--ui-zoom,1))` のように割り戻すこと。** `vh` にも zoom が掛かり、特大（1.3）の `90vh` は画面の117%になって、モーダルの見出しと「決定」ボタンが画面外に切れていた（`.ov` は中央寄せでスクロールしない）。`.md` の `max-height`、スケジュール・掲示板パネルの `height`、JSで `md.style.maxHeight` を入れる各モーダルがこの形になっている
+- **viewport の `maximum-scale=1.0` は iPhone/iPad にだけ付け直す**（`<head>` のスクリプト）。Android はこれがあるとピンチ拡大できなくなるので外した。iOS はこの指定があってもピンチを許す一方、無いと 16px 未満の入力欄に触れるたびに画面を自動で拡大して戻らない（このアプリの入力欄は大半が12〜14px）。**`<meta>` 側に戻すことも、iOS 側の付け直しを消すこともしないこと**
 - **印刷では `@media print{:root{--ui-zoom:1!important}}` で1に戻す**（紙を端末ごとの設定に引きずらせない。ダークパレットを `@media screen` に閉じ込めてあるのと同じ流儀）。`--ui-zoom` はJSが inline style で書くので `!important` が要る
 - `<head>` のちらつき防止スクリプトにも同じ倍率表がある。**`FS_SCALES` と片方だけ直さないこと**
 - `applyFontScale()` は `--ui-zoom` に加えて `<html>` に `data-fs` も書く。**メディアクエリは `zoom` を見ない**（ビューポート幅で判定する）ので、拡大中は狭い画面用の折り返しルールが効かないまま `.main{overflow-x:hidden}` に内容を切り落とされる。`:root[data-fs="l"|"xl"] .main{overflow-x:auto}` で横スクロールを許し、内容が失われないようにしている
@@ -469,6 +471,7 @@ All class names are abbreviated:
 | `supCatDepts(cat)` / `supDeptOptions()` / `supCatMatches(cat, dept)` / `supPickFiltering()` / `supPickDeptCount(dept)` | 種別の科タグの読み出し／タグ候補（術式マスタの科）／その科で出すか／絞り込むか（1件も残らない科では絞らない）／件数 |
 | `openSupDeptModal(di, ci)` / `renderSupDeptModalBody()` / `supDeptToggle(i)` / `saveSupDepts()` | 使用物品マスタで種別に「使う科」を付けるモーダル（`mst` 権限）。設置部署マスタ `openWdSubsModal` と同じ作り |
 | `openSupPickerModal(opts)` / `renderSupPickBody()` / `supPickTree()` / `supTriggerRowHTML(sup, locked)` | 使用物品を選ぶ中央ポップアップ（開く／中身を描く／マスタの正規化）と、症例行に置くトリガー行。詳細は上記「OPE / カテカード」節 |
+| `buildSupRow(ds, key, items, idx, locked, saveItems, renderItems)` / `supRowSig(it)` | 症例行の使用物品ブロック（ツリー版・フラット版共通）／決定時に読み直した配列から開いた行を探す印 |
 | `getFontScale()` / `setFontScale(v)` / `cycleFontScale()` / `applyFontScale()` / `uiZoom()` | 文字サイズ（小／標準／大／特大）。`--ui-zoom` と `data-fs` を書く。座標を測る側は `uiZoom()` で正規化する |
 | `getTheme()` / `setTheme(t)` / `cycleTheme()` / `effectiveTheme()` / `applyTheme()` | 表示テーマ（ライト／ダーク／端末設定）。`data-theme` には常に light/dark のどちらかを書く |
 | `repaintForTheme()` | テーマ切替時に、JSが色を埋めている箇所（担当枠・集計グラフ）を塗り直す |
@@ -621,12 +624,14 @@ dat.placement = {
 
 **使用物品はモーダルで選ぶ**: 症例行の下に3段セレクトの箱を埋め込む方式は、症例行が縦に長い（科/中カテゴリ/術式・入室時間・担当者・終了時刻…）ぶん端末やスクロール位置によって枠外へ出て見切れ、しかも1品ずつしか追加できなかったため、画面中央のポップアップ `openSupPickerModal(opts)` に移した。行内に残すのは `supTriggerRowHTML(sup, locked)` が作る「選ぶ」ボタンと、`supViewHTML(supArr)` の読み取り用の折り返しビュー（`.ops-sup-view`。各品目を `.sup-tok`＝`white-space:nowrap` で包み、品目名の途中では改行させず品目とカンマの間でだけ折り返す）だけ。
 
-- `opts` は `{title, current, locked, onApply}`。**`items`/`saveItems` のクロージャは呼び出し側に閉じ込め、モーダルは配列だけを受け渡す。** 書き戻しは `onApply(arr)` → `items[idx].sup = arr; saveItems(); renderItems();` の1経路に統一する。`item.sup` は**文字列配列のまま**（集計・CSV・横断検索・`opsItemFilled` がこの形を読む）。読み出しは必ず `opsItemSup(it)` を経由（Firebaseの配列→オブジェクト化対策）
+- `opts` は `{title, dept, current, onApply}`。モーダルは配列だけを受け渡す。症例行の「🧰 使用物品」ブロックはツリー版・フラット版とも `buildSupRow(ds, key, items, idx, locked, saveItems, renderItems)` 1つで作る。`item.sup` は**文字列配列のまま**（集計・CSV・横断検索・`opsItemFilled` がこの形を読む）。読み出しは必ず `opsItemSup(it)` を経由（Firebaseの配列→オブジェクト化対策）
+- **「決定」で開いた時点の `items` を書き戻さないこと。** ポップアップは `body` 直下にあってページが再描画されても閉じないので、選んでいる間に他のスタッフが同じカードを編集していることがある。`buildSupRow` の `onApply` は `D.pages[ds].ops[key]` を読み直し、開いた行を `supRowSig(it)`（科・中カテゴリ・術式・入室時間）で探して `sup` だけを書き換える。行が見つからなければ反映せずに知らせる。終了時刻・担当者を印に含めないのは、他の人がその行の終了を押しただけで照合に失敗させないため
+- ロック中（`ops`）は「選ぶ」ボタン自体を押せなくしている。記録済みの品目は症例行に並んでいるので、ポップアップに閲覧専用の表示は持たせていない
 - **カテゴリ・種別・品名の名前を `onclick` に埋め込まないこと。必ず添字を渡す**（`supPickSetDept(di)` / `supPickSetCat(ci)` / `supPickToggleItem(ii)`）。品名にアポストロフィが入ると `onclick` 文字列が壊れる——スタッフ名・メーカー名で実際に踏んだ罠と同じ。描画と添字解決で同じ並びを使うため、種別の絞り込みは `supPickCats(dObj)` に集約してある（片方だけ filter すると添字がずれる）
-- マスタは `supPickTree()` が正規化する。`D.supTree` があればそれを、無ければフラットな `D.sup` を「カテゴリ無しの1グループ」として同じ形で返すので、`buildItemList`（フラット版）と `buildItemListTree` が同じモーダルを共有できる
+- マスタは `supPickTree()` が正規化する。`D.supTree` があればそれを、無ければフラットな `D.sup` を「カテゴリ無しの1グループ」として同じ形で返すので、`buildItemList`（フラット版）と `buildItemListTree` が同じモーダルを共有できる。各段の `normArr`（Firebaseの配列→オブジェクト化対策）と「名前の無い種別を除く」もここで1回だけ行う——描画・添字解決・件数の数え方が別々に filter すると、件数と表示がずれたり添字が別の種別を指したりする
 - **科での絞り込みは「種別（cat）に科タグを付ける」方式**。`D.supTree[di].cats[ci].depts = ['一般外科',...]`（**未設定＝全科共通**。空配列は持たせず、`saveSupDepts` がキーごと消す）。読み出しは必ず `supCatDepts(cat)` を経由（Firebaseの配列→オブジェクト化対策）。マスタを「科→物品カテゴリ→品名」に作り直す案は採らなかった——電気メスのような全科共通の物品を科の数だけ重複登録することになり、1つ名前を直すと全科分を直す羽目になるため
-- **絞り込みは `supPickCats(dObj)` 1か所に集約する。** 絞った一覧を描いて絞らない一覧で添字を引くと別の種別が選ばれる。`onclick` に渡すのは添字だけなので、**描画と添字解決は必ず同じ関数を通すこと**
-- **その科のタグが1件も無いときは絞らない**（`supPickFiltering()` が `supPickDeptCount(dept).shown > 0` を見る）。タグを付け始めたばかりの科で「絞ったら空で何も選べない」となって手が止まるのを防ぐため。**この fallback を外さないこと**
+- **絞った一覧は物品カテゴリが `supPickDepts()`、種別が `supPickCats(dObj)` で作り、絞るかどうかの判定は `supPickFiltering()` 1つが持つ。** 絞った一覧を描いて絞らない一覧で添字を引くと別の種別が選ばれる。`onclick` に渡すのは添字だけなので、**描画と添字解決は必ず同じ関数を通すこと**
+- **その科を明示的にタグに持つ種別が1件も無いときは絞らない**（`supPickFiltering()` が `supPickDeptCount(dept).tagged > 0` を見る。**未設定＝全科共通の種別は数えない**）。以前は「出る種別が1件以上あれば絞る」で、全科共通の種別が1件でもあると条件を満たしてしまい、タグの無い科でも他の科用の種別だけが消えて「絞っています」と出ていた。**この fallback を外さないこと**
 - タグの選択肢（`supDeptOptions()`）は**術式マスタ（`D.opeTree`/`D.cathTree`）の科をそのまま使う**。物品側に別の科名リストを持たせると表記ゆれで症例側と永久に噛み合わなくなる。症例の科は `opsItemDept(it)` 経由で渡すので、自由入力の科はどのタグにも一致せず全件表示になる
 - **自由入力は氏名パターンの黄色警告では止めない**（`phiHasBlock` のブロック対象＝患者IDや姓名フル一致だけ弾く）。ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名はほとんどが氏名パターンに当たり（中心静脈カテーテル／生体情報モニタ／自己血回収装置／電気メス先端チップ／吸収糸…）、毎回警告を挟むとアラート疲れで本物の患者情報の警告まで読み飛ばされる。**`phiGuardText` にそのまま通す形へ戻さないこと**
 
