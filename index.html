@@ -103,7 +103,13 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .uc{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--gd-bg);border:1px solid var(--gd-bdr);color:var(--gd)}
 .sd{width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:auto;flex-shrink:0}
 .sl{font-size:11px;color:var(--txt3);font-family:var(--mo)}
-.tb-btns{display:flex;gap:6px;align-items:center;flex-shrink:0;min-width:0}
+/* .tb は overflow:hidden なので、入りきらない要素は「…」も出ずに無言で消える。
+   右端にあるログアウトボタンが真っ先に犠牲になるため、唯一縮んでよい要素として
+   ボタン列に shrink と横スクロールを持たせ、他は必ず残るようにする
+   （800px 幅では 327px ぶんが切れていた） */
+.tb-btns{display:flex;gap:6px;align-items:center;flex-shrink:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tb-btns::-webkit-scrollbar{display:none}
+.tb-btns>.btn{flex-shrink:0}
 /* ツールバー内は文字を縦に折り返させない（Android等の狭い幅でヘッダーが崩れるのを防止） */
 .tb{overflow:hidden}
 .tb .btn,.tb-logo,.tb-sub,.tb-sep,.sl,.btn-logout,.uc-name,.hbg{white-space:nowrap}
@@ -202,6 +208,20 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .main::-webkit-scrollbar{width:6px}
 .main::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px}
 /* PC: コンテンツタブ選択時にサイドバーを全幅に拡張してメインエリアとして使う */
+/* 769〜1199px はスマホ用の畳み込みが効かないのに全ラベルが出るため幅が足りず、
+   右端が無言で切れていた（実測: 800px で 327px、1024px で 103px、1100px で 27px）。
+   情報量の少ないものから順に畳む。 */
+@media(max-width:1199px){
+  .tb-sub,.tb-sep{display:none}
+  #month-size{display:none!important}
+}
+@media(max-width:1024px){
+  .btn-nm-text,.btn-gm-text{display:none}
+  /* 主観・テーマ・文字サイズはスマホと同じくアイコンだけにする。ここまで畳むと
+     タブレットでもボタン列を横スクロールせずに全部が並ぶ */
+  .mt-text{display:none}
+  .uc-name{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
 @media (min-width:769px){
   .ab.sb-expanded .sb{width:100%;min-width:100%;border-right:none}
 }
@@ -482,7 +502,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .oc-flow-btn{flex:0 0 auto;white-space:nowrap;margin-left:auto;font-size:clamp(10px,2.7vw,12px);padding:clamp(3px,1vw,6px) clamp(6px,2vw,12px)}
 /* 360px未満（SEなど）は比率だけでは収まらないので、ボタンの文字だけ畳んで📄を残す
    （アプリ内の .btn-at-text / .hd-btn-text と同じ扱い。tooltip で意味は残る） */
-@media(max-width:359px){.oc-flow-text{display:none}}
+@media(max-width:360px){.oc-flow-text{display:none}}
 .oc-hint{font-size:11px;color:var(--txt3);margin:-3px 0 7px;line-height:1.4}
 /* minmax(0,1fr) にしないと、グリッドの列は「中身の最小幅」まで押し広げられる。
    長い行が1つあるだけでカードが画面幅を超え、ページ全体が横スクロールになる */
@@ -898,9 +918,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
      ①ログアウトをアイコンだけにして幅を稼ぎ、②それでも足りない端末のために
      ボタン列を横スクロールできるようにする（.stabs と同じ逃がし方）。 */
   .tb{gap:5px}
-  .tb-btns{gap:4px;flex-shrink:1;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  .tb-btns::-webkit-scrollbar{display:none}
-  .tb-btns>.btn{flex-shrink:0}
+  .tb-btns{gap:4px}
   .lo-text{display:none}
   .dg{grid-template-columns:1fr}
   .pp{gap:6px 12px}
@@ -908,9 +926,11 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
 }
 
 /* ===== LOGIN ===== */
-#login-ov{position:fixed;inset:0;background:rgba(30,29,26,.72);z-index:9999;display:flex;align-items:center;justify-content:center}
+#login-ov{position:fixed;inset:0;background:rgba(30,29,26,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
 #login-ov.hd{display:none}
-.login-box{background:var(--sur);border-radius:16px;padding:36px 32px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.22)}
+/* 幅は 360px を上限に、狭い端末では縮める（.name-box は max-width:96vw で
+   同じ手当てが入っているのに、ここだけ漏れていた） */
+.login-box{background:var(--sur);border-radius:16px;padding:36px 32px;width:100%;max-width:360px;box-sizing:border-box;box-shadow:0 8px 40px rgba(0,0,0,.22)}
 .login-box h2{font-size:20px;font-weight:900;color:var(--ac);margin-bottom:6px;text-align:center}
 .login-box p{font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px}
 .login-box input{width:100%;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:9px 12px;font-size:14px;margin-bottom:10px;outline:none;font-family:var(--fn)}
@@ -1020,6 +1040,13 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
 .log-list{font-size:11px;color:var(--txt2)}
 .log-item{padding:6px 10px;border-bottom:1px solid var(--bdr);display:flex;gap:8px;align-items:flex-start}
 .log-item .li-time{color:var(--txt3);white-space:nowrap;min-width:130px}
+/* 320px 幅では時刻130px＋氏名70pxで本文に37pxしか残らず、1文字ずつ縦に折り返っていた。
+   狭い画面では固定幅をやめ、行を折り返して本文に幅を回す。 */
+@media(max-width:480px){
+  .log-item{flex-wrap:wrap}
+  .log-item .li-time{min-width:0}
+  .log-item .li-user{min-width:0}
+}
 .log-item .li-user{font-weight:700;color:var(--ac);min-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-item .li-msg{flex:1}
 .log-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -1136,6 +1163,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
 .sched-track{position:relative}
 .sched-block{position:absolute;left:2px;right:2px;border-radius:5px;padding:2px 4px;font-size:11px;font-weight:700;color:#fff;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.18);box-sizing:border-box;touch-action:none}
 .sched-block:active{cursor:grabbing}
+.sched-block .bn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sched-block .bt{font-size:9px;font-weight:600;opacity:.9;font-family:var(--mo)}
 .sched-block .bx{position:absolute;top:1px;right:2px;cursor:pointer;font-size:12px;line-height:1;opacity:.85;background:none;border:none;color:#fff;padding:0}
 .sched-block .bh{position:absolute;left:0;right:0;bottom:0;height:9px;cursor:ns-resize;border-radius:0 0 5px 5px}
@@ -19788,7 +19816,7 @@ function renderSched(){
       var hgt=(bl.end-bl.start)*SCHED_PXMIN;
       h+='<div class="sched-block '+schedColorOf(bl.color)+'" data-id="'+bl.id+'" style="top:'+top2+'px;height:'+hgt+'px">';
       h+=(locked?'':'<button class="bx" data-del="'+bl.id+'">×</button>');
-      h+='<div>'+escH(bl.label)+'</div><div class="bt">'+schedMinToHM(bl.start)+'–'+schedMinToHM(bl.end)+'</div>';
+      h+='<div class="bn">'+escH(bl.label)+'</div><div class="bt">'+schedMinToHM(bl.start)+'–'+schedMinToHM(bl.end)+'</div>';
       if(!locked) h+='<div class="bh"></div>';
       h+='</div>';
     }
