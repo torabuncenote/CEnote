@@ -336,6 +336,18 @@ CSVは対象を持つサブタブにだけ出す：担当表は `at` のみ（�
 
 `init()` calls `updateTabVisibility()` once at startup (right after `fbInit()`). Without it the mode-dependent tabs are never evaluated on a cold load: `_viewMode` is restored from `localStorage` at the top of `init()`, but the Firebase path only re-evaluates on login and the preview path used to hand-set `display=''` on the admin tabs, so reloading while in HD mode left 担当表 showing and HD集計 hidden. Do not replace that call with per-tab `style.display` assignments again.
 
+### 文字サイズ（`--ui-zoom`）
+
+端末ローカル設定（localStorage `ce2_fontscale`、`getFontScale()`/`setFontScale(v)`/`cycleFontScale()`/`applyFontScale()`/`uiZoom()`）。テーマと同じく `D` には入れず、ログアウトでもリセットしない。トップバーの `#fs-toggle` が **小(0.9) → 標準(1.0) → 大(1.15) → 特大(1.3)** を回す。**既定は標準＝現状と1pxも変わらない。**
+
+**font-size の変数化ではなく `zoom` で実装している。** この画面は `font-size` が px 直書きで818箇所あり、うち77%が10〜12px。`font-size` だけを動かしても固定pxの `padding`・`min-width` は付いてこないので、**大きくした文字が変わらない箱の中でかえって見切れる**。`zoom` なら文字・余白・枠線・幅がまとめて拡大される。`#at-zoom-inner` に前例がある。**トークン化に作り替えるなら、padding/min-width まで一緒に動かす手当てが要る。**
+
+- 適用先は `#main`（連絡表本体）と `.md`（モーダル）。**`#pane-assign` は対象外** — 独自のピンチズーム（`_atZoom` / `#at-zoom-inner`）を持っており、掛け合わせると `initAtPinchZoom` の座標計算が合わなくなる
+- **印刷では `@media print{:root{--ui-zoom:1!important}}` で1に戻す**（紙を端末ごとの設定に引きずらせない。ダークパレットを `@media screen` に閉じ込めてあるのと同じ流儀）。`--ui-zoom` はJSが inline style で書くので `!important` が要る
+- `<head>` のちらつき防止スクリプトにも同じ倍率表がある。**`FS_SCALES` と片方だけ直さないこと**
+- `applyFontScale()` は `--ui-zoom` に加えて `<html>` に `data-fs` も書く。**メディアクエリは `zoom` を見ない**（ビューポート幅で判定する）ので、拡大中は狭い画面用の折り返しルールが効かないまま `.main{overflow-x:hidden}` に内容を切り落とされる。`:root[data-fs="l"|"xl"] .main{overflow-x:auto}` で横スクロールを許し、内容が失われないようにしている
+- **座標を測る側は `uiZoom()` で正規化すること。** `el.getBoundingClientRect()` は zoom 済みの実ピクセル、`scrollTop` は要素自身の（zoom前の）CSSピクセルなので、混ぜると拡大するほどずれる。`dashJumpTop` がこれを行っている
+
 ### テーマ（ライト／ダーク）
 
 端末ローカル設定（localStorage `ce2_theme`、`getTheme()`/`setTheme(t)`/`cycleTheme()`）。`_viewMode` と同じく `D` には入れず、ログアウトでもリセットしない。トップバーの `#theme-toggle` が **☀️ライト → 🌙ダーク → 🌓端末に合わせる** の3状態を回す。
@@ -453,6 +465,8 @@ All class names are abbreviated:
 | `mkCopyTel(id, which)` / `mkCopyMail(id)` / `mkFlashCopied(el)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック）。コピー成功時はトーストに加え、押したボタン自体のアイコンを`data-ic`属性の元絵文字から一瞬✓に変える（`mkFlashCopied`）。ボタンDOM idは`mk-tel-{id}-{1|2}` / `mk-mail-{id}`で固定 |
 | `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
 | `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
+| `openSupPickerModal(opts)` / `renderSupPickBody()` / `supPickTree()` / `supTriggerRowHTML(sup, locked)` | 使用物品を選ぶ中央ポップアップ（開く／中身を描く／マスタの正規化）と、症例行に置くトリガー行。詳細は上記「OPE / カテカード」節 |
+| `getFontScale()` / `setFontScale(v)` / `cycleFontScale()` / `applyFontScale()` / `uiZoom()` | 文字サイズ（小／標準／大／特大）。`--ui-zoom` と `data-fs` を書く。座標を測る側は `uiZoom()` で正規化する |
 | `getTheme()` / `setTheme(t)` / `cycleTheme()` / `effectiveTheme()` / `applyTheme()` | 表示テーマ（ライト／ダーク／端末設定）。`data-theme` には常に light/dark のどちらかを書く |
 | `repaintForTheme()` | テーマ切替時に、JSが色を埋めている箇所（担当枠・集計グラフ）を塗り直す |
 | `darkenPair(c)` / `themePair(c)` | ライト用の「淡い地＋濃い文字」ペアを、色相を軸に暗背景用へ計算変換（`_dutyDarkCache` にメモ化） |
@@ -602,7 +616,12 @@ dat.placement = {
 
 **症例ごとの備考**: `item.note`（1症例=1行ごとの備考、`buildItemList`/`buildItemListTree` 共通）。値が空なら「＋備考」リンクのみ表示し、1文字でも入っていれば開いたまま（担当カードの備考欄と同じ開閉パターン）。カード全体で1つだけの旧仕様（`ops.ope_note`/`ops.cath_note`）は新規作成不可になったが、既存値があるカードだけ「📝 備考（旧・カード共通）」として表示・編集を残す（値は消さない）。横断検索も `item.note` を対象に含む。
 
-**使用物品の折り返し表示**: `item.sup`（カンマ区切りで直接入力する `<input>`）は仕様上1行しか見えず、品目を入れすぎると未フォーカス時に枠外が見切れる。`supViewHTML(supArr)`（`opsItemSup` の直後で定義）が入力欄の下に読み取り専用の折り返しビュー（`.ops-sup-view`）を生成する — 各品目を `.sup-tok`（`white-space:nowrap`）で包むことで、品目名の途中では改行させず、品目とカンマの間でだけ折り返す。`buildItemList`/`buildItemListTree` 双方の入力（`oninput`/`onblur`/カスケード選択の追記）が値を変えるたびに `supViewEl.innerHTML = supViewHTML(...)` で更新する。
+**使用物品はモーダルで選ぶ**: 症例行の下に3段セレクトの箱を埋め込む方式は、症例行が縦に長い（科/中カテゴリ/術式・入室時間・担当者・終了時刻…）ぶん端末やスクロール位置によって枠外へ出て見切れ、しかも1品ずつしか追加できなかったため、画面中央のポップアップ `openSupPickerModal(opts)` に移した。行内に残すのは `supTriggerRowHTML(sup, locked)` が作る「選ぶ」ボタンと、`supViewHTML(supArr)` の読み取り用の折り返しビュー（`.ops-sup-view`。各品目を `.sup-tok`＝`white-space:nowrap` で包み、品目名の途中では改行させず品目とカンマの間でだけ折り返す）だけ。
+
+- `opts` は `{title, current, locked, onApply}`。**`items`/`saveItems` のクロージャは呼び出し側に閉じ込め、モーダルは配列だけを受け渡す。** 書き戻しは `onApply(arr)` → `items[idx].sup = arr; saveItems(); renderItems();` の1経路に統一する。`item.sup` は**文字列配列のまま**（集計・CSV・横断検索・`opsItemFilled` がこの形を読む）。読み出しは必ず `opsItemSup(it)` を経由（Firebaseの配列→オブジェクト化対策）
+- **カテゴリ・種別・品名の名前を `onclick` に埋め込まないこと。必ず添字を渡す**（`supPickSetDept(di)` / `supPickSetCat(ci)` / `supPickToggleItem(ii)`）。品名にアポストロフィが入ると `onclick` 文字列が壊れる——スタッフ名・メーカー名で実際に踏んだ罠と同じ。描画と添字解決で同じ並びを使うため、種別の絞り込みは `supPickCats(dObj)` に集約してある（片方だけ filter すると添字がずれる）
+- マスタは `supPickTree()` が正規化する。`D.supTree` があればそれを、無ければフラットな `D.sup` を「カテゴリ無しの1グループ」として同じ形で返すので、`buildItemList`（フラット版）と `buildItemListTree` が同じモーダルを共有できる
+- **自由入力は氏名パターンの黄色警告では止めない**（`phiHasBlock` のブロック対象＝患者IDや姓名フル一致だけ弾く）。ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名はほとんどが氏名パターンに当たり（中心静脈カテーテル／生体情報モニタ／自己血回収装置／電気メス先端チップ／吸収糸…）、毎回警告を挟むとアラート疲れで本物の患者情報の警告まで読み飛ばされる。**`phiGuardText` にそのまま通す形へ戻さないこと**
 
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
