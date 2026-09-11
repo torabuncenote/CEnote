@@ -1042,14 +1042,16 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
 .log-list{font-size:11px;color:var(--txt2)}
 .log-item{padding:6px 10px;border-bottom:1px solid var(--bdr);display:flex;gap:8px;align-items:flex-start}
 .log-item .li-time{color:var(--txt3);white-space:nowrap;min-width:130px}
+.log-item .li-user{font-weight:700;color:var(--ac);min-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 320px 幅では時刻130px＋氏名70pxで本文に37pxしか残らず、1文字ずつ縦に折り返っていた。
-   狭い画面では固定幅をやめ、行を折り返して本文に幅を回す。 */
+   狭い画面では固定幅をやめ、行を折り返して本文に幅を回す。
+   **この指定は .li-time / .li-user の無条件ルールより後ろに置くこと** — 詳細度が同じなので、
+   前に置くと後続の min-width に負けて効かない（実際に .li-user 側だけ効いていなかった）。 */
 @media(max-width:480px){
   .log-item{flex-wrap:wrap}
   .log-item .li-time{min-width:0}
   .log-item .li-user{min-width:0}
 }
-.log-item .li-user{font-weight:700;color:var(--ac);min-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .log-item .li-msg{flex:1}
 .log-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .log-ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
@@ -2688,6 +2690,7 @@ function dashJumpTop(el) {
   return { cont: cont, top: top };
 }
 
+var _dashJumpTimers = null;
 function dashJump(sel) {
   var mainEl = document.getElementById('main');
   var el = mainEl ? mainEl.querySelector(sel) : null;
@@ -2706,8 +2709,10 @@ function dashJump(sel) {
     var freshPos = dashJumpTop(el);
     if (Math.abs(freshPos.cont.scrollTop - freshPos.top) > 4) freshPos.cont.scrollTop = freshPos.top;
   };
-  setTimeout(fix, 400);
-  setTimeout(fix, 900);
+  /* 前回のジャンプの補正が残っていると、続けて押したときに一度前の行き先へ引き戻される。
+     ハンドルを持っておいて必ず捨てる。 */
+  if (_dashJumpTimers) _dashJumpTimers.forEach(clearTimeout);
+  _dashJumpTimers = [setTimeout(fix, 400), setTimeout(fix, 900)];
   el.classList.add('dash-highlight');
   setTimeout(function(){ el.classList.remove('dash-highlight'); }, 2000);
 }
@@ -11251,16 +11256,18 @@ function renderTree(elId, tree, saveKey, icons) {
       /* 使用物品マスタだけ、種別に「どの科で使うか」のタグを付けられるようにする。
          saveKey で判定するのは、renderTree が自分自身を何度も呼び直すので
          引数を足すと渡し忘れが起きるため。 */
+      var deptTagBtn = null;
       if (saveKey === 'supTree') {
-        var deptTagBtn = document.createElement('button');
+        deptTagBtn = document.createElement('button');
         var curTags = supCatDepts(cat);
         deptTagBtn.style.cssText='background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:'+(curTags.length?'var(--ac)':'var(--txt3)');
         deptTagBtn.textContent = curTags.length ? '🏥' + curTags.length : '🏥';
         deptTagBtn.title = curTags.length ? '使う科：' + curTags.join('、') : '使う科を設定（未設定＝全科共通）';
         deptTagBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();openSupDeptModal(di2,ci2);};})(di,ci);
-        catHd.appendChild(deptTagBtn);
       }
-      catHd.appendChild(catArrow); catHd.appendChild(catName); catHd.appendChild(editCatBtn); catHd.appendChild(delCatBtn);
+      catHd.appendChild(catArrow); catHd.appendChild(catName);
+      if (deptTagBtn) catHd.appendChild(deptTagBtn);   /* ✏️/× と同じ右側に並べる */
+      catHd.appendChild(editCatBtn); catHd.appendChild(delCatBtn);
 
       var catKey = dept.dept + ' ' + cat.name;
       var catOpen = !!openSt.cats[catKey];
@@ -13575,12 +13582,12 @@ function renderSupPickBody(){
       h += '<div class="sup-pick-empty" style="margin-top:12px">物品マスタが未登録です。業務マスタの「使用物品」から登録すると一覧から選べます。</div>';
     } else if (!flatOnly) {
       h += '<div class="md-flbl" style="margin-top:14px">① 物品カテゴリ</div><div class="dc-cbs">';
-      tree.forEach(function(d, di){
+      supPickDepts().forEach(function(d, di){
         h += '<button type="button" class="dc-cb-item' + (c.di === di ? ' checked' : '') + '" onclick="supPickSetDept(' + di + ')">' + escH(d.dept) + '</button>';
       });
       h += '</div>';
     }
-    var dObj = (c.di != null) ? tree[c.di] : null;
+    var dObj = (c.di != null) ? supPickDepts()[c.di] : null;
     if (dObj && !flatOnly) {
       var cats = supPickCats(dObj);
       h += '<div class="md-flbl" style="margin-top:10px">② 種別</div>';
@@ -13588,7 +13595,9 @@ function renderSupPickBody(){
         ? '<div class="dc-cbs">' + cats.map(function(ct, ci){
             return '<button type="button" class="dc-cb-item' + (c.ci === ci ? ' checked' : '') + '" onclick="supPickSetCat(' + ci + ')">' + escH(ct.name) + '</button>';
           }).join('') + '</div>'
-        : '<div class="sup-pick-empty">このカテゴリに種別が登録されていません</div>';
+        : '<div class="sup-pick-empty">' + (supPickFiltering()
+            ? escH(c.dept) + ' で使う種別がこのカテゴリにはありません（「全部見る」で全件表示）'
+            : 'このカテゴリに種別が登録されていません') + '</div>';
     }
     var cObj = (dObj && c.ci != null) ? supPickCats(dObj)[c.ci] : null;
     if (cObj) {
@@ -13628,6 +13637,17 @@ function supPickCats(dObj){
 /* 科タグで絞るかどうか。マスタ全体で1件も残らない科では絞らない——
    「絞ったら空になって何も選べない」で手が止まるのを避けるため（初期状態や
    タグを付け始めたばかりの科がこれに当たる）。 */
+/* 絞り込み後に残る物品カテゴリ。描画も添字解決もここを通す——種別と同じ理由で、
+   絞った一覧を描いて絞らない一覧で添字を引くと別のカテゴリが開く。
+   中の種別が全部消えるカテゴリはチップごと出さない（開くと「登録されていません」と
+   出てしまい、実際には登録済みなので誤解を招く）。 */
+function supPickDepts(){
+  var tree = supPickTree();
+  if (!supPickFiltering()) return tree;
+  return tree.filter(function(d){
+    return (d.cats || []).filter(Boolean).some(function(ct){ return supCatMatches(ct, _supPickCtx.dept); });
+  });
+}
 function supPickFiltering(){
   var c = _supPickCtx;
   if (!c || !c.dept || c.allDepts) return false;
@@ -13646,15 +13666,15 @@ function supPickDeptCount(dept){
 function supPickToggleAllDepts(){
   var c = _supPickCtx; if (!c) return;
   c.allDepts = !c.allDepts;
-  /* 並びが変わるので選択中の種別は解除する（添字が別の種別を指してしまうため） */
-  c.ci = null;
+  /* 並びが変わるので選択中のカテゴリ・種別は解除する（添字が別のものを指してしまうため） */
+  c.di = null; c.ci = null;
   renderSupPickBody();
 }
 function supPickSetDept(di){ if (!_supPickCtx) return; _supPickCtx.di = di; _supPickCtx.ci = null; renderSupPickBody(); }
 function supPickSetCat(ci){ if (!_supPickCtx) return; _supPickCtx.ci = ci; renderSupPickBody(); }
 function supPickToggleItem(ii){
   var c = _supPickCtx; if (!c) return;
-  var dObj = supPickTree()[c.di]; if (!dObj) return;
+  var dObj = supPickDepts()[c.di]; if (!dObj) return;
   var cObj = supPickCats(dObj)[c.ci]; if (!cObj) return;
   var name = (cObj.items || []).filter(Boolean)[ii]; if (!name) return;
   var at = c.sel.indexOf(name);
@@ -19794,6 +19814,12 @@ function exportAtCsv() {
 
 /* ===== スケジュール（タイムテーブル） ===== */
 var SCHED_START=480, SCHED_END=1260, SCHED_SLOT=15, SCHED_PXMIN=1.2; /* 8:00〜21:00 / 15分刻み / 1分=1.2px */
+/* ポインタ座標から分を出すときだけ、文字サイズの zoom で割り戻す。
+   スケジュールは .md（zoom:var(--ui-zoom)）の中なので、clientY/getBoundingClientRect は
+   zoom 済みの実ピクセル、SCHED_PXMIN は要素ローカルのCSSピクセル基準——そのまま割ると
+   拡大率ぶんズレる（特大で12:00を押すと13:12に置かれる）。
+   分→px（top/height の算出）は要素ローカルのままでよいので SCHED_PXMIN を直接使う。 */
+function schedMinFromPx(px){ return px / (SCHED_PXMIN * (typeof uiZoom === 'function' ? (uiZoom() || 1) : 1)); }
 var DEF_SCHED_PRESETS=[
   {label:'OPE立会い',  color:'o',   dur:120},
   {label:'カテ立会い', color:'c',   dur:90},
@@ -20080,7 +20106,7 @@ function schedBindInteractions(ds){
       if(_schedSelPreset===null) return;
       if(e.target.closest('.sched-block')) return; /* ブロック上は無視 */
       var rect=tr.getBoundingClientRect();
-      var min=SCHED_START+(e.clientY-rect.top)/SCHED_PXMIN;
+      var min=SCHED_START+schedMinFromPx(e.clientY-rect.top);
       schedAddBlock(ds,staff,_schedSelPreset,min);
     });
     tr.addEventListener('dragover',function(e){ if(_schedDragPreset!==null){ e.preventDefault(); } });
@@ -20088,7 +20114,7 @@ function schedBindInteractions(ds){
       if(_schedDragPreset===null) return;
       e.preventDefault();
       var rect=tr.getBoundingClientRect();
-      var min=SCHED_START+(e.clientY-rect.top)/SCHED_PXMIN;
+      var min=SCHED_START+schedMinFromPx(e.clientY-rect.top);
       var pi=_schedDragPreset; _schedDragPreset=null;
       schedAddBlock(ds,staff,pi,min);
     });
@@ -20112,7 +20138,7 @@ function schedBindInteractions(ds){
       el.setPointerCapture&&el.setPointerCapture(e.pointerId);
       function onMove(ev){
         moved=true;
-        var dyMin=(ev.clientY-startY)/SCHED_PXMIN;
+        var dyMin=schedMinFromPx(ev.clientY-startY);
         if(mode==='move'){
           var ns=schedSnap(origStart+dyMin);
           if(ns+dur>SCHED_END) ns=SCHED_END-dur;
@@ -20878,7 +20904,11 @@ function syncCbarInset() {
   if (vv) {
     /* レイアウト高さのうち、下端で見えていない量 */
     px = Math.round(window.innerHeight - vv.height - vv.offsetTop);
-    if (!(px > 0)) px = 0;
+    /* ピンチズーム中は vv.height が縮むぶんが丸ごとこの差に出るので、下部UIと誤読して
+       消し込みバーが厚くなる（maximum-scale を外してズームを解禁したことで起きるようになった）。
+       拡大中は補正しない。 */
+    if (vv.scale && vv.scale > 1.01) px = 0;
+    else if (!(px > 0)) px = 0;
     else if (px > 200) px = 0;   /* キーボード表示中とみなし補正しない */
     else if (px > 160) px = 160; /* 想定より厚いUI。捨てずに上限でクランプ */
   }

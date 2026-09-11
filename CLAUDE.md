@@ -346,7 +346,8 @@ CSVは対象を持つサブタブにだけ出す：担当表は `at` のみ（�
 - **印刷では `@media print{:root{--ui-zoom:1!important}}` で1に戻す**（紙を端末ごとの設定に引きずらせない。ダークパレットを `@media screen` に閉じ込めてあるのと同じ流儀）。`--ui-zoom` はJSが inline style で書くので `!important` が要る
 - `<head>` のちらつき防止スクリプトにも同じ倍率表がある。**`FS_SCALES` と片方だけ直さないこと**
 - `applyFontScale()` は `--ui-zoom` に加えて `<html>` に `data-fs` も書く。**メディアクエリは `zoom` を見ない**（ビューポート幅で判定する）ので、拡大中は狭い画面用の折り返しルールが効かないまま `.main{overflow-x:hidden}` に内容を切り落とされる。`:root[data-fs="l"|"xl"] .main{overflow-x:auto}` で横スクロールを許し、内容が失われないようにしている
-- **座標を測る側は `uiZoom()` で正規化すること。** `el.getBoundingClientRect()` は zoom 済みの実ピクセル、`scrollTop` は要素自身の（zoom前の）CSSピクセルなので、混ぜると拡大するほどずれる。`dashJumpTop` がこれを行っている
+- **座標を測る側は `uiZoom()` で正規化すること。** `el.getBoundingClientRect()`・`clientX/Y` は zoom 済みの実ピクセル、`scrollTop` や px 定数（`SCHED_PXMIN` など）は要素自身の（zoom前の）CSSピクセルなので、混ぜると拡大するほどずれる。現在の該当箇所は `dashJumpTop`（スクロール位置）と `schedMinFromPx`（スケジュールの座標→分。特大で12:00を押すと13:12に置かれていた）。**逆に「分→px」のように要素ローカルで完結する計算は割ってはいけない**——`SCHED_PXMIN` を直接使う
+- **狭い画面用の `@media` ブロックは、打ち消したい無条件ルールより後ろに置くこと。** 詳細度が同じなので前に置くと負けて効かない（`.log-item .li-user{min-width:0}` が実際に効いていなかった）
 
 ### テーマ（ライト／ダーク）
 
