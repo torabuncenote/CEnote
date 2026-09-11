@@ -465,6 +465,8 @@ All class names are abbreviated:
 | `mkCopyTel(id, which)` / `mkCopyMail(id)` / `mkFlashCopied(el)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック）。コピー成功時はトーストに加え、押したボタン自体のアイコンを`data-ic`属性の元絵文字から一瞬✓に変える（`mkFlashCopied`）。ボタンDOM idは`mk-tel-{id}-{1|2}` / `mk-mail-{id}`で固定 |
 | `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
 | `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
+| `supCatDepts(cat)` / `supDeptOptions()` / `supCatMatches(cat, dept)` / `supPickFiltering()` / `supPickDeptCount(dept)` | 種別の科タグの読み出し／タグ候補（術式マスタの科）／その科で出すか／絞り込むか（1件も残らない科では絞らない）／件数 |
+| `openSupDeptModal(di, ci)` / `renderSupDeptModalBody()` / `supDeptToggle(i)` / `saveSupDepts()` | 使用物品マスタで種別に「使う科」を付けるモーダル（`mst` 権限）。設置部署マスタ `openWdSubsModal` と同じ作り |
 | `openSupPickerModal(opts)` / `renderSupPickBody()` / `supPickTree()` / `supTriggerRowHTML(sup, locked)` | 使用物品を選ぶ中央ポップアップ（開く／中身を描く／マスタの正規化）と、症例行に置くトリガー行。詳細は上記「OPE / カテカード」節 |
 | `getFontScale()` / `setFontScale(v)` / `cycleFontScale()` / `applyFontScale()` / `uiZoom()` | 文字サイズ（小／標準／大／特大）。`--ui-zoom` と `data-fs` を書く。座標を測る側は `uiZoom()` で正規化する |
 | `getTheme()` / `setTheme(t)` / `cycleTheme()` / `effectiveTheme()` / `applyTheme()` | 表示テーマ（ライト／ダーク／端末設定）。`data-theme` には常に light/dark のどちらかを書く |
@@ -621,6 +623,10 @@ dat.placement = {
 - `opts` は `{title, current, locked, onApply}`。**`items`/`saveItems` のクロージャは呼び出し側に閉じ込め、モーダルは配列だけを受け渡す。** 書き戻しは `onApply(arr)` → `items[idx].sup = arr; saveItems(); renderItems();` の1経路に統一する。`item.sup` は**文字列配列のまま**（集計・CSV・横断検索・`opsItemFilled` がこの形を読む）。読み出しは必ず `opsItemSup(it)` を経由（Firebaseの配列→オブジェクト化対策）
 - **カテゴリ・種別・品名の名前を `onclick` に埋め込まないこと。必ず添字を渡す**（`supPickSetDept(di)` / `supPickSetCat(ci)` / `supPickToggleItem(ii)`）。品名にアポストロフィが入ると `onclick` 文字列が壊れる——スタッフ名・メーカー名で実際に踏んだ罠と同じ。描画と添字解決で同じ並びを使うため、種別の絞り込みは `supPickCats(dObj)` に集約してある（片方だけ filter すると添字がずれる）
 - マスタは `supPickTree()` が正規化する。`D.supTree` があればそれを、無ければフラットな `D.sup` を「カテゴリ無しの1グループ」として同じ形で返すので、`buildItemList`（フラット版）と `buildItemListTree` が同じモーダルを共有できる
+- **科での絞り込みは「種別（cat）に科タグを付ける」方式**。`D.supTree[di].cats[ci].depts = ['一般外科',...]`（**未設定＝全科共通**。空配列は持たせず、`saveSupDepts` がキーごと消す）。読み出しは必ず `supCatDepts(cat)` を経由（Firebaseの配列→オブジェクト化対策）。マスタを「科→物品カテゴリ→品名」に作り直す案は採らなかった——電気メスのような全科共通の物品を科の数だけ重複登録することになり、1つ名前を直すと全科分を直す羽目になるため
+- **絞り込みは `supPickCats(dObj)` 1か所に集約する。** 絞った一覧を描いて絞らない一覧で添字を引くと別の種別が選ばれる。`onclick` に渡すのは添字だけなので、**描画と添字解決は必ず同じ関数を通すこと**
+- **その科のタグが1件も無いときは絞らない**（`supPickFiltering()` が `supPickDeptCount(dept).shown > 0` を見る）。タグを付け始めたばかりの科で「絞ったら空で何も選べない」となって手が止まるのを防ぐため。**この fallback を外さないこと**
+- タグの選択肢（`supDeptOptions()`）は**術式マスタ（`D.opeTree`/`D.cathTree`）の科をそのまま使う**。物品側に別の科名リストを持たせると表記ゆれで症例側と永久に噛み合わなくなる。症例の科は `opsItemDept(it)` 経由で渡すので、自由入力の科はどのタグにも一致せず全件表示になる
 - **自由入力は氏名パターンの黄色警告では止めない**（`phiHasBlock` のブロック対象＝患者IDや姓名フル一致だけ弾く）。ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名はほとんどが氏名パターンに当たり（中心静脈カテーテル／生体情報モニタ／自己血回収装置／電気メス先端チップ／吸収糸…）、毎回警告を挟むとアラート疲れで本物の患者情報の警告まで読み飛ばされる。**`phiGuardText` にそのまま通す形へ戻さないこと**
 
 カテカード固定フィールド（`ops.` に保存）:
