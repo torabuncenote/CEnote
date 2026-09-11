@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <!-- viewport-fit=cover が無いと env(safe-area-inset-*) が常に0になり、
      画面下端に固定した消し込みバーが Android のナビゲーションバーに隠れる -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<!-- maximum-scale は付けないこと。付けると端末側のピンチズームが封じられ、
+     10〜12px の文字を利用者が拡大する手段が一切なくなる（担当表だけ独自の
+     ピンチズームを自前実装してあるのは、この制約の裏返しだった）。 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>分院CE連絡表</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
@@ -22,6 +25,13 @@
         ? ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light')
         : 'light';
     document.documentElement.setAttribute('data-theme', eff);
+  } catch (e) {}
+  try {
+    /* 文字サイズも同じ理由でCSSより先に当てる（init() を待つと、拡大設定の端末で
+       一瞬だけ等倍の画面が見えてしまう）。倍率の表は FS_SCALES と必ず揃えること */
+    var f = localStorage.getItem('ce2_fontscale');
+    var z = { s:0.9, m:1, l:1.15, xl:1.3 }[f];
+    if (z && z !== 1) document.documentElement.style.setProperty('--ui-zoom', z);
   } catch (e) {}
 })();
 </script>
@@ -71,6 +81,12 @@
   --sh:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
   --shl:0 8px 32px rgba(0,0,0,.14);
   --sw:290px;--th:52px;
+  /* 文字サイズ設定（小/標準/大/特大）。font-size だけを変数化しても固定pxの
+     padding・min-width は付いてこないので、大きくした文字が変わらない箱の中で
+     かえって見切れる。zoom なら文字・余白・枠線・幅がまとめて拡大されるため、
+     「文字や枠など」をまとめて追従させるにはこちらが正しい。
+     適用先は #main と .md（詳細は setFontScale 付近のコメント）。 */
+  --ui-zoom:1;
   /* viewport-fit=cover により画面が端末のふちまで広がるため、
      上のステータスバー/ノッチぶんを変数にしてトップバーとその下の要素で共有する */
   --sat:env(safe-area-inset-top, 0px);
@@ -87,7 +103,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .uc{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--gd-bg);border:1px solid var(--gd-bdr);color:var(--gd)}
 .sd{width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:auto;flex-shrink:0}
 .sl{font-size:11px;color:var(--txt3);font-family:var(--mo)}
-.tb-btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.tb-btns{display:flex;gap:6px;align-items:center;flex-shrink:0;min-width:0}
 /* ツールバー内は文字を縦に折り返させない（Android等の狭い幅でヘッダーが崩れるのを防止） */
 .tb{overflow:hidden}
 .tb .btn,.tb-logo,.tb-sub,.tb-sep,.sl,.btn-logout,.uc-name,.hbg{white-space:nowrap}
@@ -177,7 +193,12 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 /* 下余白は消し込みバーの実測高さ(--cbar-h)に連動させる。以前は80px固定で、
    セーフエリアや端末の下部UIでバーが厚くなるとページ末尾が隠れていた。
    バーが出ていないときは --cbar-h が 0 になるので従来と同じ余白に戻る。 */
-.main{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:28px 44px calc(28px + var(--cbar-h, 0px))}
+.main{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:28px 44px calc(28px + var(--cbar-h, 0px));zoom:var(--ui-zoom,1)}
+/* 文字サイズを上げると、中身の実効幅が狭まるぶん横にはみ出すことがある。
+   メディアクエリは zoom を見ない（ビューポート幅で判定する）ので、狭い画面用の
+   折り返しルールが効かないまま .main の overflow-x:hidden に切り落とされてしまう。
+   拡大中だけ横スクロールを許して、内容が失われないようにする。 */
+:root[data-fs="l"] .main,:root[data-fs="xl"] .main{overflow-x:auto}
 .main::-webkit-scrollbar{width:6px}
 .main::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px}
 /* PC: コンテンツタブ選択時にサイドバーを全幅に拡張してメインエリアとして使う */
@@ -681,7 +702,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px}
 #modal-phi{z-index:900}
 .ov.hd{display:none}
-.md{background:var(--sur);border-radius:13px;padding:26px;max-width:460px;width:100%;box-shadow:var(--shl);max-height:90vh;overflow-y:auto}
+.md{zoom:var(--ui-zoom,1);background:var(--sur);border-radius:13px;padding:26px;max-width:460px;width:100%;box-shadow:var(--shl);max-height:90vh;overflow-y:auto}
 .md h3{font-size:16px;font-weight:900;margin-bottom:5px}
 .md p{font-size:12px;color:var(--txt2);margin-bottom:16px;line-height:1.7}
 .mdb{display:flex;gap:7px;justify-content:flex-end;margin-top:18px}
@@ -724,7 +745,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .atw{padding:20px 28px 60px;overflow-y:auto;flex:1;background:var(--bg)}
 .atnav{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .atnav .atml{font-size:16px;font-weight:900}
-.ato{width:100%;overflow:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr);-webkit-overflow-scrolling:touch}
+/* touch-action で担当表の上だけブラウザのピンチを止める。ページ全体の
+   ピンチズームは有効なままで、ここは initAtPinchZoom の独自ズームが受け持つ */
+.ato{touch-action:pan-x pan-y;width:100%;overflow:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr);-webkit-overflow-scrolling:touch}
 .ato.pinching{touch-action:none;overscroll-behavior:contain}
 #at-zoom-inner{transform-origin:0 0;display:inline-block;min-width:100%}
 .at-zoom-bar{display:none;gap:4px;margin-bottom:6px}
@@ -753,6 +776,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
    チェックボックス／ラジオ／色ピッカーは既定の描画に任せる。 */
 input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{background:var(--sur);color:var(--txt)}
 @media print{
+  /* 紙は端末ごとの文字サイズ設定に引きずらせない（ダークパレットを @media screen に
+     閉じ込めてあるのと同じ理由）。--ui-zoom は JS が inline style で書くので !important が要る */
+  :root{--ui-zoom:1!important}
   /* 紙は常に白。ダークのパレットは @media screen 限定なので、印刷では自動的にライトの :root 値に戻る */
   body{background:#fff!important;font-size:10px}
   .tb,.atnav .btn,.ov{display:none!important}
@@ -867,6 +893,15 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   .pg-hd .hd-btn-text{display:none}
 }
 @media(max-width:480px){
+  /* .tb は overflow:hidden なので、入りきらないボタンは「…」も出ずに無言で切れる。
+     実測で 320px 幅では変更前から 36px ぶんのボタンが隠れていた。
+     ①ログアウトをアイコンだけにして幅を稼ぎ、②それでも足りない端末のために
+     ボタン列を横スクロールできるようにする（.stabs と同じ逃がし方）。 */
+  .tb{gap:5px}
+  .tb-btns{gap:4px;flex-shrink:1;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .tb-btns::-webkit-scrollbar{display:none}
+  .tb-btns>.btn{flex-shrink:0}
+  .lo-text{display:none}
   .dg{grid-template-columns:1fr}
   .pp{gap:6px 12px}
   .pt2{font-size:17px}
@@ -1382,6 +1417,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <div class="tb-btns">
     <button class="btn btn-g btn-sm" id="mode-toggle" onclick="toggleViewMode()" title="CEモード（タップでHDモードへ切替）">🩺<span class="mt-text"> CE</span></button>
     <button class="btn btn-g btn-sm" id="theme-toggle" onclick="cycleTheme()" title="表示テーマ">☀️<span class="mt-text"> ライト</span></button>
+    <button class="btn btn-g btn-sm" id="fs-toggle" onclick="cycleFontScale()" title="文字サイズ">🔠<span class="mt-text"> 標準</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -1390,7 +1426,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <span class="sl" id="sl">ローカル保存</span>
   <span class="sl" id="month-size" style="display:none;margin-left:6px;color:var(--txt3);font-size:10px"></span>
   <div id="uc-label" class="uc-name" style="display:none" onclick="openNameModal()" title="クリックして表示名を変更"></div>
-  <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()">ログアウト</button>
+  <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()" title="ログアウト">⏻<span class="lo-text"> ログアウト</span></button>
 </div>
 
 <div class="ab" id="ab">
@@ -2607,12 +2643,18 @@ function dashJumpTop(el) {
   var doc = document.scrollingElement || document.documentElement;
   var useMain = !!(mainEl && mainEl.scrollHeight > mainEl.clientHeight + 1);
   var cont = useMain ? mainEl : doc;
-  var top = useMain
-    ? (el.getBoundingClientRect().top - mainEl.getBoundingClientRect().top + mainEl.scrollTop)
-    : (el.getBoundingClientRect().top + (window.pageYOffset || doc.scrollTop || 0));
+  /* #main は文字サイズ設定で zoom が掛かることがある。getBoundingClientRect() は
+     zoom 済みの実ピクセル、scrollTop は #main 自身の（zoom 前の）CSSピクセルなので、
+     そのまま足すと単位が混ざって拡大するほど飛び先がずれる。実測でも
+     標準→大→特大 で着地点が 112→63→9 と動いた。rect 側を zoom で割って揃える。
+     ドキュメント側をスクロールする経路（useMain=false）は #main の外なので割らない。 */
+  var z = (useMain && typeof uiZoom === 'function') ? (uiZoom() || 1) : 1;
   var tb = document.querySelector('.tb');
   var off = (tb ? tb.getBoundingClientRect().height : 0) + 8;
-  top = Math.max(0, top - off);
+  var top = useMain
+    ? ((el.getBoundingClientRect().top - mainEl.getBoundingClientRect().top - off) / z + mainEl.scrollTop)
+    : (el.getBoundingClientRect().top + (window.pageYOffset || doc.scrollTop || 0) - off);
+  top = Math.max(0, top);
   return { cont: cont, top: top };
 }
 
@@ -2626,10 +2668,16 @@ function dashJump(sel) {
   /* スムーススクロールが効かない環境（アニメーションが走らない/途中で止まる）でも
      確実に目的地へ着かせる保険。400ms 後にまだ遠ければ、その時点で位置を測り直して合わせる
      （クリック時点の固定値のままだと、その間のレイアウト変化でズレるため） */
-  setTimeout(function(){
+  /* 1回だけだと、スムーススクロールのアニメーション中に測ってしまったとき
+     そこで確定してしまう（rect は最新のスクロール位置、scrollTop は1フレーム前の値、
+     という食い違いが出る）。実測では見出しが約60px ぶんトップバーの下に潜っていた。
+     目標位置は動かない不動点なので、間を空けてもう一度測れば必ず収束する。 */
+  var fix = function(){
     var freshPos = dashJumpTop(el);
     if (Math.abs(freshPos.cont.scrollTop - freshPos.top) > 4) freshPos.cont.scrollTop = freshPos.top;
-  }, 400);
+  };
+  setTimeout(fix, 400);
+  setTimeout(fix, 900);
   el.classList.add('dash-highlight');
   setTimeout(function(){ el.classList.remove('dash-highlight'); }, 2000);
 }
@@ -2637,6 +2685,7 @@ function dashJump(sel) {
 /* ===== INIT ===== */
 function init() {
   applyTheme(); /* 描画前に当てる（後だとライトの画面が一瞬見える） */
+  applyFontScale(); /* 同上。ボタンの表示も合わせる */
   _viewMode = getViewMode();
   updateModeToggleBtn();
   syncCbarInset();
@@ -20467,6 +20516,56 @@ function updateThemeBtn() {
   var lb = { auto:'端末に合わせる', light:'ライト', dark:'ダーク' }[t];
   btn.innerHTML = ic + '<span class="mt-text"> ' + lb + '</span>';
   btn.title = '表示テーマ：' + lb + '（タップで切替）';
+}
+
+/* ===== 文字サイズ（小／標準／大／特大） =====
+   テーマと同じく本人の端末設定なので D には入れない／ログアウトでもリセットしない。
+
+   font-size を変数化するのではなく zoom を使っているのは、この画面の font-size が
+   800箇所以上 px 直書きで、しかもその 8割近くが 10〜12px だから。font-size だけを
+   動かしても固定pxの padding・min-width は付いてこないので、大きくした文字が
+   変わらない箱の中でかえって見切れる。zoom なら文字・余白・枠線・幅がまとめて
+   拡大されるので、現場の要望（「文字や枠など」を追従させたい）に素直に応えられる。
+
+   適用先は #main（連絡表本体）と .md（モーダル）。#pane-assign は独自のピンチズーム
+   （_atZoom / #at-zoom-inner）を持つので対象外にしてある——掛け合わせると
+   initAtPinchZoom の座標計算が合わなくなるため。 */
+var FS_KEY = 'ce2_fontscale';
+/* 倍率の表。<head> のちらつき防止スクリプトにも同じ表があるので、片方だけ直さないこと */
+var FS_SCALES = { s:0.9, m:1, l:1.15, xl:1.3 };
+var FS_ORDER  = ['s', 'm', 'l', 'xl'];
+var FS_LABELS = { s:'小', m:'標準', l:'大', xl:'特大' };
+function getFontScale() {
+  var v = localStorage.getItem(FS_KEY);
+  return FS_SCALES[v] ? v : 'm';
+}
+/* いま実際に掛かっている倍率。座標を測る側（dashJumpTop）はこれで正規化する */
+function uiZoom() { return FS_SCALES[getFontScale()] || 1; }
+function applyFontScale() {
+  document.documentElement.style.setProperty('--ui-zoom', uiZoom());
+  /* CSS側で「拡大中かどうか」を見分けるための印。メディアクエリは zoom を見ないので、
+     拡大時だけ .main の横スクロールを許すのにこの属性を使う */
+  document.documentElement.setAttribute('data-fs', getFontScale());
+  updateFontScaleBtn();
+}
+function setFontScale(v) {
+  if (!FS_SCALES[v]) v = 'm';
+  localStorage.setItem(FS_KEY, v);
+  applyFontScale();
+  /* バーの高さは zoom で変わるので測り直す（--cbar-h が古いと本文の末尾が隠れる） */
+  if (typeof syncCbarHeight === 'function') syncCbarHeight();
+}
+function cycleFontScale() {
+  var i = FS_ORDER.indexOf(getFontScale());
+  setFontScale(FS_ORDER[(i + 1) % FS_ORDER.length]);
+  toast('🔠 文字サイズ：' + FS_LABELS[getFontScale()], 'ok');
+}
+function updateFontScaleBtn() {
+  var btn = document.getElementById('fs-toggle');
+  if (!btn) return;
+  var f = getFontScale();
+  btn.innerHTML = '🔠<span class="mt-text"> ' + FS_LABELS[f] + '</span>';
+  btn.title = '文字サイズ：' + FS_LABELS[f] + '（タップで切替）';
 }
 /* 'auto' のまま端末側の設定が変わったら追従する */
 if (window.matchMedia) {
