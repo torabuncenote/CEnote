@@ -4,7 +4,13 @@
 <meta charset="UTF-8">
 <!-- viewport-fit=cover が無いと env(safe-area-inset-*) が常に0になり、
      画面下端に固定した消し込みバーが Android のナビゲーションバーに隠れる -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<!-- maximum-scale はここには付けないこと。Android では端末側のピンチズームが封じられ、
+     10〜12px の文字を利用者が拡大する手段が一切なくなる（担当表だけ独自の
+     ピンチズームを自前実装してあるのは、この制約の裏返しだった）。
+     iPhone/iPad だけは直後のスクリプトが maximum-scale=1.0 を付け直す——iOS は
+     この指定があってもピンチを許す一方、無いと 16px 未満の入力欄に触れるたびに
+     画面を自動で拡大して戻らない（このアプリの入力欄は大半が 12〜14px）。 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>分院CE連絡表</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
@@ -22,6 +28,23 @@
         ? ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light')
         : 'light';
     document.documentElement.setAttribute('data-theme', eff);
+  } catch (e) {}
+  try {
+    /* 文字サイズも同じ理由でCSSより先に当てる（init() を待つと、拡大設定の端末で
+       一瞬だけ等倍の画面が見えてしまう）。倍率の表は FS_SCALES と必ず揃えること */
+    var f = localStorage.getItem('ce2_fontscale');
+    var z = { s:0.9, m:1, l:1.15, xl:1.3 }[f];
+    if (z && z !== 1) document.documentElement.style.setProperty('--ui-zoom', z);
+  } catch (e) {}
+  try {
+    /* iPhone/iPad だけ maximum-scale=1.0 を戻す（理由は viewport の上のコメント）。
+       iPadOS は Mac を名乗るので、タッチ点数で見分ける。Android を名乗るものは必ず外す
+       （Android に付くとピンチ拡大が封じられ、この変更の目的そのものが失われる） */
+    var ua = navigator.userAgent || '';
+    var ios = !/Android/.test(ua) && (/iPhone|iPad|iPod/.test(ua)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+    var vp = ios && document.querySelector('meta[name="viewport"]');
+    if (vp) vp.setAttribute('content', vp.getAttribute('content') + ', maximum-scale=1.0');
   } catch (e) {}
 })();
 </script>
@@ -71,6 +94,12 @@
   --sh:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
   --shl:0 8px 32px rgba(0,0,0,.14);
   --sw:290px;--th:52px;
+  /* 文字サイズ設定（小/標準/大/特大）。font-size だけを変数化しても固定pxの
+     padding・min-width は付いてこないので、大きくした文字が変わらない箱の中で
+     かえって見切れる。zoom なら文字・余白・枠線・幅がまとめて拡大されるため、
+     「文字や枠など」をまとめて追従させるにはこちらが正しい。
+     適用先は #main と .md（詳細は setFontScale 付近のコメント）。 */
+  --ui-zoom:1;
   /* viewport-fit=cover により画面が端末のふちまで広がるため、
      上のステータスバー/ノッチぶんを変数にしてトップバーとその下の要素で共有する */
   --sat:env(safe-area-inset-top, 0px);
@@ -87,7 +116,13 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .uc{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;background:var(--gd-bg);border:1px solid var(--gd-bdr);color:var(--gd)}
 .sd{width:8px;height:8px;border-radius:50%;background:#22c55e;margin-left:auto;flex-shrink:0}
 .sl{font-size:11px;color:var(--txt3);font-family:var(--mo)}
-.tb-btns{display:flex;gap:6px;align-items:center;flex-shrink:0}
+/* .tb は overflow:hidden なので、入りきらない要素は「…」も出ずに無言で消える。
+   右端にあるログアウトボタンが真っ先に犠牲になるため、唯一縮んでよい要素として
+   ボタン列に shrink と横スクロールを持たせ、他は必ず残るようにする
+   （800px 幅では 327px ぶんが切れていた） */
+.tb-btns{display:flex;gap:6px;align-items:center;flex-shrink:1;min-width:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tb-btns::-webkit-scrollbar{display:none}
+.tb-btns>.btn{flex-shrink:0}
 /* ツールバー内は文字を縦に折り返させない（Android等の狭い幅でヘッダーが崩れるのを防止） */
 .tb{overflow:hidden}
 .tb .btn,.tb-logo,.tb-sub,.tb-sep,.sl,.btn-logout,.uc-name,.hbg{white-space:nowrap}
@@ -97,6 +132,12 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .ab{display:flex;flex-direction:row;margin-top:calc(var(--th-all) + var(--off-h,0px));height:calc(100vh - var(--th-all) - var(--off-h,0px));overflow:hidden}
 .sb{width:var(--sw);min-width:var(--sw);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden;transition:width .25s,min-width .25s,opacity .2s}
 .sb.hm{width:0!important;min-width:0!important;opacity:0;pointer-events:none}
+/* 文字サイズ（--ui-zoom）はサイドバーの中身にも掛ける。担当表（#pane-assign）は独自の
+   ピンチズームと掛け合わさるので対象外。#pane-sum はスマホで position:fixed になり、
+   本体に zoom を掛けると top（トップバーの高さ）まで拡大されて隙間ができるので中の .atw に掛ける。
+   PCの細いサイドバー（カレンダー）は、拡大ぶん幅も広げないと中身が窮屈になる */
+.sb>.stabs,#docs-submenu,#lib-submenu,.sb>[id^="pane-"]:not(#pane-assign):not(#pane-sum),#pane-sum>.atw{zoom:var(--ui-zoom,1)}
+@media (min-width:769px){.sb{width:calc(var(--sw) * var(--ui-zoom,1));min-width:calc(var(--sw) * var(--ui-zoom,1))}}
 .stabs{display:flex;border-bottom:1px solid var(--bdr);flex-shrink:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;-webkit-overflow-scrolling:touch}
 .stabs::-webkit-scrollbar{height:3px}
 .stabs::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:2px}
@@ -177,10 +218,29 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 /* 下余白は消し込みバーの実測高さ(--cbar-h)に連動させる。以前は80px固定で、
    セーフエリアや端末の下部UIでバーが厚くなるとページ末尾が隠れていた。
    バーが出ていないときは --cbar-h が 0 になるので従来と同じ余白に戻る。 */
-.main{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:28px 44px calc(28px + var(--cbar-h, 0px))}
+.main{flex:1;min-width:0;overflow-y:auto;overflow-x:hidden;padding:28px 44px calc(28px + var(--cbar-h, 0px));zoom:var(--ui-zoom,1)}
+/* 文字サイズを上げると、中身の実効幅が狭まるぶん横にはみ出すことがある。
+   メディアクエリは zoom を見ない（ビューポート幅で判定する）ので、狭い画面用の
+   折り返しルールが効かないまま .main の overflow-x:hidden に切り落とされてしまう。
+   拡大中だけ横スクロールを許して、内容が失われないようにする。 */
+:root[data-fs="l"] .main,:root[data-fs="xl"] .main{overflow-x:auto}
 .main::-webkit-scrollbar{width:6px}
 .main::-webkit-scrollbar-thumb{background:var(--bdr2);border-radius:4px}
 /* PC: コンテンツタブ選択時にサイドバーを全幅に拡張してメインエリアとして使う */
+/* 769〜1199px はスマホ用の畳み込みが効かないのに全ラベルが出るため幅が足りず、
+   右端が無言で切れていた（実測: 800px で 327px、1024px で 103px、1100px で 27px）。
+   情報量の少ないものから順に畳む。 */
+@media(max-width:1199px){
+  .tb-sub,.tb-sep{display:none}
+  #month-size{display:none!important}
+}
+@media(max-width:1024px){
+  .btn-nm-text,.btn-gm-text{display:none}
+  /* 主観・テーマ・文字サイズはスマホと同じくアイコンだけにする。ここまで畳むと
+     タブレットでもボタン列を横スクロールせずに全部が並ぶ */
+  .mt-text{display:none}
+  .uc-name{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
 @media (min-width:769px){
   .ab.sb-expanded .sb{width:100%;min-width:100%;border-right:none}
 }
@@ -461,7 +521,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .oc-flow-btn{flex:0 0 auto;white-space:nowrap;margin-left:auto;font-size:clamp(10px,2.7vw,12px);padding:clamp(3px,1vw,6px) clamp(6px,2vw,12px)}
 /* 360px未満（SEなど）は比率だけでは収まらないので、ボタンの文字だけ畳んで📄を残す
    （アプリ内の .btn-at-text / .hd-btn-text と同じ扱い。tooltip で意味は残る） */
-@media(max-width:359px){.oc-flow-text{display:none}}
+@media(max-width:360px){.oc-flow-text{display:none}}
 .oc-hint{font-size:11px;color:var(--txt3);margin:-3px 0 7px;line-height:1.4}
 /* minmax(0,1fr) にしないと、グリッドの列は「中身の最小幅」まで押し広げられる。
    長い行が1つあるだけでカードが画面幅を超え、ページ全体が横スクロールになる */
@@ -490,6 +550,31 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-sup-view{width:100%;margin-top:4px;font-size:11px;color:var(--txt2);line-height:1.7}
 .ops-sup-view .sup-tok{white-space:nowrap;overflow-wrap:break-word}
 .ops-sup-view .sup-sep{color:var(--txt3)}
+/* 使用物品：症例行には「選ぶ」ボタンと記録済みの一覧だけを出し、選択そのものは
+   中央のポップアップ（openSupPickerModal）で行う。行の下に3段セレクトを埋め込むと
+   症例行が縦に長いぶん端末によって枠外へ出て見切れたため。 */
+.ops-sup-trigger{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+.ops-sup-lbl{font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0}
+.ops-sup-btn{font-size:11px;font-weight:700;padding:4px 12px;border:1.5px solid var(--ac);border-radius:14px;background:var(--sur);color:var(--ac);cursor:pointer;font-family:var(--fn);white-space:nowrap;flex-shrink:0}
+.ops-sup-btn:disabled{border-color:var(--bdr);color:var(--txt3);cursor:default}
+.sup-pick-x{border:none;background:transparent;color:inherit;font-size:11px;line-height:1;cursor:pointer;padding:0 0 0 3px;font-family:var(--fn)}
+.sup-pick-empty{font-size:11px;color:var(--txt3);padding:6px 2px}
+.sup-pick-sec{margin-top:12px;padding:8px 10px 2px;border:1px solid var(--ac);background:var(--ac-bg);border-radius:var(--rs)}
+.sup-pick-sec-hd{font-size:12px;color:var(--txt);margin-bottom:4px}
+.sup-pick-sub{font-size:10px;font-weight:700;color:var(--txt3);margin:4px 0 3px}
+.sup-pick-kind{border:1px solid var(--bdr);border-radius:var(--rs);margin-top:6px;background:var(--sur)}
+.sup-pick-kind-hd{display:flex;align-items:center;gap:6px;width:100%;border:none;background:none;padding:9px 10px;font-size:12px;font-weight:700;color:var(--txt);cursor:pointer;font-family:var(--fn);text-align:left}
+.sup-pick-kind-n{margin-left:auto;font-size:10px;font-weight:400;color:var(--txt3)}
+.sup-pick-kind-bd{padding:0 10px 2px}
+.sup-pick-arrow{display:inline-block;font-size:9px;transition:transform .15s;color:var(--txt3)}
+.sup-pick-arrow.open{transform:rotate(90deg)}
+.sup-ms-n{font-size:10px;font-weight:400;color:var(--txt3)}
+.tree-item .sup-ms-tag{flex:none;font-size:10px;color:var(--ac);background:var(--ac-bg);border-radius:8px;padding:0 6px;margin-left:4px;white-space:nowrap}
+.sup-ms-btn{background:none;border:none;color:var(--ac);cursor:pointer;font-size:11px;padding:0 3px;font-family:var(--fn)}
+.sup-ms-btn.del{color:var(--rd)}
+.sup-ms-btn:disabled{color:var(--txt3);opacity:.4;cursor:default}
+.sup-ms-dept{background:none;border:none;cursor:pointer;font-size:11px;padding:0 3px;filter:grayscale(1);opacity:.5}
+.sup-ms-dept.on{filter:none;opacity:1}
 .ops-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:0 2px;line-height:1;flex-shrink:0}
 .ops-item-del:hover{color:var(--rd)}
 .ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
@@ -672,7 +757,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px}
 #modal-phi{z-index:900}
 .ov.hd{display:none}
-.md{background:var(--sur);border-radius:13px;padding:26px;max-width:460px;width:100%;box-shadow:var(--shl);max-height:90vh;overflow-y:auto}
+.md{zoom:var(--ui-zoom,1);background:var(--sur);border-radius:13px;padding:26px;max-width:460px;width:100%;box-shadow:var(--shl);max-height:calc(90vh / var(--ui-zoom,1));overflow-y:auto}
 .md h3{font-size:16px;font-weight:900;margin-bottom:5px}
 .md p{font-size:12px;color:var(--txt2);margin-bottom:16px;line-height:1.7}
 .mdb{display:flex;gap:7px;justify-content:flex-end;margin-top:18px}
@@ -715,7 +800,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .atw{padding:20px 28px 60px;overflow-y:auto;flex:1;background:var(--bg)}
 .atnav{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .atnav .atml{font-size:16px;font-weight:900}
-.ato{width:100%;overflow:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr);-webkit-overflow-scrolling:touch}
+/* touch-action で担当表の上だけブラウザのピンチを止める。ページ全体の
+   ピンチズームは有効なままで、ここは initAtPinchZoom の独自ズームが受け持つ */
+.ato{touch-action:pan-x pan-y;width:100%;overflow:auto;border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--bdr);-webkit-overflow-scrolling:touch}
 .ato.pinching{touch-action:none;overscroll-behavior:contain}
 #at-zoom-inner{transform-origin:0 0;display:inline-block;min-width:100%}
 .at-zoom-bar{display:none;gap:4px;margin-bottom:6px}
@@ -744,6 +831,9 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
    チェックボックス／ラジオ／色ピッカーは既定の描画に任せる。 */
 input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{background:var(--sur);color:var(--txt)}
 @media print{
+  /* 紙は端末ごとの文字サイズ設定に引きずらせない（ダークパレットを @media screen に
+     閉じ込めてあるのと同じ理由）。--ui-zoom は JS が inline style で書くので !important が要る */
+  :root{--ui-zoom:1!important}
   /* 紙は常に白。ダークのパレットは @media screen 限定なので、印刷では自動的にライトの :root 値に戻る */
   body{background:#fff!important;font-size:10px}
   .tb,.atnav .btn,.ov{display:none!important}
@@ -858,15 +948,24 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   .pg-hd .hd-btn-text{display:none}
 }
 @media(max-width:480px){
+  /* .tb は overflow:hidden なので、入りきらないボタンは「…」も出ずに無言で切れる。
+     実測で 320px 幅では変更前から 36px ぶんのボタンが隠れていた。
+     ①ログアウトをアイコンだけにして幅を稼ぎ、②それでも足りない端末のために
+     ボタン列を横スクロールできるようにする（.stabs と同じ逃がし方）。 */
+  .tb{gap:5px}
+  .tb-btns{gap:4px}
+  .lo-text{display:none}
   .dg{grid-template-columns:1fr}
   .pp{gap:6px 12px}
   .pt2{font-size:17px}
 }
 
 /* ===== LOGIN ===== */
-#login-ov{position:fixed;inset:0;background:rgba(30,29,26,.72);z-index:9999;display:flex;align-items:center;justify-content:center}
+#login-ov{position:fixed;inset:0;background:rgba(30,29,26,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
 #login-ov.hd{display:none}
-.login-box{background:var(--sur);border-radius:16px;padding:36px 32px;width:360px;box-shadow:0 8px 40px rgba(0,0,0,.22)}
+/* 幅は 360px を上限に、狭い端末では縮める（.name-box は max-width:96vw で
+   同じ手当てが入っているのに、ここだけ漏れていた） */
+.login-box{background:var(--sur);border-radius:16px;padding:36px 32px;width:100%;max-width:360px;box-sizing:border-box;box-shadow:0 8px 40px rgba(0,0,0,.22)}
 .login-box h2{font-size:20px;font-weight:900;color:var(--ac);margin-bottom:6px;text-align:center}
 .login-box p{font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px}
 .login-box input{width:100%;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:9px 12px;font-size:14px;margin-bottom:10px;outline:none;font-family:var(--fn)}
@@ -993,6 +1092,15 @@ body.is-offline{--off-h:24px}
 .log-item{padding:6px 10px;border-bottom:1px solid var(--bdr);display:flex;gap:8px;align-items:flex-start}
 .log-item .li-time{color:var(--txt3);white-space:nowrap;min-width:130px}
 .log-item .li-user{font-weight:700;color:var(--ac);min-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 320px 幅では時刻130px＋氏名70pxで本文に37pxしか残らず、1文字ずつ縦に折り返っていた。
+   狭い画面では固定幅をやめ、行を折り返して本文に幅を回す。
+   **この指定は .li-time / .li-user の無条件ルールより後ろに置くこと** — 詳細度が同じなので、
+   前に置くと後続の min-width に負けて効かない（実際に .li-user 側だけ効いていなかった）。 */
+@media(max-width:480px){
+  .log-item{flex-wrap:wrap}
+  .log-item .li-time{min-width:0}
+  .log-item .li-user{min-width:0}
+}
 .log-item .li-msg{flex:1}
 .log-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .log-ctrl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
@@ -1054,7 +1162,7 @@ body.is-offline{--off-h:24px}
 .dc-cb-item.subdone{font-size:10px}
 /* 担当カード内チェックボックス */
 .dc-cbs{display:flex;gap:8px;margin-bottom:7px;flex-wrap:wrap}
-.dc-cb-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2);background:var(--sur2);border:1.5px solid var(--bdr);border-radius:20px;padding:3px 9px;cursor:pointer;user-select:none;transition:all .15s}
+.dc-cb-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2);background:var(--sur2);border:1.5px solid var(--bdr);border-radius:20px;padding:3px 9px;cursor:pointer;user-select:none;font-family:var(--fn);transition:all .15s}
 .dc-cb-item:hover{border-color:var(--ac);color:var(--ac)}
 .dc-cb-item.checked{background:var(--ac-bg);border-color:var(--ac);color:var(--ac);font-weight:700}
 .dc-cb-item input{width:13px;height:13px;accent-color:var(--ac);cursor:pointer}
@@ -1108,6 +1216,7 @@ body.is-offline{--off-h:24px}
 .sched-track{position:relative}
 .sched-block{position:absolute;left:2px;right:2px;border-radius:5px;padding:2px 4px;font-size:11px;font-weight:700;color:#fff;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.18);box-sizing:border-box;touch-action:none}
 .sched-block:active{cursor:grabbing}
+.sched-block .bn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sched-block .bt{font-size:9px;font-weight:600;opacity:.9;font-family:var(--mo)}
 .sched-block .bx{position:absolute;top:1px;right:2px;cursor:pointer;font-size:12px;line-height:1;opacity:.85;background:none;border:none;color:#fff;padding:0}
 .sched-block .bh{position:absolute;left:0;right:0;bottom:0;height:9px;cursor:ns-resize;border-radius:0 0 5px 5px}
@@ -1389,6 +1498,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <div class="tb-btns">
     <button class="btn btn-g btn-sm" id="mode-toggle" onclick="toggleViewMode()" title="CEモード（タップでHDモードへ切替）">🩺<span class="mt-text"> CE</span></button>
     <button class="btn btn-g btn-sm" id="theme-toggle" onclick="cycleTheme()" title="表示テーマ">☀️<span class="mt-text"> ライト</span></button>
+    <button class="btn btn-g btn-sm" id="fs-toggle" onclick="cycleFontScale()" title="文字サイズ">🔠<span class="mt-text"> 標準</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
     <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
@@ -1397,7 +1507,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <span class="sl" id="sl">ローカル保存</span>
   <span class="sl" id="month-size" style="display:none;margin-left:6px;color:var(--txt3);font-size:10px"></span>
   <div id="uc-label" class="uc-name" style="display:none" onclick="openNameModal()" title="クリックして表示名を変更"></div>
-  <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()">ログアウト</button>
+  <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()" title="ログアウト">⏻<span class="lo-text"> ログアウト</span></button>
 </div>
 
 <div class="ab" id="ab">
@@ -1563,12 +1673,12 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
               </div>
             </div>
             <div data-perm="mst" data-mode="ce">
-              <div class="pt">🧰 使用物品マスタ（カテゴリ→種別→品名）</div>
-              <div class="pn" style="margin-bottom:8px;font-size:11px">物品を3階層で管理。</div>
-              <div id="sup-tree-list"></div>
+              <div class="pt">🧰 使用物品マスタ（種類→品名）</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">品名ごとに🏥で「使う科」を設定すると、その科の症例では使用物品の一覧の一番上に出ます。どの科でも使う物品は「全科」に。</div>
+              <div id="sup-master-list"></div>
               <div class="tree-add-row" style="margin-top:6px">
-                <input type="text" id="in-sup-dept" placeholder="＋ 新しいカテゴリを追加…">
-                <button onclick="addSupTreeDept()">カテゴリを追加</button>
+                <input type="text" id="in-sup-kind" placeholder="＋ 新しい種類を追加…" onkeydown="if(event.key==='Enter'){event.preventDefault();addSupKind();}">
+                <button onclick="addSupKind()">種類を追加</button>
               </div>
             </div>
             <div data-perm="mst" data-mode="hd">
@@ -2082,7 +2192,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
      #sched-title/#sched-tools/#sched-body の中身と id は元のまま移設しているので
      renderSched()/schedImportDuties()/schedClear() は無改造で動く -->
 <div class="ov hd" id="sched-panel-ov" onclick="if(event.target===this)closeSchedPanel()">
-  <div class="md" id="sched-panel-md" style="max-width:900px;width:100%;height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+  <div class="md" id="sched-panel-md" style="max-width:900px;width:100%;height:calc(85vh / var(--ui-zoom,1));display:flex;flex-direction:column;padding:0;overflow:hidden">
     <div class="sched-head" style="padding:12px 16px;margin-bottom:0;border-bottom:1px solid var(--bdr);flex-shrink:0">
       <div class="sched-title" id="sched-title">⏰ スケジュール</div>
       <div class="sched-tools" id="sched-tools"></div>
@@ -2100,7 +2210,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 <!-- 掲示板パネル。サイドバーのタブは廃止し、連絡表ヘッダーの📢ボタンから開く。
      #pane-board の中身と id は元のまま移設しているので renderBoard/postBoard はそのまま動く -->
 <div class="ov hd" id="board-panel-ov" onclick="if(event.target===this)closeBoardPanel()">
-  <div class="md" id="board-panel-md" style="max-width:720px;width:100%;height:85vh;display:flex;flex-direction:column;padding:0;overflow:hidden">
+  <div class="md" id="board-panel-md" style="max-width:720px;width:100%;height:calc(85vh / var(--ui-zoom,1));display:flex;flex-direction:column;padding:0;overflow:hidden">
     <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--bdr);flex-shrink:0">
       <span style="font-size:15px;font-weight:700" id="board-panel-title">📢 掲示板</span>
       <button class="btn btn-g btn-sm" style="margin-left:auto" onclick="closeBoardPanel()">✕</button>
@@ -2562,7 +2672,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -2614,15 +2724,22 @@ function dashJumpTop(el) {
   var doc = document.scrollingElement || document.documentElement;
   var useMain = !!(mainEl && mainEl.scrollHeight > mainEl.clientHeight + 1);
   var cont = useMain ? mainEl : doc;
-  var top = useMain
-    ? (el.getBoundingClientRect().top - mainEl.getBoundingClientRect().top + mainEl.scrollTop)
-    : (el.getBoundingClientRect().top + (window.pageYOffset || doc.scrollTop || 0));
+  /* #main は文字サイズ設定で zoom が掛かることがある。getBoundingClientRect() は
+     zoom 済みの実ピクセル、scrollTop は #main 自身の（zoom 前の）CSSピクセルなので、
+     そのまま足すと単位が混ざって拡大するほど飛び先がずれる。実測でも
+     標準→大→特大 で着地点が 112→63→9 と動いた。rect 側を zoom で割って揃える。
+     ドキュメント側をスクロールする経路（useMain=false）は #main の外なので割らない。 */
+  var z = useMain ? uiZoom() : 1;
   var tb = document.querySelector('.tb');
   var off = (tb ? tb.getBoundingClientRect().height : 0) + 8;
-  top = Math.max(0, top - off);
+  var top = useMain
+    ? ((el.getBoundingClientRect().top - mainEl.getBoundingClientRect().top - off) / z + mainEl.scrollTop)
+    : (el.getBoundingClientRect().top + (window.pageYOffset || doc.scrollTop || 0) - off);
+  top = Math.max(0, top);
   return { cont: cont, top: top };
 }
 
+var _dashJumpTimers = null;
 function dashJump(sel) {
   var mainEl = document.getElementById('main');
   var el = mainEl ? mainEl.querySelector(sel) : null;
@@ -2633,10 +2750,18 @@ function dashJump(sel) {
   /* スムーススクロールが効かない環境（アニメーションが走らない/途中で止まる）でも
      確実に目的地へ着かせる保険。400ms 後にまだ遠ければ、その時点で位置を測り直して合わせる
      （クリック時点の固定値のままだと、その間のレイアウト変化でズレるため） */
-  setTimeout(function(){
+  /* 1回だけだと、スムーススクロールのアニメーション中に測ってしまったとき
+     そこで確定してしまう（rect は最新のスクロール位置、scrollTop は1フレーム前の値、
+     という食い違いが出る）。実測では見出しが約60px ぶんトップバーの下に潜っていた。
+     目標位置は動かない不動点なので、間を空けてもう一度測れば必ず収束する。 */
+  var fix = function(){
     var freshPos = dashJumpTop(el);
     if (Math.abs(freshPos.cont.scrollTop - freshPos.top) > 4) freshPos.cont.scrollTop = freshPos.top;
-  }, 400);
+  };
+  /* 前回のジャンプの補正が残っていると、続けて押したときに一度前の行き先へ引き戻される。
+     ハンドルを持っておいて必ず捨てる。 */
+  if (_dashJumpTimers) _dashJumpTimers.forEach(clearTimeout);
+  _dashJumpTimers = [setTimeout(fix, 400), setTimeout(fix, 900)];
   el.classList.add('dash-highlight');
   setTimeout(function(){ el.classList.remove('dash-highlight'); }, 2000);
 }
@@ -2644,6 +2769,7 @@ function dashJump(sel) {
 /* ===== INIT ===== */
 function init() {
   applyTheme(); /* 描画前に当てる（後だとライトの画面が一瞬見える） */
+  applyFontScale(); /* 同上。ボタンの表示も合わせる */
   _viewMode = getViewMode();
   updateModeToggleBtn();
   syncCbarInset();
@@ -2756,6 +2882,7 @@ function loadD() {
     D.opeTree = normTree(s.opeTree && s.opeTree.length ? s.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE)));
     D.cathTree= normTree(s.cathTree&& s.cathTree.length? s.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE)));
     D.supTree = normTree(s.supTree && s.supTree.length ? s.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
+    D.supMaster = s.supMaster || [];
     D.dutyCfgMaster = s.dutyCfgMaster && s.dutyCfgMaster.length ? s.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
     D.dutyCfg = s.dutyCfg ? s.dutyCfg : [];
     D.opsCfg  = s.opsCfg  ? s.opsCfg  : [];
@@ -2816,6 +2943,11 @@ function loadD() {
     if (!D._migVer || D._migVer < 5) {
       Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg) ensureStaffZone(pg); });
       D._migVer = 5;
+    }
+    /* v6: 使用物品マスタを「種類→品名＋品名ごとの科」（D.supMaster）へ。旧 D.supTree は消さずに残す */
+    if (!D._migVer || D._migVer < 6) {
+      if (!supMasterNorm(D.supMaster).length) D.supMaster = supLegacyToMaster(D.supTree, D.pages);
+      D._migVer = 6;
     }
     ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
@@ -2901,7 +3033,7 @@ function fbInit() {
         hideSyncOverlay(false); updateOfflineBanner(); /* 覆い・オフラインの帯を次の人に残さない */
         curDs = null;
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
-        D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
+        D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
         D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]};
@@ -3057,6 +3189,7 @@ function fbInit() {
             D.opeTree = normTree(d.opeTree && d.opeTree.length ? d.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE)));
             D.cathTree= normTree(d.cathTree&& d.cathTree.length? d.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE)));
             D.supTree = normTree(d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
+            D.supMaster = d.supMaster || [];
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
             /* 全フィールドをマイグレーション前に復元（マイグレーション内のsaveD()で未復元フィールドが上書きされるのを防ぐ） */
@@ -3131,6 +3264,12 @@ function fbInit() {
             if (!D._migVer || D._migVer < 5) {
               Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg) ensureStaffZone(pg); });
               D._migVer = 5;
+              saveD();
+            }
+            /* v6: 使用物品マスタを「種類→品名＋品名ごとの科」（D.supMaster）へ。旧 D.supTree は消さずに残す */
+            if (!D._migVer || D._migVer < 6) {
+              if (!supMasterNorm(D.supMaster).length) D.supMaster = supLegacyToMaster(D.supTree, D.pages);
+              D._migVer = 6;
               saveD();
             }
             setSyncLbl('同期済');
@@ -3746,7 +3885,7 @@ function renderStorageUsage() {
     pages:'📅 日次ページ', manual:'📘 マニュアル(画像/動画)', shift:'🗓 シフト',
     evts:'📌 予定', schedPresets:'⏰ プリセット', stf:'👥 スタッフ',
     phs:'☎ 内線', opeTree:'🏥 OPEマスタ', cathTree:'💉 カテマスタ',
-    supTree:'📦 物品マスタ', dutyCfg:'📋 担当設定', dutyCfgMaster:'📋 担当マスタ',
+    supTree:'📦 物品マスタ(旧)', supMaster:'🧰 使用物品マスタ', dutyCfg:'📋 担当設定', dutyCfgMaster:'📋 担当マスタ',
     dly:'✅ 毎日チェック', wd:'✅ 曜日別チェック', opsCfg:'⚙ 運用設定', oc:'📞 オンコール'
   };
 
@@ -5092,8 +5231,22 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/10-68';
+var APP_VERSION = 'Ver.2026/09/11-70';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/11-70', date:'2026-09-11', title:'使用物品が、その症例の科で使うものから並ぶようになりました', items:[
+    {t:'new', d:'🏥 使用物品のポップアップで、その症例の科（消化器外科・泌尿器科など）で使う物品が一番上にまとめて出るようになりました。残りはタワー／オペセット／エネルギーデバイス／スコープ／その他の種類ごとに、開いて選べます'},
+    {t:'new', d:'🧰 業務マスタの使用物品を「種類→品名」の2段にし、品名ごとに🏥で使う科（または全科）を設定できるようにしました。これまでの登録内容と、過去の記録でその科に3回以上使われた物品は、自動で引き継いでいます', admin:true}
+  ]},
+  { ver:'Ver.2026/09/11-69', date:'2026-09-11', title:'使用物品をポップアップでまとめて選べるようにし、文字サイズを選べるようにしました', items:[
+    {t:'new', d:'🧰 オペの使用物品を、画面中央のポップアップから選べるようにしました。品名はチェックで何品目でも一度に選べます。症例行には選んだ品目がそのまま並ぶので、開かなくても何を使ったかが読めます'},
+    {t:'new', d:'🔠 文字サイズを 小／標準／大／特大 から選べるようにしました（トップバーの🔠）。連絡表・ポップアップ・カレンダーや集計などのタブで、文字だけでなく枠や余白もまとめて大きくなります（担当表は従来どおり指でつまんで拡大）。端末ごとの設定なので、他の人の画面は変わりません'},
+    {t:'imp', d:'🤏 Android の端末でも、画面を指でつまんで拡大できるようになりました。これまでは拡大が禁止されていて、小さい文字を大きくする手段がありませんでした'},
+    {t:'fix', d:'📱 端末の幅によってトップバーのボタン（ログアウトなど）が無言で隠れてしまう不具合を修正しました。とくに768〜1100px幅のタブレットで起きていました'},
+    {t:'fix', d:'🎯 ダッシュボードや消し込みバーから飛んだとき、行き先の見出しがトップバーの下に潜って見えないことがある不具合を修正しました'},
+    {t:'fix', d:'🔑 狭い端末でログイン画面の枠が画面のふちに張り付いてしまう表示を修正しました'},
+    {t:'fix', d:'⏰ スケジュールのブロック名が長いとき、文字の途中で切れて読めなくなる表示を修正しました（末尾が「…」になります）'},
+    {t:'fix', d:'📋 操作ログの本文が、狭い端末で1文字ずつ縦に折り返って読めなくなる不具合を修正しました', admin:true}
+  ]},
   { ver:'Ver.2026/09/10-68', date:'2026-09-10', title:'同期中であることを画面で分かるようにしました', items:[
     {t:'imp', d:'⏳ ログイン直後、最新のデータを受け取るまでは画面に「同期中…」を出し、終わるまで入力できないようにしました。受け取る前に入力した内容が消えてしまうことがあったためです。終わると「✅ 同期しました」と出ます'},
     {t:'imp', d:'📴 電波が切れたときは、画面の上に「オフラインです」と出るようにしました。そのまま入力でき、電波が戻ると送信されます'}
@@ -5778,7 +5931,7 @@ function renderDev() {
     '    placement: {fixed:true, people:{名前:{base,shift,oc,night,side,spot,offer,from,memo}}},',
     '    staffAdj: {addCe:[], addOc:[], removeCe:{名前:true}, removeOc:{名前:true}} // 旧・読み出しのみ',
     '  }},',
-    '  stf, phs, dly, wd, lk, ope, cath, sup, opeTree, cathTree, supTree,',
+    '  stf, phs, dly, wd, lk, ope, cath, sup, opeTree, cathTree, supTree(旧), supMaster,',
     "  shift: {YYYY-MM: {氏名: {1:{shift,oc}}}},",
     "  evts:  {YYYY-MM: {1:[イベント名]}},",
     "  manual: {業務名: {text, media:[]}}",'}'
@@ -10239,7 +10392,6 @@ function confirmEditModal() {
 
     if (state.saveKey === 'opeTree') renderOpeTree();
     else if (state.saveKey === 'cathTree') renderCathTree();
-    else if (state.saveKey === 'supTree') renderSupTree();
 
     writeLog('マスタ編集', oldValue + ' → ' + newValue);
   } else if (state.type === 'dly') {
@@ -10348,7 +10500,7 @@ function saveOcFlow() {
 function openOcFlowModal() {
   var ov = document.createElement('div'); ov.id='oc-flow-ov'; ov.className='ov';
   ov.onclick = function(e){ if(e.target===ov) ov.remove(); };
-  var md = document.createElement('div'); md.className='md'; md.style.maxWidth='560px'; md.style.maxHeight='85vh'; md.style.overflowY='auto';
+  var md = document.createElement('div'); md.className='md'; md.style.maxWidth='560px'; md.style.maxHeight='calc(85vh / var(--ui-zoom,1))'; md.style.overflowY='auto';
   var body = (D.ocFlow||'').trim()
     ? '<div style="white-space:pre-wrap;font-size:13px;line-height:1.8">'+escH(D.ocFlow)+'</div>'
     : '<div class="pool-empty" style="padding:14px 0">まだ登録されていません。業務タブの「📞 OC対応フローチャート」から入力できます。</div>';
@@ -11053,7 +11205,7 @@ function openWdSubsModal(i) {
   var oldOv = document.getElementById('wd-subs-md-ov'); if (oldOv) oldOv.remove();
   var ov = document.createElement('div'); ov.id = 'wd-subs-md-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
-  var md = document.createElement('div'); md.id = 'wd-subs-md'; md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  var md = document.createElement('div'); md.id = 'wd-subs-md'; md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
   ov.appendChild(md); document.body.appendChild(ov);
   renderWdSubsModalBody(i);
 }
@@ -11120,7 +11272,7 @@ function openHdWdSubsModal(i) {
   var oldOv = document.getElementById('hd-wd-subs-md-ov'); if (oldOv) oldOv.remove();
   var ov = document.createElement('div'); ov.id = 'hd-wd-subs-md-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
-  var md = document.createElement('div'); md.id = 'hd-wd-subs-md'; md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  var md = document.createElement('div'); md.id = 'hd-wd-subs-md'; md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
   ov.appendChild(md); document.body.appendChild(ov);
   renderHdWdSubsModalBody(i);
 }
@@ -11229,7 +11381,8 @@ function renderTree(elId, tree, saveKey, icons) {
       delCatBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 2px';
       delCatBtn.textContent='×'; delCatBtn.title='中カテゴリを削除';
       delCatBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();if(!confirm('「'+tree[di2].cats[ci2].name+'」を削除しますか？')) return;tree[di2].cats.splice(ci2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci);
-      catHd.appendChild(catArrow); catHd.appendChild(catName); catHd.appendChild(editCatBtn); catHd.appendChild(delCatBtn);
+      catHd.appendChild(catArrow); catHd.appendChild(catName);
+      catHd.appendChild(editCatBtn); catHd.appendChild(delCatBtn);
 
       var catKey = dept.dept + ' ' + cat.name;
       var catOpen = !!openSt.cats[catKey];
@@ -11276,11 +11429,209 @@ function renderTree(elId, tree, saveKey, icons) {
 }
 function renderOpeTree()  { renderTree('ope-tree-list',  D.opeTree,  'opeTree',  ['🔬','📂','🔪']); }
 function renderCathTree() { renderTree('cath-tree-list', D.cathTree, 'cathTree', ['🔬','📂','🫀']); }
-function renderSupTree()  { renderTree('sup-tree-list',  D.supTree,  'supTree',  ['📦','📂','🧰']); }
+
+/* ===== 使用物品マスタの編集（業務マスタ「🧰 使用物品マスタ」、mst 権限） =====
+   種類→品名の2段。術式マスタの汎用 renderTree（3段）とは別に持つ。
+   品名はポップアップで「名前（文字列）」として症例に記録されるので、同じ品名を
+   2か所に置かせない（2か所にあると一覧に2回出る）。名前を変えても過去の記録は元の名前のまま。 */
+var _supMasterOpen = {};   /* 種類名ごとの開閉。端末ローカルで非永続（既定は閉じる） */
+function supMsBtn(label, title, call, disabled, danger){
+  return '<button type="button" class="sup-ms-btn' + (danger ? ' del' : '') + '" title="' + title + '"'
+    + (disabled ? ' disabled' : '') + ' onclick="event.stopPropagation();' + call + '">' + label + '</button>';
+}
+function renderSupMaster(){
+  var el = document.getElementById('sup-master-list'); if (!el) return;
+  var m = supMasterOf();
+  if (!m.length) { el.innerHTML = '<div class="sup-pick-empty">まだ種類がありません。下の欄から追加してください。</div>'; return; }
+  el.innerHTML = m.map(function(k, ki){
+    var open = !!_supMasterOpen[k.kind];
+    var h = '<div class="tree-dept"><div class="tree-dept-hd" onclick="toggleSupKindOpen(' + ki + ')">'
+      + '<span class="sup-pick-arrow' + (open ? ' open' : '') + '">▶</span>'
+      + '<span style="flex:1">📦 ' + escH(k.kind) + ' <span class="sup-ms-n">' + k.items.length + '</span></span>'
+      + supMsBtn('↑', '上へ', 'mvSupKind(' + ki + ',-1)', ki === 0)
+      + supMsBtn('↓', '下へ', 'mvSupKind(' + ki + ',1)', ki === m.length - 1)
+      + supMsBtn('✏️', '種類名を変更', 'renameSupKind(' + ki + ')')
+      + supMsBtn('×', '種類を削除', 'rmSupKind(' + ki + ')', false, true)
+      + '</div>';
+    if (open) {
+      h += '<div class="tree-dept-body">';
+      h += k.items.map(function(it, ii){
+        var tag = it.all ? '全科' : it.depts.join('、');
+        return '<div class="tree-item"><span>🧰 ' + escH(it.n)
+          + (tag ? ' <span class="sup-ms-tag">' + escH(tag) + '</span>' : '') + '</span>'
+          + '<button type="button" class="sup-ms-dept' + (tag ? ' on' : '') + '" onclick="openSupItemDeptModal(' + ki + ',' + ii + ')" title="使う科を設定">🏥</button>'
+          + supMsBtn('✏️', '品名を変更', 'renameSupItem(' + ki + ',' + ii + ')')
+          + supMsBtn('×', '品名を削除', 'rmSupItem(' + ki + ',' + ii + ')', false, true)
+          + '</div>';
+      }).join('') || '<div class="sup-pick-empty">品名がまだありません</div>';
+      h += '<div class="tree-add-row"><input type="text" id="in-sup-item-' + ki + '" placeholder="品名を追加…">'
+        + '<button type="button" onclick="addSupItem(' + ki + ')">追加</button></div>';
+      h += '</div>';
+    }
+    return h + '</div>';
+  }).join('');
+  el.querySelectorAll('input[id^="in-sup-item-"]').forEach(function(inp){
+    inp.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); addSupItem(+inp.id.replace('in-sup-item-', '')); } };
+  });
+}
+function toggleSupKindOpen(ki){
+  var k = supMasterOf()[ki]; if (!k) return;
+  if (_supMasterOpen[k.kind]) delete _supMasterOpen[k.kind]; else _supMasterOpen[k.kind] = true;
+  renderSupMaster();
+}
+function supFindItemName(m, n){
+  for (var ki = 0; ki < m.length; ki++)
+    for (var ii = 0; ii < m[ki].items.length; ii++)
+      if (m[ki].items[ii].n === n) return { ki: ki, ii: ii };
+  return null;
+}
+function supMstOk(){
+  if (can('mst')) return true;
+  toast('🔒 権限がありません', 'warn');
+  return false;
+}
+function addSupKind(){
+  if (!supMstOk()) return;
+  var inp = document.getElementById('in-sup-kind'); if (!inp) return;
+  var v = inp.value.trim(); if (!v) return;
+  var m = supMasterForWrite();
+  if (m.some(function(k){ return k.kind === v; })) { toast('この種類は既に登録されています', 'warn'); return; }
+  m.push({ kind: v, items: [] });
+  _supMasterOpen[v] = true; inp.value = '';
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品の種類を追加：' + v);
+}
+function renameSupKind(ki){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), k = m[ki]; if (!k) return;
+  var v = prompt('種類名', k.kind); if (v == null) return;
+  v = v.trim(); if (!v || v === k.kind) return;
+  if (m.some(function(x, i){ return i !== ki && x.kind === v; })) { toast('この種類は既に登録されています', 'warn'); return; }
+  var old = k.kind; k.kind = v;
+  if (_supMasterOpen[old]) { delete _supMasterOpen[old]; _supMasterOpen[v] = true; }
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品の種類：' + old + ' → ' + v);
+}
+function mvSupKind(ki, d){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), j = ki + d;
+  if (!m[ki] || j < 0 || j >= m.length) return;
+  var t = m[ki]; m[ki] = m[j]; m[j] = t;
+  supMasterSave(m); renderSupMaster();
+}
+function rmSupKind(ki){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), k = m[ki]; if (!k) return;
+  if (!confirm('種類「' + k.kind + '」' + (k.items.length ? 'と品名 ' + k.items.length + ' 件' : '') + 'を削除しますか？\n（これまでの症例の記録は消えません）')) return;
+  m.splice(ki, 1);
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品の種類を削除：' + k.kind);
+}
+function addSupItem(ki){
+  if (!supMstOk()) return;
+  var inp = document.getElementById('in-sup-item-' + ki); if (!inp) return;
+  var v = inp.value.trim(); if (!v) return;
+  var m = supMasterForWrite(), k = m[ki]; if (!k) return;
+  var hit = supFindItemName(m, v);
+  if (hit) { toast('「' + v + '」は「' + m[hit.ki].kind + '」に登録済みです', 'warn'); return; }
+  k.items.push({ n: v, depts: [], all: false });
+  supMasterSave(m); renderSupMaster();
+  var ni = document.getElementById('in-sup-item-' + ki); if (ni) ni.focus();
+  writeLog('マスタ編集', '使用物品を追加：' + k.kind + ' / ' + v);
+}
+function renameSupItem(ki, ii){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), it = m[ki] && m[ki].items[ii]; if (!it) return;
+  var v = prompt('品名（これまでの症例の記録は元の名前のまま残ります）', it.n); if (v == null) return;
+  v = v.trim(); if (!v || v === it.n) return;
+  var hit = supFindItemName(m, v);
+  if (hit) { toast('「' + v + '」は「' + m[hit.ki].kind + '」に登録済みです', 'warn'); return; }
+  var old = it.n; it.n = v;
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品：' + old + ' → ' + v);
+}
+function rmSupItem(ki, ii){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), it = m[ki] && m[ki].items[ii]; if (!it) return;
+  if (!confirm('「' + it.n + '」を削除しますか？\n（これまでの症例の記録は消えません）')) return;
+  m[ki].items.splice(ii, 1);
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品を削除：' + m[ki].kind + ' / ' + it.n);
+}
+
+/* 品名に「使う科」を紐づけるモーダル。設置部署マスタ（openWdSubsModal）と同じ作り。
+   保存時は添字ではなく品名で引き直す——開いている間に他の管理者が並べ替え・削除して
+   いると、添字のままでは別の品名に保存してしまう。 */
+var _supItemDeptCtx = null;
+function openSupItemDeptModal(ki, ii){
+  if (!supMstOk()) return;
+  var k = supMasterOf()[ki], it = k && k.items[ii]; if (!it) return;
+  closeSupItemDeptModal();
+  _supItemDeptCtx = { n: it.n, kind: k.kind, sel: it.depts.slice(), all: it.all };
+  var ov = document.createElement('div'); ov.id = 'sup-item-dept-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeSupItemDeptModal(); };
+  var md = document.createElement('div'); md.id = 'sup-item-dept-md'; md.className = 'md'; md.style.maxWidth = '460px';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderSupItemDeptBody();
+}
+function closeSupItemDeptModal(){
+  var ov = document.getElementById('sup-item-dept-ov'); if (ov) ov.remove();
+  _supItemDeptCtx = null;
+}
+function renderSupItemDeptBody(){
+  var c = _supItemDeptCtx; if (!c) return;
+  var md = document.getElementById('sup-item-dept-md'); if (!md) return;
+  var opts = supDeptOptions();
+  var h = '<h3>🏥 使う科を選ぶ</h3>';
+  h += '<p>' + escH(c.kind) + ' / <b>' + escH(c.n) + '</b><br>'
+    + '選んだ科の症例では、使用物品の一覧の一番上に出ます。どの科でも使う物品は「全科」にしてください。</p>';
+  h += '<div class="dc-cbs"><label class="dc-cb-item' + (c.all ? ' checked' : '') + '"><input type="checkbox"'
+    + (c.all ? ' checked' : '') + ' onchange="supItemAllToggle()">全科</label></div>';
+  h += opts.length
+    ? '<div class="dc-cbs"' + (c.all ? ' style="opacity:.45"' : '') + '>' + opts.map(function(n, i){
+        var on = c.sel.indexOf(n) !== -1;
+        return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox"' + (on ? ' checked' : '')
+          + (c.all ? ' disabled' : '') + ' onchange="supItemDeptToggle(' + i + ')">' + escH(n) + '</label>';
+      }).join('') + '</div>'
+    : '<div class="sup-pick-empty">術式マスタに科が登録されていません。先にオペ／カテのマスタで科を作ってください。</div>';
+  h += '<div style="margin-top:10px;font-size:11px;color:var(--txt3)">'
+    + (c.all ? '全科（どの科の症例でも一番上に出ます）'
+      : c.sel.length ? '選択中：' + escH(c.sel.join('、')) : '未選択（種類ごとの一覧にだけ出ます）') + '</div>';
+  h += '<div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="closeSupItemDeptModal()">キャンセル</button>'
+    + '<button class="btn btn-p" onclick="saveSupItemDepts()">保存</button></div>';
+  md.innerHTML = h;
+}
+function supItemAllToggle(){
+  var c = _supItemDeptCtx; if (!c) return;
+  c.all = !c.all;
+  renderSupItemDeptBody();
+}
+function supItemDeptToggle(i){
+  var c = _supItemDeptCtx; if (!c) return;
+  var n = supDeptOptions()[i]; if (!n) return;
+  var at = c.sel.indexOf(n);
+  if (at === -1) c.sel.push(n); else c.sel.splice(at, 1);
+  renderSupItemDeptBody();
+}
+function saveSupItemDepts(){
+  var c = _supItemDeptCtx; if (!c) return;
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), hit = supFindItemName(m, c.n);
+  if (!hit) {
+    toast('この品名は他の人に変更・削除されたため、保存できませんでした', 'warn');
+    closeSupItemDeptModal(); renderSupMaster(); return;
+  }
+  var it = m[hit.ki].items[hit.ii];
+  it.all = c.all; it.depts = c.sel.slice();
+  supMasterSave(m);
+  writeLog('使用物品の科の紐づけ', c.n + ' → ' + (c.all ? '全科' : (c.sel.join('、') || 'なし')));
+  closeSupItemDeptModal(); renderSupMaster();
+  toast('✅ 保存しました', 'ok');
+}
 
 function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById('in-ope-dept').value='';treeOpenState('ope-tree-list').depts[v]=true;saveD();renderOpeTree();_focusTreeInput('ope-tree-list',D.opeTree.length-1,null,'cat'); }
 function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';treeOpenState('cath-tree-list').depts[v]=true;saveD();renderCathTree();_focusTreeInput('cath-tree-list',D.cathTree.length-1,null,'cat'); }
-function addSupTreeDept()  { var v=document.getElementById('in-sup-dept').value.trim();if(!v)return;if(!D.supTree)D.supTree=[];D.supTree.push({dept:v,cats:[]});document.getElementById('in-sup-dept').value='';treeOpenState('sup-tree-list').depts[v]=true;saveD();renderSupTree();_focusTreeInput('sup-tree-list',D.supTree.length-1,null,'cat'); }
 
 /* ツリー内の入力欄にフォーカスするヘルパー（renderTree再描画後に呼ぶ） */
 function _focusTreeInput(elId, di, ci, type) {
@@ -11337,7 +11688,7 @@ function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValu
 /* renderOpeList / renderCathList / renderSupList は後方互換のため残す（旧フラットリスト用） */
 function renderOpeList()  { renderOpeTree(); }
 function renderCathList() { renderCathTree(); }
-function renderSupList()  { renderSupTree(); }
+function renderSupList()  { renderSupMaster(); }
 function renderDutyMasterList() {
   var l = document.getElementById('duty-master-list'); if(!l) return;
   l.innerHTML = '';
@@ -11414,7 +11765,7 @@ function editDutyMaster(idx) {
   document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
 }
 
-/* renderSupList は上の renderSupTree に統合済み */
+/* renderSupList は使用物品マスタ（renderSupMaster）の描画に委譲済み */
 
 /* ===== LOCK ===== */
 function updateTabVisibility() {
@@ -12804,7 +13155,7 @@ function openMakerModal(id) {
   }).join('');
   var ov = document.createElement('div'); ov.id = 'mk-md-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
-  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '460px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '460px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
   md.innerHTML = '<h3>' + (r ? '✎ メーカー連絡先を編集' : '＋ メーカー連絡先を追加') + '</h3>'
     + '<div class="md-flbl">カテゴリ</div>'
     + '<select id="mk-md-cat" class="ds2" style="width:100%;box-sizing:border-box">' + catOpts + '</select>'
@@ -12875,7 +13226,7 @@ function openMakerCatModal() {
   D.makers = { cats: mkCats(), list: mkList() }; /* 疎配列/欠損フィールドを正規化した実体をD側に確定させる */
   var ov = document.createElement('div'); ov.id = 'mk-cat-md-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) mkCatModalClose(); };
-  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
   md.innerHTML = '<h3>⚙️ カテゴリ管理</h3>'
     + '<div id="mk-cat-rows"></div>'
     + '<div style="display:flex;gap:6px;margin-top:10px">'
@@ -13151,7 +13502,7 @@ function openMkImpModal() {
   var defaultMode = mkList().length === 0 ? 'replace' : 'append';
   var ov = document.createElement('div'); ov.id = 'mk-imp-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) closeMkImpModal(); };
-  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '520px'; md.style.maxHeight = '85vh'; md.style.overflowY = 'auto';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '520px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
   md.innerHTML = '<h3>🏭 Excelからメーカー担当者連絡先を読み込む</h3>'
     + '<div style="font-size:12px;color:var(--txt3);line-height:1.6;margin-bottom:10px">'
     + 'シート名がそのままカテゴリ名になります（1シート内に見出し行が複数あれば、2つ目以降は別カテゴリとして分けます）。B〜H列（メーカー・担当者・電話1・電話2・備考・更新日・備考2）を読み取り、備考2は備考に統合されます。'
@@ -13364,6 +13715,370 @@ function supViewHTML(supArr){
   return '<div class="ops-sup-view">' + supArr.map(function(s){
     return '<span class="sup-tok">' + escH(s) + '</span>';
   }).join('<span class="sup-sep">, </span>') + '</div>';
+}
+
+/* ===== 使用物品マスタ（種類→品名＋品名ごとの科） =====
+   D.supMaster = [{ kind:'タワー', items:[{ n:'ウロタワー', depts:['泌尿器科',…], all:true? }] }]
+   以前の D.supTree（カテゴリ→種別→品名の3段）は消さずに残してあり、_migVer 6 で1回だけ
+   ここへ移す（supLegacyToMaster）。以後 supTree は読まない。
+   品名に科を紐づけ、ポップアップではその症例の科の品名を先頭にまとめる。「全科」（all）は
+   どの科の症例でも先頭に出る——電気メスのような共通物品のために、科が増えても付け直さずに済む。 */
+var SUP_KIND_ORDER = ['タワー', 'オペセット', 'エネルギーデバイス', 'スコープ', 'その他'];
+/* 旧マスタの種類のうち、独立させずに「その他」へまとめるもの（現場の決定） */
+var SUP_KIND_RENAME = { 'モニタリング': 'その他' };
+/* 移行時、過去の記録でその科に何回以上使われていたら科を補うか */
+var SUP_TAG_MIN_USES = 3;
+
+/* 科の選択肢。術式マスタ（オペ・カテ）の科をそのまま使う——物品側に別の科名リストを
+   作ると表記ゆれで症例側と永久に噛み合わなくなるため。 */
+function supDeptOptions(){
+  var out = [], seen = {};
+  [normArr(D.opeTree), normArr(D.cathTree)].forEach(function(tree){
+    tree.forEach(function(d){
+      if (d && d.dept && !seen[d.dept]) { seen[d.dept] = 1; out.push(d.dept); }
+    });
+  });
+  return out;
+}
+/* 品名1件の正規化（Firebaseの配列→オブジェクト化対策も兼ねる） */
+function supItemNorm(it){
+  if (!it) return null;
+  if (typeof it === 'string') return { n: it, depts: [], all: false };
+  if (!it.n) return null;
+  return { n: String(it.n), depts: normArr(it.depts).filter(Boolean), all: !!it.all };
+}
+function supMasterNorm(m){
+  return normArr(m).filter(function(k){ return k && k.kind; }).map(function(k){
+    return { kind: String(k.kind), items: normArr(k.items).map(supItemNorm).filter(Boolean) };
+  });
+}
+/* 読み出しの唯一の入口。毎回新しいオブジェクトを返すので、呼び出し側で書き換えても D は変わらない
+   （書き換えるときは supMasterForWrite を使う）。
+   _migVer 6 より前（移行前の端末）だけ旧 supTree から作って見せる。移行後に種類を全部消した
+   場合に旧マスタが生き返らないよう、_migVer を見て判定する（Firebaseは空配列を保存しないので、
+   「空かどうか」では「移行前」と「全部消した」を区別できない）。 */
+function supMasterOf(){
+  var m = supMasterNorm(D.supMaster);
+  if (m.length) return m;
+  /* 移行後は空を空のまま返す。旧マスタへのフォールバックは supTree だけでなく、さらに古い
+     フラットな D.sup も塞ぐこと——D.sup は保存が無ければ DEF_SUP で埋め直されるので実質
+     空にならず、種類を全部消したときに 6 品目が「その他」として生き返り、次にマスタを
+     編集した時点で supMasterForWrite が D.supMaster に焼き付けてしまう。 */
+  if (D._migVer >= 6) return [];
+  m = supLegacyToMaster(D.supTree, null);
+  if (m.length) return m;
+  var flat = normArr(D.sup).filter(Boolean);
+  return flat.length ? [{ kind: 'その他', items: flat.map(supItemNorm) }] : [];
+}
+function supMasterForWrite(){
+  D.supMaster = supMasterOf();
+  return D.supMaster;
+}
+/* 保存用に空の depts / all:false を落とす（未設定＝紐づけなし、と読む状態を1つに保つ） */
+function supItemPack(it){
+  var o = { n: it.n };
+  if (it.all) o.all = true;
+  if (it.depts && it.depts.length) o.depts = it.depts.slice();
+  return o;
+}
+function supMasterSave(m){
+  D.supMaster = m.map(function(k){ return { kind: k.kind, items: k.items.map(supItemPack) }; });
+  saveD();
+}
+/* この症例の科で先頭に出すか */
+function supItemForDept(it, dept){
+  return !!it.all || (!!dept && it.depts.indexOf(dept) !== -1);
+}
+
+/* 旧 supTree（カテゴリ→種別→品名）を新しい形へ。
+   - 1段目（カテゴリ）→ 種類。SUP_KIND_RENAME にあるものは付け替える
+   - 2段目（種別）が術式マスタの科名なら、その下の品名にその科を紐づける。科名でない段
+     （高周波手術器など）の品名は紐づけなしで種類の直下へ
+   - 同じ種類の中の同名品は1つにまとめ、科を合わせる（本番では ウロタワー が4か所にあった）
+   - pages を渡すと、過去の記録で「その科で SUP_TAG_MIN_USES 回以上」の組み合わせを補う
+   - 種類は SUP_KIND_ORDER の順、知らない種類はその間（その他の前）に元の順で並べる */
+function supLegacyToMaster(tree, pages){
+  var deptSet = {};
+  supDeptOptions().forEach(function(d){ deptSet[d] = 1; });
+  var kinds = [], byKind = {};
+  function kindOf(name){
+    name = SUP_KIND_RENAME[name] || name;
+    if (!byKind[name]) { byKind[name] = { kind: name, items: [], idx: {} }; kinds.push(byKind[name]); }
+    return byKind[name];
+  }
+  function addItem(k, n, depts){
+    var it = k.idx[n];
+    if (!it) { it = k.idx[n] = { n: n, depts: [] }; k.items.push(it); }
+    depts.forEach(function(d){ if (it.depts.indexOf(d) === -1) it.depts.push(d); });
+  }
+  normArr(tree).forEach(function(t){
+    if (!t || !t.dept) return;
+    var k = kindOf(t.dept);
+    normArr(t.cats).forEach(function(ct){
+      if (!ct) return;
+      var tags = normArr(ct.depts).filter(Boolean);
+      if (ct.name && deptSet[ct.name] && tags.indexOf(ct.name) === -1) tags.push(ct.name);
+      normArr(ct.items).forEach(function(n){ if (n) addItem(k, String(n), tags); });
+    });
+  });
+  if (pages) {
+    var cnt = {};
+    Object.keys(pages).forEach(function(ds){
+      if (!pages[ds]) return;
+      opsItemsOf(pages[ds], 'ope').forEach(function(it){
+        var dp = opsItemDept(it);
+        if (!dp || !deptSet[dp]) return;
+        opsItemSup(it).forEach(function(s){ var key = dp + '' + s; cnt[key] = (cnt[key] || 0) + 1; });
+      });
+    });
+    kinds.forEach(function(k){
+      k.items.forEach(function(it){
+        Object.keys(deptSet).forEach(function(dp){
+          if ((cnt[dp + '' + it.n] || 0) >= SUP_TAG_MIN_USES && it.depts.indexOf(dp) === -1) it.depts.push(dp);
+        });
+      });
+    });
+  }
+  SUP_KIND_ORDER.forEach(function(n){ kindOf(n); });
+  function rank(k){
+    if (k.kind === 'その他') return 1000;
+    var i = SUP_KIND_ORDER.indexOf(k.kind);
+    return i === -1 ? 500 : i;
+  }
+  return kinds.map(function(k, i){ return { k: k, i: i }; })
+    .sort(function(a, b){ return (rank(a.k) - rank(b.k)) || (a.i - b.i); })
+    .map(function(x){ return { kind: x.k.kind, items: x.k.items.map(function(it){ return { n: it.n, depts: it.depts, all: false }; }) }; });
+}
+/* 旧バックアップ（supMaster を持たない）から戻したときは、戻した supTree をその場で新しい形へ移す。
+   復元は _migVer を回し直さないので、ここを通さないと「物品マスタだけ今のまま、supTree だけ古い」
+   という食い違いが残る。復元3経路で必ず呼ぶこと。 */
+function supMasterAfterRestore(data){
+  if (data && data.supMaster === undefined) D.supMaster = supLegacyToMaster(D.supTree, D.pages);
+}
+
+/* ===== 使用物品を選ぶポップアップ =====
+   症例行に3段セレクトを埋め込むと、症例行が縦に長いぶん端末によって枠外へ出て見切れた
+   ので、画面中央のモーダルにしている。呼び出し側は「今の配列」と「確定したときに受け取る
+   関数」だけを渡す（items/saveItems のクロージャは呼び出し側＝buildSupRow に閉じ込める）。
+
+   先頭に「その症例の科で使う品名（全科を含む）」を種類の順にまとめ、残りは種類ごとの
+   折りたたみに入れる（先頭に出した品名は種類側に出さない）。科が未選択の症例、または
+   その科に紐づいた品名が1件も無いときは、種類の一覧を最初から開いておく。 */
+var _supPickCtx = null;
+
+/* opts = { title, dept, current:[], onApply:function(arr){} }
+   ロック中は呼び出し側で「選ぶ」ボタン自体を押せなくしているので、閲覧専用の表示は持たない
+   （記録済みの品目は症例行にそのまま並んでいる）。 */
+function openSupPickerModal(opts){
+  opts = opts || {};
+  var old = document.getElementById('sup-pick-ov'); if (old) old.remove();
+  /* 開いた時点のマスタを複製して持つ。onclick に渡す添字はこの複製に対するもので、
+     開いている間に同期でマスタが変わっても別の品名を指さない */
+  var master = supMasterOf();
+  var dept = opts.dept || '';
+  var hasTop = master.some(function(k){ return k.items.some(function(it){ return supItemForDept(it, dept); }); });
+  _supPickCtx = {
+    sel: (opts.current || []).slice(),
+    title: opts.title || '',
+    onApply: (typeof opts.onApply === 'function') ? opts.onApply : function(){},
+    dept: dept,
+    master: master,
+    openAll: !dept || !hasTop,   /* 種類の一覧を最初から開くか */
+    open: {}                     /* 種類の添字ごとの開閉（openAll からの差分） */
+  };
+  var ov = document.createElement('div'); ov.id = 'sup-pick-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeSupPicker(); };
+  var md = document.createElement('div'); md.id = 'sup-pick-md'; md.className = 'md';
+  md.style.maxWidth = '560px';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderSupPickBody();
+}
+function closeSupPicker(){
+  var ov = document.getElementById('sup-pick-ov'); if (ov) ov.remove();
+  _supPickCtx = null;
+}
+function supPickKindOpen(ki){
+  var c = _supPickCtx;
+  return (ki in c.open) ? c.open[ki] : c.openAll;
+}
+
+/* 種類・品名はユーザーが付けた名前なので、onclick には必ず「添字」だけを渡す。
+   名前を埋め込むとアポストロフィで onclick 文字列が壊れる（スタッフ名・メーカー名で
+   実際に踏んだ罠と同じ）。 */
+function renderSupPickBody(){
+  var c = _supPickCtx; if (!c) return;
+  var md = document.getElementById('sup-pick-md'); if (!md) return;
+  var m = c.master;
+  function chip(ki, ii){
+    var n = m[ki].items[ii].n, on = c.sel.indexOf(n) !== -1;
+    return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox"' + (on ? ' checked' : '')
+      + ' onchange="supPickToggleItem(' + ki + ',' + ii + ')">' + escH(n) + '</label>';
+  }
+
+  var h = '<h3>🧰 使用物品を選ぶ</h3>';
+  h += '<p>' + (c.title ? escH(c.title) + '<br>' : '')
+    + '品名はまとめて選べます。一覧に無いものは下の自由入力から足してください。</p>';
+
+  h += '<div class="md-flbl">選択中（' + c.sel.length + '件）</div>';
+  h += c.sel.length
+    ? '<div class="dc-cbs">' + c.sel.map(function(s, i){
+        return '<span class="dc-cb-item checked">' + escH(s)
+          + '<button type="button" class="sup-pick-x" onclick="supPickRemove(' + i + ')" title="外す">✕</button>'
+          + '</span>';
+      }).join('') + '</div>'
+    : '<div class="sup-pick-empty">まだ選ばれていません</div>';
+
+  if (!m.length) {
+    h += '<div class="sup-pick-empty" style="margin-top:12px">物品マスタが未登録です。業務マスタの「使用物品」から登録すると一覧から選べます。</div>';
+  } else {
+    /* 先頭：その科（と全科）の品名を種類の順に */
+    var top = '', topN = 0;
+    m.forEach(function(k, ki){
+      var chips = '';
+      k.items.forEach(function(it, ii){ if (supItemForDept(it, c.dept)) { chips += chip(ki, ii); topN++; } });
+      if (chips) top += '<div class="sup-pick-sub">' + escH(k.kind) + '</div><div class="dc-cbs">' + chips + '</div>';
+    });
+    h += '<div class="sup-pick-sec"><div class="sup-pick-sec-hd">🏥 '
+      + (c.dept ? '<b>' + escH(c.dept) + '</b> で使う物品' : '全科で使う物品')
+      + '</div>'
+      + (topN ? top : '<div class="sup-pick-empty">' + (c.dept
+          ? 'この科に紐づいた物品はまだありません。下の種類から選んでください（業務マスタの使用物品で、品名ごとに🏥から科を設定できます）'
+          : '術式の科を選ぶと、その科で使う物品がここに並びます') + '</div>')
+      + '</div>';
+
+    /* 残り：種類ごとの折りたたみ */
+    var rest = '';
+    m.forEach(function(k, ki){
+      var idx = [];
+      k.items.forEach(function(it, ii){ if (!supItemForDept(it, c.dept)) idx.push(ii); });
+      if (!idx.length) return;
+      var open = supPickKindOpen(ki);
+      rest += '<div class="sup-pick-kind">'
+        + '<button type="button" class="sup-pick-kind-hd" onclick="supPickToggleKind(' + ki + ')">'
+        + '<span class="sup-pick-arrow' + (open ? ' open' : '') + '">▶</span>' + escH(k.kind)
+        + '<span class="sup-pick-kind-n">' + idx.length + '</span></button>'
+        + (open ? '<div class="sup-pick-kind-bd"><div class="dc-cbs">' + idx.map(function(ii){ return chip(ki, ii); }).join('') + '</div></div>' : '')
+        + '</div>';
+    });
+    if (rest) h += '<div class="md-flbl" style="margin-top:14px">種類から探す</div>' + rest;
+  }
+
+  h += '<div class="md-flbl" style="margin-top:14px">一覧に無いものを足す</div>';
+  h += '<div style="display:flex;gap:8px;align-items:center">'
+    + '<input id="sup-pick-free" class="fi" style="flex:1;margin-bottom:0" placeholder="物品名を入力" autocomplete="off">'
+    + '<button type="button" class="btn btn-g" onclick="supPickAddFree()">追加</button></div>';
+
+  h += '<div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button class="btn btn-g" onclick="closeSupPicker()">キャンセル</button>'
+    + '<button class="btn btn-p" onclick="supPickApply()">決定</button></div>';
+  md.innerHTML = h;
+
+  var fi = document.getElementById('sup-pick-free');
+  if (fi) fi.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); supPickAddFree(); } };
+}
+function supPickToggleKind(ki){
+  var c = _supPickCtx; if (!c) return;
+  c.open[ki] = !supPickKindOpen(ki);
+  renderSupPickBody();
+}
+function supPickToggleItem(ki, ii){
+  var c = _supPickCtx; if (!c) return;
+  var it = c.master[ki] && c.master[ki].items[ii]; if (!it) return;
+  var at = c.sel.indexOf(it.n);
+  if (at === -1) c.sel.push(it.n); else c.sel.splice(at, 1);
+  renderSupPickBody();
+}
+function supPickRemove(i){ var c = _supPickCtx; if (!c) return; c.sel.splice(i, 1); renderSupPickBody(); }
+function supPickAddFree(){
+  var c = _supPickCtx; if (!c) return;
+  var el = document.getElementById('sup-pick-free'); if (!el) return;
+  var v = (el.value || '').trim(); if (!v) return;
+  /* ここは物品名を入れる欄なので、氏名パターンの警告（黄色）では止めない
+     ——ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名は
+     ほとんどが氏名パターンに当たる（中心静脈カテーテル / 生体情報モニタ /
+     自己血回収装置 / 電気メス先端チップ / 吸収糸 …）。毎回警告を挟むと
+     アラート疲れを起こし、本物の患者情報の警告まで読み飛ばされる。
+     患者IDや生年月日といったブロック対象（phiHasBlock）だけは弾く。 */
+  var phiRes = detectPHI(v);
+  if (phiHasBlock(phiRes)) {
+    showPHIPopup({ result: phiRes, mode:'field', onProceed:null,
+      onFix:function(){ var e2 = document.getElementById('sup-pick-free'); if (e2) { e2.value = v; e2.focus(); } } });
+    return;
+  }
+  if (_supPickCtx.sel.indexOf(v) === -1) _supPickCtx.sel.push(v);
+  renderSupPickBody();
+}
+function supPickApply(){
+  var c = _supPickCtx; if (!c) return;
+  var arr = c.sel.slice(), fn = c.onApply;
+  /* 先に閉じてから書き戻す（onApply が renderItems() を呼ぶので、開いたままだと描画と競合する） */
+  closeSupPicker();
+  fn(arr);
+}
+
+/* 症例行に出す「使用物品」の1行。埋め込みの3段セレクトはここから
+   openSupPickerModal に移した。記録済みの品目は行内に出したままにする
+   （開かなくても何を使ったか読めるようにするため）。 */
+function supTriggerRowHTML(sup, locked){
+  var n = (sup || []).length;
+  return '<div class="ops-sup-trigger">'
+    + '<span class="ops-sup-lbl">🧰 使用物品</span>'
+    + '<button type="button" class="ops-sup-btn"' + (locked ? ' disabled' : '') + '>'
+    + (n ? '選び直す（' + n + '件）' : '＋ 選ぶ') + '</button>'
+    + '</div>';
+}
+/* 症例行の「🧰 使用物品」ブロック一式（トリガー行＋記録済みの折り返し表示＋ポップアップ起動）。
+   ツリー版（buildItemListTree）とフラット版（buildItemList）の両方がこれを使う。
+
+   ポップアップは body 直下にあるので、開いている間にページが再描画されても閉じない。
+   その間に他のスタッフが同じカードを編集していることがあるので、「決定」では開いた時点の
+   items を書き戻さない——D.pages[ds] から読み直し、開いた行を supRowSig で探して
+   sup だけを書き換える（開いた時点の配列を丸ごと書き戻すと、その間の他人の入力が消える）。 */
+function buildSupRow(ds, key, items, idx, locked, saveItems, renderItems){
+  var row = document.createElement('div');
+  row.innerHTML = supTriggerRowHTML(opsItemSup(items[idx]), locked)
+    + '<div>' + supViewHTML(opsItemSup(items[idx])) + '</div>';
+  var btn = row.querySelector('.ops-sup-btn');
+  if (btn && !locked) btn.onclick = function(){
+    var sig = supRowSig(items[idx]);
+    openSupPickerModal({
+      title: opsItemName(items[idx]) || '',
+      dept: opsItemDept(items[idx]) || '',
+      current: opsItemSup(items[idx]),
+      onApply: function(arr){
+        var pg = D.pages[ds];
+        var live = normArr(pg && pg.ops && pg.ops[key]);
+        live = JSON.parse(JSON.stringify(live.length ? live : items));
+        var j = (live[idx] && supRowSig(live[idx]) === sig) ? idx : -1;
+        if (j < 0) {
+          var hits = [];
+          live.forEach(function(it, k){ if (supRowSig(it) === sig) hits.push(k); });
+          if (hits.length === 1) j = hits[0];
+        }
+        if (j < 0) {
+          toast('⚠️ 選んでいる間にこの症例が他の人に変更されたため、反映できませんでした。もう一度選んでください', 'warn');
+          safeRenderPage();
+          return;
+        }
+        /* 読み直した配列を items に流し込んでから、既存の saveItems/renderItems で書き戻す */
+        var stale = !document.body.contains(row);
+        items.length = 0;
+        live.forEach(function(it){ items.push(it); });
+        items[j].sup = arr;
+        saveItems(); renderItems();
+        /* 開いている間にページ全体が作り直されていたら、この items を描いたカードはもう
+           画面に無い（Firebaseのエコーは _savingTs で2秒握りつぶされる）ので描き直す */
+        if (stale) safeRenderPage();
+      }
+    });
+  };
+  return row;
+}
+/* 症例行を見分ける印。行にはidが無いので、科・中カテゴリ・術式・入室時間で照合する。
+   終了時刻や担当者は含めない——他の人がその行の終了を押しただけで照合に失敗し、
+   物品の選択が無駄になるのを避けるため（書き戻すのは sup だけなので混ざらない）。 */
+function supRowSig(it){
+  return [opsItemDept(it), opsItemCat(it), opsItemName(it), (it && it.time) || '', (it && it.timeTxt) || ''].join('\u0001');
 }
 /* 科・中カテゴリ・術式/種別の表示値。'__free__'（自由入力に切替中）のときは対応する
    *Txt を返し、内部値の '__free__' が画面・CSVに出ないようにする（表示・集計はこの3つを必ず経由）。
@@ -16830,26 +17545,6 @@ function buildOPS(ds,dat,locked) {
       h+='<option value="__free__">自由入力...</option>';
       return h;
     }
-    /* 使用物品ツリーセレクタ */
-    function makeSupTreeRow(onAdd) {
-      var wrap2=document.createElement('div'); wrap2.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px';
-      var dSel2=document.createElement('select'); dSel2.className='ops-sel'; dSel2.style.cssText='flex:1;min-width:80px;font-size:11px'; dSel2.disabled=!!locked;
-      var cSel2=document.createElement('select'); cSel2.className='ops-sel'; cSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; cSel2.disabled=!!locked;
-      var iSel2=document.createElement('select'); iSel2.className='ops-sel'; iSel2.style.cssText='flex:1;min-width:80px;font-size:11px;display:none'; iSel2.disabled=!!locked;
-      var addBtn2=document.createElement('button'); addBtn2.type='button'; addBtn2.textContent='追加'; addBtn2.disabled=!!locked;
-      addBtn2.style.cssText='font-size:11px;padding:4px 10px;border:none;border-radius:var(--rs);background:var(--ac);color:var(--on-ac);cursor:pointer;flex-shrink:0';
-      var dOpts2='<option value="">+ 物品カテゴリ</option>';
-      (D.supTree||[]).forEach(function(d){ dOpts2+='<option value="'+escH(d.dept)+'">'+escH(d.dept)+'</option>'; });
-      dSel2.innerHTML=dOpts2;
-      if(!locked){
-        dSel2.onchange=function(){ var v=this.value; cSel2.style.display=v?'':'none'; var h2='<option value="">-- 種別 --</option>'; var dObj2=(D.supTree||[]).filter(function(d){return d.dept===v;})[0]; if(dObj2)(dObj2.cats||[]).forEach(function(c){ h2+='<option value="'+escH(c.name)+'">'+escH(c.name)+'</option>'; }); cSel2.innerHTML=h2; iSel2.style.display='none'; iSel2.innerHTML='<option value="">-- 品名 --</option>'; };
-        cSel2.onchange=function(){ var dept3=dSel2.value; var v=this.value; iSel2.style.display=v?'':'none'; var h3='<option value="">-- 品名 --</option>'; var dObj3=(D.supTree||[]).filter(function(d){return d.dept===dept3;})[0]; if(dObj3){var cObj3=(dObj3.cats||[]).filter(function(c){return c.name===v;})[0]; if(cObj3)(cObj3.items||[]).forEach(function(it){ h3+='<option value="'+escH(it)+'">'+escH(it)+'</option>'; });} iSel2.innerHTML=h3; };
-        addBtn2.onclick=function(){ var v=iSel2.value||cSel2.value||dSel2.value; if(!v)return; onAdd(v); dSel2.value=''; cSel2.innerHTML='<option value="">-- 種別 --</option>'; cSel2.style.display='none'; iSel2.style.display='none'; iSel2.innerHTML='<option value="">-- 品名 --</option>'; };
-      }
-      wrap2.appendChild(dSel2); wrap2.appendChild(cSel2); wrap2.appendChild(iSel2); wrap2.appendChild(addBtn2);
-      return wrap2;
-    }
-
     var wrap = document.createElement('div');
     wrap.id = 'ops-'+itemId+'-wrap';
 
@@ -17029,41 +17724,11 @@ function buildOPS(ds,dat,locked) {
         /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
         buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
 
-        /* 使用物品行（オペのみ）- itemWrapに追加してD&Dで一緒に動く */
-        if(withSup){
-          var supRow2=document.createElement('div'); supRow2.style.cssText='margin-top:4px;margin-bottom:4px;padding:8px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)';
-          var supLbl2=document.createElement('div'); supLbl2.style.cssText='font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:5px'; supLbl2.textContent='🧰 使用物品';
-          supRow2.appendChild(supLbl2);
-          /* 3段カスケード選択 */
-          var supTreeRow=makeSupTreeRow(function(v){
-            var cur=(item.sup&&item.sup.length)?item.sup.join(', '):'';
-            item.sup=(cur?cur+', '+v:v).split(',').map(function(s){return s.trim();}).filter(Boolean);
-            supInpEl.value=item.sup.join(', '); supViewEl2.innerHTML=supViewHTML(item.sup); saveItems();
-          });
-          supRow2.appendChild(supTreeRow);
-          /* テキスト入力（直接入力・カンマ区切り） */
-          var supInpEl=document.createElement('input'); supInpEl.type='text'; supInpEl.className='ops-txt'; supInpEl.style.cssText='width:100%;font-size:12px';
-          supInpEl.placeholder='または直接入力（カンマ区切りで複数可）'; supInpEl.disabled=!!locked;
-          supInpEl.value=(item.sup&&item.sup.length)?item.sup.join(', '):'';
-          /* 入力欄は1行しか見えず未フォーカス時に枠外が見切れるため、下に折り返し表示を添える */
-          var supViewEl2=document.createElement('div'); supViewEl2.innerHTML=supViewHTML(item.sup);
-          if(!locked){
-            supInpEl.oninput=(function(i2,el2){return function(){
-              items[i2].sup=el2.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-              supViewEl2.innerHTML=supViewHTML(items[i2].sup);
-              saveItems();
-            };})(idx,supInpEl);
-            supInpEl.onblur=(function(i2){return function(){
-              this.value=this.value.replace(/[,\s]+$/,'');
-              items[i2].sup=this.value.split(',').map(function(s){return s.trim();}).filter(Boolean);
-              supViewEl2.innerHTML=supViewHTML(items[i2].sup);
-              saveItems();
-            };})(idx);
-          }
-          supRow2.appendChild(supInpEl);
-          supRow2.appendChild(supViewEl2);
-          itemWrap.appendChild(supRow2);
-        }
+        /* 使用物品（オペのみ）- itemWrapに追加してD&Dで一緒に動く。
+           選択は中央のポップアップ（openSupPickerModal）で行い、行内には
+           「選ぶ」ボタンと記録済みの一覧だけを置く（3段セレクトを行の下に
+           埋め込むと、症例行が縦に長いぶん端末によって枠外へ出て見切れた）。 */
+        if(withSup) itemWrap.appendChild(buildSupRow(ds, key, items, idx, locked, saveItems, renderItems));
         wrap.appendChild(itemWrap);
       });
 
@@ -17291,103 +17956,8 @@ function buildOPS(ds,dat,locked) {
           row.appendChild(timeWrap);
         }
 
-        /* 使用物品（withSup=trueのとき術式行の下に1行追加） */
-        var supRow = null;
-        var supViewEl = null;
-        if (withSup) {
-          supRow = document.createElement('div');
-          supRow.className = 'ops-item-row ops-sup-row';
-          supRow.style.cssText = 'margin-top:2px;margin-bottom:4px;gap:6px;align-items:center';
-
-          var supLbl = document.createElement('span');
-          supLbl.style.cssText = 'font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0';
-          supLbl.textContent = '🧰 使用物品';
-          supRow.appendChild(supLbl);
-
-          /* datalist（マスタ候補） */
-          var dlId = 'sup-dl-' + idx;
-          var dl = document.createElement('datalist');
-          dl.id = dlId;
-          if (D.sup) D.sup.forEach(function(sm){ var op=document.createElement('option'); op.value=sm; dl.appendChild(op); });
-          supRow.appendChild(dl);
-
-          /* テキスト入力（直接編集・カンマ区切り） */
-          var supInp = document.createElement('input');
-          supInp.type = 'text';
-          supInp.className = 'ops-txt';
-          supInp.style.cssText = 'flex:1;font-size:12px';
-          supInp.placeholder = 'プルダウンから選択または直接入力（カンマ区切りで複数可）';
-          supInp.disabled = !!locked;
-          /* 保存値を「カンマ区切り文字列」として復元 */
-          supInp.value = (item.sup && item.sup.length) ? item.sup.join(', ') : '';
-          /* 入力欄は1行しか見えず未フォーカス時に枠外が見切れるため、下に折り返し表示を添える */
-          supViewEl = document.createElement('div');
-          supViewEl.innerHTML = supViewHTML(item.sup);
-
-          /* プルダウン（選ぶたびにテキスト欄に追記） */
-          var supSel = document.createElement('select');
-          supSel.className = 'ops-sel';
-          supSel.style.cssText = 'flex-shrink:0;min-width:100px;font-size:11px';
-          supSel.disabled = !!locked;
-          var supSelOpts = '<option value="">+ 物品を追加</option>';
-          if (D.sup) D.sup.forEach(function(sm){ supSelOpts += '<option value="'+sm+'">'+sm+'</option>'; });
-          supSelOpts += '<option value="__free__">自由記述...</option>';
-          supSel.innerHTML = supSelOpts;
-
-          if (!locked) {
-            (function(idx5, supInp5, supSel5, supViewEl5){
-              var saveT5 = null;
-
-              function parseSup(val) {
-                return val.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
-              }
-              function saveSup() {
-                items[idx5].sup = parseSup(supInp5.value);
-                supViewEl5.innerHTML = supViewHTML(items[idx5].sup);
-                saveItems();
-              }
-
-              /* テキスト欄の直接入力 */
-              supInp5.oninput = function(){
-                items[idx5].sup = parseSup(this.value);
-                supViewEl5.innerHTML = supViewHTML(items[idx5].sup);
-                clearTimeout(saveT5);
-                saveT5 = setTimeout(saveItems, 600);
-              };
-              supInp5.onblur = function(){
-                /* フォーカスが外れたら末尾のカンマ・スペースを除去 */
-                this.value = this.value.replace(/[,\s]+$/, '');
-                saveSup();
-              };
-
-              /* プルダウンから選択 → テキスト欄に追記 */
-              supSel5.onchange = function(){
-                var v = this.value;
-                if (!v) return;
-                var append = function(val){
-                  /* 現在のテキストに追記 */
-                  var cur = supInp5.value.replace(/[,\s]+$/, '');
-                  supInp5.value = cur ? cur + ', ' + val : val;
-                  supInp5.focus();
-                  saveSup();
-                };
-                if (v === '__free__') {
-                  v = prompt('使用物品を入力してください');
-                  if (!v || !v.trim()) { this.value = ''; return; }
-                  v = v.trim();
-                  this.value = ''; /* プルダウンを元に戻す */
-                  phiGuardText(v, function(){ append(v); }); /* 自由入力なのでPHIチェックを通す */
-                  return;
-                }
-                this.value = '';
-                append(v);
-              };
-            })(idx, supInp, supSel, supViewEl);
-          }
-
-          supRow.appendChild(supSel);
-          supRow.appendChild(supInp);
-        }
+        /* 使用物品（オペのみ）。ツリー版と同じ buildSupRow を使う */
+        var supRow = withSup ? buildSupRow(ds, key, items, idx, locked, saveItems, renderItems) : null;
 
         /* 業務終了トグルボタン */
         var doneBtn = document.createElement('button');
@@ -17404,7 +17974,6 @@ function buildOPS(ds,dat,locked) {
         /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
         buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
         if (supRow) itemWrap.appendChild(supRow);
-        if (supViewEl) itemWrap.appendChild(supViewEl);
         wrap.appendChild(itemWrap);
 
         if(!locked) {
@@ -19563,6 +20132,12 @@ function exportAtCsv() {
 
 /* ===== スケジュール（タイムテーブル） ===== */
 var SCHED_START=480, SCHED_END=1260, SCHED_SLOT=15, SCHED_PXMIN=1.2; /* 8:00〜21:00 / 15分刻み / 1分=1.2px */
+/* ポインタ座標から分を出すときだけ、文字サイズの zoom で割り戻す。
+   スケジュールは .md（zoom:var(--ui-zoom)）の中なので、clientY/getBoundingClientRect は
+   zoom 済みの実ピクセル、SCHED_PXMIN は要素ローカルのCSSピクセル基準——そのまま割ると
+   拡大率ぶんズレる（特大で12:00を押すと13:12に置かれる）。
+   分→px（top/height の算出）は要素ローカルのままでよいので SCHED_PXMIN を直接使う。 */
+function schedMinFromPx(px){ return px / (SCHED_PXMIN * uiZoom()); }
 var DEF_SCHED_PRESETS=[
   {label:'OPE立会い',  color:'o',   dur:120},
   {label:'カテ立会い', color:'c',   dur:90},
@@ -19750,7 +20325,7 @@ function renderSched(){
       var hgt=(bl.end-bl.start)*SCHED_PXMIN;
       h+='<div class="sched-block '+schedColorOf(bl.color)+'" data-id="'+bl.id+'" style="top:'+top2+'px;height:'+hgt+'px">';
       h+=(locked?'':'<button class="bx" data-del="'+bl.id+'">×</button>');
-      h+='<div>'+escH(bl.label)+'</div><div class="bt">'+schedMinToHM(bl.start)+'–'+schedMinToHM(bl.end)+'</div>';
+      h+='<div class="bn">'+escH(bl.label)+'</div><div class="bt">'+schedMinToHM(bl.start)+'–'+schedMinToHM(bl.end)+'</div>';
       if(!locked) h+='<div class="bh"></div>';
       h+='</div>';
     }
@@ -19849,7 +20424,7 @@ function schedBindInteractions(ds){
       if(_schedSelPreset===null) return;
       if(e.target.closest('.sched-block')) return; /* ブロック上は無視 */
       var rect=tr.getBoundingClientRect();
-      var min=SCHED_START+(e.clientY-rect.top)/SCHED_PXMIN;
+      var min=SCHED_START+schedMinFromPx(e.clientY-rect.top);
       schedAddBlock(ds,staff,_schedSelPreset,min);
     });
     tr.addEventListener('dragover',function(e){ if(_schedDragPreset!==null){ e.preventDefault(); } });
@@ -19857,7 +20432,7 @@ function schedBindInteractions(ds){
       if(_schedDragPreset===null) return;
       e.preventDefault();
       var rect=tr.getBoundingClientRect();
-      var min=SCHED_START+(e.clientY-rect.top)/SCHED_PXMIN;
+      var min=SCHED_START+schedMinFromPx(e.clientY-rect.top);
       var pi=_schedDragPreset; _schedDragPreset=null;
       schedAddBlock(ds,staff,pi,min);
     });
@@ -19881,7 +20456,7 @@ function schedBindInteractions(ds){
       el.setPointerCapture&&el.setPointerCapture(e.pointerId);
       function onMove(ev){
         moved=true;
-        var dyMin=(ev.clientY-startY)/SCHED_PXMIN;
+        var dyMin=schedMinFromPx(ev.clientY-startY);
         if(mode==='move'){
           var ns=schedSnap(origStart+dyMin);
           if(ns+dur>SCHED_END) ns=SCHED_END-dur;
@@ -20001,7 +20576,7 @@ function updateTabletBtnBadge(ds){
 function openTabletPanel(ds){
   if(!D.pages[ds]) return;
   var ov=document.createElement('div'); ov.id='tablet-panel-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
-  var md=document.createElement('div'); md.className='md'; md.style.maxWidth='680px'; md.style.width='94%'; md.style.maxHeight='85vh'; md.style.overflowY='auto';
+  var md=document.createElement('div'); md.className='md'; md.style.maxWidth='680px'; md.style.width='94%'; md.style.maxHeight='calc(85vh / var(--ui-zoom,1))'; md.style.overflowY='auto';
   md.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">'
     +'<h3 style="margin:0">📱 タブレット貸出・返却</h3>'
     +'<button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-panel-ov\').remove()">✕ 閉じる</button></div>'
@@ -20479,6 +21054,56 @@ function updateThemeBtn() {
   btn.innerHTML = ic + '<span class="mt-text"> ' + lb + '</span>';
   btn.title = '表示テーマ：' + lb + '（タップで切替）';
 }
+
+/* ===== 文字サイズ（小／標準／大／特大） =====
+   テーマと同じく本人の端末設定なので D には入れない／ログアウトでもリセットしない。
+
+   font-size を変数化するのではなく zoom を使っているのは、この画面の font-size が
+   800箇所以上 px 直書きで、しかもその 8割近くが 10〜12px だから。font-size だけを
+   動かしても固定pxの padding・min-width は付いてこないので、大きくした文字が
+   変わらない箱の中でかえって見切れる。zoom なら文字・余白・枠線・幅がまとめて
+   拡大されるので、現場の要望（「文字や枠など」を追従させたい）に素直に応えられる。
+
+   適用先は #main（連絡表本体）・.md（モーダル）・サイドバーの各タブ。#pane-assign は
+   独自のピンチズーム（_atZoom / #at-zoom-inner）を持つので対象外にしてある——
+   掛け合わせると initAtPinchZoom の座標計算が合わなくなるため。 */
+var FS_KEY = 'ce2_fontscale';
+/* 倍率の表。<head> のちらつき防止スクリプトにも同じ表があるので、片方だけ直さないこと */
+var FS_SCALES = { s:0.9, m:1, l:1.15, xl:1.3 };
+var FS_ORDER  = ['s', 'm', 'l', 'xl'];
+var FS_LABELS = { s:'小', m:'標準', l:'大', xl:'特大' };
+function getFontScale() {
+  var v = localStorage.getItem(FS_KEY);
+  return FS_SCALES[v] ? v : 'm';
+}
+/* いま実際に掛かっている倍率。座標を測る側（dashJumpTop）はこれで正規化する */
+function uiZoom() { return FS_SCALES[getFontScale()] || 1; }
+function applyFontScale() {
+  document.documentElement.style.setProperty('--ui-zoom', uiZoom());
+  /* CSS側で「拡大中かどうか」を見分けるための印。メディアクエリは zoom を見ないので、
+     拡大時だけ .main の横スクロールを許すのにこの属性を使う */
+  document.documentElement.setAttribute('data-fs', getFontScale());
+  updateFontScaleBtn();
+}
+function setFontScale(v) {
+  if (!FS_SCALES[v]) v = 'm';
+  localStorage.setItem(FS_KEY, v);
+  applyFontScale();
+  /* バーの高さは zoom で変わるので測り直す（--cbar-h が古いと本文の末尾が隠れる） */
+  if (typeof syncCbarHeight === 'function') syncCbarHeight();
+}
+function cycleFontScale() {
+  var i = FS_ORDER.indexOf(getFontScale());
+  setFontScale(FS_ORDER[(i + 1) % FS_ORDER.length]);
+  toast('🔠 文字サイズ：' + FS_LABELS[getFontScale()], 'ok');
+}
+function updateFontScaleBtn() {
+  var btn = document.getElementById('fs-toggle');
+  if (!btn) return;
+  var f = getFontScale();
+  btn.innerHTML = '🔠<span class="mt-text"> ' + FS_LABELS[f] + '</span>';
+  btn.title = '文字サイズ：' + FS_LABELS[f] + '（タップで切替）';
+}
 /* 'auto' のまま端末側の設定が変わったら追従する */
 if (window.matchMedia) {
   var _mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -20597,7 +21222,11 @@ function syncCbarInset() {
   if (vv) {
     /* レイアウト高さのうち、下端で見えていない量 */
     px = Math.round(window.innerHeight - vv.height - vv.offsetTop);
-    if (!(px > 0)) px = 0;
+    /* ピンチズーム中は vv.height が縮むぶんが丸ごとこの差に出るので、下部UIと誤読して
+       消し込みバーが厚くなる（maximum-scale を外してズームを解禁したことで起きるようになった）。
+       拡大中は補正しない。 */
+    if (vv.scale && vv.scale > 1.01) px = 0;
+    else if (!(px > 0)) px = 0;
     else if (px > 200) px = 0;   /* キーボード表示中とみなし補正しない */
     else if (px > 160) px = 160; /* 想定より厚いUI。捨てずに上限でクランプ */
   }
@@ -21693,11 +22322,12 @@ function restoreFirebaseSnapshot(dateStr) {
       toast('このスナップショットは空のため復元できません。', 'warn'); return;
     }
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
-     'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+     'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
      'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
+    supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
     saveD();
     writeLog('Firebaseスナップショットから復元', dateStr);
@@ -21761,11 +22391,12 @@ function restoreAutoBackup(i) {
     if (!confirm('自動バックアップ（'+dt+' / '+s.label+'）から復元しますか？\n\n連絡表 '+pageCount+' ページ\n\n⚠️ 現在のデータが上書きされます。')) return;
     autoSaveSnapshot('自動復元前');
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
-     'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+     'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
      'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
+    supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
     saveD();
     if(FB_ON) writeLog('自動バックアップから復元', dt+' '+s.label);
     renderCal(); safeRenderPage();
@@ -21817,11 +22448,12 @@ function importBackup(file) {
       /* 復元キーはFirebaseスナップショット復元・自動バックアップ復元と必ず同一に保つこと。
          ここが短いと、バックアップファイルには入っているのに復元されない設定が出る。 */
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
-       'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+       'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
        'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
+      supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
       saveD();
       if(FB_ON) writeLog('バックアップインポート', file.name);
       renderCal(); safeRenderPage();
