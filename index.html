@@ -129,7 +129,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .tb-logo{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .btn-logout,.hbg{flex-shrink:0}
 .hbg{display:none;background:none;border:1px solid var(--bdr);border-radius:var(--rs);padding:5px 9px;cursor:pointer;font-size:16px;color:var(--txt)}
-.ab{display:flex;flex-direction:row;margin-top:var(--th-all);height:calc(100vh - var(--th-all));overflow:hidden}
+.ab{display:flex;flex-direction:row;margin-top:calc(var(--th-all) + var(--off-h,0px));height:calc(100vh - var(--th-all) - var(--off-h,0px));overflow:hidden}
 .sb{width:var(--sw);min-width:var(--sw);flex-shrink:0;background:var(--sur);border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow:hidden;transition:width .25s,min-width .25s,opacity .2s}
 .sb.hm{width:0!important;min-width:0!important;opacity:0;pointer-events:none}
 /* 文字サイズ（--ui-zoom）はサイドバーの中身にも掛ける。担当表（#pane-assign）は独自の
@@ -908,10 +908,10 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   .pg-hd .print-btn{display:none}
   .hbg{display:flex}
   /* スマホではサイドバーをfixedで全画面表示 */
-  .sb{position:fixed;top:var(--th-all);left:0;bottom:0;z-index:200;height:calc(100vh - var(--th-all))!important;overflow-y:auto}
+  .sb{position:fixed;top:calc(var(--th-all) + var(--off-h,0px));left:0;bottom:0;z-index:200;height:calc(100vh - var(--th-all) - var(--off-h,0px))!important;overflow-y:auto}
   .sb.hm{transform:translateX(-100%)}
   /* スマホではpane-assignをfixedで全画面表示（sbと同様）。スケジュールはモーダル化したため対象外 */
-  #pane-assign,#pane-sum{position:fixed;top:var(--th-all);left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
+  #pane-assign,#pane-sum{position:fixed;top:calc(var(--th-all) + var(--off-h,0px));left:0;right:0;bottom:0;z-index:201;background:var(--sur);flex-direction:column;overflow-y:auto;display:none}
   .sched-staffcol{min-width:96px!important}
   .atw{padding:14px 10px 60px}
   .atnav .btn{font-size:11px;padding:4px 8px}
@@ -985,6 +985,22 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
 .pw-eye:hover{opacity:1}
 .login-link{display:inline-block;font-size:12px;color:var(--ac);cursor:pointer;margin:2px 0 12px;text-decoration:underline;background:none;border:none;padding:0}
 .login-link:hover{opacity:.8}
+/* 初回同期の覆い（ログイン直後、最初のデータが届くまで入力を止める）。ログイン画面(9999)より下、
+   モーダル(400/900)より上に置く */
+#sync-ov{position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.sync-card{background:var(--sur);color:var(--txt);border-radius:14px;box-shadow:var(--shl);padding:22px 24px;max-width:320px;width:100%;text-align:center}
+.sync-card-ttl{font-size:17px;font-weight:700;margin-bottom:8px}
+.sync-card-msg{font-size:13px;color:var(--txt2);line-height:1.6}
+.sync-card .btn{margin-top:14px}
+.sync-spin{display:inline-block;animation:syncSpin 1.2s linear infinite}
+@keyframes syncSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.sync-spin{animation:none}}
+/* オフラインの帯（操作は止めない）。トップバーの直下に出す。上に重ねるだけだとスマホではタブの列を
+   隠したので、出ている間は body.is-offline で --off-h ぶん画面全体を下げる（トップバーの高さを使う
+   レイアウト3か所＝.ab／スマホの .sb／#pane-assign,#pane-sum が --off-h を足している）。
+   高さを固定するため1行に収め、はみ出しは…にする */
+body.is-offline{--off-h:24px}
+#offline-bar{position:fixed;left:0;right:0;top:var(--th-all);height:var(--off-h,24px);box-sizing:border-box;line-height:22px;z-index:300;background:var(--warn-bg);color:var(--warn-fg);border-bottom:1px solid var(--warn-bdr);font-size:11px;font-weight:700;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 自動ログアウト警告 */
 #idle-warn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-fg);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;z-index:9998;display:none;gap:14px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 #idle-warn.show{display:flex}
@@ -2977,6 +2993,7 @@ function fbInit() {
         if (!_fbEverConn) { _fbEverConn = true; return; } /* 初回接続はAuth側のラベルに委ねる */
         if (!wasConn) {
           /* 切断から復帰 */
+          updateOfflineBanner();
           setSyncLbl(_savePending || _saveWriting ? '保存中...' : '同期済');
           if (_saveQueued && !_saveWriting && currentUser) {
             /* currentUserチェック: 認証未確立のまま書き込むとPERMISSION_DENIEDでキューが失われるのを防ぐ */
@@ -2987,6 +3004,7 @@ function fbInit() {
       } else if (_fbEverConn) {
         /* 確立済みの接続が切れた */
         setSyncLbl('オフライン（ローカル保存中）');
+        updateOfflineBanner();
       }
     });
 
@@ -3012,6 +3030,7 @@ function fbInit() {
         _memosData = {}; _memoDenied = false; /* 別の人がログインしたときに前の人のメモが残らないようにする */
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
+        hideSyncOverlay(false); updateOfflineBanner(); /* 覆い・オフラインの帯を次の人に残さない */
         curDs = null;
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
@@ -3039,6 +3058,9 @@ function fbInit() {
 
       /* ログイン済み → 管理者チェック（非同期が完了してからUIを更新） */
       document.getElementById('login-ov').classList.add('hd');
+      /* 初回データが届くまでは saveD() が Firebase に書かない（_fbDataLoaded ガード）ため、
+         その間の入力は届いたデータで画面ごと置き換わり黙って消える。覆いで入力を止める */
+      if (!_fbDataLoaded) showSyncOverlay();
       document.getElementById('li-err').textContent = '';
 
       Promise.all([
@@ -3134,6 +3156,7 @@ function fbInit() {
             var incomingPages = Object.keys(d.pages || {}).length;
             var wasFirstLoad = !_fbDataLoaded;
             _fbDataLoaded = true;
+            if (wasFirstLoad) hideSyncOverlay(true);
             if (incomingPages > 0) _fbLastPageCount = incomingPages;
             if (_fbLastPageCount > 5 && incomingPages === 0 && !fromSelf) {
               var writerInfo = d._lastWriter
@@ -3279,7 +3302,7 @@ function fbInit() {
             } else if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
               renderPage(curDs);
             }
-          }, function(err) { setSyncLbl('同期エラー'); });
+          }, function(err) { setSyncLbl('同期エラー'); syncOverlayFail('データを受け取れませんでした。再読み込みしてください'); });
           /* 掲示板リスナー（初回ログイン時に一度だけ設定） */
           fbDB.ref('/board').on('value', function(bsnap) {
             _boardData = bsnap.val() || {};
@@ -4138,6 +4161,63 @@ function setSyncLbl(text) {
   else if (text.startsWith('オフライン'))   dot.style.background = '#f59e0b';
   else if (text.includes('エラー'))         dot.style.background = '#c0392b';
   else                                      dot.style.background = '#a8a49e';
+}
+
+/* ===== 同期状態の表示（初回同期の覆い・オフラインの帯） =====
+   ログイン直後、/data の初回データが届くまで saveD() は Firebase に書かない（_fbDataLoaded ガード）。
+   その間の入力は、届いたデータで画面ごと置き換わって黙って消えるので、覆い（#sync-ov）で入力を止める。
+   トップバーの同期ラベル（#sl）はスマホでは非表示で、8pxの点の色しか手がかりが無かったため、
+   画面の中央に出す。
+   オフラインのときは止めない——初回同期後の書き込みは SDK が溜めて再接続時に送るので、
+   帯（#offline-bar）で知らせるだけにする（電波の弱い場所で記録が止まらないように）。 */
+var _syncOvTimer = null;
+var SYNC_SLOW_MS = 15000; /* これを過ぎても届かなければ、再読み込みの手段を出す */
+function _syncCard(ttlHtml, msg, withReload){
+  var ov = document.getElementById('sync-ov');
+  if (!ov) return;
+  ov.innerHTML = '<div class="sync-card" role="status" aria-live="polite">'
+    + '<div class="sync-card-ttl">' + ttlHtml + '</div>'
+    + '<div class="sync-card-msg">' + escH(msg) + '</div>'
+    + (withReload ? '<button class="btn btn-p btn-sm" onclick="location.reload()">🔄 再読み込み</button>' : '')
+    + '</div>';
+}
+function showSyncOverlay(){
+  var ov = document.getElementById('sync-ov');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'sync-ov'; document.body.appendChild(ov); }
+  _syncCard('<span class="sync-spin">⏳</span> 同期中…', '最新のデータを受け取っています。終わるまでお待ちください', false);
+  clearTimeout(_syncOvTimer);
+  /* 覆ったまま永久に待たせない。届かない理由が分かる範囲で伝え、抜け道（再読み込み）を出す */
+  _syncOvTimer = setTimeout(function(){
+    if (!document.getElementById('sync-ov')) return;
+    _syncCard('⏳ 時間がかかっています',
+      _fbConnected ? '通信が混み合っているようです。このまま待つか、再読み込みしてください'
+                   : '電波が届いていないようです。電波の良い場所で待つか、再読み込みしてください', true);
+  }, SYNC_SLOW_MS);
+}
+function hideSyncOverlay(done){
+  clearTimeout(_syncOvTimer); _syncOvTimer = null;
+  var ov = document.getElementById('sync-ov');
+  if (!ov) return;
+  ov.remove();
+  if (done) toast('✅ 同期しました', 'ok', 2000); /* 入力してよい合図。長く出すと邪魔なので2秒 */
+}
+function syncOverlayFail(msg){
+  clearTimeout(_syncOvTimer); _syncOvTimer = null;
+  if (!document.getElementById('sync-ov')) return; /* 初回同期の後のエラーは同期ラベル側に任せる */
+  _syncCard('⚠️ 同期できませんでした', msg, true);
+}
+function updateOfflineBanner(){
+  /* 初回同期前のオフラインは覆いの側で伝える（ここで帯を重ねない） */
+  var show = !!(currentUser && _fbDataLoaded && _fbEverConn && !_fbConnected);
+  var bar = document.getElementById('offline-bar');
+  document.body.classList.toggle('is-offline', show); /* 帯の高さぶん画面全体を下げる（CSSの --off-h） */
+  if (show && !bar) {
+    bar = document.createElement('div'); bar.id = 'offline-bar'; bar.setAttribute('role', 'status');
+    bar.textContent = '📴 オフライン中：入力は電波が戻ると送信（アプリは閉じないで）';
+    document.body.appendChild(bar);
+  } else if (!show && bar) {
+    bar.remove();
+  }
 }
 
 /* ===== 操作ログ ===== */
@@ -5151,13 +5231,13 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/11-68';
+var APP_VERSION = 'Ver.2026/09/11-70';
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/09/11-68', date:'2026-09-11', title:'使用物品が、その症例の科で使うものから並ぶようになりました', items:[
+  { ver:'Ver.2026/09/11-70', date:'2026-09-11', title:'使用物品が、その症例の科で使うものから並ぶようになりました', items:[
     {t:'new', d:'🏥 使用物品のポップアップで、その症例の科（消化器外科・泌尿器科など）で使う物品が一番上にまとめて出るようになりました。残りはタワー／オペセット／エネルギーデバイス／スコープ／その他の種類ごとに、開いて選べます'},
     {t:'new', d:'🧰 業務マスタの使用物品を「種類→品名」の2段にし、品名ごとに🏥で使う科（または全科）を設定できるようにしました。これまでの登録内容と、過去の記録でその科に3回以上使われた物品は、自動で引き継いでいます', admin:true}
   ]},
-  { ver:'Ver.2026/09/11-67', date:'2026-09-11', title:'使用物品をポップアップでまとめて選べるようにし、文字サイズを選べるようにしました', items:[
+  { ver:'Ver.2026/09/11-69', date:'2026-09-11', title:'使用物品をポップアップでまとめて選べるようにし、文字サイズを選べるようにしました', items:[
     {t:'new', d:'🧰 オペの使用物品を、画面中央のポップアップから選べるようにしました。品名はチェックで何品目でも一度に選べます。症例行には選んだ品目がそのまま並ぶので、開かなくても何を使ったかが読めます'},
     {t:'new', d:'🔠 文字サイズを 小／標準／大／特大 から選べるようにしました（トップバーの🔠）。連絡表・ポップアップ・カレンダーや集計などのタブで、文字だけでなく枠や余白もまとめて大きくなります（担当表は従来どおり指でつまんで拡大）。端末ごとの設定なので、他の人の画面は変わりません'},
     {t:'imp', d:'🤏 Android の端末でも、画面を指でつまんで拡大できるようになりました。これまでは拡大が禁止されていて、小さい文字を大きくする手段がありませんでした'},
@@ -5166,6 +5246,10 @@ var APP_CHANGELOG = [
     {t:'fix', d:'🔑 狭い端末でログイン画面の枠が画面のふちに張り付いてしまう表示を修正しました'},
     {t:'fix', d:'⏰ スケジュールのブロック名が長いとき、文字の途中で切れて読めなくなる表示を修正しました（末尾が「…」になります）'},
     {t:'fix', d:'📋 操作ログの本文が、狭い端末で1文字ずつ縦に折り返って読めなくなる不具合を修正しました', admin:true}
+  ]},
+  { ver:'Ver.2026/09/10-68', date:'2026-09-10', title:'同期中であることを画面で分かるようにしました', items:[
+    {t:'imp', d:'⏳ ログイン直後、最新のデータを受け取るまでは画面に「同期中…」を出し、終わるまで入力できないようにしました。受け取る前に入力した内容が消えてしまうことがあったためです。終わると「✅ 同期しました」と出ます'},
+    {t:'imp', d:'📴 電波が切れたときは、画面の上に「オフラインです」と出るようにしました。そのまま入力でき、電波が戻ると送信されます'}
   ]},
   { ver:'Ver.2026/09/09-66', date:'2026-09-09', title:'古いバックアップが消えずに残る不具合を修正しました', items:[
     {t:'fix', d:'☁️ 保持期間（7日）を過ぎたバックアップが消えずに残ることがある不具合を修正しました。掃除はログイン時にも走るようになり、失敗したときは次回やり直します', admin:true}
@@ -18409,7 +18493,7 @@ function checkTimeNotifs() {
    type: 'ok'（完了）| 'warn'（入力ミス・権限など既定）| 'err'（失敗・エラー）
    err は見落とすと困るので長めに表示する。どれもタップで即座に消える。 */
 var _fbToastTimer = null;
-function toast(msg, type) {
+function toast(msg, type, ms) { /* ms：表示時間を変えたいときだけ渡す（既定はerrが10秒・他は5秒） */
   var t = type || 'warn';
   var old = document.getElementById('fb-toast');
   if (old) old.remove();
@@ -18421,7 +18505,7 @@ function toast(msg, type) {
   el.onclick = function(){ el.remove(); };
   document.body.appendChild(el);
   clearTimeout(_fbToastTimer);
-  _fbToastTimer = setTimeout(function(){ if (el.parentNode) el.remove(); }, t === 'err' ? 10000 : 5000);
+  _fbToastTimer = setTimeout(function(){ if (el.parentNode) el.remove(); }, ms || (t === 'err' ? 10000 : 5000));
 }
 
 /* ===== 通知トースト ===== */

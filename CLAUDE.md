@@ -108,6 +108,8 @@ When adding a new top-level property to `D`, update **all five** of these locati
 
 **Critical guard**: `_fbDataLoaded` must be `true` before `saveD()` writes to Firebase. It is set when the `/data` listener first fires. This prevents empty-D overwrites on login. **Do not bypass this guard.**
 
+**The guard's side effect is covered by a blocking overlay (`#sync-ov`).** Anything typed between login and the first `/data` response is written only to `localStorage`, then silently replaced when the data arrives. `onAuthStateChanged` calls `showSyncOverlay()` on login, and the `/data` listener calls `hideSyncOverlay(true)` right where it sets `_fbDataLoaded = true` (shows 「✅ 同期しました」 for 2 s). The top-bar label `#sl` is `display:none` on phones, which left only an 8 px dot — that is why this is a centered overlay rather than a better label. After `SYNC_SLOW_MS` (15 s) the card offers 🔄 再読み込み instead of trapping the user; a listener error calls `syncOverlayFail(msg)`. **Offline after the first load is deliberately not blocked** — the SDK queues writes and sends them on reconnect, so `updateOfflineBanner()` only shows a strip (`#offline-bar`) under the top bar; blocking would stop recording wherever reception is weak. While the strip is up, `body.is-offline` sets `--off-h` (24px) and the three layouts that offset by the top-bar height (`.ab`, the mobile `.sb`, the mobile `#pane-assign,#pane-sum`) add it, so the strip pushes the page down instead of hiding the mobile tab row — **any new layout that offsets by `var(--th-all)` must add `var(--off-h,0px)` too.** Do not remove the overlay to "let people start typing sooner" — the typed input would be lost.
+
 #### ユーザー入力がFirebaseのキーになる箇所（保存が止まる事故の元）
 
 Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` が **Promise の reject ではなく同期 throw** する。`_doFbWrite()` は try/catch していないので `_saveWriting = true` のまま中断し、以降の `saveD()` はすべて「書き込み中」と判断してキューに積むだけになる——**リロードするまでアプリ全体の保存が止まる**。localStorage には書けるので端末では正常に見え、他のスタッフに反映されていないことに気づけない。
@@ -257,7 +259,7 @@ applyMstGroups();   /* 各セクションの display が確定した「後」に
 fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off();
 dataListenerOn = false;
 ```
-On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverConn`, `_fbConnected`, `_fbDataLoaded`, `_fbLastPageCount`.
+On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverConn`, `_fbConnected`, `_fbDataLoaded`, `_fbLastPageCount` — and remove the sync overlay / offline strip (`hideSyncOverlay(false); updateOfflineBanner();`) so they never carry over to the next user.
 
 ### Firebase Database Structure
 
@@ -443,6 +445,7 @@ All class names are abbreviated:
 | `eduExperiencedKeys(name)` / `eduChildItems(name, kind)` | 全期間の経験済み細目（症例担当者/HD特殊治療実施者ベース）／それに手動目標を足した細目一覧（マスタ全項目は並べない） |
 | `renderPerf()` / `renderPerfPersonHTML(name)` / `renderPerfMapHTML()` | 実績サブタブの入口／個人ビュー／スキルマップ（`_viewMode`で分岐しない） |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
+| `showSyncOverlay()` / `hideSyncOverlay(done)` / `syncOverlayFail(msg)` / `updateOfflineBanner()` | 初回同期の覆い（入力を止める）／外す（`done` で「✅ 同期しました」）／失敗表示／オフラインの帯。詳細は Persistence 節の Critical guard |
 | `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
 | `saveFirebaseSnapshot(label)` | Write to `/backups/YYYY-MM-DD_HH` |
 | `renderAdminUsers()` / `deleteAppUser(uid, name)` | User management (soft-delete removes `/users/{uid}`, `/admins/{uid}`, `/userPerms/{uid}`) |
