@@ -461,6 +461,7 @@ All class names are abbreviated:
 | `taskCycleStatus(id)` / `taskPersist(id, t)` / `taskDelete(id)` | タスクのステータス循環（未着手→進行中→完了）／楽観更新保存／削除 |
 | `openTaskModal(id)` / `saveTaskFromModal(id)` | タスク作成・編集モーダル（動的生成の `.ov`/`.md`） |
 | `openMoveMemoModal(ds, idx)` / `moveMemo(ds, idx, targetDs)` | 申し送りを別日へ移動するモーダルと移動処理（`movedFrom`付与、`saveD()`使用） |
+| `carryOverMemos()` / `toggleMemoCarry(ds, mkey)` / `memoCarryStubsHTML(dat)` | 申し送りの自動繰り越し（CE/HD両方）／1件ごとのON/OFF／最初の日に残す「→繰越」記録の描画（Memo Move 節参照） |
 | `openTabletPanel(ds)` / `renderTabletPanelBody(ds)` | タブレット貸出・返却モーダルパネル（ヘッダーの📱ボタンから起動）— 貸出中サマリ＋リスト/タイムライン切替（`_tabletView`） |
 | `updateTabletBtnBadge(ds)` | ヘッダー📱ボタンの貸出中バッジ（未返却台数）を更新 |
 | `renderTabletList()` / `addTablet()` / `rmTablet()` | タブレット台帳マスタ（`D.tablets`、`mst`権限、PHSマスタと同型） |
@@ -652,7 +653,7 @@ dat.placement = {
 
 **症例行の取得は必ず `opsItemsOf(pg, 'ope'|'cath')` を経由する**（`pg.ops.ope_items` を直接読まない）。`pg.ops_cards` が配列で、その中に当該カードが無ければ空を返す — カードを削除した日の残骸を数えないための門で、フリーカードの `opsFreeCards(pg)` と同じ方針。`ops_cards` が `null`/`undefined` のときはテンプレ表示中なので従来どおり全部数える（ここで `D.opsCfg` を見に行かないこと。テンプレからカードを1つ外すだけで、過去の全ページの件数が集計から消えてしまう）。`removeOpsCard()` 側でもオペ/カテを消すときは入力済み症例数を出して `confirm()` し、OKなら `ops.ope_items`/`cath_items` ごと削除する（PSG・フリーと揃えた）。**横断検索（`_doSearch`）だけは意図的に `opsItemsOf` を通していない** — 「どこかに書いたはず」を探す機能なので、カードを消した日の記録もヒットさせる。
 
-**症例ごとの印（急患・スコープ）**: `item.emergency` / `item.scope`（true のときだけ持つ）。**オペカードのみ**に出す（`buildItemMetaRows` の `itemId === 'ope'` で分岐。カテには概念が無い）。`.ops-done-btn` と同じ作りのトグルで、`.ops-tag-btn.em` / `.sc` が色だけ変える。**`opsItemFilled()` に `it.emergency || it.scope` を含めてある** — 含めないと「急患だけ押して他は未入力」の行が件数・明細・CSVから丸ごと漏れる。集計側は `opsDetailRows()` の `emergency`/`scope`、フィルタは `_opsDetFilter.emOnly`/`scOnly`、CE集計のサマリーバッジと明細の「印」列（`opsTagLabel`）、`exportOpsDetailCsv` の2列。
+**症例ごとの印（急患・スコープ）**: `item.emergency` / `item.scope`（true のときだけ持つ）。**オペカードのみ**に出す（`buildItemMetaRows` の `itemId === 'ope'` で分岐。カテには概念が無い）。`.ops-done-btn` と同じ作りのトグルで、`.ops-tag-btn.em` / `.sc` が色だけ変える。押していない状態（`.ops-tag-btn:not(.on)`、中止ボタンも含む）は半透明＋灰色寄りの靄で目立たせず、押している間と `hover:hover` 端末のマウスオーバーだけ元の色に戻す。押した後（`.on`）と終了ボタンは靄の対象外。**`opsItemFilled()` に `it.emergency || it.scope` を含めてある** — 含めないと「急患だけ押して他は未入力」の行が件数・明細・CSVから丸ごと漏れる。集計側は `opsDetailRows()` の `emergency`/`scope`、フィルタは `_opsDetFilter.emOnly`/`scOnly`、CE集計のサマリーバッジと明細の「印」列（`opsTagLabel`）、`exportOpsDetailCsv` の2列。
 
 **業務終了フラグ・担当者・終了時刻**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
 - `opsToggleDone(items, idx)` — 押した行は配列内の位置を変えずその場に残す（どれを押したか見失うため並べ替えはしない）。終了にした瞬間、`item.endTime` が未設定なら現在時刻（0時からの分）を、`item.staff`（担当者名の配列）に誰もいなければ `opsSelfName()` で解決したログイン中スタッフ名を自動追加し `item.doneBy` にも記録する。取り消し時は `endTime`/`staff` のどちらかに値があるときだけ `confirm()` で確認し、OKなら `endTime`/`doneBy`/`staff` を全てクリア、キャンセルなら `done` フラグだけ外して他は残す（値が無ければ確認なしでそのまま外す）
@@ -926,6 +927,13 @@ When `multi` is true all three renderers add a per-month breakdown, the ops tren
 Incomplete memo posts show a 📅 button (`.mp-move`) next to the 済 checkbox in `renderMemos()`, gated by `can('memo')` (`!locked`) — **not** `canDel`. Unlike delete, moving never rewrites `m.name`/`m.uid`, so it's safe to let anyone with memo edit permission relocate a post (not just the original author or an admin); the original author stays correctly attributed regardless of who performed the move. Clicking it opens `openMoveMemoModal(ds, idx)` (dynamic `.ov`/`.md` with a date input, defaulting to tomorrow), which calls `moveMemo(ds, idx, targetDs)`.
 
 `moveMemo` splices the memo out of `D.pages[ds].memos`, tags it with `movedFrom: ds`, and pushes it into `D.pages[targetDs].memos` (auto-creating the target page via the same minimal structure as `_doPostMemo` if it doesn't exist yet, gated by `can('pg')`). **Because this mutates two different pages, it must use full `saveD()` — not `saveDPage()`** (per the page-scoped-only rule above). Moved memos display a small "(M/DDから移動)" annotation in `.mp-meta` when `m.movedFrom` is set.
+
+**自動繰り越し（`carryOverMemos()` / `toggleMemoCarry(ds, mkey)`）**：申し送り1件ごとの `m.carry:true`（投稿欄の `#memo-carry` チェック、または投稿後の🔁。既定OFF、切り替えは📅と同じ `can('memo')`）。済にならないまま日付が変わると「今日以降で最初に連絡表がある日」へ移す（連絡表は作らない。先に1枚も無ければ残す。何日分たまっていても1回で行き先へ）。
+
+- `m.origDs`＝最初に書かれた日（`memoOrigDs(m, ds)`＝`origDs || movedFrom || 今の日`。一度決めたら上書きしない。手動の `moveMemo` も同じ式で入れる）、`m.lastMove`＝`'carry'|'move'`。表示は `'carry'` なら「🔁 9/10から繰越（4日目）」（`memoCarryDays`、初日＝1日目の暦日）、`'move'` は従来の「(9/10から移動)」
+- 最初の日には「→繰越」の記録を残す。**記録は `memos` 配列に混ぜず、別のキー付きオブジェクト**（CE `dat.memoCarry` / HD `dat.hdMemoCarry`、キーは `memoKeyOf(m)`、値 `{to, name, head, ts, doneDs?, delDs?}`）に持つ——配列に混ぜると `closeItems` のメンション集計・ダッシュボードの未済件数・`delMemo` の添字・横断検索・メディア掃除・`countEmbeddedMedia` がすべて拾ってしまう。`memoCarryStubsHTML(dat)` が `#memo-list` の末尾に出し、押すと `memoStubJump(to)` で行き先へ飛ぶ。済チェック（`doneDs`）・`delMemo`（`delDs`）・`moveMemo`（`to`。最初の日へ戻したら記録を消す）が `memoStubMark` で追随する。記録が別の日にあるときは2ページを書くので `saveD()`
+- **`carryOverMemos` は `memos`/`hdMemos` をキー名で直接処理する**（`MEMO_THREADS`）。`memosOf`/`ensureMemos` は `_viewMode` で片方しか見ないので使わない。呼ぶのは初回の `/data` 受信直後（`wasFirstLoad`）・プレビュー起動時・`checkTimeNotifs`（1分毎）で日付が `_memoCarryDay` から変わったとき。`_fbDataLoaded` 前は何もしない。移した後は対象が残らないので、複数端末で同時に走っても重複しない
+- メンション通知は繰り越しのたびに送り直さない（消し込みバーの「自分あて未完了」には毎日載る）
 
 ### Memo Editing (申し送りの編集)
 
