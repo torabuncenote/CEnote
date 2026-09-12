@@ -587,6 +587,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-tag-btn.sc.on{background:var(--pu);color:var(--on-ac)}
 .ops-tag-btn.cx{border-color:var(--rd);color:var(--rd)}
 .ops-tag-btn.cx.on{background:var(--rd);color:var(--on-ac)}
+/* 押していない印ボタンには靄をかけて目立たせない（押した後の .on と終了ボタンはそのまま）。
+   押している間・マウスを乗せたときだけ元の色に戻し、何のボタンかを色で確かめられるようにする。
+   hover は hover:hover の端末に限る——スマホで触れた後に色が残り続けないように */
+.ops-tag-btn:not(.on){opacity:.4;filter:grayscale(.8);transition:opacity .15s,filter .15s}
+.ops-tag-btn:not(.on):active,.ops-tag-btn:not(.on):focus-visible{opacity:1;filter:none}
+@media (hover:hover){.ops-tag-btn:not(.on):not(:disabled):hover{opacity:1;filter:none}}
 .ops-tag-badge{font-size:9px;font-weight:700;border-radius:3px;padding:1px 5px;margin-right:3px}
 .ops-item-wrap.ops-item-done{opacity:.45;filter:grayscale(.6);transition:opacity .2s}
 .ops-meta-lbl{font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0}
@@ -1033,6 +1039,18 @@ body.is-offline{--off-h:24px}
 .memo-post .mp-del:hover{color:var(--rd)}
 .memo-post .mp-move:hover{color:var(--ac)}
 .memo-post .mp-edit:hover{color:var(--ac)}
+/* 🔁 繰り越しトグル：OFFは靄、ONは枠付きではっきり出す */
+.memo-post .mp-carry{background:none;border:1px solid transparent;border-radius:4px;cursor:pointer;font-size:12px;padding:0 2px;line-height:1.2;opacity:.4;filter:grayscale(.8)}
+.memo-post .mp-carry:hover{opacity:1;filter:none}
+.memo-post .mp-carry.on{opacity:1;filter:none;background:var(--ac-bg);border-color:var(--ac)}
+.mp-carried{font-size:10px;font-weight:700;color:var(--or)}
+.memo-carry-lbl{font-size:12px;color:var(--txt2);display:flex;align-items:center;gap:4px;cursor:pointer}
+/* 最初に書いた日に残す「→繰越」の記録。本文は行き先にしかないので薄い1行だけ */
+.memo-stub{font-size:11px;color:var(--txt3);padding:4px 8px;border:1px dashed var(--bdr2);border-radius:var(--rs);margin-top:6px;display:flex;gap:8px;align-items:baseline;overflow:hidden}
+.memo-stub.jump{cursor:pointer}
+.memo-stub.jump:hover{border-color:var(--ac);color:var(--ac)}
+.memo-stub .ms-where{font-weight:700;white-space:nowrap;flex-shrink:0}
+.memo-stub .ms-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .mp-edit-form{margin-top:4px}
 .mp-edit-form textarea{width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--ac);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur);color:var(--txt);line-height:1.6}
 .mp-edit-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:5px}
@@ -1081,7 +1099,7 @@ body.is-offline{--off-h:24px}
 .memo-media-prev-item img{width:72px;height:56px;object-fit:cover;display:block}
 .memo-media-prev-item video{width:100px;height:56px;display:block}
 .memo-media-prev-del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
-.memo-tools{display:flex;gap:6px;align-items:center}
+.memo-tools{display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap}
 .memo-media-btn{font-size:12px;padding:4px 10px;border-radius:var(--rs);border:1.5px solid var(--bdr2);background:var(--sur2);color:var(--txt2);cursor:pointer;font-family:var(--fn)}
 .memo-media-btn:hover{border-color:var(--ac);color:var(--ac)}
 .memo-post-media{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
@@ -2863,7 +2881,7 @@ function init() {
       if (bar && bar.getAttribute('data-ds')) bar.style.display = 'flex';
     }, 0);
   });
-  if (isPreview) openDefaultPage();
+  if (isPreview) { carryOverMemos(); openDefaultPage(); }
 }
 
 /* ローカルフォールバック用 */
@@ -3297,6 +3315,7 @@ function fbInit() {
               mainEl && mainEl.contains(focused);
             /* saveD()後2秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
             var justSaved = (Date.now() - _savingTs) < 2000;
+            if (wasFirstLoad) carryOverMemos(); /* 未済で繰り越しONの申し送りを今日（以降）へ */
             if (wasFirstLoad && !curDs) {
               openDefaultPage();
             } else if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
@@ -5231,8 +5250,13 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/11-70';
+var APP_VERSION = 'Ver.2026/09/12-71';
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/12-71', date:'2026-09-12', title:'済になっていない申し送りを、次の日へ自動で繰り越せるようにしました', items:[
+    {t:'new', d:'🔁 申し送りに「済でなければ次の日へ繰り越す」を付けられるようにしました。投稿するときのチェック、または投稿後の🔁で1件ずつ選べます。済にならないまま日付が変わると、次に連絡表がある日へ自動で移ります'},
+    {t:'new', d:'🔁 繰り越した申し送りには「9/10から繰越（4日目）」のように、最初に書かれた日と何日目かが出ます。最初の日の連絡表には「→ 9/13へ繰越」の1行が残り、押すといまその申し送りがある日へ飛べます。済になると「→ 9/15で済」に変わります'},
+    {t:'imp', d:'🚑 オペの急患・スコープ・中止のボタンを、押していない間は薄く表示するようにしました。押した後の表示と終了ボタンはこれまでどおりです'}
+  ]},
   { ver:'Ver.2026/09/11-70', date:'2026-09-11', title:'使用物品が、その症例の科で使うものから並ぶようになりました', items:[
     {t:'new', d:'🏥 使用物品のポップアップで、その症例の科（消化器外科・泌尿器科など）で使う物品が一番上にまとめて出るようになりました。残りはタワー／オペセット／エネルギーデバイス／スコープ／その他の種類ごとに、開いて選べます'},
     {t:'new', d:'🧰 業務マスタの使用物品を「種類→品名」の2段にし、品名ごとに🏥で使う科（または全科）を設定できるようにしました。これまでの登録内容と、過去の記録でその科に3回以上使われた物品は、自動で引き継いでいます', admin:true}
@@ -15204,6 +15228,7 @@ function memoSectionHTML(ds, mlk){
   h += '</div>';
   h += '<div class="memo-tools">';
   h += '<label class="memo-media-btn">📎 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
+  h += '<label class="memo-carry-lbl" title="この申し送りが済にならないまま日付が変わったら、次に連絡表がある日へ自動で移します"><input type="checkbox" id="memo-carry">🔁 済でなければ次の日へ繰り越す</label>';
   h += '</div>';
   h += '</div>';
   return h;
@@ -15394,8 +15419,9 @@ function renderMemos(ds, dat, locked) {
   if (!el) return;
   bindMemoListEvents(el);
   var memos = memosOf(dat);
+  var stubsH = memoCarryStubsHTML(dat);
   if (!memos.length) {
-    el.innerHTML = '<div class="pool-empty" style="font-size:12px;padding:6px 0">申し送りはまだありません</div>';
+    el.innerHTML = stubsH || '<div class="pool-empty" style="font-size:12px;padding:6px 0">申し送りはまだありません</div>';
     return;
   }
   var h = '';
@@ -15425,13 +15451,16 @@ function renderMemos(ds, dat, locked) {
        + '</label>';
     if (showEdit) h += '<button class="mp-edit" data-mkey="' + escH(mkey) + '" data-action="editMemo" title="編集">✏️</button>';
     if (canMove)  h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
+    if (canMove)  h += '<button class="mp-carry' + (m.carry ? ' on' : '') + '" data-mkey="' + escH(mkey) + '" data-ds="' + ds + '" data-action="toggleMemoCarry" title="' + (m.carry ? '繰り越しON：済でなければ次の日へ移します（タップでOFF）' : '済でなければ次の日へ繰り越す（タップでON）') + '">🔁</button>';
     if (canDel)   h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
     h += '</div>';
     h += '<div class="mp-meta">';
     h += '<span class="mp-name">' + escH(m.name || '不明') + '</span>';
     h += '<span>' + (m.ts ? fmtTS(m.ts) : '') + '</span>';
     if (m.isAdmin) h += '<span style="font-size:9px;background:var(--gd-bg);color:var(--gd);border-radius:4px;padding:1px 5px;border:1px solid var(--gd-bdr)">管理者</span>';
-    if (m.movedFrom) { var mfP = m.movedFrom.split('-'); h += '<span style="font-size:10px;color:var(--txt3)">(' + parseInt(mfP[1]) + '/' + parseInt(mfP[2]) + 'から移動)</span>'; }
+    /* 自動の繰り越しで来たものは最初に書かれた日と日数、手動の📅移動は従来どおり直前の日 */
+    if (m.lastMove === 'carry' && m.origDs) h += '<span class="mp-carried">🔁 ' + memoMD(m.origDs) + 'から繰越（' + memoCarryDays(m.origDs, ds) + '日目）</span>';
+    else if (m.movedFrom) h += '<span style="font-size:10px;color:var(--txt3)">(' + memoMD(m.movedFrom) + 'から移動)</span>';
     h += '</div>';
     if (m.text) {
       h += '<div class="mp-body" id="mp-body-' + escH(mkey) + '" style="white-space:pre-wrap">' + highlightMention(escH(m.text));
@@ -15508,7 +15537,7 @@ function renderMemos(ds, dat, locked) {
     }
     h += '</div>';
   }
-  el.innerHTML = h;
+  el.innerHTML = h + stubsH;
 }
 
 /* #memo-list は renderMemos のたびに innerHTML を差し替えるだけの永続DOMなので、
@@ -15532,7 +15561,10 @@ function bindMemoListEvents(el) {
       /* チェックしたユーザーと時刻を記録 */
       _bm[idx].doneBy   = currentUser ? (currentUser.displayName || currentUser.email) : '';
       _bm[idx].doneAt   = cb.checked ? Date.now() : null;
-      saveDPage(bds);
+      /* 繰り越してきた申し送りなら、最初の日の「→繰越」記録にも済を反映する。
+         記録が別の日にあるときは2つのページを書くので saveD() にする */
+      if (memoStubMark(_bm[idx], {doneDs: cb.checked ? bds : null}, bds)) saveD();
+      else saveDPage(bds);
       /* 投稿ボックスのクラスを即時切り替え（再描画なし） */
       var post = cb.closest('.memo-post');
       if (post) post.classList.toggle('memo-done', cb.checked);
@@ -15559,6 +15591,12 @@ function bindMemoListEvents(el) {
       openMoveMemoModal(mvBtn.getAttribute('data-ds'), parseInt(mvBtn.getAttribute('data-idx')));
       return;
     }
+    /* 繰り越しのON/OFF */
+    var cyBtn = e.target.closest('[data-action="toggleMemoCarry"]');
+    if (cyBtn) { toggleMemoCarry(cyBtn.getAttribute('data-ds'), cyBtn.getAttribute('data-mkey')); return; }
+    /* 「→繰越」記録から、いまその申し送りがある日へ飛ぶ */
+    var stb = e.target.closest('[data-action="memoStubJump"]');
+    if (stb) { memoStubJump(stb.getAttribute('data-to')); return; }
     /* 返信フォームの開閉 */
     var tg = e.target.closest('[data-action="toggleMemoReply"]');
     if (tg) { toggleMemoReply(tg.getAttribute('data-mkey')); return; }
@@ -16547,6 +16585,8 @@ function _doPostMemo(ds) {
     media:   [],
     ts:      ts
   };
+  var cyEl = document.getElementById('memo-carry');
+  if (cyEl && cyEl.checked) entry.carry = true;
 
   if (!buf.length) {
     /* メディアなし → 即保存 */
@@ -16585,6 +16625,7 @@ function _finishPostMemo(ds, entry, text, sendBtn) {
   writeLog('申し送り投稿', fmtJ(ds) + ' 「' + (text||'[画像/動画]').slice(0,30) + (text.length>30?'...':'') + '」');
   var ta = document.getElementById('memo-new');
   if (ta) ta.value = '';
+  var cy = document.getElementById('memo-carry'); if (cy) cy.checked = false; /* 繰り越しは既定OFFに戻す */
   _memoMediaBuf = [];
   renderMemoMediaPreview();
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '送信'; }
@@ -16627,8 +16668,9 @@ function delMemo(ds, idx) {
   /* ensureMemos（実体）を splice する。memosOf は Firebase がオブジェクト形状で
      返したときに正規化した「別配列」を返すため、それを splice しても元データは減らない
      （＝削除したのに消えない／移動すると二重になる）。 */
+  var stubOther = memoStubMark(m, {delDs: ds}, ds); /* 最初の日の「→繰越」記録を「で削除」にする */
   ensureMemos(D.pages[ds]).splice(idx, 1);
-  saveDPage(ds);
+  if (stubOther) saveD(); else saveDPage(ds);
   writeLog('申し送り削除', fmtJ(ds) + ' 「' + (m.text||'').slice(0,30) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
   updateCloseBar(ds);
@@ -16679,7 +16721,14 @@ function moveMemo(ds, idx, targetDs) {
   var srcMemos = ensureMemos(D.pages[ds]);
   var m = srcMemos[idx];
   srcMemos.splice(idx, 1);
+  /* 最初に書かれた日は movedFrom を上書きする前に決める（一度決めたら変えない） */
+  m.origDs = memoOrigDs(m, ds);
   m.movedFrom = ds;
+  m.lastMove = 'move';
+  /* 繰り越し済みの申し送りを手で動かしたら、最初の日の記録の行き先も付け替える。
+     最初の日そのものへ戻したときは、本文がその日にあるので記録を消す */
+  if (targetDs === m.origDs) memoStubRemove(m);
+  else memoStubMark(m, {to: targetDs, doneDs: null, delDs: null}, ds);
   ensureMemos(D.pages[targetDs]).push(m);
   saveD();
   writeLog('申し送り移動', fmtJ(ds) + '→' + fmtJ(targetDs) + ' 「' + (m.text||'').slice(0,30) + '」');
@@ -16687,6 +16736,122 @@ function moveMemo(ds, idx, targetDs) {
   renderCal();
   updateCloseBar(ds);
   return true;
+}
+
+/* ===== 申し送りの自動繰り越し =====
+   carry:true の申し送りが済にならないまま日付が変わったら、「今日以降で最初に連絡表がある日」へ移す。
+   - m.origDs：最初に書かれた日（一度決めたら変えない）。m.lastMove：今の日に来た経路（'carry'|'move'）
+   - 最初の日には「→繰越」の記録を残す。記録は memos 配列には混ぜず、別のキー付きオブジェクト
+     （CE: dat.memoCarry / HD: dat.hdMemoCarry、キーは memoKeyOf）に持つ。memos に混ぜると
+     消し込みバーのメンション集計・未済件数・delMemo の添字・横断検索・メディア掃除が全部拾ってしまう
+   - carryOverMemos は CE/HD 両方を処理するので、_viewMode で片方しか見ない memosOf/ensureMemos は使わない */
+var _memoCarryDay = '';
+var MEMO_THREADS = [['memos', 'memoCarry'], ['hdMemos', 'hdMemoCarry']];
+function memoCarryKey() { return _viewMode === 'hd' ? 'hdMemoCarry' : 'memoCarry'; }
+function memoOrigDs(m, curDs) { return m.origDs || m.movedFrom || curDs; }
+function memoMD(ds) { var p = String(ds || '').split('-'); return parseInt(p[1], 10) + '/' + parseInt(p[2], 10); }
+/* 最初に書かれた日を1日目として、今の日が何日目か（暦日） */
+function memoCarryDays(fromDs, toDs) {
+  var a = fromDs.split('-'), b = toDs.split('-');
+  var da = new Date(+a[0], +a[1] - 1, +a[2]), db = new Date(+b[0], +b[1] - 1, +b[2]);
+  return Math.round((db - da) / 86400000) + 1;
+}
+/* 記録の作成・更新。patch の null はそのキーを消す */
+function memoCarryStubUpdate(origDs, ck, key, patch) {
+  var pg = D.pages[origDs]; if (!pg) return false;
+  if (!pg[ck] || typeof pg[ck] !== 'object') pg[ck] = {};
+  var st = pg[ck][key] || {};
+  for (var p in patch) { if (patch[p] == null) delete st[p]; else st[p] = patch[p]; }
+  pg[ck][key] = st;
+  return true;
+}
+/* 既に記録がある申し送りだけ更新する（UIからの操作用なので今の主観のスレッド）。
+   戻り値：記録が curDs 以外のページにあって更新した＝保存を saveD() にすべきか */
+function memoStubMark(m, patch, curDs) {
+  if (!m || !m.origDs) return false;
+  var pg = D.pages[m.origDs], ck = memoCarryKey(), k = memoKeyOf(m);
+  if (!pg || !pg[ck] || !pg[ck][k]) return false;
+  memoCarryStubUpdate(m.origDs, ck, k, patch);
+  return m.origDs !== curDs;
+}
+function memoStubRemove(m) {
+  var pg = m && m.origDs && D.pages[m.origDs], ck = memoCarryKey();
+  if (pg && pg[ck] && pg[ck][memoKeyOf(m)]) delete pg[ck][memoKeyOf(m)];
+}
+function memoCarryStubsHTML(dat) {
+  var map = dat && dat[memoCarryKey()];
+  if (!map || typeof map !== 'object') return '';
+  var list = Object.keys(map).map(function(k){ return map[k]; }).filter(function(s){ return s && s.to; });
+  list.sort(function(a, b){ return (b.ts || 0) - (a.ts || 0); });
+  return list.map(function(s){
+    var where = s.delDs ? memoMD(s.delDs) + 'で削除' : s.doneDs ? memoMD(s.doneDs) + 'で済' : memoMD(s.to) + 'へ繰越';
+    var jump = s.delDs ? '' : (s.doneDs || s.to);
+    return '<div class="memo-stub' + (jump ? ' jump' : '') + '"'
+      + (jump ? ' data-action="memoStubJump" data-to="' + escH(jump) + '" title="' + escH(fmtJ(jump)) + 'の連絡表を開く"' : '') + '>'
+      + '<span class="ms-where">→ ' + escH(where) + '</span>'
+      + '<span class="ms-txt">' + escH(s.name || '') + '：' + escH(s.head || '') + '</span></div>';
+  }).join('');
+}
+function memoStubJump(to) {
+  if (!to || !D.pages[to]) { toast('行き先の連絡表が見つかりません', 'warn'); return; }
+  openPage(to);
+  setTimeout(function(){ dashJump('#memo-list'); }, 60);
+}
+function toggleMemoCarry(ds, mkey) {
+  if (!can('memo') || !D.pages[ds]) return;
+  ensureMemos(D.pages[ds]);
+  var f = findMemoByKey(ds, mkey);
+  if (!f || f.m.done) return;
+  var m = f.m;
+  if (m.carry) delete m.carry; else m.carry = true;
+  saveDPage(ds);
+  writeLog(m.carry ? '申し送り繰越ON' : '申し送り繰越OFF', fmtJ(ds) + ' 「' + (m.text || '').slice(0, 30) + '」');
+  renderMemos(ds, D.pages[ds], !can('memo'));
+  toast(m.carry ? '🔁 済でなければ次の日へ繰り越します' : '繰り越しをやめました', 'ok');
+}
+/* 起動時（初回同期の後）と、開いたまま日付が変わったときに呼ぶ。何度走っても結果は同じ
+   （移した後は対象が残らない）ので、複数の端末でほぼ同時に走っても重複しない */
+function carryOverMemos() {
+  /* 保存のガードと揃える。プレビュー（fbDB 未接続）はローカルだけで動くので通す */
+  if (FB_ON && fbDB && !_fbDataLoaded) return 0;
+  var today = toDS(new Date());
+  _memoCarryDay = today;
+  var keys = Object.keys(D.pages || {}).sort();
+  var target = null;
+  for (var i = 0; i < keys.length; i++) { if (keys[i] >= today) { target = keys[i]; break; } }
+  if (!target) return 0; /* 先に連絡表が1枚も無ければ、作らずにそのまま残す */
+  var moved = 0, now = Date.now();
+  keys.forEach(function(ds){
+    if (ds >= today) return;
+    var pg = D.pages[ds]; if (!pg) return;
+    MEMO_THREADS.forEach(function(th){
+      var mk = th[0], ck = th[1];
+      if (!pg[mk]) return;
+      var arr = normArr(pg[mk]);
+      if (!arr.some(function(m){ return m && m.carry && !m.done; })) return;
+      pg[mk] = arr; /* 実体の配列にしてから抜き取る */
+      var tp = D.pages[target];
+      if (!Array.isArray(tp[mk])) tp[mk] = normArr(tp[mk]);
+      for (var j = 0; j < arr.length; ) {
+        var m = arr[j];
+        if (!(m && m.carry && !m.done)) { j++; continue; }
+        arr.splice(j, 1);
+        m.origDs = memoOrigDs(m, ds);
+        m.lastMove = 'carry';
+        tp[mk].push(m);
+        memoCarryStubUpdate(m.origDs, ck, memoKeyOf(m), {
+          to: target, name: m.name || '', head: (m.text || '[画像/動画]').slice(0, 30), ts: now, doneDs: null, delDs: null
+        });
+        moved++;
+      }
+    });
+  });
+  if (!moved) return 0;
+  saveD(); /* 複数の日を書き換えるので saveDPage は使わない */
+  writeLog('申し送り繰越', fmtJ(target) + ' へ ' + moved + '件');
+  renderCal();
+  if (curDs) { safeRenderPage(); updateCloseBar(curDs); }
+  return moved;
 }
 
 function fmtTS(ts) {
@@ -18462,6 +18627,8 @@ function checkTimeNotifs() {
   var now = new Date();
   var ds = toDS(now);
   var hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  /* 開いたまま日付をまたいだら申し送りの繰り越しを走らせる */
+  if (_memoCarryDay !== ds) carryOverMemos();
   /* 毎日業務 */
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], n = dlyNotif(it);
