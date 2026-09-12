@@ -13675,7 +13675,13 @@ function supMasterNorm(m){
    「空かどうか」では「移行前」と「全部消した」を区別できない）。 */
 function supMasterOf(){
   var m = supMasterNorm(D.supMaster);
-  if (!m.length && !(D._migVer >= 6)) m = supLegacyToMaster(D.supTree, null);
+  if (m.length) return m;
+  /* 移行後は空を空のまま返す。旧マスタへのフォールバックは supTree だけでなく、さらに古い
+     フラットな D.sup も塞ぐこと——D.sup は保存が無ければ DEF_SUP で埋め直されるので実質
+     空にならず、種類を全部消したときに 6 品目が「その他」として生き返り、次にマスタを
+     編集した時点で supMasterForWrite が D.supMaster に焼き付けてしまう。 */
+  if (D._migVer >= 6) return [];
+  m = supLegacyToMaster(D.supTree, null);
   if (m.length) return m;
   var flat = normArr(D.sup).filter(Boolean);
   return flat.length ? [{ kind: 'その他', items: flat.map(supItemNorm) }] : [];
