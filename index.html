@@ -3175,6 +3175,7 @@ function fbInit() {
             var wasFirstLoad = !_fbDataLoaded;
             _fbDataLoaded = true;
             if (wasFirstLoad) hideSyncOverlay(true);
+            checkStaleApp(d); /* 自分より新しいアプリが保存していたら、以降の保存を止める */
             if (incomingPages > 0) _fbLastPageCount = incomingPages;
             if (_fbLastPageCount > 5 && incomingPages === 0 && !fromSelf) {
               var writerInfo = d._lastWriter
@@ -3238,6 +3239,11 @@ function fbInit() {
             D.eduProgress = d.eduProgress || {};
             D.eduCfg = d.eduCfg || {ceEdu:false};
             D.eduItems = d.eduItems || {ward:[],device:[],hd:[]};
+            /* このバージョンが知らない項目（新しいバージョンが足したもの）も消さずに持ち回る。
+               保存は D 全体の上書きなので、ここで拾わないと1つ前のアプリが保存した瞬間にその項目が消える */
+            Object.keys(d).forEach(function(k){
+              if (k.charAt(0) !== '_' && !Object.prototype.hasOwnProperty.call(D, k)) D[k] = d[k];
+            });
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
@@ -4199,6 +4205,22 @@ function _syncCard(ttlHtml, msg, withReload){
     + '<div class="sync-card-msg">' + escH(msg) + '</div>'
     + (withReload ? '<button class="btn btn-p btn-sm" onclick="location.reload()">🔄 再読み込み</button>' : '')
     + '</div>';
+}
+/* 古いバージョンのアプリの検知。/data._appSeq（最後に保存したアプリのリリース番号）が自分より新しければ、
+   この端末のアプリは古い。古いアプリの D には新しく足された項目が無いので、全体を上書き保存すると
+   その項目が消える（2026-09-12、使用物品マスタが開きっぱなしの古い画面からの保存で消えた）。
+   一度立ったら再読み込みまで戻さない——保存を止め、再読み込みを促す覆いを出す */
+var _staleApp = false;
+function checkStaleApp(d) {
+  var rs = parseInt(d && d._appSeq, 10) || 0;
+  if (_staleApp || rs <= APP_SEQ) return _staleApp;
+  _staleApp = true;
+  var ov = document.getElementById('sync-ov');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'sync-ov'; document.body.appendChild(ov); }
+  clearTimeout(_syncOvTimer); _syncOvTimer = null;
+  _syncCard('🔄 新しいバージョンがあります',
+    'データを守るため、再読み込みするまで保存を止めています。再読み込みしてください', true);
+  return true;
 }
 function showSyncOverlay(){
   var ov = document.getElementById('sync-ov');
@@ -5250,8 +5272,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/12-71';
+var APP_VERSION = 'Ver.2026/09/12-72';
+/* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
+   自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
+var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/12-72', date:'2026-09-12', title:'バックアップから項目を選んで戻せるようにしました', items:[
+    {t:'new', d:'🗂 バックアップ画面のスナップショットに「項目を選ぶ」を追加しました。使用物品マスタなど、選んだ項目だけを戻せます。連絡表（日々の記録）は戻さないので、今日の入力が巻き戻りません', admin:true},
+    {t:'fix', d:'古いバージョンのアプリを開いたままの端末が保存すると、新しく追加された項目（使用物品マスタなど）が消えてしまう不具合を修正しました。今後は古いアプリでは保存せず「再読み込みしてください」と表示します'}
+  ]},
   { ver:'Ver.2026/09/12-71', date:'2026-09-12', title:'済になっていない申し送りを、次の日へ自動で繰り越せるようにしました', items:[
     {t:'new', d:'🔁 申し送りに「済でなければ次の日へ繰り越す」を付けられるようにしました。投稿するときのチェック、または投稿後の🔁で1件ずつ選べます。済にならないまま日付が変わると、次に連絡表がある日へ自動で移ります'},
     {t:'new', d:'🔁 繰り越した申し送りには「9/10から繰越（4日目）」のように、最初に書かれた日と何日目かが出ます。最初の日の連絡表には「→ 9/13へ繰越」の1行が残り、押すといまその申し送りがある日へ飛べます。済になると「→ 9/15で済」に変わります'},
@@ -8749,6 +8778,9 @@ function saveD() {
     console.warn('[saveD] Firebase未ロードのため書き込みをスキップ（データ保護）');
     return;
   }
+  /* 新しいバージョンのアプリが保存した後は書かない。この古いアプリの D には新しい項目が無いので、
+     全体を上書きするとその項目が消える（9/12 に使用物品マスタが消えた原因） */
+  if (_staleApp) { console.warn('[saveD] 古いバージョンのため書き込みをスキップ（データ保護）'); return; }
   /* ページが空かつスタッフも空なら書かない（D消去バグの二重ガード） */
   if (Object.keys(D.pages || {}).length === 0 && (D.stf || []).length === 0) {
     console.warn('[saveD] D が空のため Firebase 書き込みをスキップ（データ保護）');
@@ -8767,7 +8799,10 @@ function saveD() {
 
 /* リトライ付きFirebase書き込み（最大4回: 2s/4s/8s/16s） */
 function _doFbWrite(data, attempt) {
+  /* キューに積まれていた保存やリトライも、古いと分かった後は送らない */
+  if (_staleApp) { _saveWriting = false; _savePending = false; _saveQueued = null; return; }
   _saveWriting = true;
+  data._appSeq = APP_SEQ; /* どのリリースのアプリが保存したか（checkStaleApp が読む） */
   setSyncLbl(attempt > 0 ? '再試行中... (' + attempt + '/4)' : '保存中...');
   _savingTs = Date.now();
   data._savedAt = _savingTs;        /* 書き込み時刻を埋め込む */
@@ -8848,6 +8883,7 @@ function saveDPage(ds) {
     console.warn('[saveDPage] Firebase未ロードのため書き込みをスキップ（データ保護）');
     return;
   }
+  if (_staleApp) { console.warn('[saveDPage] 古いバージョンのため書き込みをスキップ（データ保護）'); return; }
   if (!D.pages || !D.pages[ds]) {
     /* ページが存在しない（削除された等）場合は部分書き込みの対象がないため全体保存に委譲 */
     saveD();
@@ -22467,6 +22503,7 @@ function renderFirebaseSnapshots() {
       html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)">'
             + '<div style="flex:1;font-size:12px"><span style="color:var(--txt2)">'+escH(dispLabel)+'</span>'
             + ' <span style="color:var(--txt3);font-size:11px">（'+escH(m.label||'')+'・'+m.pages+'ページ・スタッフ'+m.stf+'名）</span></div>'
+            + '<button class="btn btn-g btn-sm" onclick="openPartialRestore(\''+escH(d)+'\')" style="font-size:11px;padding:3px 8px" title="マスタなど選んだ項目だけを戻す（連絡表は戻さない）">項目を選ぶ</button>'
             + '<button class="btn btn-g btn-sm" onclick="restoreFirebaseSnapshot(\''+escH(d)+'\')" style="font-size:11px;padding:3px 8px">復元</button>'
             + '</div>';
     });
@@ -22543,6 +22580,85 @@ function renderAutoBackups() {
   } catch(e) {
     el.innerHTML = '<div style="font-size:12px;color:var(--rd)">読み込みエラー</div>';
   }
+}
+
+/* ===== スナップショットから項目を選んで復元 =====
+   「復元」はデータ全体を戻すので、マスタ1つが消えただけでも今日の連絡表まで巻き戻ってしまう。
+   ここでは選んだ項目だけを D に戻す。連絡表（pages）は対象にしない——日々の記録を戻すなら全体復元を使う */
+var PARTIAL_RESTORE_LABELS = {
+  supMaster:'🧰 使用物品マスタ', opeTree:'🏥 OPE術式マスタ', cathTree:'💉 カテ術式マスタ', supTree:'📦 物品マスタ（旧）',
+  dutyCfgMaster:'📋 担当枠マスタ', dutyCfg:'📋 担当枠テンプレ', opsCfg:'⚙ 業務カードのテンプレ', schedPresets:'⏰ スケジュールプリセット',
+  dly:'✅ チェックリスト（共通）', wd:'✅ チェックリスト（曜日別）', hdDly:'🩸 HDチェックリスト（共通）', hdWd:'🩸 HDチェックリスト（曜日別）',
+  wdDepts:'🏥 設置部署マスタ', hdTreatments:'🩸 HD特殊治療マスタ', tablets:'📱 タブレット台帳', hdTablets:'📱 HDタブレット台帳',
+  stf:'👥 スタッフ', stfHidden:'🙈 非表示スタッフ', stfLinks:'🔗 スタッフとアカウントの紐づけ', phs:'☎ PHS番号',
+  shift:'🗓 勤務表', evts:'📌 予定', manual:'📘 業務マニュアル', makers:'🏭 メーカー連絡先', ocFlow:'📞 OC対応フロー',
+  eduProgress:'🎓 教育到達度', eduItems:'🎓 教育項目マスタ', eduCfg:'🎓 教育の設定', stfEdu:'🎓 教育枠',
+  lk:'🔒 ロック設定', emailjsCfg:'✉️ メール通知設定', fcmCfg:'🔔 プッシュ通知設定', autoDelCfg:'🗑 自動削除設定'
+};
+/* 件数の目安（バックアップと現在を見比べて、どの時点を戻すか判断するため） */
+function partialRestoreSummary(k, v) {
+  if (v === undefined || v === null) return 'なし';
+  if (k === 'supMaster') {
+    var m = supMasterNorm(v), n = 0; m.forEach(function(x){ n += x.items.length; });
+    return m.length ? m.length + '種類・' + n + '品目' : '空';
+  }
+  if (Array.isArray(v)) return v.length ? v.length + '件' : '空';
+  if (typeof v === 'object') { var c = Object.keys(v).length; return c ? c + '件' : '空'; }
+  return String(v) ? '設定あり' : '空';
+}
+function openPartialRestore(dateStr) {
+  if (!isAdmin) { toast('🔒 管理者のみ可能です', 'warn'); return; }
+  if (!FB_ON || !fbDB) return;
+  fbDB.ref('/backups/' + dateStr).once('value', function(snap) {
+    var data = snap.val();
+    if (!data) { toast('スナップショットデータが見つかりません。', 'warn'); return; }
+    var keys = Object.keys(PARTIAL_RESTORE_LABELS).filter(function(k){ return data[k] !== undefined; });
+    var old = document.getElementById('prst-ov'); if (old) old.remove();
+    var ov = document.createElement('div'); ov.id = 'prst-ov'; ov.className = 'ov';
+    ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+    var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '460px';
+    md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
+    var h = '<h3>🗂 項目を選んで復元</h3>'
+      + '<div style="font-size:12px;color:var(--txt2);margin-bottom:8px">' + escH(dateStr.replace(/_(\d{2})$/, ' $1:00')) + ' のバックアップから、選んだ項目だけを戻します。連絡表（日々の記録）は戻りません。</div>';
+    if (!keys.length) h += '<div class="pool-empty">戻せる項目がありません</div>';
+    keys.forEach(function(k){
+      h += '<label style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr);font-size:13px;cursor:pointer">'
+        + '<input type="checkbox" class="prst-cb" value="' + escH(k) + '">'
+        + '<span style="flex:1">' + escH(PARTIAL_RESTORE_LABELS[k]) + '</span>'
+        + '<span style="font-size:11px;color:var(--txt3);white-space:nowrap">バックアップ ' + escH(partialRestoreSummary(k, data[k])) + ' ／ 現在 ' + escH(partialRestoreSummary(k, D[k])) + '</span></label>';
+    });
+    h += '<div style="font-size:11px;color:var(--txt3);margin-top:6px">このバックアップに入っていない項目は一覧に出ません。</div>'
+      + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+      + '<button class="btn btn-g" onclick="document.getElementById(\'prst-ov\').remove()">キャンセル</button>'
+      + '<button class="btn btn-p" id="prst-go">選んだ項目を戻す</button></div>';
+    md.innerHTML = h; ov.appendChild(md); document.body.appendChild(ov);
+    document.getElementById('prst-go').addEventListener('click', function(){
+      var sel = [].slice.call(md.querySelectorAll('.prst-cb:checked')).map(function(cb){ return cb.value; });
+      if (!sel.length) { toast('戻す項目を選んでください', 'warn'); return; }
+      var names = sel.map(function(k){ return PARTIAL_RESTORE_LABELS[k]; });
+      if (!confirm('次の項目を ' + dateStr + ' の状態に戻します。\n\n' + names.join('\n') + '\n\nいまの内容は上書きされます。よろしいですか？')) return;
+      doPartialRestore(dateStr, data, sel);
+      ov.remove();
+    });
+  }, function(e){ toast('読み込みエラー: ' + e.message, 'err'); });
+}
+function doPartialRestore(dateStr, data, sel) {
+  if (!isAdmin) return;
+  /* 対象外（pages など）やバックアップに無い項目は、戻さずに件数・ログからも外す */
+  sel = sel.filter(function(k){ return Object.prototype.hasOwnProperty.call(PARTIAL_RESTORE_LABELS, k) && data[k] !== undefined; });
+  if (!sel.length) return;
+  autoSaveSnapshot('項目の復元前');
+  sel.forEach(function(k){
+    D[k] = JSON.parse(JSON.stringify(data[k]));
+    if (k === 'opeTree' || k === 'cathTree' || k === 'supTree') normTree(D[k]);
+    if (k === 'makers') D.makers = normMakers(D.makers);
+  });
+  saveD();
+  writeLog('バックアップから項目を復元', dateStr + '：' + sel.map(function(k){ return PARTIAL_RESTORE_LABELS[k]; }).join('、'));
+  renderCal(); safeRenderPage();
+  renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
+  renderOpeList(); renderCathList(); renderLockList(); renderSupMaster();
+  toast('✅ ' + sel.length + '項目を戻しました', 'ok');
 }
 
 function restoreAutoBackup(i) {

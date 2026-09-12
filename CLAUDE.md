@@ -294,6 +294,10 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 
 `cleanOldSnapshots()` は `fbInit` のログイン処理と `saveFirebaseSnapshot()` の成功時の**両方**から呼ぶ（関数側に1日1回のガードがあるので二重には走らない）。以前はスナップショット成功時だけで、スナップが取れない日は掃除も止まり、数日空けると保持日数を超えて溜まった。削除はマルチパス更新で一度に行い、**失敗を握りつぶさず `_lastCleanupDate` を戻して次の機会に再試行させる** — 以前は `remove()` ごとの `.catch(function(){})` で捨てており、消えていないことに誰も気づけなかった。
 
+**項目を選んで復元（`openPartialRestore(dateStr)` / `doPartialRestore(dateStr, data, sel)`）**：スナップショット一覧の「項目を選ぶ」から、マスタなど選んだ項目だけを戻す（管理者のみ）。「復元」は D 全体を戻すので、マスタ1つが消えただけでも今日の連絡表まで巻き戻ってしまうため。**`pages`（連絡表）は対象にしない**——日々の記録を戻すなら全体復元を使う。対象と表示名は `PARTIAL_RESTORE_LABELS`、各項目に「バックアップ N件／現在 N件」を出して、どの時点を戻すか判断できるようにしている。
+
+**古いアプリの保存を止める（`checkStaleApp(d)` / `_staleApp` / `APP_SEQ`）**：2026-09-12、再読み込みせずに開きっぱなしだった古い画面（`supMaster` を知らないバージョン）が保存し、`/data` 全体の上書きで使用物品マスタが消えた。`_doFbWrite` が `/data._appSeq` に `APP_SEQ`（`APP_VERSION` 末尾の `-N`）を書き、`/data` リスナーが受信のたびに `checkStaleApp(d)` で照合する。自分より新しい番号なら `_staleApp=true` にして `saveD`/`saveDPage`/`_doFbWrite` が Firebase へ書かなくなり、`#sync-ov` に再読み込みを促す覆いを出す（再読み込みまで戻さない）。加えて、リスナーは**このバージョンが知らない項目（`_` で始まらないもの）も D に写して持ち回る**——1つ前のアプリが保存しても新しい項目が消えないように。**この照合より前のバージョンのアプリには効かない**ので、項目を足すリリースの後は開いたままの端末を再読み込みしてもらうこと。
+
 `autoSaveSnapshot(label)` adds to the local ring buffer. It is called **after Firebase first load** (not at `init()` time) to ensure fresh data is saved.
 
 **Auto-delete settings** (`D.autoDelCfg`, used by `checkAndDeleteOldData()`/`checkAutoDelTiming()`) live in the synced `D` object, not per-PC `localStorage` — previously they were `localStorage` keys (`autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean`), which meant the auto-delete schedule could disagree between devices. `_migVer` 4 migrates any existing per-PC values into `D.autoDelCfg` once.
