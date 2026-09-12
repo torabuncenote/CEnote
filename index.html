@@ -5272,11 +5272,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/12-72';
+var APP_VERSION = 'Ver.2026/09/13-73';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/13-73', date:'2026-09-13', title:'使用物品マスタを、物品マスタ（旧）から作り直せるようにしました', items:[
+    {t:'new', d:'🧰 使用物品マスタが空になってしまったとき、業務マスタ画面に「📦 物品マスタ（旧）から作り直す」ボタンが出るようにしました。旧マスタは削除せず残しているので、バックアップを探さなくてもその場で作り直せます（移行後に使用物品マスタだけへ加えた変更は戻りません）', admin:true}
+  ]},
   { ver:'Ver.2026/09/12-72', date:'2026-09-12', title:'バックアップから項目を選んで戻せるようにしました', items:[
     {t:'new', d:'🗂 バックアップ画面のスナップショットに「項目を選ぶ」を追加しました。使用物品マスタなど、選んだ項目だけを戻せます。連絡表（日々の記録）は戻さないので、今日の入力が巻き戻りません', admin:true},
     {t:'fix', d:'古いバージョンのアプリを開いたままの端末が保存すると、新しく追加された項目（使用物品マスタなど）が消えてしまう不具合を修正しました。今後は古いアプリでは保存せず「再読み込みしてください」と表示します'}
@@ -11502,7 +11505,17 @@ function supMsBtn(label, title, call, disabled, danger){
 function renderSupMaster(){
   var el = document.getElementById('sup-master-list'); if (!el) return;
   var m = supMasterOf();
-  if (!m.length) { el.innerHTML = '<div class="sup-pick-empty">まだ種類がありません。下の欄から追加してください。</div>'; return; }
+  if (!m.length) {
+    /* 空のときだけ、旧マスタ（supTree）から作り直す入口を出す。データがある間は出さない
+       ——「空かどうか」で判定しているので、意図して全部消した直後にも出る（rebuildSupMasterFromLegacy
+       側で確認ダイアログを挟むので、押し間違いだけでは復活しない） */
+    var legacyN = normTree(D.supTree).length;
+    el.innerHTML = '<div class="sup-pick-empty">まだ種類がありません。下の欄から追加してください。'
+      + (legacyN && can('mst') ? '<div style="margin-top:10px"><button class="btn btn-g btn-sm" onclick="rebuildSupMasterFromLegacy()">📦 物品マスタ（旧）から作り直す</button>'
+        + '<div style="font-size:11px;color:var(--txt3);margin-top:4px">旧マスタ（' + legacyN + '種類）から、科ごとの品名を作り直します</div></div>' : '')
+      + '</div>';
+    return;
+  }
   el.innerHTML = m.map(function(k, ki){
     var open = !!_supMasterOpen[k.kind];
     var h = '<div class="tree-dept"><div class="tree-dept-hd" onclick="toggleSupKindOpen(' + ki + ')">'
@@ -13914,6 +13927,23 @@ function supLegacyToMaster(tree, pages){
    という食い違いが残る。復元3経路で必ず呼ぶこと。 */
 function supMasterAfterRestore(data){
   if (data && data.supMaster === undefined) D.supMaster = supLegacyToMaster(D.supTree, D.pages);
+}
+/* 使用物品マスタが空になったときの手動復旧。旧マスタ（supTree）は移行後も削除せず残しているので、
+   移行時（_migVer 6）とまったく同じ変換をもう一度かければ作り直せる——過去のバックアップを1時間ずつ
+   遡って探すより確実（2026-09-12、古いアプリの保存で supMaster が消えた事故の対応）。
+   ただし移行後に使用物品マスタだけへ加えた変更（追加・改名・科の付け替え）は旧マスタに無いので戻らない。 */
+function rebuildSupMasterFromLegacy(){
+  if (!can('mst')) { toast('🔒 管理者のみ可能です', 'warn'); return; }
+  var legacy = normTree(D.supTree);
+  if (!legacy.length) { toast('物品マスタ（旧）にもデータがありません', 'warn'); return; }
+  if (!confirm('物品マスタ（旧）から、使用物品マスタを作り直します。\n\n※ 移行した時点の状態に戻ります。移行後に使用物品マスタだけに加えた変更（追加・改名・科の付け替えなど）は反映されません。\n\nよろしいですか？')) return;
+  autoSaveSnapshot('使用物品マスタ再構築前');
+  var m = supLegacyToMaster(D.supTree, D.pages);
+  if (!m.length) { toast('作り直せませんでした（旧マスタが空でした）', 'warn'); return; }
+  supMasterSave(m);
+  renderSupMaster();
+  writeLog('使用物品マスタを物品マスタ（旧）から再構築', m.length + '種類');
+  toast('✅ 使用物品マスタを作り直しました（' + m.length + '種類）', 'ok');
 }
 
 /* ===== 使用物品を選ぶポップアップ =====
