@@ -559,9 +559,22 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-sup-btn:disabled{border-color:var(--bdr);color:var(--txt3);cursor:default}
 .sup-pick-x{border:none;background:transparent;color:inherit;font-size:11px;line-height:1;cursor:pointer;padding:0 0 0 3px;font-family:var(--fn)}
 .sup-pick-empty{font-size:11px;color:var(--txt3);padding:6px 2px}
-/* 文言は必ず <span> で1つに包むこと（flex の子になった文字が細切れの部品に割れ、科名の後ろで改行される） */
-.sup-pick-filter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding:7px 10px;border:1px solid var(--ac);background:var(--ac-bg);color:var(--txt2);border-radius:var(--rs);font-size:11px;line-height:1.5}
-.sup-pick-allbtn{margin-left:auto;flex-shrink:0;font-size:11px;font-weight:700;padding:3px 10px;border:1px solid var(--ac);border-radius:12px;background:var(--sur);color:var(--ac);cursor:pointer;font-family:var(--fn);white-space:nowrap}
+.sup-pick-sec{margin-top:12px;padding:8px 10px 2px;border:1px solid var(--ac);background:var(--ac-bg);border-radius:var(--rs)}
+.sup-pick-sec-hd{font-size:12px;color:var(--txt);margin-bottom:4px}
+.sup-pick-sub{font-size:10px;font-weight:700;color:var(--txt3);margin:4px 0 3px}
+.sup-pick-kind{border:1px solid var(--bdr);border-radius:var(--rs);margin-top:6px;background:var(--sur)}
+.sup-pick-kind-hd{display:flex;align-items:center;gap:6px;width:100%;border:none;background:none;padding:9px 10px;font-size:12px;font-weight:700;color:var(--txt);cursor:pointer;font-family:var(--fn);text-align:left}
+.sup-pick-kind-n{margin-left:auto;font-size:10px;font-weight:400;color:var(--txt3)}
+.sup-pick-kind-bd{padding:0 10px 2px}
+.sup-pick-arrow{display:inline-block;font-size:9px;transition:transform .15s;color:var(--txt3)}
+.sup-pick-arrow.open{transform:rotate(90deg)}
+.sup-ms-n{font-size:10px;font-weight:400;color:var(--txt3)}
+.tree-item .sup-ms-tag{flex:none;font-size:10px;color:var(--ac);background:var(--ac-bg);border-radius:8px;padding:0 6px;margin-left:4px;white-space:nowrap}
+.sup-ms-btn{background:none;border:none;color:var(--ac);cursor:pointer;font-size:11px;padding:0 3px;font-family:var(--fn)}
+.sup-ms-btn.del{color:var(--rd)}
+.sup-ms-btn:disabled{color:var(--txt3);opacity:.4;cursor:default}
+.sup-ms-dept{background:none;border:none;cursor:pointer;font-size:11px;padding:0 3px;filter:grayscale(1);opacity:.5}
+.sup-ms-dept.on{filter:none;opacity:1}
 .ops-item-del{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;padding:0 2px;line-height:1;flex-shrink:0}
 .ops-item-del:hover{color:var(--rd)}
 .ops-done-btn{font-size:11px;font-weight:700;padding:3px 9px;border:1.5px solid var(--gr);border-radius:var(--rs);background:var(--sur);color:var(--gr);cursor:pointer;white-space:nowrap;flex-shrink:0}
@@ -1644,12 +1657,12 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
               </div>
             </div>
             <div data-perm="mst" data-mode="ce">
-              <div class="pt">🧰 使用物品マスタ（カテゴリ→種別→品名）</div>
-              <div class="pn" style="margin-bottom:8px;font-size:11px">物品を3階層で管理。</div>
-              <div id="sup-tree-list"></div>
+              <div class="pt">🧰 使用物品マスタ（種類→品名）</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">品名ごとに🏥で「使う科」を設定すると、その科の症例では使用物品の一覧の一番上に出ます。どの科でも使う物品は「全科」に。</div>
+              <div id="sup-master-list"></div>
               <div class="tree-add-row" style="margin-top:6px">
-                <input type="text" id="in-sup-dept" placeholder="＋ 新しいカテゴリを追加…">
-                <button onclick="addSupTreeDept()">カテゴリを追加</button>
+                <input type="text" id="in-sup-kind" placeholder="＋ 新しい種類を追加…" onkeydown="if(event.key==='Enter'){event.preventDefault();addSupKind();}">
+                <button onclick="addSupKind()">種類を追加</button>
               </div>
             </div>
             <div data-perm="mst" data-mode="hd">
@@ -2643,7 +2656,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -2853,6 +2866,7 @@ function loadD() {
     D.opeTree = normTree(s.opeTree && s.opeTree.length ? s.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE)));
     D.cathTree= normTree(s.cathTree&& s.cathTree.length? s.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE)));
     D.supTree = normTree(s.supTree && s.supTree.length ? s.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
+    D.supMaster = s.supMaster || [];
     D.dutyCfgMaster = s.dutyCfgMaster && s.dutyCfgMaster.length ? s.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
     D.dutyCfg = s.dutyCfg ? s.dutyCfg : [];
     D.opsCfg  = s.opsCfg  ? s.opsCfg  : [];
@@ -2913,6 +2927,11 @@ function loadD() {
     if (!D._migVer || D._migVer < 5) {
       Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg) ensureStaffZone(pg); });
       D._migVer = 5;
+    }
+    /* v6: 使用物品マスタを「種類→品名＋品名ごとの科」（D.supMaster）へ。旧 D.supTree は消さずに残す */
+    if (!D._migVer || D._migVer < 6) {
+      if (!supMasterNorm(D.supMaster).length) D.supMaster = supLegacyToMaster(D.supTree, D.pages);
+      D._migVer = 6;
     }
     ensureLateDutySlots(); /* 遅出枠の付与（冪等） */
   } catch(e) {
@@ -2995,7 +3014,7 @@ function fbInit() {
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
         curDs = null;
         D.pages={}; D.stf=[]; D.phs=[]; D.dly=[]; D.wd={}; D.lk={};
-        D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[];
+        D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
         D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]};
@@ -3147,6 +3166,7 @@ function fbInit() {
             D.opeTree = normTree(d.opeTree && d.opeTree.length ? d.opeTree : JSON.parse(JSON.stringify(DEF_OPE_TREE)));
             D.cathTree= normTree(d.cathTree&& d.cathTree.length? d.cathTree: JSON.parse(JSON.stringify(DEF_CATH_TREE)));
             D.supTree = normTree(d.supTree && d.supTree.length ? d.supTree : JSON.parse(JSON.stringify(DEF_SUP_TREE)));
+            D.supMaster = d.supMaster || [];
             D.dutyCfgMaster = d.dutyCfgMaster && d.dutyCfgMaster.length ? d.dutyCfgMaster : DEF_DUTY_MASTER.map(function(x){return Object.assign({},x);});
             D.dutyCfg = d.dutyCfg ? d.dutyCfg : [];
             /* 全フィールドをマイグレーション前に復元（マイグレーション内のsaveD()で未復元フィールドが上書きされるのを防ぐ） */
@@ -3221,6 +3241,12 @@ function fbInit() {
             if (!D._migVer || D._migVer < 5) {
               Object.keys(D.pages||{}).forEach(function(ds){ var pg=D.pages[ds]; if(pg) ensureStaffZone(pg); });
               D._migVer = 5;
+              saveD();
+            }
+            /* v6: 使用物品マスタを「種類→品名＋品名ごとの科」（D.supMaster）へ。旧 D.supTree は消さずに残す */
+            if (!D._migVer || D._migVer < 6) {
+              if (!supMasterNorm(D.supMaster).length) D.supMaster = supLegacyToMaster(D.supTree, D.pages);
+              D._migVer = 6;
               saveD();
             }
             setSyncLbl('同期済');
@@ -3836,7 +3862,7 @@ function renderStorageUsage() {
     pages:'📅 日次ページ', manual:'📘 マニュアル(画像/動画)', shift:'🗓 シフト',
     evts:'📌 予定', schedPresets:'⏰ プリセット', stf:'👥 スタッフ',
     phs:'☎ 内線', opeTree:'🏥 OPEマスタ', cathTree:'💉 カテマスタ',
-    supTree:'📦 物品マスタ', dutyCfg:'📋 担当設定', dutyCfgMaster:'📋 担当マスタ',
+    supTree:'📦 物品マスタ(旧)', supMaster:'🧰 使用物品マスタ', dutyCfg:'📋 担当設定', dutyCfgMaster:'📋 担当マスタ',
     dly:'✅ 毎日チェック', wd:'✅ 曜日別チェック', opsCfg:'⚙ 運用設定', oc:'📞 オンコール'
   };
 
@@ -5127,13 +5153,12 @@ function doRegister() {
 /* ===== 変更履歴（バージョン履歴） ===== */
 var APP_VERSION = 'Ver.2026/09/11-68';
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/09/11-68', date:'2026-09-11', title:'使用物品をその症例の科で絞り込めるようにしました', items:[
-    {t:'new', d:'🏥 使用物品の一覧が、その症例の科（一般外科・心臓外科など）で使うものだけに絞られるようになりました。目的の物品まで辿る手数が減ります。「全部見る」でいつでも全件に戻せます'},
-    {t:'new', d:'🧰 業務マスタの使用物品で、種別ごとに「どの科で使うか」を設定できるようにしました（種別の行の🏥ボタン）。未設定の種別は電気メスのような全科共通の扱いで、これまでどおり全ての科に出ます', admin:true},
-    {t:'imp', d:'🏥 その科のタグがまだ1件も付いていないときは、絞り込まず全て表示します。設定の途中でも物品が選べなくなることはありません'}
+  { ver:'Ver.2026/09/11-68', date:'2026-09-11', title:'使用物品が、その症例の科で使うものから並ぶようになりました', items:[
+    {t:'new', d:'🏥 使用物品のポップアップで、その症例の科（消化器外科・泌尿器科など）で使う物品が一番上にまとめて出るようになりました。残りはタワー／オペセット／エネルギーデバイス／スコープ／その他の種類ごとに、開いて選べます'},
+    {t:'new', d:'🧰 業務マスタの使用物品を「種類→品名」の2段にし、品名ごとに🏥で使う科（または全科）を設定できるようにしました。これまでの登録内容と、過去の記録でその科に3回以上使われた物品は、自動で引き継いでいます', admin:true}
   ]},
   { ver:'Ver.2026/09/11-67', date:'2026-09-11', title:'使用物品をポップアップでまとめて選べるようにし、文字サイズを選べるようにしました', items:[
-    {t:'new', d:'🧰 オペの使用物品を、画面中央のポップアップから選べるようにしました。カテゴリ→種別→品名とたどって、品名はチェックで何品目でも一度に選べます。症例行には選んだ品目がそのまま並ぶので、開かなくても何を使ったかが読めます'},
+    {t:'new', d:'🧰 オペの使用物品を、画面中央のポップアップから選べるようにしました。品名はチェックで何品目でも一度に選べます。症例行には選んだ品目がそのまま並ぶので、開かなくても何を使ったかが読めます'},
     {t:'new', d:'🔠 文字サイズを 小／標準／大／特大 から選べるようにしました（トップバーの🔠）。連絡表・ポップアップ・カレンダーや集計などのタブで、文字だけでなく枠や余白もまとめて大きくなります（担当表は従来どおり指でつまんで拡大）。端末ごとの設定なので、他の人の画面は変わりません'},
     {t:'imp', d:'🤏 Android の端末でも、画面を指でつまんで拡大できるようになりました。これまでは拡大が禁止されていて、小さい文字を大きくする手段がありませんでした'},
     {t:'fix', d:'📱 端末の幅によってトップバーのボタン（ログアウトなど）が無言で隠れてしまう不具合を修正しました。とくに768〜1100px幅のタブレットで起きていました'},
@@ -5822,7 +5847,7 @@ function renderDev() {
     '    placement: {fixed:true, people:{名前:{base,shift,oc,night,side,spot,offer,from,memo}}},',
     '    staffAdj: {addCe:[], addOc:[], removeCe:{名前:true}, removeOc:{名前:true}} // 旧・読み出しのみ',
     '  }},',
-    '  stf, phs, dly, wd, lk, ope, cath, sup, opeTree, cathTree, supTree,',
+    '  stf, phs, dly, wd, lk, ope, cath, sup, opeTree, cathTree, supTree(旧), supMaster,',
     "  shift: {YYYY-MM: {氏名: {1:{shift,oc}}}},",
     "  evts:  {YYYY-MM: {1:[イベント名]}},",
     "  manual: {業務名: {text, media:[]}}",'}'
@@ -10283,7 +10308,6 @@ function confirmEditModal() {
 
     if (state.saveKey === 'opeTree') renderOpeTree();
     else if (state.saveKey === 'cathTree') renderCathTree();
-    else if (state.saveKey === 'supTree') renderSupTree();
 
     writeLog('マスタ編集', oldValue + ' → ' + newValue);
   } else if (state.type === 'dly') {
@@ -11273,20 +11297,7 @@ function renderTree(elId, tree, saveKey, icons) {
       delCatBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 2px';
       delCatBtn.textContent='×'; delCatBtn.title='中カテゴリを削除';
       delCatBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();if(!confirm('「'+tree[di2].cats[ci2].name+'」を削除しますか？')) return;tree[di2].cats.splice(ci2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci);
-      /* 使用物品マスタだけ、種別に「どの科で使うか」のタグを付けられるようにする。
-         saveKey で判定するのは、renderTree が自分自身を何度も呼び直すので
-         引数を足すと渡し忘れが起きるため。 */
-      var deptTagBtn = null;
-      if (saveKey === 'supTree') {
-        deptTagBtn = document.createElement('button');
-        var curTags = supCatDepts(cat);
-        deptTagBtn.style.cssText='background:none;border:none;cursor:pointer;font-size:11px;padding:0 2px;color:'+(curTags.length?'var(--ac)':'var(--txt3)');
-        deptTagBtn.textContent = curTags.length ? '🏥' + curTags.length : '🏥';
-        deptTagBtn.title = curTags.length ? '使う科：' + curTags.join('、') : '使う科を設定（未設定＝全科共通）';
-        deptTagBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();openSupDeptModal(di2,ci2);};})(di,ci);
-      }
       catHd.appendChild(catArrow); catHd.appendChild(catName);
-      if (deptTagBtn) catHd.appendChild(deptTagBtn);   /* ✏️/× と同じ右側に並べる */
       catHd.appendChild(editCatBtn); catHd.appendChild(delCatBtn);
 
       var catKey = dept.dept + ' ' + cat.name;
@@ -11334,77 +11345,209 @@ function renderTree(elId, tree, saveKey, icons) {
 }
 function renderOpeTree()  { renderTree('ope-tree-list',  D.opeTree,  'opeTree',  ['🔬','📂','🔪']); }
 function renderCathTree() { renderTree('cath-tree-list', D.cathTree, 'cathTree', ['🔬','📂','🫀']); }
-function renderSupTree()  { renderTree('sup-tree-list',  D.supTree,  'supTree',  ['📦','📂','🧰']); }
 
-/* ===== 使用物品：種別ごとの「使う科」タグ =====
-   設置部署マスタ（openWdSubsModal）と同じ作り。科名は術式マスタから引くので、
-   ここで科を新規に打ち込ませない（表記ゆれで症例側と噛み合わなくなるため）。 */
-var _supDeptCtx = null;
-function openSupDeptModal(di, ci){
-  if (!can('mst')) { toast('🔒 権限がありません', 'warn'); return; }
-  var cat = ((D.supTree||[])[di]||{}).cats;
-  cat = cat && cat[ci];
-  if (!cat) return;
-  var old = document.getElementById('sup-dept-md-ov'); if (old) old.remove();
-  _supDeptCtx = { di: di, ci: ci, sel: supCatDepts(cat).slice() };
-  var ov = document.createElement('div'); ov.id='sup-dept-md-ov'; ov.className='ov';
-  ov.onclick = function(e){ if (e.target === ov) { ov.remove(); _supDeptCtx = null; } };
-  var md = document.createElement('div'); md.id='sup-dept-md'; md.className='md'; md.style.maxWidth='460px';
+/* ===== 使用物品マスタの編集（業務マスタ「🧰 使用物品マスタ」、mst 権限） =====
+   種類→品名の2段。術式マスタの汎用 renderTree（3段）とは別に持つ。
+   品名はポップアップで「名前（文字列）」として症例に記録されるので、同じ品名を
+   2か所に置かせない（2か所にあると一覧に2回出る）。名前を変えても過去の記録は元の名前のまま。 */
+var _supMasterOpen = {};   /* 種類名ごとの開閉。端末ローカルで非永続（既定は閉じる） */
+function supMsBtn(label, title, call, disabled, danger){
+  return '<button type="button" class="sup-ms-btn' + (danger ? ' del' : '') + '" title="' + title + '"'
+    + (disabled ? ' disabled' : '') + ' onclick="event.stopPropagation();' + call + '">' + label + '</button>';
+}
+function renderSupMaster(){
+  var el = document.getElementById('sup-master-list'); if (!el) return;
+  var m = supMasterOf();
+  if (!m.length) { el.innerHTML = '<div class="sup-pick-empty">まだ種類がありません。下の欄から追加してください。</div>'; return; }
+  el.innerHTML = m.map(function(k, ki){
+    var open = !!_supMasterOpen[k.kind];
+    var h = '<div class="tree-dept"><div class="tree-dept-hd" onclick="toggleSupKindOpen(' + ki + ')">'
+      + '<span class="sup-pick-arrow' + (open ? ' open' : '') + '">▶</span>'
+      + '<span style="flex:1">📦 ' + escH(k.kind) + ' <span class="sup-ms-n">' + k.items.length + '</span></span>'
+      + supMsBtn('↑', '上へ', 'mvSupKind(' + ki + ',-1)', ki === 0)
+      + supMsBtn('↓', '下へ', 'mvSupKind(' + ki + ',1)', ki === m.length - 1)
+      + supMsBtn('✏️', '種類名を変更', 'renameSupKind(' + ki + ')')
+      + supMsBtn('×', '種類を削除', 'rmSupKind(' + ki + ')', false, true)
+      + '</div>';
+    if (open) {
+      h += '<div class="tree-dept-body">';
+      h += k.items.map(function(it, ii){
+        var tag = it.all ? '全科' : it.depts.join('、');
+        return '<div class="tree-item"><span>🧰 ' + escH(it.n)
+          + (tag ? ' <span class="sup-ms-tag">' + escH(tag) + '</span>' : '') + '</span>'
+          + '<button type="button" class="sup-ms-dept' + (tag ? ' on' : '') + '" onclick="openSupItemDeptModal(' + ki + ',' + ii + ')" title="使う科を設定">🏥</button>'
+          + supMsBtn('✏️', '品名を変更', 'renameSupItem(' + ki + ',' + ii + ')')
+          + supMsBtn('×', '品名を削除', 'rmSupItem(' + ki + ',' + ii + ')', false, true)
+          + '</div>';
+      }).join('') || '<div class="sup-pick-empty">品名がまだありません</div>';
+      h += '<div class="tree-add-row"><input type="text" id="in-sup-item-' + ki + '" placeholder="品名を追加…">'
+        + '<button type="button" onclick="addSupItem(' + ki + ')">追加</button></div>';
+      h += '</div>';
+    }
+    return h + '</div>';
+  }).join('');
+  el.querySelectorAll('input[id^="in-sup-item-"]').forEach(function(inp){
+    inp.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); addSupItem(+inp.id.replace('in-sup-item-', '')); } };
+  });
+}
+function toggleSupKindOpen(ki){
+  var k = supMasterOf()[ki]; if (!k) return;
+  if (_supMasterOpen[k.kind]) delete _supMasterOpen[k.kind]; else _supMasterOpen[k.kind] = true;
+  renderSupMaster();
+}
+function supFindItemName(m, n){
+  for (var ki = 0; ki < m.length; ki++)
+    for (var ii = 0; ii < m[ki].items.length; ii++)
+      if (m[ki].items[ii].n === n) return { ki: ki, ii: ii };
+  return null;
+}
+function supMstOk(){
+  if (can('mst')) return true;
+  toast('🔒 権限がありません', 'warn');
+  return false;
+}
+function addSupKind(){
+  if (!supMstOk()) return;
+  var inp = document.getElementById('in-sup-kind'); if (!inp) return;
+  var v = inp.value.trim(); if (!v) return;
+  var m = supMasterForWrite();
+  if (m.some(function(k){ return k.kind === v; })) { toast('この種類は既に登録されています', 'warn'); return; }
+  m.push({ kind: v, items: [] });
+  _supMasterOpen[v] = true; inp.value = '';
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品の種類を追加：' + v);
+}
+function renameSupKind(ki){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), k = m[ki]; if (!k) return;
+  var v = prompt('種類名', k.kind); if (v == null) return;
+  v = v.trim(); if (!v || v === k.kind) return;
+  if (m.some(function(x, i){ return i !== ki && x.kind === v; })) { toast('この種類は既に登録されています', 'warn'); return; }
+  var old = k.kind; k.kind = v;
+  if (_supMasterOpen[old]) { delete _supMasterOpen[old]; _supMasterOpen[v] = true; }
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品の種類：' + old + ' → ' + v);
+}
+function mvSupKind(ki, d){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), j = ki + d;
+  if (!m[ki] || j < 0 || j >= m.length) return;
+  var t = m[ki]; m[ki] = m[j]; m[j] = t;
+  supMasterSave(m); renderSupMaster();
+}
+function rmSupKind(ki){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), k = m[ki]; if (!k) return;
+  if (!confirm('種類「' + k.kind + '」' + (k.items.length ? 'と品名 ' + k.items.length + ' 件' : '') + 'を削除しますか？\n（これまでの症例の記録は消えません）')) return;
+  m.splice(ki, 1);
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品の種類を削除：' + k.kind);
+}
+function addSupItem(ki){
+  if (!supMstOk()) return;
+  var inp = document.getElementById('in-sup-item-' + ki); if (!inp) return;
+  var v = inp.value.trim(); if (!v) return;
+  var m = supMasterForWrite(), k = m[ki]; if (!k) return;
+  var hit = supFindItemName(m, v);
+  if (hit) { toast('「' + v + '」は「' + m[hit.ki].kind + '」に登録済みです', 'warn'); return; }
+  k.items.push({ n: v, depts: [], all: false });
+  supMasterSave(m); renderSupMaster();
+  var ni = document.getElementById('in-sup-item-' + ki); if (ni) ni.focus();
+  writeLog('マスタ編集', '使用物品を追加：' + k.kind + ' / ' + v);
+}
+function renameSupItem(ki, ii){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), it = m[ki] && m[ki].items[ii]; if (!it) return;
+  var v = prompt('品名（これまでの症例の記録は元の名前のまま残ります）', it.n); if (v == null) return;
+  v = v.trim(); if (!v || v === it.n) return;
+  var hit = supFindItemName(m, v);
+  if (hit) { toast('「' + v + '」は「' + m[hit.ki].kind + '」に登録済みです', 'warn'); return; }
+  var old = it.n; it.n = v;
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品：' + old + ' → ' + v);
+}
+function rmSupItem(ki, ii){
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), it = m[ki] && m[ki].items[ii]; if (!it) return;
+  if (!confirm('「' + it.n + '」を削除しますか？\n（これまでの症例の記録は消えません）')) return;
+  m[ki].items.splice(ii, 1);
+  supMasterSave(m); renderSupMaster();
+  writeLog('マスタ編集', '使用物品を削除：' + m[ki].kind + ' / ' + it.n);
+}
+
+/* 品名に「使う科」を紐づけるモーダル。設置部署マスタ（openWdSubsModal）と同じ作り。
+   保存時は添字ではなく品名で引き直す——開いている間に他の管理者が並べ替え・削除して
+   いると、添字のままでは別の品名に保存してしまう。 */
+var _supItemDeptCtx = null;
+function openSupItemDeptModal(ki, ii){
+  if (!supMstOk()) return;
+  var k = supMasterOf()[ki], it = k && k.items[ii]; if (!it) return;
+  closeSupItemDeptModal();
+  _supItemDeptCtx = { n: it.n, kind: k.kind, sel: it.depts.slice(), all: it.all };
+  var ov = document.createElement('div'); ov.id = 'sup-item-dept-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeSupItemDeptModal(); };
+  var md = document.createElement('div'); md.id = 'sup-item-dept-md'; md.className = 'md'; md.style.maxWidth = '460px';
   ov.appendChild(md); document.body.appendChild(ov);
-  renderSupDeptModalBody();
+  renderSupItemDeptBody();
 }
-function closeSupDeptModal(){
-  var ov = document.getElementById('sup-dept-md-ov'); if (ov) ov.remove();
-  _supDeptCtx = null;
+function closeSupItemDeptModal(){
+  var ov = document.getElementById('sup-item-dept-ov'); if (ov) ov.remove();
+  _supItemDeptCtx = null;
 }
-function renderSupDeptModalBody(){
-  var c = _supDeptCtx; if (!c) return;
-  var md = document.getElementById('sup-dept-md'); if (!md) return;
-  var cat = D.supTree[c.di].cats[c.ci];
+function renderSupItemDeptBody(){
+  var c = _supItemDeptCtx; if (!c) return;
+  var md = document.getElementById('sup-item-dept-md'); if (!md) return;
   var opts = supDeptOptions();
   var h = '<h3>🏥 使う科を選ぶ</h3>';
-  h += '<p>' + escH(D.supTree[c.di].dept) + ' / <b>' + escH(cat.name) + '</b><br>'
-    + '選んだ科の症例でだけ、この種別が使用物品の一覧に出ます。<b>未選択なら全ての科に出ます</b>（電気メスのような共通物品は未選択のままにしてください）。</p>';
+  h += '<p>' + escH(c.kind) + ' / <b>' + escH(c.n) + '</b><br>'
+    + '選んだ科の症例では、使用物品の一覧の一番上に出ます。どの科でも使う物品は「全科」にしてください。</p>';
+  h += '<div class="dc-cbs"><label class="dc-cb-item' + (c.all ? ' checked' : '') + '"><input type="checkbox"'
+    + (c.all ? ' checked' : '') + ' onchange="supItemAllToggle()">全科</label></div>';
   h += opts.length
-    ? '<div class="dc-cbs" id="sup-dept-checks">' + opts.map(function(n, i){
+    ? '<div class="dc-cbs"' + (c.all ? ' style="opacity:.45"' : '') + '>' + opts.map(function(n, i){
         var on = c.sel.indexOf(n) !== -1;
         return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox"' + (on ? ' checked' : '')
-          + ' onchange="supDeptToggle(' + i + ')">' + escH(n) + '</label>';
+          + (c.all ? ' disabled' : '') + ' onchange="supItemDeptToggle(' + i + ')">' + escH(n) + '</label>';
       }).join('') + '</div>'
     : '<div class="sup-pick-empty">術式マスタに科が登録されていません。先にオペ／カテのマスタで科を作ってください。</div>';
   h += '<div style="margin-top:10px;font-size:11px;color:var(--txt3)">'
-    + (c.sel.length ? '選択中：' + escH(c.sel.join('、')) : '未選択（全ての科で表示）') + '</div>';
+    + (c.all ? '全科（どの科の症例でも一番上に出ます）'
+      : c.sel.length ? '選択中：' + escH(c.sel.join('、')) : '未選択（種類ごとの一覧にだけ出ます）') + '</div>';
   h += '<div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">'
-    + '<button class="btn btn-g" onclick="closeSupDeptModal()">キャンセル</button>'
-    + '<button class="btn btn-p" onclick="saveSupDepts()">保存</button></div>';
+    + '<button class="btn btn-g" onclick="closeSupItemDeptModal()">キャンセル</button>'
+    + '<button class="btn btn-p" onclick="saveSupItemDepts()">保存</button></div>';
   md.innerHTML = h;
 }
-function supDeptToggle(i){
-  var c = _supDeptCtx; if (!c) return;
+function supItemAllToggle(){
+  var c = _supItemDeptCtx; if (!c) return;
+  c.all = !c.all;
+  renderSupItemDeptBody();
+}
+function supItemDeptToggle(i){
+  var c = _supItemDeptCtx; if (!c) return;
   var n = supDeptOptions()[i]; if (!n) return;
   var at = c.sel.indexOf(n);
   if (at === -1) c.sel.push(n); else c.sel.splice(at, 1);
-  renderSupDeptModalBody();
+  renderSupItemDeptBody();
 }
-function saveSupDepts(){
-  var c = _supDeptCtx; if (!c) return;
-  if (!can('mst')) { toast('🔒 権限がありません', 'warn'); return; }
-  var cat = ((D.supTree||[])[c.di]||{}).cats;
-  cat = cat && cat[c.ci];
-  if (!cat) { closeSupDeptModal(); return; }
-  /* 空配列は持たせない（未設定＝全科共通、と読む唯一の状態にする） */
-  if (c.sel.length) cat.depts = c.sel.slice(); else delete cat.depts;
-  saveD();
-  writeLog('使用物品の科タグ変更', D.supTree[c.di].dept + ' / ' + cat.name + ' → ' + (c.sel.length ? c.sel.join('、') : '全科共通'));
-  closeSupDeptModal();
-  renderSupTree();
+function saveSupItemDepts(){
+  var c = _supItemDeptCtx; if (!c) return;
+  if (!supMstOk()) return;
+  var m = supMasterForWrite(), hit = supFindItemName(m, c.n);
+  if (!hit) {
+    toast('この品名は他の人に変更・削除されたため、保存できませんでした', 'warn');
+    closeSupItemDeptModal(); renderSupMaster(); return;
+  }
+  var it = m[hit.ki].items[hit.ii];
+  it.all = c.all; it.depts = c.sel.slice();
+  supMasterSave(m);
+  writeLog('使用物品の科の紐づけ', c.n + ' → ' + (c.all ? '全科' : (c.sel.join('、') || 'なし')));
+  closeSupItemDeptModal(); renderSupMaster();
   toast('✅ 保存しました', 'ok');
 }
 
-
 function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById('in-ope-dept').value='';treeOpenState('ope-tree-list').depts[v]=true;saveD();renderOpeTree();_focusTreeInput('ope-tree-list',D.opeTree.length-1,null,'cat'); }
 function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';treeOpenState('cath-tree-list').depts[v]=true;saveD();renderCathTree();_focusTreeInput('cath-tree-list',D.cathTree.length-1,null,'cat'); }
-function addSupTreeDept()  { var v=document.getElementById('in-sup-dept').value.trim();if(!v)return;if(!D.supTree)D.supTree=[];D.supTree.push({dept:v,cats:[]});document.getElementById('in-sup-dept').value='';treeOpenState('sup-tree-list').depts[v]=true;saveD();renderSupTree();_focusTreeInput('sup-tree-list',D.supTree.length-1,null,'cat'); }
 
 /* ツリー内の入力欄にフォーカスするヘルパー（renderTree再描画後に呼ぶ） */
 function _focusTreeInput(elId, di, ci, type) {
@@ -11461,7 +11604,7 @@ function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValu
 /* renderOpeList / renderCathList / renderSupList は後方互換のため残す（旧フラットリスト用） */
 function renderOpeList()  { renderOpeTree(); }
 function renderCathList() { renderCathTree(); }
-function renderSupList()  { renderSupTree(); }
+function renderSupList()  { renderSupMaster(); }
 function renderDutyMasterList() {
   var l = document.getElementById('duty-master-list'); if(!l) return;
   l.innerHTML = '';
@@ -11538,7 +11681,7 @@ function editDutyMaster(idx) {
   document.getElementById('modal-edit-item').classList.remove('hd'); inp.focus(); inp.select();
 }
 
-/* renderSupList は上の renderSupTree に統合済み */
+/* renderSupList は使用物品マスタ（renderSupMaster）の描画に委譲済み */
 
 /* ===== LOCK ===== */
 function updateTabVisibility() {
@@ -13490,62 +13633,148 @@ function supViewHTML(supArr){
   }).join('<span class="sup-sep">, </span>') + '</div>';
 }
 
-/* ===== 使用物品ピッカー（中央ポップアップ） =====
-   以前は症例行の一番下に3段セレクトの箱を埋め込んでいたが、症例行は
-   科/中カテゴリ/術式・入室時間・担当者・終了時刻…と縦に長く、その下に置くと
-   端末やスクロール位置によって枠外へ出て見切れた。さらに1品ずつしか追加できず、
-   1症例に複数品目を入れる実運用と噛み合っていなかった。
-   画面中央のモーダルへ移し、品名はチェックボックスでまとめて選べるようにしている。
-   呼び出し側は「今の配列」と「確定したときに受け取る関数」だけを渡す
-   （items/saveItems のクロージャは呼び出し側に閉じ込める）。 */
-var _supPickCtx = null;
+/* ===== 使用物品マスタ（種類→品名＋品名ごとの科） =====
+   D.supMaster = [{ kind:'タワー', items:[{ n:'ウロタワー', depts:['泌尿器科',…], all:true? }] }]
+   以前の D.supTree（カテゴリ→種別→品名の3段）は消さずに残してあり、_migVer 6 で1回だけ
+   ここへ移す（supLegacyToMaster）。以後 supTree は読まない。
+   品名に科を紐づけ、ポップアップではその症例の科の品名を先頭にまとめる。「全科」（all）は
+   どの科の症例でも先頭に出る——電気メスのような共通物品のために、科が増えても付け直さずに済む。 */
+var SUP_KIND_ORDER = ['タワー', 'オペセット', 'エネルギーデバイス', 'スコープ', 'その他'];
+/* 旧マスタの種類のうち、独立させずに「その他」へまとめるもの（現場の決定） */
+var SUP_KIND_RENAME = { 'モニタリング': 'その他' };
+/* 移行時、過去の記録でその科に何回以上使われていたら科を補うか */
+var SUP_TAG_MIN_USES = 3;
 
-/* 種別（cat）に付けた「どの科で使うか」のタグ。空＝全科共通。
-   Firebaseが疎な配列をオブジェクトで返すので必ずここを通して読む。 */
-function supCatDepts(cat){
-  if (!cat || !cat.depts) return [];
-  var a = Array.isArray(cat.depts) ? cat.depts : Object.keys(cat.depts).map(function(k){ return cat.depts[k]; });
-  return a.filter(Boolean);
-}
-/* タグ付けの選択肢になる科名。術式マスタ（オペ・カテ）の科をそのまま使う——
-   物品側に別の科名リストを作ると表記ゆれで永久に噛み合わなくなるため。 */
+/* 科の選択肢。術式マスタ（オペ・カテ）の科をそのまま使う——物品側に別の科名リストを
+   作ると表記ゆれで症例側と永久に噛み合わなくなるため。 */
 function supDeptOptions(){
   var out = [], seen = {};
-  [(D.opeTree||[]), (D.cathTree||[])].forEach(function(tree){
+  [normArr(D.opeTree), normArr(D.cathTree)].forEach(function(tree){
     tree.forEach(function(d){
       if (d && d.dept && !seen[d.dept]) { seen[d.dept] = 1; out.push(d.dept); }
     });
   });
   return out;
 }
-/* その科でこの種別を出すか。タグが空なら全科共通として常に出す。 */
-function supCatMatches(cat, dept){
-  if (!dept) return true;
-  var ds = supCatDepts(cat);
-  return !ds.length || ds.indexOf(dept) !== -1;
+/* 品名1件の正規化（Firebaseの配列→オブジェクト化対策も兼ねる） */
+function supItemNorm(it){
+  if (!it) return null;
+  if (typeof it === 'string') return { n: it, depts: [], all: false };
+  if (!it.n) return null;
+  return { n: String(it.n), depts: normArr(it.depts).filter(Boolean), all: !!it.all };
+}
+function supMasterNorm(m){
+  return normArr(m).filter(function(k){ return k && k.kind; }).map(function(k){
+    return { kind: String(k.kind), items: normArr(k.items).map(supItemNorm).filter(Boolean) };
+  });
+}
+/* 読み出しの唯一の入口。毎回新しいオブジェクトを返すので、呼び出し側で書き換えても D は変わらない
+   （書き換えるときは supMasterForWrite を使う）。
+   _migVer 6 より前（移行前の端末）だけ旧 supTree から作って見せる。移行後に種類を全部消した
+   場合に旧マスタが生き返らないよう、_migVer を見て判定する（Firebaseは空配列を保存しないので、
+   「空かどうか」では「移行前」と「全部消した」を区別できない）。 */
+function supMasterOf(){
+  var m = supMasterNorm(D.supMaster);
+  if (!m.length && !(D._migVer >= 6)) m = supLegacyToMaster(D.supTree, null);
+  if (m.length) return m;
+  var flat = normArr(D.sup).filter(Boolean);
+  return flat.length ? [{ kind: 'その他', items: flat.map(supItemNorm) }] : [];
+}
+function supMasterForWrite(){
+  D.supMaster = supMasterOf();
+  return D.supMaster;
+}
+/* 保存用に空の depts / all:false を落とす（未設定＝紐づけなし、と読む状態を1つに保つ） */
+function supItemPack(it){
+  var o = { n: it.n };
+  if (it.all) o.all = true;
+  if (it.depts && it.depts.length) o.depts = it.depts.slice();
+  return o;
+}
+function supMasterSave(m){
+  D.supMaster = m.map(function(k){ return { kind: k.kind, items: k.items.map(supItemPack) }; });
+  saveD();
+}
+/* この症例の科で先頭に出すか */
+function supItemForDept(it, dept){
+  return !!it.all || (!!dept && it.depts.indexOf(dept) !== -1);
 }
 
-/* 物品マスタの正規化。D.supTree があればそれを、無ければフラットな D.sup を
-   「カテゴリ無しの1グループ」として同じ形で返す（呼び出し側で分岐しないため）。
-   Firebaseは疎な配列をオブジェクトで返すので、各段を normArr に通す。種別の
-   「名前の無いものを除く」もここで1回だけ行う——描画・添字解決・件数の数え方が
-   別々に filter すると、件数と表示がずれたり添字が別の種別を指したりする。 */
-function supPickTree(){
-  var t = normArr(D.supTree).filter(function(d){ return d && d.dept; }).map(function(d){
-    var all = normArr(d.cats).filter(Boolean);
-    var named = all.filter(function(x){ return x.name; });
-    return {
-      dept: d.dept,
-      cats: (named.length ? named : all).map(function(ct){
-        return { name: ct.name || '', depts: ct.depts, items: normArr(ct.items).filter(Boolean) };
-      })
-    };
+/* 旧 supTree（カテゴリ→種別→品名）を新しい形へ。
+   - 1段目（カテゴリ）→ 種類。SUP_KIND_RENAME にあるものは付け替える
+   - 2段目（種別）が術式マスタの科名なら、その下の品名にその科を紐づける。科名でない段
+     （高周波手術器など）の品名は紐づけなしで種類の直下へ
+   - 同じ種類の中の同名品は1つにまとめ、科を合わせる（本番では ウロタワー が4か所にあった）
+   - pages を渡すと、過去の記録で「その科で SUP_TAG_MIN_USES 回以上」の組み合わせを補う
+   - 種類は SUP_KIND_ORDER の順、知らない種類はその間（その他の前）に元の順で並べる */
+function supLegacyToMaster(tree, pages){
+  var deptSet = {};
+  supDeptOptions().forEach(function(d){ deptSet[d] = 1; });
+  var kinds = [], byKind = {};
+  function kindOf(name){
+    name = SUP_KIND_RENAME[name] || name;
+    if (!byKind[name]) { byKind[name] = { kind: name, items: [], idx: {} }; kinds.push(byKind[name]); }
+    return byKind[name];
+  }
+  function addItem(k, n, depts){
+    var it = k.idx[n];
+    if (!it) { it = k.idx[n] = { n: n, depts: [] }; k.items.push(it); }
+    depts.forEach(function(d){ if (it.depts.indexOf(d) === -1) it.depts.push(d); });
+  }
+  normArr(tree).forEach(function(t){
+    if (!t || !t.dept) return;
+    var k = kindOf(t.dept);
+    normArr(t.cats).forEach(function(ct){
+      if (!ct) return;
+      var tags = normArr(ct.depts).filter(Boolean);
+      if (ct.name && deptSet[ct.name] && tags.indexOf(ct.name) === -1) tags.push(ct.name);
+      normArr(ct.items).forEach(function(n){ if (n) addItem(k, String(n), tags); });
+    });
   });
-  if (t.length) return t;
-  var flat = normArr(D.sup).filter(Boolean);
-  if (!flat.length) return [];
-  return [{ dept:'', cats:[{ name:'', items:flat }] }];
+  if (pages) {
+    var cnt = {};
+    Object.keys(pages).forEach(function(ds){
+      if (!pages[ds]) return;
+      opsItemsOf(pages[ds], 'ope').forEach(function(it){
+        var dp = opsItemDept(it);
+        if (!dp || !deptSet[dp]) return;
+        opsItemSup(it).forEach(function(s){ var key = dp + '' + s; cnt[key] = (cnt[key] || 0) + 1; });
+      });
+    });
+    kinds.forEach(function(k){
+      k.items.forEach(function(it){
+        Object.keys(deptSet).forEach(function(dp){
+          if ((cnt[dp + '' + it.n] || 0) >= SUP_TAG_MIN_USES && it.depts.indexOf(dp) === -1) it.depts.push(dp);
+        });
+      });
+    });
+  }
+  SUP_KIND_ORDER.forEach(function(n){ kindOf(n); });
+  function rank(k){
+    if (k.kind === 'その他') return 1000;
+    var i = SUP_KIND_ORDER.indexOf(k.kind);
+    return i === -1 ? 500 : i;
+  }
+  return kinds.map(function(k, i){ return { k: k, i: i }; })
+    .sort(function(a, b){ return (rank(a.k) - rank(b.k)) || (a.i - b.i); })
+    .map(function(x){ return { kind: x.k.kind, items: x.k.items.map(function(it){ return { n: it.n, depts: it.depts, all: false }; }) }; });
 }
+/* 旧バックアップ（supMaster を持たない）から戻したときは、戻した supTree をその場で新しい形へ移す。
+   復元は _migVer を回し直さないので、ここを通さないと「物品マスタだけ今のまま、supTree だけ古い」
+   という食い違いが残る。復元3経路で必ず呼ぶこと。 */
+function supMasterAfterRestore(data){
+  if (data && data.supMaster === undefined) D.supMaster = supLegacyToMaster(D.supTree, D.pages);
+}
+
+/* ===== 使用物品を選ぶポップアップ =====
+   症例行に3段セレクトを埋め込むと、症例行が縦に長いぶん端末によって枠外へ出て見切れた
+   ので、画面中央のモーダルにしている。呼び出し側は「今の配列」と「確定したときに受け取る
+   関数」だけを渡す（items/saveItems のクロージャは呼び出し側＝buildSupRow に閉じ込める）。
+
+   先頭に「その症例の科で使う品名（全科を含む）」を種類の順にまとめ、残りは種類ごとの
+   折りたたみに入れる（先頭に出した品名は種類側に出さない）。科が未選択の症例、または
+   その科に紐づいた品名が1件も無いときは、種類の一覧を最初から開いておく。 */
+var _supPickCtx = null;
 
 /* opts = { title, dept, current:[], onApply:function(arr){} }
    ロック中は呼び出し側で「選ぶ」ボタン自体を押せなくしているので、閲覧専用の表示は持たない
@@ -13553,13 +13782,19 @@ function supPickTree(){
 function openSupPickerModal(opts){
   opts = opts || {};
   var old = document.getElementById('sup-pick-ov'); if (old) old.remove();
+  /* 開いた時点のマスタを複製して持つ。onclick に渡す添字はこの複製に対するもので、
+     開いている間に同期でマスタが変わっても別の品名を指さない */
+  var master = supMasterOf();
+  var dept = opts.dept || '';
+  var hasTop = master.some(function(k){ return k.items.some(function(it){ return supItemForDept(it, dept); }); });
   _supPickCtx = {
     sel: (opts.current || []).slice(),
     title: opts.title || '',
     onApply: (typeof opts.onApply === 'function') ? opts.onApply : function(){},
-    dept: opts.dept || '',   /* その症例の科。種別の科タグで一覧を絞るのに使う */
-    allDepts: false,         /* 「全部見る」で絞り込みを解除中か */
-    di: null, ci: null
+    dept: dept,
+    master: master,
+    openAll: !dept || !hasTop,   /* 種類の一覧を最初から開くか */
+    open: {}                     /* 種類の添字ごとの開閉（openAll からの差分） */
   };
   var ov = document.createElement('div'); ov.id = 'sup-pick-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) closeSupPicker(); };
@@ -13572,17 +13807,23 @@ function closeSupPicker(){
   var ov = document.getElementById('sup-pick-ov'); if (ov) ov.remove();
   _supPickCtx = null;
 }
+function supPickKindOpen(ki){
+  var c = _supPickCtx;
+  return (ki in c.open) ? c.open[ki] : c.openAll;
+}
 
-/* カテゴリ・種別・品名はユーザーが付けた名前なので、onclick には必ず「添字」だけを渡す。
-   名前を埋め込むと 'ジェルパッド'sダブルクォート等のアポストロフィで onclick 文字列が壊れる
-   （スタッフ名・メーカー名で実際に踏んだ罠と同じ）。 */
+/* 種類・品名はユーザーが付けた名前なので、onclick には必ず「添字」だけを渡す。
+   名前を埋め込むとアポストロフィで onclick 文字列が壊れる（スタッフ名・メーカー名で
+   実際に踏んだ罠と同じ）。 */
 function renderSupPickBody(){
   var c = _supPickCtx; if (!c) return;
   var md = document.getElementById('sup-pick-md'); if (!md) return;
-  var tree = supPickTree();
-  /* フラットマスタしか無い環境ではカテゴリ・種別の段を出さず、品名だけ並べる */
-  var flatOnly = (tree.length === 1 && !tree[0].dept);
-  if (flatOnly) { c.di = 0; c.ci = 0; }
+  var m = c.master;
+  function chip(ki, ii){
+    var n = m[ki].items[ii].n, on = c.sel.indexOf(n) !== -1;
+    return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox"' + (on ? ' checked' : '')
+      + ' onchange="supPickToggleItem(' + ki + ',' + ii + ')">' + escH(n) + '</label>';
+  }
 
   var h = '<h3>🧰 使用物品を選ぶ</h3>';
   h += '<p>' + (c.title ? escH(c.title) + '<br>' : '')
@@ -13597,50 +13838,39 @@ function renderSupPickBody(){
       }).join('') + '</div>'
     : '<div class="sup-pick-empty">まだ選ばれていません</div>';
 
-  if (c.dept && tree.length && !flatOnly) {
-    var cnt = supPickDeptCount(c.dept);
-    if (supPickFiltering()) {
-      h += '<div class="sup-pick-filter"><span>🏥 <b>' + escH(c.dept) + '</b> で使う物品に絞っています</span>'
-        + '<button type="button" class="sup-pick-allbtn" onclick="supPickToggleAllDepts()">全部見る</button></div>';
-    } else if (c.allDepts) {
-      h += '<div class="sup-pick-filter"><span>🏥 全ての物品を表示中</span>'
-        + '<button type="button" class="sup-pick-allbtn" onclick="supPickToggleAllDepts()">' + escH(c.dept) + ' で絞る</button></div>';
-    } else if (cnt.total) {
-      /* その科のタグがまだ1件も無い＝絞れないので、絞っていないことだけ伝える */
-      h += '<div class="sup-pick-filter"><span>🏥 <b>' + escH(c.dept) + '</b> のタグが付いた物品がまだ無いので、全て表示しています</span></div>';
-    }
-  }
-  if (!tree.length) {
+  if (!m.length) {
     h += '<div class="sup-pick-empty" style="margin-top:12px">物品マスタが未登録です。業務マスタの「使用物品」から登録すると一覧から選べます。</div>';
-  } else if (!flatOnly) {
-    h += '<div class="md-flbl" style="margin-top:14px">① 物品カテゴリ</div><div class="dc-cbs">';
-    supPickDepts().forEach(function(d, di){
-      h += '<button type="button" class="dc-cb-item' + (c.di === di ? ' checked' : '') + '" onclick="supPickSetDept(' + di + ')">' + escH(d.dept) + '</button>';
+  } else {
+    /* 先頭：その科（と全科）の品名を種類の順に */
+    var top = '', topN = 0;
+    m.forEach(function(k, ki){
+      var chips = '';
+      k.items.forEach(function(it, ii){ if (supItemForDept(it, c.dept)) { chips += chip(ki, ii); topN++; } });
+      if (chips) top += '<div class="sup-pick-sub">' + escH(k.kind) + '</div><div class="dc-cbs">' + chips + '</div>';
     });
-    h += '</div>';
-  }
-  var dObj = (c.di != null) ? supPickDepts()[c.di] : null;
-  if (dObj && !flatOnly) {
-    var cats = supPickCats(dObj);
-    h += '<div class="md-flbl" style="margin-top:10px">② 種別</div>';
-    h += cats.length
-      ? '<div class="dc-cbs">' + cats.map(function(ct, ci){
-          return '<button type="button" class="dc-cb-item' + (c.ci === ci ? ' checked' : '') + '" onclick="supPickSetCat(' + ci + ')">' + escH(ct.name) + '</button>';
-        }).join('') + '</div>'
-      : '<div class="sup-pick-empty">' + (supPickFiltering()
-          ? escH(c.dept) + ' で使う種別がこのカテゴリにはありません（「全部見る」で全件表示）'
-          : 'このカテゴリに種別が登録されていません') + '</div>';
-  }
-  var cObj = (dObj && c.ci != null) ? supPickCats(dObj)[c.ci] : null;
-  if (cObj) {
-    var its = cObj.items;
-    h += '<div class="md-flbl" style="margin-top:10px">' + (flatOnly ? '品名（複数選択できます）' : '③ 品名（複数選択できます）') + '</div>';
-    h += its.length
-      ? '<div class="dc-cbs">' + its.map(function(it, ii){
-          var on = c.sel.indexOf(it) !== -1;
-          return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="supPickToggleItem(' + ii + ')">' + escH(it) + '</label>';
-        }).join('') + '</div>'
-      : '<div class="sup-pick-empty">この種別に品名が登録されていません</div>';
+    h += '<div class="sup-pick-sec"><div class="sup-pick-sec-hd">🏥 '
+      + (c.dept ? '<b>' + escH(c.dept) + '</b> で使う物品' : '全科で使う物品')
+      + '</div>'
+      + (topN ? top : '<div class="sup-pick-empty">' + (c.dept
+          ? 'この科に紐づいた物品はまだありません。下の種類から選んでください（業務マスタの使用物品で、品名ごとに🏥から科を設定できます）'
+          : '術式の科を選ぶと、その科で使う物品がここに並びます') + '</div>')
+      + '</div>';
+
+    /* 残り：種類ごとの折りたたみ */
+    var rest = '';
+    m.forEach(function(k, ki){
+      var idx = [];
+      k.items.forEach(function(it, ii){ if (!supItemForDept(it, c.dept)) idx.push(ii); });
+      if (!idx.length) return;
+      var open = supPickKindOpen(ki);
+      rest += '<div class="sup-pick-kind">'
+        + '<button type="button" class="sup-pick-kind-hd" onclick="supPickToggleKind(' + ki + ')">'
+        + '<span class="sup-pick-arrow' + (open ? ' open' : '') + '">▶</span>' + escH(k.kind)
+        + '<span class="sup-pick-kind-n">' + idx.length + '</span></button>'
+        + (open ? '<div class="sup-pick-kind-bd"><div class="dc-cbs">' + idx.map(function(ii){ return chip(ki, ii); }).join('') + '</div></div>' : '')
+        + '</div>';
+    });
+    if (rest) h += '<div class="md-flbl" style="margin-top:14px">種類から探す</div>' + rest;
   }
 
   h += '<div class="md-flbl" style="margin-top:14px">一覧に無いものを足す</div>';
@@ -13656,59 +13886,16 @@ function renderSupPickBody(){
   var fi = document.getElementById('sup-pick-free');
   if (fi) fi.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); supPickAddFree(); } };
 }
-/* 種別の並びは描画と添字解決で必ず同じものを使う（片方だけ filter すると添字がずれる）。
-   科による絞り込みもここに集約する——絞った一覧を描いて絞らない一覧で添字を引くと、
-   別の種別が選ばれる。 */
-function supPickCats(dObj){
-  if (!dObj) return [];
-  return supPickFiltering() ? dObj.cats.filter(function(ct){ return supCatMatches(ct, _supPickCtx.dept); }) : dObj.cats;
-}
-/* 絞り込み後に残る物品カテゴリ。描画も添字解決もここを通す——種別と同じ理由で、
-   絞った一覧を描いて絞らない一覧で添字を引くと別のカテゴリが開く。
-   中の種別が全部消えるカテゴリはチップごと出さない（開くと「登録されていません」と
-   出てしまい、実際には登録済みなので誤解を招く）。 */
-function supPickDepts(){
-  var tree = supPickTree();
-  if (!supPickFiltering()) return tree;
-  return tree.filter(function(d){
-    return d.cats.some(function(ct){ return supCatMatches(ct, _supPickCtx.dept); });
-  });
-}
-/* 科タグで絞るかどうか。その科を「明示的に」タグに持つ種別が1件も無ければ絞らない
-   ——初期状態やタグを付け始めたばかりの科で、他の科用にタグを付けた種別だけが
-   消えて「絞っています」と出るのを避けるため。未設定（全科共通）の種別は数えない。
-   自由入力の科もどのタグにも一致しないので、ここで全件表示になる。 */
-function supPickFiltering(){
-  var c = _supPickCtx;
-  if (!c || !c.dept || c.allDepts) return false;
-  return supPickDeptCount(c.dept).tagged > 0;
-}
-/* マスタ全体の種別の数 / その科を明示的にタグに持つ種別の数 */
-function supPickDeptCount(dept){
-  var total = 0, tagged = 0;
-  supPickTree().forEach(function(d){
-    d.cats.forEach(function(ct){
-      total++; if (supCatDepts(ct).indexOf(dept) !== -1) tagged++;
-    });
-  });
-  return { total: total, tagged: tagged };
-}
-function supPickToggleAllDepts(){
+function supPickToggleKind(ki){
   var c = _supPickCtx; if (!c) return;
-  c.allDepts = !c.allDepts;
-  /* 並びが変わるので選択中のカテゴリ・種別は解除する（添字が別のものを指してしまうため） */
-  c.di = null; c.ci = null;
+  c.open[ki] = !supPickKindOpen(ki);
   renderSupPickBody();
 }
-function supPickSetDept(di){ if (!_supPickCtx) return; _supPickCtx.di = di; _supPickCtx.ci = null; renderSupPickBody(); }
-function supPickSetCat(ci){ if (!_supPickCtx) return; _supPickCtx.ci = ci; renderSupPickBody(); }
-function supPickToggleItem(ii){
+function supPickToggleItem(ki, ii){
   var c = _supPickCtx; if (!c) return;
-  var dObj = supPickDepts()[c.di]; if (!dObj) return;
-  var cObj = supPickCats(dObj)[c.ci]; if (!cObj) return;
-  var name = cObj.items[ii]; if (!name) return;
-  var at = c.sel.indexOf(name);
-  if (at === -1) c.sel.push(name); else c.sel.splice(at, 1);
+  var it = c.master[ki] && c.master[ki].items[ii]; if (!it) return;
+  var at = c.sel.indexOf(it.n);
+  if (at === -1) c.sel.push(it.n); else c.sel.splice(at, 1);
   renderSupPickBody();
 }
 function supPickRemove(i){ var c = _supPickCtx; if (!c) return; c.sel.splice(i, 1); renderSupPickBody(); }
@@ -22045,11 +22232,12 @@ function restoreFirebaseSnapshot(dateStr) {
       toast('このスナップショットは空のため復元できません。', 'warn'); return;
     }
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
-     'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+     'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
      'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
+    supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
     normTree(D.opeTree); normTree(D.cathTree); normTree(D.supTree);
     saveD();
     writeLog('Firebaseスナップショットから復元', dateStr);
@@ -22113,11 +22301,12 @@ function restoreAutoBackup(i) {
     if (!confirm('自動バックアップ（'+dt+' / '+s.label+'）から復元しますか？\n\n連絡表 '+pageCount+' ページ\n\n⚠️ 現在のデータが上書きされます。')) return;
     autoSaveSnapshot('自動復元前');
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
-     'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+     'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
      'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
+    supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
     saveD();
     if(FB_ON) writeLog('自動バックアップから復元', dt+' '+s.label);
     renderCal(); safeRenderPage();
@@ -22169,11 +22358,12 @@ function importBackup(file) {
       /* 復元キーはFirebaseスナップショット復元・自動バックアップ復元と必ず同一に保つこと。
          ここが短いと、バックアップファイルには入っているのに復元されない設定が出る。 */
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
-       'opeTree','cathTree','supTree','dutyCfgMaster','dutyCfg',
+       'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
        'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
+      supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
       saveD();
       if(FB_ON) writeLog('バックアップインポート', file.name);
       renderCal(); safeRenderPage();

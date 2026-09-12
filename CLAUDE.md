@@ -54,7 +54,8 @@ var D = {
   wd: {},           // weekday-specific checklist items { 月: [...], 火: [...], ... }
   lk: {},           // lock flags { duty: true, sm: true, ... }
   ope: [], cath: [], sup: [],          // procedure/supply type lists
-  opeTree: [], cathTree: [], supTree: [], // hierarchical masters
+  opeTree: [], cathTree: [], supTree: [], // hierarchical masters（supTree は旧・読むだけ。使用物品は下の supMaster）
+  supMaster: [],    // 使用物品マスタ [{kind:'タワー', items:[{n:'ウロタワー', depts:['泌尿器科'], all:true?}]}]。詳細は「OPE / カテカード」節
   dutyCfgMaster: [], dutyCfg: [],     // duty slot definitions
   opsCfg: [], oc: [],                 // ops config, on-call config
   shift: {}, evts: {},                // shift/event data
@@ -76,7 +77,7 @@ var D = {
   eduProgress: {},  // 教育到達度 { 氏名: { 項目key: {lv,by,ts,hist[],goalFy?} } }。詳細は下記「実績・教育到達度」節
   eduCfg: { ceEdu:false }, // オペ・カテ症例行に教育者欄を出すか（既定OFF）
   eduItems: { ward:[], device:[], hd:[] }, // 教育到達度6分類のうち病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
-  _migVer: 5        // data migration version flag (increment when running one-time migrations)
+  _migVer: 6        // data migration version flag (increment when running one-time migrations)
 };
 ```
 
@@ -468,9 +469,10 @@ All class names are abbreviated:
 | `mkCopyTel(id, which)` / `mkCopyMail(id)` / `mkFlashCopied(el)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック）。コピー成功時はトーストに加え、押したボタン自体のアイコンを`data-ic`属性の元絵文字から一瞬✓に変える（`mkFlashCopied`）。ボタンDOM idは`mk-tel-{id}-{1|2}` / `mk-mail-{id}`で固定 |
 | `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
 | `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
-| `supCatDepts(cat)` / `supDeptOptions()` / `supCatMatches(cat, dept)` / `supPickFiltering()` / `supPickDeptCount(dept)` | 種別の科タグの読み出し／タグ候補（術式マスタの科）／その科で出すか／絞り込むか（1件も残らない科では絞らない）／件数 |
-| `openSupDeptModal(di, ci)` / `renderSupDeptModalBody()` / `supDeptToggle(i)` / `saveSupDepts()` | 使用物品マスタで種別に「使う科」を付けるモーダル（`mst` 権限）。設置部署マスタ `openWdSubsModal` と同じ作り |
-| `openSupPickerModal(opts)` / `renderSupPickBody()` / `supPickTree()` / `supTriggerRowHTML(sup, locked)` | 使用物品を選ぶ中央ポップアップ（開く／中身を描く／マスタの正規化）と、症例行に置くトリガー行。詳細は上記「OPE / カテカード」節 |
+| `supDeptOptions()` / `supItemForDept(it, dept)` | 科の選択肢（術式マスタの科）／その品名をこの科の症例で先頭に出すか（全科を含む） |
+| `renderSupMaster()` / `openSupItemDeptModal(ki, ii)` / `saveSupItemDepts()` / `addSupKind()` / `addSupItem(ki)` | 使用物品マスタ（種類→品名）の編集と、品名ごとの「使う科／全科」のモーダル（`mst` 権限）。設置部署マスタ `openWdSubsModal` と同じ作り |
+| `openSupPickerModal(opts)` / `renderSupPickBody()` / `supTriggerRowHTML(sup, locked)` | 使用物品を選ぶ中央ポップアップ（開く／中身を描く）と、症例行に置くトリガー行。詳細は上記「OPE / カテカード」節 |
+| `supMasterOf()` / `supMasterForWrite()` / `supMasterSave(m)` / `supLegacyToMaster(tree, pages)` / `supMasterAfterRestore(data)` | 使用物品マスタの読み出しの唯一の入口／書き換え用／保存／旧 supTree からの移行／復元時の移行 |
 | `buildSupRow(ds, key, items, idx, locked, saveItems, renderItems)` / `supRowSig(it)` | 症例行の使用物品ブロック（ツリー版・フラット版共通）／決定時に読み直した配列から開いた行を探す印 |
 | `getFontScale()` / `setFontScale(v)` / `cycleFontScale()` / `applyFontScale()` / `uiZoom()` | 文字サイズ（小／標準／大／特大）。`--ui-zoom` と `data-fs` を書く。座標を測る側は `uiZoom()` で正規化する |
 | `getTheme()` / `setTheme(t)` / `cycleTheme()` / `effectiveTheme()` / `applyTheme()` | 表示テーマ（ライト／ダーク／端末設定）。`data-theme` には常に light/dark のどちらかを書く |
@@ -627,12 +629,16 @@ dat.placement = {
 - `opts` は `{title, dept, current, onApply}`。モーダルは配列だけを受け渡す。症例行の「🧰 使用物品」ブロックはツリー版・フラット版とも `buildSupRow(ds, key, items, idx, locked, saveItems, renderItems)` 1つで作る。`item.sup` は**文字列配列のまま**（集計・CSV・横断検索・`opsItemFilled` がこの形を読む）。読み出しは必ず `opsItemSup(it)` を経由（Firebaseの配列→オブジェクト化対策）
 - **「決定」で開いた時点の `items` を書き戻さないこと。** ポップアップは `body` 直下にあってページが再描画されても閉じないので、選んでいる間に他のスタッフが同じカードを編集していることがある。`buildSupRow` の `onApply` は `D.pages[ds].ops[key]` を読み直し、開いた行を `supRowSig(it)`（科・中カテゴリ・術式・入室時間）で探して `sup` だけを書き換える。行が見つからなければ反映せずに知らせる。終了時刻・担当者を印に含めないのは、他の人がその行の終了を押しただけで照合に失敗させないため
 - ロック中（`ops`）は「選ぶ」ボタン自体を押せなくしている。記録済みの品目は症例行に並んでいるので、ポップアップに閲覧専用の表示は持たせていない
-- **カテゴリ・種別・品名の名前を `onclick` に埋め込まないこと。必ず添字を渡す**（`supPickSetDept(di)` / `supPickSetCat(ci)` / `supPickToggleItem(ii)`）。品名にアポストロフィが入ると `onclick` 文字列が壊れる——スタッフ名・メーカー名で実際に踏んだ罠と同じ。描画と添字解決で同じ並びを使うため、種別の絞り込みは `supPickCats(dObj)` に集約してある（片方だけ filter すると添字がずれる）
-- マスタは `supPickTree()` が正規化する。`D.supTree` があればそれを、無ければフラットな `D.sup` を「カテゴリ無しの1グループ」として同じ形で返すので、`buildItemList`（フラット版）と `buildItemListTree` が同じモーダルを共有できる。各段の `normArr`（Firebaseの配列→オブジェクト化対策）と「名前の無い種別を除く」もここで1回だけ行う——描画・添字解決・件数の数え方が別々に filter すると、件数と表示がずれたり添字が別の種別を指したりする
-- **科での絞り込みは「種別（cat）に科タグを付ける」方式**。`D.supTree[di].cats[ci].depts = ['一般外科',...]`（**未設定＝全科共通**。空配列は持たせず、`saveSupDepts` がキーごと消す）。読み出しは必ず `supCatDepts(cat)` を経由（Firebaseの配列→オブジェクト化対策）。マスタを「科→物品カテゴリ→品名」に作り直す案は採らなかった——電気メスのような全科共通の物品を科の数だけ重複登録することになり、1つ名前を直すと全科分を直す羽目になるため
-- **絞った一覧は物品カテゴリが `supPickDepts()`、種別が `supPickCats(dObj)` で作り、絞るかどうかの判定は `supPickFiltering()` 1つが持つ。** 絞った一覧を描いて絞らない一覧で添字を引くと別の種別が選ばれる。`onclick` に渡すのは添字だけなので、**描画と添字解決は必ず同じ関数を通すこと**
-- **その科を明示的にタグに持つ種別が1件も無いときは絞らない**（`supPickFiltering()` が `supPickDeptCount(dept).tagged > 0` を見る。**未設定＝全科共通の種別は数えない**）。以前は「出る種別が1件以上あれば絞る」で、全科共通の種別が1件でもあると条件を満たしてしまい、タグの無い科でも他の科用の種別だけが消えて「絞っています」と出ていた。**この fallback を外さないこと**
-- タグの選択肢（`supDeptOptions()`）は**術式マスタ（`D.opeTree`/`D.cathTree`）の科をそのまま使う**。物品側に別の科名リストを持たせると表記ゆれで症例側と永久に噛み合わなくなる。症例の科は `opsItemDept(it)` 経由で渡すので、自由入力の科はどのタグにも一致せず全件表示になる
+- **マスタは `D.supMaster`（種類→品名の2段）。品名ごとに「使う科」（`depts`）か「全科」（`all:true`）を持つ。** 読み出しは必ず `supMasterOf()`（正規化済みの新しい配列を返す）、書き換えは `supMasterForWrite()` で取って `supMasterSave(m)` で保存（空の `depts`／`all:false` は保存しない）。以前の `D.supTree`（カテゴリ→種別→品名の3段）は**消さずに残してあるが、もう読まない**（`staffZone` と同じ方針）
+- **ポップアップの並び**：先頭の枠に「その症例の科の品名＋全科の品名」を**種類の順＋マスタの順**で、種類名の小見出し付きで並べる（`supItemForDept(it, dept)`）。残りは種類ごとの折りたたみ（既定は閉じる）。**先頭に出した品名は種類側に出さない**。症例の科が未選択、またはその科に紐づいた品名が1件も無いときは、種類の一覧を最初から開く。症例の科は `opsItemDept(it)` 経由で渡すので、自由入力の科は全科の品名だけが先頭に出る
+- **ポップアップは開いた時点のマスタを `ctx.master` に複製して持ち、`onclick` には（種類の添字, 品名の添字）だけを渡す**（`supPickToggleItem(ki, ii)`）。品名にアポストロフィが入ると `onclick` 文字列が壊れるため名前は埋め込まない。複製を持つのは、開いている間に同期でマスタが変わっても添字が別の品名を指さないようにするため
+- **科を「種別に付けるタグ」にしてマスタを科ごとに作り直す案、「種類→科→品名」の3段にする案は採らなかった**——電気メスのような共通物品やウロタワーのように複数科で使う物品を、科の数だけ重複登録することになる（旧マスタでは実際にウロタワーが4か所にあった）。品名に科を複数付ければ1か所で済み、名前を直すのも1回で済む
+- 科の選択肢（`supDeptOptions()`）は**術式マスタ（`D.opeTree`/`D.cathTree`）の科をそのまま使う**。物品側に別の科名リストを持たせると表記ゆれで症例側と永久に噛み合わなくなる
+- **品名は症例に「名前（文字列）」で記録されるので、マスタ内で同じ品名を2か所に置かせない**（`supFindItemName`）。名前を変えても過去の記録は元の名前のまま残る（集計では別の品名として数えられる）
+- 科の紐づけのモーダル（`openSupItemDeptModal(ki, ii)`）は、保存時に**添字ではなく品名で引き直す**。開いている間に他の管理者が並べ替え・削除していると、添字のままでは別の品名に保存してしまう
+- **移行（`_migVer` 6、`supLegacyToMaster(tree, pages)`）**：旧 supTree の1段目を種類に（`SUP_KIND_RENAME` で「モニタリング」は「その他」へ）、2段目が術式マスタの科名ならその下の品名にその科を付け、同じ種類の同名品は1つにまとめる。科名でない段（高周波手術器など）の品名は紐づけなしで種類の直下へ。さらに**過去の記録で「その科で `SUP_TAG_MIN_USES`（3）回以上」使われた組み合わせを補う**。種類は `SUP_KIND_ORDER`（タワー／オペセット／エネルギーデバイス／スコープ／その他）の順
+- **移行前の端末（`_migVer` < 6）だけ `supMasterOf()` が旧 supTree から作って見せる。** 移行後に種類を全部消したときに旧マスタが生き返らないよう、「空かどうか」ではなく `_migVer` で判定する（Firebaseは空配列を保存しないので区別できない）
+- **復元3経路は `supMasterAfterRestore(data)` を必ず呼ぶ。** 旧バックアップ（`supMaster` を持たない）から戻すと supTree だけが古くなるので、その場で新しい形へ移す（復元は `_migVer` を回し直さない）
 - **自由入力は氏名パターンの黄色警告では止めない**（`phiHasBlock` のブロック対象＝患者IDや姓名フル一致だけ弾く）。ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名はほとんどが氏名パターンに当たり（中心静脈カテーテル／生体情報モニタ／自己血回収装置／電気メス先端チップ／吸収糸…）、毎回警告を挟むとアラート疲れで本物の患者情報の警告まで読み飛ばされる。**`phiGuardText` にそのまま通す形へ戻さないこと**
 
 カテカード固定フィールド（`ops.` に保存）:
@@ -996,6 +1002,6 @@ Since everything is in one file, search for function names or CSS classes to loc
 - After mutating `D`, call `saveD()`.
 - For rendering, call the targeted function (e.g., `renderStfList()`) rather than `renderPage()` to avoid full re-renders.
 - `renderPage()` must sometimes be called **before** `saveD()` to avoid the Firebase echo overwriting the new UI state.
-- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **5** (v4: migrates auto-delete settings from per-PC `localStorage` keys `autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean` into `D.autoDelCfg`, applied in both `loadD()` and the Firebase `/data` listener. v5: migrates each page's `surplus`/`surplusStatus`/`hdStatus` fields into `dat.staffZone={ce,hd}` via `ensureStaffZone(pg)`, applied the same way in both locations — this migration is a convenience only, not the safety net; the legacy fields are never deleted, so `ensureStaffZone()` keeps absorbing them lazily on read even for pages the migration never touched, e.g. pages restored from a pre-v5 backup via `importBackup()`, which does not re-run `_migVer` gating).
+- For one-time data migrations: check `D._migVer`, run migration, increment `D._migVer`, call `saveD()`. Current `_migVer` is **6** (v6: builds `D.supMaster` from the legacy `D.supTree` via `supLegacyToMaster()` — see the OPE / カテカード section; restore paths call `supMasterAfterRestore(data)` instead because they don't re-run `_migVer`. v4: migrates auto-delete settings from per-PC `localStorage` keys `autoDelEnabled`/`autoDelPeriod`/`autoDelInterval`/`lastAutoClean` into `D.autoDelCfg`, applied in both `loadD()` and the Firebase `/data` listener. v5: migrates each page's `surplus`/`surplusStatus`/`hdStatus` fields into `dat.staffZone={ce,hd}` via `ensureStaffZone(pg)`, applied the same way in both locations — this migration is a convenience only, not the safety net; the legacy fields are never deleted, so `ensureStaffZone()` keeps absorbing them lazily on read even for pages the migration never touched, e.g. pages restored from a pre-v5 backup via `importBackup()`, which does not re-run `_migVer` gating).
 - Stale closure bug: closures that capture `dat` become stale after Firebase updates `D`. Always reference `D.pages[ds]` (live) inside async callbacks, not the closed-over `dat`.
 - When changing `currentUser.perms` (e.g., in `saveUserPerm`), call `updateTabVisibility()` if the change affects the currently logged-in user.
