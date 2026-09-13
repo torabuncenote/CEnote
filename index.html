@@ -10208,6 +10208,9 @@ function closeItems(ds) {
   /* 3b. 入室時間がOC・空欄のまま終了した症例（行の「⚠ 入室時間未入力」と同じ条件）。
      入室前の予定まで数えると一日中並び続けるので、終了済みだけを数える */
   [['ope', myOpe], ['cath', myCath]].forEach(function(p){
+    /* ⚠ を出すのはツリー版のカードだけ。マスタが空のときの予備（フラット版）の症例は数えない
+       ——数えると飛び先（.ops-time-warn）が無く、「→」も「▶次へ」も無反応になる */
+    if (!normArr(p[0] === 'ope' ? D.opeTree : D.cathTree).length) return;
     opsItemsOf(dat, p[0]).forEach(function(it){
       if (opsItemFilled(it) && it.done && !it.cancelled && opsItemTimeMissing(it))
         byKey.optime.items.push({mine: p[1] || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
@@ -14614,7 +14617,7 @@ function openOpsPickerModal(opts) {
     procChanged: false,
     tFree: it.time === '__free__', tH: tp.h, tM: tp.m, tTxt: it.timeTxt || '',
     roboList: roboLayouts(), robo: rb ? { id: rb.id, n: rb.n } : null,
-    origDept: curDept, scope: !!it.scope,
+    origDept: curDept, scope: !!it.scope, origScope: !!it.scope, freeTouched: false,
     /* 使用物品（ツリー版のオペだけ）。開いた時点の使用物品マスタを複製して持つ（添字を安定させるため） */
     withSup: !!opts.withSup, sup: opsItemSup(it).slice(), supOpen: !!opts.openSup,
     supMaster: opts.withSup ? supMasterOf() : [], supKindOpen: {},
@@ -14632,16 +14635,21 @@ function closeOpsPicker() {
   _opsPickCtx = null;
 }
 /* いまポップアップで選ばれている（決定したら入る）中カテゴリと術式名 */
+/* 自由入力は「入力欄に打ち込んだ・科を選び直した」（freeTouched）ときだけ新しい値とみなす。
+   開いただけの既存の自由入力行（中カテゴリの自由入力 catTxt を持つ行など）は元の値のまま扱う */
+function opsPickFreeActive(c) { return c.free && c.freeTouched && !!c.freeName.trim(); }
 function opsPickEff(c) {
-  if (c.free && c.freeName.trim()) return { cat: '', name: c.freeName.trim() };
+  if (opsPickFreeActive(c)) return { cat: '', name: c.freeName.trim() };
   if (c.procChanged && c.sel) return { cat: c.cat, name: c.sel };
   return { cat: c.origCat, name: c.origName };
 }
 function opsPickIsRobot(c) { var e = opsPickEff(c); return opsIsRobotText(e.cat) || opsIsRobotText(e.name); }
 function opsPickIsLap(c) { var e = opsPickEff(c); return c.kind === 'ope' && (opsIsLapText(e.cat) || opsIsLapText(e.name)); }
+/* スコープ欄を出すか：腹腔鏡下のオペ、または以前に🔭を付けた症例（腹腔鏡以外でも外せるように） */
+function opsPickShowScope(c) { return opsPickIsLap(c) || (c.kind === 'ope' && c.origScope); }
 /* 使用物品の並びに使う科（いま選んでいる術式の科。選び直すと先頭に出る物品も変わる） */
 function opsPickDept(c) {
-  if (c.free && c.freeName.trim()) return c.freeDept;
+  if (opsPickFreeActive(c)) return c.freeDept;
   if (c.procChanged && c.sel) return c.dept;
   return c.origDept;
 }
@@ -14674,7 +14682,7 @@ function renderOpsPickBody() {
     + (title ? escH(title) : '<span class="muted">まだ選ばれていません</span>')
     + (tml ? '<span class="ops-pick-time">⏱ ' + escH(tml) + '</span>' : '')
     + (robot && c.robo ? '<span class="ops-robo-chip">🤖 ' + escH(c.robo.n) + '</span>' : '')
-    + (opsPickIsLap(c) && c.scope ? '<span class="ops-scope-chip">🔭 スコープ</span>' : '')
+    + (opsPickShowScope(c) && c.scope ? '<span class="ops-scope-chip">🔭 スコープ</span>' : '')
     + (c.withSup && c.sup.length ? '<span class="ops-pick-time">🧰 ' + c.sup.length + '件</span>' : '')
     + '</div>';
 
@@ -14756,7 +14764,7 @@ function renderOpsPickBody() {
   }
 
   /* スコープ：腹腔鏡下のオペのときだけ（配置と同じ出し方） */
-  if (opsPickIsLap(c)) {
+  if (opsPickShowScope(c)) {
     h += '<div class="md-flbl" style="margin-top:14px">🔭 スコープ</div>'
       + '<div class="dc-cbs"><button type="button" class="dc-cb-item opk-chip' + (c.scope ? ' checked' : '') + '" onclick="opsPickScope()">'
       + (c.scope ? '🔭 スコープを依頼された' : '🔭 スコープを依頼された（押すと付く）') + '</button></div>';
@@ -14794,7 +14802,7 @@ function renderOpsPickBody() {
   var fi = document.getElementById('opk-free-name');
   if (fi) {
     fi.value = c.freeName;
-    fi.oninput = function(){ c.freeName = fi.value; c.free = !!fi.value.trim(); };
+    fi.oninput = function(){ c.freeName = fi.value; c.free = !!fi.value.trim(); c.freeTouched = true; };
     fi.onkeydown = function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); renderOpsPickBody(); } };
     fi.onblur = function(){ renderOpsPickBody(); };   /* 「一覧から選んだ」表示・配置欄を入力に合わせて出し直す */
   }
@@ -14821,6 +14829,7 @@ function opsPickFreeDept(i) {
   var c = _opsPickCtx; if (!c) return;
   var dn = opsPickFreeDepts(c)[i]; if (dn == null) return;
   c.freeDept = (c.freeDept === dn) ? '' : dn;
+  c.freeTouched = true;
   renderOpsPickBody();
 }
 function opsPickHour(i) {
@@ -14873,7 +14882,9 @@ function opsPickSupAddFree() {
 }
 function opsPickApply() {
   var c = _opsPickCtx; if (!c) return;
-  var freeName = c.free ? c.freeName.trim() : '';
+  /* 術式の項目を書くのは、選び直した（tree）か自由入力を触った（freeTouched）ときだけ。
+     開いて入室時間だけ直した行で書くと、中カテゴリの自由入力が消えたり旧形式の行が書き換わったりする */
+  var freeName = opsPickFreeActive(c) ? c.freeName.trim() : '';
   if (freeName) {
     /* 術式名を入れる欄なので、氏名パターンの警告（黄色）では止めない（使用物品の自由入力と同じ判断）。
        患者IDや生年月日といったブロック対象だけは弾く */
@@ -14901,7 +14912,7 @@ function opsPickApply() {
   }
   patch.robo = (opsPickIsRobot(c) && c.robo) ? { id: c.robo.id, n: c.robo.n } : null;
   /* スコープは腹腔鏡下のときだけ書く。腹腔鏡でない術式に選び直しても、以前の記録は消さない */
-  if (opsPickIsLap(c)) patch.scope = c.scope ? true : null;
+  if (opsPickShowScope(c)) patch.scope = c.scope ? true : null;
   if (c.withSup) patch.sup = c.sup.slice();
   var fn = c.onApply;
   /* 先に閉じてから書き戻す（onApply が renderItems() を呼ぶので、開いたままだと描画と競合する） */
@@ -18514,6 +18525,8 @@ function buildOPS(ds,dat,locked) {
           var legRow=document.createElement('div'); legRow.style.cssText='display:flex;gap:4px;align-items:center';
           var legSpan=document.createElement('span'); legSpan.style.cssText='flex:1;font-size:12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;color:var(--txt2)';
           legSpan.textContent='（旧）'+item.sel;
+          var legTm=withTime?opsItemTimeLabel(item):'';
+          if(legTm){ var legT=document.createElement('span'); legT.className='ops-pick-time'; legT.textContent='⏱ '+legTm; legRow.appendChild(legT); }
           var resetBtn=document.createElement('button'); resetBtn.type='button'; resetBtn.disabled=!!locked;
           resetBtn.style.cssText='font-size:11px;padding:3px 8px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap';
           resetBtn.textContent='再選択';
@@ -18529,7 +18542,9 @@ function buildOPS(ds,dat,locked) {
             +(locked?'':'<span class="ops-pick-edit">✏️</span>');
           if(!locked) pickBtn.onclick=openPick;
           hierDiv.appendChild(pickBtn);
-          /* 準備が要るもののチップを1行にまとめる：🤖 配置（押すと配置図）／🔭 スコープ／⚠ 入室時間未入力 */
+        }
+          /* 準備が要るもののチップを1行にまとめる：🤖 配置（押すと配置図）／🔭 スコープ／⚠ 入室時間未入力。
+             「（旧）」表示の行にも出す（⚠が無いと消し込みバーの「入室時間未入力」から飛べず、後から入れる入口も無い） */
           var roboRow=document.createElement('div'); roboRow.className='ops-robo-row';
           if(opsItemIsRobot(item)){
             var rbv=opsItemRobo(item);
@@ -18559,7 +18574,6 @@ function buildOPS(ds,dat,locked) {
             roboRow.appendChild(tWarn);
           }
           if(roboRow.childNodes.length) hierDiv.appendChild(roboRow);
-        }
 
         /* 順番プルダウン（カテのみ） */
         if(withOrder){
