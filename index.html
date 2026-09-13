@@ -591,7 +591,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .opk-cur{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px;font-weight:800;padding:8px 10px;border:1px solid var(--ac);background:var(--ac-bg);border-radius:var(--rs);margin:6px 0 12px;min-height:38px}
 .opk-cur .muted{font-weight:400;font-size:12px;color:var(--txt3)}
 .opk-chip{font-size:12px;padding:5px 11px}
-.opk-t{min-width:46px;justify-content:center}
+/* 入室時間の入力（端末標準の時刻入力）。スマホは押しやすく、PCは打ち込みやすいよう大きめにする */
+.opk-time-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.opk-time-in{flex:1 1 160px;min-width:0;max-width:260px;margin-bottom:0;font-size:20px;font-weight:700;padding:8px 10px;font-variant-numeric:tabular-nums;transition:opacity .15s}
+.opk-time-in.dim{opacity:.45}
+.opk-oc-col{display:flex;flex-direction:column;gap:6px}
+.opk-oc{min-width:64px;justify-content:center}
 .opk-dot{color:var(--ac);font-size:9px}
 .opk-free-on{border-color:var(--ac)}
 .opk-foot{position:sticky;bottom:-26px;margin:16px -26px -26px;padding:12px 26px;background:var(--sur);border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:8px;z-index:1}
@@ -5317,11 +5322,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/13-74';
+var APP_VERSION = 'Ver.2026/09/14-75';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/14-75', date:'2026-09-14', title:'入室時間を選びやすくしました', items:[
+    {t:'imp', d:'⏱ 術式のポップアップの入室時間を、端末の時刻入力（スマホは端末の時刻選択、PCは打ち込みや矢印キー）と「AMOC」「PMOC」の2ボタンにしました。時刻のボタンが並んでいた欄が小さくなります。終了時に出る「実際の入室時間は？」も同じ入力です'}
+  ]},
   { ver:'Ver.2026/09/13-74', date:'2026-09-13', title:'術式をポップアップで選べるようにしました', items:[
     {t:'imp', d:'🔪 オペの術式・カテの種別と入室時間を、使用物品と同じ画面中央のポップアップでまとめて選べるようにしました。科ごとに開いて選びます。連絡表には「腹腔鏡下胆嚢摘出術」のように1行で表示されます（カテは種別名だけ。入室時間の「今」ボタンはなくしました）'},
     {t:'new', d:'🤖 ロボット支援下の症例では、ポップアップで配置も選べるようにしました。連絡表の🤖チップを押すと配置図が見られます'},
@@ -14249,11 +14257,16 @@ function opsItemName(it){
    以前は buildOPS の内側にあったが、術式ポップアップ（openOpsPickerModal）からも使うので外に出した。 */
 var OPS_TIME_HOURS = ['8','9','10','11','12','13','14','15','16','AM','PM'];
 var OPS_TIME_MINS = ['00','05','10','15','20','25','30','35','40','45','50','55','OC'];
-/* 術式ポップアップのボタン用。AM・PM と OC は「AM / OC」と2回に分けて押させず、AMOC・PMOC の
+/* 術式ポップアップの OC ボタン。AM・PM と OC は「AM / OC」と2回に分けて押させず、AMOC・PMOC の
    1ボタンにする（保存値も 'AMOC'/'PMOC' で従来と同じ）。フラット版のセレクトは上の配列のまま */
-var OPS_PICK_HOURS = OPS_TIME_HOURS.filter(function(v){ return /^\d+$/.test(v); });
-var OPS_PICK_MINS = OPS_TIME_MINS.filter(function(v){ return v !== 'OC'; });
 var OPS_PICK_OC = ['AMOC', 'PMOC'];
+
+/* 入室時間の入力欄に入れる値（'HH:MM'）。時刻が数字のときだけ入れ、空欄・AMOC/PMOC は空にする。
+   <input type="time"> は 'H:MM' のような1桁の時を受け付けないので2桁にそろえる */
+function opsTimeInputVal(h, m) {
+  if (!/^\d+$/.test(h) || !/^\d+$/.test(m)) return '';
+  return ('0' + parseInt(h, 10)).slice(-2) + ':' + ('0' + parseInt(m, 10)).slice(-2);
+}
 function makeTimeHourOpts(selH) {
   var opts = '<option value="">--時</option>';
   OPS_TIME_HOURS.forEach(function(v) {
@@ -14339,12 +14352,14 @@ function openOpsTimeFixModal(opts) {
   ov.innerHTML = '<div class="md" style="max-width:380px"><h3>⏱ 実際の入室時間は？</h3>'
     + '<p>' + (opts.title ? '<b>' + escH(opts.title) + '</b><br>' : '')
     + '入室時間がOCか空欄のままです。所要時間を計算できるよう、実際の時刻を入れてください。</p>'
-    + '<input type="time" id="ops-timefix-in" class="fi" style="font-size:18px">'
+    + '<input type="time" step="300" id="ops-timefix-in" class="fi opk-time-in" style="max-width:none;width:100%">'
     + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
     + '<button type="button" class="btn btn-g" id="ops-timefix-later">後で入れる</button>'
     + '<button type="button" class="btn btn-p" id="ops-timefix-ok">記録する</button></div></div>';
   document.body.appendChild(ov);
-  var inp = document.getElementById('ops-timefix-in');
+  /* 終了した直後に聞くので、今の時刻（1分単位）を入れておく。「記録する」で入力値をそのまま保存する（丸めない） */
+  var inp = document.getElementById('ops-timefix-in'), now = new Date();
+  inp.value = opsTimeInputVal(String(now.getHours()), String(now.getMinutes()));
   document.getElementById('ops-timefix-later').onclick = function(){ close(); toast('⚠ 入室時間は未入力のままです（行の⚠から後で入れられます）', 'warn'); };
   document.getElementById('ops-timefix-ok').onclick = function(){
     var v = inp.value;   /* 'HH:MM' */
@@ -14353,7 +14368,6 @@ function openOpsTimeFixModal(opts) {
     close();
     opts.onApply(combineItemTime(String(parseInt(hm[0], 10)), hm[1]));
   };
-  setTimeout(function(){ if (inp) inp.focus(); }, 50);
 }
 
 /* ===== ロボット配置マスタ（D.roboLayouts = [{id, n, img, sz}]） =====
@@ -14615,8 +14629,7 @@ function openOpsPickerModal(opts) {
     origCat: opsItemCat(it), origName: opsItemName(it),
     free: free, freeOpen: free, freeDept: free ? curDept : '', freeName: free ? opsItemName(it) : '',
     procChanged: false,
-    tFree: it.time === '__free__', tH: tp.h, tM: tp.m, tTxt: it.timeTxt || '',
-    roboList: roboLayouts(), robo: rb ? { id: rb.id, n: rb.n } : null,
+    tFree: it.time === '__free__', tH: tp.h, tM: tp.m, tTxt: it.timeTxt || '',    roboList: roboLayouts(), robo: rb ? { id: rb.id, n: rb.n } : null,
     origDept: curDept, scope: !!it.scope, origScope: !!it.scope, freeTouched: false,
     /* 使用物品（ツリー版のオペだけ）。開いた時点の使用物品マスタを複製して持つ（添字を安定させるため） */
     withSup: !!opts.withSup, sup: opsItemSup(it).slice(), supOpen: !!opts.openSup,
@@ -14669,22 +14682,25 @@ function opsPickFreeDepts(c) {
   if (c.freeDept && a.indexOf(c.freeDept) === -1) a.push(c.freeDept);
   return a;
 }
+/* 上の「選択中」欄の中身。全体の描画と、リールを回したときの部分更新（opsPickRefreshTime）で共用する */
+function opsPickCurHTML(c) {
+  var e = opsPickEff(c), robot = opsPickIsRobot(c);
+  var title = opsItemTitle({ sel: e.name, cat: e.cat }, c.kind);
+  var tml = c.withTime ? opsPickTimeLabel(c) : '';
+  return (title ? escH(title) : '<span class="muted">まだ選ばれていません</span>')
+    + (tml ? '<span class="ops-pick-time">⏱ ' + escH(tml) + '</span>' : '')
+    + (robot && c.robo ? '<span class="ops-robo-chip">🤖 ' + escH(c.robo.n) + '</span>' : '')
+    + (opsPickShowScope(c) && c.scope ? '<span class="ops-scope-chip">🔭 スコープ</span>' : '')
+    + (c.withSup && c.sup.length ? '<span class="ops-pick-time">🧰 ' + c.sup.length + '件</span>' : '');
+}
 function renderOpsPickBody() {
   var c = _opsPickCtx; if (!c) return;
   var md = document.getElementById('ops-pick-md'); if (!md) return;
   var lbl = escH(c.labelName);
   var e = opsPickEff(c), robot = opsPickIsRobot(c);
-  var title = opsItemTitle({ sel: e.name, cat: e.cat }, c.kind);
-  var tml = c.withTime ? opsPickTimeLabel(c) : '';
 
   var h = '<h3>' + (c.kind === 'cath' ? '🫀 ' : '🔪 ') + lbl + 'を選ぶ</h3>';
-  h += '<div class="opk-cur">'
-    + (title ? escH(title) : '<span class="muted">まだ選ばれていません</span>')
-    + (tml ? '<span class="ops-pick-time">⏱ ' + escH(tml) + '</span>' : '')
-    + (robot && c.robo ? '<span class="ops-robo-chip">🤖 ' + escH(c.robo.n) + '</span>' : '')
-    + (opsPickShowScope(c) && c.scope ? '<span class="ops-scope-chip">🔭 スコープ</span>' : '')
-    + (c.withSup && c.sup.length ? '<span class="ops-pick-time">🧰 ' + c.sup.length + '件</span>' : '')
-    + '</div>';
+  h += '<div class="opk-cur" id="opk-cur">' + opsPickCurHTML(c) + '</div>';
 
   /* 科ごとの折りたたみ → 中カテゴリの小見出し → 術式ボタン */
   h += '<div class="md-flbl">' + lbl + '</div>';
@@ -14727,21 +14743,20 @@ function renderOpsPickBody() {
   }
   h += '</div>';
 
-  /* 入室時間：時をタップすると分が空なら 00 を入れる（ちょうどの時刻は1タップで済むように） */
+  /* 入室時間：端末標準の時刻入力（スマホは端末の時刻選択、PCは打ち込み・矢印キー）＋AMOC/PMOCボタン。
+     step="300" はPCの矢印キーを5分ずつにするためで、値は丸めない（スマホは端末がこの指定を無視する）。
+     一度自前のリールにしたが、PCのマウスでは回しにくいので端末標準に戻した */
   if (c.withTime) {
     h += '<div class="md-flbl" style="margin-top:14px">⏱ 入室時間</div>';
     if (!c.tFree) {
       var tCur = combineItemTime(c.tH, c.tM);
-      h += '<div class="dc-cbs">' + OPS_PICK_HOURS.map(function(v, i){
-        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (c.tH === v ? ' checked' : '') + '" onclick="opsPickHour(' + i + ')">' + v + '時</button>';
-      }).join('') + '</div>';
-      h += '<div class="dc-cbs">' + OPS_PICK_MINS.map(function(v, i){
-        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (/^\d+$/.test(c.tH) && c.tM === v ? ' checked' : '') + '" onclick="opsPickMin(' + i + ')">:' + v + '</button>';
-      }).join('') + '</div>';
-      h += '<div class="dc-cbs">' + OPS_PICK_OC.map(function(v, i){
-        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (tCur === v ? ' checked' : '') + '" onclick="opsPickOC(' + i + ')">' + v + '</button>';
-      }).join('') + '</div>';
-      h += '<div style="display:flex;gap:6px"><button type="button" class="btn btn-g btn-sm" onclick="opsPickTimeClear()">時間をクリア</button>'
+      h += '<div class="opk-time-row">'
+        + '<input type="time" step="300" id="opk-time-in" class="fi opk-time-in' + (opsPickTimeIsNum(c) ? '' : ' dim') + '" value="' + opsTimeInputVal(c.tH, c.tM) + '">'
+        + '<div class="opk-oc-col">' + OPS_PICK_OC.map(function(v, i){
+            return '<button type="button" class="dc-cb-item opk-chip opk-oc' + (tCur === v ? ' checked' : '') + '" data-v="' + v + '" onclick="opsPickOC(' + i + ')">' + v + '</button>';
+          }).join('') + '</div>'
+        + '</div>';
+      h += '<div style="display:flex;gap:6px;margin-top:8px"><button type="button" class="btn btn-g btn-sm" onclick="opsPickTimeClear()">時間をクリア</button>'
         + '<button type="button" class="btn btn-g btn-sm" onclick="opsPickTimeFree(true)">自由入力</button></div>';
     } else {
       h += '<div style="display:flex;gap:6px;align-items:center"><input id="opk-time-txt" class="fi" style="flex:1;margin-bottom:0" placeholder="時間を入力…" autocomplete="off">'
@@ -14808,6 +14823,15 @@ function renderOpsPickBody() {
   }
   var ti = document.getElementById('opk-time-txt');
   if (ti) { ti.value = c.tTxt; ti.oninput = function(){ c.tTxt = ti.value; }; }
+  /* 時刻入力：値が変わるたびに c.tH/c.tM を入れる（AMOC/PMOC は解除）。触らなければ既存の値
+     （7:07 など）はそのまま。全体を描き直すと入力中の端末のピッカーが閉じるので、上の欄だけ更新する */
+  var tin = document.getElementById('opk-time-in');
+  if (tin) tin.oninput = tin.onchange = function(){
+    var v = tin.value;   /* 'HH:MM' か ''（消したとき） */
+    if (!v) { c.tH = ''; c.tM = ''; }
+    else { var hm = v.split(':'); c.tH = String(parseInt(hm[0], 10)); c.tM = hm[1]; }
+    opsPickRefreshTime();
+  };
   var sfi = document.getElementById('opk-sup-free');
   if (sfi) sfi.onkeydown = function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); opsPickSupAddFree(); } };
   if (robot && c.robo) {
@@ -14832,20 +14856,17 @@ function opsPickFreeDept(i) {
   c.freeTouched = true;
   renderOpsPickBody();
 }
-function opsPickHour(i) {
+/* 入室時間が「時：分」の数字か（空欄・AMOC/PMOC・旧形式の 9:OC は false＝リールを薄く見せる） */
+function opsPickTimeIsNum(c) { return /^\d+$/.test(c.tH) && /^\d+$/.test(c.tM); }
+/* リールを回したときの部分更新：上の「選択中」欄・リールの濃淡・AMOC/PMOC の選択表示だけを直す */
+function opsPickRefreshTime() {
   var c = _opsPickCtx; if (!c) return;
-  var v = OPS_PICK_HOURS[i];
-  if (c.tH === v) { c.tH = ''; return renderOpsPickBody(); }
-  /* 分が空・OC（AMOC や旧形式の 9:OC から切り替えたとき）なら 00 を入れる */
-  c.tH = v; if (!c.tM || c.tM === 'OC') c.tM = '00';
-  renderOpsPickBody();
-}
-function opsPickMin(i) {
-  var c = _opsPickCtx; if (!c) return;
-  var v = OPS_PICK_MINS[i];
-  if (!/^\d+$/.test(c.tH)) c.tH = '';   /* AMOC/PMOC から分を押したら時を選び直してもらう */
-  c.tM = (c.tM === v) ? '' : v;
-  renderOpsPickBody();
+  var cur = document.getElementById('opk-cur'); if (cur) cur.innerHTML = opsPickCurHTML(c);
+  var tin = document.getElementById('opk-time-in'); if (tin) tin.classList.toggle('dim', !opsPickTimeIsNum(c));
+  var tCur = combineItemTime(c.tH, c.tM);
+  [].forEach.call(document.querySelectorAll('#ops-pick-md .opk-oc'), function(b){
+    b.classList.toggle('checked', tCur === b.getAttribute('data-v'));
+  });
 }
 function opsPickOC(i) {
   var c = _opsPickCtx; if (!c) return;
