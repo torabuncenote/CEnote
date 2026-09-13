@@ -591,16 +591,10 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .opk-cur{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px;font-weight:800;padding:8px 10px;border:1px solid var(--ac);background:var(--ac-bg);border-radius:var(--rs);margin:6px 0 12px;min-height:38px}
 .opk-cur .muted{font-weight:400;font-size:12px;color:var(--txt3)}
 .opk-chip{font-size:12px;padding:5px 11px}
-/* 時刻のリール（opsReelHTML）。行の高さ 34px は OPS_REEL_ROW と揃えること */
+/* 入室時間の入力（端末標準の時刻入力）。スマホは押しやすく、PCは打ち込みやすいよう大きめにする */
 .opk-time-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.opk-reel-box{position:relative;display:flex;align-items:center;gap:2px;padding:0 6px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);transition:opacity .15s}
-.opk-reel-box::before{content:'';position:absolute;left:4px;right:4px;top:34px;height:34px;border-top:1.5px solid var(--ac);border-bottom:1.5px solid var(--ac);background:var(--ac-bg);border-radius:6px;pointer-events:none}
-.opk-reel-box.dim{opacity:.45}
-.opk-reel{position:relative;z-index:1;height:102px;width:48px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-.opk-reel::-webkit-scrollbar{display:none}
-.opk-reel-pad{height:34px}
-.opk-reel-it{height:34px;line-height:34px;text-align:center;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;scroll-snap-align:center;cursor:pointer;color:var(--txt);user-select:none;-webkit-user-select:none}
-.opk-reel-sep{position:relative;z-index:1;font-size:18px;font-weight:800;color:var(--txt2)}
+.opk-time-in{flex:1 1 160px;min-width:0;max-width:260px;margin-bottom:0;font-size:20px;font-weight:700;padding:8px 10px;font-variant-numeric:tabular-nums;transition:opacity .15s}
+.opk-time-in.dim{opacity:.45}
 .opk-oc-col{display:flex;flex-direction:column;gap:6px}
 .opk-oc{min-width:64px;justify-content:center}
 .opk-dot{color:var(--ac);font-size:9px}
@@ -5333,8 +5327,8 @@ var APP_VERSION = 'Ver.2026/09/14-75';
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/09/14-75', date:'2026-09-14', title:'入室時間をリールで選べるようにしました', items:[
-    {t:'imp', d:'⏱ 術式のポップアップの入室時間を、指で回すリール（時・分の2列、5分刻み）と「AMOC」「PMOC」の2ボタンにしました。時刻のボタンが並んでいた欄が小さくなります。終了時に出る「実際の入室時間は？」も同じリールになりました'}
+  { ver:'Ver.2026/09/14-75', date:'2026-09-14', title:'入室時間を選びやすくしました', items:[
+    {t:'imp', d:'⏱ 術式のポップアップの入室時間を、端末の時刻入力（スマホは端末の時刻選択、PCは打ち込みや矢印キー）と「AMOC」「PMOC」の2ボタンにしました。時刻のボタンが並んでいた欄が小さくなります。終了時に出る「実際の入室時間は？」も同じ入力です'}
   ]},
   { ver:'Ver.2026/09/13-74', date:'2026-09-13', title:'術式をポップアップで選べるようにしました', items:[
     {t:'imp', d:'🔪 オペの術式・カテの種別と入室時間を、使用物品と同じ画面中央のポップアップでまとめて選べるようにしました。科ごとに開いて選びます。連絡表には「腹腔鏡下胆嚢摘出術」のように1行で表示されます（カテは種別名だけ。入室時間の「今」ボタンはなくしました）'},
@@ -14267,49 +14261,11 @@ var OPS_TIME_MINS = ['00','05','10','15','20','25','30','35','40','45','50','55'
    1ボタンにする（保存値も 'AMOC'/'PMOC' で従来と同じ）。フラット版のセレクトは上の配列のまま */
 var OPS_PICK_OC = ['AMOC', 'PMOC'];
 
-/* ===== 時刻のリール（指で回して選ぶドラム） =====
-   術式ポップアップの入室時間と「実際の入室時間は？」で共用する。時・分ボタンを並べると3段になり
-   ポップアップで一番場所を取っていたため、2列のリールにまとめた。CSS のスクロール吸着（scroll-snap）で
-   1行ずつ止め、止まった位置の値を onPick へ渡す。位置はすべて要素内の px で計算するので、
-   文字サイズ（--ui-zoom）の拡大の中でも uiZoom() で割らない（CLAUDE.md の文字サイズ節）。 */
-var OPS_REEL_H = (function(){ var a = []; for (var i = 0; i < 24; i++) a.push(String(i)); return a; })();
-var OPS_REEL_M = ['00','05','10','15','20','25','30','35','40','45','50','55'];
-var OPS_REEL_ROW = 34;   /* 1行の高さ(px)。CSS の .opk-reel-it / .opk-reel-pad と揃えること */
-/* 時刻（h, m の文字列）→ リールに見せる位置（添字）。数字でなければ既定位置。
-   5分刻みでない分（7:07 など）は近い位置に見せるだけで、値そのものは触られるまで変えない */
-function opsReelIdx(h, m, defH) {
-  var hi = /^\d+$/.test(h) ? Math.min(23, parseInt(h, 10)) : defH;
-  var mi = /^\d+$/.test(m) ? Math.min(11, Math.round(parseInt(m, 10) / 5)) : 0;
-  return { h: hi, m: mi };
-}
-function opsReelHTML(id, values, unit) {
-  return '<div class="opk-reel" id="' + id + '"><div class="opk-reel-pad"></div>'
-    + values.map(function(v, i){ return '<div class="opk-reel-it" data-i="' + i + '">' + v + (unit || '') + '</div>'; }).join('')
-    + '<div class="opk-reel-pad"></div></div>';
-}
-/* cur：最初に中央へ置く添字。onPick(添字) は「指で回して止めた／押した」ときだけ呼ぶ——描画直後の
-   位置合わせでも scroll イベントは出るので、触ったかどうか（touched）で区別する。
-   開いただけで時刻が入ってしまうと、空欄の症例に勝手に 9:00 が保存される */
-function opsReelBind(el, cur, onPick) {
-  if (!el) return;
-  el.scrollTop = cur * OPS_REEL_ROW;
-  var n = el.querySelectorAll('.opk-reel-it').length, t = null, touched = false;
-  ['touchstart', 'pointerdown', 'wheel', 'keydown'].forEach(function(ev){
-    el.addEventListener(ev, function(){ touched = true; }, { passive: true });
-  });
-  el.addEventListener('scroll', function(){
-    if (!touched) return;
-    clearTimeout(t);
-    t = setTimeout(function(){
-      onPick(Math.max(0, Math.min(n - 1, Math.round(el.scrollTop / OPS_REEL_ROW))));
-    }, 120);
-  });
-  el.addEventListener('click', function(e){
-    var it = e.target.closest('.opk-reel-it'); if (!it) return;
-    var i = +it.getAttribute('data-i');
-    el.scrollTo({ top: i * OPS_REEL_ROW, behavior: 'smooth' });
-    onPick(i);   /* 中央の項目を押したときはスクロールが起きないので、押した時点で確定する */
-  });
+/* 入室時間の入力欄に入れる値（'HH:MM'）。時刻が数字のときだけ入れ、空欄・AMOC/PMOC は空にする。
+   <input type="time"> は 'H:MM' のような1桁の時を受け付けないので2桁にそろえる */
+function opsTimeInputVal(h, m) {
+  if (!/^\d+$/.test(h) || !/^\d+$/.test(m)) return '';
+  return ('0' + parseInt(h, 10)).slice(-2) + ':' + ('0' + parseInt(m, 10)).slice(-2);
 }
 function makeTimeHourOpts(selH) {
   var opts = '<option value="">--時</option>';
@@ -14396,23 +14352,21 @@ function openOpsTimeFixModal(opts) {
   ov.innerHTML = '<div class="md" style="max-width:380px"><h3>⏱ 実際の入室時間は？</h3>'
     + '<p>' + (opts.title ? '<b>' + escH(opts.title) + '</b><br>' : '')
     + '入室時間がOCか空欄のままです。所要時間を計算できるよう、実際の時刻を入れてください。</p>'
-    + '<div class="opk-time-row" style="justify-content:center"><div class="opk-reel-box">'
-    + opsReelHTML('ops-timefix-h', OPS_REEL_H, '') + '<span class="opk-reel-sep">:</span>' + opsReelHTML('ops-timefix-m', OPS_REEL_M, '')
-    + '</div></div>'
+    + '<input type="time" step="300" id="ops-timefix-in" class="fi opk-time-in" style="max-width:none;width:100%">'
     + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
     + '<button type="button" class="btn btn-g" id="ops-timefix-later">後で入れる</button>'
     + '<button type="button" class="btn btn-p" id="ops-timefix-ok">記録する</button></div></div>';
   document.body.appendChild(ov);
-  /* 終了した直後に聞くので、今の時刻（5分単位に丸め）から始める。「記録する」でリールの値をそのまま入れる */
-  var now = new Date(), nm = Math.round(now.getMinutes() / 5), nh = now.getHours();
-  if (nm === 12) { nm = 0; nh = Math.min(23, nh + 1); }
-  var rh = nh, rm = nm;
-  opsReelBind(document.getElementById('ops-timefix-h'), rh, function(i){ rh = i; });
-  opsReelBind(document.getElementById('ops-timefix-m'), rm, function(i){ rm = i; });
+  /* 終了した直後に聞くので、今の時刻（1分単位）を入れておく。「記録する」で入力値をそのまま保存する（丸めない） */
+  var inp = document.getElementById('ops-timefix-in'), now = new Date();
+  inp.value = opsTimeInputVal(String(now.getHours()), String(now.getMinutes()));
   document.getElementById('ops-timefix-later').onclick = function(){ close(); toast('⚠ 入室時間は未入力のままです（行の⚠から後で入れられます）', 'warn'); };
   document.getElementById('ops-timefix-ok').onclick = function(){
+    var v = inp.value;   /* 'HH:MM' */
+    if (!v) { inp.focus(); return; }
+    var hm = v.split(':');
     close();
-    opts.onApply(combineItemTime(OPS_REEL_H[rh], OPS_REEL_M[rm]));
+    opts.onApply(combineItemTime(String(parseInt(hm[0], 10)), hm[1]));
   };
 }
 
@@ -14675,10 +14629,7 @@ function openOpsPickerModal(opts) {
     origCat: opsItemCat(it), origName: opsItemName(it),
     free: free, freeOpen: free, freeDept: free ? curDept : '', freeName: free ? opsItemName(it) : '',
     procChanged: false,
-    tFree: it.time === '__free__', tH: tp.h, tM: tp.m, tTxt: it.timeTxt || '',
-    /* リールに見せている位置（添字）。空欄・AMOC/PMOC のときは 9 時あたりを見せる */
-    reelH: opsReelIdx(tp.h, tp.m, 9).h, reelM: opsReelIdx(tp.h, tp.m, 9).m,
-    roboList: roboLayouts(), robo: rb ? { id: rb.id, n: rb.n } : null,
+    tFree: it.time === '__free__', tH: tp.h, tM: tp.m, tTxt: it.timeTxt || '',    roboList: roboLayouts(), robo: rb ? { id: rb.id, n: rb.n } : null,
     origDept: curDept, scope: !!it.scope, origScope: !!it.scope, freeTouched: false,
     /* 使用物品（ツリー版のオペだけ）。開いた時点の使用物品マスタを複製して持つ（添字を安定させるため） */
     withSup: !!opts.withSup, sup: opsItemSup(it).slice(), supOpen: !!opts.openSup,
@@ -14792,16 +14743,15 @@ function renderOpsPickBody() {
   }
   h += '</div>';
 
-  /* 入室時間：時・分2列のリール＋AMOC/PMOCボタン。リールは回すか押すまで時刻を入れない
-     （空欄の症例は薄く表示し、開いただけで 9:00 が保存されないようにする） */
+  /* 入室時間：端末標準の時刻入力（スマホは端末の時刻選択、PCは打ち込み・矢印キー）＋AMOC/PMOCボタン。
+     step="300" はPCの矢印キーを5分ずつにするためで、値は丸めない（スマホは端末がこの指定を無視する）。
+     一度自前のリールにしたが、PCのマウスでは回しにくいので端末標準に戻した */
   if (c.withTime) {
     h += '<div class="md-flbl" style="margin-top:14px">⏱ 入室時間</div>';
     if (!c.tFree) {
       var tCur = combineItemTime(c.tH, c.tM);
       h += '<div class="opk-time-row">'
-        + '<div class="opk-reel-box' + (opsPickTimeIsNum(c) ? '' : ' dim') + '" id="opk-reel-box">'
-        + opsReelHTML('opk-reel-h', OPS_REEL_H, '') + '<span class="opk-reel-sep">:</span>' + opsReelHTML('opk-reel-m', OPS_REEL_M, '')
-        + '</div>'
+        + '<input type="time" step="300" id="opk-time-in" class="fi opk-time-in' + (opsPickTimeIsNum(c) ? '' : ' dim') + '" value="' + opsTimeInputVal(c.tH, c.tM) + '">'
         + '<div class="opk-oc-col">' + OPS_PICK_OC.map(function(v, i){
             return '<button type="button" class="dc-cb-item opk-chip opk-oc' + (tCur === v ? ' checked' : '') + '" data-v="' + v + '" onclick="opsPickOC(' + i + ')">' + v + '</button>';
           }).join('') + '</div>'
@@ -14873,14 +14823,15 @@ function renderOpsPickBody() {
   }
   var ti = document.getElementById('opk-time-txt');
   if (ti) { ti.value = c.tTxt; ti.oninput = function(){ c.tTxt = ti.value; }; }
-  /* リール：回して止めた時点で、見えている「時：分」をそのまま入室時間にする（AMOC/PMOC は解除）。
-     回すたびにポップアップ全体を描き直すと回している途中の位置が飛ぶので、上の欄だけ更新する */
-  var reelSet = function(){
-    c.tH = OPS_REEL_H[c.reelH]; c.tM = OPS_REEL_M[c.reelM];
+  /* 時刻入力：値が変わるたびに c.tH/c.tM を入れる（AMOC/PMOC は解除）。触らなければ既存の値
+     （7:07 など）はそのまま。全体を描き直すと入力中の端末のピッカーが閉じるので、上の欄だけ更新する */
+  var tin = document.getElementById('opk-time-in');
+  if (tin) tin.oninput = tin.onchange = function(){
+    var v = tin.value;   /* 'HH:MM' か ''（消したとき） */
+    if (!v) { c.tH = ''; c.tM = ''; }
+    else { var hm = v.split(':'); c.tH = String(parseInt(hm[0], 10)); c.tM = hm[1]; }
     opsPickRefreshTime();
   };
-  opsReelBind(document.getElementById('opk-reel-h'), c.reelH, function(i){ c.reelH = i; reelSet(); });
-  opsReelBind(document.getElementById('opk-reel-m'), c.reelM, function(i){ c.reelM = i; reelSet(); });
   var sfi = document.getElementById('opk-sup-free');
   if (sfi) sfi.onkeydown = function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); opsPickSupAddFree(); } };
   if (robot && c.robo) {
@@ -14911,7 +14862,7 @@ function opsPickTimeIsNum(c) { return /^\d+$/.test(c.tH) && /^\d+$/.test(c.tM); 
 function opsPickRefreshTime() {
   var c = _opsPickCtx; if (!c) return;
   var cur = document.getElementById('opk-cur'); if (cur) cur.innerHTML = opsPickCurHTML(c);
-  var box = document.getElementById('opk-reel-box'); if (box) box.classList.toggle('dim', !opsPickTimeIsNum(c));
+  var tin = document.getElementById('opk-time-in'); if (tin) tin.classList.toggle('dim', !opsPickTimeIsNum(c));
   var tCur = combineItemTime(c.tH, c.tM);
   [].forEach.call(document.querySelectorAll('#ops-pick-md .opk-oc'), function(b){
     b.classList.toggle('checked', tCur === b.getAttribute('data-v'));
