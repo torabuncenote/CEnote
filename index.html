@@ -235,7 +235,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
   #month-size{display:none!important}
 }
 @media(max-width:1024px){
-  .btn-nm-text,.btn-gm-text{display:none}
+  .btn-gm-text{display:none}
   /* 主観・テーマ・文字サイズはスマホと同じくアイコンだけにする。ここまで畳むと
      タブレットでもボタン列を横スクロールせずに全部が並ぶ */
   .mt-text{display:none}
@@ -568,6 +568,30 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .sup-pick-kind-bd{padding:0 10px 2px}
 .sup-pick-arrow{display:inline-block;font-size:9px;transition:transform .15s;color:var(--txt3)}
 .sup-pick-arrow.open{transform:rotate(90deg)}
+/* 症例行の術式（ポップアップで選ぶ）。科は出さず「⏱ 9:00 腹腔鏡下胆嚢摘出術」の1行だけ */
+.ops-pick-btn{display:flex;align-items:center;gap:8px;width:100%;min-width:0;text-align:left;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt);padding:7px 10px;font-size:13px;font-family:var(--fn);cursor:pointer}
+.ops-pick-btn:disabled{cursor:default}
+@media (hover:hover){.ops-pick-btn:not(:disabled):hover{border-color:var(--ac)}}
+.ops-pick-title{flex:1;min-width:0;font-weight:700;overflow-wrap:anywhere}
+.ops-pick-ph{flex:1;color:var(--ac);font-weight:700}
+.ops-pick-time{flex-shrink:0;font-size:11px;font-weight:700;color:var(--txt2);background:var(--sur);border:1px solid var(--bdr);border-radius:10px;padding:1px 7px;white-space:nowrap}
+.ops-pick-edit{flex-shrink:0;font-size:11px;opacity:.6}
+.ops-robo-row{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
+.ops-robo-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--pu);background:var(--pu-bg);border:1.5px solid var(--pu);border-radius:14px;padding:3px 10px;cursor:pointer;font-family:var(--fn);white-space:nowrap}
+.ops-robo-add{font-size:11px;font-weight:700;color:var(--pu);background:none;border:1.5px dashed var(--pu);border-radius:14px;padding:3px 10px;cursor:pointer;font-family:var(--fn)}
+/* 術式ポップアップ（openOpsPickerModal） */
+.ops-pick-md{max-width:560px}
+.opk-cur{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:14px;font-weight:800;padding:8px 10px;border:1px solid var(--ac);background:var(--ac-bg);border-radius:var(--rs);margin:6px 0 12px;min-height:38px}
+.opk-cur .muted{font-weight:400;font-size:12px;color:var(--txt3)}
+.opk-chip{font-size:12px;padding:5px 11px}
+.opk-t{min-width:46px;justify-content:center}
+.opk-dot{color:var(--ac);font-size:9px}
+.opk-free-on{border-color:var(--ac)}
+.opk-foot{position:sticky;bottom:-26px;margin:16px -26px -26px;padding:12px 26px;background:var(--sur);border-top:1px solid var(--bdr);display:flex;justify-content:flex-end;gap:8px;z-index:1}
+/* 配置図 */
+.robo-img-box{margin-top:8px}
+.robo-img{display:block;max-width:100%;max-height:calc(70vh / var(--ui-zoom,1));margin:0 auto;border:1px solid var(--bdr);border-radius:var(--rs);background:#fff}
+.robo-ms-img{font-size:10px;border:1px solid var(--pu);color:var(--pu);background:var(--pu-bg);border-radius:10px;padding:0 6px;cursor:pointer;font-family:var(--fn)}
 .sup-ms-n{font-size:10px;font-weight:400;color:var(--txt3)}
 .tree-item .sup-ms-tag{flex:none;font-size:10px;color:var(--ac);background:var(--ac-bg);border-radius:8px;padding:0 6px;margin-left:4px;white-space:nowrap}
 .sup-ms-btn{background:none;border:none;color:var(--ac);cursor:pointer;font-size:11px;padding:0 3px;font-family:var(--fn)}
@@ -931,9 +955,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   /* 狭い画面ではアプリ名を隠し、操作ボタンを優先（本文冒頭に日付付きタイトルがあるため情報は失われない） */
   .tb-logo{display:none}
   .tb-btns{gap:4px;margin-left:auto}
-  .tb-btns .btn{font-size:11px;padding:5px 8px}
-  .btn-nm-text{display:none}
-  .btn-gm-text{display:none}
+  .tb-btns .btn{font-size:11px;padding:5px 8px}  .btn-gm-text{display:none}
   .btn-at-text{display:none}
   .mt-text{display:none}
   .pend-txt{display:none}
@@ -1017,7 +1039,8 @@ body.is-offline{--off-h:24px}
 .btn-logout{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--bdr2);background:var(--sur2);color:var(--txt2);cursor:pointer;font-family:var(--fn)}
 .btn-logout:hover{background:var(--rd-bg);border-color:var(--rd);color:var(--rd)}
 /* ===== MEMO POSTS ===== */
-.memo-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;max-height:360px;overflow-y:auto}
+/* 件数ぶん縦に伸ばす（高さを決めて中でスクロールさせると、見切れて量が把握できない） */
+.memo-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
 .memo-mention-popup{position:absolute;background:var(--sur);border:1.5px solid var(--ac);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.15);z-index:500;max-height:180px;overflow-y:auto;min-width:140px}
 .memo-mention-item{padding:7px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
 .memo-mention-item:hover,.memo-mention-item.active{background:var(--ac-bg);color:var(--ac)}
@@ -1518,7 +1541,6 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <button class="btn btn-g btn-sm" id="theme-toggle" onclick="cycleTheme()" title="表示テーマ">☀️<span class="mt-text"> ライト</span></button>
     <button class="btn btn-g btn-sm" id="fs-toggle" onclick="cycleFontScale()" title="文字サイズ">🔠<span class="mt-text"> 標準</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索">🔍</button>
-    <button class="btn btn-g btn-sm" onclick="openNM()">＋<span class="btn-nm-text"> 1日追加</span></button>
     <button class="btn btn-p btn-sm" onclick="openGM()">📅<span class="btn-gm-text"> 1ヶ月生成</span></button>
   </div>
   <div class="sd" id="sync-dot"></div>
@@ -1697,6 +1719,15 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
               <div class="tree-add-row" style="margin-top:6px">
                 <input type="text" id="in-sup-kind" placeholder="＋ 新しい種類を追加…" onkeydown="if(event.key==='Enter'){event.preventDefault();addSupKind();}">
                 <button onclick="addSupKind()">種類を追加</button>
+              </div>
+            </div>
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">🤖 ロボット配置マスタ</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">中カテゴリ名に「ロボット」を含む術式で、症例ごとに配置を選べます。📷から配置図（パワポを画像で書き出したもの）を登録できます。<b>病院名・ロゴ・患者さんの情報が写っていないか確認してから登録してください。</b></div>
+              <div id="robo-master-list"></div>
+              <div class="tree-add-row" style="margin-top:6px">
+                <input type="text" id="in-robo" placeholder="＋ 配置名を追加…" onkeydown="if(event.key==='Enter'){event.preventDefault();addRoboLayout();}">
+                <button onclick="addRoboLayout()">配置を追加</button>
               </div>
             </div>
             <div data-perm="mst" data-mode="hd">
@@ -2581,6 +2612,7 @@ var LATEST_DB_RULES = [
 '        }',
 '      }',
 '    },',
+'    "robotImg":      { ".read": "auth != null", "$id": { ".write": "auth != null" } },',
 '    "backups":       { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "backup_meta":   { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "recent_backup": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", ".write": "auth != null" },',
@@ -2690,7 +2722,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[]};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -2931,6 +2963,7 @@ function loadD() {
     D.eduProgress = s.eduProgress || {};
     D.eduCfg = s.eduCfg || {ceEdu:false};
     D.eduItems = s.eduItems || {ward:[],device:[],hd:[]};
+    D.roboLayouts = s.roboLayouts || [];
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -3054,7 +3087,8 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[];
+        _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
         showEmpty();
@@ -3239,6 +3273,7 @@ function fbInit() {
             D.eduProgress = d.eduProgress || {};
             D.eduCfg = d.eduCfg || {ceEdu:false};
             D.eduItems = d.eduItems || {ward:[],device:[],hd:[]};
+            D.roboLayouts = d.roboLayouts || [];
             /* このバージョンが知らない項目（新しいバージョンが足したもの）も消さずに持ち回る。
                保存は D 全体の上書きなので、ここで拾わないと1つ前のアプリが保存した瞬間にその項目が消える */
             Object.keys(d).forEach(function(k){
@@ -3921,7 +3956,9 @@ function renderStorageUsage() {
   var boardBytes = calcBytes(_boardData);
   var tasksBytes = calcBytes(_tasksData);
   var taskMemosBytes = calcBytes(_memosData); /* 自分（ログイン中）の分だけ。ルール上他ユーザー分は読めない */
-  var dbTotal = dataBytes + boardBytes + tasksBytes + taskMemosBytes;
+  /* ロボット配置図（/robotImg）。図そのものは読まず、登録時に控えたサイズ（D.roboLayouts の sz）を足す */
+  var roboImgBytes = roboLayouts().reduce(function(s, r){ return s + (r.img ? r.sz : 0); }, 0);
+  var dbTotal = dataBytes + boardBytes + tasksBytes + taskMemosBytes + roboImgBytes;
   /* 後から入る /logs・/backups と足し合わせて総量を出すために控えておく */
   _storageDbBase = dbTotal; _storageLogsBytes = -1; _storageBackupEst = -1;
 
@@ -3947,7 +3984,8 @@ function renderStorageUsage() {
     { name: '📅 /data', sz: dataBytes },
     { name: '📢 /board', sz: boardBytes },
     { name: '📋 /tasks', sz: tasksBytes },
-    { name: '🔒 /taskMemos（自分の分のみ）', sz: taskMemosBytes }
+    { name: '🔒 /taskMemos（自分の分のみ）', sz: taskMemosBytes },
+    { name: '🤖 /robotImg（配置図）', sz: roboImgBytes }
   ];
   pathParts.forEach(function(p) {
     var ipct = dbTotal ? (p.sz / dbTotal * 100) : 0;
@@ -4614,7 +4652,7 @@ function renderManual() {
   S += '<div class="mn-p">カレンダーの日付をクリック（タップ）するだけです。🔴や🔵のドットがついている日に連絡表があります。</div>';
   S += h2('連絡表を新しく作る（管理者のみ）');
   S += h3('1日だけ作る');
-  S += step(1,'ヘッダーの「＋」ボタンをクリック','PC：「＋ 1日追加」　スマホ：「＋」と表示されます。');
+  S += step(1,'カレンダーで連絡表の無い日をクリック（タップ）','1日追加の画面がその日付入りで開きます。');
   S += step(2,'日付を選んで「追加」をクリック','');
   S += h3('1ヶ月分まとめて作る（月初の作業）');
   S += step(1,'ヘッダーの「📅」ボタンをクリック','PC：「📅 1ヶ月生成」　スマホ：「📅」と表示されます。');
@@ -5272,11 +5310,19 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/13-73';
+var APP_VERSION = 'Ver.2026/09/13-74';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/13-74', date:'2026-09-13', title:'術式をポップアップで選べるようにしました', items:[
+    {t:'imp', d:'🔪 オペの術式・カテの種別と入室時間を、使用物品と同じ画面中央のポップアップでまとめて選べるようにしました。科ごとに開いて選びます。連絡表には「腹腔鏡下胆嚢摘出術」のように1行で表示されます（カテは種別名だけ。入室時間の「今」ボタンはなくしました）'},
+    {t:'new', d:'🤖 ロボット支援下の症例では、ポップアップで配置も選べるようにしました。連絡表の🤖チップを押すと配置図が見られます'},
+    {t:'new', d:'🤖 業務マスタに「ロボット配置マスタ」を追加しました。配置名と配置図（パワポを書き出した画像）を登録できます', admin:true},
+    {t:'imp', d:'📊 CE集計の明細とCSVに「配置」列を追加しました'},
+    {t:'imp', d:'📝 業務連絡・申し送りの欄が、件数に合わせて縦に伸びるようになりました（欄の中でスクロールしなくても全部見えます）'},
+    {t:'imp', d:'画面上部の「＋ 1日追加」ボタンをなくしました。1日だけ作るときは、カレンダーで連絡表の無い日を押してください', admin:true}
+  ]},
   { ver:'Ver.2026/09/13-73', date:'2026-09-13', title:'使用物品マスタを、物品マスタ（旧）から作り直せるようにしました', items:[
     {t:'new', d:'🧰 使用物品マスタが空になってしまったとき、業務マスタ画面に「📦 物品マスタ（旧）から作り直す」ボタンが出るようにしました。旧マスタは削除せず残しているので、バックアップを探さなくてもその場で作り直せます（移行後に使用物品マスタだけへ加えた変更は戻りません）', admin:true}
   ]},
@@ -7440,7 +7486,7 @@ function opsDetailRows() {
         out.push({
           ds: ds, kind: kind, dept: dept, cat: opsItemCat(it), name: name,
           startMin: startMin, endMin: endMin, dur: dur,
-          staff: opsItemStaff(it), sup: opsItemSup(it), done: !!it.done,
+          staff: opsItemStaff(it), sup: opsItemSup(it), robo: (opsItemRobo(it) || {}).n || '', done: !!it.done,
           emergency: !!it.emergency, scope: !!it.scope, cancelled: !!it.cancelled
         });
       });
@@ -7637,6 +7683,7 @@ function renderOpsDetailBody(allRows) {
       + '<td class="num">'+(r.dur!=null?opsDurLabel(r.dur):'<span class="muted">—</span>')+'</td>'
       + '<td>'+(r.staff.length?escH(r.staff.join('・')):'<span class="muted">—</span>')+'</td>'
       + '<td>'+opsSupLabel(r.sup)+'</td>'
+      + '<td>'+(r.robo?'🤖 '+escH(r.robo):'<span class="muted">—</span>')+'</td>'
       + '<td class="num">'+opsTagLabel(r)+'</td>'
       + '<td class="num">'+(r.done?'<span class="status-pill done">済</span>':'<span class="muted">—</span>')+'</td>'
       + '</tr>';
@@ -7653,6 +7700,7 @@ function renderOpsDetailBody(allRows) {
     endMin:   function(r){ return r.endMin; },
     dur:      function(r){ return r.dur; },
     staff:    function(r){ return r.staff.join('・'); },
+    robo:     function(r){ return r.robo || null; },
     tag:      function(r){ var v=(r.emergency?2:0)+(r.scope?1:0); return v||null; },
     done:     function(r){ return r.done ? 1 : null; }
   });
@@ -7663,6 +7711,7 @@ function renderOpsDetailBody(allRows) {
     + sumSortTh('opsdet','name','術式/種別') + sumSortTh('opsdet','startMin','入室')
     + sumSortTh('opsdet','endMin','終了') + sumSortTh('opsdet','dur','所要')
     + sumSortTh('opsdet','staff','担当者') + '<th>使用物品</th>'
+    + sumSortTh('opsdet','robo','配置')
     + sumSortTh('opsdet','tag','印') + sumSortTh('opsdet','done','状態')
     + '</tr></thead><tbody>';
   if (f.group === 'none') {
@@ -7671,7 +7720,7 @@ function renderOpsDetailBody(allRows) {
     var groups = {}, order = [];
     sorted.forEach(function(r){ var g = groupOf(r); if(!groups[g]){groups[g]=[];order.push(g);} groups[g].push(r); });
     order.forEach(function(g){
-      h += '<tr class="group-hd"><td colspan="12">'+escH(g)+'（'+groups[g].length+'件）</td></tr>';
+      h += '<tr class="group-hd"><td colspan="13">'+escH(g)+'（'+groups[g].length+'件）</td></tr>';
       groups[g].forEach(function(r){ h += rowHTML(r); });
     });
   }
@@ -14136,29 +14185,7 @@ function buildSupRow(ds, key, items, idx, locked, saveItems, renderItems){
       dept: opsItemDept(items[idx]) || '',
       current: opsItemSup(items[idx]),
       onApply: function(arr){
-        var pg = D.pages[ds];
-        var live = normArr(pg && pg.ops && pg.ops[key]);
-        live = JSON.parse(JSON.stringify(live.length ? live : items));
-        var j = (live[idx] && supRowSig(live[idx]) === sig) ? idx : -1;
-        if (j < 0) {
-          var hits = [];
-          live.forEach(function(it, k){ if (supRowSig(it) === sig) hits.push(k); });
-          if (hits.length === 1) j = hits[0];
-        }
-        if (j < 0) {
-          toast('⚠️ 選んでいる間にこの症例が他の人に変更されたため、反映できませんでした。もう一度選んでください', 'warn');
-          safeRenderPage();
-          return;
-        }
-        /* 読み直した配列を items に流し込んでから、既存の saveItems/renderItems で書き戻す */
-        var stale = !document.body.contains(row);
-        items.length = 0;
-        live.forEach(function(it){ items.push(it); });
-        items[j].sup = arr;
-        saveItems(); renderItems();
-        /* 開いている間にページ全体が作り直されていたら、この items を描いたカードはもう
-           画面に無い（Firebaseのエコーは _savingTs で2秒握りつぶされる）ので描き直す */
-        if (stale) safeRenderPage();
+        opsApplyLiveRow(ds, key, items, idx, sig, row, saveItems, renderItems, function(it){ it.sup = arr; });
       }
     });
   };
@@ -14187,6 +14214,542 @@ function opsItemName(it){
   if (it.name === '__free__') return it.nameTxt || '';
   if (it.sel === '__free__') return it.txt || '';
   return it.sel || '';
+}
+
+/* ===== 入室時間の選択肢（カテのブリーフィングと同じ ○：△ 方式）
+   ○（時）：8〜16 + AM / PM　　△（分）：0〜55を5分刻み + OC
+   以前は buildOPS の内側にあったが、術式ポップアップ（openOpsPickerModal）からも使うので外に出した。 */
+var OPS_TIME_HOURS = ['8','9','10','11','12','13','14','15','16','AM','PM'];
+var OPS_TIME_MINS = ['00','05','10','15','20','25','30','35','40','45','50','55','OC'];
+function makeTimeHourOpts(selH) {
+  var opts = '<option value="">--時</option>';
+  OPS_TIME_HOURS.forEach(function(v) {
+    opts += '<option value="' + v + '"' + (selH === v ? ' selected' : '') + '>' + (/^\d+$/.test(v) ? v + '時' : v) + '</option>';
+  });
+  return opts;
+}
+function makeTimeMinuteOpts(selM) {
+  var opts = '<option value="">--分</option>';
+  OPS_TIME_MINS.forEach(function(v) {
+    opts += '<option value="' + v + '"' + (selM === v ? ' selected' : '') + '>' + (v === 'OC' ? v : v + '分') + '</option>';
+  });
+  return opts;
+}
+/* item.time の文字列 ⇔ {h,m} 相互変換（旧形式 8:15 / AMOC / PMOC も読める） */
+function parseItemTime(t) {
+  if (!t || t === '__free__') return { h:'', m:'' };
+  if (t === 'AMOC') return { h:'AM', m:'OC' };
+  if (t === 'PMOC') return { h:'PM', m:'OC' };
+  var mm = /^([^:]*):(.*)$/.exec(t);
+  if (mm) return { h:mm[1], m:mm[2] };
+  return { h:t, m:'' };
+}
+function combineItemTime(h, m) {
+  if (!h && !m) return '';
+  if (h === 'AM' && m === 'OC') return 'AMOC';
+  if (h === 'PM' && m === 'OC') return 'PMOC';
+  return h + ':' + m;
+}
+/* 「今」ボタン用（フラット版 buildItemList に残っている）：現在時刻を5分丸めし、8〜16時にクランプ */
+function opsRoundNowTime() {
+  var n = new Date(), h = n.getHours(), m = Math.round(n.getMinutes() / 5) * 5;
+  if (m === 60) { m = 0; h++; }
+  if (h < 8) h = 8;
+  if (h > 16) h = 16;
+  return { h: String(h), m: (m < 10 ? '0' : '') + m };
+}
+/* 症例行・ポップアップに出す入室時間の表記（'__free__' などの内部値を画面に出さない） */
+function opsItemTimeLabel(it) {
+  if (!it) return '';
+  if (it.time === '__free__') return it.timeTxt || '';
+  var p = parseItemTime(it.time || '');
+  if (!p.h && !p.m) return '';
+  if (p.m === 'OC') return p.h ? p.h + ' OC' : 'OC';
+  if (!p.m) return /^\d+$/.test(p.h) ? p.h + '時' : p.h;
+  return (p.h || '--') + ':' + p.m;
+}
+
+/* ===== 症例行に出す1行の名前 =====
+   科は出さない（ポップアップの並べ替えにだけ使う）。オペは「腹腔鏡下」＋「胆嚢摘出術」のように
+   中カテゴリとつなげる。中カテゴリ「その他」はつなげると「その他甲状腺切除術」になるので術式名だけ。
+   カテは中カテゴリが「治療」「造影」なので、つなげると読みにくい——種別名だけにする。 */
+function opsItemTitle(it, kind) {
+  var n = opsItemName(it), c = opsItemCat(it);
+  if (kind === 'cath') return n || c;
+  if (!n) return c;
+  if (!c || c === 'その他') return n;
+  return c + n;
+}
+/* ロボット支援下か。中カテゴリ（または自由入力の術式名）に「ロボット」を含むときだけ配置を選ばせる */
+function opsIsRobotText(s) { return /ロボット/.test(s || ''); }
+function opsItemIsRobot(it) { return opsIsRobotText(opsItemCat(it)) || opsIsRobotText(opsItemName(it)); }
+
+/* ===== ロボット配置マスタ（D.roboLayouts = [{id, n, img, sz}]） =====
+   img＝配置図を登録した時刻（0なら図なし）、sz＝図の保存サイズ（ストレージ画面用）。
+   図そのものは /robotImg/{id} に置く——D に入れると、誰かが保存するたびに画像ごと全員へ
+   送り直し、1時間ごとのバックアップ（約75個）にも毎回複製されてしまうため。
+   症例には item.robo = {id, n} を持たせる。n は記録時の名前の写しで、マスタから消した後も
+   明細・CSVに名前が残るようにするため（マスタにあればマスタの今の名前を優先＝改名に追随する）。 */
+var _roboImgCache = {};   /* 'id@img' → dataURL（null＝無かった）。img が変われば自然に取り直す */
+var ROBO_IMG_MAX_PX = 1600, ROBO_IMG_LIMIT = 300 * 1024;
+function roboLayouts() {
+  return normArr(D.roboLayouts).filter(function(r){ return r && r.id && r.n; })
+    .map(function(r){ return { id: String(r.id), n: String(r.n), img: +r.img || 0, sz: +r.sz || 0 }; });
+}
+function roboFind(id) {
+  var a = roboLayouts();
+  for (var i = 0; i < a.length; i++) if (a[i].id === id) return a[i];
+  return null;
+}
+function opsItemRobo(it) {
+  var r = it && it.robo;
+  if (!r || !r.id) return null;
+  var m = roboFind(String(r.id));
+  return { id: String(r.id), n: m ? m.n : String(r.n || ''), img: m ? m.img : 0 };
+}
+/* id はアプリが 'rl_…' で作るが、onclick に埋め込むので念のため英数字だけに限る */
+function roboSafeId(id) { return /^[\w-]+$/.test(id || '') ? id : ''; }
+function roboIsLocal() { return !FB_ON || !fbDB || !currentUser || currentUser.uid === 'preview'; }
+function roboImgGet(r, cb) {
+  var ck = r.id + '@' + r.img;
+  if (Object.prototype.hasOwnProperty.call(_roboImgCache, ck)) { cb(_roboImgCache[ck]); return; }
+  if (roboIsLocal()) {
+    var v = null; try { v = localStorage.getItem('ce2_roboimg_' + r.id); } catch (e) {}
+    _roboImgCache[ck] = v; cb(v); return;
+  }
+  fbDB.ref('/robotImg/' + r.id + '/data').once('value').then(function(s){
+    var v2 = s.val() || null; _roboImgCache[ck] = v2; cb(v2);
+  }).catch(function(){ cb(null); });
+}
+function roboImgPut(id, ts, data, size, cb) {
+  var done = function(){ _roboImgCache[id + '@' + ts] = data; cb(true); };
+  if (roboIsLocal()) {
+    try { localStorage.setItem('ce2_roboimg_' + id, data); } catch (e) { toast('端末に保存できませんでした（容量不足）', 'err'); cb(false); return; }
+    done(); return;
+  }
+  fbDB.ref('/robotImg/' + id).set({ data: data, ts: ts, by: (currentUser && currentUser.displayName) || '', size: size })
+    .then(done)
+    .catch(function(){
+      toast('⚠️ 配置図を保存できませんでした。Firebaseのルールに robotImg が反映されているか確認してください', 'err');
+      cb(false);
+    });
+}
+function roboImgDel(id) {
+  if (roboIsLocal()) { try { localStorage.removeItem('ce2_roboimg_' + id); } catch (e) {} return; }
+  fbDB.ref('/robotImg/' + id).remove().catch(function(){});
+}
+/* 配置図（パワポを画像で書き出したもの）用の圧縮。写真向けの compressImage（800px・JPEG65%）だと
+   細かい文字や線がつぶれるので、長辺1600px・JPEG85%から始め、300KBに収まるまで
+   画質（65%まで）→大きさの順に落とす。透過PNGはJPEGにすると透過部分が黒くなるので先に白で塗る。 */
+function compressDiagram(file, cb) {
+  var img = new Image(), url = URL.createObjectURL(file);
+  img.onload = function() {
+    URL.revokeObjectURL(url);
+    var scale = Math.min(1, ROBO_IMG_MAX_PX / Math.max(img.width, img.height)), q = 0.85, out = '';
+    for (var tries = 0; tries < 12; tries++) {
+      var w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      var cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, w, h); cx.drawImage(img, 0, 0, w, h);
+      out = cv.toDataURL('image/jpeg', q);
+      if (out.length * 0.75 <= ROBO_IMG_LIMIT) break;
+      if (q > 0.65) q = Math.round((q - 0.05) * 100) / 100; else scale *= 0.85;
+    }
+    cb(out, out.length);   /* サイズは RTDB に実際に入る文字数（base64のまま）で持つ */
+  };
+  img.onerror = function(){ URL.revokeObjectURL(url); cb(null, 0); };
+  img.src = url;
+}
+/* 配置図を el に描く。未登録・読み込み失敗はその旨を出す */
+function roboFillImg(el, r) {
+  if (!el) return;
+  if (!r) { el.innerHTML = ''; return; }
+  if (!r.img) { el.innerHTML = '<div class="sup-pick-empty">配置図は未登録です（業務マスタの「🤖 ロボット配置マスタ」で登録できます）</div>'; return; }
+  el.innerHTML = '<div class="sup-pick-empty">配置図を読み込み中…</div>';
+  roboImgGet(r, function(data){
+    if (!document.body.contains(el)) return;
+    if (!data) { el.innerHTML = '<div class="sup-pick-empty">配置図を読み込めませんでした</div>'; return; }
+    el.innerHTML = '';
+    var im = new Image(); im.className = 'robo-img'; im.alt = '配置図：' + r.n; im.src = data;
+    el.appendChild(im);
+  });
+}
+function openRoboImgModal(id) {
+  var r = roboFind(id); if (!r) { toast('この配置はマスタから削除されています', 'warn'); return; }
+  var old = document.getElementById('robo-img-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'robo-img-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  ov.innerHTML = '<div class="md" style="max-width:900px"><h3>🤖 ' + escH(r.n) + '</h3>'
+    + '<div class="robo-img-box" id="robo-img-view"></div>'
+    + '<div style="margin-top:12px;text-align:right"><button class="btn btn-g" onclick="document.getElementById(\'robo-img-ov\').remove()">閉じる</button></div></div>';
+  document.body.appendChild(ov);
+  roboFillImg(document.getElementById('robo-img-view'), r);
+}
+
+/* --- マスタ編集（業務マスタの「🤖 ロボット配置マスタ」、mst 権限） --- */
+function roboSave(a) {
+  D.roboLayouts = a.map(function(r){
+    var o = { id: r.id, n: r.n };
+    if (r.img) { o.img = r.img; o.sz = r.sz || 0; }
+    return o;
+  });
+  saveD();
+}
+function roboIdx(a, id) { for (var i = 0; i < a.length; i++) if (a[i].id === id) return i; return -1; }
+function renderRoboMaster() {
+  var el = document.getElementById('robo-master-list'); if (!el) return;
+  var a = roboLayouts();
+  if (!a.length) { el.innerHTML = '<div class="sup-pick-empty">まだ配置がありません。下の欄から追加してください。</div>'; return; }
+  el.innerHTML = a.map(function(r, i){
+    var sid = roboSafeId(r.id);
+    return '<div class="tree-item"><span style="flex:1;min-width:0">🤖 ' + escH(r.n)
+      + (r.img && sid ? ' <button type="button" class="robo-ms-img" onclick="openRoboImgModal(\'' + sid + '\')" title="配置図を見る">🖼 図あり</button>'
+                      : ' <span class="sup-ms-tag">図なし</span>')
+      + '</span>'
+      + supMsBtn('📷', r.img ? '配置図を差し替え' : '配置図を登録', 'roboPickImage(' + i + ')')
+      + (r.img ? supMsBtn('🗑', '配置図を外す', 'roboRemoveImage(' + i + ')') : '')
+      + supMsBtn('↑', '上へ', 'mvRoboLayout(' + i + ',-1)', i === 0)
+      + supMsBtn('↓', '下へ', 'mvRoboLayout(' + i + ',1)', i === a.length - 1)
+      + supMsBtn('✏️', '配置名を変更', 'renameRoboLayout(' + i + ')')
+      + supMsBtn('×', '配置を削除', 'rmRoboLayout(' + i + ')', false, true)
+      + '</div>';
+  }).join('');
+}
+function addRoboLayout() {
+  if (!supMstOk()) return;
+  var inp = document.getElementById('in-robo'); if (!inp) return;
+  var v = inp.value.trim(); if (!v) return;
+  var a = roboLayouts();
+  if (a.some(function(r){ return r.n === v; })) { toast('この配置名は既に登録されています', 'warn'); return; }
+  a.push({ id: 'rl_' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36), n: v, img: 0, sz: 0 });
+  inp.value = '';
+  roboSave(a); renderRoboMaster();
+  writeLog('マスタ編集', 'ロボット配置を追加：' + v);
+}
+function renameRoboLayout(i) {
+  if (!supMstOk()) return;
+  var a = roboLayouts(), r = a[i]; if (!r) return;
+  var v = prompt('配置名（これまでの症例にも新しい名前で表示されます）', r.n); if (v == null) return;
+  v = v.trim(); if (!v || v === r.n) return;
+  if (a.some(function(x, j){ return j !== i && x.n === v; })) { toast('この配置名は既に登録されています', 'warn'); return; }
+  var old = r.n; r.n = v;
+  roboSave(a); renderRoboMaster();
+  writeLog('マスタ編集', 'ロボット配置：' + old + ' → ' + v);
+}
+function mvRoboLayout(i, d) {
+  if (!supMstOk()) return;
+  var a = roboLayouts(), j = i + d;
+  if (!a[i] || j < 0 || j >= a.length) return;
+  var t = a[i]; a[i] = a[j]; a[j] = t;
+  roboSave(a); renderRoboMaster();
+}
+function rmRoboLayout(i) {
+  if (!supMstOk()) return;
+  var a = roboLayouts(), r = a[i]; if (!r) return;
+  if (!confirm('配置「' + r.n + '」' + (r.img ? 'と配置図' : '') + 'を削除しますか？\n（これまでの症例には配置名だけが残ります）')) return;
+  if (r.img) roboImgDel(r.id);
+  a.splice(i, 1);
+  roboSave(a); renderRoboMaster();
+  writeLog('マスタ編集', 'ロボット配置を削除：' + r.n);
+}
+function roboPickImage(i) {
+  if (!supMstOk()) return;
+  var r = roboLayouts()[i]; if (!r) return;
+  var inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = function(){
+    var f = inp.files && inp.files[0]; if (!f) return;
+    if (!confirm('「' + r.n + '」の配置図として登録します。\n\n病院名・ロゴ・患者さんの情報が写っていないか確認しましたか？')) return;
+    toast('配置図を圧縮しています…');
+    compressDiagram(f, function(data, sz){
+      if (!data) { toast('画像を読み込めませんでした', 'err'); return; }
+      var ts = Date.now();
+      roboImgPut(r.id, ts, data, sz, function(ok){
+        if (!ok) return;
+        var a = roboLayouts(), j = roboIdx(a, r.id); if (j < 0) return;
+        a[j].img = ts; a[j].sz = sz;
+        roboSave(a); renderRoboMaster();
+        toast('✅ 配置図を登録しました（' + fmtBytes(sz) + '）', 'ok');
+        writeLog('マスタ編集', 'ロボット配置図を登録：' + r.n + '（' + fmtBytes(sz) + '）');
+      });
+    });
+  };
+  inp.click();
+}
+function roboRemoveImage(i) {
+  if (!supMstOk()) return;
+  var a = roboLayouts(), r = a[i]; if (!r || !r.img) return;
+  if (!confirm('「' + r.n + '」の配置図を外しますか？')) return;
+  roboImgDel(r.id);
+  r.img = 0; r.sz = 0;
+  roboSave(a); renderRoboMaster();
+  writeLog('マスタ編集', 'ロボット配置図を削除：' + r.n);
+}
+
+/* ===== 症例行のポップアップ（使用物品・術式）から「決定」したときの書き戻し =====
+   ポップアップは body 直下にあって、開いている間にページが再描画されても閉じない。その間に
+   他のスタッフが同じカードを編集していることがあるので、開いた時点の items を丸ごと書き戻さない
+   ——D.pages[ds] から読み直し、開いた行を sig（supRowSig）で探して mutate だけを当てる。 */
+function opsApplyLiveRow(ds, key, items, idx, sig, anchorEl, saveItems, renderItems, mutate) {
+  var pg = D.pages[ds];
+  var live = normArr(pg && pg.ops && pg.ops[key]);
+  live = JSON.parse(JSON.stringify(live.length ? live : items));
+  var j = (live[idx] && supRowSig(live[idx]) === sig) ? idx : -1;
+  if (j < 0) {
+    var hits = [];
+    live.forEach(function(it, k){ if (supRowSig(it) === sig) hits.push(k); });
+    if (hits.length === 1) j = hits[0];
+  }
+  if (j < 0) {
+    toast('⚠️ 選んでいる間にこの症例が他の人に変更されたため、反映できませんでした。もう一度選んでください', 'warn');
+    safeRenderPage();
+    return;
+  }
+  /* 開いている間にページ全体が作り直されていたら、この items を描いたカードはもう
+     画面に無い（Firebaseのエコーは _savingTs で2秒握りつぶされる）ので描き直す */
+  var stale = !document.body.contains(anchorEl);
+  items.length = 0;
+  live.forEach(function(it){ items.push(it); });
+  mutate(items[j]);
+  saveItems(); renderItems();
+  if (stale) safeRenderPage();
+}
+/* patch の値が null のキーは消す（Firebase に空の項目を残さない） */
+function opsApplyPatch(it, patch) {
+  Object.keys(patch).forEach(function(k){ if (patch[k] === null) delete it[k]; else it[k] = patch[k]; });
+}
+
+/* ===== 術式（種別）を選ぶポップアップ =====
+   症例行の3段プルダウン（科→中カテゴリ→術式）と入室時間を、使用物品と同じ画面中央の
+   ポップアップ1つにまとめた。科は折りたたみの見出し（並べ替え）にだけ使い、行には出さない。
+   保存の形（dept/cat/sel、自由入力は name:'__free__'+nameTxt）は変えていない——集計・CSV・
+   教育到達度のキー（eduKey）がそのまま読める。
+   開いた時点のマスタを複製して持ち、onclick には添字だけを渡す（名前のアポストロフィ対策と、
+   開いている間に同期でマスタが変わっても別の術式を指さないようにするため）。 */
+var _opsPickCtx = null;
+/* opts = { kind:'ope'|'cath', labelName, tree, withTime, item, onApply:function(patch){} } */
+function openOpsPickerModal(opts) {
+  opts = opts || {};
+  var old = document.getElementById('ops-pick-ov'); if (old) old.remove();
+  var it = opts.item || {};
+  var tree = JSON.parse(JSON.stringify(normArr(opts.tree).filter(function(d){ return d && d.dept; })));
+  var free = it.name === '__free__' || it.dept === '__free__' || it.cat === '__free__';
+  var curDept = opsItemDept(it);
+  var tp = parseItemTime(it.time || '');
+  var rb = opsItemRobo(it);
+  var c = _opsPickCtx = {
+    kind: opts.kind === 'cath' ? 'cath' : 'ope', labelName: opts.labelName || '術式', withTime: !!opts.withTime,
+    tree: tree, onApply: (typeof opts.onApply === 'function') ? opts.onApply : function(){},
+    /* 一覧から選んだ値（free のときは空） */
+    dept: free ? '' : (it.dept || ''), cat: free ? '' : (it.cat || ''), sel: free ? '' : (it.sel || ''),
+    origCat: opsItemCat(it), origName: opsItemName(it),
+    free: free, freeOpen: free, freeDept: free ? curDept : '', freeName: free ? opsItemName(it) : '',
+    procChanged: false,
+    tFree: it.time === '__free__', tH: tp.h, tM: tp.m, tTxt: it.timeTxt || '',
+    roboList: roboLayouts(), robo: rb ? { id: rb.id, n: rb.n } : null,
+    open: {}
+  };
+  tree.forEach(function(d, di){ if (curDept && d.dept === curDept) c.open[di] = true; });
+  var ov = document.createElement('div'); ov.id = 'ops-pick-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeOpsPicker(); };
+  var md = document.createElement('div'); md.id = 'ops-pick-md'; md.className = 'md ops-pick-md';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderOpsPickBody();
+}
+function closeOpsPicker() {
+  var ov = document.getElementById('ops-pick-ov'); if (ov) ov.remove();
+  _opsPickCtx = null;
+}
+/* いまポップアップで選ばれている（決定したら入る）中カテゴリと術式名 */
+function opsPickEff(c) {
+  if (c.free && c.freeName.trim()) return { cat: '', name: c.freeName.trim() };
+  if (c.procChanged && c.sel) return { cat: c.cat, name: c.sel };
+  return { cat: c.origCat, name: c.origName };
+}
+function opsPickIsRobot(c) { var e = opsPickEff(c); return opsIsRobotText(e.cat) || opsIsRobotText(e.name); }
+function opsPickTimeLabel(c) {
+  return opsItemTimeLabel(c.tFree ? { time: '__free__', timeTxt: c.tTxt } : { time: combineItemTime(c.tH, c.tM) });
+}
+/* 自由入力の科の選択肢：マスタの科＋（マスタに無い科を自由入力していた既存データならその科） */
+function opsPickFreeDepts(c) {
+  var a = c.tree.map(function(d){ return d.dept; });
+  if (c.freeDept && a.indexOf(c.freeDept) === -1) a.push(c.freeDept);
+  return a;
+}
+function renderOpsPickBody() {
+  var c = _opsPickCtx; if (!c) return;
+  var md = document.getElementById('ops-pick-md'); if (!md) return;
+  var lbl = escH(c.labelName);
+  var e = opsPickEff(c), robot = opsPickIsRobot(c);
+  var title = opsItemTitle({ sel: e.name, cat: e.cat }, c.kind);
+  var tml = c.withTime ? opsPickTimeLabel(c) : '';
+
+  var h = '<h3>' + (c.kind === 'cath' ? '🫀 ' : '🔪 ') + lbl + 'を選ぶ</h3>';
+  h += '<div class="opk-cur">'
+    + (title ? escH(title) : '<span class="muted">まだ選ばれていません</span>')
+    + (tml ? '<span class="ops-pick-time">⏱ ' + escH(tml) + '</span>' : '')
+    + (robot && c.robo ? '<span class="ops-robo-chip">🤖 ' + escH(c.robo.n) + '</span>' : '')
+    + '</div>';
+
+  /* 科ごとの折りたたみ → 中カテゴリの小見出し → 術式ボタン */
+  h += '<div class="md-flbl">' + lbl + '</div>';
+  if (!c.tree.length) h += '<div class="sup-pick-empty">' + lbl + 'マスタが未登録です。下の自由入力から入れてください。</div>';
+  c.tree.forEach(function(d, di){
+    var open = !!c.open[di], n = 0;
+    normArr(d.cats).forEach(function(ct){ n += normArr(ct && ct.items).length; });
+    var hasSel = !c.free && c.sel && c.dept === d.dept;
+    h += '<div class="sup-pick-kind">'
+      + '<button type="button" class="sup-pick-kind-hd" onclick="opsPickToggleDept(' + di + ')">'
+      + '<span class="sup-pick-arrow' + (open ? ' open' : '') + '">▶</span>' + escH(d.dept)
+      + (hasSel ? '<span class="opk-dot">●</span>' : '')
+      + '<span class="sup-pick-kind-n">' + n + '</span></button>';
+    if (open) {
+      h += '<div class="sup-pick-kind-bd">';
+      normArr(d.cats).forEach(function(ct, ci){
+        var its = normArr(ct && ct.items); if (!its.length) return;
+        h += '<div class="sup-pick-sub">' + escH(ct.name) + '</div><div class="dc-cbs">';
+        its.forEach(function(nm, ii){
+          var on = !c.free && c.dept === d.dept && c.cat === ct.name && c.sel === nm;
+          h += '<button type="button" class="dc-cb-item opk-chip' + (on ? ' checked' : '') + '" onclick="opsPickItem(' + di + ',' + ci + ',' + ii + ')">' + escH(nm) + '</button>';
+        });
+        h += '</div>';
+      });
+      h += '</div>';
+    }
+    h += '</div>';
+  });
+
+  /* 自由入力：科を選んでから名前を入れる（科が分かれば使用物品がその科で並ぶ） */
+  h += '<div class="sup-pick-kind' + (c.free && c.freeName.trim() ? ' opk-free-on' : '') + '">'
+    + '<button type="button" class="sup-pick-kind-hd" onclick="opsPickToggleFree()">'
+    + '<span class="sup-pick-arrow' + (c.freeOpen ? ' open' : '') + '">▶</span>✏️ 一覧に無い' + lbl + 'を入力</button>';
+  if (c.freeOpen) {
+    h += '<div class="sup-pick-kind-bd"><div class="sup-pick-sub">科</div><div class="dc-cbs">';
+    opsPickFreeDepts(c).forEach(function(dn, i){
+      h += '<button type="button" class="dc-cb-item opk-chip' + (c.freeDept === dn ? ' checked' : '') + '" onclick="opsPickFreeDept(' + i + ')">' + escH(dn) + '</button>';
+    });
+    h += '</div><input id="opk-free-name" class="fi" style="margin-bottom:8px" placeholder="' + lbl + '名を入力" autocomplete="off"></div>';
+  }
+  h += '</div>';
+
+  /* 入室時間：時をタップすると分が空なら 00 を入れる（ちょうどの時刻は1タップで済むように） */
+  if (c.withTime) {
+    h += '<div class="md-flbl" style="margin-top:14px">⏱ 入室時間</div>';
+    if (!c.tFree) {
+      h += '<div class="dc-cbs">' + OPS_TIME_HOURS.map(function(v, i){
+        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (c.tH === v ? ' checked' : '') + '" onclick="opsPickHour(' + i + ')">' + (/^\d+$/.test(v) ? v + '時' : v) + '</button>';
+      }).join('') + '</div>';
+      h += '<div class="dc-cbs">' + OPS_TIME_MINS.map(function(v, i){
+        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (c.tM === v ? ' checked' : '') + '" onclick="opsPickMin(' + i + ')">' + (v === 'OC' ? v : ':' + v) + '</button>';
+      }).join('') + '</div>';
+      h += '<div style="display:flex;gap:6px"><button type="button" class="btn btn-g btn-sm" onclick="opsPickTimeClear()">時間をクリア</button>'
+        + '<button type="button" class="btn btn-g btn-sm" onclick="opsPickTimeFree(true)">自由入力</button></div>';
+    } else {
+      h += '<div style="display:flex;gap:6px;align-items:center"><input id="opk-time-txt" class="fi" style="flex:1;margin-bottom:0" placeholder="時間を入力…" autocomplete="off">'
+        + '<button type="button" class="btn btn-g btn-sm" onclick="opsPickTimeFree(false)">一覧から選ぶ</button></div>';
+    }
+  }
+
+  /* 配置：ロボット支援下のときだけ */
+  if (robot) {
+    h += '<div class="md-flbl" style="margin-top:14px">🤖 配置</div>';
+    if (!c.roboList.length) {
+      h += '<div class="sup-pick-empty">配置がまだ登録されていません。業務マスタの「🤖 ロボット配置マスタ」から登録できます。</div>';
+    } else {
+      h += '<div class="dc-cbs">' + c.roboList.map(function(r, i){
+        var on = c.robo && c.robo.id === r.id;
+        return '<button type="button" class="dc-cb-item opk-chip opk-robo' + (on ? ' checked' : '') + '" onclick="opsPickRobo(' + i + ')">🤖 ' + escH(r.n) + (r.img ? ' 🖼' : '') + '</button>';
+      }).join('') + '</div>';
+      if (c.robo) h += '<div class="robo-img-box" id="opk-robo-img"></div>';
+    }
+  }
+
+  h += '<div class="opk-foot">'
+    + '<button class="btn btn-g" onclick="closeOpsPicker()">キャンセル</button>'
+    + '<button class="btn btn-p" onclick="opsPickApply()">決定</button></div>';
+  md.innerHTML = h;
+
+  var fi = document.getElementById('opk-free-name');
+  if (fi) {
+    fi.value = c.freeName;
+    fi.oninput = function(){ c.freeName = fi.value; c.free = !!fi.value.trim(); };
+    fi.onkeydown = function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); renderOpsPickBody(); } };
+    fi.onblur = function(){ renderOpsPickBody(); };   /* 「一覧から選んだ」表示・配置欄を入力に合わせて出し直す */
+  }
+  var ti = document.getElementById('opk-time-txt');
+  if (ti) { ti.value = c.tTxt; ti.oninput = function(){ c.tTxt = ti.value; }; }
+  if (robot && c.robo) {
+    var rr = null;
+    c.roboList.forEach(function(r){ if (r.id === c.robo.id) rr = r; });
+    roboFillImg(document.getElementById('opk-robo-img'), rr);
+  }
+}
+function opsPickToggleDept(di) { var c = _opsPickCtx; if (!c) return; c.open[di] = !c.open[di]; renderOpsPickBody(); }
+function opsPickItem(di, ci, ii) {
+  var c = _opsPickCtx; if (!c) return;
+  var d = c.tree[di], ct = d && normArr(d.cats)[ci], nm = ct && normArr(ct.items)[ii];
+  if (!nm) return;
+  c.dept = d.dept; c.cat = ct.name; c.sel = nm; c.free = false; c.procChanged = true;
+  renderOpsPickBody();
+}
+function opsPickToggleFree() { var c = _opsPickCtx; if (!c) return; c.freeOpen = !c.freeOpen; renderOpsPickBody(); }
+function opsPickFreeDept(i) {
+  var c = _opsPickCtx; if (!c) return;
+  var dn = opsPickFreeDepts(c)[i]; if (dn == null) return;
+  c.freeDept = (c.freeDept === dn) ? '' : dn;
+  renderOpsPickBody();
+}
+function opsPickHour(i) {
+  var c = _opsPickCtx; if (!c) return;
+  var v = OPS_TIME_HOURS[i];
+  if (c.tH === v) { c.tH = ''; } else { c.tH = v; if (!c.tM && /^\d+$/.test(v)) c.tM = '00'; }
+  renderOpsPickBody();
+}
+function opsPickMin(i) {
+  var c = _opsPickCtx; if (!c) return;
+  var v = OPS_TIME_MINS[i];
+  c.tM = (c.tM === v) ? '' : v;
+  renderOpsPickBody();
+}
+function opsPickTimeClear() { var c = _opsPickCtx; if (!c) return; c.tH = ''; c.tM = ''; renderOpsPickBody(); }
+function opsPickTimeFree(on) { var c = _opsPickCtx; if (!c) return; c.tFree = !!on; renderOpsPickBody(); }
+function opsPickRobo(i) {
+  var c = _opsPickCtx; if (!c) return;
+  var r = c.roboList[i]; if (!r) return;
+  c.robo = (c.robo && c.robo.id === r.id) ? null : { id: r.id, n: r.n };
+  renderOpsPickBody();
+}
+function opsPickApply() {
+  var c = _opsPickCtx; if (!c) return;
+  var freeName = c.free ? c.freeName.trim() : '';
+  if (freeName) {
+    /* 術式名を入れる欄なので、氏名パターンの警告（黄色）では止めない（使用物品の自由入力と同じ判断）。
+       患者IDや生年月日といったブロック対象だけは弾く */
+    var phiRes = detectPHI(freeName);
+    if (phiHasBlock(phiRes)) {
+      showPHIPopup({ result: phiRes, mode: 'field', onProceed: null,
+        onFix: function(){ var e2 = document.getElementById('opk-free-name'); if (e2) e2.focus(); } });
+      return;
+    }
+  }
+  var patch = {};
+  if (freeName) {
+    var fd = c.freeDept || '', inTree = c.tree.some(function(d){ return d.dept === fd; });
+    patch.dept = !fd ? '' : (inTree ? fd : '__free__');
+    patch.deptTxt = (fd && !inTree) ? fd : null;
+    patch.cat = null; patch.catTxt = null; patch.sel = ''; patch.txt = null;
+    patch.name = '__free__'; patch.nameTxt = freeName;
+  } else if (c.procChanged && c.sel) {
+    patch.dept = c.dept; patch.deptTxt = null; patch.cat = c.cat; patch.catTxt = null;
+    patch.sel = c.sel; patch.name = null; patch.nameTxt = null; patch.txt = null;
+  }
+  if (c.withTime) {
+    if (c.tFree) { patch.time = '__free__'; patch.timeTxt = c.tTxt; }
+    else patch.time = combineItemTime(c.tH, c.tM);
+  }
+  patch.robo = (opsPickIsRobot(c) && c.robo) ? { id: c.robo.id, n: c.robo.n } : null;
+  var fn = c.onApply;
+  /* 先に閉じてから書き戻す（onApply が renderItems() を呼ぶので、開いたままだと描画と競合する） */
+  closeOpsPicker();
+  fn(patch);
 }
 
 /* ===== 選択ボックスの文字を枠内に収める =====
@@ -17706,49 +18269,7 @@ function buildOPS(ds,dat,locked) {
     itemWrap.appendChild(noteRow);
   }
 
-  /* ===== 入室時間の選択肢（カテのブリーフィングと同じ ○：△ 方式）
-     ○（時）：8〜16 + AM / PM　　△（分）：0〜55を5分刻み + OC ===== */
-  function makeTimeHourOpts(selH) {
-    var opts = '<option value="">--時</option>';
-    for (var h = 8; h <= 16; h++) {
-      opts += '<option value="' + h + '"' + (selH === String(h) ? ' selected' : '') + '>' + h + '時</option>';
-    }
-    ['AM', 'PM'].forEach(function(v) {
-      opts += '<option value="' + v + '"' + (selH === v ? ' selected' : '') + '>' + v + '</option>';
-    });
-    return opts;
-  }
-  function makeTimeMinuteOpts(selM) {
-    var opts = '<option value="">--分</option>';
-    ['00','05','10','15','20','25','30','35','40','45','50','55'].forEach(function(m2) {
-      opts += '<option value="' + m2 + '"' + (selM === m2 ? ' selected' : '') + '>' + m2 + '分</option>';
-    });
-    opts += '<option value="OC"' + (selM === 'OC' ? ' selected' : '') + '>OC</option>';
-    return opts;
-  }
-  /* item.time の文字列 ⇔ {h,m} 相互変換（旧形式 8:15 / AMOC / PMOC も読める） */
-  function parseItemTime(t) {
-    if (!t || t === '__free__') return { h:'', m:'' };
-    if (t === 'AMOC') return { h:'AM', m:'OC' };
-    if (t === 'PMOC') return { h:'PM', m:'OC' };
-    var mm = /^([^:]*):(.*)$/.exec(t);
-    if (mm) return { h:mm[1], m:mm[2] };
-    return { h:t, m:'' };
-  }
-  function combineItemTime(h, m) {
-    if (!h && !m) return '';
-    if (h === 'AM' && m === 'OC') return 'AMOC';
-    if (h === 'PM' && m === 'OC') return 'PMOC';
-    return h + ':' + m;
-  }
-  /* 「今」ボタン用：現在時刻を5分丸めし、セレクトの範囲（8〜16時）にクランプして返す */
-  function opsRoundNowTime() {
-    var n = new Date(), h = n.getHours(), m = Math.round(n.getMinutes() / 5) * 5;
-    if (m === 60) { m = 0; h++; }
-    if (h < 8) h = 8;
-    if (h > 16) h = 16;
-    return { h: String(h), m: (m < 10 ? '0' : '') + m };
-  }
+  /* 入室時間の選択肢（makeTimeHourOpts ほか）は術式ポップアップからも使うので、buildOPS の外（グローバル）へ移した */
 
   /* ===== 術式/種別 複数行リスト ===== */
   /* ope items: [{sel:'', txt:'', time:'', timeTxt:''}]  cath items: [{sel:'', txt:''}] */
@@ -17807,6 +18328,13 @@ function buildOPS(ds,dat,locked) {
           row.appendChild(dragHandle);
         }
 
+        /* 術式・入室時間・配置を選ぶポップアップを開く。決定時は D から読み直して、この行だけに当てる */
+        var openPick=(function(i2){return function(){
+          var sig=supRowSig(items[i2]);
+          openOpsPickerModal({kind:itemId, labelName:labelName, tree:masterTree, withTime:withTime, item:items[i2],
+            onApply:function(patch){ opsApplyLiveRow(ds, key, items, i2, sig, wrap, saveItems, renderItems, function(it){ opsApplyPatch(it, patch); }); }});
+        };})(idx);
+
         var hierDiv = document.createElement('div');
         hierDiv.style.cssText='flex:3;display:flex;flex-direction:column;gap:4px;min-width:0';
 
@@ -17818,90 +18346,34 @@ function buildOPS(ds,dat,locked) {
           var resetBtn=document.createElement('button'); resetBtn.type='button'; resetBtn.disabled=!!locked;
           resetBtn.style.cssText='font-size:11px;padding:3px 8px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap';
           resetBtn.textContent='再選択';
-          if(!locked) resetBtn.onclick=(function(i2){return function(){items[i2].dept='';items[i2].deptTxt='';items[i2].cat='';items[i2].catTxt='';items[i2].sel='';items[i2].name='';items[i2].nameTxt='';saveItems();renderItems();};})(idx);
+          if(!locked) resetBtn.onclick=openPick;
           legRow.appendChild(legSpan); legRow.appendChild(resetBtn); hierDiv.appendChild(legRow);
         } else {
-          /* 3段階カスケード選択。科・中カテゴリ・術式それぞれ独立に「自由入力...」へ切替でき、
-             切替後は⌄ボタンで選択式に戻せる（入室時間の自由入力ボタンと同じ考え方）。 */
-          var selRow=document.createElement('div'); selRow.className='ops-hier-row'; selRow.style.cssText='display:flex;gap:3px;flex-wrap:wrap;min-width:0';
-
-          var makeFreeBackBtn=function(onClick2){
-            var b=document.createElement('button'); b.type='button'; b.disabled=!!locked; b.textContent='⌄'; b.title='選択に戻す';
-            b.style.cssText='font-size:11px;padding:3px 7px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);flex-shrink:0';
-            if(!locked) b.onclick=onClick2;
-            return b;
-          };
-
-          /* 科 */
-          var deptUnit=document.createElement('div'); deptUnit.className='ops-hier-unit'; deptUnit.style.cssText='display:flex;gap:2px;flex:1;min-width:100px';
-          if(item.dept!=='__free__'){
-            var deptSel=document.createElement('select'); deptSel.className='ops-sel'; deptSel.disabled=!!locked; deptSel.innerHTML=makeDeptOpts(item.dept); deptSel.style.flex='1';
-            deptUnit.appendChild(deptSel);
-            if(!locked) deptSel.onchange=(function(i2){return function(){
-              var v=this.value;
-              items[i2].dept=v; items[i2].deptTxt=''; items[i2].cat=''; items[i2].catTxt=''; items[i2].sel=''; items[i2].name=''; items[i2].nameTxt='';
-              saveItems(); renderItems();
-            };})(idx);
-          } else {
-            var deptInp=document.createElement('input'); deptInp.type='text'; deptInp.className='ops-sel'; deptInp.style.flex='1';
-            deptInp.placeholder='科を直接入力...'; deptInp.disabled=!!locked; deptInp.value=item.deptTxt||'';
-            if(!locked) deptInp.oninput=(function(i2){return function(){items[i2].deptTxt=this.value;saveItems();};})(idx);
-            deptUnit.appendChild(deptInp);
-            deptUnit.appendChild(makeFreeBackBtn((function(i2){return function(){
-              items[i2].dept=''; items[i2].deptTxt=''; items[i2].cat=''; items[i2].catTxt=''; items[i2].sel=''; items[i2].name=''; items[i2].nameTxt='';
-              saveItems(); renderItems();
-            };})(idx)));
-          }
-          selRow.appendChild(deptUnit);
-
-          /* 中カテゴリ（科が選択・入力されているときだけ表示） */
-          if(item.dept){
-            var catUnit=document.createElement('div'); catUnit.className='ops-hier-unit'; catUnit.style.cssText='display:flex;gap:2px;flex:1;min-width:100px';
-            if(item.cat!=='__free__'){
-              var catSel=document.createElement('select'); catSel.className='ops-sel'; catSel.disabled=!!locked; catSel.innerHTML=makeCatOpts(item.dept,item.cat); catSel.style.flex='1';
-              catUnit.appendChild(catSel);
-              if(!locked) catSel.onchange=(function(i2){return function(){
-                var v=this.value;
-                items[i2].cat=v; items[i2].catTxt=''; items[i2].sel=''; items[i2].name=''; items[i2].nameTxt='';
-                saveItems(); renderItems();
-              };})(idx);
-            } else {
-              var catInp=document.createElement('input'); catInp.type='text'; catInp.className='ops-sel'; catInp.style.flex='1';
-              catInp.placeholder='中カテゴリを直接入力...'; catInp.disabled=!!locked; catInp.value=item.catTxt||'';
-              if(!locked) catInp.oninput=(function(i2){return function(){items[i2].catTxt=this.value;saveItems();};})(idx);
-              catUnit.appendChild(catInp);
-              catUnit.appendChild(makeFreeBackBtn((function(i2){return function(){
-                items[i2].cat=''; items[i2].catTxt=''; items[i2].sel=''; items[i2].name=''; items[i2].nameTxt='';
-                saveItems(); renderItems();
-              };})(idx)));
+          /* 術式（種別）と入室時間はポップアップ（openOpsPickerModal）で選ぶ。行には
+             「⏱ 9:00 腹腔鏡下胆嚢摘出術」の1行だけを出す（科は出さない）。 */
+          var pickBtn=document.createElement('button'); pickBtn.type='button'; pickBtn.className='ops-pick-btn'; pickBtn.disabled=!!locked;
+          var pTtl=opsItemTitle(item,itemId), pTm=withTime?opsItemTimeLabel(item):'';
+          pickBtn.innerHTML=(pTm?'<span class="ops-pick-time">⏱ '+escH(pTm)+'</span>':'')
+            +(pTtl?'<span class="ops-pick-title">'+escH(pTtl)+'</span>':'<span class="ops-pick-ph">＋ '+escH(labelName)+'を選ぶ</span>')
+            +(locked?'':'<span class="ops-pick-edit">✏️</span>');
+          if(!locked) pickBtn.onclick=openPick;
+          hierDiv.appendChild(pickBtn);
+          /* ロボット支援下は配置のチップ。押すと配置図（ロック中でも見るだけはできる） */
+          if(opsItemIsRobot(item)){
+            var roboRow=document.createElement('div'); roboRow.className='ops-robo-row';
+            var rbv=opsItemRobo(item);
+            if(rbv){
+              var rChip=document.createElement('button'); rChip.type='button'; rChip.className='ops-robo-chip';
+              rChip.textContent='🤖 '+(rbv.n||'配置')+(rbv.img?' 🖼':''); rChip.title='配置図を見る';
+              rChip.onclick=(function(id2){return function(){openRoboImgModal(id2);};})(rbv.id);
+              roboRow.appendChild(rChip);
+            } else if(!locked){
+              var rAdd=document.createElement('button'); rAdd.type='button'; rAdd.className='ops-robo-add';
+              rAdd.textContent='🤖 配置を選ぶ'; rAdd.onclick=openPick;
+              roboRow.appendChild(rAdd);
             }
-            selRow.appendChild(catUnit);
+            if(roboRow.childNodes.length) hierDiv.appendChild(roboRow);
           }
-
-          /* 術式/種別（中カテゴリが選択・入力されているときだけ表示） */
-          if(item.cat){
-            var nameUnit=document.createElement('div'); nameUnit.className='ops-hier-unit'; nameUnit.style.cssText='display:flex;gap:2px;flex:2;min-width:120px';
-            if(item.name!=='__free__'){
-              var itemSel=document.createElement('select'); itemSel.className='ops-sel'; itemSel.disabled=!!locked; itemSel.innerHTML=makeItemOpts(item.dept,item.cat,item.sel); itemSel.style.flex='1';
-              nameUnit.appendChild(itemSel);
-              if(!locked) itemSel.onchange=(function(i2){return function(){
-                var v=this.value;
-                if(v==='__free__'){ items[i2].name='__free__'; items[i2].sel=''; saveItems(); renderItems(); }
-                else { items[i2].sel=v; items[i2].name=''; items[i2].nameTxt=''; saveItems(); }
-              };})(idx);
-            } else {
-              var nameInp=document.createElement('input'); nameInp.type='text'; nameInp.className='ops-sel'; nameInp.style.flex='1';
-              nameInp.placeholder=labelName+'を直接入力...'; nameInp.disabled=!!locked; nameInp.value=item.nameTxt||'';
-              if(!locked) nameInp.oninput=(function(i2){return function(){items[i2].nameTxt=this.value;saveItems();};})(idx);
-              nameUnit.appendChild(nameInp);
-              nameUnit.appendChild(makeFreeBackBtn((function(i2){return function(){
-                items[i2].name=''; items[i2].nameTxt=''; items[i2].sel=''; saveItems(); renderItems();
-              };})(idx)));
-            }
-            selRow.appendChild(nameUnit);
-          }
-
-          hierDiv.appendChild(selRow);
         }
 
         /* 順番プルダウン（カテのみ） */
@@ -17916,32 +18388,6 @@ function buildOPS(ds,dat,locked) {
 
         row.appendChild(hierDiv); /* orderSelの後に追加されるので順序: dragHandle → orderSel → hierDiv */
 
-        /* 入室時間（オペのみ）：カテのブリーフィングと同じ ○：△ 方式 */
-        if(withTime){
-          var timeWrap=document.createElement('div'); timeWrap.style.cssText='display:flex;gap:4px;align-items:center;margin-top:2px;flex-wrap:wrap';
-          var timeLbl=document.createElement('span'); timeLbl.textContent='⏱ 入室'; timeLbl.style.cssText='font-size:11px;color:var(--txt3);white-space:nowrap;flex-shrink:0';
-          var timeIsFree2=(item.time==='__free__');
-          var timeParsed2=parseItemTime(item.time||'');
-          var timeNowBtn2=document.createElement('button'); timeNowBtn2.type='button'; timeNowBtn2.className='ops-now-btn'; timeNowBtn2.disabled=!!locked; timeNowBtn2.textContent='今';
-          timeNowBtn2.title='現在時刻を入力'; timeNowBtn2.style.cssText='font-size:10px;padding:2px 6px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap;flex-shrink:0';
-          timeNowBtn2.style.display=timeIsFree2?'none':'';
-          var timeHourEl2=document.createElement('select'); timeHourEl2.className='ops-sel'; timeHourEl2.style.cssText='flex:1;min-width:60px'; timeHourEl2.disabled=!!locked; timeHourEl2.innerHTML=makeTimeHourOpts(timeParsed2.h); timeHourEl2.style.display=timeIsFree2?'none':'';
-          var timeColonEl2=document.createElement('span'); timeColonEl2.textContent=':'; timeColonEl2.style.cssText='font-size:13px;flex-shrink:0'; timeColonEl2.style.display=timeIsFree2?'none':'';
-          var timeMinEl2=document.createElement('select'); timeMinEl2.className='ops-sel'; timeMinEl2.style.cssText='flex:1;min-width:60px'; timeMinEl2.disabled=!!locked; timeMinEl2.innerHTML=makeTimeMinuteOpts(timeParsed2.m); timeMinEl2.style.display=timeIsFree2?'none':'';
-          var timeTxtEl2=document.createElement('input'); timeTxtEl2.type='text'; timeTxtEl2.className='ops-txt'; timeTxtEl2.style.flex='1'; timeTxtEl2.placeholder='時間を入力...'; timeTxtEl2.disabled=!!locked; timeTxtEl2.value=item.timeTxt||''; timeTxtEl2.style.display=timeIsFree2?'':'none';
-          var timeFreeBtn2=document.createElement('button'); timeFreeBtn2.type='button'; timeFreeBtn2.disabled=!!locked;
-          timeFreeBtn2.style.cssText='font-size:10px;padding:2px 6px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap;flex-shrink:0';
-          timeFreeBtn2.textContent=timeIsFree2?'一覧選択':'自由入力';
-          timeWrap.appendChild(timeLbl); timeWrap.appendChild(timeNowBtn2); timeWrap.appendChild(timeHourEl2); timeWrap.appendChild(timeColonEl2); timeWrap.appendChild(timeMinEl2); timeWrap.appendChild(timeTxtEl2); timeWrap.appendChild(timeFreeBtn2);
-          hierDiv.appendChild(timeWrap);
-          if(!locked){(function(i2,nBtn,hEl,mEl,tEl,fBtn){
-            nBtn.onclick=function(){var now=opsRoundNowTime();items[i2].time=combineItemTime(now.h,now.m);saveItems();renderItems();};
-            hEl.onchange=function(){items[i2].time=combineItemTime(this.value,mEl.value);saveItems();};
-            mEl.onchange=function(){items[i2].time=combineItemTime(hEl.value,this.value);saveItems();};
-            tEl.oninput=function(){items[i2].timeTxt=this.value;saveItems();};
-            fBtn.onclick=function(){items[i2].time=(items[i2].time==='__free__')?'':'__free__';saveItems();renderItems();};
-          })(idx,timeNowBtn2,timeHourEl2,timeMinEl2,timeTxtEl2,timeFreeBtn2);}
-        }
 
         /* 業務終了トグルボタン */
         var doneBtn=document.createElement('button'); doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
@@ -20292,13 +20738,13 @@ function exportOpsDetailCsv() {
   var rng = sumRange();
   var all = opsDetailRows(), rows = opsDetailFiltered(all);
   if (!rows.length) { toast(rng.label+'に条件に一致する記録がありません', 'warn'); return; }
-  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','急患','スコープ','中止','終了']];
+  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','配置','急患','スコープ','中止','終了']];
   rows.forEach(function(r){
     var pt = r.ds.split('-');
     out.push([
       pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(r.ds).getDay()], r.kind, r.dept, r.cat, r.name,
       r.startMin!=null?schedMinToHM(r.startMin):'', r.endMin!=null?schedMinToHM(r.endMin):'', r.dur!=null?r.dur:'',
-      r.staff.join('/'), r.sup.join('/'), r.emergency?'✔':'', r.scope?'✔':'', r.cancelled?'✔':'', r.done?'済':''
+      r.staff.join('/'), r.sup.join('/'), r.robo, r.emergency?'✔':'', r.scope?'✔':'', r.cancelled?'✔':'', r.done?'済':''
     ]);
   });
   downloadCsv('分院CE_CE明細_'+sumFileLabel()+'.csv', out);
@@ -21140,7 +21586,7 @@ function swTab(t) {
   if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList(); renderEduCfgUI(); renderEduItemMaster();
-    if(can('mst')){renderOpeList();renderCathList();renderSupList();renderDutyMasterList();renderSchedPresetList();}
+    if(can('mst')){renderOpeList();renderCathList();renderSupList();renderRoboMaster();renderDutyMasterList();renderSchedPresetList();}
     /* data-perm = 権限による出し分け（従来どおり）。
        data-mode = 主観モードによる出し分け（'ce'|'hd'、属性なし＝両モードで表示）。
        セクションは .mgrp-body の中に入っているので子孫セレクタで拾う。新セクションは
@@ -22109,7 +22555,7 @@ function _doSearch(q) {
           if (item.toLowerCase().indexOf(q) !== -1) snippets.push('術式: ' + item.slice(0, 50));
           return;
         }
-        [['術式', opsItemName(item)], ['科', opsItemDept(item)], ['中カテゴリ', opsItemCat(item)], ['症例の備考', item.note || '']]
+        [['術式', opsItemName(item)], ['科', opsItemDept(item)], ['中カテゴリ', opsItemCat(item)], ['配置', (opsItemRobo(item) || {}).n || ''], ['症例の備考', item.note || '']]
           .forEach(function(pair) {
             var v = pair[1];
             if (v && String(v).toLowerCase().indexOf(q) !== -1) snippets.push(pair[0] + ': ' + String(v).slice(0, 50));
@@ -22558,7 +23004,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -22616,7 +23062,7 @@ function renderAutoBackups() {
    「復元」はデータ全体を戻すので、マスタ1つが消えただけでも今日の連絡表まで巻き戻ってしまう。
    ここでは選んだ項目だけを D に戻す。連絡表（pages）は対象にしない——日々の記録を戻すなら全体復元を使う */
 var PARTIAL_RESTORE_LABELS = {
-  supMaster:'🧰 使用物品マスタ', opeTree:'🏥 OPE術式マスタ', cathTree:'💉 カテ術式マスタ', supTree:'📦 物品マスタ（旧）',
+  supMaster:'🧰 使用物品マスタ', roboLayouts:'🤖 ロボット配置マスタ', opeTree:'🏥 OPE術式マスタ', cathTree:'💉 カテ術式マスタ', supTree:'📦 物品マスタ（旧）',
   dutyCfgMaster:'📋 担当枠マスタ', dutyCfg:'📋 担当枠テンプレ', opsCfg:'⚙ 業務カードのテンプレ', schedPresets:'⏰ スケジュールプリセット',
   dly:'✅ チェックリスト（共通）', wd:'✅ チェックリスト（曜日別）', hdDly:'🩸 HDチェックリスト（共通）', hdWd:'🩸 HDチェックリスト（曜日別）',
   wdDepts:'🏥 設置部署マスタ', hdTreatments:'🩸 HD特殊治療マスタ', tablets:'📱 タブレット台帳', hdTablets:'📱 HDタブレット台帳',
@@ -22687,7 +23133,7 @@ function doPartialRestore(dateStr, data, sel) {
   writeLog('バックアップから項目を復元', dateStr + '：' + sel.map(function(k){ return PARTIAL_RESTORE_LABELS[k]; }).join('、'));
   renderCal(); safeRenderPage();
   renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
-  renderOpeList(); renderCathList(); renderLockList(); renderSupMaster();
+  renderOpeList(); renderCathList(); renderLockList(); renderSupMaster(); renderRoboMaster();
   toast('✅ ' + sel.length + '項目を戻しました', 'ok');
 }
 
@@ -22706,7 +23152,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -22763,7 +23209,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
