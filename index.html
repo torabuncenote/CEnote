@@ -14246,6 +14246,11 @@ function opsItemName(it){
    以前は buildOPS の内側にあったが、術式ポップアップ（openOpsPickerModal）からも使うので外に出した。 */
 var OPS_TIME_HOURS = ['8','9','10','11','12','13','14','15','16','AM','PM'];
 var OPS_TIME_MINS = ['00','05','10','15','20','25','30','35','40','45','50','55','OC'];
+/* 術式ポップアップのボタン用。AM・PM と OC は「AM / OC」と2回に分けて押させず、AMOC・PMOC の
+   1ボタンにする（保存値も 'AMOC'/'PMOC' で従来と同じ）。フラット版のセレクトは上の配列のまま */
+var OPS_PICK_HOURS = OPS_TIME_HOURS.filter(function(v){ return /^\d+$/.test(v); });
+var OPS_PICK_MINS = OPS_TIME_MINS.filter(function(v){ return v !== 'OC'; });
+var OPS_PICK_OC = ['AMOC', 'PMOC'];
 function makeTimeHourOpts(selH) {
   var opts = '<option value="">--時</option>';
   OPS_TIME_HOURS.forEach(function(v) {
@@ -14287,6 +14292,7 @@ function opsRoundNowTime() {
 function opsItemTimeLabel(it) {
   if (!it) return '';
   if (it.time === '__free__') return it.timeTxt || '';
+  if (it.time === 'AMOC' || it.time === 'PMOC') return it.time;   /* ポップアップのボタン表記と揃える */
   var p = parseItemTime(it.time || '');
   if (!p.h && !p.m) return '';
   if (p.m === 'OC') return p.h ? p.h + ' OC' : 'OC';
@@ -14717,11 +14723,15 @@ function renderOpsPickBody() {
   if (c.withTime) {
     h += '<div class="md-flbl" style="margin-top:14px">⏱ 入室時間</div>';
     if (!c.tFree) {
-      h += '<div class="dc-cbs">' + OPS_TIME_HOURS.map(function(v, i){
-        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (c.tH === v ? ' checked' : '') + '" onclick="opsPickHour(' + i + ')">' + (/^\d+$/.test(v) ? v + '時' : v) + '</button>';
+      var tCur = combineItemTime(c.tH, c.tM);
+      h += '<div class="dc-cbs">' + OPS_PICK_HOURS.map(function(v, i){
+        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (c.tH === v ? ' checked' : '') + '" onclick="opsPickHour(' + i + ')">' + v + '時</button>';
       }).join('') + '</div>';
-      h += '<div class="dc-cbs">' + OPS_TIME_MINS.map(function(v, i){
-        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (c.tM === v ? ' checked' : '') + '" onclick="opsPickMin(' + i + ')">' + (v === 'OC' ? v : ':' + v) + '</button>';
+      h += '<div class="dc-cbs">' + OPS_PICK_MINS.map(function(v, i){
+        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (/^\d+$/.test(c.tH) && c.tM === v ? ' checked' : '') + '" onclick="opsPickMin(' + i + ')">:' + v + '</button>';
+      }).join('') + '</div>';
+      h += '<div class="dc-cbs">' + OPS_PICK_OC.map(function(v, i){
+        return '<button type="button" class="dc-cb-item opk-chip opk-t' + (tCur === v ? ' checked' : '') + '" onclick="opsPickOC(' + i + ')">' + v + '</button>';
       }).join('') + '</div>';
       h += '<div style="display:flex;gap:6px"><button type="button" class="btn btn-g btn-sm" onclick="opsPickTimeClear()">時間をクリア</button>'
         + '<button type="button" class="btn btn-g btn-sm" onclick="opsPickTimeFree(true)">自由入力</button></div>';
@@ -14815,14 +14825,23 @@ function opsPickFreeDept(i) {
 }
 function opsPickHour(i) {
   var c = _opsPickCtx; if (!c) return;
-  var v = OPS_TIME_HOURS[i];
-  if (c.tH === v) { c.tH = ''; } else { c.tH = v; if (!c.tM && /^\d+$/.test(v)) c.tM = '00'; }
+  var v = OPS_PICK_HOURS[i];
+  if (c.tH === v) { c.tH = ''; return renderOpsPickBody(); }
+  /* 分が空・OC（AMOC や旧形式の 9:OC から切り替えたとき）なら 00 を入れる */
+  c.tH = v; if (!c.tM || c.tM === 'OC') c.tM = '00';
   renderOpsPickBody();
 }
 function opsPickMin(i) {
   var c = _opsPickCtx; if (!c) return;
-  var v = OPS_TIME_MINS[i];
+  var v = OPS_PICK_MINS[i];
+  if (!/^\d+$/.test(c.tH)) c.tH = '';   /* AMOC/PMOC から分を押したら時を選び直してもらう */
   c.tM = (c.tM === v) ? '' : v;
+  renderOpsPickBody();
+}
+function opsPickOC(i) {
+  var c = _opsPickCtx; if (!c) return;
+  var v = OPS_PICK_OC[i], p = parseItemTime(v);
+  if (combineItemTime(c.tH, c.tM) === v) { c.tH = ''; c.tM = ''; } else { c.tH = p.h; c.tM = p.m; }
   renderOpsPickBody();
 }
 function opsPickTimeClear() { var c = _opsPickCtx; if (!c) return; c.tH = ''; c.tM = ''; renderOpsPickBody(); }
