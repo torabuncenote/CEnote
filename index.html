@@ -578,6 +578,13 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .ops-pick-edit{flex-shrink:0;font-size:11px;opacity:.6}
 .ops-robo-row{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap}
 .ops-robo-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--pu);background:var(--pu-bg);border:1.5px solid var(--pu);border-radius:14px;padding:3px 10px;cursor:pointer;font-family:var(--fn);white-space:nowrap}
+.ops-scope-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px solid var(--ac);border-radius:14px;padding:3px 10px;cursor:pointer;font-family:var(--fn);white-space:nowrap}
+.ops-scope-chip:disabled{cursor:default}
+.ops-time-warn{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--warn-fg);background:var(--warn-bg);border:1.5px solid var(--warn-bdr);border-radius:14px;padding:3px 10px;cursor:pointer;font-family:var(--fn);white-space:nowrap}
+.ops-time-warn:disabled{cursor:default}
+.ops-sup-inline{margin-top:4px;padding:4px 6px;border-radius:var(--rs)}
+.ops-sup-inline.tap{cursor:pointer}
+@media (hover:hover){.ops-sup-inline.tap:hover{background:var(--sur2)}}
 .ops-robo-add{font-size:11px;font-weight:700;color:var(--pu);background:none;border:1.5px dashed var(--pu);border-radius:14px;padding:3px 10px;cursor:pointer;font-family:var(--fn)}
 /* 術式ポップアップ（openOpsPickerModal） */
 .ops-pick-md{max-width:560px}
@@ -5319,6 +5326,8 @@ var APP_CHANGELOG = [
     {t:'imp', d:'🔪 オペの術式・カテの種別と入室時間を、使用物品と同じ画面中央のポップアップでまとめて選べるようにしました。科ごとに開いて選びます。連絡表には「腹腔鏡下胆嚢摘出術」のように1行で表示されます（カテは種別名だけ。入室時間の「今」ボタンはなくしました）'},
     {t:'new', d:'🤖 ロボット支援下の症例では、ポップアップで配置も選べるようにしました。連絡表の🤖チップを押すと配置図が見られます'},
     {t:'new', d:'🤖 業務マスタに「ロボット配置マスタ」を追加しました。配置名と配置図（パワポを書き出した画像）を登録できます', admin:true},
+    {t:'imp', d:'🧰 使用物品とスコープも、術式のポップアップの中で選べるようにしました。スコープは腹腔鏡下の症例のときだけ出ます。連絡表の行は「🏷 急患・中止」と「終了」にまとまり、スコープを依頼された症例には🔭チップが付きます'},
+    {t:'new', d:'⏱ 入室時間がOCや空欄のまま終了すると、実際の入室時間を聞くようにしました。後で入れる場合は行に「⚠ 入室時間未入力」が付き、画面下の消し込みバーにも残ります'},
     {t:'imp', d:'📊 CE集計の明細とCSVに「配置」列を追加しました'},
     {t:'imp', d:'📝 業務連絡・申し送りの欄が、件数に合わせて縦に伸びるようになりました（欄の中でスクロールしなくても全部見えます）'},
     {t:'imp', d:'画面上部の「＋ 1日追加」ボタンをなくしました。1日だけ作るときは、カレンダーで連絡表の無い日を押してください', admin:true}
@@ -10144,6 +10153,7 @@ function closeItems(ds) {
     {key:'checklist', label:'✅ チェックリスト未了',   sel:'.clg',           items:[]},
     {key:'ope',       label:'🔪 オペ終了未チェック',   sel:'#ops-card-ope',  items:[]},
     {key:'cath',      label:'🫀 カテ終了未チェック',   sel:'#ops-card-cath', items:[]},
+    {key:'optime',    label:'⏱ 入室時間未入力',       sel:'.ops-time-warn', items:[]},
     {key:'tablet',    label:'📱 タブレット未返却',     sel:'#tablet-btn',    items:[]},
     {key:'oc',        label:'📞 オンコール担当未設定', sel:'.oc-card',       items:[]}
   ];
@@ -10194,6 +10204,14 @@ function closeItems(ds) {
   });
   opsItemsOf(dat,'cath').forEach(function(it){
     if (opsItemFilled(it) && !it.done && !it.cancelled) byKey.cath.items.push({mine: myCath || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
+  });
+  /* 3b. 入室時間がOC・空欄のまま終了した症例（行の「⚠ 入室時間未入力」と同じ条件）。
+     入室前の予定まで数えると一日中並び続けるので、終了済みだけを数える */
+  [['ope', myOpe], ['cath', myCath]].forEach(function(p){
+    opsItemsOf(dat, p[0]).forEach(function(it){
+      if (opsItemFilled(it) && it.done && !it.cancelled && opsItemTimeMissing(it))
+        byKey.optime.items.push({mine: p[1] || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
+    });
   });
 
   /* 5. タブレット未返却（ヘッダーバッジと同じ式：当日分＋前日以前からの持ち越し分） */
@@ -14048,11 +14066,6 @@ function renderSupPickBody(){
   var c = _supPickCtx; if (!c) return;
   var md = document.getElementById('sup-pick-md'); if (!md) return;
   var m = c.master;
-  function chip(ki, ii){
-    var n = m[ki].items[ii].n, on = c.sel.indexOf(n) !== -1;
-    return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox"' + (on ? ' checked' : '')
-      + ' onchange="supPickToggleItem(' + ki + ',' + ii + ')">' + escH(n) + '</label>';
-  }
 
   var h = '<h3>🧰 使用物品を選ぶ</h3>';
   h += '<p>' + (c.title ? escH(c.title) + '<br>' : '')
@@ -14067,40 +14080,8 @@ function renderSupPickBody(){
       }).join('') + '</div>'
     : '<div class="sup-pick-empty">まだ選ばれていません</div>';
 
-  if (!m.length) {
-    h += '<div class="sup-pick-empty" style="margin-top:12px">物品マスタが未登録です。業務マスタの「使用物品」から登録すると一覧から選べます。</div>';
-  } else {
-    /* 先頭：その科（と全科）の品名を種類の順に */
-    var top = '', topN = 0;
-    m.forEach(function(k, ki){
-      var chips = '';
-      k.items.forEach(function(it, ii){ if (supItemForDept(it, c.dept)) { chips += chip(ki, ii); topN++; } });
-      if (chips) top += '<div class="sup-pick-sub">' + escH(k.kind) + '</div><div class="dc-cbs">' + chips + '</div>';
-    });
-    h += '<div class="sup-pick-sec"><div class="sup-pick-sec-hd">🏥 '
-      + (c.dept ? '<b>' + escH(c.dept) + '</b> で使う物品' : '全科で使う物品')
-      + '</div>'
-      + (topN ? top : '<div class="sup-pick-empty">' + (c.dept
-          ? 'この科に紐づいた物品はまだありません。下の種類から選んでください（業務マスタの使用物品で、品名ごとに🏥から科を設定できます）'
-          : '術式の科を選ぶと、その科で使う物品がここに並びます') + '</div>')
-      + '</div>';
-
-    /* 残り：種類ごとの折りたたみ */
-    var rest = '';
-    m.forEach(function(k, ki){
-      var idx = [];
-      k.items.forEach(function(it, ii){ if (!supItemForDept(it, c.dept)) idx.push(ii); });
-      if (!idx.length) return;
-      var open = supPickKindOpen(ki);
-      rest += '<div class="sup-pick-kind">'
-        + '<button type="button" class="sup-pick-kind-hd" onclick="supPickToggleKind(' + ki + ')">'
-        + '<span class="sup-pick-arrow' + (open ? ' open' : '') + '">▶</span>' + escH(k.kind)
-        + '<span class="sup-pick-kind-n">' + idx.length + '</span></button>'
-        + (open ? '<div class="sup-pick-kind-bd"><div class="dc-cbs">' + idx.map(function(ii){ return chip(ki, ii); }).join('') + '</div></div>' : '')
-        + '</div>';
-    });
-    if (rest) h += '<div class="md-flbl" style="margin-top:14px">種類から探す</div>' + rest;
-  }
+  h += supPickListHTML({ master: m, sel: c.sel, dept: c.dept, kindOpen: supPickKindOpen,
+    itemCall: 'supPickToggleItem', kindCall: 'supPickToggleKind' });
 
   h += '<div class="md-flbl" style="margin-top:14px">一覧に無いものを足す</div>';
   h += '<div style="display:flex;gap:8px;align-items:center">'
@@ -14114,6 +14095,61 @@ function renderSupPickBody(){
 
   var fi = document.getElementById('sup-pick-free');
   if (fi) fi.onkeydown = function(e){ if (e.key === 'Enter') { e.preventDefault(); supPickAddFree(); } };
+}
+/* 使用物品の一覧：その症例の科（と全科）の品名を先頭にまとめ、残りは種類ごとの折りたたみ。
+   使用物品ポップアップ（renderSupPickBody）と術式ポップアップ（renderOpsPickBody）の両方が使う。
+   o = { master, sel:[], dept, kindOpen:function(ki){}, itemCall:'関数名', kindCall:'関数名' }
+   onclick には添字だけを渡す（品名にアポストロフィが入ると onclick 文字列が壊れるため）。 */
+function supPickListHTML(o){
+  var m = o.master, h = '';
+  if (!m.length) return '<div class="sup-pick-empty" style="margin-top:12px">物品マスタが未登録です。業務マスタの「使用物品」から登録すると一覧から選べます。</div>';
+  function chip(ki, ii){
+    var n = m[ki].items[ii].n, on = o.sel.indexOf(n) !== -1;
+    return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox"' + (on ? ' checked' : '')
+      + ' onchange="' + o.itemCall + '(' + ki + ',' + ii + ')">' + escH(n) + '</label>';
+  }
+  /* 先頭：その科（と全科）の品名を種類の順に */
+  var top = '', topN = 0;
+  m.forEach(function(k, ki){
+    var chips = '';
+    k.items.forEach(function(it, ii){ if (supItemForDept(it, o.dept)) { chips += chip(ki, ii); topN++; } });
+    if (chips) top += '<div class="sup-pick-sub">' + escH(k.kind) + '</div><div class="dc-cbs">' + chips + '</div>';
+  });
+  h += '<div class="sup-pick-sec"><div class="sup-pick-sec-hd">🏥 '
+    + (o.dept ? '<b>' + escH(o.dept) + '</b> で使う物品' : '全科で使う物品')
+    + '</div>'
+    + (topN ? top : '<div class="sup-pick-empty">' + (o.dept
+        ? 'この科に紐づいた物品はまだありません。下の種類から選んでください（業務マスタの使用物品で、品名ごとに🏥から科を設定できます）'
+        : '術式の科を選ぶと、その科で使う物品がここに並びます') + '</div>')
+    + '</div>';
+  /* 残り：種類ごとの折りたたみ（先頭に出した品名は出さない） */
+  var rest = '';
+  m.forEach(function(k, ki){
+    var idx = [];
+    k.items.forEach(function(it, ii){ if (!supItemForDept(it, o.dept)) idx.push(ii); });
+    if (!idx.length) return;
+    var open = o.kindOpen(ki);
+    rest += '<div class="sup-pick-kind">'
+      + '<button type="button" class="sup-pick-kind-hd" onclick="' + o.kindCall + '(' + ki + ')">'
+      + '<span class="sup-pick-arrow' + (open ? ' open' : '') + '">▶</span>' + escH(k.kind)
+      + '<span class="sup-pick-kind-n">' + idx.length + '</span></button>'
+      + (open ? '<div class="sup-pick-kind-bd"><div class="dc-cbs">' + idx.map(function(ii){ return chip(ki, ii); }).join('') + '</div></div>' : '')
+      + '</div>';
+  });
+  if (rest) h += '<div class="md-flbl" style="margin-top:14px">種類から探す</div>' + rest;
+  return h;
+}
+/* 物品名の自由入力を確かめる。ここは物品名を入れる欄なので、氏名パターンの警告（黄色）では止めない
+   ——ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名はほとんどが氏名パターンに
+   当たる（中心静脈カテーテル / 生体情報モニタ / 自己血回収装置 / 電気メス先端チップ / 吸収糸 …）。
+   毎回警告を挟むとアラート疲れを起こし、本物の患者情報の警告まで読み飛ばされる。
+   患者IDや生年月日といったブロック対象（phiHasBlock）だけは弾く。 */
+function supFreeOk(v, inputId){
+  var phiRes = detectPHI(v);
+  if (!phiHasBlock(phiRes)) return true;
+  showPHIPopup({ result: phiRes, mode:'field', onProceed:null,
+    onFix:function(){ var e2 = document.getElementById(inputId); if (e2) { e2.value = v; e2.focus(); } } });
+  return false;
 }
 function supPickToggleKind(ki){
   var c = _supPickCtx; if (!c) return;
@@ -14132,18 +14168,7 @@ function supPickAddFree(){
   var c = _supPickCtx; if (!c) return;
   var el = document.getElementById('sup-pick-free'); if (!el) return;
   var v = (el.value || '').trim(); if (!v) return;
-  /* ここは物品名を入れる欄なので、氏名パターンの警告（黄色）では止めない
-     ——ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名は
-     ほとんどが氏名パターンに当たる（中心静脈カテーテル / 生体情報モニタ /
-     自己血回収装置 / 電気メス先端チップ / 吸収糸 …）。毎回警告を挟むと
-     アラート疲れを起こし、本物の患者情報の警告まで読み飛ばされる。
-     患者IDや生年月日といったブロック対象（phiHasBlock）だけは弾く。 */
-  var phiRes = detectPHI(v);
-  if (phiHasBlock(phiRes)) {
-    showPHIPopup({ result: phiRes, mode:'field', onProceed:null,
-      onFix:function(){ var e2 = document.getElementById('sup-pick-free'); if (e2) { e2.value = v; e2.focus(); } } });
-    return;
-  }
+  if (!supFreeOk(v, 'sup-pick-free')) return;   /* 氏名パターンでは止めない理由は supFreeOk の注記 */
   if (_supPickCtx.sel.indexOf(v) === -1) _supPickCtx.sel.push(v);
   renderSupPickBody();
 }
@@ -14283,6 +14308,44 @@ function opsItemTitle(it, kind) {
 /* ロボット支援下か。中カテゴリ（または自由入力の術式名）に「ロボット」を含むときだけ配置を選ばせる */
 function opsIsRobotText(s) { return /ロボット/.test(s || ''); }
 function opsItemIsRobot(it) { return opsIsRobotText(opsItemCat(it)) || opsIsRobotText(opsItemName(it)); }
+/* 腹腔鏡下か。スコープは腹腔鏡下のオペで依頼されるので、そのときだけポップアップにスコープ欄を出す */
+function opsIsLapText(s) { return /腹腔鏡/.test(s || ''); }
+function opsItemIsLap(it) { return opsIsLapText(opsItemCat(it)) || opsIsLapText(opsItemName(it)); }
+/* 実際の入室時間が入っていないか（空欄・OC）。OC は予定を大づかみに入れる値で所要時間の計算に
+   使えないので、終了後に実際の時刻を入れてもらう（終了時の openOpsTimeFixModal と消し込みバーの optime）。
+   自由入力に何か書いてあれば入力済みとみなす。 */
+function opsItemTimeMissing(it) {
+  if (!it) return true;
+  if (it.time === '__free__') return !String(it.timeTxt || '').trim();
+  var p = parseItemTime(it.time || '');
+  return !p.h || !p.m || p.m === 'OC';
+}
+/* 実際の入室時間を聞く小さなポップアップ。OC は時間外の緊急もあるので、術式ポップアップの
+   時ボタン（8〜16時）ではなく普通の時刻入力にする。opts = { title, onApply:function(time){} } */
+function openOpsTimeFixModal(opts) {
+  var old = document.getElementById('ops-timefix-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'ops-timefix-ov'; ov.className = 'ov';
+  var close = function(){ ov.remove(); };
+  ov.onclick = function(e){ if (e.target === ov) close(); };
+  ov.innerHTML = '<div class="md" style="max-width:380px"><h3>⏱ 実際の入室時間は？</h3>'
+    + '<p>' + (opts.title ? '<b>' + escH(opts.title) + '</b><br>' : '')
+    + '入室時間がOCか空欄のままです。所要時間を計算できるよう、実際の時刻を入れてください。</p>'
+    + '<input type="time" id="ops-timefix-in" class="fi" style="font-size:18px">'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button type="button" class="btn btn-g" id="ops-timefix-later">後で入れる</button>'
+    + '<button type="button" class="btn btn-p" id="ops-timefix-ok">記録する</button></div></div>';
+  document.body.appendChild(ov);
+  var inp = document.getElementById('ops-timefix-in');
+  document.getElementById('ops-timefix-later').onclick = function(){ close(); toast('⚠ 入室時間は未入力のままです（行の⚠から後で入れられます）', 'warn'); };
+  document.getElementById('ops-timefix-ok').onclick = function(){
+    var v = inp.value;   /* 'HH:MM' */
+    if (!v) { inp.focus(); return; }
+    var hm = v.split(':');
+    close();
+    opts.onApply(combineItemTime(String(parseInt(hm[0], 10)), hm[1]));
+  };
+  setTimeout(function(){ if (inp) inp.focus(); }, 50);
+}
 
 /* ===== ロボット配置マスタ（D.roboLayouts = [{id, n, img, sz}]） =====
    img＝配置図を登録した時刻（0なら図なし）、sz＝図の保存サイズ（ストレージ画面用）。
@@ -14545,6 +14608,10 @@ function openOpsPickerModal(opts) {
     procChanged: false,
     tFree: it.time === '__free__', tH: tp.h, tM: tp.m, tTxt: it.timeTxt || '',
     roboList: roboLayouts(), robo: rb ? { id: rb.id, n: rb.n } : null,
+    origDept: curDept, scope: !!it.scope,
+    /* 使用物品（ツリー版のオペだけ）。開いた時点の使用物品マスタを複製して持つ（添字を安定させるため） */
+    withSup: !!opts.withSup, sup: opsItemSup(it).slice(), supOpen: !!opts.openSup,
+    supMaster: opts.withSup ? supMasterOf() : [], supKindOpen: {},
     open: {}
   };
   tree.forEach(function(d, di){ if (curDept && d.dept === curDept) c.open[di] = true; });
@@ -14565,6 +14632,20 @@ function opsPickEff(c) {
   return { cat: c.origCat, name: c.origName };
 }
 function opsPickIsRobot(c) { var e = opsPickEff(c); return opsIsRobotText(e.cat) || opsIsRobotText(e.name); }
+function opsPickIsLap(c) { var e = opsPickEff(c); return c.kind === 'ope' && (opsIsLapText(e.cat) || opsIsLapText(e.name)); }
+/* 使用物品の並びに使う科（いま選んでいる術式の科。選び直すと先頭に出る物品も変わる） */
+function opsPickDept(c) {
+  if (c.free && c.freeName.trim()) return c.freeDept;
+  if (c.procChanged && c.sel) return c.dept;
+  return c.origDept;
+}
+function opsPickSupKindOpen(ki) {
+  var c = _opsPickCtx; if (!c) return false;
+  if (ki in c.supKindOpen) return c.supKindOpen[ki];
+  var dept = opsPickDept(c);
+  /* 科が未選択、またはその科に紐づいた品名が1件も無いときは種類の一覧を最初から開く（使用物品ポップアップと同じ） */
+  return !dept || !c.supMaster.some(function(k){ return k.items.some(function(it){ return supItemForDept(it, dept); }); });
+}
 function opsPickTimeLabel(c) {
   return opsItemTimeLabel(c.tFree ? { time: '__free__', timeTxt: c.tTxt } : { time: combineItemTime(c.tH, c.tM) });
 }
@@ -14587,6 +14668,8 @@ function renderOpsPickBody() {
     + (title ? escH(title) : '<span class="muted">まだ選ばれていません</span>')
     + (tml ? '<span class="ops-pick-time">⏱ ' + escH(tml) + '</span>' : '')
     + (robot && c.robo ? '<span class="ops-robo-chip">🤖 ' + escH(c.robo.n) + '</span>' : '')
+    + (opsPickIsLap(c) && c.scope ? '<span class="ops-scope-chip">🔭 スコープ</span>' : '')
+    + (c.withSup && c.sup.length ? '<span class="ops-pick-time">🧰 ' + c.sup.length + '件</span>' : '')
     + '</div>';
 
   /* 科ごとの折りたたみ → 中カテゴリの小見出し → 術式ボタン */
@@ -14662,6 +14745,37 @@ function renderOpsPickBody() {
     }
   }
 
+  /* スコープ：腹腔鏡下のオペのときだけ（配置と同じ出し方） */
+  if (opsPickIsLap(c)) {
+    h += '<div class="md-flbl" style="margin-top:14px">🔭 スコープ</div>'
+      + '<div class="dc-cbs"><button type="button" class="dc-cb-item opk-chip' + (c.scope ? ' checked' : '') + '" onclick="opsPickScope()">'
+      + (c.scope ? '🔭 スコープを依頼された' : '🔭 スコープを依頼された（押すと付く）') + '</button></div>';
+  }
+
+  /* 使用物品：一番下の折りたたみ。術式だけ入れるときの手数を増やさないよう既定は閉じる */
+  if (c.withSup) {
+    h += '<div class="sup-pick-kind" style="margin-top:14px">'
+      + '<button type="button" class="sup-pick-kind-hd" onclick="opsPickToggleSup()">'
+      + '<span class="sup-pick-arrow' + (c.supOpen ? ' open' : '') + '">▶</span>🧰 使用物品'
+      + '<span class="sup-pick-kind-n">' + c.sup.length + '件</span></button>';
+    if (c.supOpen) {
+      h += '<div class="sup-pick-kind-bd">';
+      h += c.sup.length
+        ? '<div class="dc-cbs" style="margin-top:6px">' + c.sup.map(function(s, i){
+            return '<span class="dc-cb-item checked">' + escH(s)
+              + '<button type="button" class="sup-pick-x" onclick="opsPickSupRemove(' + i + ')" title="外す">✕</button></span>';
+          }).join('') + '</div>'
+        : '<div class="sup-pick-empty">まだ選ばれていません</div>';
+      h += supPickListHTML({ master: c.supMaster, sel: c.sup, dept: opsPickDept(c), kindOpen: opsPickSupKindOpen,
+        itemCall: 'opsPickSupItem', kindCall: 'opsPickSupKind' });
+      h += '<div style="display:flex;gap:8px;align-items:center;margin:12px 0 8px">'
+        + '<input id="opk-sup-free" class="fi" style="flex:1;margin-bottom:0" placeholder="一覧に無い物品名" autocomplete="off">'
+        + '<button type="button" class="btn btn-g" onclick="opsPickSupAddFree()">追加</button></div>';
+      h += '</div>';
+    }
+    h += '</div>';
+  }
+
   h += '<div class="opk-foot">'
     + '<button class="btn btn-g" onclick="closeOpsPicker()">キャンセル</button>'
     + '<button class="btn btn-p" onclick="opsPickApply()">決定</button></div>';
@@ -14676,6 +14790,8 @@ function renderOpsPickBody() {
   }
   var ti = document.getElementById('opk-time-txt');
   if (ti) { ti.value = c.tTxt; ti.oninput = function(){ c.tTxt = ti.value; }; }
+  var sfi = document.getElementById('opk-sup-free');
+  if (sfi) sfi.onkeydown = function(ev){ if (ev.key === 'Enter') { ev.preventDefault(); opsPickSupAddFree(); } };
   if (robot && c.robo) {
     var rr = null;
     c.roboList.forEach(function(r){ if (r.id === c.robo.id) rr = r; });
@@ -14717,6 +14833,25 @@ function opsPickRobo(i) {
   c.robo = (c.robo && c.robo.id === r.id) ? null : { id: r.id, n: r.n };
   renderOpsPickBody();
 }
+function opsPickScope() { var c = _opsPickCtx; if (!c) return; c.scope = !c.scope; renderOpsPickBody(); }
+function opsPickToggleSup() { var c = _opsPickCtx; if (!c) return; c.supOpen = !c.supOpen; renderOpsPickBody(); }
+function opsPickSupKind(ki) { var c = _opsPickCtx; if (!c) return; c.supKindOpen[ki] = !opsPickSupKindOpen(ki); renderOpsPickBody(); }
+function opsPickSupItem(ki, ii) {
+  var c = _opsPickCtx; if (!c) return;
+  var it = c.supMaster[ki] && c.supMaster[ki].items[ii]; if (!it) return;
+  var at = c.sup.indexOf(it.n);
+  if (at === -1) c.sup.push(it.n); else c.sup.splice(at, 1);
+  renderOpsPickBody();
+}
+function opsPickSupRemove(i) { var c = _opsPickCtx; if (!c) return; c.sup.splice(i, 1); renderOpsPickBody(); }
+function opsPickSupAddFree() {
+  var c = _opsPickCtx; if (!c) return;
+  var el = document.getElementById('opk-sup-free'); if (!el) return;
+  var v = (el.value || '').trim(); if (!v) return;
+  if (!supFreeOk(v, 'opk-sup-free')) return;
+  if (c.sup.indexOf(v) === -1) c.sup.push(v);
+  renderOpsPickBody();
+}
 function opsPickApply() {
   var c = _opsPickCtx; if (!c) return;
   var freeName = c.free ? c.freeName.trim() : '';
@@ -14746,6 +14881,9 @@ function opsPickApply() {
     else patch.time = combineItemTime(c.tH, c.tM);
   }
   patch.robo = (opsPickIsRobot(c) && c.robo) ? { id: c.robo.id, n: c.robo.n } : null;
+  /* スコープは腹腔鏡下のときだけ書く。腹腔鏡でない術式に選び直しても、以前の記録は消さない */
+  if (opsPickIsLap(c)) patch.scope = c.scope ? true : null;
+  if (c.withSup) patch.sup = c.sup.slice();
   var fn = c.onApply;
   /* 先に閉じてから書き戻す（onApply が renderItems() を呼ぶので、開いたままだと描画と競合する） */
   closeOpsPicker();
@@ -18067,16 +18205,35 @@ function buildOPS(ds,dat,locked) {
      担当者チップの追加・削除、終了時刻・備考の手動修正はここで直接 items[idx] を書き換えて
      saveItems()/renderItems() を呼ぶ（両ビルダーの他の入力欄と同じパターン）。
      itemId（'ope'/'cath'）はDOM ID（担当カードのdc-add-note-等と衝突しないための接頭辞）に使う。 */
-  function buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn) {
+  /* opts.picker：ツリー版（術式ポップアップあり）から呼ぶとき true。スコープはポップアップへ移したので
+     🏷行は「急患・中止」になり、中止は終了行から🏷行へ移る。フラット版（マスタが空のときの予備）は従来どおり。 */
+  function buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn, opts) {
     var item = items[idx];
+    var picker = !!(opts && opts.picker);
 
-    /* 症例ごとの印：🚑 急患／🔭 スコープ。オペにだけ出す（カテには概念が無い）。
+    /* 症例中止トグル。オペ・カテ両方に出す（急患・スコープと違いカテにも中止はある）。
+       予定を組んだ根拠を残すため連絡表の見出しには件数に含めて出すが、集計・実績からは除く
+       （opsItemFilled/eduStats参照。CLAUDE.md「OPE / カテカード」節に理由を記載）。 */
+    var cxBtn = document.createElement('button');
+    cxBtn.type = 'button';
+    cxBtn.className = 'ops-done-btn ops-tag-btn cx' + (item.cancelled ? ' on' : '');
+    cxBtn.textContent = item.cancelled ? '⛔ 中止済' : '⛔ 中止';
+    cxBtn.title = item.cancelled ? 'タップで中止を取り消す' : 'タップで症例を中止にする';
+    cxBtn.disabled = !!locked;
+    if (!locked) cxBtn.onclick = function(){
+      if (!opsToggleCancel(items, idx)) return; /* 確認をキャンセルした場合は何もしない */
+      writeLog(item.cancelled ? '症例を中止' : '症例の中止を取消', fmtJ(ds) + ' ' + (opsItemName(item) || '（無題）'));
+      saveItems(); renderItems();
+    };
+
+    /* 症例ごとの印：🚑 急患（／フラット版は🔭 スコープも）。急患はオペにだけ出す（カテには概念が無い）。
        作りは「終了」トグルと同じで、押すと items[idx] を直接書き換えて保存・再描画する。 */
-    if (itemId === 'ope') {
+    if (itemId === 'ope' || picker) {
       var tagRow2 = document.createElement('div'); tagRow2.className = 'ops-staff-row';
       var tagLbl = document.createElement('span'); tagLbl.className = 'ops-meta-lbl'; tagLbl.textContent = '🏷';
       tagRow2.appendChild(tagLbl);
-      [['emergency','em','🚑 急患'], ['scope','sc','🔭 スコープ']].forEach(function(t){
+      var tagDefs = itemId !== 'ope' ? [] : (picker ? [['emergency','em','🚑 急患']] : [['emergency','em','🚑 急患'], ['scope','sc','🔭 スコープ']]);
+      tagDefs.forEach(function(t){
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'ops-done-btn ops-tag-btn ' + t[1] + (item[t[0]] ? ' on' : '');
@@ -18085,6 +18242,7 @@ function buildOPS(ds,dat,locked) {
         if (!locked) b.onclick = function(){ items[idx][t[0]] = !items[idx][t[0]]; saveItems(); renderItems(); };
         tagRow2.appendChild(b);
       });
+      if (picker) tagRow2.appendChild(cxBtn);
       itemWrap.appendChild(tagRow2);
     }
 
@@ -18199,21 +18357,8 @@ function buildOPS(ds,dat,locked) {
        時刻は終了にした行だけに出すので、未終了の行は［終了］と［×］だけになる */
     var endRow = document.createElement('div'); endRow.className = 'ops-end-row';
     if (doneBtn) endRow.appendChild(doneBtn);
-    /* 症例中止トグル：終了の右に置く。オペ・カテ両方に出す（急患・スコープと違いカテにも中止はある）。
-       予定を組んだ根拠を残すため連絡表の見出しには件数に含めて出すが、集計・実績からは除く
-       （opsItemFilled/eduStats参照。CLAUDE.md「OPE / カテカード」節に理由を記載）。 */
-    var cxBtn = document.createElement('button');
-    cxBtn.type = 'button';
-    cxBtn.className = 'ops-done-btn ops-tag-btn cx' + (item.cancelled ? ' on' : '');
-    cxBtn.textContent = item.cancelled ? '⛔ 中止済' : '⛔ 中止';
-    cxBtn.title = item.cancelled ? 'タップで中止を取り消す' : 'タップで症例を中止にする';
-    cxBtn.disabled = !!locked;
-    if (!locked) cxBtn.onclick = function(){
-      if (!opsToggleCancel(items, idx)) return; /* 確認をキャンセルした場合は何もしない */
-      writeLog(item.cancelled ? '症例を中止' : '症例の中止を取消', fmtJ(ds) + ' ' + (opsItemName(item) || '（無題）'));
-      saveItems(); renderItems();
-    };
-    endRow.appendChild(cxBtn);
+    /* フラット版は中止を終了の右に置く（ツリー版は🏷行へ移した） */
+    if (!picker) endRow.appendChild(cxBtn);
     if (item.done || item.endTime != null) {
       var endLbl = document.createElement('span'); endLbl.className = 'ops-meta-lbl'; endLbl.textContent = '🏁';
       endRow.appendChild(endLbl);
@@ -18329,11 +18474,18 @@ function buildOPS(ds,dat,locked) {
         }
 
         /* 術式・入室時間・配置を選ぶポップアップを開く。決定時は D から読み直して、この行だけに当てる */
-        var openPick=(function(i2){return function(){
+        var openPickWith=function(i2, openSup){
           var sig=supRowSig(items[i2]);
-          openOpsPickerModal({kind:itemId, labelName:labelName, tree:masterTree, withTime:withTime, item:items[i2],
+          openOpsPickerModal({kind:itemId, labelName:labelName, tree:masterTree, withTime:withTime, withSup:withSup, openSup:!!openSup, item:items[i2],
             onApply:function(patch){ opsApplyLiveRow(ds, key, items, i2, sig, wrap, saveItems, renderItems, function(it){ opsApplyPatch(it, patch); }); }});
-        };})(idx);
+        };
+        var openPick=(function(i2){return function(){ openPickWith(i2,false); };})(idx);
+        /* 実際の入室時間だけを入れる小さなポップアップ（OC・空欄のまま終了した症例） */
+        var openTimeFix=function(i2){
+          var sig=supRowSig(items[i2]);
+          openOpsTimeFixModal({title:opsItemTitle(items[i2],itemId),
+            onApply:function(t){ opsApplyLiveRow(ds, key, items, i2, sig, wrap, saveItems, renderItems, function(it){ it.time=t; }); }});
+        };
 
         var hierDiv = document.createElement('div');
         hierDiv.style.cssText='flex:3;display:flex;flex-direction:column;gap:4px;min-width:0';
@@ -18358,9 +18510,9 @@ function buildOPS(ds,dat,locked) {
             +(locked?'':'<span class="ops-pick-edit">✏️</span>');
           if(!locked) pickBtn.onclick=openPick;
           hierDiv.appendChild(pickBtn);
-          /* ロボット支援下は配置のチップ。押すと配置図（ロック中でも見るだけはできる） */
+          /* 準備が要るもののチップを1行にまとめる：🤖 配置（押すと配置図）／🔭 スコープ／⚠ 入室時間未入力 */
+          var roboRow=document.createElement('div'); roboRow.className='ops-robo-row';
           if(opsItemIsRobot(item)){
-            var roboRow=document.createElement('div'); roboRow.className='ops-robo-row';
             var rbv=opsItemRobo(item);
             if(rbv){
               var rChip=document.createElement('button'); rChip.type='button'; rChip.className='ops-robo-chip';
@@ -18372,8 +18524,22 @@ function buildOPS(ds,dat,locked) {
               rAdd.textContent='🤖 配置を選ぶ'; rAdd.onclick=openPick;
               roboRow.appendChild(rAdd);
             }
-            if(roboRow.childNodes.length) hierDiv.appendChild(roboRow);
           }
+          /* スコープは腹腔鏡以外でも、以前に付けた記録があれば出す（データを消さない） */
+          if(item.scope){
+            var sChip=document.createElement('button'); sChip.type='button'; sChip.className='ops-scope-chip';
+            sChip.textContent='🔭 スコープ'; sChip.disabled=!!locked; sChip.title='ポップアップで変更';
+            if(!locked) sChip.onclick=openPick;
+            roboRow.appendChild(sChip);
+          }
+          /* 入室時間がOC・空欄のまま終了した症例：実際の時刻を入れてもらう（消し込みバーの optime と同じ条件） */
+          if(withTime && item.done && !item.cancelled && opsItemTimeMissing(item)){
+            var tWarn=document.createElement('button'); tWarn.type='button'; tWarn.className='ops-time-warn';
+            tWarn.textContent='⚠ 入室時間未入力'; tWarn.disabled=!!locked; tWarn.title='実際の入室時間を入れる';
+            if(!locked) tWarn.onclick=(function(i2){return function(){openTimeFix(i2);};})(idx);
+            roboRow.appendChild(tWarn);
+          }
+          if(roboRow.childNodes.length) hierDiv.appendChild(roboRow);
         }
 
         /* 順番プルダウン（カテのみ） */
@@ -18392,20 +18558,32 @@ function buildOPS(ds,dat,locked) {
         /* 業務終了トグルボタン */
         var doneBtn=document.createElement('button'); doneBtn.type='button'; doneBtn.className='ops-done-btn'+(item.done?' on':'');
         doneBtn.textContent=item.done?'✅ 済':'終了'; doneBtn.title=item.done?'タップで業務終了を取り消す':'業務終了にする'; doneBtn.disabled=!!locked;
-        if(!locked) doneBtn.onclick=(function(i2){return function(){opsToggleDone(items,i2);saveItems();renderItems();};})(idx);
+        /* 終了にした瞬間、入室時間がOC・空欄なら実際の時刻を聞く（後で入れるも可） */
+        if(!locked) doneBtn.onclick=(function(i2){return function(){
+          var was=!!items[i2].done;
+          opsToggleDone(items,i2); saveItems(); renderItems();
+          if(!was && items[i2].done && withTime && opsItemTimeMissing(items[i2])) openTimeFix(i2);
+        };})(idx);
 
         /* 削除ボタン */
         var delBtn=document.createElement('button'); delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除'; delBtn.type='button'; delBtn.disabled=!!locked;
         if(!locked) delBtn.onclick=(function(i2){return function(){if(items.length<=1){items[0]={dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]};}else{items.splice(i2,1);}saveItems();renderItems();};})(idx);
         itemWrap.appendChild(row);
-        /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む） */
-        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn);
+        /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む）。
+           ツリー版は🏷行が「急患・中止」になる（スコープはポップアップへ移した） */
+        buildItemMetaRows(itemWrap, items, idx, saveItems, renderItems, itemId, doneBtn, delBtn, {picker:true});
 
-        /* 使用物品（オペのみ）- itemWrapに追加してD&Dで一緒に動く。
-           選択は中央のポップアップ（openSupPickerModal）で行い、行内には
-           「選ぶ」ボタンと記録済みの一覧だけを置く（3段セレクトを行の下に
-           埋め込むと、症例行が縦に長いぶん端末によって枠外へ出て見切れた）。 */
-        if(withSup) itemWrap.appendChild(buildSupRow(ds, key, items, idx, locked, saveItems, renderItems));
+        /* 使用物品（オペのみ）：選ぶのは術式ポップアップの中（一番下の折りたたみ）。
+           行には記録済みの一覧だけを置き、押すと使用物品を開いた状態でポップアップを出す。 */
+        if(withSup){
+          var supArr=opsItemSup(item);
+          if(supArr.length){
+            var supRow=document.createElement('div'); supRow.className='ops-sup-inline'+(locked?'':' tap');
+            supRow.innerHTML='<span class="ops-sup-lbl">🧰 使用物品</span>'+supViewHTML(supArr);
+            if(!locked) supRow.onclick=(function(i2){return function(){openPickWith(i2,true);};})(idx);
+            itemWrap.appendChild(supRow);
+          }
+        }
         wrap.appendChild(itemWrap);
       });
 

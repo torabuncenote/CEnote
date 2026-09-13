@@ -489,6 +489,8 @@ All class names are abbreviated:
 | `openOpsPickerModal(opts)` / `renderOpsPickBody()` / `opsPickApply()` | 術式（種別）・入室時間・配置を選ぶポップアップ（ツリー版の症例行から） |
 | `opsItemTitle(it, kind)` / `opsItemTimeLabel(it)` / `opsItemIsRobot(it)` / `opsItemRobo(it)` | 症例行の1行表示／入室時間の表記／ロボット支援下の判定／症例の配置 |
 | `opsApplyLiveRow(...)` / `opsApplyPatch(it, patch)` | 症例行のポップアップ（使用物品・術式）で決定したときの書き戻し |
+| `supPickListHTML(o)` / `opsItemIsLap(it)` | 使用物品の一覧（使用物品・術式ポップアップ共用）／腹腔鏡下の判定（スコープ欄を出すか） |
+| `opsItemTimeMissing(it)` / `openOpsTimeFixModal(opts)` | 入室時間が空欄・OCか／終了時に実際の入室時間を聞くポップアップ |
 | `renderRoboMaster()` / `compressDiagram(file, cb)` / `roboImgGet(r, cb)` / `openRoboImgModal(id)` | ロボット配置マスタ／配置図の圧縮・読み込み・拡大表示 |
 | `getFontScale()` / `setFontScale(v)` / `cycleFontScale()` / `applyFontScale()` / `uiZoom()` | 文字サイズ（小／標準／大／特大）。`--ui-zoom` と `data-fs` を書く。座標を測る側は `uiZoom()` で正規化する |
 | `getTheme()` / `setTheme(t)` / `cycleTheme()` / `effectiveTheme()` / `applyTheme()` | 表示テーマ（ライト／ダーク／端末設定）。`data-theme` には常に light/dark のどちらかを書く |
@@ -641,6 +643,8 @@ dat.placement = {
 - 入室時間の「今」ボタンはツリー版では廃止。フラット版 `buildItemList`（マスタが空のときの予備）は3段セレクト・「今」ボタンのまま残してある。入室時間の部品（`makeTimeHourOpts` ほか）はポップアップからも使うのでグローバルに出した。
 - **ロボット配置**：`opsItemIsRobot(it)`（中カテゴリか術式名に「ロボット」を含む）のときだけ、ポップアップに配置欄、行に `.ops-robo-chip`（押すと `openRoboImgModal(id)` で配置図。ロック中でも見るだけはできる）を出す。症例には `item.robo = {id, n}`（`n` は記録時の名前の写し＝マスタから消しても明細・CSVに名前が残る）。読み出しは必ず `opsItemRobo(it)`（マスタにあれば今の名前＝改名に追随）。ロボットでない術式に選び直したら `robo` は消す。CE集計の明細・明細CSV・横断検索に「配置」を出す。
 - マスタは `D.roboLayouts`（業務マスタ🔪グループの「🤖 ロボット配置マスタ」、`mst`、`renderRoboMaster()`）。**配置図は `D` に入れず `/robotImg/{id}` に置く**——`D` に入れると保存のたびに画像ごと全員へ送り直し、1時間ごとのバックアップにも毎回複製される。読むのは配置を選んだとき・チップを押したときだけ（`roboImgGet(r, cb)`、`id@img` でキャッシュするので差し替えれば自然に取り直す）。圧縮は写真向けの `compressImage`（800px・65%）ではなく `compressDiagram(file, cb)`（長辺1600px・JPEG85%から、300KBに収まるまで画質→大きさの順に落とす。透過PNGは白で塗ってから）。プレビューモードは端末内（localStorage）に置く。**本番で使うには `database.rules.json` の `robotImg` の反映が必要**（未反映だと保存時にその旨をトーストで出す）。バックアップには入らない（元のパワポから入れ直す前提）。ストレージ画面は `D.roboLayouts[].sz` を足して出す（図そのものは読まない）。
+- **使用物品・スコープもこのポップアップで選ぶ**（ツリー版のオペ）。使用物品は一番下の折りたたみ（既定は閉じる＝術式だけ入れる手数を増やさない）で、中身は `supPickListHTML(o)`（使用物品ポップアップ `renderSupPickBody` と共用。複製しないこと）。並びに使う科は「いま選んでいる術式の科」。行には `supViewHTML` の一覧だけを置き、押すと使用物品を開いた状態でポップアップを出す（行の「選ぶ」ボタンは廃止）。スコープは `opsItemIsLap(it)`（中カテゴリか術式名に「腹腔鏡」）のときだけトグルを出し、行に `.ops-scope-chip`。**腹腔鏡でない術式に選び直しても既存の `scope` は消さない**（チップも出したまま）。フラット版は従来どおり🏷行のスコープボタンと `buildSupRow`——`buildItemMetaRows` の第9引数 `{picker:true}` で出し分けており、ツリー版の🏷行は「急患・中止」（カテは中止だけ）、フラット版は中止が終了行に残る。
+- **入室時間の後追い**：`opsItemTimeMissing(it)`（空欄・OC＝`AMOC`/`PMOC`/`9:OC`）のまま終了にすると `openOpsTimeFixModal(opts)` で実際の時刻を聞く。**時・分ボタンではなく `<input type="time">`**——OC は時間外の緊急もあり、ポップアップの8〜16時のボタンでは入らない。「後で入れる」なら行に `.ops-time-warn`（押すと同じ画面）、消し込みバーの `optime` に数える。どちらも**終了済み・中止以外だけ**が対象（入室前の予定まで数えると一日中並び続ける）。
 
 **入室時間ピッカー**: `withTime=true` の行は、カテのブリーフィング欄と同じ「○時：△分」方式（ツリー版は上記ポップアップの時・分ボタン、フラット版は2セレクト `makeTimeHourOpts`/`makeTimeMinuteOpts`）。○は8〜16時＋AM／PM、△は0〜55分（5分刻み）＋OC。値は `item.time` に単一文字列で保存（`combineItemTime(h,m)` で結合、`parseItemTime(t)` で復元。旧形式 `"8:15"` `"AMOC"` `"PMOC"` も読める）。「自由入力」ボタンで `item.time='__free__'` に切替えるとテキスト入力（`item.timeTxt`）に変わる。
 
@@ -674,7 +678,7 @@ dat.placement = {
 
 **症例行の取得は必ず `opsItemsOf(pg, 'ope'|'cath')` を経由する**（`pg.ops.ope_items` を直接読まない）。`pg.ops_cards` が配列で、その中に当該カードが無ければ空を返す — カードを削除した日の残骸を数えないための門で、フリーカードの `opsFreeCards(pg)` と同じ方針。`ops_cards` が `null`/`undefined` のときはテンプレ表示中なので従来どおり全部数える（ここで `D.opsCfg` を見に行かないこと。テンプレからカードを1つ外すだけで、過去の全ページの件数が集計から消えてしまう）。`removeOpsCard()` 側でもオペ/カテを消すときは入力済み症例数を出して `confirm()` し、OKなら `ops.ope_items`/`cath_items` ごと削除する（PSG・フリーと揃えた）。**横断検索（`_doSearch`）だけは意図的に `opsItemsOf` を通していない** — 「どこかに書いたはず」を探す機能なので、カードを消した日の記録もヒットさせる。
 
-**症例ごとの印（急患・スコープ）**: `item.emergency` / `item.scope`（true のときだけ持つ）。**オペカードのみ**に出す（`buildItemMetaRows` の `itemId === 'ope'` で分岐。カテには概念が無い）。`.ops-done-btn` と同じ作りのトグルで、`.ops-tag-btn.em` / `.sc` が色だけ変える。押していない状態（`.ops-tag-btn:not(.on)`、中止ボタンも含む）は半透明＋灰色寄りの靄で目立たせず、押している間と `hover:hover` 端末のマウスオーバーだけ元の色に戻す。押した後（`.on`）と終了ボタンは靄の対象外。**`opsItemFilled()` に `it.emergency || it.scope` を含めてある** — 含めないと「急患だけ押して他は未入力」の行が件数・明細・CSVから丸ごと漏れる。集計側は `opsDetailRows()` の `emergency`/`scope`、フィルタは `_opsDetFilter.emOnly`/`scOnly`、CE集計のサマリーバッジと明細の「印」列（`opsTagLabel`）、`exportOpsDetailCsv` の2列。
+**症例ごとの印（急患・スコープ）**: `item.emergency` / `item.scope`（true のときだけ持つ）。ツリー版ではスコープは術式ポップアップへ移した（上記）。**オペカードのみ**に出す（`buildItemMetaRows` の `itemId === 'ope'` で分岐。カテには概念が無い）。`.ops-done-btn` と同じ作りのトグルで、`.ops-tag-btn.em` / `.sc` が色だけ変える。押していない状態（`.ops-tag-btn:not(.on)`、中止ボタンも含む）は半透明＋灰色寄りの靄で目立たせず、押している間と `hover:hover` 端末のマウスオーバーだけ元の色に戻す。押した後（`.on`）と終了ボタンは靄の対象外。**`opsItemFilled()` に `it.emergency || it.scope` を含めてある** — 含めないと「急患だけ押して他は未入力」の行が件数・明細・CSVから丸ごと漏れる。集計側は `opsDetailRows()` の `emergency`/`scope`、フィルタは `_opsDetFilter.emOnly`/`scOnly`、CE集計のサマリーバッジと明細の「印」列（`opsTagLabel`）、`exportOpsDetailCsv` の2列。
 
 **業務終了フラグ・担当者・終了時刻**: 各術式/種別行に「終了」トグルボタンがあり、`item.done = true` で行全体（`.ops-item-wrap.ops-item-done`）が薄暗く表示される。件数カウントには影響しない。`buildItemList` / `buildItemListTree` の両方に実装。付随動作:
 - `opsToggleDone(items, idx)` — 押した行は配列内の位置を変えずその場に残す（どれを押したか見失うため並べ替えはしない）。終了にした瞬間、`item.endTime` が未設定なら現在時刻（0時からの分）を、`item.staff`（担当者名の配列）に誰もいなければ `opsSelfName()` で解決したログイン中スタッフ名を自動追加し `item.doneBy` にも記録する。取り消し時は `endTime`/`staff` のどちらかに値があるときだけ `confirm()` で確認し、OKなら `endTime`/`doneBy`/`staff` を全てクリア、キャンセルなら `done` フラグだけ外して他は残す（値が無ければ確認なしでそのまま外す）
@@ -783,11 +787,11 @@ Weekday-master items (`D.wd[曜日][i]`) are either a plain string (legacy) or a
 
 Fixed bar at the bottom of the screen, shown only while a day page is open — `updateCloseBar(ds)` hides it and clears `body.has-cbar` when `ds` is falsy or `!D.pages[ds]` (e.g. via `showEmpty()`).
 
-`closeItems(ds)` is the **single counting source** for 6 categories of "not finished today": ①自分あてメンションを含む未完了の申し送り（`extractMentions` に自分の名前が含まれ `m.done` でない `memos`） ②チェックリスト未了（`clStatus(ds).undone`） ③オペ終了未チェック（`opsItemFilled(it) && !it.done`） ④カテ終了未チェック（同上） ⑤タブレット未返却（当日分＋`tabletCarryOver(ds)` の前日以前持ち越し分） ⑥オンコール担当未設定（`!dat.ocData.staff`）。各カテゴリは `{mine:boolean}` を持つ `items[]` を返し、`mine` の判定は `taskSelfName()`（表示名がスタッフ名簿と完全一致→その名前／一致しなければ `D.stfLinks` で逆引き）。**アカウントが未紐づけのユーザーは常に `mine:false`**。
+`closeItems(ds)` is the **single counting source** for 6 categories of "not finished today": ①自分あてメンションを含む未完了の申し送り（`extractMentions` に自分の名前が含まれ `m.done` でない `memos`） ②チェックリスト未了（`clStatus(ds).undone`） ③オペ終了未チェック（`opsItemFilled(it) && !it.done`） ④カテ終了未チェック（同上） ⑤タブレット未返却（当日分＋`tabletCarryOver(ds)` の前日以前持ち越し分） ⑥オンコール担当未設定（`!dat.ocData.staff`） ⑦入室時間未入力（`optime`：終了済み・中止以外で `opsItemTimeMissing(it)`。ジャンプ先は行の `.ops-time-warn`）。各カテゴリは `{mine:boolean}` を持つ `items[]` を返し、`mine` の判定は `taskSelfName()`（表示名がスタッフ名簿と完全一致→その名前／一致しなければ `D.stfLinks` で逆引き）。**アカウントが未紐づけのユーザーは常に `mine:false`**。
 
 **`mine` はその日の担当枠と連動する**（`myDutyLabels(ds)`、`closeItems` 内で1回だけ呼ぶ）。スロットの `id` は「追加」のたびに `'slot_'+Date.now()` で再採番されるため、`dutyColorFor`/`FAIR_MERGE` と同じくスロットの `label` 文字列（部分一致：`オペ|OPE` → ope、`カテ` → cath）で照合する。オペ/カテ担当枠を持つ人は、症例行に自分の名前がまだ無くてもその日の ope/cath が `mine:true`。逆にどちらの枠も持たない人（フリー・機器管理・担当なしなど）は checklist が `mine:true` になる——共通業務の担い手という実際の運用に合わせたもの。担当枠の割り当て（`<select>` onchange・タッチ/マウスドロップ・`poolAssign`）は必ず `updateCloseBar(ds)` も呼び、割り当て直後に `mine` の再評価を反映させる。
 
-**HD主観では③④⑥（オペ・カテ・オンコール）を数えない。** 詳細は「HD主観モード」節を参照。ジャンプ先が存在しないカテゴリを数えると「→」も「▶次へ」も無反応になる（`dashJump` は要素が無いと黙って何もしない）ので、**新しいカテゴリを足すときは、そのセレクタが両主観の日ページに存在するかを必ず確認すること。**
+**HD主観では③④⑥⑦（オペ・カテ・オンコール・入室時間）を数えない。** 詳細は「HD主観モード」節を参照。ジャンプ先が存在しないカテゴリを数えると「→」も「▶次へ」も無反応になる（`dashJump` は要素が無いと黙って何もしない）ので、**新しいカテゴリを足すときは、そのセレクタが両主観の日ページに存在するかを必ず確認すること。**
 
 `D.pages[ds].closeSkip[key]`（`key` はカテゴリの `key`、`saveDPage(ds)` で保存）で「今日は対象外」をカテゴリ単位・その日限りで持てる。`closeBarSkip(ds, key)` がトグル、`renderCbarDetail()` の「対象外」／「戻す」ボタンから呼ぶ。
 
