@@ -123,7 +123,7 @@ Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` 
 | `addHelpStaffFromModal()` | ヘルプ職員名 | `dat.placement.people` |
 | `parseShiftSheet()`（`name` と `hn`） | 勤務表Excelの氏名 | `D.shift[ym]` |
 | `addEvtPrompt()` | イベント名 | `dat.evtKinds`（HD主観のみキーになる） |
-| `addWdDept()` / `addHdTreat()` / `addEduItem()` | 部署名・治療名・教育項目 | `dat.subChecks[sid]` ほか |
+| `addWdDept()` / `addHdTreat()` / `addEduItem()` と改名（`confirmEditModal` の `type:'eduItem'`/`'hdTreat'`） | 部署名・治療名・教育項目 | `dat.subChecks[sid]` ほか |
 | `eduKey(catId, dept, cat, name)` | 到達度の項目キー | `D.eduProgress[氏名]` |
 
 **`D` に入る値が新しくオブジェクトのキーになるときは、必ずこの表に足して入り口で正規化すること。** 保存前のサニタイズ（`sanitizeManualKeys` / `sanitizeEduProgressKeys`）は既存データの後始末であって、キーと値の対応が崩れる（`D.stf` の氏名は元のまま、`D.stfLinks` のキーだけ変わる等）ので、新規の防御には使わない。
@@ -466,7 +466,10 @@ All class names are abbreviated:
 | `fairnessHTML(o)` | 公平性マトリクスの表組み。CE/HDで共通（複製しないこと） |
 | `canEdu()` | 教育到達度の閲覧・記録権限（`isAdmin` または `perm_edu` 付与）。`D.lk` ロックではなく明示付与 |
 | `eduStats(dsList)` | 期間内の症例・治療・配置日数・指導・OCを1回の走査で全スタッフ分集計する唯一の入口 |
-| `eduGet/eduSet/eduSetBulk/eduAddGoal/eduRemoveGoal` | 到達度レコードの読み取り／段階変更（履歴に必ず追記）／一括設定／目標の追加・削除。書き込みはこの4関数だけを通す |
+| `eduGet/eduSet/eduSetBulk/eduAddGoal/eduRemoveGoal/eduRestore` | 到達度レコードの読み取り／段階変更（履歴に必ず追記。lv:0＝未評価に戻す）／一括設定（既定は未評価のみ）／目標の追加・削除／取り消し。書き込みはこれらと改名の付け替えだけを通す |
+| `saveDPaths(paths)` | D の指定した場所だけを `update()` で送る（到達度用。守りは `saveDPage` と同じ） |
+| `renameStaffKeys(oldName, newName)` / `eduRenameKeys(catId, oldParts, newParts)` / `eduMergeRec(a, b)` | 改名で到達度（とスタッフの紐付け・非表示・教育スロット）を新しい名前へ移す／移動先の記録と合わせる |
+| `editEduItem(kind, i)` / `editHdTreat(i)` | 教育項目・HD特殊治療の改名モーダル（✏️）。確定は `confirmEditModal` |
 | `eduExperiencedKeys(name)` / `eduChildItems(name, kind)` | 全期間の経験済み細目（症例担当者/HD特殊治療実施者ベース）／それに手動目標を足した細目一覧（マスタ全項目は並べない） |
 | `renderPerf()` / `renderPerfPersonHTML(name)` / `renderPerfMapHTML()` | 実績サブタブの入口／個人ビュー／スキルマップ（`_viewMode`で分岐しない） |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
@@ -882,7 +885,11 @@ D.eduCfg = { ceEdu:false }  // オペ・カテ症例行に教育者欄を出す�
 D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
 ```
 
-- **キーが存在しない＝未評価**（`lv:0` は使わない）。`lv`：1=未／2=見学／3=介助／4=単独／5=指導可。押すたびに `hist` へ `{lv,by,ts}` を追記——現在値の上書きだけでなく履歴を必ず残す。書き込みは `eduSet`/`eduSetBulk`/`eduAddGoal`/`eduRemoveGoal` の4関数だけを通し、`D.eduProgress` に直接代入しない。
+- **キーが存在しない＝未評価**。`lv:0` は「未評価に戻した」記録（履歴を残すためキーごとは消さない。付けた段階をもう一度押すと戻る）で、読む側は `rec ? rec.lv : 0` なのでどちらも未評価に見える。`lv`：1=未／2=見学／3=介助／4=単独／5=指導可。押すたびに `hist` へ `{lv,by,ts}` を追記——現在値の上書きだけでなく履歴を必ず残す。書き込みは `eduSet`/`eduSetBulk`/`eduAddGoal`/`eduRemoveGoal`/`eduRestore` と改名の付け替え（`eduRenameKeys`/`renameStaffKeys`）だけを通し、`D.eduProgress` に直接代入しない。
+- **到達度の保存は `saveDPaths([['eduProgress', 氏名, 項目key], …])`**（変わった項目だけを `update()` で送る）。`D` 全体の `saveD()` に戻さないこと——1回押すごとに約0.6MBを送り、同時に他の人が保存すると後勝ちで段階が消えていた。守りは `saveDPage` と同じ（初回受信前・古いアプリは送らない、全体保存の進行中・予約中は `saveD()` に任せる、失敗したら `saveD()` で送り直す）。
+- **段階を変えたら「取り消す」付きのトースト**（`toast(msg, type, ms, {label, fn})`）を出し、`eduRestore(name, snaps)` で変える前の写しに戻す。**「まとめて設定」は既定で未評価の項目だけ**（`eduSetBulk(name, keys, lv, onlyUnrated)`）。以前は分類の全項目を上書きし、既に「単独」だった項目まで戻していた。
+- **改名で到達度を引き継ぐ**：スタッフ改名は `renameStaffKeys(旧, 新)`（到達度に加え `D.stfLinks`・`D.stfHidden`・`D.stfEdu` も移す）、術式マスタの科・中カテゴリ・術式と、教育項目・HD特殊治療の改名（✏️、`editEduItem`/`editHdTreat`）は `eduRenameKeys(catId, 旧の先頭部分, 新の先頭部分)`。移動先に記録があれば `eduMergeRec` で新しい方を残し履歴をつなぐ。過去の連絡表の症例名・治療名は書き換えないので、改名前の症例は「経験あり」の印・件数に数えられなくなる（使用物品マスタと同じ方針）。
+- 実績サブタブを開いている間は、`/data` の受信で `refreshPerfIfOpen(justSaved)` が描き直す（他の教育担当が付けた段階が反映される。ポップアップ表示中・入力中・自分の保存直後は見送る）。
 - **項目キーの名前空間**：大分類は `cat:<分類id>`（`eduCategories()` が返す固定6分類、id は `ope`/`cath`/`ward`/`device`/`hd`/`hdsp`）。細目は **OPE/カテだけ階層をキーに含める**（`ope:<科>|<中カテゴリ>|<術式>` / `cath:<同>`）。`ward`/`device`/`hd`/`hdsp` は階層が無いので `hd:<項目>` のまま。
 - **キー生成は必ず `eduKey(catId, dept, cat, name)` を通すこと。** 理由が2つある。①**禁止文字**：術式名にFirebase RTDBが使えない文字（`. # $ [ ] /`）が入りうる（初期マスタの「OCT/IVUS」「VT/PVC」が実例）。素通しすると `set()` が同期throwし `_saveWriting` が立ったままアプリ全体の保存が止まる。②**同名術式**：実データの「低位前方切除術」は消化器外科の腹腔鏡下とロボット支援下の**両方**にあり（他に右半結腸切除術・左半結腸切除術・S状結腸切除術も同様）、術式名だけをキーにすると2つの到達度が同じレコードに混ざる。
 - **キーと表示は別物として持ち歩く。** `eduCatItems()` が返すのは `eduItemOf()` の記述子 `{dept, cat, name, key, label}` で、`key` は `fbSafeKey` 済みなので**元の表記に戻せない**（`OCT/IVUS` → `OCT_IVUS`）。画面には必ず `label`（`中カテゴリ / 術式`）を使うこと。科は列見出しの `title` 属性と個人ビューの区切り見出し（`.edu-dept-sep`）に出し、並び順にも使う（ツリー順で返すので科ごとにまとまる）。
