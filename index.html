@@ -1324,7 +1324,6 @@ body.is-offline{--off-h:24px}
 .task-bar{width:100%;border-radius:3px 3px 0 0}
 .task-bar-todo{background:var(--or)}
 .task-bar-doing{background:var(--ac)}
-.task-bar-done{background:var(--gr)}
 .task-cluster-name{margin-top:6px;font-size:11px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
 .task-cluster-total{font-size:10px;color:var(--txt3);margin-top:1px}
 .asub .btn{white-space:nowrap;flex-shrink:0}
@@ -5354,11 +5353,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/15-78';
+var APP_VERSION = 'Ver.2026/09/15-79';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/15-79', date:'2026-09-15', title:'タスク量のグラフを見やすくしました', items:[
+    {t:'imp', d:'📋 スタッフ別タスク量のグラフを、未着手と進行中の2本だけにしました。完了は名前の下に件数だけ出ます'}
+  ]},
   { ver:'Ver.2026/09/15-78', date:'2026-09-15', title:'入力した内容が消えないようにしました', items:[
     {t:'fix', d:'📝 書きかけの申し送り・返信・編集中の本文が、他の職員の保存で画面が更新されたときに消えることがあったのを直しました'},
     {t:'fix', d:'📢 掲示板で返信を書いている途中に、他の人が掲示板を開くと書きかけが消えることがあったのを直しました'},
@@ -20874,10 +20876,12 @@ function renderTasks() {
       if (load[n]) load[n][st]++;
     });
   });
-  /* 集合棒グラフなのでスケールは「スタッフ毎の合計」ではなく「単一バーの最大値」 */
+  /* 集合棒グラフなのでスケールは「スタッフ毎の合計」ではなく「単一バーの最大値」。
+     棒は未着手・進行中の2本だけ——いま抱えている量を比べるグラフなので、完了は棒にせず
+     名前の下に件数だけ出す（完了を棒にすると、完了が多い人ほど他の棒が縮んで比べにくい）。 */
   var maxLoad = 1;
   names.forEach(function(n){
-    ['todo','doing','done'].forEach(function(k){ if (load[n][k] > maxLoad) maxLoad = load[n][k]; });
+    ['todo','doing'].forEach(function(k){ if (load[n][k] > maxLoad) maxLoad = load[n][k]; });
   });
   var TASK_BAR_AREA_H = 92, TASK_BAR_MIN_H = 3;
   function taskBarH(v) { return v ? Math.max(TASK_BAR_MIN_H, Math.round(v / maxLoad * TASK_BAR_AREA_H)) : 0; }
@@ -20894,8 +20898,8 @@ function renderTasks() {
   h += '<div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin-bottom:12px">'
     + '<div style="font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:8px">👥 スタッフ別タスク量'
     + '<span style="font-weight:400;color:var(--txt3);margin-left:8px;font-size:11px">'
-    + '<span class="task-tag task-tag-todo">未着手</span> <span class="task-tag task-tag-doing">進行中</span> <span class="task-tag task-tag-done">完了</span>'
-    + '　クリックで個人ページへ</span></div>';
+    + '<span class="task-tag task-tag-todo">未着手</span> <span class="task-tag task-tag-doing">進行中</span>'
+    + '　✅＝完了の件数　クリックで個人ページへ</span></div>';
 
   if (!names.length) {
     h += '<div class="pool-empty" style="padding:14px 0">スタッフが登録されていません</div>';
@@ -20903,7 +20907,7 @@ function renderTasks() {
     h += '<div class="task-graph-wrap">';
     names.forEach(function(n, i){
       var td = load[n].todo, dg = load[n].doing, dn = load[n].done, tot = td + dg + dn;
-      var bars = [['todo', td], ['doing', dg], ['done', dn]];
+      var bars = [['todo', td], ['doing', dg]];
       h += '<div class="task-cluster" onclick="taskOpenPerson('+i+')" title="'+escH(n)+'：未'+td+'・進'+dg+'・完'+dn+'">'
         + '<div class="task-cluster-bars">'
         + bars.map(function(b){
@@ -20915,7 +20919,8 @@ function renderTasks() {
           }).join('')
         + '</div>'
         + '<div class="task-cluster-name">'+escH(n)+'</div>'
-        + (tot ? '' : '<div class="task-cluster-total">—</div>')
+        /* 完了は件数だけ。行の高さを揃えるため、完了が0件でも空の行を置く（棒の底がずれない） */
+        + '<div class="task-cluster-total">'+(tot ? (dn ? '✅ 完了 '+dn : '&nbsp;') : '—')+'</div>'
         + '</div>';
     });
     h += '</div>';
