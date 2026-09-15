@@ -1460,6 +1460,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 .fb-toast.warn{background:var(--toast-warn)}
 .fb-toast.err{background:#b91c1c}
 .fb-toast .fb-toast-x{margin-left:4px;opacity:.7;font-size:12px;flex-shrink:0}
+.fb-toast .fb-toast-act{flex-shrink:0;margin-left:6px;padding:2px 10px;border-radius:6px;border:1.5px solid currentColor;background:transparent;color:inherit;font:inherit;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
 @keyframes fbToastIn{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
 @media (prefers-reduced-motion:reduce){.fb-toast{animation:none}}
 .notif-time-row{display:flex;align-items:center;gap:6px;padding-left:2px;margin-top:2px;flex-wrap:wrap}
@@ -3400,6 +3401,7 @@ function fbInit() {
                  （自分の保存のエコーは中身が同じなので何もしない） */
               else if (pageSig(D.pages[curDs]) !== prevPageSig) markPageRenderPending();
             }
+            refreshPerfIfOpen(justSaved); /* 実績サブタブを開いていれば、他の教育担当が付けた段階も反映する */
           }, function(err) { setSyncLbl('同期エラー'); syncOverlayFail('データを受け取れませんでした。再読み込みしてください'); });
           /* 掲示板リスナー（初回ログイン時に一度だけ設定） */
           fbDB.ref('/board').on('value', function(bsnap) {
@@ -5354,11 +5356,20 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/15-78';
+var APP_VERSION = 'Ver.2026/09/15-80';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/15-80', date:'2026-09-15', title:'到達度を付け直しやすくしました', items:[
+    {t:'imp', d:'🎓 到達度の段階を変えると、画面下に「取り消す」が出るようにしました。押し間違えてもすぐ元に戻せます。付けた段階をもう一度押すと未評価に戻せます'},
+    {t:'imp', d:'⚡ 「まとめて設定」で、未評価の項目だけに付けるか、すべて上書きするかを選べるようにしました（最初は「未評価の項目だけ」になっています）'},
+    {t:'imp', d:'🎓 ほかの教育担当が付けた段階が、実績の画面を開いたままでも自動で反映されるようにしました'},
+    {t:'new', d:'🎓 教育項目マスタとHD特殊治療マスタに、名前を変えるボタン（✏️）を付けました。付いている到達度は新しい名前へ引き継ぎます', admin:true},
+    {t:'fix', d:'スタッフ名を変えると、そのスタッフの到達度・アカウントの紐付け・非表示の設定が外れていたのを直しました（新しい名前へ引き継ぎます）'},
+    {t:'fix', d:'術式マスタの科・中カテゴリ・術式名を変えると、その項目の到達度が表示されなくなっていたのを直しました'},
+    {t:'fix', d:'到達度を付けたときにアプリ全体を保存していたため、同時に他の人が保存すると付けた段階が消えることがあったのを直しました'}
+  ]},
   { ver:'Ver.2026/09/15-78', date:'2026-09-15', title:'入力した内容が消えないようにしました', items:[
     {t:'fix', d:'📝 書きかけの申し送り・返信・編集中の本文が、他の職員の保存で画面が更新されたときに消えることがあったのを直しました'},
     {t:'fix', d:'📢 掲示板で返信を書いている途中に、他の人が掲示板を開くと書きかけが消えることがあったのを直しました'},
@@ -9077,6 +9088,37 @@ function _doFbPageWrite(ds, attempt) {
     });
 }
 
+/* ===== D の一部だけを書く（到達度など、1か所だけ変わる操作用） =====
+   saveD() は D 全体（約0.6MB）を毎回送るので、到達度の段階を1つ押すたびに全体を送り直し、同時に
+   他の人が保存すると後勝ちで片方の変更が消えていた。paths は /data からの経路の配列
+   （例: [['eduProgress', 氏名, 項目key]]）で、D のその位置の値だけを update() で送る（値が無ければ消す）。
+   守りは saveDPage と同じ：localStorage へは全体を書く／未ログイン・初回受信前・古いアプリは送らない／
+   全体保存が進行中・予約中なら saveD() に任せる（古い全体スナップショットが後から着いて、この変更を
+   巻き戻すのを防ぐ）。送信に失敗したら saveD() で全体を送り直す。 */
+function saveDPaths(paths) {
+  sanitizeManualKeys();
+  sanitizeEduProgressKeys();
+  try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
+  if (!FB_ON || !fbDB || !currentUser) return;
+  if (!_fbDataLoaded) { console.warn('[saveDPaths] Firebase未ロードのため書き込みをスキップ（データ保護）'); return; }
+  if (_staleApp) { console.warn('[saveDPaths] 古いバージョンのため書き込みをスキップ（データ保護）'); return; }
+  if (_saveWriting || _savePending) { saveD(); return; }
+  var upd = {};
+  paths.forEach(function (p) {
+    var v = D;
+    for (var i = 0; i < p.length && v != null; i++) v = v[p[i]];
+    upd[p.join('/')] = (v === undefined || v === null) ? null : JSON.parse(JSON.stringify(v));
+  });
+  _savingTs = Date.now();
+  fbDB.ref('/data').update(upd).then(function () {
+    _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長（saveDと同様） */
+  }).catch(function (err) {
+    console.error('saveDPaths失敗:', err && err.code, err && err.message);
+    if (err && err.code === 'PERMISSION_DENIED') { setSyncLbl('同期エラー: セキュリティルール拒否（ローカル保存済）'); return; }
+    saveD();
+  });
+}
+
 /* 未保存変更がある状態でタブを閉じようとしたとき警告 */
 window.addEventListener('beforeunload', function(e) {
   if (_savePending || _saveWriting || _savePageWriting || Object.keys(_savePageQueue).length) { e.preventDefault(); e.returnValue = ''; }
@@ -9333,61 +9375,88 @@ function eduStats(dsList) {
 function eduGet(name, key) {
   return (D.eduProgress && D.eduProgress[name] && D.eduProgress[name][key]) || null;
 }
-/* 到達段階を押す。履歴に必ず積む。書き込みは全てこの関数（と eduSetBulk）を経由すること —
-   D.eduProgress に直接代入すると履歴の記録漏れが起きる。D のトップレベルを触るので saveDPage
-   ではなく saveD()。 */
-function eduSet(name, key, lv) {
-  if (!canEdu()) return;
+/* 到達段階を押す。履歴に必ず積む。lv:0 は「未評価に戻す」——記録と履歴は残し、段階だけを未評価にする
+   （キーごと消すと、いつ誰が戻したかが分からなくなる）。読む側は rec ? rec.lv : 0 なので表示は未評価になる。
+   到達度の書き込みは eduSet / eduSetBulk / eduAddGoal / eduRemoveGoal / eduRestore と、改名の付け替え
+   （eduRenameKeys / renameStaffKeys）だけを通すこと——D.eduProgress に直接代入すると履歴の記録漏れが起きる。
+   保存は変わった項目だけを送る saveDPaths()。以前は D 全体の saveD() で、1回押すごとに約0.6MBを送り、
+   同時に他の人が保存すると後勝ちで片方の段階が消えていた。 */
+function eduEnsure(name) {
   if (!D.eduProgress) D.eduProgress = {};
   if (!D.eduProgress[name]) D.eduProgress[name] = {};
-  var by = currentUser ? (currentUser.displayName || currentUser.email) : '';
-  var ts = Date.now();
+}
+function eduBy() { return currentUser ? (currentUser.displayName || currentUser.email) : ''; }
+function eduRecPush(name, key, lv, by, ts) {
   var rec = D.eduProgress[name][key];
   if (!rec) rec = { lv: lv, by: by, ts: ts, hist: [] };
   rec.lv = lv; rec.by = by; rec.ts = ts;
-  rec.hist = rec.hist || [];
+  rec.hist = normArr(rec.hist); /* Firebase が配列をオブジェクトで返すことがあるので正規化してから積む */
   rec.hist.push({ lv: lv, by: by, ts: ts });
   D.eduProgress[name][key] = rec;
-  saveD();
+}
+/* 変える前の記録の写し（「取り消す」で戻すため）。無ければ null＝押す前は記録なし。 */
+function eduSnap(name, key) { var r = eduGet(name, key); return r ? JSON.parse(JSON.stringify(r)) : null; }
+/* トースト用の短い項目名（ope:科|中カテゴリ|術式 → 術式、cat:ope → OPE） */
+function eduKeyShort(key) { return eduKeyLabel(key).split('|').pop(); }
+function eduSet(name, key, lv) {
+  if (!canEdu()) return;
+  eduEnsure(name);
+  if (!lv && !(D.eduProgress[name][key] && D.eduProgress[name][key].lv)) return; /* 未評価を未評価に戻すことはない */
+  var snaps = {}; snaps[key] = eduSnap(name, key);
+  eduRecPush(name, key, lv, eduBy(), Date.now());
+  saveDPaths([['eduProgress', name, key]]);
   writeLog('到達度更新', name + ' ' + eduKeyLabel(key) + ' → ' + eduLevelLabel(lv));
   renderPerf();
+  toast(eduKeyShort(key) + ' を「' + eduLevelLabel(lv) + '」にしました', 'ok', 8000, { label: '取り消す', fn: function () { eduRestore(name, snaps); } });
 }
-/* 一括設定。大分類配下の細目すべてに同じ段階をまとめて適用する。confirm() の上で
-   1回だけ saveD() する（1件ずつ eduSet を呼ぶと D 全体の書き込みが件数分走ってしまう）。 */
-function eduSetBulk(name, keys, lv) {
+/* 一括設定。onlyUnrated なら未評価（記録なし・lv:0）の項目だけに付け、段階が付いている項目は触らない
+   （以前は分類の全項目を上書きし、既に「単独」だった項目まで選んだ段階に戻していた）。
+   confirm() の上で、対象の項目だけをまとめて1回で送る。 */
+function eduSetBulk(name, keys, lv, onlyUnrated) {
   if (!canEdu()) return;
   if (!keys || !keys.length) return;
-  if (!confirm(name + ' さんの ' + keys.length + '件を「' + eduLevelLabel(lv) + '」にまとめて設定します。よろしいですか？')) return;
-  if (!D.eduProgress) D.eduProgress = {};
-  if (!D.eduProgress[name]) D.eduProgress[name] = {};
-  var by = currentUser ? (currentUser.displayName || currentUser.email) : '';
-  var ts = Date.now();
-  keys.forEach(function (key) {
-    var rec = D.eduProgress[name][key];
-    if (!rec) rec = { lv: lv, by: by, ts: ts, hist: [] };
-    rec.lv = lv; rec.by = by; rec.ts = ts;
-    rec.hist = rec.hist || [];
-    rec.hist.push({ lv: lv, by: by, ts: ts });
-    D.eduProgress[name][key] = rec;
+  var targets = onlyUnrated ? keys.filter(function (k) { var r = eduGet(name, k); return !(r && r.lv); }) : keys;
+  if (!targets.length) { toast('未評価の項目はありません', 'warn'); return; }
+  if (!confirm(name + ' さんの ' + targets.length + '件を「' + eduLevelLabel(lv) + '」にまとめて設定します。'
+    + (onlyUnrated ? '（段階が付いている項目はそのままです）' : '（付いている段階も書き換えます）') + '\nよろしいですか？')) return;
+  eduEnsure(name);
+  var by = eduBy(), ts = Date.now(), snaps = {}, paths = [];
+  targets.forEach(function (key) {
+    snaps[key] = eduSnap(name, key);
+    eduRecPush(name, key, lv, by, ts);
+    paths.push(['eduProgress', name, key]);
   });
-  saveD();
-  writeLog('到達度一括更新', name + ' ' + keys.length + '件 → ' + eduLevelLabel(lv));
+  saveDPaths(paths);
+  writeLog('到達度一括更新', name + ' ' + targets.length + '件 → ' + eduLevelLabel(lv) + (onlyUnrated ? '（未評価のみ）' : '（上書き）'));
   renderPerf();
+  toast(targets.length + '件を「' + eduLevelLabel(lv) + '」にしました', 'ok', 8000, { label: '取り消す', fn: function () { eduRestore(name, snaps); } });
+}
+/* 取り消し：変える前の写しに戻す（写しが null なら記録ごと消す＝押す前は記録なし）。 */
+function eduRestore(name, snaps) {
+  if (!canEdu()) return;
+  eduEnsure(name);
+  var paths = [];
+  Object.keys(snaps).forEach(function (key) {
+    if (snaps[key]) D.eduProgress[name][key] = snaps[key]; else delete D.eduProgress[name][key];
+    paths.push(['eduProgress', name, key]);
+  });
+  saveDPaths(paths);
+  writeLog('到達度の取り消し', name + ' ' + paths.length + '件');
+  renderPerf();
+  toast('↩ 元に戻しました', 'ok');
 }
 /* 年度付きの目標を追加。既存レコードがあれば goalFy を足すだけ（lv/履歴は変えない）。
    無ければ lv:1（未）で新規作成する。 */
 function eduAddGoal(name, key, fy) {
   if (!canEdu()) return;
-  if (!D.eduProgress) D.eduProgress = {};
-  if (!D.eduProgress[name]) D.eduProgress[name] = {};
+  eduEnsure(name);
   var rec = D.eduProgress[name][key];
   if (rec) { rec.goalFy = fy; }
   else {
-    var by = currentUser ? (currentUser.displayName || currentUser.email) : '';
-    var ts = Date.now();
+    var by = eduBy(), ts = Date.now();
     D.eduProgress[name][key] = { lv: 1, by: by, ts: ts, hist: [{ lv: 1, by: by, ts: ts }], goalFy: fy };
   }
-  saveD();
+  saveDPaths([['eduProgress', name, key]]);
   writeLog('目標追加', name + ' ' + eduKeyLabel(key) + ' ' + fy + '年度');
   renderPerf();
 }
@@ -9398,10 +9467,71 @@ function eduRemoveGoal(name, key) {
   var rec = D.eduProgress && D.eduProgress[name] && D.eduProgress[name][key];
   if (!rec) return;
   delete rec.goalFy;
-  if (rec.lv === 1 && (!rec.hist || rec.hist.length <= 1)) delete D.eduProgress[name][key];
-  saveD();
+  if (rec.lv === 1 && normArr(rec.hist).length <= 1) delete D.eduProgress[name][key];
+  saveDPaths([['eduProgress', name, key]]);
   writeLog('目標削除', name + ' ' + eduKeyLabel(key));
   renderPerf();
+}
+/* ===== 改名で到達度を引き継ぐ =====
+   到達度は D.eduProgress[氏名][項目key] で、氏名と項目名（術式・科・中カテゴリ・教育項目・特殊治療）が
+   そのままキーになっている。以前は改名してもキーが旧名のまま残り、改名した瞬間にその人・その項目の
+   到達度が画面から消えていた（データはあるが誰も辿れない）。改名の入り口（confirmEditModal）でここを呼ぶ。
+   移動先に既に記録があれば、新しい方を残して履歴はつなぐ（eduMergeRec）。 */
+function eduMergeRec(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  var o = JSON.parse(JSON.stringify((a.ts || 0) >= (b.ts || 0) ? a : b));
+  o.hist = normArr(a.hist).concat(normArr(b.hist)).sort(function (x, y) { return (x.ts || 0) - (y.ts || 0); });
+  var g = o.goalFy || a.goalFy || b.goalFy;
+  if (g) o.goalFy = g; else delete o.goalFy;
+  return o;
+}
+/* 項目名の改名。oldParts / newParts は項目keyの先頭側（科 → [科]、中カテゴリ → [科, 中カテゴリ]、
+   術式 → [科, 中カテゴリ, 術式]、階層の無い分類 → [名前]）。先頭が一致するキーを全員分付け替え、件数を返す。
+   キーは必ず eduKey() で組み立て直す（禁止文字の置き換えを1か所に保つため）。 */
+function eduRenameKeys(catId, oldParts, newParts) {
+  var head = eduKey(catId), moved = 0;
+  var oldP = oldParts.map(fbSafeKey), newP = newParts.map(fbSafeKey);
+  Object.keys(D.eduProgress || {}).forEach(function (name) {
+    var recs = D.eduProgress[name];
+    if (!recs || typeof recs !== 'object') return;
+    Object.keys(recs).forEach(function (k) {
+      if (k.indexOf(head) !== 0) return;
+      var parts = k.slice(head.length).split('|');
+      for (var i = 0; i < oldP.length; i++) if (parts[i] !== oldP[i]) return;
+      var np = newP.concat(parts.slice(oldP.length));
+      var nk = eduKey(catId, np[0], np[1], np[2]);
+      if (nk === k) return;
+      recs[nk] = eduMergeRec(recs[nk], recs[k]);
+      delete recs[k];
+      moved++;
+    });
+  });
+  return moved;
+}
+/* スタッフの改名。到達度に加えて、同じく氏名がキーの D.stfLinks（アカウントの紐付け）・D.stfHidden（非表示）・
+   D.stfEdu（教育スロット）も移す——以前は改名するとアカウントの紐付けまで外れていた。
+   過去の連絡表の記録（担当者名など）は書き換えない。何か移したら true。 */
+function renameStaffKeys(oldName, newName) {
+  if (!oldName || oldName === newName) return false;
+  var moved = false;
+  ['stfLinks', 'stfHidden', 'stfEdu'].forEach(function (p) {
+    var m = D[p];
+    if (!m || !Object.prototype.hasOwnProperty.call(m, oldName)) return;
+    if (!Object.prototype.hasOwnProperty.call(m, newName)) m[newName] = m[oldName];
+    delete m[oldName];
+    moved = true;
+  });
+  var ep = D.eduProgress;
+  if (ep && ep[oldName] && typeof ep[oldName] === 'object') {
+    var dst = ep[newName] || {};
+    Object.keys(ep[oldName]).forEach(function (k) { dst[k] = eduMergeRec(dst[k], ep[oldName][k]); });
+    ep[newName] = dst;
+    delete ep[oldName];
+    moved = true;
+  }
+  if (_perfName === oldName) _perfName = newName;
+  return moved;
 }
 
 /* ===== 実績サブタブ（perf）UI =====
@@ -9435,6 +9565,17 @@ function renderPerf() {
   if (!selfName) { el.innerHTML = perfPickerHTML(); return; }
   if (_perfView === 'map' && canEdu()) { el.innerHTML = renderPerfMapHTML(); return; }
   el.innerHTML = renderPerfPersonHTML(selfName);
+}
+/* /data の受信で、実績サブタブを開いていれば描き直す（他の教育担当が付けた段階も反映する）。
+   ポップアップ（まとめて設定・目標追加）を開いている間・スタッフ選択など入力中・自分の保存直後は見送る。
+   #pane-assign が隠れていると getClientRects() が空になるので、見えていない間は重い集計を走らせない。 */
+function refreshPerfIfOpen(justSaved) {
+  var pp = document.getElementById('subpane-perf'), el = document.getElementById('perf-body');
+  if (!pp || !el || pp.style.display === 'none' || !el.getClientRects().length) return;
+  if (justSaved || document.getElementById('edu-bulk-ov') || document.getElementById('edu-goal-ov')) return;
+  var f = document.activeElement;
+  if (f && el.contains(f) && (f.tagName === 'SELECT' || f.tagName === 'INPUT')) return;
+  renderPerf();
 }
 function perfPickerHTML() {
   var curSel = _perfName || '';
@@ -9661,7 +9802,7 @@ function eduCatHTML(name, cat, exp) {
    （非永続。再描画のたびに消えないよう renderPerf を呼ぶ側のイベントハンドラで保持する）。 */
 function eduMetaHTML(name, key, rec) {
   if (!rec) return '';
-  var h = '<div class="edu-lv-meta">' + escH(rec.by || '') + ' が ' + fmtTs(rec.ts) + ' に「' + eduLevelLabel(rec.lv) + '」に設定';
+  var h = '<div class="edu-lv-meta">' + escH(rec.by || '') + ' が ' + fmtTs(rec.ts) + (rec.lv ? ' に「' + eduLevelLabel(rec.lv) + '」に設定' : ' に未評価へ戻した');
   var hk = name + '|' + key;
   if (rec.hist && rec.hist.length > 1) {
     h += ' <button type="button" class="ops-staff-chip-x" data-action="edu-hist-toggle" data-histkey="' + escH(hk) + '" style="text-decoration:underline;color:var(--ac)">履歴' + rec.hist.length + '件</button>';
@@ -9686,7 +9827,7 @@ function eduLvRowHTML(name, key, lv) {
   if (!canEdu()) return '<span class="edu-lv-cur">' + label + '</span>';
   var h = '<div class="edu-lv-row" data-name="' + escH(name) + '" data-key="' + escH(key) + '">';
   for (var i = 1; i <= 5; i++) {
-    h += '<button type="button" class="edu-lv-btn' + (lv === i ? ' cur lv' + i : '') + '" data-action="edu-set-lv" data-lv="' + i + '">' + eduLevelLabel(i) + '</button>';
+    h += '<button type="button" class="edu-lv-btn' + (lv === i ? ' cur lv' + i : '') + '" data-action="edu-set-lv" data-lv="' + i + '"' + (lv === i ? ' title="もう一度押すと未評価に戻す"' : '') + '>' + eduLevelLabel(i) + '</button>';
   }
   h += '</div><span class="edu-lv-cur edu-lv-cur-print">' + label + '</span>';
   return h;
@@ -9816,10 +9957,17 @@ function openEduBulkModal(name, catId) {
   var items = eduCatItems(catId);
   if (!items.length) { toast('この区分にはまだ項目が登録されていません', 'warn'); return; }
   var keys = items.map(function (it) { return it.key; });
+  var unrated = keys.filter(function (k) { var r = eduGet(name, k); return !(r && r.lv); }).length;
+  var catLabel = '';
+  EDU_CATEGORIES.forEach(function (c) { if (c.id === catId) catLabel = c.icon + ' ' + c.label; });
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'edu-bulk-ov';
-  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '320px';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '340px';
+  /* 既定は「未評価の項目だけ」。以前は分類の全項目を上書きしており、既に「単独」だった項目まで
+     選んだ段階に戻ってしまっていた（取り消しも付けたが、うっかり全部を書き換えないのが先）。 */
   md.innerHTML = '<div class="md-ttl">⚡ まとめて設定</div>'
-    + '<div style="font-size:13px;margin-bottom:12px">「' + escH(name) + '」さんの ' + items.length + '件（' + escH(items.map(function (it) { return it.label; }).join('・')) + '）に段階をまとめて設定します。</div>'
+    + '<div style="font-size:13px;margin-bottom:10px">「' + escH(name) + '」さんの ' + escH(catLabel) + ' に、段階をまとめて付けます。</div>'
+    + '<label style="display:flex;gap:6px;align-items:flex-start;font-size:13px;margin-bottom:8px;cursor:pointer"><input type="radio" name="edu-bulk-scope" value="unrated" checked style="margin-top:3px"><span>未評価の項目だけ（' + unrated + '件）<br><span style="font-size:11px;color:var(--txt3)">段階が付いている項目はそのまま</span></span></label>'
+    + '<label style="display:flex;gap:6px;align-items:flex-start;font-size:13px;margin-bottom:12px;cursor:pointer"><input type="radio" name="edu-bulk-scope" value="all" style="margin-top:3px"><span>すべて上書き（' + keys.length + '件）<br><span style="font-size:11px;color:var(--txt3)">付いている段階も書き換えます</span></span></label>'
     + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'
     + [1, 2, 3, 4, 5].map(function (i) { return '<button class="btn btn-g btn-sm" data-action="edu-bulk-apply" data-lv="' + i + '">' + eduLevelLabel(i) + '</button>'; }).join('')
     + '</div>'
@@ -9829,8 +9977,10 @@ function openEduBulkModal(name, catId) {
     var btn = e.target.closest('button[data-action="edu-bulk-apply"]');
     if (!btn) return;
     var lv = parseInt(btn.getAttribute('data-lv'), 10);
+    var sc = md.querySelector('input[name="edu-bulk-scope"]:checked');
+    var only = !sc || sc.value !== 'all';
     ov.remove();
-    eduSetBulk(name, keys, lv);
+    eduSetBulk(name, keys, lv, only);
   });
 }
 /* 候補はマスタ全件から既に目標が付いている項目を除いたもの——マスタに無い自由入力は
@@ -9905,7 +10055,9 @@ function bindPerfBodyEvents(el) {
     if (action === 'edu-set-lv') {
       var row = btn.closest('.edu-lv-row');
       if (!row) return;
-      eduSet(row.getAttribute('data-name'), row.getAttribute('data-key'), parseInt(btn.getAttribute('data-lv'), 10));
+      /* 今の段階をもう一度押すと未評価に戻す（押し間違えは「取り消す」で戻せる） */
+      var lvNew = btn.classList.contains('cur') ? 0 : parseInt(btn.getAttribute('data-lv'), 10);
+      eduSet(row.getAttribute('data-name'), row.getAttribute('data-key'), lvNew);
       return;
     }
     if (action === 'edu-bulk') { openEduBulkModal(btn.getAttribute('data-name'), btn.getAttribute('data-cat')); return; }
@@ -10532,10 +10684,13 @@ function confirmEditModal() {
     }
     var oldValue = D.stf[state.index];
     D.stf[state.index] = newValue;
+    /* 氏名がキーの到達度・アカウントの紐付け・非表示・教育スロットも新しい名前へ移す（renameStaffKeys） */
+    var stfMoved = renameStaffKeys(oldValue, newValue);
     saveD();
     renderStfList();
     if (curDs) safeRenderPage();
-    writeLog('スタッフ編集', oldValue + ' → ' + newValue);
+    writeLog('スタッフ編集', oldValue + ' → ' + newValue + (stfMoved ? '（到達度・紐付けなどを引き継ぎ）' : ''));
+    if (stfMoved) toast('到達度・アカウントの紐付けなども新しい名前へ引き継ぎました', 'ok');
   } else if (state.type === 'tree') {
     /* ツリー項目編集。オペ/カテ/使用物品の3マスタはいずれも pane-master 側で
        data-perm="mst" のセクションに置かれているので、リネーム経路も 'mst' に揃える。
@@ -10545,6 +10700,7 @@ function confirmEditModal() {
 
     var tree = D[state.saveKey];
     var oldValue = '';
+    var renOld = null, renNew = null; /* 到達度キーの付け替え用（科 → [科]、中カテゴリ → [科, 中カテ]、術式 → [科, 中カテ, 術式]） */
 
     if (state.level === 'dept') {
       oldValue = tree[state.di].dept;
@@ -10554,6 +10710,7 @@ function confirmEditModal() {
           return;
         }
       }
+      renOld = [oldValue]; renNew = [newValue];
       tree[state.di].dept = newValue;
     } else if (state.level === 'cat') {
       oldValue = tree[state.di].cats[state.ci].name;
@@ -10563,6 +10720,7 @@ function confirmEditModal() {
           return;
         }
       }
+      renOld = [tree[state.di].dept, oldValue]; renNew = [tree[state.di].dept, newValue];
       tree[state.di].cats[state.ci].name = newValue;
     } else if (state.level === 'item') {
       oldValue = tree[state.di].cats[state.ci].items[state.ii];
@@ -10572,16 +10730,39 @@ function confirmEditModal() {
           return;
         }
       }
+      renOld = [tree[state.di].dept, tree[state.di].cats[state.ci].name, oldValue];
+      renNew = [tree[state.di].dept, tree[state.di].cats[state.ci].name, newValue];
       tree[state.di].cats[state.ci].items[state.ii] = newValue;
     }
 
     D[state.saveKey] = tree;
+    /* 術式マスタの改名は到達度のキー（ope:科|中カテゴリ|術式）も付け替える。使用物品（supTree）は到達度を持たない */
+    var eduCatOfTree = state.saveKey === 'opeTree' ? 'ope' : (state.saveKey === 'cathTree' ? 'cath' : '');
+    var treeMoved = (eduCatOfTree && renOld) ? eduRenameKeys(eduCatOfTree, renOld, renNew) : 0;
     saveD();
 
     if (state.saveKey === 'opeTree') renderOpeTree();
     else if (state.saveKey === 'cathTree') renderCathTree();
 
-    writeLog('マスタ編集', oldValue + ' → ' + newValue);
+    writeLog('マスタ編集', oldValue + ' → ' + newValue + (treeMoved ? '（到達度' + treeMoved + '件を引き継ぎ）' : ''));
+    if (treeMoved) toast('到達度 ' + treeMoved + '件を新しい名前へ引き継ぎました', 'ok');
+  } else if (state.type === 'eduItem' || state.type === 'hdTreat') {
+    /* 教育項目（病棟外回り/機器管理/透析）とHD特殊治療の改名。到達度のキー（ward:名前 / hdsp:名前）も付け替える。
+       過去の連絡表に記録された治療名（dat.hdCount.sp[].n）は書き換えない（記録を消さない方針）。 */
+    var isTreat = state.type === 'hdTreat';
+    if (isTreat ? !can('mst') : !eduItemMasterOk()) return;
+    var rlist = isTreat ? D.hdTreatments : (D.eduItems && D.eduItems[state.kind]);
+    if (!rlist || rlist[state.index] == null) { closeEditModal(); return; }
+    newValue = fbSafeKey(newValue); /* 追加（addHdTreat / addEduItem）と同じく Firebase のキーになるため */
+    if (!newValue) { toast('内容は空にできません', 'warn'); return; }
+    if (rlist.some(function (x, k) { return k !== state.index && x === newValue; })) { toast('すでに登録されています', 'warn'); return; }
+    var rOld = rlist[state.index];
+    rlist[state.index] = newValue;
+    var rMoved = eduRenameKeys(isTreat ? 'hdsp' : state.kind, [rOld], [newValue]);
+    saveD();
+    if (isTreat) renderHdTreatList(); else renderEduItemList(state.kind);
+    writeLog(isTreat ? '特殊治療マスタ編集' : '教育項目マスタ編集', rOld + ' → ' + newValue + (rMoved ? '（到達度' + rMoved + '件を引き継ぎ）' : ''));
+    if (rMoved) toast('到達度 ' + rMoved + '件を新しい名前へ引き継ぎました', 'ok');
   } else if (state.type === 'dly') {
     if(!can('dm'))return;
     D.dly[state.index] = itemRebuild(D.dly[state.index], {t: newValue});
@@ -11267,12 +11448,23 @@ function renderHdTreatList() {
   else {
     for (var i = 0; i < list.length; i++) {
       var el = document.createElement('div'); el.className = 'ri';
-      var btns = ok ? '<button class="ru" onclick="mvHdTreat('+i+',-1)"'+(i===0?' disabled':'')+'>↑</button><button class="rdw" onclick="mvHdTreat('+i+',1)"'+(i===list.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="rmHdTreat('+i+')">×</button>' : '';
+      var btns = ok ? '<button class="ru" onclick="editHdTreat('+i+')" title="名前を変える（到達度は引き継ぐ）">✏️</button><button class="ru" onclick="mvHdTreat('+i+',-1)"'+(i===0?' disabled':'')+'>↑</button><button class="rdw" onclick="mvHdTreat('+i+',1)"'+(i===list.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="rmHdTreat('+i+')">×</button>' : '';
       el.innerHTML = '<span class="rn">🩸 ' + escH(list[i]) + '</span>' + btns;
       l.appendChild(el);
     }
   }
   var ar = document.getElementById('hd-treat-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+/* HD特殊治療の改名（✏️）。confirmEditModal の type:'hdTreat' が到達度のキー（hdsp:名前）も付け替える */
+function editHdTreat(i) {
+  if (!can('mst')) return;
+  var list = D.hdTreatments || [];
+  if (list[i] == null) return;
+  _editModalState = { type: 'hdTreat', index: i };
+  document.getElementById('edit-item-title').textContent = '🩸 特殊治療の名前を変える';
+  var input = document.getElementById('edit-item-input');
+  input.value = list[i]; input.focus(); input.select();
+  document.getElementById('modal-edit-item').classList.remove('hd');
 }
 function addHdTreat() {
   if (!can('mst')) return;
@@ -11312,12 +11504,23 @@ function renderEduItemList(kind) {
   else {
     for (var i = 0; i < list.length; i++) {
       var el = document.createElement('div'); el.className = 'ri';
-      var btns = ok ? '<button class="ru" onclick="mvEduItem(\'' + kind + '\',' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="rdw" onclick="mvEduItem(\'' + kind + '\',' + i + ',1)"' + (i === list.length - 1 ? ' disabled' : '') + '>↓</button><button class="rd2" onclick="rmEduItem(\'' + kind + '\',' + i + ')">×</button>' : '';
+      var btns = ok ? '<button class="ru" onclick="editEduItem(\'' + kind + '\',' + i + ')" title="名前を変える（到達度は引き継ぐ）">✏️</button><button class="ru" onclick="mvEduItem(\'' + kind + '\',' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="rdw" onclick="mvEduItem(\'' + kind + '\',' + i + ',1)"' + (i === list.length - 1 ? ' disabled' : '') + '>↓</button><button class="rd2" onclick="rmEduItem(\'' + kind + '\',' + i + ')">×</button>' : '';
       el.innerHTML = '<span class="rn">' + escH(list[i]) + '</span>' + btns;
       l.appendChild(el);
     }
   }
   var ar = document.getElementById('edu-item-ar-' + kind); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+/* 教育項目の改名（✏️）。confirmEditModal の type:'eduItem' が到達度のキーも付け替える */
+function editEduItem(kind, i) {
+  if (!eduItemMasterOk()) return;
+  var list = (D.eduItems && D.eduItems[kind]) || [];
+  if (list[i] == null) return;
+  _editModalState = { type: 'eduItem', kind: kind, index: i };
+  document.getElementById('edit-item-title').textContent = '🎓 教育項目の名前を変える';
+  var input = document.getElementById('edit-item-input');
+  input.value = list[i]; input.focus(); input.select();
+  document.getElementById('modal-edit-item').classList.remove('hd');
 }
 function addEduItem(kind) {
   if (!eduItemMasterOk()) return;
@@ -19675,7 +19878,7 @@ function checkTimeNotifs() {
    type: 'ok'（完了）| 'warn'（入力ミス・権限など既定）| 'err'（失敗・エラー）
    err は見落とすと困るので長めに表示する。どれもタップで即座に消える。 */
 var _fbToastTimer = null;
-function toast(msg, type, ms) { /* ms：表示時間を変えたいときだけ渡す（既定はerrが10秒・他は5秒） */
+function toast(msg, type, ms, action) { /* ms：表示時間を変えたいときだけ渡す（既定はerrが10秒・他は5秒）。action={label, fn} を渡すとボタンを付ける（到達度の「取り消す」など） */
   var t = type || 'warn';
   var old = document.getElementById('fb-toast');
   if (old) old.remove();
@@ -19683,8 +19886,9 @@ function toast(msg, type, ms) { /* ms：表示時間を変えたいときだけ�
   el.id = 'fb-toast';
   el.className = 'fb-toast ' + t;
   el.setAttribute('role', t === 'err' ? 'alert' : 'status');
-  el.innerHTML = '<span>' + escH(msg) + '</span><span class="fb-toast-x">✕</span>';
+  el.innerHTML = '<span>' + escH(msg) + '</span>' + (action ? '<button type="button" class="fb-toast-act">' + escH(action.label) + '</button>' : '') + '<span class="fb-toast-x">✕</span>';
   el.onclick = function(){ el.remove(); };
+  if (action) el.querySelector('.fb-toast-act').onclick = function(e){ e.stopPropagation(); el.remove(); action.fn(); };
   document.body.appendChild(el);
   clearTimeout(_fbToastTimer);
   _fbToastTimer = setTimeout(function(){ if (el.parentNode) el.remove(); }, ms || (t === 'err' ? 10000 : 5000));
