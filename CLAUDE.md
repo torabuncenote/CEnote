@@ -472,6 +472,9 @@ All class names are abbreviated:
 | `editEduItem(kind, i)` / `editHdTreat(i)` | 教育項目・HD特殊治療の改名モーダル（✏️）。確定は `confirmEditModal` |
 | `eduExperiencedKeys(name)` / `eduChildItems(name, kind)` | 全期間の経験済み細目（症例担当者/HD特殊治療実施者ベース）／それに手動目標を足した細目一覧（マスタ全項目は並べない） |
 | `renderPerf()` / `renderPerfPersonHTML(name)` / `renderPerfMapHTML()` | 実績サブタブの入口／個人ビュー／スキルマップ（`_viewMode`で分岐しない） |
+| `openEduLvPicker(name, key)` / `eduItemRowHTML(name, cat, it, o)` | 段階ポップアップ（段階を付ける唯一の画面）／細目の1行（段階チップ） |
+| `eduLevels(catId)` / `eduLevelLabel(catOrKey, lv)` / `eduCanLv(catId)` / `eduLvColor(catId, lv)` / `eduRate(name, catId)` | 分類ごとの段階名・「できる」の基準・色・習熟率 |
+| `openEduSettings(catId)` / `eduSaveLevels(catId, names, can)` / `eduItemSeed(kind)` / `eduMasterRename(kind, i, newName)` | 項目と段階の設定画面／段階の保存（部分保存）／たたき台／教育項目・特殊治療の改名 |
 | `writeLog(action, detail)` | Append to Firebase `/logs` |
 | `showSyncOverlay()` / `hideSyncOverlay(done)` / `syncOverlayFail(msg)` / `updateOfflineBanner()` | 初回同期の覆い（入力を止める）／外す（`done` で「✅ 同期しました」）／失敗表示／オフラインの帯。詳細は Persistence 節の Critical guard |
 | `autoSaveSnapshot(label)` | Add to local PC backup ring buffer |
@@ -881,7 +884,7 @@ D.eduProgress = {
     "hdsp:PMX":                             { lv:4, by:"…", ts:…, hist:[…] }
   }
 }
-D.eduCfg = { ceEdu:false }  // オペ・カテ症例行に教育者欄を出すか（既定OFF）
+D.eduCfg = { ceEdu:false, levels:{ 分類id:{names:[…], can:N} } }  // 教育者欄を出すか（既定OFF）＋分類ごとの段階（未設定は既定の5段階）
 D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
 ```
 
@@ -898,13 +901,18 @@ D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透�
 - **経験の有無・目標は項目ごとの印として添えるだけで、列の絞り込みには使わない。** `eduExperiencedKeys(name)` が全 `D.pages` を走査し、症例の担当者/HD特殊治療の実施者に名前があるものだけを拾う。戻り値は `{ 分類id: { 項目key: 表示ラベル } }` で、**キーで突き合わせ・ラベルを表示する**（`ope`/`cath`/`hdsp` の3キーのみ——`ward`/`device`/`hd` は経験を自動判定するデータ源が無いため常に空。教育者に名前があるだけでは経験済みにならない）。症例側の科・中カテゴリは `opsItemDept`/`opsItemCat` を通すので、自由入力の症例もマスタ選択の症例も同じ規則でキーになる。年度付きの目標は `eduAddGoal`（`goalFy`）で手動追加できるが、**候補はマスタ全件から選ぶ（自由入力は受け付けない）**——受け付けるとマスタ全件表示の細目一覧に出てこなくなり、目標が「見えない記録」になってしまうため。
 - **マスタに無い自由入力の術式（OPE/カテのみ）で経験があるものは、個人ビューに「マスタに無い術式の経験がN件あります」と件数だけ注記する**（`eduFreeExpNoteHTML`）。教育担当が気づいてマスタへ追加できるようにするための注記で、列には加えない。
 - **未評価とレベル1（未）を画面上でも区別する**——分けないと導入直後にスキルマップが全項目「未＝できない」に見え、ベテランの実態と食い違う。
+- **段階は分類ごとに名前と数（2〜7）を変えられる**（`D.eduCfg.levels = {分類id:{names:[…], can:N}}`。実績画面の「⚙ 項目と段階」＝`openEduSettings` → `eduSaveLevels`、部分保存）。読み出しは必ず `eduLevels(catId)`/`eduLevelLabel(分類idか項目key, lv)`/`eduCanLv(catId)`/`eduLvColor(catId, lv)`/`eduLvClamp(catId, lv)` を通すこと（固定の段階名の配列を直接読む書き方は廃止した）。既定値は読むときに補う——`D.eduCfg` の既定リテラル `{ceEdu:false}` に `levels` を足さない。段階を減らして記録の `lv` が上限を超えたら一番上の段階として表示し、記録は書き換えない。
+- **大分類は習熟率（％）**＝その分類の細目のうち `eduCanLv(catId)` 以上の項目の割合（`eduRate(name, catId)`、色は `eduRateBand(pct)` の20%刻み5色）。手で押す大分類の段階（`cat:*` キー）は廃止し画面に出さない（既存の記録は消さない）。症例数からの自動推定はしない方針のまま——習熟率は人が押した段階を数えるだけ。
+- **個人ビューの並び**：📈習熟率カード（押すとその分類を開いて移る）→ 🎯今年度の目標 → 📌経験したのに未評価（`EDU_UNRATED_LIMIT` 件まで）→ 分類ごとの細目（絞り込み `_perfCatFilter`：すべて/経験あり/未評価/目標）→ 📊実績の件数（`_perfStatsOpen`、既定は畳む。印刷CSSの `.perf-stats` で紙には常に出す）。細目の行は段階の色付きチップ1つ（`eduItemRowHTML`）で、押すと段階ポップアップ。以前の「1項目に小さな5ボタン列」は押しにくく、34項目×5ボタンで画面が埋まっていたのでやめた。
+- **段階ポップアップ `openEduLvPicker(name, key)` が段階を付ける唯一の画面**：個人ビューのチップ・スキルマップのマス・症例行（ツリー版）の担当者チップの🎓・HD特殊治療の実施者チップの🎓の4か所から開く。マスタに無い項目（自由入力の術式など）は開かずに知らせる（付けると一覧にもスキルマップにも出ない「見えない記録」になる）。未評価に戻す・今年度の目標のON/OFF・履歴もここ。症例行の🎓は業務のロック（`ops`）と関係なく `canEdu()` で出す。
+- **細目のたたき台（`EDU_SEED_ITEMS`）は空の分類にだけ、設定画面のボタンを押したときに入れる**（勝手には入れない。AIが作った一般的な項目で、教育担当が現場に合わせて直す前提）。教育項目の追加・削除・並べ替え・改名は `eduItemAdd`/`eduItemRemove`/`eduItemMove`/`eduMasterRename` が共通の口で、マスタタブの `addEduItem`/`rmEduItem`/`mvEduItem` と改名モーダル（`confirmEditModal`）もこれを通す。
 - **`perm_edu` はロックにしない。** `tab_master` と同じ「明示付与」の権限（`canEdu() = isAdmin || currentUser.perms.perm_edu`）にしてある。`D.lk` の既定は全解放（`D.lk={}`）なので、ロックにすると既定で全員が押せてしまう。ユーザー管理の「📑 タブ表示」ブロックから付与する。閲覧・記録は管理者と `perm_edu` 保持者のみ全員分、本人は自分の分だけ常に閲覧可（記録・段階変更は不可）。
 - **教育項目マスタ（`D.eduItems`）の編集権限もあえて `mst` ではなく `isAdmin || canEdu()`**（`eduItemMasterOk()`）。`mst` を渡すと OPE/カテ術式マスタや担当枠まで触れてしまうので、余分な権限を渡さずに済ませる。UIは `renderHdTreatList`（HD特殊治療マスタ）と同型の `renderEduItemList(kind)`/`addEduItem(kind)`/`rmEduItem(kind,i)`/`mvEduItem(kind,i,d)`（`kind` は `'ward'|'device'|'hd'`）。マスタタブの「🎓 教育項目マスタ」セクションは `data-perm` を使わない（pane-master Section Gating の対象外）——`renderEduItemMaster()` が `#edu-items-section` の表示切替を自前で行う。置き場所は🎓教育グループの `.mgrp-body` 直下で、そこは他セクションと同じ（マスタタブのグループ節を参照）。
 - **`dat.hdCount.sp` の要素はオブジェクト形式**（`{n:治療名, staff:実施者[], edu:教育者[]}`）。旧形式（治療名だけの文字列）との後方互換は `hdSpNorm(v)` が担い、`hdCountSpArr`/`hdCountSpFilled`/`hdCountEnsureSpArr` の3アクセサが必ずこれを通す——**旧データを書き換えない**（読み出し時に正規化するだけ）。治療名を変更しても `arr[idx].n = ...` で `staff`/`edu` は保持される。
 - **CE症例行の教育者欄（`item.edu`）は `D.eduCfg.ceEdu` が真のときだけ表示**（既定OFF・マスタタブのCEセクションで管理者がON/OFF）。`opsItemFilled()` には `edu` を条件として含めない——教育者だけ入って他が空の行は実質存在しないため、含めると空行が件数に混ざるリスクだけが増える。
 - **対象スタッフは `D.stfHidden` でない `D.stf` のみ**（CE/HD公平性と同じ）。ヘルプ（`base:'help'`、`D.stf` 未登録）は実施者・教育者として記録は残る（`hdSpStaffCandidates`/`opsStaffCandidates` の候補には出る）が、実績ページ・スキルマップの対象一覧には並ばない。
 - 実績の集計（症例件数・配置日数・OC件数など）は `eduStats(dsList)` が1回の走査で全スタッフ分をまとめて作る——個人ビュー・スキルマップ・CSVはすべてこの戻り値だけを読み、自前で数え直さない。`eduStats` の返り値は `cat:{ope,cath,ward,device,hd}`（配置日数）＋`free`（フリー日数）＋`ope`/`cath`/`hdsp`（件数・byName等、従来どおり）。透析は `hdShiftWorkers(ds)` に載っていれば役割コードを問わず `cat.hd` を+1（役割ごとの内訳は持たない——HD公平性タブの役目）。
-- **スキルマップ（`renderPerfMapHTML`）は分類チップを常設**（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療、`_perfMapCol`：`null`=総括、それ以外は分類id）。**列見出しクリックという隠し導線は廃止した**。総括は6分類の大分類段階のみ、各分類の細目マップはマスタ全件を列にし、セルは「段階の頭文字＋経験件数」（例`単 3`）——経験があるのに未評価の項目を見分けられるようにするため。経験件数は`eduMapCountSrc(catId)`が全期間`eduStats`の**`byKey`**から引く（OPE/カテ/特殊治療のみ算出でき、ward/device/hdは常に頭文字のみ）。**`byName`から引いてはいけない**——`byName`は術式名だけの集計なので、腹腔鏡下とロボット支援下の「低位前方切除術」に同じ合算値が出てしまう。`byName`は実績ブロックの「トップN内訳」用に別途残してある（あちらは読みやすさ優先で同名を合算してよい）。
+- **スキルマップ（`renderPerfMapHTML`）は分類チップを常設**（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療、`_perfMapCol`：`null`=総括、それ以外は分類id）。**列見出しクリックという隠し導線は廃止した**。総括は6分類の**習熟率（％）**で、マスを押すとその分類の細目マップへ移る。細目マップはマスタ全件を列にし、セルは「段階名の頭文字＋経験件数」（例`単 3`）——経験があるのに未評価の項目を見分けられるようにするため。**細目のマスを押すと段階ポップアップ**（`openEduLvPicker`、`canEdu()` のみ）で、その場で付けられる。経験件数は`eduMapCountSrc(catId)`が全期間`eduStats`の**`byKey`**から引く（OPE/カテ/特殊治療のみ算出でき、ward/device/hdは常に頭文字のみ）。**`byName`から引いてはいけない**——`byName`は術式名だけの集計なので、腹腔鏡下とロボット支援下の「低位前方切除術」に同じ合算値が出てしまう。`byName`は実績ブロックの「トップN内訳」用に別途残してある（あちらは読みやすさ優先で同名を合算してよい）。
 - CE/HDの双子関数を増やさない方針を踏襲し、`renderPerf`/`eduStats` 等は**1つだけ**（`_viewMode` で分岐しない）——実績は「どちらの目で見るか」に依らない事実のため、CE公平性/HD公平性のような分割はしない。
 - サブタブ `perf` を担当表タブに追加した際、印刷CSS（`body[data-print-sub="perf"] #subpane-perf{display:block!important}`）と `printSubTab()`/`exportSubCsv()`/`asPrevM`/`asNextM` への配線を通常どおり全て行った。**サブタブの行（`.asub`）は3ボタンまでは290px幅のサイドバーに収まっていたが、4つ目（🎓実績）を足すと `.sb{overflow:hidden}` で見切れることが実際に発覚した**——`.asub{flex-wrap:wrap}` を追加して2行に折り返すようにした。新しいサブタブ・ボタンをこの行に足すときは、290px幅で見切れないか必ず確認すること。
 
