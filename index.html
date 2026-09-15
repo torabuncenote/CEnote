@@ -2925,6 +2925,11 @@ function init() {
       if (bar && bar.getAttribute('data-ds')) bar.style.display = 'flex';
     }, 0);
   });
+  /* 見送った再描画（flushPendingRender）は、入力欄から離れ・指も離れたあとで行う */
+  document.addEventListener('focusout', function(){ schedulePendingFlush(); });
+  document.addEventListener('pointerdown', function(){ _pointerDown = true; }, true);
+  document.addEventListener('pointerup', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
+  document.addEventListener('pointercancel', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
   if (isPreview) { carryOverMemos(); openDefaultPage(); }
 }
 
@@ -3242,7 +3247,16 @@ function fbInit() {
               })();
               return; /* Dを空オブジェクトで上書きしない */
             }
+            /* 開いている連絡表の中身が変わったか（入力中で描き直しを見送ったとき、後で描き直すかの判定に使う） */
+            var prevPageSig = (curDs && D.pages && D.pages[curDs]) ? pageSig(D.pages[curDs]) : null;
+            /* saveDPage の待ち行列にある（まだ送っていない）ページは手元の値を残す。受信した d には
+               その変更がまだ入っていないので、そのまま差し替えると送る直前に手元の変更が消える（症例行は
+               1文字ごとに保存するので、前の書き込みが終わる前に次が積まれることがよくある）。送信中の
+               ページは SDK が受信側にも先に反映しているので対象外でよい。 */
+            var keepPages = {};
+            Object.keys(_savePageQueue).forEach(function(k){ if (D.pages && D.pages[k]) keepPages[k] = D.pages[k]; });
             D.pages = d.pages || {};
+            Object.keys(keepPages).forEach(function(k){ D.pages[k] = keepPages[k]; });
             D.stf   = d.stf   || DEF_STF.slice();
             D.phs   = d.phs   || DEF_PHS.slice();
             D.dly   = d.dly   || DEF_DLY.slice();
@@ -3371,15 +3385,22 @@ function fbInit() {
             if (wasFirstLoad) carryOverMemos(); /* 未済で繰り越しONの申し送りを今日（以降）へ */
             if (wasFirstLoad && !curDs) {
               openDefaultPage();
-            } else if (curDs && D.pages[curDs] && !isEditingInPage && !justSaved) {
-              renderPage(curDs);
+            } else if (curDs && D.pages[curDs]) {
+              if (!isEditingInPage && !justSaved) renderPage(curDs);
+              /* 見送った場合も、開いている連絡表が本当に変わっていれば後で描き直す
+                 （自分の保存のエコーは中身が同じなので何もしない） */
+              else if (pageSig(D.pages[curDs]) !== prevPageSig) markPageRenderPending();
             }
           }, function(err) { setSyncLbl('同期エラー'); syncOverlayFail('データを受け取れませんでした。再読み込みしてください'); });
           /* 掲示板リスナー（初回ログイン時に一度だけ設定） */
           fbDB.ref('/board').on('value', function(bsnap) {
             _boardData = bsnap.val() || {};
             var bp = document.getElementById('pane-board');
-            if (bp && bp.style.display !== 'none') renderBoard();
+            if (bp && bp.style.display !== 'none') {
+              /* 返信を書いている間は描き直さない（書き終えて離れたら flushPendingRender が描く） */
+              if (boardEditing()) { _boardRenderPending = true; schedulePendingFlush(); }
+              else renderBoard();
+            }
             updateBoardBadge();
           });
           /* タスクリスナー（初回ログイン時に一度だけ設定） */
@@ -5322,11 +5343,18 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/14-75';
+var APP_VERSION = 'Ver.2026/09/15-78';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/15-78', date:'2026-09-15', title:'入力した内容が消えないようにしました', items:[
+    {t:'fix', d:'📝 書きかけの申し送り・返信・編集中の本文が、他の職員の保存で画面が更新されたときに消えることがあったのを直しました'},
+    {t:'fix', d:'📢 掲示板で返信を書いている途中に、他の人が掲示板を開くと書きかけが消えることがあったのを直しました'},
+    {t:'fix', d:'🔪 同じオペ・カテのカードを2人が同時に入力すると、片方の入力（終了・担当者・備考など）が元に戻ることがあったのを直しました'},
+    {t:'fix', d:'続けて入力したときに、まだ送っていない変更が他の人の保存の受信で消えることがあったのを直しました'},
+    {t:'imp', d:'✏️ 入力している間に届いた他の人の変更は、入力欄から離れたあとに自動で画面へ反映されるようにしました。書きかけの申し送り・返信は、別の日を開いて戻ってきても残ります'}
+  ]},
   { ver:'Ver.2026/09/14-75', date:'2026-09-14', title:'入室時間を選びやすくしました', items:[
     {t:'imp', d:'⏱ 術式のポップアップの入室時間を、端末の時刻入力（スマホは端末の時刻選択、PCは打ち込みや矢印キー）と「AMOC」「PMOC」の2ボタンにしました。時刻のボタンが並んでいた欄が小さくなります。終了時に出る「実際の入室時間は？」も同じ入力です'}
   ]},
@@ -12987,6 +13015,9 @@ function doDelM() {
   toast('🗑 '+y+'年'+m+'月の連絡表 '+targets.length+'枚を削除しました。', 'ok');
 }
 function showEmpty() {
+  mainDraftsBefore(); /* 連絡表を閉じる前に下書きを拾っておく（同じ日を開き直せば戻る） */
+  _pageRenderPending = false;
+  document.getElementById('main').removeAttribute('data-draft-key');
   document.getElementById('main').innerHTML='<div class="es"><div class="es-ic">📋</div><div class="es-t">連絡表を選択または作成してください</div><p class="es-s">左のカレンダーから日付を選ぶか<br>「1ヶ月生成」で一括作成できます</p></div>';
   updateCloseBar(null);
 }
@@ -13001,7 +13032,128 @@ function safeRenderPage() {
     (focused.tagName==='INPUT'||focused.tagName==='TEXTAREA'||focused.tagName==='SELECT') &&
     mainEl && mainEl.contains(focused);
   if (!isEditing) renderPage(curDs);
+  else markPageRenderPending(); /* 入力欄から離れたあとで描き直す（見送った再描画の節） */
 }
+
+/* ===== 送信前の入力（下書き）を画面の作り直しから守る =====
+   renderPage は #main を、renderMemos は #memo-list を、renderBoard は #board-list を丸ごと作り直す。
+   他の職員の保存（/data・/board の受信）でもこれが走るため、送信前の申し送り・返信・編集中の本文・
+   掲示板の返信が空に戻っていた。入力欄にカーソルがある間は再描画を見送っているが、📎で画像を選ぶ・
+   画面をスクロールするなどでカーソルが外れた瞬間に守りが切れる（現場で「入力が消えた」と報告された）。
+   作り直す前に中身を拾い（draftCapture）、作り直した後に戻す（draftApply）。対象は「まだ送っていない
+   入力」だけに限る——D に保存済みの欄は D の値のほうが新しいので、古い入力で上書きしてはいけない。 */
+var DRAFT_TEXT_SEL = '#memo-new, textarea.mp-ri, .mp-edit-form textarea, textarea.brd-ri';
+var DRAFT_OPEN_SEL = '.mp-reply-form, .mp-edit-form, [id^="brd-reply-form-"]';
+var _draftStore = {}; /* 連絡表の下書き。キーは mainDraftKey()＝「日付|主観」（主観で申し送りのスレッドが別になるため） */
+function mainDraftKey(ds) { return ds + '|' + _viewMode; }
+function draftCapture(root) {
+  var d = { vals: {}, checks: {}, open: {}, focus: null };
+  if (!root) return d;
+  root.querySelectorAll(DRAFT_TEXT_SEL).forEach(function (t) { if (t.id && t.value) d.vals[t.id] = t.value; });
+  var carry = root.querySelector('#memo-carry');
+  if (carry && carry.checked) d.checks['memo-carry'] = true;
+  root.querySelectorAll(DRAFT_OPEN_SEL).forEach(function (f) { if (f.id && f.style.display !== 'none') d.open[f.id] = true; });
+  var ae = document.activeElement;
+  if (ae && ae.id && ae.tagName === 'TEXTAREA' && root.contains(ae)) d.focus = { id: ae.id, s: ae.selectionStart, e: ae.selectionEnd };
+  return d;
+}
+function draftApply(d) {
+  if (!d) return;
+  Object.keys(d.open).forEach(function (id) {
+    var f = document.getElementById(id);
+    if (!f) return;
+    if (id.indexOf('mp-rf-') === 0) { f.style.display = 'block'; renderMemoReplyPreview(id.slice(6)); }
+    else if (id.indexOf('mp-ef-') === 0) {
+      f.style.display = '';
+      var b = document.getElementById('mp-body-' + id.slice(6)); if (b) b.style.display = 'none';
+    } else if (id.indexOf('brd-reply-form-') === 0) { f.style.display = ''; renderBoardReplyMediaPreview(id.slice(15)); }
+  });
+  Object.keys(d.vals).forEach(function (id) {
+    var t = document.getElementById(id);
+    if (!t || t.value) return; /* 既に中身がある欄（別の経路で埋まった）は触らない */
+    t.value = d.vals[id];
+    autoGrowTA(t);
+  });
+  Object.keys(d.checks).forEach(function (id) { var c = document.getElementById(id); if (c) c.checked = true; });
+  if (d.focus) {
+    var ft = document.getElementById(d.focus.id);
+    if (ft) { try { ft.focus(); ft.setSelectionRange(d.focus.s, d.focus.e); } catch (e) {} }
+  }
+}
+/* renderPage / renderPageHD の最初と最後で呼ぶ。#main にいま映っている連絡表のキーを data-draft-key に
+   持たせ、作り直す前にそのキーで拾う（openPage は curDs を先に書き換えるので curDs は当てにならない）。 */
+function mainDraftsBefore() {
+  var m = document.getElementById('main');
+  var k = m && m.getAttribute('data-draft-key');
+  if (k) _draftStore[k] = draftCapture(m);
+}
+function mainDraftsAfter(ds) {
+  var m = document.getElementById('main');
+  if (!m) return;
+  var k = mainDraftKey(ds);
+  m.setAttribute('data-draft-key', k);
+  draftApply(_draftStore[k]);
+  if (_memoMediaBuf.length) renderMemoMediaPreview(); /* 📎で選んだ添付は配列に残っているのでプレビューだけ描き直す */
+  _pageRenderPending = false; /* 見送っていた再描画はこれで済んだ */
+}
+
+/* ===== 見送った再描画を後で行う =====
+   入力中（#main の入力欄にカーソルがある）と保存直後2秒は、受信しても renderPage を見送る。以前は次に
+   何かで描き直すまで古い画面が残り、その古い画面の上で入力すると、届いていた他の人の変更を巻き戻す
+   原因にもなっていた。見送ったら印を付け、入力欄から離れて指も離れたあとで描き直す。すぐに描き直さない
+   のは、入力欄の次に押そうとしたボタンが、押す前に作り直されてタップが空振りするため。
+   掲示板の返信欄も同じ仕組みで、書いている間は描き直しを待たせる。 */
+var _pageRenderPending = false;
+var _boardRenderPending = false;
+var _pointerDown = false;
+var _pendingFlushTimer = null;
+function mainEditing() {
+  var f = document.activeElement, m = document.getElementById('main');
+  return !!(f && (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA' || f.tagName === 'SELECT') && m && m.contains(f));
+}
+function boardEditing() {
+  var f = document.activeElement, b = document.getElementById('board-list');
+  return !!(f && f.tagName === 'TEXTAREA' && b && b.contains(f));
+}
+function markPageRenderPending() { _pageRenderPending = true; schedulePendingFlush(); }
+function schedulePendingFlush() {
+  if (!_pageRenderPending && !_boardRenderPending) return;
+  clearTimeout(_pendingFlushTimer);
+  _pendingFlushTimer = setTimeout(flushPendingRender, 600);
+}
+function flushPendingRender() {
+  if (_pointerDown) return; /* 指を離したとき（pointerup）にもう一度予約される */
+  if (_boardRenderPending && !boardEditing()) {
+    _boardRenderPending = false;
+    var bp = document.getElementById('pane-board');
+    if (bp && bp.style.display !== 'none') renderBoard();
+  }
+  if (!_pageRenderPending) return;
+  if (!curDs || !D.pages[curDs]) { _pageRenderPending = false; return; }
+  /* 入力欄から離れたとき（focusout）にもう一度予約されるが、入力欄が DOM ごと消えると focusout が
+     出ない端末がある（消し込みバーの _cbarInputFocused と同じ罠）ので、見送り中は自分でも見直す */
+  if (mainEditing()) { clearTimeout(_pendingFlushTimer); _pendingFlushTimer = setTimeout(flushPendingRender, 1500); return; }
+  var wait = 2000 - (Date.now() - _savingTs);
+  if (wait > 0) { clearTimeout(_pendingFlushTimer); _pendingFlushTimer = setTimeout(flushPendingRender, wait + 50); return; }
+  renderPage(curDs); /* mainDraftsAfter が _pageRenderPending を下ろす */
+}
+/* 中身の比較用の文字列。Firebase は空の配列・空のオブジェクト・null を保存せず、配列をオブジェクトで
+   返すこともあるので、それらを同じものとして扱う（そうしないと自分の保存のエコーまで「変わった」と
+   判定する）。キーが _ で始まるもの（症例行の印 _rid など）は比べない。 */
+function _sigNorm(v) {
+  if (v === null || v === undefined) return undefined;
+  if (typeof v !== 'object') return v;
+  var keys = Array.isArray(v) ? v.map(function (x, i) { return String(i); }) : Object.keys(v).sort();
+  var out = {}, any = false;
+  keys.forEach(function (k) {
+    if (k.charAt(0) === '_') return;
+    var x = _sigNorm(v[k]);
+    if (x === undefined) return;
+    out[k] = x; any = true;
+  });
+  return any ? out : undefined;
+}
+function pageSig(v) { return JSON.stringify(_sigNorm(v)) || ''; }
 
 function openDefaultPage() {
   initFCMMessaging();
@@ -14599,6 +14751,85 @@ function opsApplyLiveRow(ds, key, items, idx, sig, anchorEl, saveItems, renderIt
   if (stale) safeRenderPage();
 }
 /* patch の値が null のキーは消す（Firebase に空の項目を残さない） */
+/* ===== 症例行の同時編集（行単位の3方向マージ） =====
+   buildItemListTree / buildItemList は描画時の行配列 items を閉じ込め、操作のたびに丸ごと
+   D.pages[ds].ops[key] へ書き戻していた。入力中・保存直後2秒は受信しても描き直さないので、その間に
+   届いた他の人の入力（別の行の終了・担当者など）が、古い items の書き戻しで巻き戻っていた。
+   各行に固定の印 _rid を付け、描画（または最後の保存）時点の写し base と、いまの D の行を比べる。
+   自分が触った欄は自分の値、触っていない欄と行は最新の値、相手が足した行は残す、自分が消した行は消す。
+   既存の行の印は 'L'+位置（どの端末でも同じ値になり、同時に付けても食い違わない）、新しく足す行は opsNewRid()。
+   _rid は件数・集計・CSVに影響しない（opsItemFilled は決まった欄しか見ず、pageSig は _ で始まるキーを比べない）。 */
+function opsNewRid() { return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function opsEnsureRids(arr) {
+  (arr || []).forEach(function (it, i) { if (it && typeof it === 'object' && !it._rid) it._rid = 'L' + i; });
+  return arr;
+}
+function opsRowsCopy(v) { return opsEnsureRids(JSON.parse(JSON.stringify(normArr(v)))); }
+function opsMergeFields(b, loc, lv) {
+  var o = JSON.parse(JSON.stringify(lv)), keys = {};
+  Object.keys(b).forEach(function (k) { keys[k] = 1; });
+  Object.keys(loc).forEach(function (k) { keys[k] = 1; });
+  Object.keys(keys).forEach(function (k) {
+    if (pageSig(loc[k]) === pageSig(b[k])) return; /* 自分は触っていない欄 → 最新の値のまま */
+    if (loc[k] === undefined) delete o[k]; else o[k] = JSON.parse(JSON.stringify(loc[k]));
+  });
+  o._rid = loc._rid;
+  return o;
+}
+function opsMergeRows(base, local, live) {
+  var bMap = {}, lvMap = {}, used = {}, out = [];
+  base.forEach(function (r) { if (r && r._rid) bMap[r._rid] = r; });
+  live.forEach(function (r) { if (r && r._rid) lvMap[r._rid] = r; });
+  local.forEach(function (r) {
+    if (!r) return;
+    var id = r._rid, b = bMap[id], lv = lvMap[id];
+    used[id] = true;
+    if (!b) { out.push(r); return; }                          /* 自分が足した行 */
+    if (pageSig(r) === pageSig(b)) { if (lv) out.push(lv); return; } /* 触っていない行は最新（相手が消していれば消す） */
+    out.push(lv && pageSig(lv) !== pageSig(b) ? opsMergeFields(b, r, lv) : r); /* 両方が触った行は欄ごとに合わせる */
+  });
+  live.forEach(function (r, i) {
+    if (!r || used[r._rid] || bMap[r._rid]) return;           /* 自分が消した行は戻さない */
+    out.splice(Math.min(i, out.length), 0, r);                /* 相手が足した行はその位置へ */
+  });
+  return out;
+}
+/* saveItems の本体。いまの D の行と写し st.base を比べ、他の人の変更が届いていれば合流してから書く。
+   合流したら true を返す（呼び出し側は opsRerenderSoon で行を描き直す）。 */
+function opsSaveRows(ds, key, items, st) {
+  var pg = D.pages[ds];
+  if (!pg.ops) pg.ops = {};
+  opsEnsureRids(items);
+  var liveRaw = pg.ops[key], merged = false;
+  if (liveRaw && liveRaw !== items) {
+    var live = opsRowsCopy(liveRaw);
+    if (pageSig(live) !== pageSig(st.base)) {
+      var out = opsMergeRows(st.base, items, live);
+      items.length = 0;
+      out.forEach(function (r) { items.push(r); });
+      merged = true;
+    }
+  }
+  pg.ops[key] = JSON.parse(JSON.stringify(items));
+  st.base = JSON.parse(JSON.stringify(items));
+  return merged;
+}
+/* 合流で他の人の変更が入ったら行を描き直して見せる。入力中なら入力欄から離れ、指も離れるまで待つ
+   （入力欄が消えるとキーボードが閉じる／次に押そうとしたボタンが押す前に作り直されるため）。 */
+function opsRerenderSoon(wrap, renderItems) {
+  if (!wrap.contains(document.activeElement)) { renderItems(); return; }
+  wrap._rerenderWanted = true;
+  if (wrap._rerenderBound) return;
+  wrap._rerenderBound = true;
+  wrap.addEventListener('focusout', function () {
+    setTimeout(function tick() {
+      if (!wrap._rerenderWanted || wrap.contains(document.activeElement)) return;
+      if (_pointerDown) { setTimeout(tick, 300); return; }
+      wrap._rerenderWanted = false;
+      renderItems();
+    }, 600);
+  });
+}
 function opsApplyPatch(it, patch) {
   Object.keys(patch).forEach(function(k){ if (patch[k] === null) delete it[k]; else it[k] = patch[k]; });
 }
@@ -15183,6 +15414,7 @@ function updatePsgRemovalBanner(ds){
 }
 function renderPage(ds) {
   if (!D.pages[ds]) return;
+  mainDraftsBefore(); /* 作り直す前に送信前の入力を拾う（下書きの節） */
   if (_viewMode === 'hd') { renderPageHD(ds); return; }
   var dat=D.pages[ds];
   if(!dat.ops)dat.ops={}; if(!dat.ocData)dat.ocData={};
@@ -15461,6 +15693,7 @@ function renderPage(ds) {
   if(!mlk){
     bindMemoInput(ds);
   }
+  mainDraftsAfter(ds); /* 拾っておいた送信前の入力を戻す */
   autoGrowAll(document.getElementById('main')); /* 既に入っている長文が見切れないよう高さを合わせる */
   updateCloseBar(ds);
 }
@@ -15769,6 +16002,7 @@ function hdRosterRefHTML(ds, dat) {
    無い状態で呼ぶと例外になるため、呼ばない）。#hdcl/#hdwcl は buildHdCL が冒頭で
    nullガードするCE版と別実装なので、CE専用の #dcl/#wcl とは異なりここで作ってよい。 */
 function renderPageHD(ds) {
+  mainDraftsBefore(); /* 作り直す前に送信前の入力を拾う（下書きの節） */
   var dat = D.pages[ds];
   var w = new Date(ds).getDay(), wf = WDF[w];
   var mlk = !can('memo');
@@ -16021,6 +16255,7 @@ function renderPageHD(ds) {
 
   renderMemos(ds, dat, mlk);
   if (!mlk) bindMemoInput(ds);
+  mainDraftsAfter(ds); /* 拾っておいた送信前の入力を戻す */
   autoGrowAll(document.getElementById('main'));
   updateTabletBtnBadge(ds);
   updateCloseBar(ds);
@@ -16236,6 +16471,10 @@ function renderMemos(ds, dat, locked) {
   var el = document.getElementById('memo-list');
   if (!el) return;
   bindMemoListEvents(el);
+  /* 一覧だけを描き直すとき（投稿・削除の後など）も、他の申し送りへの返信の書きかけ・編集中の本文を残す。
+     renderPage から呼ばれたときは #memo-list が作り直されたばかりで空なので、ここでは何も拾わない
+     （mainDraftsAfter が戻す）。 */
+  var listDraft = draftCapture(el);
   var memos = memosOf(dat);
   var stubsH = memoCarryStubsHTML(dat);
   if (!memos.length) {
@@ -16356,6 +16595,7 @@ function renderMemos(ds, dat, locked) {
     h += '</div>';
   }
   el.innerHTML = h + stubsH;
+  draftApply(listDraft);
 }
 
 /* #memo-list は renderMemos のたびに innerHTML を差し替えるだけの永続DOMなので、
@@ -16553,6 +16793,7 @@ function _finishPostMemoReply(ds, mkey, reply, text, sendBtn) {
   saveDPage(ds);
   writeLog('申し送り返信', fmtJ(ds) + ' 「' + (text || '[画像]').slice(0, 30) + (text.length > 30 ? '...' : '') + '」');
   var ta = document.getElementById('mp-ri-' + mkey); if (ta) ta.value = '';
+  var rf = document.getElementById('mp-rf-' + mkey); if (rf) rf.style.display = 'none'; /* 送った返信欄は閉じる（下書きとして戻さない） */
   _memoReplyMediaBuf[mkey] = [];
   if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '返信'; }
   renderMemos(ds, D.pages[ds], !can('memo'));
@@ -17346,6 +17587,8 @@ function _doSaveMemoEdit(ds, mkey, text) {
   m.editedAt = Date.now();
   m.editedBy = currentUser ? (currentUser.displayName || currentUser.email) : '';
   saveDPage(ds);
+  var ei = document.getElementById('mp-ei-' + mkey); if (ei) ei.value = '';
+  cancelMemoEdit(mkey); /* 保存した編集欄は閉じる（下書きとして戻さない） */
   writeLog('申し送り編集', fmtJ(ds) + ' 「' + before.slice(0,20) + '」→「' + text.slice(0,20) + '」');
   renderMemos(ds, D.pages[ds], !can('memo'));
   updateCloseBar(ds);
@@ -18471,7 +18714,9 @@ function buildOPS(ds,dat,locked) {
   /* ope items: [{sel:'', txt:'', time:'', timeTxt:''}]  cath items: [{sel:'', txt:''}] */
   /* ===== 3階層ツリー選択 buildItemListTree ===== */
   function buildItemListTree(cardEl, key, masterTree, labelName, itemId, withTime, withOrder, withSup) {
-    var items = (ops[key] && ops[key].length) ? ops[key] : [{dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]}];
+    var items = (ops[key] && ops[key].length) ? ops[key] : [{dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[],_rid:opsNewRid()}];
+    /* 行ごとの印を付け、描画時点の写しを持つ（opsSaveRows が他の人の変更と合流させるため） */
+    var rowSt = { base: items === ops[key] ? opsRowsCopy(opsEnsureRids(items)) : [] };
 
     function makeDeptOpts(sel2) {
       var h='<option value="">-- 科 / カテゴリ --</option>';
@@ -18621,7 +18866,7 @@ function buildOPS(ds,dat,locked) {
 
         /* 削除ボタン */
         var delBtn=document.createElement('button'); delBtn.className='ops-item-del'; delBtn.textContent='×'; delBtn.title='この行を削除'; delBtn.type='button'; delBtn.disabled=!!locked;
-        if(!locked) delBtn.onclick=(function(i2){return function(){if(items.length<=1){items[0]={dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]};}else{items.splice(i2,1);}saveItems();renderItems();};})(idx);
+        if(!locked) delBtn.onclick=(function(i2){return function(){if(items.length<=1){items[0]={dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[],_rid:opsNewRid()};}else{items.splice(i2,1);}saveItems();renderItems();};})(idx);
         itemWrap.appendChild(row);
         /* 終了・削除は終了時刻と同じ行にまとめる（buildItemMetaRows 側で組む）。
            ツリー版は🏷行が「急患・中止」になる（スコープはポップアップへ移した） */
@@ -18644,16 +18889,16 @@ function buildOPS(ds,dat,locked) {
       if(!locked){
         var addBtn3=document.createElement('button'); addBtn3.className='ops-add-btn'; addBtn3.type='button';
         addBtn3.innerHTML='＋ '+labelName+'を追加';
-        addBtn3.onclick=function(){items.push({dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]});saveItems();renderItems();};
+        addBtn3.onclick=function(){items.push({dept:'',cat:'',sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[],_rid:opsNewRid()});saveItems();renderItems();};
         wrap.appendChild(addBtn3);
       }
       updateOpsCardDoneBadge(cardEl, items);
     }
 
     function saveItems(){
-      if(!D.pages[ds].ops) D.pages[ds].ops={};
-      D.pages[ds].ops[key]=JSON.parse(JSON.stringify(items));
+      var merged = opsSaveRows(ds, key, items, rowSt); /* 他の人の変更が届いていれば行ごとに合流してから書く */
       saveDPage(ds); updateOpsHeader(ds);
+      if (merged) opsRerenderSoon(wrap, renderItems);
     }
 
     renderItems();
@@ -18718,7 +18963,8 @@ function buildOPS(ds,dat,locked) {
   function buildItemList(cardEl, key, masterList, labelName, itemId, withTime, withOrder, withSup, showQuickBtns) {
     /* showQuickBtns: 省略またはtrueのときクイック追加ボタンを表示 */
     if (showQuickBtns === undefined) showQuickBtns = true;
-    var items = (ops[key] && ops[key].length) ? ops[key] : [{sel:'',txt:'',time:'',timeTxt:'',sup:[]}];
+    var items = (ops[key] && ops[key].length) ? ops[key] : [{sel:'',txt:'',time:'',timeTxt:'',sup:[],_rid:opsNewRid()}];
+    var rowSt = { base: items === ops[key] ? opsRowsCopy(opsEnsureRids(items)) : [] }; /* ツリー版と同じ */
 
     /* ===== クイック追加ボタン行（cardElに直接追加 → renderItemsで消えない） ===== */
     if (!locked && showQuickBtns && masterList.length) {
@@ -18738,7 +18984,7 @@ function buildOPS(ds,dat,locked) {
           if (last && !last.sel && !last.txt) {
             last.sel = m;
           } else {
-            items.push({sel:m, txt:'', time:'', timeTxt:'', order:'', sup:[]});
+            items.push({sel:m, txt:'', time:'', timeTxt:'', order:'', sup:[], _rid:opsNewRid()});
           }
           saveItems(); renderItems();
         };
@@ -18902,7 +19148,7 @@ function buildOPS(ds,dat,locked) {
               if (timeNowBtn2) timeNowBtn2.onclick = function(){ var now=opsRoundNowTime(); items[idx2].time = combineItemTime(now.h, now.m); saveItems(); renderItems(); };
             }
             delBtn2.onclick = function(){
-              if(items.length<=1){ items[0]={sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]}; }
+              if(items.length<=1){ items[0]={sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[],_rid:opsNewRid()}; }
               else { items.splice(idx2,1); }
               saveItems(); renderItems();
             };
@@ -18916,7 +19162,7 @@ function buildOPS(ds,dat,locked) {
         addBtn.className='ops-add-btn'; addBtn.type='button';
         addBtn.innerHTML='＋ '+labelName+'を追加';
         addBtn.onclick = function(){
-          items.push({sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[]});
+          items.push({sel:'',txt:'',time:'',timeTxt:'',order:'',sup:[],_rid:opsNewRid()});
           saveItems(); renderItems();
         };
         wrap.appendChild(addBtn);
@@ -18925,9 +19171,9 @@ function buildOPS(ds,dat,locked) {
     }
 
     function saveItems(){
-      if(!D.pages[ds].ops) D.pages[ds].ops={};
-      D.pages[ds].ops[key] = JSON.parse(JSON.stringify(items));
+      var merged = opsSaveRows(ds, key, items, rowSt); /* ツリー版と同じ */
       saveDPage(ds);
+      if (merged) opsRerenderSoon(wrap, renderItems);
     }
 
     renderItems();
@@ -22211,6 +22457,7 @@ var BOARD_TAGS = {
 function renderBoard() {
   var el = document.getElementById('board-list');
   if (!el) return;
+  var boardDraft = draftCapture(el); /* 返信の書きかけ・開いている返信欄（下書きの節） */
   /* 同じモーダルが主観で別スレッドを映すので、どちらを見ているかを見出しに出す */
   var bt = document.getElementById('board-panel-title');
   if (bt) bt.textContent = (_viewMode === 'hd' ? '📢 掲示板（HD）' : '📢 掲示板（CE）');
@@ -22382,6 +22629,8 @@ function renderBoard() {
     html += '</div>';
   });
   el.innerHTML = filterHtml + html;
+  draftApply(boardDraft);
+  _boardRenderPending = false;
 }
 
 var _boardFilter = 'all';

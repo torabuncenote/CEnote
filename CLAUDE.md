@@ -128,7 +128,19 @@ Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` 
 
 **`D` に入る値が新しくオブジェクトのキーになるときは、必ずこの表に足して入り口で正規化すること。** 保存前のサニタイズ（`sanitizeManualKeys` / `sanitizeEduProgressKeys`）は既存データの後始末であって、キーと値の対応が崩れる（`D.stf` の氏名は元のまま、`D.stfLinks` のキーだけ変わる等）ので、新規の防御には使わない。
 
-After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state.
+After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state. **見送った再描画は捨てずに後で行う**：リスナーは入力中（`#main` の入力欄にフォーカス）と保存直後2秒は `renderPage` を見送るが、開いている連絡表の中身が本当に変わっていれば（`pageSig(v)` で比較。Firebase が空配列・null を保存しない差と `_` で始まるキーは無視するので、自分の保存のエコーは「変わっていない」になる）`markPageRenderPending()` で印を付け、`flushPendingRender()` が入力欄から離れ・指も離れて600ms後に描き直す。すぐ描き直さないのは、入力欄の次に押そうとしたボタンが押す前に作り直されてタップが空振りするため。入力欄が DOM ごと消えると `focusout` が出ない端末があるので、見送り中は1.5秒ごとに自分でも見直す。`safeRenderPage()` も入力中なら同じ印を付ける。
+
+#### 送信前の入力（下書き）を作り直しから守る
+
+`renderPage`/`renderPageHD` は `#main` を、`renderMemos` は `#memo-list` を、`renderBoard` は `#board-list` を丸ごと作り直すので、他の職員の保存を受信しただけで送信前の申し送り・返信・編集中の本文・掲示板の返信が空に戻っていた（現場報告あり）。作り直す前に `draftCapture(root)` で拾い、後で `draftApply(d)` で戻す。
+- 対象は `DRAFT_TEXT_SEL`（`#memo-new`・返信 `mp-ri-*`・編集 `mp-ei-*`・掲示板返信 `brd-ri-*`）と `#memo-carry`、開いている返信欄・編集欄（`DRAFT_OPEN_SEL`）、フォーカスとカーソル位置だけ。**D に保存済みの欄は対象にしないこと**——D の値のほうが新しく、古い入力で上書きしてしまう。
+- 連絡表は `mainDraftsBefore()`（両レンダラーの冒頭）／`mainDraftsAfter(ds)`（`bindMemoInput` の直後）。いま映っている日のキー（`mainDraftKey(ds)`＝「日付|主観」）を `#main` の `data-draft-key` に持たせ、`_draftStore[キー]` に拾う——`openPage` は `curDs` を先に書き換えるので `curDs` は当てにならない。別の日を開いて戻っても残る。
+- **送信・保存が済んだ欄は、描き直す前に閉じて空にすること**（`_finishPostMemoReply`・`_doSaveMemoEdit` がそうしている）。閉じずに `renderMemos` を呼ぶと下書きとして戻ってしまう。
+- 掲示板は返信欄にフォーカスがある間 `/board` の受信で描き直さず `_boardRenderPending` を立てる（誰かが掲示板を開くだけで既読の書き込みが全員に届くため）。
+
+#### 保存待ちのページは受信で上書きしない
+
+`/data` リスナーは `D.pages = d.pages` の前後で、`_savePageQueue` にある（まだ `set()` していない）ページだけ手元の値を残す。受信した `d` にはその変更がまだ入っていないので、差し替えると送る直前に手元の変更が消えていた（症例行は1文字ごとに保存するので、前の書き込みが終わる前に次が積まれることがよくある）。送信中のページは SDK が受信側にも先に反映しているので対象外でよい。
 
 #### `saveDPage(ds)` — page-level partial write (limited use)
 
@@ -409,7 +421,10 @@ All class names are abbreviated:
 | `openDefaultPage()` | Open today's page on startup (if exists) |
 | `openPage(ds)` | Open a day's detail view in `.main`; calls `updateOpsHeader` + `updatePsgRemovalBanner` |
 | `renderPage(ds)` | Re-render the open day page |
-| `safeRenderPage()` | `renderPage(curDs)` only if page is open |
+| `safeRenderPage()` | `renderPage(curDs)` only if page is open（入力中なら `markPageRenderPending()` で後に回す） |
+| `draftCapture(root)` / `draftApply(d)` / `mainDraftsBefore()` / `mainDraftsAfter(ds)` | 送信前の入力（下書き）を作り直しの前に拾い、後で戻す（Persistence 節） |
+| `markPageRenderPending()` / `flushPendingRender()` / `pageSig(v)` | 入力中・保存直後に見送った再描画を後で行う／中身比較用の正規化文字列 |
+| `opsSaveRows(ds, key, items, st)` / `opsMergeRows(base, local, live)` | 症例行の保存本体（他の人の変更と行・欄単位で合流）／3方向マージ（OPE / カテカード節） |
 | `renderCal()` | Render calendar sidebar |
 | `renderAT()` / `renderFairness()` / `renderHdFairness()` | Monthly assignment table / CE公平性 / HD公平性（いずれも `D.stfHidden` を除外） |
 | `buildDG(ds, dat, locked)` | Duty card grid |
@@ -650,6 +665,8 @@ dat.placement = {
 **科・中カテゴリ・術式の自由入力**: 保存の型は入室時間と同じ `'__free__'`＋`*Txt`。ポップアップの自由入力は「科を選んでから術式名」を入れ、`dept`（マスタに無い科なら `'__free__'`＋`deptTxt`）＋`name:'__free__'`＋`nameTxt` で書く（中カテゴリは持たない）。以前の3セレクト時代にそれぞれ独立に自由入力した行もそのまま読める。科は `item.dept==='__free__'` で `item.deptTxt`、中カテゴリは `item.cat==='__free__'` で `item.catTxt`。術式は既存の `item.sel`（マスタ選択値）とは別に `item.name==='__free__'` のときだけ `item.nameTxt` を使う（自由入力に切替えた瞬間 `item.sel` は空にするため、既存の「マスタから選んだ値」の読み出しには影響しない）。フラット版 `buildItemList` は元々 `item.sel==='__free__'`→`item.txt` で自由記述に対応済みで、これも同じ枠組みで吸収する。表示・集計は必ず `opsItemDept(it)` / `opsItemCat(it)` / `opsItemName(it)` を経由し（`'__free__'`という内部値が画面・CSVに出ないようにする）、`opsItemFilled(it)` もこの3つのヘルパー経由に統一済み。横断検索（`_doSearch`）も同じ3ヘルパーを経由してヒット判定する — `item.sel`/`item.name` を生のまま文字列比較すると自由入力とマスタ選択のどちらか一方を取りこぼす。tree導入前の生 `item.sel` のみのデータ・旧仕様で科全体を自由記述にしていたデータ（`item.dept==='__free__'`のまま`item.sel`に実データが残る旧形）は「（旧）」表示＋再選択ボタンで保護し、値を消さない。
 
 **症例ごとの備考**: `item.note`（1症例=1行ごとの備考、`buildItemList`/`buildItemListTree` 共通）。値が空なら「＋備考」リンクのみ表示し、1文字でも入っていれば開いたまま（担当カードの備考欄と同じ開閉パターン）。カード全体で1つだけの旧仕様（`ops.ope_note`/`ops.cath_note`）は新規作成不可になったが、既存値があるカードだけ「📝 備考（旧・カード共通）」として表示・編集を残す（値は消さない）。横断検索も `item.note` を対象に含む。
+
+**同時編集（行単位の3方向マージ）**: 症例行の配列 `items` は描画時の配列を閉じ込めているので、入力中・保存直後に届いた他の人の入力を、以前は `saveItems()` の丸ごと書き戻しで巻き戻していた。いまは `saveItems()` が `opsSaveRows(ds, key, items, rowSt)` を通し、描画（または最後の保存）時点の写し `rowSt.base` といまの `D.pages[ds].ops[key]` を比べ、違っていれば `opsMergeRows` で合流してから書く（自分が触った欄は自分の値、触っていない欄・行は最新、相手が足した行は残す、自分が消した行は消す）。合流したら `opsRerenderSoon` が入力欄から離れるのを待って行を描き直す。行の識別は `item._rid`：既存行は `'L'+位置`（どの端末でも同じ値になるので同時に付けても食い違わない）、**新しく行を足すときは必ず `_rid: opsNewRid()` を付けること**（付けないと `'L'+位置` が相手の追加行と重なり、相手の行を自分の行と取り違える）。`_rid` は件数・集計・CSVに影響しない（`opsItemFilled` は決まった欄しか見ず、`pageSig` は `_` で始まるキーを比べない）。
 
 **使用物品はモーダルで選ぶ**: 症例行の下に3段セレクトの箱を埋め込む方式は、症例行が縦に長い（科/中カテゴリ/術式・入室時間・担当者・終了時刻…）ぶん端末やスクロール位置によって枠外へ出て見切れ、しかも1品ずつしか追加できなかったため、画面中央のポップアップ `openSupPickerModal(opts)` に移した。行内に残すのは `supTriggerRowHTML(sup, locked)` が作る「選ぶ」ボタンと、`supViewHTML(supArr)` の読み取り用の折り返しビュー（`.ops-sup-view`。各品目を `.sup-tok`＝`white-space:nowrap` で包み、品目名の途中では改行させず品目とカンマの間でだけ折り返す）だけ。
 
