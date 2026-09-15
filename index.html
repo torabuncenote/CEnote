@@ -1302,6 +1302,15 @@ body.is-offline{--off-h:24px}
 .task-asg{display:inline-block;font-size:10px;background:var(--sur);border:1px solid var(--bdr);border-radius:20px;padding:1px 7px;margin-right:3px}
 .task-media{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .task-media img{max-width:110px;max-height:84px;border-radius:5px;border:1px solid var(--bdr);cursor:pointer;object-fit:cover;display:block}
+.task-done-hd{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt3);font-weight:700;margin:14px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px;cursor:pointer;user-select:none}
+.task-done-hd:hover{color:var(--txt2)}
+.task-row{display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--bdr);font-size:12px;color:var(--txt2)}
+.task-row .task-tag{padding:1px 5px}
+.task-row-ttl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.task-row-ttl:hover{color:var(--txt);text-decoration:underline}
+.task-row-media{font-size:10px;color:var(--or);white-space:nowrap}
+.task-row-date{font-size:10px;color:var(--txt3);font-family:var(--mo);white-space:nowrap}
+.task-media-exp{font-size:10px;color:var(--or);margin-top:4px}
 .task-md-media{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:2px}
 .task-md-media .tmm{position:relative;border-radius:5px;overflow:hidden;border:1px solid var(--bdr)}
 .task-md-media .tmm img{width:72px;height:56px;object-fit:cover;display:block}
@@ -3085,7 +3094,7 @@ function fbInit() {
         if (_memoRef) { _memoRef.off(); _memoRef = null; } /* 自分専用メモのリスナーも必ず解除する */
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
-        _tasksData = {}; _taskView = null; _taskFilter = 'all';
+        _tasksData = {}; _taskView = null; _taskFilter = 'all'; _taskDoneOpen = {}; _taskDoneItemOpen = {};
         _mySchedName = null; _mySchedPick = false; /* 次に別の人がログインしたとき、前の人の担当が出たままにならないように */
         /* 実績サブタブも同じ理由でリセットする。_perfName が残ると次の人に前ユーザーの
            実績・教育到達度が表示され続ける（宣言側コメントの「ログアウトで破棄する」を実装する） */
@@ -3385,6 +3394,7 @@ function fbInit() {
           /* タスクリスナー（初回ログイン時に一度だけ設定） */
           fbDB.ref('/tasks').on('value', function(tsnap) {
             _tasksData = tsnap.val() || {};
+            sweepDoneTaskMedia(); /* 完了から7日たった画像を消す */
             var tp = document.getElementById('pane-task');
             if (tp && tp.style.display !== 'none') renderTasks();
           });
@@ -3394,6 +3404,7 @@ function fbInit() {
           _memoRef.on('value', function(msnap) {
             _memosData = msnap.val() || {};
             _memoDenied = false;
+            sweepDoneTaskMedia();
             var mp = document.getElementById('pane-task');
             if (mp && mp.style.display !== 'none') renderTasks();
           }, function(err) {
@@ -5322,11 +5333,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/15-76';
+var APP_VERSION = 'Ver.2026/09/15-77';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/15-77', date:'2026-09-15', title:'完了したタスクを畳んで表示するようにしました', items:[
+    {t:'imp', d:'📋 完了したタスク・自分専用メモは「✅ 完了（N件）▸」の1行に畳むようにしました。開くとタイトルと完了日が1行ずつ並び、タイトルを押すと中身が見られます。先頭の✅を押すと未着手に戻せます'},
+    {t:'imp', d:'🖼 完了したタスク・メモの画像は、完了から7日で自動的に消えるようにしました（データ容量の節約）。7日以内に完了を戻せば画像は残ります'}
+  ]},
   { ver:'Ver.2026/09/15-76', date:'2026-09-15', title:'画像の容量を減らしました', items:[
     {t:'imp', d:'☁️ 1時間ごとのバックアップに画像を含めないようにして、データ容量を大きく減らしました（画像1枚が最大168回複製されていました）。バックアップから復元したときは、いまある画像を付け直します。バックアップの後に消した画像は戻りません', admin:true},
     {t:'imp', d:'🖼 貼り付けた画像をもう一段軽くしました（長辺800pxのまま、画質65%→55%）。書類やホワイトボードの字が読める範囲にとどめています。保存済みの画像は変わりません', admin:true}
@@ -20319,6 +20334,9 @@ function renderAT() {
 var TASK_ST = ['todo','doing','done'];
 var TASK_ST_LABEL = { todo:'未着手', doing:'進行中', done:'完了' };
 var TASK_ST_ICON  = { todo:'⚪', doing:'🔵', done:'✅' };
+var TASK_MEDIA_KEEP_DAYS = 7; /* 完了からこの日数で添付画像を消す（sweepDoneTaskMedia） */
+var _taskDoneOpen = {};     /* 完了の折りたたみ（'all'|'person'|'memo' → true で開く）。既定は閉じる・非永続 */
+var _taskDoneItemOpen = {}; /* 完了の1行のうち、元のカードに開いたもの（'t:'+id / 'm:'+id） */
 
 function taskAssignees(t) {
   if (!t || !t.assignees) return [];
@@ -20349,6 +20367,39 @@ function taskMediaCleanup(list) {
   list.forEach(function(med){
     if (med && med.storagePath) fbST.ref(med.storagePath).delete().catch(function(){});
   });
+}
+/* ===== 完了から7日たったタスク・自分専用メモの添付画像を消す =====
+   タスクとメモはどのバックアップにも入っていない（/tasks・/taskMemos は D の外）ので、
+   完了した瞬間に消すと、ステータスのタグを1回押し間違えただけで画像が戻せなくなる。
+   7日の猶予を置き、その間に完了を戻せば（doneAt が 0 に戻る）画像は残る。
+   /tasks は認証済みなら誰でも更新できるルールなので、どの端末が消してもよい（同時に走っても結果は同じ）。
+   メモは本人しか書けないので本人の端末でだけ消える。renderTasks（描画）の中からは呼ばない——描画で書き込まないため。 */
+function taskMediaExpireTs(t) {
+  return (t && t.status === 'done' && t.doneAt) ? t.doneAt + TASK_MEDIA_KEEP_DAYS * 86400000 : 0;
+}
+function _taskMediaExpireNote(t) {
+  var exp = taskMediaExpireTs(t);
+  if (!exp || !taskMediaArr(t).length) return '';
+  var d = new Date(exp);
+  return '<div class="task-media-exp">🖼 画像は' + (d.getMonth()+1) + '/' + d.getDate() + 'に自動で消えます（完了を戻せば残ります）</div>';
+}
+function sweepDoneTaskMedia() {
+  var now = Date.now();
+  function sweep(store, refOf) {
+    Object.keys(store).forEach(function(id) {
+      var t = store[id], exp = taskMediaExpireTs(t);
+      if (!exp || now < exp) return;
+      var list = taskMediaArr(t);
+      if (!list.length) return;
+      taskMediaCleanup(list);
+      var nt = Object.assign({}, t); delete nt.media;
+      store[id] = nt;
+      var ref = refOf(id);
+      if (ref) ref.remove().catch(function(){});
+    });
+  }
+  sweep(_tasksData, function(id){ return (FB_ON && fbDB) ? fbDB.ref('/tasks/' + id + '/media') : null; });
+  sweep(_memosData, function(id){ return (FB_ON && fbDB && currentUser) ? fbDB.ref('/taskMemos/' + currentUser.uid + '/' + id + '/media') : null; });
 }
 /* 自分のスタッフ名を解決（renderMySchedule の selfName 解決と同一ロジック） */
 /* タスクを割り当てられた人にポップアップ通知を送る。
@@ -20489,11 +20540,12 @@ function taskCardHTML(id, t, today) {
   var h = '<div class="task-card st-'+st+'">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
     + tag + '<span style="font-weight:700;font-size:13px;flex:1;min-width:120px">'+escH(t.title||'')+'</span>' + dueH;
+  if (st === 'done') h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="toggleTaskDoneItem(\'t:'+escJs(id)+'\')">▴ たたむ</button>';
   if (canAll) h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openTaskModal(\''+id+'\')">✎ 編集</button>';
   if (canDel) h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rd)" onclick="taskDelete(\''+id+'\')">🗑</button>';
   h += '</div>';
   if (t.desc) h += '<div style="font-size:11px;color:var(--txt2);margin-top:4px;white-space:pre-wrap">'+escH(t.desc)+'</div>';
-  h += taskMediaHTML(t);
+  h += taskMediaHTML(t) + _taskMediaExpireNote(t);
   h += '<div style="margin-top:5px;font-size:10px;color:var(--txt3)">'
     + taskAssignees(t).map(function(n){ return '<span class="task-asg">👤 '+escH(n)+'</span>'; }).join('')
     + '<span style="margin-left:6px">作成: '+escH((t.createdBy&&t.createdBy.name)||'')+'</span></div></div>';
@@ -20511,12 +20563,51 @@ function memoCardHTML(id, m, today) {
   var h = '<div class="task-card st-'+st+'">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
     + tag + '<span style="font-weight:700;font-size:13px;flex:1;min-width:120px">🔒 '+escH(m.title||'')+'</span>' + dueH
+    + (st === 'done' ? '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="toggleTaskDoneItem(\'m:'+escJs(id)+'\')">▴ たたむ</button>' : '')
     + '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openTaskModal(\''+escJs(id)+'\',true)">✎ 編集</button>'
     + '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rd)" onclick="memoDelete(\''+escJs(id)+'\')">🗑</button>'
     + '</div>';
   if (m.desc) h += '<div style="font-size:11px;color:var(--txt2);margin-top:4px;white-space:pre-wrap">'+escH(m.desc)+'</div>';
-  h += taskMediaHTML(m);
+  h += taskMediaHTML(m) + _taskMediaExpireNote(m);
   return h + '</div>';
+}
+
+/* ===== 完了の折りたたみ =====
+   完了が積み上がると未完了のカードが埋もれるので、完了は「✅ 完了（N件）▸」の見出し1行に畳み、
+   開いてもタイトルと完了日の1行ずつで並べる。タイトルを押したものだけ元のカードに開く。
+   先頭の ✅ を押すと未着手に戻る（タグの順送りと同じ）。 */
+function toggleTaskDone(sec) { _taskDoneOpen[sec] = !_taskDoneOpen[sec]; renderTasks(); }
+function toggleTaskDoneItem(key) { _taskDoneItemOpen[key] = !_taskDoneItemOpen[key]; renderTasks(); }
+function taskDoneRowHTML(id, t, isMemo) {
+  var key = (isMemo ? 'm:' : 't:') + id;
+  var canSt = isMemo || taskCanStatus(t);
+  var cyc = isMemo ? 'memoCycleStatus' : 'taskCycleStatus';
+  var tag = '<span class="task-tag task-tag-done' + (canSt ? ' clickable" title="押すと未着手に戻します" onclick="' + cyc + '(\'' + escJs(id) + '\')' : '"') + '">✅</span>';
+  var n = taskMediaArr(t).length, exp = taskMediaExpireTs(t), med = '';
+  if (n) {
+    var ed = new Date(exp);
+    med = '<span class="task-row-media" title="完了から' + TASK_MEDIA_KEEP_DAYS + '日で自動で消えます">🖼' + n + (exp ? '・' + (ed.getMonth()+1) + '/' + ed.getDate() + 'に削除' : '') + '</span>';
+  }
+  var dd = t.doneAt ? new Date(t.doneAt) : null;
+  return '<div class="task-row">' + tag
+    + '<span class="task-row-ttl" title="押すと中身を開きます" onclick="toggleTaskDoneItem(\'' + escJs(key) + '\')">' + (isMemo ? '🔒 ' : '') + escH(t.title || '') + '</span>'
+    + med
+    + '<span class="task-row-date">' + (dd ? (dd.getMonth()+1) + '/' + dd.getDate() : '') + '</span></div>';
+}
+/* forceOpen：「✅ 完了」のフィルタで絞っているときは、畳まずに最初から開いて出す */
+function taskDoneSectionHTML(sec, pairs, isMemo, today, forceOpen) {
+  if (!pairs.length) return '';
+  var open = forceOpen || !!_taskDoneOpen[sec];
+  var h = '<div class="task-done-hd"' + (forceOpen ? '' : ' onclick="toggleTaskDone(\'' + sec + '\')"') + '>✅ 完了（' + pairs.length + '件）'
+    + (forceOpen ? '' : '<span>' + (open ? '▾' : '▸') + '</span>') + '</div>';
+  if (!open) return h;
+  pairs.forEach(function(p) {
+    var key = (isMemo ? 'm:' : 't:') + p[0];
+    h += _taskDoneItemOpen[key]
+      ? (isMemo ? memoCardHTML(p[0], p[1], today) : taskCardHTML(p[0], p[1], today))
+      : taskDoneRowHTML(p[0], p[1], isMemo);
+  });
+  return h;
 }
 
 function renderTasks() {
@@ -20607,9 +20698,7 @@ function renderTasks() {
 
   if (!act.length && !done.length) h += '<div class="pool-empty" style="padding:20px 0">タスクはありません</div>';
   act.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); });
-  if (done.length && _taskFilter === 'all')
-    h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:14px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">✅ 完了（'+done.length+'件）</div>';
-  done.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); });
+  h += taskDoneSectionHTML('all', done, false, today, _taskFilter === 'done');
 
   el.innerHTML = h;
 }
@@ -20628,9 +20717,14 @@ function taskMemoListHTML(today, opts) {
     var da = ma.due || '9999', db2 = mb.due || '9999';
     return da !== db2 ? (da < db2 ? -1 : 1) : (mb.ts||0) - (ma.ts||0);
   });
+  /* 完了は下に畳む（taskDoneSectionHTML）。見出しの件数は未完了だけ */
+  var memoAct = mids.filter(function(id){ return _memosData[id].status !== 'done'; });
+  var memoDone = mids.filter(function(id){ return _memosData[id].status === 'done'; })
+    .sort(function(a,b){ return (_memosData[b].doneAt||0) - (_memosData[a].doneAt||0); })
+    .map(function(id){ return [id, _memosData[id]]; });
   var h = '<div style="margin-bottom:14px;padding-bottom:10px;border-bottom:1px dashed var(--bdr)">';
   h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin-bottom:6px">'
-     + '🔒 自分専用メモ（'+mids.length+'件）<span style="font-weight:400;margin-left:6px">他の人には表示されません</span></div>';
+     + '🔒 自分専用メモ（'+memoAct.length+'件）<span style="font-weight:400;margin-left:6px">他の人には表示されません</span></div>';
   if (_memoDenied) {
     /* ルール未適用のときは空リストではなく理由と対処を出す（黙って空だと「消えた」と誤解される） */
     h += '<div style="background:var(--or-bg);border:1px solid var(--or);border-radius:var(--rs);padding:9px 12px;font-size:12px;color:var(--or);line-height:1.7">'
@@ -20638,7 +20732,8 @@ function taskMemoListHTML(today, opts) {
   } else if (!mids.length) {
     h += '<div class="pool-empty" style="padding:10px 0;font-size:12px">メモはありません</div>';
   } else {
-    mids.forEach(function(id){ h += memoCardHTML(id, _memosData[id], today); });
+    memoAct.forEach(function(id){ h += memoCardHTML(id, _memosData[id], today); });
+    h += taskDoneSectionHTML('memo', memoDone, true, today, filterOn && _taskFilter === 'done');
   }
   h += '</div>';
   return h;
@@ -20670,7 +20765,7 @@ function renderTaskPerson(el, name) {
 
   if (todo.length) { h += '<div style="font-size:12px;font-weight:700;color:var(--or);margin:8px 0 4px">⚪ 未着手（'+todo.length+'件）</div>'; todo.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); }); }
   if (doing.length) { h += '<div style="font-size:12px;font-weight:700;color:var(--ac);margin:12px 0 4px">🔵 進行中（'+doing.length+'件）</div>'; doing.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); }); }
-  if (done.length) { h += '<div style="font-size:11px;color:var(--txt3);font-weight:700;margin:14px 0 4px;border-top:1px dashed var(--bdr);padding-top:8px">✅ 完了（'+done.length+'件）</div>'; done.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); }); }
+  h += taskDoneSectionHTML('person', done, false, today, false);
   el.innerHTML = h;
 }
 
@@ -21819,7 +21914,7 @@ function swTab(t) {
   /* HD主観ではCE担当表サブタブを出さないので、既定をマイ担当にする */
   if(t==='assign'){ swSubTab(_viewMode==='hd' ? 'my' : 'at'); if(_viewMode!=='hd') renderAT(); }
   if(t==='sum'){ swSumTab(_curSumTab); }
-  if(t==='task'){ _taskView = taskSelfName() || null; renderTasks(); }
+  if(t==='task'){ _taskView = taskSelfName() || null; sweepDoneTaskMedia(); renderTasks(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList(); renderEduCfgUI(); renderEduItemMaster();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderRoboMaster();renderDutyMasterList();renderSchedPresetList();}
