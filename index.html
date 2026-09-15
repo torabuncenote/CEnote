@@ -4471,7 +4471,7 @@ function renderSpec() {
   S += '<div class="spec-p">共通業務（毎日）＋曜日別業務を自動表示。行全体またはチェックボックスをクリックでON/OFF。各業務の右端「···」でサイドピークを開きマニュアルを参照・編集（画像・動画の添付可）。</div>';
   S += '<div class="spec-p">曜日別業務（<code>D.wd[曜日]</code>）の各項目はテキストのみの旧形式、または <code>{t, wk, once, subs, sid, notif}</code> 等を持つオブジェクト形式（更新は必ず <code>itemRebuild(oldIt, patch)</code> 経由。patchに無いキーは保持される）。<code>wk</code> は週指定配列（0=最終週、1〜5=第N週、未指定なら毎週）。<code>once:true</code> は週指定がある項目にのみ許可され、「同じ月内でその項目が該当する対象日のうち、いずれか1日で実施していれば他の対象日もチェック済み扱いにする」フラグ。判定は <code>wdOnceDoneOn(ds, ent)</code> が同月の <strong>ds より前</strong> の対象日だけを昇順に走査して行う（未来方向は見ない＝後の操作で過去の記録が書き換わって見える事故を避ける設計）。<code>subs</code> は設置部署名の配列、<code>sid</code> は初回登録時に採番される安定ID（部署リストを空にしても保持され、業務名や部署名を変えても実績との紐付けが切れない）。部署ごとの消し込み実績は <code>D.pages[ds].subChecks[sid][部署名] = {by, ts}</code> に保存され、<code>wdSubProgress(ds, sid)</code> が同じ暦月のページだけを走査して集計する（月が変われば自動的に0件へ戻る＝月次リセット）。チェックリストの done/total 集計は <code>clStatus(ds)</code> が唯一の入口で、進捗％（<code>getPct</code>）・ダッシュボード・消し込みバー（<code>closeItems</code>）はすべてこれを呼ぶ。</div>';
   S += '<div class="spec-h2">4-6. 業務連絡・申し送り</div>';
-  S += '<div class="spec-p">投稿リスト形式。名前・日時を自動記録。画像・動画を添付可（画像は自動圧縮1280px/JPEG80%）。動画は50MBまで。Ctrl+Enterで送信。自分の投稿は自分で削除可、管理者は全員分削除可。</div>';
+  S += '<div class="spec-p">投稿リスト形式。名前・日時を自動記録。画像・動画を添付可（画像は自動圧縮800px/JPEG55%）。動画は50MBまで。Ctrl+Enterで送信。自分の投稿は自分で削除可、管理者は全員分削除可。</div>';
   S += '<div class="spec-p"><strong>患者情報検知機能</strong>：送信ボタン押下時に本文を自動スキャン。フルネーム・8桁患者IDを検知すると送信ブロック（是正案を提示）。カルテ番号・生年月日・病室番号・病名文脈・姓＋敬称・下4桁ID・姓＋イニシャルは警告表示後に確認送信可。</div>';
   S += '<div class="spec-box">⚠️ 入力欄上部の注意書き「患者氏名・病室番号・診断名・カルテ番号は入力しないでください」は常時表示。</div>';
   S += '<div class="spec-p"><strong>返信</strong>：各投稿は <code>m.replies</code>（キー付きオブジェクト <code>{rid: {uid,name,isAdmin,text,media,ts}}</code>）に返信を持つ。memos が配列のため返信まで配列にすると同時投稿でインデックスが競合する＝掲示板の <code>replies</code> と同じ形にしている。親投稿の特定は配列インデックスではなく <code>memoKeyOf</code>（ts+uid）。読み出しは <code>memoReplies</code> / <code>memoReplyMediaArr</code> 経由。返信の添付は画像のみ（<code>memo/{ds}/reply_{ts}_{idx}_{file}</code>）。返信内の @メンションは通知は飛ぶが消し込みバーには数えない（返信には個別の「済」が無いため）。</div>';
@@ -5322,11 +5322,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/14-75';
+var APP_VERSION = 'Ver.2026/09/15-76';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/15-76', date:'2026-09-15', title:'画像の容量を減らしました', items:[
+    {t:'imp', d:'☁️ 1時間ごとのバックアップに画像を含めないようにして、データ容量を大きく減らしました（画像1枚が最大168回複製されていました）。バックアップから復元したときは、いまある画像を付け直します。バックアップの後に消した画像は戻りません', admin:true},
+    {t:'imp', d:'🖼 貼り付けた画像をもう一段軽くしました（長辺800pxのまま、画質65%→55%）。書類やホワイトボードの字が読める範囲にとどめています。保存済みの画像は変わりません', admin:true}
+  ]},
   { ver:'Ver.2026/09/14-75', date:'2026-09-14', title:'入室時間を選びやすくしました', items:[
     {t:'imp', d:'⏱ 術式のポップアップの入室時間を、端末の時刻入力（スマホは端末の時刻選択、PCは打ち込みや矢印キー）と「AMOC」「PMOC」の2ボタンにしました。時刻のボタンが並んでいた欄が小さくなります。終了時に出る「実際の入室時間は？」も同じ入力です'}
   ]},
@@ -6088,7 +6092,7 @@ function renderDev() {
    ['doSaveSIM()','勤務表保存＋OC自動セット'],
    ['togLk(id,v)','ロック設定変更（show_phsは逆ロジック）'],
    ['openSP(task)','サイドピーク（業務マニュアル）を開く'],
-   ['compressImage(file,cb)','Canvas圧縮（1280px/JPEG80%）'],
+   ['compressImage(file,cb)','Canvas圧縮（800px/JPEG55%）'],
    ['uploadToStorage(path,dataUrl,cb)','Storage upload→URL返却（失敗時base64フォールバック）'],
    ['checkAndDeleteOldData(force)','自動削除（localStorage設定値を参照）'],
    ['writeLog(action,detail)','/logs/に操作記録'],
@@ -6358,7 +6362,7 @@ function downloadDevMd() {
     '| plMove/plOffer/plAccept/plResync | 人員配置台帳（dat.placement）の移動・提供・受け取り・勤務表再取込 |',
     '| parseShiftSheet(wb,fileName) | Excel→CE/OC/イベント抽出 |',
     '| togLk(id,v) | ロック設定（show_phsは逆ロジック） |',
-    '| compressImage(file,cb) | Canvas圧縮（1280px/JPEG80%） |',
+    '| compressImage(file,cb) | Canvas圧縮（800px/JPEG55%） |',
     '| uploadToStorage(path,dataUrl,cb) | Storage upload |',
     '| checkAndDeleteOldData(force) | 自動削除 |',
     '| openPage(ds) | 日付選択（スマホ時サイドバー自動クローズ） |',
@@ -16588,9 +16592,9 @@ function delMemoReply(ds, mkey, rid) {
 /* 申し送り用の一時メディアバッファ */
 var _memoMediaBuf = [];
 
-/* ===== 画像圧縮（Canvas JPEG 80%, 長辺1280px上限） ===== */
+/* ===== 画像圧縮（Canvas JPEG 55%, 長辺800px上限） ===== */
 function compressImage(file, callback) {
-  var MAX_PX = 800, QUALITY = 0.65; /* 圧縮強化：1280px/80%→800px/65% でファイルサイズ約1/3 */
+  var MAX_PX = 800, QUALITY = 0.55; /* 1280px/80%→800px/65%→800px/55%。書類・ホワイトボードの字を読むので長辺800pxは下げない（下げると小さい字が潰れる）。55%は字のにじみが目立たない下限 */
   var img = new Image();
   var url = URL.createObjectURL(file);
   img.onload = function() {
@@ -23120,6 +23124,85 @@ function showStfEduModal(idx) {
   });
 }
 
+/* ===== 1時間ごとのバックアップから画像を外す =====
+   画像は Storage が使えないため base64 で D の中に入っている（実測でDB全体の3割超）。
+   スナップショットは D の丸ごとコピーを7日×24時間ぶん持つので、そのままだと画像1枚が最大168回複製される。
+   スナップショットでは画像の中身（url/data）だけを外して {bkStripped:true, len} に置き換え、
+   復元時に bkRestoreMedia() が「いまの D にある同じ画像」を付け直す。
+   /recent_backup（最新1個）・端末内の自動バックアップ・ファイル書き出しは画像を残す（全部消えたときの最後の砦）。 */
+function _bkEachMediaList(d, fn) {
+  /* fn(owner, key, ctx)：owner[key] が画像の配列（Firebaseがオブジェクトにしたものも含む）。
+     ctx は「どの申し送り/返信/マニュアルの画像か」。申し送りは別の日へ移動しうるので日付を含めない */
+  var pages = (d && d.pages) || {};
+  Object.keys(pages).forEach(function(ds) {
+    var pg = pages[ds]; if (!pg) return;
+    ['memos', 'hdMemos'].forEach(function(k) {
+      var arr = pg[k]; if (!arr || typeof arr !== 'object') return;
+      Object.keys(arr).forEach(function(i) {
+        var m = arr[i]; if (!m) return;
+        var mk = memoKeyOf(m);
+        if (m.media) fn(m, 'media', 'memo|' + mk);
+        if (m.replies) Object.keys(m.replies).forEach(function(rid) {
+          var r = m.replies[rid];
+          if (r && r.media) fn(r, 'media', 'reply|' + mk + '|' + rid);
+        });
+      });
+    });
+  });
+  var man = (d && d.manual) || {};
+  Object.keys(man).forEach(function(task) {
+    var e = man[task];
+    /* スナップショット側は業務名のFirebase不可文字を _ に置き換えて保存するので、照合も同じ形で行う */
+    if (e && typeof e === 'object' && e.media) fn(e, 'media', 'manual|' + task.replace(/[.#$\[\]/]/g, '_'));
+  });
+}
+function bkStripMedia(copy) {
+  var n = 0;
+  _bkEachMediaList(copy, function(owner, key) {
+    var list = owner[key];
+    Object.keys(list).forEach(function(i) {
+      var m = list[i];
+      if (!_isEmbeddedMedia(m)) return; /* Storage のURLは短いのでそのまま残す */
+      var s = {};
+      Object.keys(m).forEach(function(k) { if (k !== 'url' && k !== 'data' && m[k] != null) s[k] = m[k]; });
+      s.bkStripped = true;
+      s.len = _embeddedMediaBytes(m); /* 付け直すときの照合用（名前だけだと iPhone の image.jpg が並ぶ） */
+      list[i] = s;
+      n++;
+    });
+  });
+  return n;
+}
+/* data（復元するバックアップ）の外した画像を、cur（いまの D）の同じ画像で埋め戻す。
+   見つからない画像（バックアップの後に消されたもの）は中身が無く表示が壊れるので配列から除き、その枚数を返す */
+function bkRestoreMedia(data, cur) {
+  var pool = {};
+  _bkEachMediaList(cur, function(owner, key, ctx) {
+    var a = pool[ctx] || (pool[ctx] = []), list = owner[key];
+    Object.keys(list).forEach(function(i) { if (_isEmbeddedMedia(list[i])) a.push(list[i]); });
+  });
+  var lost = 0;
+  _bkEachMediaList(data, function(owner, key, ctx) {
+    var list = owner[key], out = [], changed = false, cands = pool[ctx] || [];
+    Object.keys(list).forEach(function(i) {
+      var m = list[i]; if (!m) return;
+      if (!m.bkStripped) { out.push(m); return; }
+      changed = true;
+      for (var j = 0; j < cands.length; j++) {
+        var c = cands[j];
+        if ((c.name || '') === (m.name || '') && _embeddedMediaBytes(c) === m.len) {
+          cands.splice(j, 1); /* 同名の画像が2枚あっても同じ1枚を2回使わない */
+          out.push(JSON.parse(JSON.stringify(c)));
+          return;
+        }
+      }
+      lost++;
+    });
+    if (changed) owner[key] = out;
+  });
+  return lost;
+}
+
 function saveFirebaseSnapshot(label) {
   if (!FB_ON || !fbDB) return;
   var now = new Date();
@@ -23128,6 +23211,7 @@ function saveFirebaseSnapshot(label) {
   var hh = ('0'+now.getHours()).slice(-2);
   var snapKey = today + '_' + hh;
   var copy = JSON.parse(JSON.stringify(D));
+  bkStripMedia(copy); /* 画像は入れない（上の説明を参照） */
   /* manual キーのサニタイズ（Firebase不可文字） */
   if (copy.manual) {
     Object.keys(copy.manual).filter(function(k){ return /[.#$\[\]/]/.test(k); }).forEach(function(k){
@@ -23233,6 +23317,8 @@ function restoreFirebaseSnapshot(dateStr) {
     if (pageCount === 0 && (!data.stf || !data.stf.length)) {
       toast('このスナップショットは空のため復元できません。', 'warn'); return;
     }
+    /* スナップショットは画像を外して保存しているので、いまの D にある同じ画像を付け直してから戻す */
+    var lostMedia = bkRestoreMedia(data, D);
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
@@ -23250,6 +23336,7 @@ function restoreFirebaseSnapshot(dateStr) {
     renderFirebaseSnapshots();
     var stEl=document.getElementById('fb-snap-status');
     if(stEl) stEl.textContent='✅ 復元しました（'+dateStr+'・'+pageCount+'ページ）';
+    if (lostMedia) toast('⚠️ バックアップの後に消えた画像 '+lostMedia+'枚は戻せませんでした（本文は戻しています）', 'warn');
   }, function(e){ toast('復元エラー: '+e.message, 'err'); });
 }
 
@@ -23356,6 +23443,8 @@ function doPartialRestore(dateStr, data, sel) {
   sel = sel.filter(function(k){ return Object.prototype.hasOwnProperty.call(PARTIAL_RESTORE_LABELS, k) && data[k] !== undefined; });
   if (!sel.length) return;
   autoSaveSnapshot('項目の復元前');
+  /* マニュアルの画像はスナップショットに入っていないので、いまの D から付け直してから戻す */
+  var lostMedia = sel.indexOf('manual') !== -1 ? bkRestoreMedia({ manual: data.manual }, D) : 0;
   sel.forEach(function(k){
     D[k] = JSON.parse(JSON.stringify(data[k]));
     if (k === 'opeTree' || k === 'cathTree' || k === 'supTree') normTree(D[k]);
@@ -23367,6 +23456,7 @@ function doPartialRestore(dateStr, data, sel) {
   renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
   renderOpeList(); renderCathList(); renderLockList(); renderSupMaster(); renderRoboMaster();
   toast('✅ ' + sel.length + '項目を戻しました', 'ok');
+  if (lostMedia) toast('⚠️ バックアップの後に消えたマニュアルの画像 ' + lostMedia + '枚は戻せませんでした', 'warn');
 }
 
 function restoreAutoBackup(i) {
