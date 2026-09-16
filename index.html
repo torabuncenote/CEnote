@@ -2991,7 +2991,7 @@ function init() {
   document.addEventListener('pointerdown', function(){ _pointerDown = true; }, true);
   document.addEventListener('pointerup', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
   document.addEventListener('pointercancel', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
-  if (isPreview) { carryOverMemos(); openDefaultPage(); }
+  if (isPreview) { carryOverMemos(); openDefaultPage(); maybeShowWhatsNew(); }
 }
 
 /* ローカルフォールバック用 */
@@ -3286,7 +3286,7 @@ function fbInit() {
             var incomingPages = Object.keys(d.pages || {}).length;
             var wasFirstLoad = !_fbDataLoaded;
             _fbDataLoaded = true;
-            if (wasFirstLoad) hideSyncOverlay(true);
+            if (wasFirstLoad) { hideSyncOverlay(true); setTimeout(maybeShowWhatsNew, 800); } /* 「✅ 同期しました」と重ならないよう少し遅らせる */
             checkStaleApp(d); /* 自分より新しいアプリが保存していたら、以降の保存を止める */
             if (incomingPages > 0) _fbLastPageCount = incomingPages;
             if (_fbLastPageCount > 5 && incomingPages === 0 && !fromSelf) {
@@ -5407,11 +5407,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/15-81';
+var APP_VERSION = 'Ver.2026/09/16-82';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/16-82', date:'2026-09-16', title:'アップデート内容をお知らせするようにしました', items:[
+    {t:'new', d:'✨ アプリが新しくなったあと初めて開いたときに、変わったところを1回だけお知らせするようにしました。閉じたあとも、使い方タブの「📝 変更履歴」からいつでも見られます'}
+  ]},
   { ver:'Ver.2026/09/15-81', date:'2026-09-15', title:'教育の画面を使いやすくしました', items:[
     {t:'new', d:'📈 実績の画面の一番上に、分類ごとの習熟率（「できる」段階以上の項目の割合）を出すようにしました。その下に今年度の目標と、経験したのにまだ段階が付いていない項目が並びます'},
     {t:'imp', d:'🎓 細目の段階は色付きのボタン1つにしました。押すと大きなボタンで段階を選べて、未評価に戻す・今年度の目標にする・履歴もそこで見られます。分類の中は「経験あり」「未評価」「目標」で絞り込めます'},
@@ -5940,10 +5943,14 @@ function filterChangelogForGeneral(changelog) {
 /* 旧形式('2026.06y')は'v'を前置、新形式('Ver.YYYY/MM/DD-N')はそのまま表示 */
 function verDisplay(ver) { return /^Ver\./.test(ver) ? ver : ('v' + ver); }
 /* HTML組み立て本体。renderChangelog()（管理者向け・全件）とrenderChangelogPublic()（一般向け・フィルタ済み）の両方から呼ぶ */
-function buildChangelogHTML(changelog, opts) {
-  opts = opts || {};
+/* タグ（新機能/改善/修正）1個ぶんのHTML。buildChangelogHTML と更新お知らせポップアップ（maybeShowWhatsNew）で共有する */
+function changelogTagHTML(it) {
   var tagLabel = { fix:'修正', 'new':'新機能', imp:'改善' };
   var tagCls   = { fix:'cl-tag-fix', 'new':'cl-tag-new', imp:'cl-tag-imp' };
+  return '<span class="cl-tag ' + (tagCls[it.t] || 'cl-tag-imp') + '">' + (tagLabel[it.t] || '') + '</span>';
+}
+function buildChangelogHTML(changelog, opts) {
+  opts = opts || {};
   var S = '';
   if (opts.heading !== false) S += '<div class="cl-h1">📝 変更履歴</div>';
   S += '<div style="font-size:12px;color:var(--txt3);margin-bottom:8px">現在のバージョン：<b>' + escH(verDisplay(APP_VERSION)) + '</b></div>';
@@ -5953,7 +5960,7 @@ function buildChangelogHTML(changelog, opts) {
     S += '<div class="cl-ver">' + escH(rel.title) + ' <span class="cl-date">(' + escH(rel.date) + ' / ' + escH(verDisplay(rel.ver)) + ')</span></div>';
     S += '<ul>';
     rel.items.forEach(function(it) {
-      S += '<li><span class="cl-tag ' + (tagCls[it.t] || 'cl-tag-imp') + '">' + (tagLabel[it.t] || '') + '</span> ' + escH(it.d) + '</li>';
+      S += '<li>' + changelogTagHTML(it) + ' ' + escH(it.d) + '</li>';
     });
     S += '</ul></div>';
   });
@@ -5985,6 +5992,87 @@ function closeChangelogPublic() {
     }
   });
 })();
+
+/* ===== 更新のお知らせ（maybeShowWhatsNew） =====
+   更新後に初めて開いたときだけ、変わったところを1回だけポップアップで知らせる。
+   既読の番号は端末ローカル（localStorage 'ce2_seenseq'）——テーマ・主観モードと同じく
+   D には入れず、ログアウトでも消さない。 */
+var WHATSNEW_SEEN_KEY = 'ce2_seenseq';
+/* 今のバージョンを既読にする（ポップアップを閉じたとき／知らせる内容が無かったとき） */
+function whatsNewMarkSeen() {
+  try { localStorage.setItem(WHATSNEW_SEEN_KEY, String(APP_SEQ)); } catch (e) {}
+}
+/* seenSeq より新しいリリースのうち、見せてよい項目が残るものだけを新しい順で返す。
+   一般ユーザーは既存の filterChangelogForGeneral() を通す（admin項目とfixを除外）。
+   管理者は admin項目も見えるので fix だけ除く。 */
+function whatsNewReleases(seenSeq) {
+  var newer = APP_CHANGELOG.filter(function(rel) {
+    var m = /^Ver\.\d{4}\/\d{2}\/\d{2}-(\d+)$/.exec(rel.ver); /* 旧形式('2026.06y')は対象外 */
+    return !!m && parseInt(m[1], 10) > seenSeq;
+  });
+  if (isAdmin) {
+    var out = [];
+    newer.forEach(function(rel) {
+      var items = (rel.items || []).filter(function(it) { return it.t !== 'fix'; });
+      if (items.length) out.push({ ver: rel.ver, date: rel.date, title: rel.title, items: items });
+    });
+    return out;
+  }
+  return filterChangelogForGeneral(newer);
+}
+function maybeShowWhatsNew() {
+  if (_staleApp) return; /* 古いアプリのまま新しいリリース内容を見せない */
+  var raw;
+  try { raw = localStorage.getItem(WHATSNEW_SEEN_KEY); } catch (e) { return; }
+  if (raw === null) { whatsNewMarkSeen(); return; } /* 新しい端末：過去分を並べず黙って既読にする */
+  var seen = parseInt(raw, 10) || 0;
+  if (seen >= APP_SEQ) return;
+  var releases = whatsNewReleases(seen);
+  if (!releases.length) { whatsNewMarkSeen(); return; }
+  showWhatsNewModal(releases);
+}
+function showWhatsNewModal(releases) {
+  if (document.getElementById('whatsnew-ov')) return; /* 既に開いていれば作り直さない */
+  var shown = releases.slice(0, 5);
+  var restN = releases.length - shown.length;
+  var ov = document.createElement('div'); ov.id = 'whatsnew-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeWhatsNew(); };
+  var md = document.createElement('div'); md.className = 'md';
+  md.style.maxWidth = '420px'; md.style.maxHeight = 'calc(80vh / var(--ui-zoom,1))';
+  md.style.display = 'flex'; md.style.flexDirection = 'column';
+  var S = '<div style="flex:0 0 auto"><h3 style="margin:0 0 2px">✨ アップデートしました</h3>';
+  S += '<div style="font-size:12px;color:var(--txt3);margin-bottom:10px">現在のバージョン：<b>' + escH(verDisplay(APP_VERSION)) + '</b></div></div>';
+  S += '<div style="flex:1 1 auto;min-height:0;overflow-y:auto">';
+  shown.forEach(function(rel) {
+    S += '<div class="cl-entry">';
+    S += '<div class="cl-ver">' + escH(rel.title) + ' <span class="cl-date">(' + escH(rel.date) + ' / ' + escH(verDisplay(rel.ver)) + ')</span></div>';
+    S += '<ul>';
+    rel.items.forEach(function(it) {
+      S += '<li>' + changelogTagHTML(it) + ' ' + escH(it.d) + '</li>';
+    });
+    S += '</ul></div>';
+  });
+  if (restN > 0) S += '<div style="font-size:12px;color:var(--txt3);margin:6px 2px 0">ほか' + restN + '件の更新があります</div>';
+  S += '</div>';
+  S += '<div class="mdb" style="flex:0 0 auto">'
+    + '<button class="btn btn-g" id="whatsnew-log-btn">📝 これまでの変更履歴</button>'
+    + '<button class="btn btn-p" id="whatsnew-close-btn">閉じる</button>'
+    + '</div>';
+  md.innerHTML = S;
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('whatsnew-close-btn').addEventListener('click', closeWhatsNew);
+  document.getElementById('whatsnew-log-btn').addEventListener('click', function(){ closeWhatsNew(); openChangelogPublic(); });
+}
+/* 背景クリック・「閉じる」・Escキーのどれで閉じても既読にする（このタイミングでだけ APP_SEQ を書く。
+   開いただけでは既読にしない——閉じる前に再読み込みしたら、もう一度出る）。 */
+function closeWhatsNew() {
+  var ov = document.getElementById('whatsnew-ov');
+  if (ov) ov.remove();
+  whatsNewMarkSeen();
+}
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape' && document.getElementById('whatsnew-ov')) closeWhatsNew();
+});
 
 /* ===== 法令・ガイドライン ===== */
 function renderRegs() {
