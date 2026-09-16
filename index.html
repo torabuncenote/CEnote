@@ -512,6 +512,32 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .pl-btn.del:hover{background:var(--rd-bg);color:var(--rd);border-color:var(--rd)}
 .pl-role-sel{font-size:9px;padding:0 2px;height:18px;border:1px solid var(--bdr);border-radius:4px;background:var(--sur);color:var(--txt)}
 @media(max-width:768px){.pl-cols{flex-direction:column}.pl-zones{flex-direction:column}/* 狭い画面ではヒント文がボタンを押し下げて操作しづらくなるので隠す（操作自体は同じ） */.pl-hint{display:none}.pl-toolbar{justify-content:flex-end}.pl-btn{font-size:11px;padding:3px 8px}.pl-role-sel{height:24px;font-size:11px}}
+/* ===== HD担当表：役割の編集（#hd-roster-box） ===== */
+.hdr-hint{font-size:11px;color:var(--txt2);background:var(--sur2);border-radius:6px;padding:6px 10px;margin-bottom:6px}
+.hdr-edit-tbl tbody td{height:44px}
+.hdr-empty{font-size:11px;color:var(--txt3);border:1px dashed var(--bdr2);border-radius:6px;padding:5px 10px;display:inline-block}
+.hdr-row[data-hdr-role]{cursor:pointer}
+.hdr-edit-tbl.picking .hdr-row{background:var(--ac-bg)}
+.hdr-row.hdr-over td{background:var(--ac-bg2,var(--ac-bg))!important;outline:2px solid var(--ac);outline-offset:-2px}
+.hdr-row.hdr-swap td{background:var(--or-bg)!important;outline:2px dashed var(--or);outline-offset:-2px}
+.hdr-tray.hdr-over{outline:2px solid var(--ac);background:var(--ac-bg2,var(--ac-bg))}
+.hdr-chip{display:inline-flex;align-items:center;gap:4px;min-height:44px;box-sizing:border-box;background:var(--sur);border:1px solid var(--bdr);border-radius:14px;padding:5px 12px;font-size:13px;font-weight:700;color:var(--txt);cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.hdr-chip .hdr-grip{color:var(--txt3);font-size:12px}
+.hdr-chip.dragging{opacity:.6;box-shadow:var(--shl);transform:scale(1.06)}
+.hdr-chip.picked{border-color:var(--ac);background:var(--ac-bg);box-shadow:0 0 0 2px var(--ac) inset}
+.hdr-tray{margin-top:8px;border:1.5px dashed var(--bdr2);border-radius:8px;padding:8px 10px}
+.hdr-tray-hd{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;color:var(--txt3);margin-bottom:6px}
+.hdr-tray-hd button{margin-left:auto}
+.hdr-tray-body{display:flex;flex-wrap:wrap;gap:6px;min-height:36px;align-items:center}
+@keyframes hdrFlash{0%{background:var(--ac-bg2,var(--ac-bg))}100%{background:transparent}}
+.hdr-flash td{animation:hdrFlash 1s ease}
+@media(prefers-reduced-motion:reduce){.hdr-flash td{animation:none;background:var(--ac-bg2,var(--ac-bg))}}
+/* 配置盤の「役割」枠に落としたときに出る役割ピッカー（openHdRolePicker） */
+.hdrp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.hdrp-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--bdr);background:var(--sur);border-radius:8px;padding:6px 8px;cursor:pointer;gap:2px}
+.hdrp-btn:hover{border-color:var(--ac);background:var(--ac-bg)}
+.hdrp-role{font-size:14px;font-weight:800;color:var(--txt)}
+.hdrp-occ{font-size:10px;color:var(--txt3)}
 /* #mode-toggle（🩺CE/🩸HD切替ボタン、.tb-btns内）— HDモード中は紫地に変える。updateModeToggleBtnがJS側でクラスを付け外しするだけで、
    この色指定自体は今まで存在しなかった（HDモードにしても見た目が変わらない不具合の原因）。 */
 #mode-toggle.hd-on{background:var(--pu);color:var(--on-ac);border-color:var(--pu)}
@@ -1474,7 +1500,8 @@ body.is-offline{--off-h:24px}
   .pool-chip-x,.dg .dc-del,.dg .dc-drag,.dg .dc-edit,.oc-sel,.oc-txt,
   #evt-area button,#aa-trigger,.print-btn,.srch-btn,.stale-banner,
   .db-add-link,.ops-now-btn,.cbar,
-  .staffz-arrow,.pl-toolbar,.pl-chip-acts,.sort-arw{display:none!important}
+  .staffz-arrow,.pl-toolbar,.pl-chip-acts,.sort-arw,
+  .hdr-hint,.hdr-tray,.hdr-edit-btn,.hdr-add,.hdr-empty-row{display:none!important}
   .ab{display:block!important}
   .main{margin:0!important;padding:0 8px!important;box-shadow:none!important;max-width:100%!important}
   .pt2{font-size:16px;font-weight:700;margin-bottom:8px}
@@ -1484,23 +1511,26 @@ body.is-offline{--off-h:24px}
   /* 折りたたみ中でも紙には出す（相互参照の担当表も含めて、紙が当日の全体像になるように） */
   #staffz-body,#ce-ref-body,#hd-ref-body{display:block!important}
   .pchip{font-size:11px!important;padding:3px 8px!important}
-  /* HD担当表：備考は院内配布物に出さない（要件16）ので列ごと非表示。HD日ページの編集用テーブル
-     （#hd-roster-wrap）と、CE日ページに出す読み取り専用のミラー（#hd-ref-body）の両方に効かせる
+  /* HD担当表：備考は院内配布物に出さない（要件16）ので列ごと非表示。HD日ページの表
+     （#hd-roster-wrap）と、CE日ページに出す相互参照（#hd-ref-body）の両方に効かせる
      — 片方だけ伏せても、もう片方の紙に同じ備考が載ってしまい要件を満たせないため。
      group-hd行（🔵日勤/🌙準夜の区切り行）はcolspanの単一tdで:last-childにも該当してしまうため
-     :not(.group-hd)で明示的に除外する。
-     スタッフ欄のselectは枠・背景を消して選択中の文字だけが見えるようにする。 */
+     :not(.group-hd)で明示的に除外する。 */
   #hd-roster-wrap thead th:last-child,
   #hd-roster-wrap tbody tr:not(.group-hd) td:last-child,
   #hd-ref-body thead th:last-child,
   #hd-ref-body tbody tr:not(.group-hd) td:last-child{display:none!important}
-  #hd-roster-wrap select.hd-name-sel{border:none!important;background:transparent!important;-webkit-appearance:none;appearance:none;padding:0!important;color:inherit}
 }
 /* ===== 通知トースト ===== */
 .notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:var(--toast-bg);color:var(--toast-fg);padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
 @keyframes notifSlideIn{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}
 /* ===== 操作フィードバックのトースト（alert の置き換え） ===== */
-.fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:var(--toast-fg);background:var(--toast-bg);box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
+.fb-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;align-items:flex-start;gap:9px;width:max-content;max-width:min(420px,92vw);padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.6;color:var(--toast-fg);background:var(--toast-bg);box-shadow:0 4px 20px rgba(0,0,0,.35);cursor:pointer;white-space:pre-wrap;animation:fbToastIn .22s ease}
+/* left:50%+transform だけで幅指定が無いと、環境によって自動幅が「左端50%から右端まで」に
+   広がり長文が数文字ずつ縦折り返しになる（375px幅で実測）。width:max-content で内容幅に戻し、
+   max-width は従来どおり上限として効かせる。メッセージ側は既定の flex縮小だと min-width:auto の
+   ままで折り返せないことがあるため fb-toast-msg だけ min-width:0 を足す。 */
+.fb-toast .fb-toast-msg{min-width:0}
 /* 消し込みバーが出ている間は、その高さぶん上へ逃がす（下端で重なると残り件数が読めなくなる） */
 /* 画面下端の固定要素も実測したバーの高さぶんだけ押し上げる（決め打ちの70/126pxをやめる） */
 body.has-cbar .fb-toast{bottom:calc(20px + var(--cbar-h, 0px))}
@@ -5407,11 +5437,18 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/16-82';
+var APP_VERSION = 'Ver.2026/09/17-83';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/17-83', date:'2026-09-17', title:'HD担当表で役割を入れ替えられるようにしました', items:[
+    {t:'new', d:'🩸 HD担当表の「✏️ 役割を編集」から、名前を長押しで運ぶか、名前→役割の順にタップして役割を決められるようにしました。人の居る役割に落とすと2人の役割が入れ替わり、準夜は人数が増えます。押し間違えても「取り消す」で戻せます'},
+    {t:'imp', d:'👥 人員配置管理で役割を変えたり人を追加したりすると、HD担当表にもすぐ反映されるようにしました。CEの連絡表にあるHD担当表からも同じように編集できます'},
+    {t:'imp', d:'🩸 人員配置管理の「役割」の枠に名前を落とすと、役割を選ぶ画面が出るようにしました。各役割のいまの担当者も表示されます'},
+    {t:'fix', d:'準夜の人を日勤の役割へ移しても、HD担当表で準夜の段に並んでいたのを直しました'},
+    {t:'fix', d:'人員配置管理の「役割」の枠に名前を落とすと、「応援」という役割名が表示されていたのを直しました'}
+  ]},
   { ver:'Ver.2026/09/16-82', date:'2026-09-16', title:'アップデート内容をお知らせするようにしました', items:[
     {t:'new', d:'✨ アプリが新しくなったあと初めて開いたときに、変わったところを1回だけお知らせするようにしました。閉じたあとも、使い方タブの「📝 変更履歴」からいつでも見られます'}
   ]},
@@ -6805,10 +6842,16 @@ function plSpot(ds, name, _ppl){
   if (!p) return {kind:'none', side:'ce'};
   if (p.spot === 'surplus') return {kind:'surplus', side:p.side};
   if (plZone(p.spot))       return {kind:'zone', side:p.side, zone:p.spot};
-  /* HD側の役割。勤務表由来の人は spot が空なら本来のシフトコードへ戻る。
-     応援で来た人（base が hd でない）は役割を持たないので空欄のままにする
-     ——ここで shift を拾うとCEの勤務コード 'CE' が役割名として出てしまう。 */
-  if (p.side === 'hd')      return {kind:'hdrole', side:'hd', role:p.spot || (p.base === 'hd' ? plHdRole(p.shift) : '')};
+  /* HD側の役割。spot は必ず plHdRole で正規化してから返す——旧データの 'pool'/'応援' の
+     ような役割コードでない値をそのまま役割名として出さないため。spot が空で勤務表由来の
+     人（base==='hd'）なら本来のシフトコードへ戻る。応援で来た人（base が hd でない）は
+     役割を持たないので空欄のままにする——ここで shift を拾うとCEの勤務コード 'CE' が
+     役割名として出てしまう。 */
+  if (p.side === 'hd') {
+    var hdRoleV = plHdRole(p.spot);
+    if (!hdRoleV && !p.spot && p.base === 'hd') hdRoleV = plHdRole(p.shift);
+    return {kind:'hdrole', side:'hd', role:hdRoleV};
+  }
   return {kind:'pool', side:'ce'};
 }
 
@@ -6822,7 +6865,10 @@ function plClearSpot(ds, name){
 }
 
 /* 唯一の移動口。spec = {kind:'duty',slot} | {kind:'free'} | {kind:'pool'} | {kind:'surplus',side}
-   | {kind:'zone',zone,side} | {kind:'hdrole',role} */
+   | {kind:'zone',zone,side} | {kind:'hdrole',role,with?}
+   hdrole の with（入れ替え相手の氏名）は日勤の役割だけで意味を持つ（準夜は人数を増やすだけ）。
+   相手が「いまその role に居る」ときだけ、相手も動かす（相手の書き換えはここで直接行い、
+   plMove の再帰呼び出しはしない）。 */
 function plMove(ds, name, spec){
   if (!can('duty')) return false;
   var dat = D.pages[ds]; if (!dat || !name || !spec) return false;
@@ -6831,6 +6877,7 @@ function plMove(ds, name, spec){
   var pp = p.people[name];
   var beforeSlot = plSpot(ds, name);
   var oldDuty = (spec.kind === 'duty') ? ((dat.duties||{})[spec.slot] || '') : '';
+  var swapDetail = '';
 
   plClearSpot(ds, name);
 
@@ -6852,10 +6899,25 @@ function plMove(ds, name, spec){
     /* 同じ役割を複数人で持つ枠がある（準夜は3名固定）。以前はここで「同じ役割の人を
        全員HDの余剰へ押し出す」ことで担当表の差し替えを表現していたが、そのせいで
        準夜3名のうち1人を触ると残り2名が余剰へ落ち、担当表に1枠しか残らなかった。
-       役割の付け替えは「その人の役割を変える」だけにし、押し出しは行わない。
-       担当表の行で担当者を差し替える操作は、呼び出し側が「その行に居た人」だけを外す。 */
+       役割の付け替えは「その人の役割を変える」だけにし、無条件の押し出しは行わない。 */
     pp.side = 'hd'; pp.spot = spec.role || '';
     if (pp.base !== 'hd' && !pp.from) pp.from = 'ce';
+    /* 入れ替え：日勤の役割で、相手が「いまその role に居る」ときだけ相手も動かす。
+       動かす人の元が hdrole で role を持っていれば相手をそこへ、それ以外（控え・余剰・
+       CE側など）なら相手をHD余剰へ。 */
+    if (spec.with && spec.with !== name && spec.role && spec.role !== '準') {
+      var wSpotBefore = plSpot(ds, spec.with);
+      if (wSpotBefore.kind === 'hdrole' && wSpotBefore.role === spec.role) {
+        var wp = p.people[spec.with];
+        if (wp) {
+          plClearSpot(ds, spec.with);
+          if (beforeSlot.kind === 'hdrole' && beforeSlot.role) { wp.side = 'hd'; wp.spot = beforeSlot.role; }
+          else { wp.side = 'hd'; wp.spot = 'surplus'; }
+          if (wp.base && ((wp.base === 'hd' && wp.side === 'hd') || (wp.base !== 'hd' && wp.side === 'ce'))) wp.from = '';
+          swapDetail = '（'+spec.with+' → '+plSpotLabel(plSpot(ds, spec.with))+'）';
+        }
+      }
+    }
   } else if (spec.kind === 'surplus') {
     pp.side = spec.side || pp.side || 'ce'; pp.spot = 'surplus';
   } else if (spec.kind === 'zone') {
@@ -6872,7 +6934,7 @@ function plMove(ds, name, spec){
   updateStaffZoneBadge(ds); updateCloseBar(ds);
   if (spec.kind === 'duty') { maybeLateToast(D.pages[ds], spec.slot, name, oldDuty); safeRenderPage(); }
   else if (beforeSlot.kind === 'duty' || beforeSlot.kind === 'free') safeRenderPage();
-  writeLog('人員配置変更', fmtJ(ds)+' '+name+' → '+plSpotLabel(plSpot(ds, name)));
+  writeLog('人員配置変更', fmtJ(ds)+' '+name+' → '+plSpotLabel(plSpot(ds, name))+swapDetail);
   return true;
 }
 function plSpotLabel(sp){
@@ -6883,6 +6945,22 @@ function plSpotLabel(sp){
   if (sp.kind === 'surplus')return (sp.side==='hd'?'HD':'CE')+'余剰';
   if (sp.kind === 'zone')   { var z = plZone(sp.zone); return z?z.label:sp.zone; }
   return '未割当';
+}
+/* role（日勤のHD役割コード）が「ちょうど1人」に割り当てられているとき、その氏名を返す。
+   0人・2人以上（異常データ）・準夜は「唯一の担当者」を持たないので ''。
+   except を渡すとその人自身は数えない（自分がいまその役割に居るケースを除外するため）。
+   plMenu の「HDの役割」ボタンと openHdRolePicker が、押す前に「入れ替えになるか」を
+   示すために使う。 */
+function hdRoleOccupant(ds, role, except){
+  if (!role || role === '準' || HD_DAY_CODES.indexOf(role) === -1) return '';
+  var workers = hdShiftWorkers(ds), found = '';
+  for (var i=0;i<workers.length;i++){
+    if (workers[i].shift === role && workers[i].name !== except) {
+      if (found) return ''; /* 2人以上いる異常データは「唯一の担当者」を返さない */
+      found = workers[i].name;
+    }
+  }
+  return found;
 }
 
 /* ===== 提供 → 受け取り ===== */
@@ -7123,9 +7201,11 @@ function plMenu(ds, name){
   h += row('sur:hd',      '🔄 HD 余剰人員', '', here('surplus','hd'));
   PL_ZONES.forEach(function(z){ h += row('zone:'+z.key, z.icon+' '+escH(z.label), '', here('zone', z.key)); });
 
+  /* 「役割なし」ボタンは持たない——base==='hd' の人は spot を空にすると勤務表の
+     役割コードへ正規化で戻ってしまい「役割なし」にならない。役割を外すのは
+     上の「🔄 HD 余剰人員」から。 */
   if (sp.kind === 'hdrole' || sp.side === 'hd') {
     h += '<div class="pl-mgrp">HDの役割</div><div class="pl-mroles">';
-    h += '<button type="button" class="pl-mrole'+(!sp.role?' on':'')+'" data-plm="role:">—</button>';
     HD_DAY_CODES.forEach(function(c){ h += '<button type="button" class="pl-mrole'+(sp.role===c?' on':'')+'" data-plm="role:'+escH(c)+'">'+escH(c)+'</button>'; });
     h += '<button type="button" class="pl-mrole'+(sp.role==='準'?' on':'')+'" data-plm="role:準">準夜</button>';
     h += '</div>';
@@ -7170,7 +7250,10 @@ function plMenu(ds, name){
     if (v === 'pool') plMove(ds, name, {kind:'pool'});
     else if (v.indexOf('sur:')  === 0) plMove(ds, name, {kind:'surplus', side:v.slice(4)});
     else if (v.indexOf('zone:') === 0) plMove(ds, name, {kind:'zone', zone:v.slice(5)});
-    else if (v.indexOf('role:') === 0) plMove(ds, name, {kind:'hdrole', role:v.slice(5)});
+    else if (v.indexOf('role:') === 0) {
+      var role = v.slice(5);
+      hdRosterMove(ds, name, {kind:'hdrole', role:role, with: hdRoleOccupant(ds, role, name)});
+    }
   });
 }
 function plSlotHTML(id, label, spec, chips, emptyMsg, extraCls){
@@ -7182,6 +7265,9 @@ function plSlotHTML(id, label, spec, chips, emptyMsg, extraCls){
 }
 
 function renderPlacementBoard(ds, dat, locked){
+  /* 配置盤のどの経路（plMove/plOffer/名簿の増減/取り込み直し等）を通っても
+     HD担当表（#hd-roster-box）が揃うよう、早期returnより前で必ず呼ぶ。 */
+  refreshHdRoster(ds);
   var wrap = document.getElementById('placement-wrap'); if (!wrap) return;
   dat = dat || D.pages[ds]; if (!dat) return;
   var dlk = !can('duty');
@@ -7300,7 +7386,7 @@ function bindPlacementDnD(ds){
     var k = slot.getAttribute('data-pl-kind');
     if (k === 'zone')    return {kind:'zone', zone:slot.getAttribute('data-pl-zone')};
     if (k === 'surplus') return {kind:'surplus', side:slot.getAttribute('data-pl-side')};
-    if (k === 'hdrole')  return {kind:'hdrole', role:'応援'};
+    if (k === 'hdrole')  return {kind:'hdrole-pick'}; /* 役割は openHdRolePicker で選ばせる（'応援'という役割名は存在しない） */
     if (k === 'pool')    return {kind:'pool'};
     return null;
   }
@@ -7331,7 +7417,10 @@ function bindPlacementDnD(ds){
     e.preventDefault();
     var name = e.dataTransfer.getData('text/plain'); if (!name) return;
     var spec = targetSpec(e.target); highlight(null);
-    if (spec) plMove(wrap.getAttribute('data-ds') || ds, name, spec);
+    if (!spec) return;
+    var cds = wrap.getAttribute('data-ds') || ds;
+    if (spec.kind === 'hdrole-pick') openHdRolePicker(cds, name);
+    else plMove(cds, name, spec);
   });
 
   /* スマホ（タッチ）。長押し（250ms）でドラッグを開始する。
@@ -7398,7 +7487,11 @@ function bindPlacementDnD(ds){
     var name = dragName;
     endTouchDrag();
     var spec = targetSpec(el);
-    if (spec) { wrap._plTapGuard = true; plMove(wrap.getAttribute('data-ds') || ds, name, spec); }
+    if (!spec) return;
+    wrap._plTapGuard = true;
+    var cds = wrap.getAttribute('data-ds') || ds;
+    if (spec.kind === 'hdrole-pick') openHdRolePicker(cds, name);
+    else plMove(cds, name, spec);
   }, {passive:true});
 
   wrap.addEventListener('touchcancel', function(){ endTouchDrag(); }, {passive:true});
@@ -16069,9 +16162,10 @@ function renderPage(ds) {
   h+='</div>'; /* #staffz-body */
   h+='</div>'; /* .staffz */
 
-  /* HD担当表（読み取り専用）。HD主観で書かれた備考をCE側からも読めるようにする。
-     編集はHD主観の担当表で行うため、ここはテキスト表示だけにする。 */
-  h+=hdRosterRefHTML(ds, dat);
+  /* HD担当表（相互参照）。HD主観で書かれた備考・役割をCE側からも読め、編集もできる
+     （#hd-roster-box / refreshHdRoster、共通部品。同じ日の同じ現場なので編集もCE主観から
+     行ってよい、という判断）。対象0件の日は hdRosterBoxHTML 側が見出しごと出さない。 */
+  h+='<div id="hd-roster-box" data-ds="'+ds+'" data-variant="ce"></div>';
 
   /* 担当割り当て */
   h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
@@ -16192,6 +16286,10 @@ function renderPage(ds) {
 
   document.getElementById('main').innerHTML = h;
 
+  /* HD担当表（相互参照）：renderPlacementBoard（この下）が呼ぶたびに refreshHdRoster するが、
+     ここで先に一度呼んでおくことで #hd-roster-box が空のまま描画される瞬間を作らない。 */
+  refreshHdRoster(ds);
+
   /* data-action ボタンのイベント登録 */
   var evtArea = document.getElementById('evt-area');
   if(evtArea){
@@ -16287,18 +16385,15 @@ function renderPage(ds) {
 
 /* HD担当表：勤務表から日勤（HD_DAY_CODES順）→準夜の順で1人1行の配列を作る純関数。
    D.shift/getShiftForDay 本体は無改変。並び順は「同じコードに複数人いる場合は配列内の順」を保つため Array#sort の安定ソート性に依存する。
-   dat.hdDuty.overrides[勤務表由来の元の氏名] = 手動修正後の氏名 を見て、derivedName（元の氏名・不変）と
-   name（表示用の実効氏名＝overridesがあればそれ）の両方を返す。
-   戻り値: [{role:'M', derivedName:'山田 太郎', name:'山田 太郎', night:false}, ...] */
-/* getShiftForDay(ds).hd に dat.hdDuty.overrides（HD担当表での差し替え）を適用した実効HD勤務者一覧。
-   buildHdRoster（HD担当表）とrenderSurplusArea（CE/HDどちらの日ページでも表示する余剰人員パネルのHD勤務者欄）が
-   共通で使う唯一の入口 — 以前はこの2箇所が別々に getShiftForDay(ds).hd を直接読んでおり、
-   HD担当表で担当を差し替えても余剰人員パネル側には反映されなかった。
-   getShiftForDay 本体は他の呼び出し元（CE勤務者一覧・OC自動入力等）に影響するため変更しない。 */
-/* その日HD側に居る人（＝HD担当表に並ぶ人）。数え元は台帳ひとつ。
+   戻り値: [{role:'M', derivedName:'山田 太郎', name:'山田 太郎', night:false}, ...]
+   （derivedName は name と常に同じ値——台帳から直接作るようになったので、旧
+   hdDuty.overrides 時代の「元の氏名／差し替え後の実効氏名」の区別はもう無い。
+   備考のキーとの後方互換のためフィールド自体は残してある。） */
+/* その日HD側に居る人（＝HD担当表に並ぶ人）。数え元は台帳（dat.placement）ひとつ。
+   buildHdRoster（HD担当表）と余剰人員パネル・HD公平性・マイ担当などが共通で使う唯一の入口
+   ——役割を hdRosterMove/plMove で変えれば、これを通るすべての画面に自動で反映される。
    勤務表由来のHD勤務者に加え、CEから受け取った応援もここに含まれる。
-   余剰・メンテ・休み等に分類された人は担当表には出さない（配置盤のそれぞれの枠に出る）。
-   derivedName は「HD担当表の行を指すキー」として残してある（備考のキーと後方互換） */
+   余剰・メンテ・休み等に分類された人は担当表には出さない（配置盤のそれぞれの枠に出る）。 */
 function hdShiftWorkers(ds) {
   var ppl = plPeople(ds), out = [];
   Object.keys(ppl).forEach(function (n) {
@@ -16306,7 +16401,9 @@ function hdShiftWorkers(ds) {
     if (p.side !== 'hd' || p.offer) return;
     var sp = plSpot(ds, n, ppl);
     if (sp.kind !== 'hdrole') return;
-    out.push({ name: n, derivedName: n, shift: sp.role || '', night: sp.role === '準' || !!p.night, from: p.from || '' });
+    /* 役割があればその役割で準夜かどうかを判定する（勤務表で準夜だった人を日勤の役割へ
+       移しても準夜の段に並ばないように）。役割が無い（控え）ときだけ勤務表の night に従う。 */
+    out.push({ name: n, derivedName: n, shift: sp.role || '', night: sp.role ? sp.role === '準' : !!p.night, from: p.from || '' });
   });
   return out;
 }
@@ -16326,35 +16423,512 @@ function buildHdRoster(ds) {
   night.forEach(function (h) { rows.push(toRow(h)); });
   return rows;
 }
-/* HD担当表テーブルの1行分（役割／スタッフ／備考）。
-   locked=false（can('duty')）のときはスタッフ欄を<select>（D.stf、非表示スタッフ除外）、
-   備考欄を<textarea>にして手動編集できる。編集の保存は呼び出し側（renderPageHD）のイベント委譲で行う。
-   備考のキーは実効氏名（r.name） — 担当を差し替えた行は差し替え後の氏名の備考を表示する。 */
-function hdRosterRowHTML(dat, r, locked) {
+/* ===== HD担当表：共通部品（#hd-roster-box） =====
+   HD日ページ（variant='hd'）・CE日ページの相互参照（variant='ce'）の両方が同じ入れ物・
+   同じ関数で描画される。安定要素 #hd-roster-box に1回だけイベント委譲し、
+   renderPlacementBoard（＝plMove/plOffer/名簿の増減など配置に関わる全経路）が呼ぶ
+   refreshHdRoster(ds) だけで常に最新化される——個別の呼び出し側が更新を意識しなくてよい。
+
+   通常表示：居る人の行だけ（役割なしは「—」）。編集中（_hdRosterEdit===ds）：
+   日勤はHD_DAY_CODESの8行を必ず出し、空きは点線、控え（役割なし＋HD余剰）は下の枠に出す。
+   操作は「名前をタップ→役割をタップ」と「長押しドラッグ」の両方。確定は必ず hdRosterMove
+   （取り消し付きトースト）を通す——plMove を直接呼ばない。 */
+var _hdRosterEdit = null; /* 編集中の ds（非永続）。null=非編集。別の日を開くと自然に非編集扱いになる */
+var _hdRosterPick = null; /* タップ選択中の氏名（非永続） */
+
+function hdRosterToggleEdit(ds){
+  if (!can('duty')) return;
+  var entering = !_hdRosterEdit;
+  _hdRosterEdit = (_hdRosterEdit === ds) ? null : ds;
+  _hdRosterPick = null;
+  /* CE日ページ側（variant='ce'）は折りたたみを閉じたままでも編集ボタンを押せるので、
+     編集に入るときは中身が見えるよう開いておく（閉じたまま #hd-ref-body が display:none
+     では、編集に入っても何も見えない）。 */
+  if (entering) {
+    var box = document.getElementById('hd-roster-box');
+    if (box && box.getAttribute('data-variant') === 'ce') _hdRefOpen = true;
+  }
+  refreshHdRoster(ds);
+}
+
+/* 通常表示の1行（役割／スタッフ文字／備考）。役割なしは「—」。 */
+function hdRosterNormalRowHTML(dat, r) {
   var note = (dat.hdNotes && dat.hdNotes[r.name]) ? dat.hdNotes[r.name] : '';
   var support = !!r.from; /* CEから受け取った応援 */
-  var staffCell;
-  if (locked) {
-    staffCell = escH(r.name) + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '');
-  } else {
-    var hasMatch = false, opts = '';
-    for (var j = 0; j < D.stf.length; j++) {
-      var _sn = D.stf[j];
-      if (D.stfHidden && D.stfHidden[_sn] && _sn !== r.name) continue;
-      if (_sn === r.name) hasMatch = true;
-      opts += '<option value="' + escH(_sn) + '"' + (_sn === r.name ? ' selected' : '') + '>' + escH(_sn) + '</option>';
+  var staffCell = escH(r.name || '') + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '');
+  var noteCell = can('duty')
+    ? '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>'
+    : (note ? escH(note) : '<span class="muted">—</span>');
+  return '<tr><td style="font-weight:700">' + (r.role ? escH(r.role) : '<span class="muted">—</span>') + '</td><td>' + staffCell + '</td><td>' + noteCell + '</td></tr>';
+}
+function hdRosterNormalTableHTML(ds, dat) {
+  var rows = buildHdRoster(ds);
+  if (!rows.length) return '<div class="pool-empty" style="padding:14px 0">勤務表データがありません</div>';
+  var dayRows = rows.filter(function (r) { return !r.night; });
+  var nightRows = rows.filter(function (r) { return r.night; });
+  var h = '<div class="data-wrap"><table class="data-tbl">';
+  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th>備考</th></tr></thead><tbody>';
+  if (dayRows.length)   { h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';   dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
+  if (nightRows.length) { h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>'; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
+  h += '</tbody></table></div>';
+  return h;
+}
+
+/* 編集中に表として並べるデータ：日勤は役割(HD_DAY_CODES)ごとに、準夜はまとめて、
+   それ以外（役割なし・HD余剰）は「控え」に出す。提供中（offer）の人はどちらにも出さない
+   ——配置盤の提供の仕組みに任せる。 */
+function hdRosterEditData(ds) {
+  var ppl = plPeople(ds);
+  var dayByRole = {}; HD_DAY_CODES.forEach(function (c) { dayByRole[c] = []; });
+  var night = [], tray = [];
+  plNames(ds).forEach(function (n) { /* 表示順はスタッフマスタ→五十音（配置盤と同じ並び） */
+    var p = ppl[n];
+    if (!p || p.side !== 'hd' || p.offer) return;
+    var sp = plSpot(ds, n, ppl);
+    if (sp.kind === 'hdrole') {
+      var role = sp.role;
+      if (role === '準') night.push({ name: n, from: p.from || '' });
+      else if (role && dayByRole[role]) dayByRole[role].push({ name: n, from: p.from || '' });
+      else tray.push({ name: n, from: p.from || '' }); /* 役割なし */
+    } else if (sp.kind === 'surplus') {
+      tray.push({ name: n, from: p.from || '' });
     }
-    if (r.name && !hasMatch) opts += '<option value="' + escH(r.name) + '" selected>' + escH(r.name) + '（名簿外）</option>';
-    staffCell = '<select class="ds2 hd-name-sel' + (support ? ' changed' : '') + '" data-derived="' + escH(r.name) + '" data-role="' + escH(r.role || '') + '" style="margin-bottom:0">' + opts + '</select>'
-      + (support ? '<span class="hd-changed-badge" title="CEから受け取った応援です">🩺 CEから</span>' : '');
+  });
+  return { dayByRole: dayByRole, night: night, tray: tray };
+}
+/* ⠿でつまめることを示すチップ。draggable="true"（長押しドラッグ）とタップ選択の両方に使う。 */
+function hdrChipHTML(name, from, picked) {
+  var h = '<span class="hdr-chip' + (picked ? ' picked' : '') + '" draggable="true" data-name="' + escH(name) + '">'
+    + '<span class="hdr-grip">⠿</span><span class="hdr-chip-n">' + escH(name) + '</span>';
+  if (from) h += '<span class="hd-changed-badge">🩺 CEから</span>';
+  h += '</span>';
+  return h;
+}
+function hdRosterEditRowHTML(dat, role, person, picking) {
+  var roleLabel = (role === '準') ? '準夜' : role;
+  if (!person) {
+    return '<tr class="hdr-row hdr-empty-row" data-hdr-role="' + escH(role) + '"><td style="font-weight:700">' + escH(roleLabel) + '</td>'
+      + '<td><span class="hdr-empty">空き（ここへ）</span></td><td></td></tr>';
   }
-  var noteCell;
-  if (locked) {
-    noteCell = note ? escH(note) : '<span class="muted">—</span>';
+  var cell = hdrChipHTML(person.name, person.from, picking === person.name);
+  var note = (dat.hdNotes && dat.hdNotes[person.name]) || '';
+  var noteCell = '<textarea class="ds2 hd-note-ta" data-name="' + escH(person.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>';
+  return '<tr class="hdr-row" data-hdr-role="' + escH(role) + '" data-hdr-with="' + escH(person.name) + '"><td style="font-weight:700">' + escH(roleLabel) + '</td><td>' + cell + '</td><td>' + noteCell + '</td></tr>';
+}
+/* 控え：HD側で役割なしの人＋HD余剰の人。枠自体も落とし先（→HD余剰）。 */
+function hdRosterTrayHTML(tray, picking) {
+  var h = '<div class="hdr-tray" data-hdr-tray="1">';
+  h += '<div class="hdr-tray-hd"><span>控え</span><button type="button" class="btn btn-g btn-sm" data-action="hdr-add-person">＋ 名簿に追加</button></div>';
+  h += '<div class="hdr-tray-body">';
+  if (!tray.length) h += '<span class="hdr-empty">ここへ落とすと控えに戻ります</span>';
+  else tray.forEach(function (p) { h += hdrChipHTML(p.name, p.from, picking === p.name); });
+  h += '</div></div>';
+  return h;
+}
+function hdRosterEditTableHTML(ds, dat) {
+  var data = hdRosterEditData(ds);
+  var picking = _hdRosterPick;
+  var hintText = picking
+    ? (picking + ' さんを移す役割をタップ（もう一度押すと取り消し）')
+    : '名前を長押しで運ぶか、名前→役割の順にタップ';
+  var h = '<div class="hdr-hint">' + escH(hintText) + '</div>';
+  h += '<div class="data-wrap"><table class="data-tbl hdr-edit-tbl' + (picking ? ' picking' : '') + '">';
+  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th>備考</th></tr></thead><tbody>';
+  h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';
+  HD_DAY_CODES.forEach(function (role) {
+    var people = data.dayByRole[role];
+    if (!people.length) h += hdRosterEditRowHTML(dat, role, null, picking);
+    else people.forEach(function (p) { h += hdRosterEditRowHTML(dat, role, p, picking); });
+  });
+  h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>';
+  data.night.forEach(function (p) { h += hdRosterEditRowHTML(dat, '準', p, picking); });
+  h += '<tr class="hdr-row hdr-add" data-hdr-role="準"><td style="font-weight:700">準夜</td><td><span class="hdr-empty">＋ 準夜に追加（ここへ）</span></td><td></td></tr>';
+  h += '</tbody></table></div>';
+  h += hdRosterTrayHTML(data.tray, picking);
+  return h;
+}
+function hdRosterTableHTML(ds, dat, editing) {
+  return editing ? hdRosterEditTableHTML(ds, dat) : hdRosterNormalTableHTML(ds, dat);
+}
+function hdRosterEditBtnHTML(editing) {
+  if (!can('duty')) return '';
+  return '<button type="button" class="btn btn-g btn-sm hdr-edit-btn" data-action="hdr-edit-toggle" style="margin-left:auto;font-size:11px">' + (editing ? '✅ 完了' : '✏️ 役割を編集') + '</button>';
+}
+/* variant='hd'：HD日ページの「🩸 HD担当表」見出し＋表（常に出す。0件でも編集で人を入れられる）。
+   variant='ce'：CE日ページに出す相互参照の折りたたみ（.staffz シェル流用）。
+   対象0件のときは「HD側に名簿の人が1人以上いるか、編集中」のときだけ出す
+   ——編集中に全員控えへ移した瞬間にセクションごと消えると、その日はもう編集に戻れなくなる。 */
+function hdRosterBoxHTML(ds, dat, variant) {
+  var editing = (_hdRosterEdit === ds);
+  var hdAll = hdShiftWorkers(ds);
+  if (variant === 'ce') {
+    if (!hdAll.length && !editing) return '';
+    var notes = dat.hdNotes || {};
+    var noteN = hdAll.filter(function (h) { return !!notes[h.name]; }).length;
+    var h = '<div class="staffz">';
+    h += '<div class="staffz-hd">';
+    h += '<span class="staffz-ttl">🩸 HD担当表</span>';
+    h += '<span class="staffz-badge">' + hdAll.length + '名' + (noteN ? '・備考' + noteN : '') + '</span>';
+    h += hdRosterEditBtnHTML(editing);
+    h += '<span class="staffz-arrow" id="hd-ref-arrow">' + (_hdRefOpen ? '▲' : '▼') + '</span>';
+    h += '</div>';
+    h += '<div id="hd-ref-body" style="display:' + (_hdRefOpen ? 'block' : 'none') + ';padding-top:10px">';
+    h += hdRosterTableHTML(ds, dat, editing);
+    h += '</div></div>';
+    return h;
+  }
+  var h2 = '<div class="st" style="display:flex;align-items:center"><span>🩸 HD担当表</span>' + hdRosterEditBtnHTML(editing) + '</div>';
+  h2 += '<div id="hd-roster-wrap">' + hdRosterTableHTML(ds, dat, editing) + '</div>';
+  return h2;
+}
+/* 安定要素 #hd-roster-box の中身を作り直す唯一の入口。box が無い・表示中の日と違う
+   （別の日を開いている）ときは何もしない。いま表示しようとしている ds が編集中だった日と
+   違えば、ここで編集状態を解除する——「別の日を開いたら編集は解除される」を満たすため。 */
+function refreshHdRoster(ds){
+  var box = document.getElementById('hd-roster-box');
+  if (!box || box.getAttribute('data-ds') !== ds) return;
+  if (_hdRosterEdit && _hdRosterEdit !== ds) { _hdRosterEdit = null; _hdRosterPick = null; }
+  var dat = D.pages[ds]; if (!dat) return;
+  var variant = box.getAttribute('data-variant') || 'hd';
+  box.innerHTML = hdRosterBoxHTML(ds, dat, variant);
+  hdRosterBindEvents(box, ds);
+}
+/* ドロップ・タップ先の解決。控え枠は data-hdr-tray、役割の行は data-hdr-role
+   （人が居る行はさらに data-hdr-with にその人の名前）。 */
+function hdRosterTargetSpec(el){
+  if (!el || !el.closest) return null;
+  var tray = el.closest('[data-hdr-tray]');
+  if (tray) return {kind:'surplus', side:'hd'};
+  var row = el.closest('.hdr-row[data-hdr-role]');
+  if (row) return {kind:'hdrole', role: row.getAttribute('data-hdr-role'), with: row.getAttribute('data-hdr-with') || ''};
+  return null;
+}
+function hdRosterFindChip(box, name){
+  var chips = box.querySelectorAll('.hdr-chip[data-name]');
+  for (var i=0;i<chips.length;i++) if (chips[i].getAttribute('data-name') === name) return chips[i];
+  return null;
+}
+/* ドラッグ中のホバー強調＋入れ替え先の予告。行き先（.hdr-over）に加え、行き先が
+   「人の居る日勤の行」なら、つかんだ人が今いる行（または控え）も .hdr-swap で光らせる
+   ——落とす前に入れ替わることが分かるように。 */
+function hdRosterHighlight(box, el, dragName){
+  box.querySelectorAll('.hdr-row.hdr-over,.hdr-tray.hdr-over,.hdr-row.hdr-swap').forEach(function(x){ x.classList.remove('hdr-over','hdr-swap'); });
+  if (!el || !el.closest) return;
+  var row = el.closest('.hdr-row[data-hdr-role]');
+  var trayEl = el.closest('[data-hdr-tray]');
+  var target = row || trayEl;
+  if (!target) return;
+  target.classList.add('hdr-over');
+  if (row && dragName) {
+    var withName = row.getAttribute('data-hdr-with') || '';
+    if (withName && withName !== dragName) {
+      var cds = box.getAttribute('data-ds');
+      var srcSpot = plSpot(cds, dragName);
+      var srcEl = null;
+      if (srcSpot.kind === 'hdrole' && srcSpot.role) {
+        var withRows = box.querySelectorAll('.hdr-row[data-hdr-with]');
+        for (var i=0;i<withRows.length;i++) {
+          if (withRows[i].getAttribute('data-hdr-role') === srcSpot.role && withRows[i].getAttribute('data-hdr-with') === dragName) { srcEl = withRows[i]; break; }
+        }
+      } else {
+        srcEl = box.querySelector('[data-hdr-tray]');
+      }
+      if (srcEl && srcEl !== target) srcEl.classList.add('hdr-swap');
+    }
+  }
+}
+/* 移動・入れ替えの確定後、動いた行を約1秒光らせる（reduced-motionはCSS側でアニメ無効化のみ）。 */
+function hdRosterHighlightAfter(ds, movedNames){
+  refreshHdRoster(ds);
+  if (!movedNames || !movedNames.length) return;
+  var box = document.getElementById('hd-roster-box');
+  if (!box || box.getAttribute('data-ds') !== ds) return;
+  movedNames.forEach(function(nm){
+    var chip = hdRosterFindChip(box, nm);
+    var row = chip && chip.closest('tr');
+    if (!row) return;
+    row.classList.add('hdr-flash');
+    setTimeout(function(){ row.classList.remove('hdr-flash'); }, 1000);
+  });
+}
+/* タップ選択中に、行または控えをタップして移動を確定する。 */
+function hdRosterApplyPick(ds, targetEl){
+  var name = _hdRosterPick; _hdRosterPick = null;
+  if (!name) { refreshHdRoster(ds); return; }
+  var spec = hdRosterTargetSpec(targetEl);
+  if (!spec || (spec.kind === 'hdrole' && spec.with === name)) { refreshHdRoster(ds); return; }
+  var moved = hdRosterMove(ds, name, spec);
+  hdRosterHighlightAfter(ds, moved);
+}
+/* HD担当表の編集・配置盤の役割ピッカーから使う、取り消し付きの移動。
+   plMove を呼ぶ前に該当ページの placement/duties/extra_free を写し取り、成功したら
+   「取り消す」付きトーストを出す。取り消しはその時点の D.pages[ds] へ写しを書き戻す。
+   戻り値は動いた人の氏名の配列（入れ替えなら2人）——呼び出し側がハイライトに使う。
+   行き先がいまの居場所と同じ（空振り）なら plMove を呼ばずに null を返す——保存・トースト・
+   ログを出さない。入れ替わったかどうかも「with の有無」ではなく、相手の plSpot が
+   plMove の前後で実際に変わったかで判定する（役割ピッカー・ドロップ先の data-hdr-with は
+   描画時点の値なので、他端末の変更と競合して古い相手を指していることがある）。 */
+function hdRosterMove(ds, name, spec){
+  var dat = D.pages[ds]; if (!dat) return null;
+  var curSpot = plSpot(ds, name);
+  if (spec.kind === 'surplus' && curSpot.kind === 'surplus' && curSpot.side === 'hd') { refreshHdRoster(ds); return null; }
+  if (spec.kind === 'hdrole' && curSpot.kind === 'hdrole' && curSpot.role === spec.role
+      && (!spec.with || spec.with === name || spec.role === '準')) { refreshHdRoster(ds); return null; }
+
+  var before = {
+    placement:  JSON.parse(JSON.stringify(dat.placement  || null)),
+    duties:     JSON.parse(JSON.stringify(dat.duties     || null)),
+    extra_free: JSON.parse(JSON.stringify(dat.extra_free || null))
+  };
+  var withName = (spec.with && spec.with !== name) ? spec.with : '';
+  var wBefore = withName ? plSpot(ds, withName) : null;
+  var ok = plMove(ds, name, spec);
+  if (!ok) return null;
+
+  var swapped = false, wAfter = null;
+  if (withName) {
+    wAfter = plSpot(ds, withName);
+    swapped = wAfter.kind !== wBefore.kind || wAfter.role !== wBefore.role || wAfter.side !== wBefore.side;
+  }
+  var moved = swapped ? [name, withName] : [name];
+  function roleLabel(r){ return r === '準' ? '準夜' : r; }
+  var msg;
+  if (spec.kind === 'hdrole') {
+    if (swapped && wAfter.kind === 'hdrole' && wAfter.role) {
+      /* 役割どうしの入れ替え：どちらがどこへ行ったかを両方に書く */
+      msg = name + ' さん（→' + roleLabel(spec.role) + '）と ' + withName + ' さん（→' + roleLabel(wAfter.role) + '）を入れ替えました';
+    } else if (swapped) {
+      /* 控え・CE側などから、人の居る役割へ——元いた人は控えに押し出される */
+      msg = name + ' さんを ' + roleLabel(spec.role) + ' にしました（' + withName + ' さんは控えへ）';
+    } else {
+      msg = name + ' さんを ' + roleLabel(spec.role) + ' にしました';
+    }
+  } else if (spec.kind === 'surplus') {
+    msg = name + ' さんを控えにしました';
   } else {
-    noteCell = '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>';
+    msg = name + ' さんを移動しました';
   }
-  return '<tr><td style="font-weight:700">' + escH(r.role || '') + '</td><td>' + staffCell + '</td><td>' + noteCell + '</td></tr>';
+  toast(msg, 'ok', 8000, { label:'取り消す', fn:function(){
+    if (!can('duty')) return;
+    var dat2 = D.pages[ds]; if (!dat2) return;
+    var dutiesChanged = JSON.stringify(dat2.duties||null)     !== JSON.stringify(before.duties);
+    var freeChanged    = JSON.stringify(dat2.extra_free||null) !== JSON.stringify(before.extra_free);
+    dat2.placement  = before.placement;
+    dat2.duties     = before.duties;
+    dat2.extra_free = before.extra_free;
+    saveD();
+    renderPlacementBoard(ds, D.pages[ds], !can('duty'));
+    if (dutiesChanged || freeChanged) safeRenderPage();
+    updateStaffZoneBadge(ds); updateCloseBar(ds);
+    writeLog('人員配置変更', fmtJ(ds) + ' 取り消し：' + msg);
+  }});
+  return moved;
+}
+/* #hd-roster-box への委譲登録（1回だけ、box._hdrBound で守る）。click（編集切替・タップ選択・
+   確定・開閉）／input（備考の行ごとデバウンス保存）／drag系（PC）／touch系（スマホ長押し、
+   250ms・8pxスロップは配置盤 bindPlacementDnD と同じ規則。上下端60px以内で自動スクロール）。 */
+function hdRosterBindEvents(box, ds){
+  if (box._hdrBound) return;
+  box._hdrBound = true;
+
+  box.addEventListener('click', function(e){
+    var cds = box.getAttribute('data-ds') || ds;
+    /* フラグではなく時刻で守る：長押しドラッグの直後は合成clickが来ないことが多く、
+       真偽値のフラグだと立てっぱなしのまま「次に本当にタップした1回」まで捨ててしまう。 */
+    if (box._hdrTapGuardTs && (Date.now() - box._hdrTapGuardTs) < 600) return;
+
+    var editBtn = e.target.closest('[data-action="hdr-edit-toggle"]');
+    if (editBtn) { hdRosterToggleEdit(cds); return; }
+    var addBtn = e.target.closest('[data-action="hdr-add-person"]');
+    if (addBtn) { plAddPerson(cds, 'hd'); return; }
+    var hdHd = e.target.closest('.staffz-hd');
+    if (hdHd && box.getAttribute('data-variant') === 'ce') { toggleHdRef(); return; }
+
+    if (_hdRosterEdit !== cds) return; /* 以下は編集中だけ */
+    if (e.target.closest('textarea,button')) return; /* 備考欄・上のボタンは個別に処理済み */
+
+    var chip = e.target.closest('.hdr-chip');
+    if (chip) {
+      var nm = chip.getAttribute('data-name');
+      if (!_hdRosterPick) { _hdRosterPick = nm; refreshHdRoster(cds); return; }
+      if (_hdRosterPick === nm) { _hdRosterPick = null; refreshHdRoster(cds); return; }
+      var inTray = !!chip.closest('[data-hdr-tray]');
+      if (inTray) {
+        var curSpot = plSpot(cds, _hdRosterPick);
+        if (curSpot.kind !== 'hdrole' || !curSpot.role) { _hdRosterPick = nm; refreshHdRoster(cds); return; } /* 控え同士→選び直し */
+      }
+      hdRosterApplyPick(cds, chip);
+      return;
+    }
+    if (!_hdRosterPick) return;
+    var row = e.target.closest('.hdr-row[data-hdr-role]');
+    if (row) { hdRosterApplyPick(cds, row); return; }
+    var trayEl = e.target.closest('[data-hdr-tray]');
+    if (trayEl) { hdRosterApplyPick(cds, trayEl); return; }
+  });
+
+  var hdrNoteTimers = {}; /* 備考は氏名ごとに独立してデバウンスする（renderPageHDの旧実装と同じ理由） */
+  box.addEventListener('input', function(e){
+    var ta = e.target.closest('textarea.hd-note-ta');
+    if (!ta || !can('duty')) return;
+    var cds = box.getAttribute('data-ds') || ds;
+    var key = ta.getAttribute('data-name'), v = ta.value;
+    if (hdrNoteTimers[key]) clearTimeout(hdrNoteTimers[key]);
+    hdrNoteTimers[key] = setTimeout(function(){
+      var pg = D.pages[cds]; if (!pg) return;
+      pg.hdNotes = pg.hdNotes || {};
+      if (v) pg.hdNotes[key] = v; else delete pg.hdNotes[key];
+      saveDPage(cds);
+    }, 600);
+  });
+
+  /* ===== デスクトップ：HTML5 drag & drop ===== */
+  var deskDragName = '';
+  box.addEventListener('dragstart', function(e){
+    var chip = e.target.closest('.hdr-chip[draggable]'); if (!chip) return;
+    var cds = box.getAttribute('data-ds') || ds;
+    if (_hdRosterEdit !== cds) { e.preventDefault(); return; }
+    deskDragName = chip.getAttribute('data-name') || '';
+    e.dataTransfer.setData('text/plain', deskDragName);
+    e.dataTransfer.effectAllowed = 'move';
+    chip.classList.add('dragging');
+    _hdRosterPick = null;
+  });
+  box.addEventListener('dragend', function(e){
+    var chip = e.target.closest('.hdr-chip'); if (chip) chip.classList.remove('dragging');
+    hdRosterHighlight(box, null, ''); deskDragName = '';
+  });
+  box.addEventListener('dragover', function(e){
+    var cds = box.getAttribute('data-ds') || ds;
+    if (_hdRosterEdit !== cds) return;
+    e.preventDefault();
+    hdRosterHighlight(box, e.target, deskDragName);
+  });
+  box.addEventListener('dragleave', function(e){ if (!box.contains(e.relatedTarget)) hdRosterHighlight(box, null, ''); });
+  box.addEventListener('drop', function(e){
+    e.preventDefault();
+    var name = e.dataTransfer.getData('text/plain'); if (!name) return;
+    var cds = box.getAttribute('data-ds') || ds;
+    var spec = hdRosterTargetSpec(e.target);
+    hdRosterHighlight(box, null, ''); deskDragName = '';
+    if (!spec || (spec.kind === 'hdrole' && spec.with === name)) return;
+    var moved = hdRosterMove(cds, name, spec);
+    hdRosterHighlightAfter(cds, moved);
+  });
+
+  /* ===== スマホ：長押し（250ms）でドラッグ開始。配置盤 bindPlacementDnD と同じ規則に、
+     上下端60px以内での自動スクロールを足す（#main が縦スクロール可ならそれ、
+     なければ document.scrollingElement——dashJumpTop と同じ判定）。 ===== */
+  var ghost = null, dragName = '', holdTimer = null, holdStart = null, holdChip = null;
+  var scrollTimer = null, scrollDir = 0;
+  var HOLD_MS = 250, HOLD_SLOP = 8, EDGE_PX = 60;
+
+  function cancelHold(){ if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; } holdStart = null; holdChip = null; }
+  function stopAutoScroll(){ if (scrollTimer) { clearInterval(scrollTimer); scrollTimer = null; } scrollDir = 0; }
+  function autoScrollCheck(y){
+    var dir = 0;
+    if (y < EDGE_PX) dir = -1; else if (y > window.innerHeight - EDGE_PX) dir = 1;
+    if (!dir) { stopAutoScroll(); return; }
+    if (scrollTimer && scrollDir === dir) return;
+    stopAutoScroll(); scrollDir = dir;
+    var mainEl = document.getElementById('main');
+    var cont = (mainEl && mainEl.scrollHeight > mainEl.clientHeight + 1) ? mainEl : document.scrollingElement;
+    if (!cont) return;
+    scrollTimer = setInterval(function(){ cont.scrollTop += dir * 14; }, 16);
+  }
+  function startDrag(x, y){
+    if (!holdChip) return;
+    dragName = holdChip.getAttribute('data-name') || '';
+    if (!dragName) { cancelHold(); return; }
+    ghost = document.createElement('div');
+    ghost.textContent = dragName;
+    ghost.style.cssText = 'position:fixed;z-index:9999;background:var(--ac);color:var(--on-ac);border-radius:8px;'
+      + 'padding:6px 12px;font-size:13px;font-weight:700;pointer-events:none;opacity:.85;white-space:nowrap;transform:translate(-50%,-50%)';
+    document.body.appendChild(ghost);
+    ghost.style.left = x+'px'; ghost.style.top = y+'px';
+    holdChip.classList.add('dragging');
+    _hdRosterPick = null;
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch(e){} }
+    holdTimer = null;
+  }
+  function endTouchDrag(){
+    if (ghost) { try { document.body.removeChild(ghost); } catch(e){} ghost = null; }
+    hdRosterHighlight(box, null, ''); stopAutoScroll();
+    document.querySelectorAll('.hdr-chip.dragging').forEach(function(c){ c.classList.remove('dragging'); });
+    dragName = ''; cancelHold();
+  }
+
+  box.addEventListener('touchstart', function(e){
+    var cds = box.getAttribute('data-ds') || ds;
+    if (_hdRosterEdit !== cds) return;
+    if (e.target.closest('button,select,input,textarea,a')) return;
+    var chip = e.target.closest('.hdr-chip[draggable]'); if (!chip) return;
+    var t = e.touches[0];
+    holdChip = chip; holdStart = {x:t.clientX, y:t.clientY};
+    holdTimer = setTimeout(function(){ startDrag(holdStart.x, holdStart.y); }, HOLD_MS);
+  }, {passive:true});
+
+  box.addEventListener('touchmove', function(e){
+    var t = e.touches[0];
+    if (!ghost) {
+      if (holdStart && (Math.abs(t.clientX-holdStart.x) > HOLD_SLOP || Math.abs(t.clientY-holdStart.y) > HOLD_SLOP)) cancelHold();
+      return;
+    }
+    e.preventDefault();
+    ghost.style.left = t.clientX+'px'; ghost.style.top = t.clientY+'px';
+    ghost.style.display = 'none';
+    hdRosterHighlight(box, document.elementFromPoint(t.clientX, t.clientY), dragName);
+    ghost.style.display = '';
+    autoScrollCheck(t.clientY);
+  }, {passive:false});
+
+  box.addEventListener('touchend', function(e){
+    if (!ghost || !dragName) { cancelHold(); return; }
+    var t = e.changedTouches[0];
+    ghost.style.display = 'none';
+    var el = document.elementFromPoint(t.clientX, t.clientY);
+    var name = dragName;
+    var cds = box.getAttribute('data-ds') || ds;
+    endTouchDrag();
+    var spec = hdRosterTargetSpec(el);
+    if (!spec || (spec.kind === 'hdrole' && spec.with === name)) return;
+    box._hdrTapGuardTs = Date.now();
+    var moved = hdRosterMove(cds, name, spec);
+    hdRosterHighlightAfter(cds, moved);
+  }, {passive:true});
+
+  box.addEventListener('touchcancel', function(){ endTouchDrag(); }, {passive:true});
+}
+/* 配置盤の「🩸 役割」枠に名前を落とした（またはタップ割当した）ときに出す、役割を選ぶ小画面。
+   各ボタンに「いまの担当者」を添えるので、入れ替えになることが押す前に分かる。 */
+function openHdRolePicker(ds, name){
+  var old = document.getElementById('pl-dlg-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'pl-dlg-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '360px';
+  var h = '<h3 style="margin-bottom:2px">🩸 ' + escH(name) + ' さんの役割</h3>';
+  h += '<div style="font-size:11px;color:var(--txt3);margin-bottom:10px">押すとその役割にします。すでに誰か居る役割は入れ替わります</div>';
+  h += '<div class="hdrp-grid">';
+  HD_DAY_CODES.forEach(function(c){
+    var occ = hdRoleOccupant(ds, c, name);
+    h += '<button type="button" class="hdrp-btn" data-hdrp-role="' + escH(c) + '"><span class="hdrp-role">' + escH(c) + '</span><span class="hdrp-occ">' + (occ ? escH(occ) : '空き') + '</span></button>';
+  });
+  h += '<button type="button" class="hdrp-btn" data-hdrp-role="準" style="grid-column:span 2"><span class="hdrp-role">準夜</span><span class="hdrp-occ">追加されます</span></button>';
+  h += '</div>';
+  h += '<div class="pl-mgrp" style="margin-top:12px">その他</div>';
+  h += '<button type="button" class="pl-mrow" data-hdrp-tray="1"><span>🔄 控え（HD余剰）へ</span></button>';
+  h += '<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-g" id="pl-dlg-cancel">キャンセル</button></div>';
+  md.innerHTML = h;
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('pl-dlg-cancel').onclick = function(){ ov.remove(); };
+  md.addEventListener('click', function(e){
+    var trayBtn = e.target.closest('[data-hdrp-tray]');
+    if (trayBtn) { ov.remove(); hdRosterMove(ds, name, {kind:'surplus', side:'hd'}); return; }
+    var b = e.target.closest('[data-hdrp-role]'); if (!b) return;
+    var role = b.getAttribute('data-hdrp-role');
+    ov.remove();
+    hdRosterMove(ds, name, {kind:'hdrole', role:role, with: hdRoleOccupant(ds, role, name)});
+  });
 }
 
 /* ===== HD主観：血液浄化の実施件数（dat.hdCount） =====
@@ -16456,7 +17030,7 @@ function hdCountPanelInnerHTML(ds, dat) {
   return h;
 }
 /* 特殊治療<select>のoption群。D.hdTreatmentsから削除済みでも現在選択中の値だけは
-   「（旧）」表示で残し、過去の入力を消さない（hdRosterRowHTMLの名簿外スタッフ表示と同じ方針）。 */
+   「（旧）」表示で残し、過去の入力を消さない。 */
 function hdTreatOptsHTML(sel) {
   var o = '<option value="">-- 治療を選択 --</option>';
   (D.hdTreatments || []).forEach(function (t) { o += '<option value="' + escH(t) + '"' + (t === sel ? ' selected' : '') + '>' + escH(t) + '</option>'; });
@@ -16554,33 +17128,9 @@ function ceRosterRefHTML(ds, dat) {
   h += '</tbody></table></div></div></div>';
   return h;
 }
-/* CE日ページに出す「HD担当表」。備考（dat.hdNotes）は実効氏名がキーなので buildHdRoster の r.name で引く。 */
-function hdRosterRefHTML(ds, dat) {
-  var rows = buildHdRoster(ds);
-  if (!rows.length) return ''; /* その日HD勤務者がいなければ見出しごと出さない */
-  var notes = dat.hdNotes || {};
-  var noteN = rows.filter(function(r){ return !!notes[r.name]; }).length;
-  var h = '<div class="staffz">';
-  h += '<div class="staffz-hd" onclick="toggleHdRef()">';
-  h += '<span class="staffz-ttl">🩸 HD担当表</span>';
-  h += '<span class="staffz-badge">'+rows.length+'名'+(noteN?'・備考'+noteN:'')+'</span>';
-  h += '<span class="staffz-arrow" id="hd-ref-arrow">'+(_hdRefOpen?'▲':'▼')+'</span>';
-  h += '</div>';
-  h += '<div id="hd-ref-body" style="display:'+(_hdRefOpen?'block':'none')+';padding-top:10px">';
-  h += '<div class="data-wrap"><table class="data-tbl">';
-  h += '<thead><tr><th style="width:64px">役割</th><th style="width:34%">スタッフ</th><th>備考</th></tr></thead><tbody>';
-  var dayRows = rows.filter(function(r){ return !r.night; });
-  var ntRows  = rows.filter(function(r){ return  r.night; });
-  function row(r){
-    var nt = notes[r.name] || '';
-    return '<tr><td style="font-weight:700">'+escH(r.role||'')+'</td><td>'+escH(r.name||'')+'</td>'
-         + '<td style="white-space:pre-wrap;font-size:11px">'+(nt?escH(nt):'<span class="muted">—</span>')+'</td></tr>';
-  }
-  if (dayRows.length) { h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>'; dayRows.forEach(function(r){ h += row(r); }); }
-  if (ntRows.length)  { h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>'; ntRows.forEach(function(r){ h += row(r); }); }
-  h += '</tbody></table></div></div></div>';
-  return h;
-}
+/* CE日ページに出す「HD担当表」は hdRosterBoxHTML(ds, dat, 'ce') / #hd-roster-box /
+   refreshHdRoster(ds) に統合済み（上記「HD担当表：共通部品」節）。編集も可能——
+   同じ日の同じ現場なので、CE主観からも役割の入れ替えができてよい、という判断。 */
 
 /* ===== HD主観の日ページ（フェーズ1：骨組み／フェーズ3：HD担当表を追加／フェーズ4：HD担当表の手動修正・備考編集／
    血液浄化件数入力・HDチェックリストを追加） =====
@@ -16621,28 +17171,11 @@ function renderPageHD(ds) {
   /* 血液浄化の実施件数（ダッシュボード） */
   h += '<div class="hdash" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
 
-  /* HD担当表（フェーズ4：担当変更・備考編集可）：役割/スタッフ/備考の3列、1人1行。
-     「今日の件数と人員」を上にまとめたいのでダッシュボードの真下に置く。
-     イベント委譲は innerHTML 差し込み後に #hd-roster-wrap を引き直しているため、組み立て順を変えても動く。 */
-  h += '<div class="st">🩸 HD担当表</div>';
-  var hdRows = buildHdRoster(ds);
-  if (!hdRows.length) {
-    h += '<div class="pool-empty" style="padding:14px 0">勤務表データがありません</div>';
-  } else {
-    var hdDayRows = hdRows.filter(function (r) { return !r.night; });
-    var hdNightRows = hdRows.filter(function (r) { return r.night; });
-    h += '<div class="data-wrap" id="hd-roster-wrap"><table class="data-tbl">';
-    h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th>備考</th></tr></thead><tbody>';
-    if (hdDayRows.length) {
-      h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';
-      hdDayRows.forEach(function (r) { h += hdRosterRowHTML(dat, r, dlk); });
-    }
-    if (hdNightRows.length) {
-      h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>';
-      hdNightRows.forEach(function (r) { h += hdRosterRowHTML(dat, r, dlk); });
-    }
-    h += '</tbody></table></div>';
-  }
+  /* HD担当表：役割の入れ替え・編集ができる共通部品（#hd-roster-box / refreshHdRoster）。
+     「今日の件数と人員」を上にまとめたいのでダッシュボードの真下に置く。見出しも
+     入れ物の中に含む（編集ボタンを見出しの右に置くため）。中身は renderPlacementBoard
+     経由で常に refreshHdRoster が最新化するので、ここでは空の入れ物を置くだけでよい。 */
+  h += '<div id="hd-roster-box" data-ds="' + ds + '" data-variant="hd"></div>';
 
   /* CE担当表（読み取り専用）。同じ日の同じ現場を別主観で見ているだけなので、相手側の割り当ては見えるべき。
      編集はCE主観の担当カードで行うため、ここは色付きの枠名と担当者を出すだけにする。 */
@@ -16733,7 +17266,7 @@ function renderPageHD(ds) {
         refreshHdCountPanel(ds);
       }
     });
-    var hdCountTimers = {}; /* 区分ごとに独立してデバウンスする（hdRosterWrapのhdNoteTimersと同じ理由） */
+    var hdCountTimers = {}; /* 区分ごとに独立してデバウンスする（hdRosterBindEventsのhdrNoteTimersと同じ理由） */
     hdCountPanel.addEventListener('input', function (e) {
       var inp = e.target.closest('input[data-hdcnt-field]');
       if (!inp || !can('ops')) return;
@@ -16797,43 +17330,10 @@ function renderPageHD(ds) {
     });
   }
 
-  /* HD担当表の編集イベント登録（担当変更・備考入力）：行を毎回イベント委譲し直す（evtAreaと同じ方式）。
-     dlk（!can('duty')）のときは<select>/<textarea>自体を描画していないのでここは何もしない。 */
-  var hdRosterWrap = document.getElementById('hd-roster-wrap');
-  if (hdRosterWrap && !dlk) {
-    /* 役割の担当者差し替え。旧 hdDuty.overrides（差分メモ）ではなく台帳を直接動かす。
-       同じ役割を複数人で持つ枠（準夜は3名）があるので、「同じ役割の人を全員外す」のではなく
-       <strong>その行に居た人だけ</strong>をHDの余剰へ回す（data-derived がその行の現担当者）。 */
-    hdRosterWrap.addEventListener('change', function (e) {
-      var sel = e.target.closest('select.hd-name-sel');
-      if (!sel) return;
-      var prev = sel.getAttribute('data-derived');
-      var role = sel.getAttribute('data-role') || '';
-      var val = sel.value;
-      if (!val || val === prev) return;
-      if (prev) {
-        var pl = plFix(ds);
-        if (pl.people[prev]) { plClearSpot(ds, prev); pl.people[prev].side = 'hd'; pl.people[prev].spot = 'surplus'; }
-      }
-      plMove(ds, val, { kind: 'hdrole', role: role });
-      renderPageHD(ds); /* 行の再構成を伴うため全体を再描画 */
-    });
-    var hdNoteTimers = {}; /* 備考は行ごとに独立してデバウンスする（1つのタイマーを共有すると同時編集時に取りこぼす） */
-    hdRosterWrap.addEventListener('input', function (e) {
-      var ta = e.target.closest('textarea.hd-note-ta');
-      if (!ta) return;
-      var key = ta.getAttribute('data-name');
-      var v = ta.value;
-      if (hdNoteTimers[key]) clearTimeout(hdNoteTimers[key]);
-      hdNoteTimers[key] = setTimeout(function () {
-        var pg = D.pages[ds];
-        if (!pg) return;
-        pg.hdNotes = pg.hdNotes || {};
-        if (v) pg.hdNotes[key] = v; else delete pg.hdNotes[key];
-        saveDPage(ds);
-      }, 600);
-    });
-  }
+  /* HD担当表の中身と編集イベントを流し込む。renderPlacementBoard（この下）も呼ぶたびに
+     refreshHdRoster するが、ここで先に一度呼んでおくことで #hd-roster-box が空のまま
+     描画される瞬間を作らない（二重に呼んでも軽い処理なので害はない）。 */
+  refreshHdRoster(ds);
 
   /* HDチェックリスト本体の描画。buildHdCLは冒頭でnullガードするため、常に無条件に呼んでよい */
   buildHdCL(ds, dat, clk);
@@ -20263,7 +20763,7 @@ function toast(msg, type, ms, action) { /* ms：表示時間を変えたいと�
   el.id = 'fb-toast';
   el.className = 'fb-toast ' + t;
   el.setAttribute('role', t === 'err' ? 'alert' : 'status');
-  el.innerHTML = '<span>' + escH(msg) + '</span>' + (action ? '<button type="button" class="fb-toast-act">' + escH(action.label) + '</button>' : '') + '<span class="fb-toast-x">✕</span>';
+  el.innerHTML = '<span class="fb-toast-msg">' + escH(msg) + '</span>' + (action ? '<button type="button" class="fb-toast-act">' + escH(action.label) + '</button>' : '') + '<span class="fb-toast-x">✕</span>';
   el.onclick = function(){ el.remove(); };
   if (action) el.querySelector('.fb-toast-act').onclick = function(e){ e.stopPropagation(); el.remove(); action.fn(); };
   document.body.appendChild(el);
