@@ -521,14 +521,22 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .hdr-row.hdr-over td{background:var(--ac-bg2,var(--ac-bg))!important;outline:2px solid var(--ac);outline-offset:-2px}
 .hdr-row.hdr-swap td{background:var(--or-bg)!important;outline:2px dashed var(--or);outline-offset:-2px}
 .hdr-tray.hdr-over{outline:2px solid var(--ac);background:var(--ac-bg2,var(--ac-bg))}
-.hdr-chip{display:inline-flex;align-items:center;gap:4px;min-height:44px;box-sizing:border-box;background:var(--sur);border:1px solid var(--bdr);border-radius:14px;padding:5px 12px;font-size:13px;font-weight:700;color:var(--txt);cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+/* 名前は折り返さない。表が自動レイアウトで備考のtextarea（width:100%）に幅を取られると
+   スタッフ列が圧縮され、CJKテキストは単語境界が無いため任意の文字位置で折り返ってしまう
+   （「テスト」が2行になる不具合の原因）。nowrapで防ぎ、縮むのは備考列だけにする（下記）。 */
+.hdr-chip{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:4px;min-height:44px;box-sizing:border-box;background:var(--sur);border:1px solid var(--bdr);border-radius:14px;padding:5px 12px;font-size:13px;font-weight:700;color:var(--txt);cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;white-space:nowrap}
 .hdr-chip .hdr-grip{color:var(--txt3);font-size:12px}
+.hdr-chip-n{white-space:nowrap}
+.hdr-staff-td{white-space:nowrap}
+.hd-note-ta{min-width:64px}
 .hdr-chip.dragging{opacity:.6;box-shadow:var(--shl);transform:scale(1.06)}
 .hdr-chip.picked{border-color:var(--ac);background:var(--ac-bg);box-shadow:0 0 0 2px var(--ac) inset}
 .hdr-tray{margin-top:8px;border:1.5px dashed var(--bdr2);border-radius:8px;padding:8px 10px}
 .hdr-tray-hd{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;color:var(--txt3);margin-bottom:6px}
 .hdr-tray-hd button{margin-left:auto}
 .hdr-tray-body{display:flex;flex-wrap:wrap;gap:6px;min-height:36px;align-items:center}
+/* 画面幅が狭いとき、編集中チップの「🩺 CEから」バッジは絵文字だけにする（通常表示は常にフル表示） */
+@media(max-width:400px){.hdr-chip .hcb-tx{display:none}}
 @keyframes hdrFlash{0%{background:var(--ac-bg2,var(--ac-bg))}100%{background:transparent}}
 .hdr-flash td{animation:hdrFlash 1s ease}
 @media(prefers-reduced-motion:reduce){.hdr-flash td{animation:none;background:var(--ac-bg2,var(--ac-bg))}}
@@ -16459,7 +16467,7 @@ function hdRosterNormalRowHTML(dat, r) {
   var noteCell = can('duty')
     ? '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>'
     : (note ? escH(note) : '<span class="muted">—</span>');
-  return '<tr><td style="font-weight:700">' + (r.role ? escH(r.role) : '<span class="muted">—</span>') + '</td><td>' + staffCell + '</td><td>' + noteCell + '</td></tr>';
+  return '<tr><td style="font-weight:700">' + (r.role ? escH(r.role) : '<span class="muted">—</span>') + '</td><td class="hdr-staff-td">' + staffCell + '</td><td>' + noteCell + '</td></tr>';
 }
 function hdRosterNormalTableHTML(ds, dat) {
   var rows = buildHdRoster(ds);
@@ -16467,7 +16475,7 @@ function hdRosterNormalTableHTML(ds, dat) {
   var dayRows = rows.filter(function (r) { return !r.night; });
   var nightRows = rows.filter(function (r) { return r.night; });
   var h = '<div class="data-wrap"><table class="data-tbl">';
-  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th>備考</th></tr></thead><tbody>';
+  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th style="width:100%">備考</th></tr></thead><tbody>';
   if (dayRows.length)   { h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';   dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
   if (nightRows.length) { h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>'; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
   h += '</tbody></table></div>';
@@ -16500,7 +16508,7 @@ function hdRosterEditData(ds) {
 function hdrChipHTML(name, from, picked) {
   var h = '<span class="hdr-chip' + (picked ? ' picked' : '') + '" draggable="true" data-name="' + escH(name) + '">'
     + '<span class="hdr-grip">⠿</span><span class="hdr-chip-n">' + escH(name) + '</span>';
-  if (from) h += '<span class="hd-changed-badge">🩺 CEから</span>';
+  if (from) h += '<span class="hd-changed-badge" title="CEから受け取った応援"><span class="hcb-ic">🩺</span><span class="hcb-tx"> CEから</span></span>';
   h += '</span>';
   return h;
 }
@@ -16533,7 +16541,7 @@ function hdRosterEditTableHTML(ds, dat) {
     : '名前を長押しで運ぶか、名前→役割の順にタップ';
   var h = '<div class="hdr-hint">' + escH(hintText) + '</div>';
   h += '<div class="data-wrap"><table class="data-tbl hdr-edit-tbl' + (picking ? ' picking' : '') + '">';
-  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th>備考</th></tr></thead><tbody>';
+  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th style="width:100%">備考</th></tr></thead><tbody>';
   h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';
   HD_DAY_CODES.forEach(function (role) {
     var people = data.dayByRole[role];
