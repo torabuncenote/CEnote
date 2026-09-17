@@ -514,6 +514,13 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 @media(max-width:768px){.pl-cols{flex-direction:column}.pl-zones{flex-direction:column}/* 狭い画面ではヒント文がボタンを押し下げて操作しづらくなるので隠す（操作自体は同じ） */.pl-hint{display:none}.pl-toolbar{justify-content:flex-end}.pl-btn{font-size:11px;padding:3px 8px}.pl-role-sel{height:24px;font-size:11px}}
 /* ===== HD担当表：役割の編集（#hd-roster-box） ===== */
 .hdr-hint{font-size:11px;color:var(--txt2);background:var(--sur2);border-radius:6px;padding:6px 10px;margin-bottom:6px}
+/* 区切り行（🔵日勤／🌙準夜）の右端、または表が空のときは.pool-emptyの横に置くボタン。
+   行の高さが大きく膨らまないよう既定のbtn-smより上下の余白を詰める
+   （スマホの押しやすさは下の@media側で確保）。.btnと2クラスにして詳細度(0,2,0)を
+   .btn/.btn-sm単体(各0,1,0)より確実に上げる——単一クラスのままだと出現順で
+   後方の.btn定義に負けて余白が詰まらない。padding/line-heightは.btn-gのborder(2px)分も
+   見込んで詰め、ボタン無しの隣の区切り行（準夜）と高さがほぼ揃うようにしている。 */
+.btn.hdr-edit-btn{padding:1px 10px;font-size:11px;line-height:1.2;min-height:0}
 .hdr-edit-tbl tbody td{height:44px}
 .hdr-empty{font-size:11px;color:var(--txt3);border:1px dashed var(--bdr2);border-radius:6px;padding:5px 10px;display:inline-block}
 .hdr-row[data-hdr-role]{cursor:pointer}
@@ -1064,6 +1071,12 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   .pool-chip-x{padding:6px 8px;font-size:14px}
   .pool-mini-btn{padding:5px 10px;font-size:11px}
   .staffz-hd{padding:11px 14px}
+  /* 区切り行のボタンはタップ対象の高さを確保する。PC側と同じ.btn.hdr-edit-btnで詳細度を揃える */
+  .btn.hdr-edit-btn{min-height:28px;padding:6px 12px}
+  /* tr.group-hd内（日勤/準夜の区切り行）だけ、上下の負マージンでtdの余白(6px)に食い込ませ、
+     ボタンの高さ(28px)を保ったまま行の高さは準夜の行に揃える。左右は指定しない
+     （インラインのmargin-left:autoによる右寄せを壊さないため） */
+  tr.group-hd .btn.hdr-edit-btn{min-height:28px;padding:4px 12px;margin-top:-6px;margin-bottom:-6px}
   /* 5列のままだと1タイル60px弱まで潰れて2桁の数字が窮屈になるため3列で折り返す */
   .hdash-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
   .hdash-tile .n{font-size:23px}
@@ -5446,17 +5459,20 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/17-84';
+var APP_VERSION = 'Ver.2026/09/18-85';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/18-85', date:'2026-09-18', title:'HD担当表の編集ボタンの場所を変えました', items:[
+    {t:'imp', d:'🩸 HD担当表の「✏️ 役割を編集」ボタンを、見出しから表の中の「🔵 日勤」の行へ移しました'}
+  ]},
   { ver:'Ver.2026/09/17-84', date:'2026-09-17', title:'担当表とマイ担当に「未振り分け」を出すようにしました', items:[
     {t:'imp', d:'📊 担当表で、CE勤務なのに担当枠が決まっていない人のマスに「CE未振分」と出すようにしました。余剰人員・メンテ・休み・その他の人も、本人のマスにその状態が出ます（担当枠より控えめな点線で表示します）'},
     {t:'imp', d:'👤 マイ担当で、担当枠が決まっていない勤務日も「CE（未振り分け）」「HD（未振り分け）」として表示するようにしました'}
   ]},
   { ver:'Ver.2026/09/17-83', date:'2026-09-17', title:'HD担当表で役割を入れ替えられるようにしました', items:[
-    {t:'new', d:'🩸 HD担当表の「✏️ 役割を編集」から、名前を長押しで運ぶか、名前→役割の順にタップして役割を決められるようにしました。人の居る役割に落とすと2人の役割が入れ替わり、準夜は人数が増えます。押し間違えても「取り消す」で戻せます'},
+    {t:'new', notify:true, d:'🩸 HD担当表の「✏️ 役割を編集」から、名前を長押しで運ぶか、名前→役割の順にタップして役割を決められるようにしました。人の居る役割に落とすと2人の役割が入れ替わり、準夜は人数が増えます。押し間違えても「取り消す」で戻せます'},
     {t:'imp', d:'👥 人員配置管理で役割を変えたり人を追加したりすると、HD担当表にもすぐ反映されるようにしました。CEの連絡表にあるHD担当表からも同じように編集できます'},
     {t:'imp', d:'🩸 人員配置管理の「役割」の枠に名前を落とすと、役割を選ぶ画面が出るようにしました。各役割のいまの担当者も表示されます'},
     {t:'fix', d:'準夜の人を日勤の役割へ移しても、HD担当表で準夜の段に並んでいたのを直しました'},
@@ -6052,23 +6068,32 @@ var WHATSNEW_SEEN_KEY = 'ce2_seenseq';
 function whatsNewMarkSeen() {
   try { localStorage.setItem(WHATSNEW_SEEN_KEY, String(APP_SEQ)); } catch (e) {}
 }
-/* seenSeq より新しいリリースのうち、見せてよい項目が残るものだけを新しい順で返す。
-   一般ユーザーは既存の filterChangelogForGeneral() を通す（admin項目とfixを除外）。
-   管理者は admin項目も見えるので fix だけ除く。 */
+/* seenSeq より新しいリリースのうち、notify:true が付いている項目だけを新しい順で返す（opt-in）。
+   一般ユーザーは既存の filterChangelogForGeneral() を通してから（admin項目とfixを除外）、
+   管理者は admin項目も見えるので fix だけ除いてから、それぞれ notify:true の項目だけに絞る
+   （fix は notify が付いていても出さない）。残りが0件のリリースは落とす。
+   notify:true はマージ前にユーザーへ表で1項目ずつ確認してOKが出た項目にだけ付ける。 */
 function whatsNewReleases(seenSeq) {
   var newer = APP_CHANGELOG.filter(function(rel) {
     var m = /^Ver\.\d{4}\/\d{2}\/\d{2}-(\d+)$/.exec(rel.ver); /* 旧形式('2026.06y')は対象外 */
     return !!m && parseInt(m[1], 10) > seenSeq;
   });
+  var base;
   if (isAdmin) {
-    var out = [];
+    base = [];
     newer.forEach(function(rel) {
       var items = (rel.items || []).filter(function(it) { return it.t !== 'fix'; });
-      if (items.length) out.push({ ver: rel.ver, date: rel.date, title: rel.title, items: items });
+      if (items.length) base.push({ ver: rel.ver, date: rel.date, title: rel.title, items: items });
     });
-    return out;
+  } else {
+    base = filterChangelogForGeneral(newer);
   }
-  return filterChangelogForGeneral(newer);
+  var out = [];
+  base.forEach(function(rel) {
+    var items = rel.items.filter(function(it) { return it.notify === true; });
+    if (items.length) out.push({ ver: rel.ver, date: rel.date, title: rel.title, items: items });
+  });
+  return out;
 }
 function maybeShowWhatsNew() {
   if (_staleApp) return; /* 古いアプリのまま新しいリリース内容を見せない */
@@ -16512,13 +16537,14 @@ function hdRosterNormalRowHTML(dat, r) {
 }
 function hdRosterNormalTableHTML(ds, dat) {
   var rows = buildHdRoster(ds);
-  if (!rows.length) return '<div class="pool-empty" style="padding:14px 0">勤務表データがありません</div>';
+  var btn = hdRosterEditBtnHTML(false); /* 最初の区切り行にだけ置く。空表示なら文言の横に置く */
+  if (!rows.length) return '<div class="pool-empty" style="display:flex;align-items:center;gap:8px;padding:14px 0"><span>勤務表データがありません</span>' + btn + '</div>';
   var dayRows = rows.filter(function (r) { return !r.night; });
   var nightRows = rows.filter(function (r) { return r.night; });
   var h = '<div class="data-wrap"><table class="data-tbl">';
   h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th style="width:100%">備考</th></tr></thead><tbody>';
-  if (dayRows.length)   { h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';   dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
-  if (nightRows.length) { h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>'; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
+  if (dayRows.length)   { h += hdRosterGroupRowHTML('🔵 日勤', btn); btn = ''; dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
+  if (nightRows.length) { h += hdRosterGroupRowHTML('🌙 準夜', btn); btn = ''; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
   h += '</tbody></table></div>';
   return h;
 }
@@ -16583,13 +16609,13 @@ function hdRosterEditTableHTML(ds, dat) {
   var h = '<div class="hdr-hint">' + escH(hintText) + '</div>';
   h += '<div class="data-wrap"><table class="data-tbl hdr-edit-tbl' + (picking ? ' picking' : '') + '">';
   h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th style="width:100%">備考</th></tr></thead><tbody>';
-  h += '<tr class="group-hd"><td colspan="3">🔵 日勤</td></tr>';
+  h += hdRosterGroupRowHTML('🔵 日勤', hdRosterEditBtnHTML(true));
   HD_DAY_CODES.forEach(function (role) {
     var people = data.dayByRole[role];
     if (!people.length) h += hdRosterEditRowHTML(dat, role, null, picking);
     else people.forEach(function (p) { h += hdRosterEditRowHTML(dat, role, p, picking); });
   });
-  h += '<tr class="group-hd"><td colspan="3">🌙 準夜</td></tr>';
+  h += hdRosterGroupRowHTML('🌙 準夜', '');
   data.night.forEach(function (p) { h += hdRosterEditRowHTML(dat, '準', p, picking); });
   h += '<tr class="hdr-row hdr-add" data-hdr-role="準"><td style="font-weight:700">準夜</td><td><span class="hdr-empty">＋ 準夜に追加（ここへ）</span></td><td></td></tr>';
   h += '</tbody></table></div>';
@@ -16598,6 +16624,11 @@ function hdRosterEditTableHTML(ds, dat) {
 }
 function hdRosterTableHTML(ds, dat, editing) {
   return editing ? hdRosterEditTableHTML(ds, dat) : hdRosterNormalTableHTML(ds, dat);
+}
+/* 区切り行（🔵 日勤／🌙 準夜）。btn は最初の区切り行にだけ渡し、右端に置く
+   （td の中をflexにして左にラベル・右にボタン。区切り行自体の背景・文字色は変えない）。 */
+function hdRosterGroupRowHTML(label, btn) {
+  return '<tr class="group-hd"><td colspan="3"><span style="display:flex;align-items:center">' + label + (btn || '') + '</span></td></tr>';
 }
 function hdRosterEditBtnHTML(editing) {
   if (!can('duty')) return '';
@@ -16618,7 +16649,6 @@ function hdRosterBoxHTML(ds, dat, variant) {
     h += '<div class="staffz-hd">';
     h += '<span class="staffz-ttl">🩸 HD担当表</span>';
     h += '<span class="staffz-badge">' + hdAll.length + '名' + (noteN ? '・備考' + noteN : '') + '</span>';
-    h += hdRosterEditBtnHTML(editing);
     h += '<span class="staffz-arrow" id="hd-ref-arrow">' + (_hdRefOpen ? '▲' : '▼') + '</span>';
     h += '</div>';
     h += '<div id="hd-ref-body" style="display:' + (_hdRefOpen ? 'block' : 'none') + ';padding-top:10px">';
@@ -16626,7 +16656,7 @@ function hdRosterBoxHTML(ds, dat, variant) {
     h += '</div></div>';
     return h;
   }
-  var h2 = '<div class="st" style="display:flex;align-items:center"><span>🩸 HD担当表</span>' + hdRosterEditBtnHTML(editing) + '</div>';
+  var h2 = '<div class="st">🩸 HD担当表</div>';
   h2 += '<div id="hd-roster-wrap">' + hdRosterTableHTML(ds, dat, editing) + '</div>';
   return h2;
 }
