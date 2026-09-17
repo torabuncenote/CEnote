@@ -947,6 +947,7 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .atr:hover td{background:var(--ac-bg)!important}
 .atr:hover td.sc{background:var(--ac-bg2)!important}
 .dch{display:inline-block;font-size:10px;font-weight:700;padding:2px 5px;border-radius:3px;line-height:1.4;margin:1px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.dch.dch-st{background:transparent;color:var(--txt2);border:1px dashed var(--bdr2);font-weight:600;white-space:nowrap}
 .dc-n{color:var(--txt3);font-size:10px}
 .dhw{font-size:9px;font-weight:700;display:inline-block}
 .dhw.su{color:var(--rd)}.dhw.sa{color:var(--ac)}
@@ -5445,11 +5446,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/17-83';
+var APP_VERSION = 'Ver.2026/09/17-84';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/17-84', date:'2026-09-17', title:'担当表とマイ担当に「未振り分け」を出すようにしました', items:[
+    {t:'imp', d:'📊 担当表で、CE勤務なのに担当枠が決まっていない人のマスに「CE未振分」と出すようにしました。余剰人員・メンテ・休み・その他の人も、本人のマスにその状態が出ます（担当枠より控えめな点線で表示します）'},
+    {t:'imp', d:'👤 マイ担当で、担当枠が決まっていない勤務日も「CE（未振り分け）」「HD（未振り分け）」として表示するようにしました'}
+  ]},
   { ver:'Ver.2026/09/17-83', date:'2026-09-17', title:'HD担当表で役割を入れ替えられるようにしました', items:[
     {t:'new', d:'🩸 HD担当表の「✏️ 役割を編集」から、名前を長押しで運ぶか、名前→役割の順にタップして役割を決められるようにしました。人の居る役割に落とすと2人の役割が入れ替わり、準夜は人数が増えます。押し間違えても「取り消す」で戻せます'},
     {t:'imp', d:'👥 人員配置管理で役割を変えたり人を追加したりすると、HD担当表にもすぐ反映されるようにしました。CEの連絡表にあるHD担当表からも同じように編集できます'},
@@ -6953,6 +6958,42 @@ function plSpotLabel(sp){
   if (sp.kind === 'surplus')return (sp.side==='hd'?'HD':'CE')+'余剰';
   if (sp.kind === 'zone')   { var z = plZone(sp.zone); return z?z.label:sp.zone; }
   return '未割当';
+}
+/* 担当表・マイ担当・担当表CSVが出す「担当枠以外の居場所」表示名の唯一の入口。
+   表示だけで、D・ページへの書き込みは一切行わない（plFix を呼ばない）。
+   ppl は呼び出し側が plPeople(ds) を1回取って渡す（省略時はここで取る＝人数分ループの中から
+   呼ぶと plDerive が毎回走るため、呼び出し側でキャッシュすること）。
+   担当枠・フリー・担当なし（duty/free/none）は null（既存のチップ・「—」に任せる）。
+   OC専用（base:'oc'）の未割当は null（OC担当は別のチップで既に出ているため）。
+   戻り値の fromCe は「CEからHDへ応援に出た人」の印（side==='hd' && from==='ce'）。 */
+function plPlaceLabel(ds, name, ppl){
+  ppl = ppl || plPeople(ds);
+  var sp = plSpot(ds, name, ppl);
+  var p = ppl[name];
+  var fromCe = !!(sp.side === 'hd' && p && p.from === 'ce');
+  var lab = null;
+  if (sp.kind === 'pool') {
+    if (!(p && p.base === 'oc')) lab = {short:'CE未振分', long:'CE（未振り分け）', side:'ce'};
+  } else if (sp.kind === 'surplus') {
+    if (sp.side === 'ce') {
+      lab = (p && p.offer === 'hd')
+        ? {short:'HD提供中', long:'HDへ提供中', side:'ce'}
+        : {short:'CE余剰',   long:'CE余剰',     side:'ce'};
+    } else {
+      lab = (p && p.offer === 'ce')
+        ? {short:'CE提供中', long:'CEへ提供中',       side:'hd'}
+        : {short:'HD未振分', long:'HD（未振り分け）', side:'hd'};
+    }
+  } else if (sp.kind === 'zone') {
+    var z = plZone(sp.zone), zl = z ? z.label : sp.zone;
+    lab = {short:zl, long:zl, side:sp.side};
+  } else if (sp.kind === 'hdrole') {
+    lab = sp.role
+      ? {short:'', long:'', side:'hd'} /* 役割名はマイ担当の「🩸 A1」側が出すのでここでは出さない */
+      : {short:'HD未振分', long:'HD（未振り分け）', side:'hd'};
+  }
+  if (lab) lab.fromCe = fromCe;
+  return lab;
 }
 /* role（日勤のHD役割コード）が「ちょうど1人」に割り当てられているとき、その氏名を返す。
    0人・2人以上（異常データ）・準夜は「唯一の担当者」を持たないので ''。
@@ -21500,23 +21541,23 @@ function renderMySchedule(overrideName) {
     var ds = asY + '-' + pad(asM + 1) + '-' + pad(mi);
     var dat = D.pages[ds];
     if (dat) {
-      var slots = [];
+      var slots = []; /* {t:表示テキスト, st:true なら状態表示（控えめなチップ）} */
       /* 担当枠 */
       var dutyCfg = getDutyCfg(dat);
       for (var di = 0; di < dutyCfg.length; di++) {
         var slot = dutyCfg[di];
         if (dat.duties && dat.duties[slot.id] === selfName) {
-          slots.push(slot.label || slot.id);
+          slots.push({t: slot.label || slot.id, st:false});
         }
       }
       /* タイムテーブルブロック */
       /* タイムテーブルはCE(schedule)とHD(hdSchedule)の両方を見る。自分の予定である
          ことは主観と無関係なので、どちらに置かれていても出す（HD分は🩸で区別）。 */
       (dat.schedule || []).forEach(function(blk){
-        if (blk.staff === selfName && blk.label) slots.push('📅 ' + blk.label);
+        if (blk.staff === selfName && blk.label) slots.push({t:'📅 ' + blk.label, st:false});
       });
       (dat.hdSchedule || []).forEach(function(blk){
-        if (blk.staff === selfName && blk.label) slots.push('🩸 ' + blk.label);
+        if (blk.staff === selfName && blk.label) slots.push({t:'🩸 ' + blk.label, st:false});
       });
       /* HD担当表の役割（M・A1・準夜等）。buildHdRoster は hdShiftWorkers 経由で
          勤務表由来のHD勤務者に dat.hdDuty.overrides を適用した実効一覧を返すため、
@@ -21524,8 +21565,13 @@ function renderMySchedule(overrideName) {
          _viewMode で分岐させない — その人がその日HD勤務かどうかは主観と無関係な事実で、
          HD勤務が無い人には getShiftForDay(ds).hd に載らず何も出ない。 */
       buildHdRoster(ds).forEach(function(r){
-        if (r.name === selfName && r.role) slots.push('🩸 ' + r.role);
+        if (r.name === selfName && r.role) slots.push({t:'🩸 ' + r.role, st:false});
       });
+      /* 担当枠・HD役割が無い日も「CE（未振り分け）」「HD（未振り分け）」として出す
+         （plPlaceLabel は担当枠・フリー・役割ありのHDには null/空を返すので二重にはならない） */
+      var ppl = plPeople(ds);
+      var myLab = plPlaceLabel(ds, selfName, ppl);
+      if (myLab && myLab.long) slots.push({t: myLab.long, st:true});
       if (slots.length) cards.push({ds: ds, slots: slots});
     }
   }
@@ -21564,7 +21610,10 @@ function renderMySchedule(overrideName) {
     html += '</div>';
     html += '<div style="display:flex;flex-wrap:wrap;gap:4px">';
     for (var si2 = 0; si2 < c.slots.length; si2++) {
-      html += '<span style="font-size:11px;background:var(--ac);color:var(--on-ac);border-radius:4px;padding:2px 7px">'+escH(c.slots[si2])+'</span>';
+      var slotStyle = c.slots[si2].st
+        ? 'font-size:11px;background:var(--sur2);color:var(--txt2);border:1px dashed var(--bdr2);border-radius:4px;padding:2px 7px'
+        : 'font-size:11px;background:var(--ac);color:var(--on-ac);border-radius:4px;padding:2px 7px';
+      html += '<span style="'+slotStyle+'">'+escH(c.slots[si2].t)+'</span>';
     }
     html += '</div></div>';
   }
@@ -21592,6 +21641,7 @@ function renderAtLegend(adates) {
   });
   h += '<div class="ali"><span class="dch" style="'+dutyChipStyle({id:'__free'})+'">フリー</span></div>';
   h += '<div class="ali"><span class="dch" style="'+dutyChipStyle({id:'__oc'})+'">OC</span></div>';
+  h += '<div class="ali" style="color:var(--txt3);font-size:11px"><span class="dch dch-st">CE未振分</span>＝CE勤務だが担当枠なし</div>';
   h += '<div class="ali" style="color:var(--txt3);font-size:11px">🔴左線=未完了　🔵左線=完了</div>';
   el.innerHTML = h;
 }
@@ -21620,6 +21670,7 @@ function renderAT() {
     var dat=D.pages[ds];
     /* このページの担当枠設定を取得 */
     var pageDuties=getDutyCfg(dat);
+    var ppl=dat?plPeople(ds):null; /* 状態表示（plPlaceLabel）用。人数×日数ぶん plDerive を走らせないよう日ごとに1回だけ取る */
     html+='<tr class="atr" data-ds="'+ds+'"'+(ds===today?' style="background:var(--ac-bg)"':'')+'>';
     html+='<td class="sc '+pctCls+'"><span style="font-weight:900;font-size:12px'+(ds===today?';color:var(--ac)':'')+'">';
     html+=dn+'日</span> <span class="dhw'+wdCls+'">'+WDL[w]+'</span></td>';
@@ -21645,6 +21696,15 @@ function renderAT() {
       /* OC確認 */
       if(dat&&dat.ocData&&dat.ocData.staff===name){
         chips.push('<span class="dch" style="'+dutyChipStyle({id:'__oc'})+'">OC</span>');
+      }
+      /* 担当枠以外の居場所（未振り分け・余剰・ゾーン）。HD側はここでは出さず、
+         CEから応援に出た人だけ「HD応援」として出す（担当表はCE専用の画面のため） */
+      if(dat&&ppl){
+        var stLab=plPlaceLabel(ds,name,ppl);
+        if(stLab){
+          if(stLab.side==='ce'&&stLab.short) chips.push('<span class="dch dch-st">'+escH(stLab.short)+'</span>');
+          else if(stLab.fromCe) chips.push('<span class="dch dch-st">HD応援</span>');
+        }
       }
       html+='<td'+(si===selfIdx?' class="self-col"':'')+' >'+(chips.length?chips.join(' '):'<span class="dc-n">—</span>')+'</td>';
     }
@@ -22454,12 +22514,20 @@ function exportAtCsv() {
   for(var di=0;di<adates.length;di++){
     var ds=adates[di], w=new Date(ds).getDay(), dn=parseInt(ds.split('-')[2]);
     var dat=D.pages[ds], pageDuties=getDutyCfg(dat);
+    var ppl=dat?plPeople(ds):null;
     var row=[asY+'/'+(asM+1)+'/'+dn, WDL[w]];
     for(var si=0;si<allS.length;si++){
       var name=allS[si], cells=[];
       if(dat&&dat.duties){for(var ki=0;ki<pageDuties.length;ki++){var dobj=pageDuties[ki];if(dat.duties[dobj.id]===name)cells.push(dobj.label);}}
       if(dat&&dat.extra_free){for(var ef=0;ef<dat.extra_free.length;ef++){if(dat.extra_free[ef].name===name)cells.push('フリー');}}
       if(dat&&dat.ocData&&dat.ocData.staff===name)cells.push('OC');
+      if(dat&&ppl){
+        var csvLab=plPlaceLabel(ds,name,ppl);
+        if(csvLab){
+          if(csvLab.side==='ce'&&csvLab.short) cells.push(csvLab.short);
+          else if(csvLab.fromCe) cells.push('HD応援');
+        }
+      }
       row.push(cells.join('/'));
     }
     var _csvSur=dat?plSurplusNames(ds):[];

@@ -454,6 +454,7 @@ All class names are abbreviated:
 | `renderPlacementBoard(ds, dat, locked)` / `bindPlacementDnD(ds)` | 配置盤の描画／クリック・ドラッグの委譲登録（`#placement-wrap` に1回だけ） |
 | `plPeople(ds)` / `plDerive(ds)` / `plFix(ds)` / `plNames(ds)` | 名簿の取得／勤務表＋旧フィールドからの導出／名簿の固定／表示順 |
 | `plSpot(ds, name)` / `plSpotLabel(sp)` / `plClearSpot(ds, name)` | いま居る場所の判定／その表示名／どこからでも外す（保存しない） |
+| `plPlaceLabel(ds, name, ppl)` | 担当表・マイ担当・CSVに出す居場所の表示名。表示だけで書き込まない |
 | `plMove(ds, name, spec)` | **配置を変える唯一の口**。担当枠・フリー枠・HD役割・余剰・ゾーン・未割当のすべてがここを通る |
 | `plOffer` / `plCancelOffer` / `plAccept` / `plSetRole` / `plEditMemo` | 提供／取り下げ／受け取り／HD役割の付与／メモ |
 | `plAddPerson(ds, side)` / `plRemovePerson(ds, name)` / `plResync(ds)` | 名簿への追加（スタッフ選択モーダル）／除外／勤務表から取り込み直す |
@@ -574,6 +575,7 @@ dat.placement = {
 - **スマホのドラッグは長押し（250ms）で開始する。** `touchstart` で即ドラッグ状態に入ると、以降の `touchmove` を `preventDefault` するせいでチップの上から始めたスワイプがページスクロールにならず、指を離した枠へその人が移動してしまう（配置盤は面積の大半がチップなので誤操作が起きやすい）。長押しが成立する前に8px以上動いたらスクロールとみなしてドラッグ候補を捨てる。
 - 監査ログは `plMove`（`人員配置変更`）・`plOffer`/`plCancelOffer`/`plAccept`（`応援の提供`／`取り下げ`／`受け取り`）・`plAddPerson`/`plRemovePerson`（`名簿に追加`／`名簿から除外`）・`plResync`（`勤務表から取り込み直し`）が書く。
 - **配置盤は主観で中身を変えない。** `_viewMode` が効くのは「自分側の列を先に並べる」ことだけ（スマホでは自分側が上に来る）。CE主観・HD主観で別の画面を作らないこと——CE/HDの双子関数がこれ以上増えるのを避けるため、`renderPlacementBoard` は1つしかない。
+- **担当表・マイ担当・担当表CSVの状態表示（CE未振分・CE余剰・ゾーン・HD（未振り分け）・HD応援）は `plPlaceLabel` が唯一の入口。** 呼び出し側は日ごとに `plPeople(ds)` を1回取って渡す。OC専用（`base:'oc'`）は未振分にしない。
 
 ### HD主観モード（`_viewMode`）
 
