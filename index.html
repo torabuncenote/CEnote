@@ -1940,7 +1940,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
             </div>
             <div id="edu-items-section">
               <div class="pt">🎓 教育項目マスタ</div>
-              <div class="pn" style="margin-bottom:8px">教育到達度「病棟外回り」「機器管理」「透析」の細目を登録します（OPE・カテはOPE/カテ術式マスタ、特殊治療はHD特殊治療マスタをそのまま使うためここには含みません）。管理者、または「🎓 教育到達度」の権限を持つ人が編集できます。</div>
+              <div class="pn" style="margin-bottom:8px">教育到達度6分類（OPE・カテ・病棟外回り・機器管理・透析・特殊治療）の細目をここでまとめて編集できます。OPE・カテ・特殊治療は業務マスタ／HD特殊治療マスタと同じデータなので、どちらから直しても同じです。管理者、または「🎓 教育到達度」の権限を持つ人が編集できます。</div>
               <div style="margin-bottom:14px">
                 <div style="font-size:12px;font-weight:600;margin-bottom:4px">🏥 病棟外回り</div>
                 <div class="rl" id="edu-item-list-ward"></div>
@@ -1957,12 +1957,39 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
                   <button onclick="addEduItem('device')" style="background:var(--pu)">追加</button>
                 </div>
               </div>
-              <div>
+              <div style="margin-bottom:14px">
                 <div style="font-size:12px;font-weight:600;margin-bottom:4px">🩸 透析</div>
                 <div class="rl" id="edu-item-list-hd"></div>
                 <div class="ar" id="edu-item-ar-hd">
                   <input type="text" id="in-edu-item-hd" placeholder="例: 穿刺" maxlength="30">
                   <button onclick="addEduItem('hd')" style="background:var(--pu)">追加</button>
+                </div>
+              </div>
+              <div id="edu-ope-block" style="margin-bottom:14px">
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">🔪 オペ</div>
+                <div class="pn" style="margin-bottom:6px;font-size:11px">業務マスタの術式マスタと同じものです。科・中カテゴリ・術式の3階層で管理します。</div>
+                <div id="edu-ope-tree-list"></div>
+                <div class="tree-add-row" style="margin-top:6px">
+                  <input type="text" id="in-edu-ope-dept" placeholder="＋ 新しい科を追加…">
+                  <button onclick="addOpeTreeDept('in-edu-ope-dept','edu-ope-tree-list')">科を追加</button>
+                </div>
+              </div>
+              <div id="edu-cath-block" style="margin-bottom:14px">
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">🫀 カテ</div>
+                <div class="pn" style="margin-bottom:6px;font-size:11px">業務マスタの術式マスタと同じものです。科・中カテゴリ・術式の3階層で管理します。</div>
+                <div id="edu-cath-tree-list"></div>
+                <div class="tree-add-row" style="margin-top:6px">
+                  <input type="text" id="in-edu-cath-dept" placeholder="＋ 新しい科を追加…">
+                  <button onclick="addCathTreeDept('in-edu-cath-dept','edu-cath-tree-list')">科を追加</button>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">🩸 特殊治療</div>
+                <div class="pn" style="margin-bottom:6px;font-size:11px">HD特殊治療マスタと同じものです。</div>
+                <div class="rl" id="edu-hd-treat-list"></div>
+                <div class="ar" id="edu-hd-treat-ar">
+                  <input type="text" id="in-edu-hd-treat" placeholder="例: PMX" maxlength="20">
+                  <button onclick="addHdTreat('in-edu-hd-treat')" style="background:var(--pu)">追加</button>
                 </div>
               </div>
             </div>
@@ -5462,11 +5489,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/18-85';
+var APP_VERSION = 'Ver.2026/09/21-86';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/21-86', date:'2026-09-21', title:'教育項目マスタでオペ・カテ・特殊治療も編集できるようにしました', items:[
+    {t:'imp', admin:true, d:'🎓 教育項目マスタから、オペ・カテの術式マスタとHD特殊治療マスタも編集できるようにしました（業務マスタと同じデータなので、どちらから直しても同じです）。教育到達度の権限を持つ人も編集できます'}
+  ]},
   { ver:'Ver.2026/09/18-85', date:'2026-09-18', title:'HD担当表の編集ボタンの場所を変えました', items:[
     {t:'imp', d:'🩸 HD担当表の「✏️ 役割を編集」ボタンを、見出しから表の中の「🔵 日勤」の行へ移しました'}
   ]},
@@ -10467,7 +10497,7 @@ function eduItemSeed(kind) {
    確認モーダル（confirmEditModal の type:'eduItem'/'hdTreat'）と設定画面の共通の口。成功したら true */
 function eduMasterRename(kind, i, newName) {
   var isTreat = kind === 'hdsp';
-  if (isTreat ? !can('mst') : !eduItemMasterOk()) return false;
+  if (isTreat ? !treeEditOk() : !eduItemMasterOk()) return false;
   var list = isTreat ? D.hdTreatments : eduItemsOf(kind);
   if (!list || list[i] == null) return false;
   var v = fbSafeKey(String(newName || '').trim()); /* 追加と同じく Firebase のキーになるため */
@@ -11255,11 +11285,12 @@ function confirmEditModal() {
     writeLog('スタッフ編集', oldValue + ' → ' + newValue + (stfMoved ? '（到達度・紐付けなどを引き継ぎ）' : ''));
     if (stfMoved) toast('到達度・アカウントの紐付けなども新しい名前へ引き継ぎました', 'ok');
   } else if (state.type === 'tree') {
-    /* ツリー項目編集。オペ/カテ/使用物品の3マスタはいずれも pane-master 側で
-       data-perm="mst" のセクションに置かれているので、リネーム経路も 'mst' に揃える。
-       以前は既定値と supTree が 'sm'（スタッフマスタ）を流用し、opeTree/cathTree は
-       LOCK_DEFS に存在しない 'om'/'cm' を見ていた（lk() が常に false ＝ 実質無制限）。 */
-    if (!can('mst')) return;
+    /* ツリー項目編集。オペ/カテ術式マスタは業務マスタ（mst）と教育項目マスタ（教育到達度の
+       権限）の2箇所から同じデータを編集できるため treeEditOk() で揃える。使用物品マスタは
+       mst 固定（教育項目マスタに出していないため）。以前は既定値と supTree が 'sm'
+       （スタッフマスタ）を流用し、opeTree/cathTree は LOCK_DEFS に存在しない 'om'/'cm' を
+       見ていた（lk() が常に false ＝ 実質無制限）——その経緯で 'mst' に統一した。 */
+    if (!treeEditOk()) return;
 
     var tree = D[state.saveKey];
     var oldValue = '';
@@ -11304,8 +11335,7 @@ function confirmEditModal() {
     var treeMoved = (eduCatOfTree && renOld) ? eduRenameKeys(eduCatOfTree, renOld, renNew) : 0;
     saveD();
 
-    if (state.saveKey === 'opeTree') renderOpeTree();
-    else if (state.saveKey === 'cathTree') renderCathTree();
+    renderTreeAll(state.saveKey);
 
     writeLog('マスタ編集', oldValue + ' → ' + newValue + (treeMoved ? '（到達度' + treeMoved + '件を引き継ぎ）' : ''));
     if (treeMoved) toast('到達度 ' + treeMoved + '件を新しい名前へ引き継ぎました', 'ok');
@@ -11987,26 +12017,34 @@ function mvWdDept(i, d) {
 }
 
 /* ===== HD特殊治療マスタ（HDモードの血液浄化件数入力「特殊」区分で選ぶ治療名の一覧） =====
-   D.wdDepts / D.tablets と同型の単純な文字列配列。mst権限（pane-masterの他マスタと同じ）で管理する。 */
+   D.wdDepts / D.tablets と同型の単純な文字列配列。業務マスタ「🩸 HD特殊治療マスタ」と
+   教育項目マスタ「🩸 特殊治療」の2箇所（'hd-treat-list'/'edu-hd-treat-list'、DOMにある
+   方だけ）に同じデータを描く。権限は treeEditOk()（mst または教育到達度の権限）。 */
 function renderHdTreatList() {
-  var l = document.getElementById('hd-treat-list'); if (!l) return;
-  l.innerHTML = '';
-  var ok = can('mst');
+  var ok = treeEditOk();
   var list = D.hdTreatments || [];
-  if (!list.length) { l.innerHTML = '<p class="cle">まだ登録されていません</p>'; }
-  else {
-    for (var i = 0; i < list.length; i++) {
-      var el = document.createElement('div'); el.className = 'ri';
-      var btns = ok ? '<button class="ru" onclick="editHdTreat('+i+')" title="名前を変える（到達度は引き継ぐ）">✏️</button><button class="ru" onclick="mvHdTreat('+i+',-1)"'+(i===0?' disabled':'')+'>↑</button><button class="rdw" onclick="mvHdTreat('+i+',1)"'+(i===list.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="rmHdTreat('+i+')">×</button>' : '';
-      el.innerHTML = '<span class="rn">🩸 ' + escH(list[i]) + '</span>' + btns;
-      l.appendChild(el);
+  var mounts = [
+    { list: 'hd-treat-list', ar: 'hd-treat-ar' },
+    { list: 'edu-hd-treat-list', ar: 'edu-hd-treat-ar' }
+  ];
+  mounts.forEach(function (m) {
+    var l = document.getElementById(m.list); if (!l) return;
+    l.innerHTML = '';
+    if (!list.length) { l.innerHTML = '<p class="cle">まだ登録されていません</p>'; }
+    else {
+      for (var i = 0; i < list.length; i++) {
+        var el = document.createElement('div'); el.className = 'ri';
+        var btns = ok ? '<button class="ru" onclick="editHdTreat('+i+')" title="名前を変える（到達度は引き継ぐ）">✏️</button><button class="ru" onclick="mvHdTreat('+i+',-1)"'+(i===0?' disabled':'')+'>↑</button><button class="rdw" onclick="mvHdTreat('+i+',1)"'+(i===list.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="rmHdTreat('+i+')">×</button>' : '';
+        el.innerHTML = '<span class="rn">🩸 ' + escH(list[i]) + '</span>' + btns;
+        l.appendChild(el);
+      }
     }
-  }
-  var ar = document.getElementById('hd-treat-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+    var ar = document.getElementById(m.ar); if (ar) ar.style.display = ok ? 'flex' : 'none';
+  });
 }
 /* HD特殊治療の改名（✏️）。confirmEditModal の type:'hdTreat' が到達度のキー（hdsp:名前）も付け替える */
 function editHdTreat(i) {
-  if (!can('mst')) return;
+  if (!treeEditOk()) return;
   var list = D.hdTreatments || [];
   if (list[i] == null) return;
   _editModalState = { type: 'hdTreat', index: i };
@@ -12015,21 +12053,22 @@ function editHdTreat(i) {
   input.value = list[i]; input.focus(); input.select();
   document.getElementById('modal-edit-item').classList.remove('hd');
 }
-function addHdTreat() {
-  if (!can('mst')) return;
-  var el = document.getElementById('in-hd-treat'); var v = fbSafeKey(el.value.trim()); if (!v) return;
+function addHdTreat(inputId) {
+  if (!treeEditOk()) return;
+  inputId = inputId || 'in-hd-treat';
+  var el = document.getElementById(inputId); var v = fbSafeKey(el.value.trim()); if (!v) return;
   D.hdTreatments = D.hdTreatments || [];
   if (D.hdTreatments.indexOf(v) !== -1) { toast('すでに登録されています', 'warn'); return; }
   D.hdTreatments.push(v); el.value = ''; renderHdTreatList(); saveD();
 }
 function rmHdTreat(i) {
-  if (!can('mst')) return;
+  if (!treeEditOk()) return;
   D.hdTreatments.splice(i, 1); renderHdTreatList(); saveD();
   /* マスタから削除しても、過去ページの hdCount.sp に入っている治療名はそのまま残す（記録を消さないため）。
      表示上はマスタに無い治療として選べなくなるだけ（hdCountSpSelectOpts が「（旧）」表示で保護する）。 */
 }
 function mvHdTreat(i, d) {
-  if (!can('mst')) return;
+  if (!treeEditOk()) return;
   var arr = D.hdTreatments || []; var j = i + d; if (j < 0 || j >= arr.length) return;
   var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
   renderHdTreatList(); saveD();
@@ -12042,6 +12081,12 @@ function mvHdTreat(i, d) {
    完結させる。canEdu() は isAdmin も内包しているので、ここで isAdmin を別途見る必要はない
    （関数自体は残す——この権限だけを将来変えるときの単一の口として意味がある）。 */
 function eduItemMasterOk() { return canEdu(); }
+/* オペ/カテ術式マスタとHD特殊治療マスタは、業務マスタ（🔪グループ）と教育項目マスタ
+   （🎓グループ）の2箇所に同じデータ（D.opeTree/D.cathTree/D.hdTreatments）を描く
+   （教育用の別リストは持たない）。書き込み系はどちらの入口からでも、mst権限か
+   教育到達度の権限（perm_edu）のどちらかがあれば通す。使用物品・担当枠など
+   他のマスタは対象外（mst のまま、ここでは触らない）。 */
+function treeEditOk() { return can('mst') || eduItemMasterOk(); }
 var EDU_ITEM_KINDS = ['ward', 'device', 'hd'];
 function renderEduItemList(kind) {
   var l = document.getElementById('edu-item-list-' + kind); if (!l) return;
@@ -12083,6 +12128,17 @@ function renderEduItemMaster() {
   var sec = document.getElementById('edu-items-section');
   if (sec) sec.style.display = eduItemMasterOk() ? '' : 'none';
   EDU_ITEM_KINDS.forEach(function (k) { renderEduItemList(k); });
+  /* オペ・カテはCE主観だけ（担当枠・症例の概念がHDに無いため）、特殊治療は両主観で出す。
+     中身（D.opeTree/D.cathTree/D.hdTreatments）は業務マスタ側と同じデータで、
+     renderTreeAll/renderHdTreatList が「DOMにある方だけ」描くので、mst 権限で
+     業務マスタ側の可視性がどうであっても安全に呼べる。 */
+  var opeBlock = document.getElementById('edu-ope-block');
+  if (opeBlock) opeBlock.style.display = (_viewMode === 'ce') ? '' : 'none';
+  var cathBlock = document.getElementById('edu-cath-block');
+  if (cathBlock) cathBlock.style.display = (_viewMode === 'ce') ? '' : 'none';
+  renderTreeAll('opeTree');
+  renderTreeAll('cathTree');
+  renderHdTreatList();
 }
 
 /* ===== マスタタブのグループ開閉 =====
@@ -12285,7 +12341,7 @@ function renderTree(elId, tree, saveKey, icons) {
     var delDeptBtn = document.createElement('button');
     delDeptBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:12px;padding:0 2px';
     delDeptBtn.textContent='×'; delDeptBtn.title='科を削除';
-    delDeptBtn.onclick=(function(idx){return function(e){e.stopPropagation();if(!confirm('「'+tree[idx].dept+'」と全ての術式を削除しますか？')) return;tree.splice(idx,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di);
+    delDeptBtn.onclick=(function(idx){return function(e){e.stopPropagation();if(!confirm('「'+tree[idx].dept+'」と全ての術式を削除しますか？')) return;tree.splice(idx,1);D[saveKey]=tree;saveD();renderTreeAll(saveKey);};})(di);
     deptHd.appendChild(arrow); deptHd.appendChild(deptName); deptHd.appendChild(editDeptBtn); deptHd.appendChild(delDeptBtn);
 
     var deptOpen = !!openSt.depts[dept.dept];
@@ -12306,7 +12362,7 @@ function renderTree(elId, tree, saveKey, icons) {
       var delCatBtn = document.createElement('button');
       delCatBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 2px';
       delCatBtn.textContent='×'; delCatBtn.title='中カテゴリを削除';
-      delCatBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();if(!confirm('「'+tree[di2].cats[ci2].name+'」を削除しますか？')) return;tree[di2].cats.splice(ci2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci);
+      delCatBtn.onclick=(function(di2,ci2){return function(e){e.stopPropagation();if(!confirm('「'+tree[di2].cats[ci2].name+'」を削除しますか？')) return;tree[di2].cats.splice(ci2,1);D[saveKey]=tree;saveD();renderTreeAll(saveKey);};})(di,ci);
       catHd.appendChild(catArrow); catHd.appendChild(catName);
       catHd.appendChild(editCatBtn); catHd.appendChild(delCatBtn);
 
@@ -12327,7 +12383,7 @@ function renderTree(elId, tree, saveKey, icons) {
         var delItemBtn = document.createElement('button');
         delItemBtn.style.cssText='background:none;border:none;color:var(--rd);cursor:pointer;font-size:11px;padding:0 3px';
         delItemBtn.textContent='×';
-        delItemBtn.onclick=(function(di2,ci2,ii2){return function(){if(!confirm('「'+tree[di2].cats[ci2].items[ii2]+'」を削除しますか？')) return;tree[di2].cats[ci2].items.splice(ii2,1);D[saveKey]=tree;saveD();renderTree(elId,tree,saveKey,icons);};})(di,ci,ii);
+        delItemBtn.onclick=(function(di2,ci2,ii2){return function(){if(!confirm('「'+tree[di2].cats[ci2].items[ii2]+'」を削除しますか？')) return;tree[di2].cats[ci2].items.splice(ii2,1);D[saveKey]=tree;saveD();renderTreeAll(saveKey);};})(di,ci,ii);
         itemRow.appendChild(itemSpan); itemRow.appendChild(editItemBtn); itemRow.appendChild(delItemBtn); catBody.appendChild(itemRow);
       });
 
@@ -12335,7 +12391,7 @@ function renderTree(elId, tree, saveKey, icons) {
       var addItemRow = document.createElement('div'); addItemRow.className='tree-add-row';
       var addItemInp = document.createElement('input'); addItemInp.type='text'; addItemInp.placeholder='術式・品名を追加…';
       var addItemBtn = document.createElement('button'); addItemBtn.textContent='追加';
-      addItemBtn.onclick=(function(di2,ci2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;if(!tr[di2].cats[ci2].items)tr[di2].cats[ci2].items=[];tr[di2].cats[ci2].items.push(v);inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+tr[di2].cats[ci2].name]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);_focusTreeInput(eid,di2,ci2,'item');}})(di,ci,addItemInp,elId,tree,saveKey,icons);
+      addItemBtn.onclick=(function(di2,ci2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;if(!tr[di2].cats[ci2].items)tr[di2].cats[ci2].items=[];tr[di2].cats[ci2].items.push(v);inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+tr[di2].cats[ci2].name]=true;D[sk]=tr;saveD();renderTreeAll(sk);_focusTreeInput(eid,di2,ci2,'item');}})(di,ci,addItemInp,elId,tree,saveKey,icons);
       addItemInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addItemBtn);
       addItemRow.appendChild(addItemInp); addItemRow.appendChild(addItemBtn); catBody.appendChild(addItemRow);
 
@@ -12346,15 +12402,29 @@ function renderTree(elId, tree, saveKey, icons) {
     var addCatRow = document.createElement('div'); addCatRow.className='tree-add-row';
     var addCatInp = document.createElement('input'); addCatInp.type='text'; addCatInp.placeholder='中カテゴリを追加…';
     var addCatBtn = document.createElement('button'); addCatBtn.textContent='追加';
-    addCatBtn.onclick=(function(di2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;if(!tr[di2].cats)tr[di2].cats=[];tr[di2].cats.push({name:v,items:[]});inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+v]=true;D[sk]=tr;saveD();renderTree(eid,tr,sk,ic);_focusTreeInput(eid,di2,tr[di2].cats.length-1,'item');};})(di,addCatInp,elId,tree,saveKey,icons);
+    addCatBtn.onclick=(function(di2,inp,eid,tr,sk,ic){return function(){var v=inp.value.trim();if(!v)return;if(!tr[di2].cats)tr[di2].cats=[];tr[di2].cats.push({name:v,items:[]});inp.value='';var st=treeOpenState(eid);st.depts[tr[di2].dept]=true;st.cats[tr[di2].dept+' '+v]=true;D[sk]=tr;saveD();renderTreeAll(sk);_focusTreeInput(eid,di2,tr[di2].cats.length-1,'item');};})(di,addCatInp,elId,tree,saveKey,icons);
     addCatInp.onkeydown=(function(btn){return function(e){if(e.key==='Enter') btn.click();};})(addCatBtn);
     addCatRow.appendChild(addCatInp); addCatRow.appendChild(addCatBtn); body.appendChild(addCatRow);
 
     deptDiv.appendChild(deptHd); deptDiv.appendChild(body); l.appendChild(deptDiv);
   });
 }
-function renderOpeTree()  { renderTree('ope-tree-list',  D.opeTree,  'opeTree',  ['🔬','📂','🔪']); }
-function renderCathTree() { renderTree('cath-tree-list', D.cathTree, 'cathTree', ['🔬','📂','🫀']); }
+/* オペ/カテ術式マスタは業務マスタ（🔪グループ）と教育項目マスタ（🎓グループ）の2箇所に
+   同じデータ（D.opeTree/D.cathTree）を描く。TREE_MOUNTS はマウント先のelId一覧、
+   renderTreeAll(saveKey) は renderTree 内の自己再描画・追加・改名の再描画がすべて通る
+   唯一の入口——DOMに存在するマウント先だけを描き直すので、業務マスタ側だけ表示中でも
+   教育項目マスタ側だけ表示中でも、あるいは両方非表示でも安全に呼べる。 */
+var TREE_MOUNTS = { opeTree: ['ope-tree-list', 'edu-ope-tree-list'], cathTree: ['cath-tree-list', 'edu-cath-tree-list'] };
+var TREE_ICONS  = { opeTree: ['🔬','📂','🔪'], cathTree: ['🔬','📂','🫀'] };
+function renderTreeAll(saveKey) {
+  var mounts = TREE_MOUNTS[saveKey] || [];
+  var icons = TREE_ICONS[saveKey];
+  mounts.forEach(function (elId) {
+    if (document.getElementById(elId)) renderTree(elId, D[saveKey], saveKey, icons);
+  });
+}
+function renderOpeTree()  { renderTreeAll('opeTree'); }
+function renderCathTree() { renderTreeAll('cathTree'); }
 
 /* ===== 使用物品マスタの編集（業務マスタ「🧰 使用物品マスタ」、mst 権限） =====
    種類→品名の2段。術式マスタの汎用 renderTree（3段）とは別に持つ。
@@ -12566,8 +12636,10 @@ function saveSupItemDepts(){
   toast('✅ 保存しました', 'ok');
 }
 
-function addOpeTreeDept()  { var v=document.getElementById('in-ope-dept').value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById('in-ope-dept').value='';treeOpenState('ope-tree-list').depts[v]=true;saveD();renderOpeTree();_focusTreeInput('ope-tree-list',D.opeTree.length-1,null,'cat'); }
-function addCathTreeDept() { var v=document.getElementById('in-cath-dept').value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById('in-cath-dept').value='';treeOpenState('cath-tree-list').depts[v]=true;saveD();renderCathTree();_focusTreeInput('cath-tree-list',D.cathTree.length-1,null,'cat'); }
+/* 入力欄id・マウント先elIdは引数化（教育項目マスタ側の入力欄からも同じ関数を呼べるように）。
+   引数なしの既存呼び出し（業務マスタ側）は既定値でそのまま動く。 */
+function addOpeTreeDept(inputId, elId)  { inputId=inputId||'in-ope-dept'; elId=elId||'ope-tree-list'; var v=document.getElementById(inputId).value.trim();if(!v)return;if(!D.opeTree)D.opeTree=[];D.opeTree.push({dept:v,cats:[]});document.getElementById(inputId).value='';treeOpenState(elId).depts[v]=true;saveD();renderTreeAll('opeTree');_focusTreeInput(elId,D.opeTree.length-1,null,'cat'); }
+function addCathTreeDept(inputId, elId) { inputId=inputId||'in-cath-dept'; elId=elId||'cath-tree-list'; var v=document.getElementById(inputId).value.trim();if(!v)return;if(!D.cathTree)D.cathTree=[];D.cathTree.push({dept:v,cats:[]});document.getElementById(inputId).value='';treeOpenState(elId).depts[v]=true;saveD();renderTreeAll('cathTree');_focusTreeInput(elId,D.cathTree.length-1,null,'cat'); }
 
 /* ツリー内の入力欄にフォーカスするヘルパー（renderTree再描画後に呼ぶ） */
 function _focusTreeInput(elId, di, ci, type) {
@@ -12587,9 +12659,9 @@ function _focusTreeInput(elId, di, ci, type) {
 
 /* Tree Item Editing (Modal) */
 function editTreeItem(elId, tree, saveKey, icons, level, di, ci, ii, currentValue) {
-  /* オペ/カテ/使用物品ツリーはどれも pane-master の data-perm="mst" セクションにあるので
-     'mst' で統一する（confirmEditModal 側の同じ判定と対になっている）。 */
-  if (!can('mst')) return;
+  /* オペ/カテ術式マスタは業務マスタ（mst）と教育項目マスタ（教育到達度の権限）の
+     どちらからも編集できるので treeEditOk() で揃える（confirmEditModal 側の同じ判定と対）。 */
+  if (!treeEditOk()) return;
 
   // アイコン（最初の2文字）を削除した値を取得
   var displayValue = currentValue;
