@@ -502,6 +502,7 @@ All class names are abbreviated:
 | `renderTabletList()` / `addTablet()` / `rmTablet()` | タブレット台帳マスタ（`D.tablets`、`mst`権限、PHSマスタと同型） |
 | `openOcFlowModal()` / `saveOcFlow()` | OC対応フローチャートの閲覧モーダル（OC集計サブタブ上部の常設ボタンから、全ユーザー可）／マスタ保存（`mst`権限。textareaの値投入は `renderDlyList` 内） |
 | `openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` | 貸出/返却の記録モーダル（datalistでスタッフ選択＋手入力、`saveDPage`使用） |
+| `renderShiftReq()` / `shiftReqOf(ym, name)` / `shiftReqCodes()` / `shiftReqDeadline(ym)` | 勤務希望タブ（`pane-shiftreq`）の描画／その人のその月の希望`{日:種類}`／種類マスタ／締切日の4アクセサ。書き込みは `shiftReqSave(ym, name, day, code)` 経由（勤務希望節参照） |
 | `renderMakers()` / `renderMakersList()` | メーカー担当者連絡先パネル全体（ヘッダーボタン・`#mk-catnav`のカテゴリチップ）／一覧のみ（`#mk-list`）を再描画。検索欄自体は静的HTMLで作り直さない |
 | `mkCatColor(catId)` | カテゴリIDをハッシュして`MK_PALETTE`（アプリ既存の7色 --ac/--gr/--or/--pu/--rd/--oc/--gd を再利用、新規hexは定義しない）から固定色を返す。並べ替え・改名しても同じカテゴリは常に同じ色。カテゴリチップ・セクション見出し・カード左帯・電話アイコンの4箇所で同じ値を使い回して視覚的に連動させる |
 | `openMakerModal(id)` / `saveMakerFromModal(id)` | 追加・編集モーダル（`id`省略で新規）／保存（備考欄だけ`phiGuardText`を通し`saveD()`） |
@@ -843,6 +844,28 @@ Fixed bar at the bottom of the screen, shown only while a day page is open — `
 ### Shift Import
 
 `parseShiftSheet(wb, fileName)` parses Excel → `D.shift[ym][name][day] = { shift, hd, oc }`. `doSaveSIM()` protects days with existing duty assignments from being overwritten. Shift codes: `'CE'` (clinical engineer on duty), `'OC'` (on-call flag), HD day codes `['M','A1','A2',...]`, HD night codes `['準','準夜']`.
+
+### 勤務希望（`D.shiftReq`）
+
+翌月などの勤務希望を、各職員がカレンダーで入力し、管理者が全員分を一覧で確認する（トップレベルタブ「📝 勤務希望」、`pane-shiftreq`、全ユーザーに表示・主観では出し分けない）。**段1＝入力・締切・一覧のみ。Excel出力・テンプレの取り込みは段2で別途行う（今回は未実装・ボタンも無い）。**
+
+```js
+D.shiftReq = { 'YYYY-MM': { 氏名: { '1':'休み', '2':'日勤希望', … } } }  // 日は文字列キー、値は D.shiftReqCodes の文字列そのもの
+D.shiftReqCodes = ['日勤希望','準夜勤希望','宿直希望','休み','有休','計画年休','夏休み']  // 単純な文字列配列という「形」は D.wdDepts/D.tablets と同型。初期値はこの7種（DEF_SHIFT_REQ_CODES）
+D.shiftReqCfg = {}  // visibility:'self'|'count'|'all'、deadlines:{'YYYY-MM':'YYYY-MM-DD'} は読むときに補う（下記）
+```
+
+- **既定値は読むときに補う。** `D.eduCfg.levels` と同じ流儀で、`visibility`/`deadlines` は `D.shiftReqCfg` の初期リテラルに含めない（空 `{}` のまま）。`shiftReqVisibility()` は未設定なら `'self'`、`shiftReqDeadline(ym)` は未設定なら `''` を返す。**理由はドキュメント上の一貫性だけではない**——`var D = {...}` の初期化はバリデーションスクリプトが正規表現でトップレベルキーを機械的に拾うため、`shiftReqCfg:{visibility:'self',deadlines:{}}` のようにネストしたキーを literal に書くと `visibility`/`deadlines` も「D直下のプロパティ」と誤認され、5箇所ルールの偽陽性で落ちる（`autoDelCfg`/`makers`/`eduItems` の入れ子キーが validate.mjs の `NESTED` 除外リストに個別登録されているのと同じ問題）。空 `{}` のまま持ち回ればこの問題自体が起きない。
+- **読み出しは4アクセサ経由に統一**：`shiftReqOf(ym, name)`（その人のその月の `{日:種類}`、存在しなければ `{}`）／`shiftReqCodes()`／`shiftReqVisibility()`／`shiftReqDeadline(ym)`。`D.shiftReq`/`D.shiftReqCfg` を直接読まない。
+- **書き込みの唯一の入口は `shiftReqSave(ym, name, day, code)`**（`code` が空なら消去）。到達度と同じ理由で `saveDPaths([['shiftReq', ym, name, String(day)]])` を使い、全体保存で他の人の希望を後勝ちで消さないようにする。**削除は `null` を明示的に送るのではなく、先に `D` から `delete` してから同じパスを `saveDPaths` に渡す**——`saveDPaths` は指定パスの「いまの値」を読んでから送るため、削除後に呼べば読み取り結果が `undefined` になり、そのまま `null` としてFirebaseへ送られてキーが消える。既存の `saveDPaths` の使い方（値を読んで送る）にそのまま合うため `saveD()` へのフォールバックは持たない。書き込みのたびに `writeLog('勤務希望', …)` に対象月・氏名・日・種類（消去時は「消去」）を残す——管理者が代理で直したときの記録になる。
+- **締切（`deadlines[ym]`、月ごと）**：`srqPastDeadline(ym)` は締切日の翌日以降を過ぎたと判定する（締切当日はまだ編集可＝「今日まで」）。過ぎると本人はカレンダーをタップしても `openShiftReqPicker` が開かずトーストで理由を出す。**管理者は締切を無視して常に編集できる**（`isAdmin` で判定をバイパス）。
+- **見え方（`visibility`、全体共通の設定）**：`'self'`（既定）は自分の分だけ。`'count'`/`'all'` は、非管理者のカレンダーのマス目に「本人以外」の希望を件数だけ／氏名:種類で重ねて表示する（`srqCellExtraHTML`）。**管理者はこの設定を経由せず、常に専用の全員一覧（月×スタッフのマトリクス、`renderShiftReqMatrix`）で全員分を見られる**——個人カレンダーに全員分を重ねると代理入力の妨げになるための判断。マトリクスは `.data-tbl`/`.data-wrap` を流用し、列（日）が多い月は横スクロールする。
+- **管理者の代理入力**：`<select id="srq-stf-sel">`（`D.stfHidden` でない `D.stf`）で対象スタッフを切り替え、`_srqAdminName`（非永続）に保持。自分以外を選んでいるときはヘッダーとポップアップの両方に「👤 代理で入力中」を出す。
+- **自分の解決は `taskSelfName()`**（表示名がスタッフ名と完全一致→その名前／なければ `D.stfLinks` で逆引き）。紐づいていない非管理者は入力欄自体を出さず理由を表示する。
+- **種類マスタ（`D.shiftReqCodes`）に改名ボタンは無い。** 過去の希望は文字列としてそのまま `D.shiftReq` に残るため、改名すると過去分の表記だけ食い違う（使用物品マスタ・術式マスタと同じ制約）。追加・削除・並べ替えのみで `D.wdDepts` と同じ形（`renderShiftReqCodeList`/`addShiftReqCode`/`rmShiftReqCode`/`mvShiftReqCode`、マスタタブ🎯担当・スケジュールグループの `data-perm="mst"` セクション）。色分け（カレンダー・マトリクス・凡例）はコード文字列自体をハッシュして `MK_PALETTE`（メーカー連絡先と共通の7色）から選ぶ（`srqCodeColor`）——新しい色は定義しない。
+- **`shiftReqCodes()` は空なら `D.shiftReqCodes` 自体を既定値で埋めてから返す**（`getSchedPresets()` と同じ流儀。`D.wdDepts` の素の `||[]` フォールバックとは違い、別配列を返すだけだと `rmShiftReqCode`/`mvShiftReqCode` の添字操作が実体の空配列に当たらず削除・並べ替えが効かなくなるため）。空にしても次回読み込み時に7種へ戻る——選択肢が0件だとタブ自体が使えなくなるための安全策で、`D.schedPresets` と同じ割り切り。
+- 種類の選択はマスタからのボタン選択のみで自由記述欄が無いため、`detectPHI` は通さない（メーカー担当者名・ヘルプ職員名と同じ判断）。
+- タブ追加は「Adding a top-level sidebar tab」の6箇所を通常どおり配線した。`D.shiftReq`/`D.shiftReqCodes`/`D.shiftReqCfg` は `/data` 全体の一部として届くため、`/tasks`/`/board` のような専用リスナーは無く、「表示中だけ再描画する専用リスナー」の項目は該当しない（タブを開くたび `renderShiftReq()` が最新の `D` から描き直す）。
 
 ### PHI Detection
 
