@@ -179,7 +179,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .cd.hp.ap::after{background:var(--gr)}
 .cd.hp.ap.dp::after{background:var(--ac)}
 .cd.ev::before{content:'';position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:var(--gd)}
-.cd.sun .dnp{color:var(--rd)}.cd.sat .dnp{color:var(--ac)}
+.cd.sun .dnp{color:var(--rd)}.cd.sat .dnp{color:var(--ac)}.cd.hol .dnp{color:var(--rd)}
 .dnp{font-size:12px}
 .sp{flex:1;overflow-y:auto;padding:12px;padding-bottom:calc(12px + var(--cbar-h, 0px));display:flex;flex-direction:column;gap:12px;overscroll-behavior-y:contain}
 .sp::-webkit-scrollbar{width:4px}
@@ -1939,6 +1939,21 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
                 <button onclick="addShiftReqCode()">追加</button>
               </div>
             </div>
+            <!-- 祝日（D.holidayOv）。計算はjpHolidayName()が唯一の入口——ここは一覧表示と
+                 上書き（名前変更・除外・追加）のみ。現状は📝勤務希望のカレンダーだけが参照する。 -->
+            <div data-perm="mst">
+              <div class="pt">🎌 祝日</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">祝日は自動で計算されます（振替休日・国民の休日を含む）。📝 勤務希望タブのカレンダーで赤く表示されます。名前の変更・祝日から外す・院内の創立記念日など計算に無い日の追加ができます。</div>
+              <div style="margin-bottom:8px">
+                <select id="holiday-year-sel" onchange="setHolidayYear(this.value)" style="border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;font-size:12px"></select>
+              </div>
+              <div class="rl" id="holiday-list"></div>
+              <div class="ar" id="holiday-ar" style="flex-wrap:wrap;gap:6px">
+                <input type="date" id="in-holiday-date" style="border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;font-size:12px">
+                <input type="text" id="in-holiday-name" placeholder="名前（例: 創立記念日）…" maxlength="20" style="flex:1;min-width:100px">
+                <button onclick="addHolidayOv()">追加</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="mgrp" data-grp="edu">
@@ -2926,7 +2941,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3176,6 +3191,8 @@ function loadD() {
     D.shiftReq = s.shiftReq || {};
     D.shiftReqCodes = (s.shiftReqCodes && s.shiftReqCodes.length) ? s.shiftReqCodes : DEF_SHIFT_REQ_CODES.slice();
     D.shiftReqCfg = s.shiftReqCfg || {};
+    D.holidayOv = s.holidayOv || {};
+    D.stfNo = s.stfNo || {};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -3299,7 +3316,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={};
         _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
@@ -3498,6 +3515,8 @@ function fbInit() {
             D.shiftReq = d.shiftReq || {};
             D.shiftReqCodes = (d.shiftReqCodes && d.shiftReqCodes.length) ? d.shiftReqCodes : DEF_SHIFT_REQ_CODES.slice();
             D.shiftReqCfg = d.shiftReqCfg || {};
+            D.holidayOv = d.holidayOv || {};
+            D.stfNo = d.stfNo || {};
             /* このバージョンが知らない項目（新しいバージョンが足したもの）も消さずに持ち回る。
                保存は D 全体の上書きなので、ここで拾わないと1つ前のアプリが保存した瞬間にその項目が消える */
             Object.keys(d).forEach(function(k){
@@ -5544,11 +5563,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/21-87';
+var APP_VERSION = 'Ver.2026/09/22-88';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/22-88', date:'2026-09-22', title:'祝日と職員番号をアプリで持てるようにしました', items:[
+    {t:'new', admin:true, d:'🎌 マスタタブに「祝日」を追加しました。祝日は自動で計算され（振替休日も含む）、院内の創立記念日などは管理者が追加・名前変更・除外できます'},
+    {t:'imp', admin:true, d:'🆔 勤務表を取り込むと職員番号も一緒に覚えるようにしました（スタッフ一覧で直せます）。次の更新の勤務希望のExcel出力で使います'},
+    {t:'imp', d:'📝 勤務希望のカレンダーで、祝日が赤く表示されるようになりました'},
+    {t:'fix', admin:true, d:'スタッフの名前を変更したとき、その人の勤務希望と職員番号も新しい名前へ引き継がれるようにしました'}
+  ]},
   { ver:'Ver.2026/09/21-87', date:'2026-09-21', title:'勤務希望をアプリで出せるようにしました', items:[
     {t:'new', d:'📝 「勤務希望」タブを追加しました。カレンダーの日をタップして、日勤希望・準夜勤希望・宿直希望・休み・有休・計画年休・夏休みなどを入れられます。締切日を過ぎると自分では直せなくなります（管理者に連絡してください）'},
     {t:'new', admin:true, d:'📝 勤務希望の締切日・他の人の希望の見え方（自分だけ／人数だけ／全員）を管理者が設定できます。全員分は月×人の一覧で確認できます。提出用のExcel出力は次の更新で追加します'}
@@ -9971,7 +9996,7 @@ function eduRenameKeys(catId, oldParts, newParts) {
 function renameStaffKeys(oldName, newName) {
   if (!oldName || oldName === newName) return false;
   var moved = false;
-  ['stfLinks', 'stfHidden', 'stfEdu'].forEach(function (p) {
+  ['stfLinks', 'stfHidden', 'stfEdu', 'stfNo'].forEach(function (p) {
     var m = D[p];
     if (!m || !Object.prototype.hasOwnProperty.call(m, oldName)) return;
     if (!Object.prototype.hasOwnProperty.call(m, newName)) m[newName] = m[oldName];
@@ -9985,6 +10010,18 @@ function renameStaffKeys(oldName, newName) {
     ep[newName] = dst;
     delete ep[oldName];
     moved = true;
+  }
+  /* 勤務希望は月ごとの入れ子（D.shiftReq[ym][氏名]）なので個別に移す。
+     移さないと改名した人の希望が旧姓のまま残り、本人の画面からも一覧からも消える。 */
+  var sr = D.shiftReq;
+  if (sr && typeof sr === 'object') {
+    Object.keys(sr).forEach(function (ym) {
+      var mm = sr[ym];
+      if (!mm || !Object.prototype.hasOwnProperty.call(mm, oldName)) return;
+      if (!Object.prototype.hasOwnProperty.call(mm, newName)) mm[newName] = mm[oldName];
+      delete mm[oldName];
+      moved = true;
+    });
   }
   if (_perfName === oldName) _perfName = newName;
   return moved;
@@ -11276,8 +11313,10 @@ function renderStfList() {
     var btns = ok ? '<button class="ru" onclick="mvStf('+i+',-1)">↑</button><button class="rdw" onclick="mvStf('+i+',1)">↓</button><button class="rd2" onclick="rmStf('+i+')">×</button>' : '';
     var isHidden = !!(D.stfHidden && D.stfHidden[name]);
     var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none;'+(isHidden?'opacity:.4;text-decoration:line-through':'')+'">👤 ' + escH(name) + '</span>';
+    var stfNoVal = (D.stfNo && D.stfNo[name]) || '';
+    var noInput = isAdmin ? '<input type="text" inputmode="numeric" class="fi" style="width:58px;font-size:10px;padding:2px 4px;margin-right:3px" placeholder="職員番号" value="'+escH(stfNoVal)+'" onchange="setStfNo(\''+escJs(name)+'\',this.value)">' : (stfNoVal ? '<span style="font-size:10px;color:var(--txt3);margin-right:3px">#'+escH(stfNoVal)+'</span>' : '');
     var hideBtn = isAdmin ? '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="toggleStfHidden(\''+escJs(name)+'\')" title="'+(isHidden?'担当表・割当に表示する':'担当表・割当から非表示にする')+'">'+(isHidden?'👁 表示':'🚫 非表示')+'</button>' : '';
-    el.innerHTML = nameSpan + hideBtn + linkBtn + eduBtn + btns;
+    el.innerHTML = nameSpan + noInput + hideBtn + linkBtn + eduBtn + btns;
     l.appendChild(el);
   }
   document.getElementById('stf-ar').style.display = ok ? 'flex' : 'none';
@@ -11287,6 +11326,14 @@ function toggleStfHidden(name) {
   if (!D.stfHidden) D.stfHidden = {};
   if (D.stfHidden[name]) { delete D.stfHidden[name]; } else { D.stfHidden[name] = true; }
   saveD(); renderStfList(); renderCal();
+}
+/* 職員番号（D.stfNo）は氏名と同じく個人を指す情報のため writeLog には残さない */
+function setStfNo(name, val) {
+  if (!isAdmin) return;
+  val = (val || '').trim();
+  if (!D.stfNo) D.stfNo = {};
+  if (val) D.stfNo[name] = val; else delete D.stfNo[name];
+  saveD();
 }
 /* 氏名は D.stfLinks / D.stfHidden / D.stfEdu / dat.placement.people / dat.hdNotes /
    D.shift[ym] のキーになる。Firebase RTDB はキーに . # $ [ ] / を使えず、含まれると
@@ -12075,6 +12122,166 @@ function mvWdDept(i, d) {
   renderWdDeptList(); saveD();
 }
 
+/* ===== 祝日 (D.holidayOv / jpHolidayName) =====
+   祝日判定の唯一の入口は jpHolidayName(ds)。D.holidayOv（管理者の上書き。値が空文字なら
+   その日を祝日から外す印、それ以外の文字列なら祝日名の上書き、または計算に無い日の追加）を
+   必ず先に見て、無ければ計算で判定する。計算には振替休日（日曜と重なった祝日の直後の平日）と
+   国民の休日（祝日に挟まれた平日）を含む。現状は📝勤務希望タブのカレンダーだけが参照する
+   （連絡表のカレンダー renderCal には未適用）。 */
+var _holidayCalcCache = {}; /* 年→{ds:名前}。年だけで決まる純計算なので D の変更では無効化しない */
+/* 春分の日・秋分の日は天文学的な近似式（1980〜2099年向けの略算式。海上保安庁などの資料で
+   知られる式で、国立天文台が毎年2月に官報で確定する実際の日と厳密に一致するとは限らない）。
+   2100年以降は式の係数がずれるため、そのままでは正しい日を返せない。 */
+function jpEquinoxDay(y, kind) {
+  var base = kind === 'spring' ? 20.8431 : 23.2488;
+  return Math.floor(base + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+}
+function jpNthMonday(y, m, nth) {
+  var wd0 = new Date(y, m - 1, 1).getDay(); /* 1日の曜日(0=日〜6=土) */
+  return 1 + ((8 - wd0) % 7) + (nth - 1) * 7;
+}
+/* 固定計算のみ（振替休日・国民の休日を含まない） */
+function jpHolidayFixed(y) {
+  var h = {};
+  function set(m, d, name) { h[y + '-' + pad(m) + '-' + pad(d)] = name; }
+  set(1, 1, '元日');
+  set(1, jpNthMonday(y, 1, 2), '成人の日');
+  set(2, 11, '建国記念の日');
+  set(2, 23, '天皇誕生日');
+  set(3, jpEquinoxDay(y, 'spring'), '春分の日');
+  set(4, 29, '昭和の日');
+  set(5, 3, '憲法記念日');
+  set(5, 4, 'みどりの日');
+  set(5, 5, 'こどもの日');
+  set(7, jpNthMonday(y, 7, 3), '海の日');
+  set(8, 11, '山の日');
+  set(9, jpNthMonday(y, 9, 3), '敬老の日');
+  set(9, jpEquinoxDay(y, 'autumn'), '秋分の日');
+  set(10, jpNthMonday(y, 10, 2), 'スポーツの日');
+  set(11, 3, '文化の日');
+  set(11, 23, '勤労感謝の日');
+  return h;
+}
+/* 振替休日・国民の休日を含めた、その年の計算祝日一覧（D.holidayOvは見ない・年でキャッシュ） */
+function jpHolidayCalc(y) {
+  if (_holidayCalcCache[y]) return _holidayCalcCache[y];
+  var h = jpHolidayFixed(y);
+  Object.keys(h).sort().forEach(function (ds) {
+    var pt = ds.split('-'), yy = +pt[0], mm = +pt[1] - 1, dd = +pt[2];
+    if (new Date(yy, mm, dd).getDay() !== 0) return;
+    var next = new Date(yy, mm, dd);
+    do { next.setDate(next.getDate() + 1); } while (h[toDS(next)]);
+    h[toDS(next)] = '振替休日';
+  });
+  for (var d = new Date(y, 0, 2); d.getFullYear() === y; d.setDate(d.getDate() + 1)) {
+    var cur = toDS(d);
+    if (h[cur]) continue;
+    var prevD = new Date(d); prevD.setDate(d.getDate() - 1);
+    var nextD = new Date(d); nextD.setDate(d.getDate() + 1);
+    if (h[toDS(prevD)] && h[toDS(nextD)]) h[cur] = '国民の休日';
+  }
+  _holidayCalcCache[y] = h;
+  return h;
+}
+/* 祝日判定の唯一の入口 */
+function jpHolidayName(ds) {
+  if (!ds) return null;
+  if (D.holidayOv && Object.prototype.hasOwnProperty.call(D.holidayOv, ds)) return D.holidayOv[ds] || null;
+  var y = parseInt(ds.slice(0, 4), 10);
+  if (!y) return null;
+  return jpHolidayCalc(y)[ds] || null;
+}
+/* マスタUI用：ある年の行一覧（計算祝日＋その年のD.holidayOv全件をマージし日付順） */
+function holidayRowsForYear(y) {
+  var calc = jpHolidayCalc(y);
+  var ds0 = y + '-01-01', ds1 = y + '-12-31';
+  var all = {};
+  Object.keys(calc).forEach(function (ds) { all[ds] = true; });
+  Object.keys(D.holidayOv || {}).forEach(function (ds) { if (ds >= ds0 && ds <= ds1) all[ds] = true; });
+  return Object.keys(all).sort().map(function (ds) {
+    var calcName = calc[ds] || '';
+    var hasOv = D.holidayOv && Object.prototype.hasOwnProperty.call(D.holidayOv, ds);
+    var ovVal = hasOv ? D.holidayOv[ds] : undefined;
+    var excluded = hasOv && ovVal === '';
+    var custom = hasOv && ovVal !== '';
+    return { ds: ds, calcName: calcName, excluded: excluded, custom: custom, name: excluded ? '' : (custom ? ovVal : calcName) };
+  });
+}
+var _holidayYear = new Date().getFullYear();
+function setHolidayYear(y) { _holidayYear = parseInt(y, 10) || new Date().getFullYear(); renderHolidayMaster(); }
+function renderHolidayMaster() {
+  var sel = document.getElementById('holiday-year-sel'); if (!sel) return;
+  var y0 = new Date().getFullYear(), opts = '';
+  for (var y = y0 - 1; y <= y0 + 3; y++) opts += '<option value="' + y + '"' + (y === _holidayYear ? ' selected' : '') + '>' + y + '年</option>';
+  sel.innerHTML = opts;
+  var l = document.getElementById('holiday-list'); if (!l) return;
+  l.innerHTML = '';
+  var rows = holidayRowsForYear(_holidayYear);
+  if (!rows.length) { l.innerHTML = '<p class="cle">この年の祝日はありません</p>'; return; }
+  var WD = ['日', '月', '火', '水', '木', '金', '土'];
+  rows.forEach(function (row) {
+    var pt = row.ds.split('-'), wd = WD[new Date(+pt[0], +pt[1] - 1, +pt[2]).getDay()];
+    /* 日付と名前をそれぞれ nowrap にして、狭い画面では「名前の途中」ではなく両者の間で折る */
+    var dateLabel = '<span style="white-space:nowrap">' + parseInt(pt[1], 10) + '/' + parseInt(pt[2], 10) + '（' + wd + '）</span> ';
+    var el = document.createElement('div'); el.className = 'ri';
+    var badge, nameHTML, btns;
+    if (row.excluded) {
+      badge = '<span style="font-size:10px;color:var(--txt3);margin-right:4px">🚫対象外</span>';
+      nameHTML = '<span class="rn" style="opacity:.5;text-decoration:line-through">' + dateLabel + '<span style="white-space:nowrap">' + escH(row.calcName) + '</span></span>';
+      btns = '<button class="btn btn-g" style="font-size:10px;padding:2px 5px" onclick="restoreHolidayCalc(\'' + row.ds + '\')">↩ 計算に戻す</button>';
+    } else {
+      badge = '<span style="font-size:10px;color:' + (row.custom ? 'var(--or)' : 'var(--txt3)') + ';margin-right:4px">' + (row.custom ? '✏️上書き' : '🧮計算') + '</span>';
+      nameHTML = '<span class="rn">' + dateLabel + '<span style="white-space:nowrap">' + escH(row.name) + '</span></span>';
+      btns = '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="renameHolidayOv(\'' + row.ds + '\')">✏️ 名前を変える</button>';
+      if (row.calcName) {
+        btns += '<button class="btn btn-g" style="font-size:10px;padding:2px 5px' + (row.custom ? ';margin-right:3px' : '') + '" onclick="excludeHolidayCalc(\'' + row.ds + '\')">🚫 祝日から外す</button>';
+        if (row.custom) btns += '<button class="btn btn-g" style="font-size:10px;padding:2px 5px" onclick="restoreHolidayCalc(\'' + row.ds + '\')">↩ 計算名に戻す</button>';
+      } else {
+        btns += '<button class="rd2" onclick="restoreHolidayCalc(\'' + row.ds + '\')">×</button>';
+      }
+    }
+    el.innerHTML = badge + nameHTML + btns;
+    l.appendChild(el);
+  });
+}
+function addHolidayOv() {
+  if (!can('mst')) return;
+  var dEl = document.getElementById('in-holiday-date'), nEl = document.getElementById('in-holiday-name');
+  var ds = dEl.value, name = nEl.value.trim();
+  if (!ds) { toast('日付を選んでください', 'warn'); return; }
+  if (!name) { toast('名前を入力してください', 'warn'); nEl.focus(); return; }
+  if (!D.holidayOv) D.holidayOv = {};
+  D.holidayOv[ds] = name;
+  dEl.value = ''; nEl.value = '';
+  _holidayYear = parseInt(ds.slice(0, 4), 10) || _holidayYear;
+  saveD();
+  renderHolidayMaster();
+}
+function renameHolidayOv(ds) {
+  if (!can('mst')) return;
+  var v = prompt('祝日名を入力してください', jpHolidayName(ds) || '');
+  if (v === null) return;
+  v = v.trim();
+  if (!v) { toast('名前を空にはできません', 'warn'); return; }
+  if (!D.holidayOv) D.holidayOv = {};
+  D.holidayOv[ds] = v;
+  saveD();
+  renderHolidayMaster();
+}
+function excludeHolidayCalc(ds) {
+  if (!can('mst')) return;
+  if (!D.holidayOv) D.holidayOv = {};
+  D.holidayOv[ds] = '';
+  saveD();
+  renderHolidayMaster();
+}
+function restoreHolidayCalc(ds) {
+  if (!can('mst')) return;
+  if (D.holidayOv) delete D.holidayOv[ds];
+  saveD();
+  renderHolidayMaster();
+}
+
 /* ===== 勤務希望（D.shiftReq） =====
    翌月などの勤務希望を、各職員がカレンダーで入力し、管理者が全員分を一覧で確認する。
    Excel出力・テンプレの取り込みは次の段階（今回は作らない・ボタンも置かない）。
@@ -12254,9 +12461,11 @@ function renderShiftReqCal(ym, name) {
   for (var d = 1; d <= days; d++) {
     var ds = ym + '-' + pad(d);
     var w = new Date(y, m, d).getDay();
+    var holName = jpHolidayName(ds);
     var code = recs[String(d)] || '';
     var el = document.createElement('div');
-    el.className = 'cd' + (w === 0 ? ' sun' : w === 6 ? ' sat' : '') + (ds === today ? ' tod' : '');
+    el.className = 'cd' + (w === 0 ? ' sun' : w === 6 ? ' sat' : '') + (holName ? ' hol' : '') + (ds === today ? ' tod' : '');
+    if (holName) el.title = holName;
     var html = ds === today ? '<span class="dn">' + d + '</span>' : '<span class="dnp">' + d + '</span>';
     if (code) { var col = srqCodeColor(code); html += '<span class="srq-lbl" style="background:' + col.bg + ';color:' + col.fg + '">' + escH(code) + '</span>'; }
     if (!isAdmin && vis !== 'self') html += srqCellExtraHTML(ym, d, name, vis);
@@ -12329,7 +12538,9 @@ function renderShiftReqMatrix(ym) {
   h += '<thead><tr><th style="text-align:left;white-space:nowrap">スタッフ</th>';
   for (var d = 1; d <= days; d++) {
     var w = new Date(y, m, d).getDay();
-    h += '<th style="text-align:center;width:30px;' + (w === 0 ? 'color:var(--rd)' : w === 6 ? 'color:var(--ac)' : '') + '">' + d + '</th>';
+    /* 祝日は日曜と同じ赤。名前は title に出す（カレンダー側 renderShiftReqCal と同じ扱い） */
+    var hn = jpHolidayName(ym + '-' + (d < 10 ? '0' + d : d));
+    h += '<th style="text-align:center;width:30px;' + ((w === 0 || hn) ? 'color:var(--rd)' : w === 6 ? 'color:var(--ac)' : '') + '"' + (hn ? ' title="' + escH(hn) + '"' : '') + '>' + d + '</th>';
   }
   h += '</tr></thead><tbody>';
   names.forEach(function (n) {
@@ -13629,6 +13840,7 @@ function parseShiftSheet(wb, fileName) {
      新形式: 行7(idx6)〜 で 職員番号行(col2=数字)→氏名行(col2=氏名) の2行ペア
      旧形式: 同じロジック */
   var result = {};
+  var stfNo  = {}; /* 職員番号: 氏名 → 番号(文字列)。職員番号行(numRow)のcol2から拾う */
 
   /* スタッフ開始行を決定 */
   var stfStart;
@@ -13680,6 +13892,13 @@ function parseShiftSheet(wb, fileName) {
     var name   = fbSafeKey(col2); /* D.shift[ym] のキーになるので正規化（禁止文字を含むと保存が止まる） */
     var numRow = grid[ri - 1] || [];
     if (!result[name]) result[name] = {};
+
+    /* 職員番号: 職員番号行(numRow)のcol2が数字ならその人の番号として拾う */
+    var noRaw = numRow[2];
+    if (noRaw !== null && noRaw !== undefined) {
+      var noStr = noRaw.toString().trim();
+      if (/^\d+$/.test(noStr)) stfNo[name] = noStr;
+    }
 
     for (var ci in colToDay) {
       var dayNum = colToDay[ci];
@@ -13757,6 +13976,7 @@ function parseShiftSheet(wb, fileName) {
   var html = '<div style="background:var(--gr-bg);border:1px solid #a7d9d0;border-radius:8px;padding:12px 14px;margin-bottom:10px">';
   html += '<div style="font-size:12px;font-weight:700;color:var(--gr);margin-bottom:4px">\u2705 \u8aad\u307f\u8fbc\u307f\u5b8c\u4e86\uff1a' + ym + '\uff08' + sheetName + '\uff09</div>';
   html += '<div style="font-size:11px;color:var(--txt2)">CE: ' + ceCount + '\u4ef6\u3000OC: ' + ocCount + '\u4ef6\u3000HD: ' + hdCount + '\u4ef6\u3000\ud83c\udd98 \u30d8\u30eb\u30d7: ' + helpCount + '\u4ef6\u3000\u30a4\u30d9\u30f3\u30c8: ' + evtCount + '\u4ef6</div>';
+  html += '<div style="font-size:11px;color:var(--txt2)">\ud83c\udd94 \u8077\u54e1\u756a\u53f7\u3092 ' + Object.keys(stfNo).length + '\u4ef6 \u53d6\u308a\u8fbc\u307f\u307e\u3059</div>';
   html += '<div style="font-size:10px;color:var(--txt3);margin-top:2px">\u65e5\u4ed8\u884c: ' + (dateRowIdx+1) + '\u884c\u76ee\u3000\u30a4\u30d9\u30f3\u30c8\u884c: ' + (evtRowIdx !== -1 ? evtRowIdx+1 : '\u691c\u51fa\u306a\u3057') + '\u884c\u76ee</div>';
   html += '</div>';
   html += '<div style="font-size:11px;font-weight:700;color:var(--txt3);margin-bottom:6px">\u78ba\u8a8d\u7528\u30b5\u30de\u30ea\u30fc\uff08\u6700\u521d\u306e7\u65e5\uff09</div>';
@@ -13807,7 +14027,7 @@ function parseShiftSheet(wb, fileName) {
   }
 
   resultEl.innerHTML = html;
-  parsedShiftData = {ym: ym, data: result, evts: evts};
+  parsedShiftData = {ym: ym, data: result, evts: evts, stfNo: stfNo};
   saveBtn.style.display = '';
 }
 
@@ -13919,6 +14139,14 @@ function doSaveSIM() {
       });
     }
     D.evts[ym] = newEvts;
+  }
+
+  /* 職員番号: 氏名と同じく個人を指す情報のためログには残さない */
+  if (parsedShiftData.stfNo) {
+    if (!D.stfNo) D.stfNo = {};
+    Object.keys(parsedShiftData.stfNo).forEach(function(n){
+      if (parsedShiftData.stfNo[n]) D.stfNo[n] = parsedShiftData.stfNo[n];
+    });
   }
 
   /* ===== OC自動入力 =====
@@ -23800,7 +24028,7 @@ function swTab(t) {
   if(t==='shiftreq'){ renderShiftReq(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList(); renderEduCfgUI(); renderEduItemMaster(); renderShiftReqCodeList();
-    if(can('mst')){renderOpeList();renderCathList();renderSupList();renderRoboMaster();renderDutyMasterList();renderSchedPresetList();}
+    if(can('mst')){renderOpeList();renderCathList();renderSupList();renderRoboMaster();renderDutyMasterList();renderSchedPresetList();renderHolidayMaster();}
     /* data-perm = 権限による出し分け（従来どおり）。
        data-mode = 主観モードによる出し分け（'ce'|'hd'、属性なし＝両モードで表示）。
        セクションは .mgrp-body の中に入っているので子孫セレクタで拾う。新セクションは
@@ -25303,7 +25531,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -25455,7 +25683,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -25512,7 +25740,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */

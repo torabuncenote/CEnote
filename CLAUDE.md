@@ -471,7 +471,7 @@ All class names are abbreviated:
 | `eduStats(dsList)` | 期間内の症例・治療・配置日数・指導・OCを1回の走査で全スタッフ分集計する唯一の入口 |
 | `eduGet/eduSet/eduSetBulk/eduAddGoal/eduRemoveGoal/eduRestore` | 到達度レコードの読み取り／段階変更（履歴に必ず追記。lv:0＝未評価に戻す）／一括設定（既定は未評価のみ）／目標の追加・削除／取り消し。書き込みはこれらと改名の付け替えだけを通す |
 | `saveDPaths(paths)` | D の指定した場所だけを `update()` で送る（到達度用。守りは `saveDPage` と同じ） |
-| `renameStaffKeys(oldName, newName)` / `eduRenameKeys(catId, oldParts, newParts)` / `eduMergeRec(a, b)` | 改名で到達度（とスタッフの紐付け・非表示・教育スロット）を新しい名前へ移す／移動先の記録と合わせる |
+| `renameStaffKeys(oldName, newName)` / `eduRenameKeys(catId, oldParts, newParts)` / `eduMergeRec(a, b)` | 改名で到達度（とスタッフの紐付け・非表示・教育スロット・職員番号・勤務希望）を新しい名前へ移す／移動先の記録と合わせる |
 | `editEduItem(kind, i)` / `editHdTreat(i)` | 教育項目・HD特殊治療の改名モーダル（✏️）。確定は `confirmEditModal` |
 | `renderTreeAll(saveKey)` | オペ/カテ術式マスタ（`opeTree`/`cathTree`）を業務マスタ・教育項目マスタ両方のマウント先（`TREE_MOUNTS`）のうちDOMに存在する方へ再描画する唯一の入口。`renderTree` 内の自己再描画（追加・削除・改名後）もこれを通る |
 | `eduExperiencedKeys(name)` / `eduChildItems(name, kind)` | 全期間の経験済み細目（症例担当者/HD特殊治療実施者ベース）／それに手動目標を足した細目一覧（マスタ全項目は並べない） |
@@ -503,6 +503,7 @@ All class names are abbreviated:
 | `openOcFlowModal()` / `saveOcFlow()` | OC対応フローチャートの閲覧モーダル（OC集計サブタブ上部の常設ボタンから、全ユーザー可）／マスタ保存（`mst`権限。textareaの値投入は `renderDlyList` 内） |
 | `openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` | 貸出/返却の記録モーダル（datalistでスタッフ選択＋手入力、`saveDPage`使用） |
 | `renderShiftReq()` / `shiftReqOf(ym, name)` / `shiftReqCodes()` / `shiftReqDeadline(ym)` | 勤務希望タブ（`pane-shiftreq`）の描画／その人のその月の希望`{日:種類}`／種類マスタ／締切日の4アクセサ。書き込みは `shiftReqSave(ym, name, day, code)` 経由（勤務希望節参照） |
+| `jpHolidayName(ds)` | 祝日判定の唯一の入口。`D.holidayOv` の上書きを先に見て、無ければ計算（振替休日・国民の休日を含む）で判定する。現状は勤務希望タブのカレンダーだけが参照する（勤務希望節参照） |
 | `renderMakers()` / `renderMakersList()` | メーカー担当者連絡先パネル全体（ヘッダーボタン・`#mk-catnav`のカテゴリチップ）／一覧のみ（`#mk-list`）を再描画。検索欄自体は静的HTMLで作り直さない |
 | `mkCatColor(catId)` | カテゴリIDをハッシュして`MK_PALETTE`（アプリ既存の7色 --ac/--gr/--or/--pu/--rd/--oc/--gd を再利用、新規hexは定義しない）から固定色を返す。並べ替え・改名しても同じカテゴリは常に同じ色。カテゴリチップ・セクション見出し・カード左帯・電話アイコンの4箇所で同じ値を使い回して視覚的に連動させる |
 | `openMakerModal(id)` / `saveMakerFromModal(id)` | 追加・編集モーダル（`id`省略で新規）／保存（備考欄だけ`phiGuardText`を通し`saveD()`） |
@@ -866,6 +867,8 @@ D.shiftReqCfg = {}  // visibility:'self'|'count'|'all'、deadlines:{'YYYY-MM':'Y
 - **`shiftReqCodes()` は空なら `D.shiftReqCodes` 自体を既定値で埋めてから返す**（`getSchedPresets()` と同じ流儀。`D.wdDepts` の素の `||[]` フォールバックとは違い、別配列を返すだけだと `rmShiftReqCode`/`mvShiftReqCode` の添字操作が実体の空配列に当たらず削除・並べ替えが効かなくなるため）。空にしても次回読み込み時に7種へ戻る——選択肢が0件だとタブ自体が使えなくなるための安全策で、`D.schedPresets` と同じ割り切り。
 - 種類の選択はマスタからのボタン選択のみで自由記述欄が無いため、`detectPHI` は通さない（メーカー担当者名・ヘルプ職員名と同じ判断）。
 - タブ追加は「Adding a top-level sidebar tab」の6箇所を通常どおり配線した。`D.shiftReq`/`D.shiftReqCodes`/`D.shiftReqCfg` は `/data` 全体の一部として届くため、`/tasks`/`/board` のような専用リスナーは無く、「表示中だけ再描画する専用リスナー」の項目は該当しない（タブを開くたび `renderShiftReq()` が最新の `D` から描き直す）。
+- **祝日（`D.holidayOv` / `jpHolidayName(ds)`）**：祝日判定の唯一の入口は `jpHolidayName(ds)`。元日・成人の日・建国記念の日・天皇誕生日・春分の日・昭和の日・憲法記念日・みどりの日・こどもの日・海の日・山の日・敬老の日・秋分の日・スポーツの日・文化の日・勤労感謝の日を計算し（`jpHolidayFixed(y)`）、振替休日（日曜と重なった祝日の直後の平日）と国民の休日（祝日に挟まれた平日）も加える（`jpHolidayCalc(y)`、年ごとに `_holidayCalcCache` でメモ化する純計算）。春分・秋分は天文学的な近似式（1980〜2099年向けの略算式）を使っており、2100年以降は係数がずれるため合わなくなる。**`D.holidayOv = {'YYYY-MM-DD':'名前'}` を `jpHolidayName` は必ず先に見る**——値が空文字ならその日を祝日から外す印、それ以外の文字列なら祝日名の上書き、または院内の創立記念日など計算に無い日の追加。マスタタブ🎯担当・スケジュールグループの「🎌 祝日」セクション（`data-perm="mst"`、両モード共通）から年ごとに一覧・追加・名前変更・除外・取り消しができる（`renderHolidayMaster`/`addHolidayOv`/`renameHolidayOv`/`excludeHolidayCalc`/`restoreHolidayCalc`）。**現状は📝勤務希望タブだけが参照する**——カレンダー（`renderShiftReqCal`）と管理者の全員一覧の日付見出し（`renderShiftReqMatrix`）を、どちらも日曜と同じ `var(--rd)` で塗り `title` に祝日名を入れる。**連絡表のカレンダー（`renderCal`）にはまだ適用していない。**
+- **職員番号（`D.stfNo`）**：`D.stfNo = {氏名:"職員番号"}`。勤務表インポート（`parseShiftSheet`）がスタッフの2行1組（職員番号行→氏名行）のうち職員番号行のcol2（数字）を拾い、取り込み確定（`doSaveSIM`）時に `D.stfNo` へマージする（氏名は取り込み側の既存正規化＝`fbSafeKey(col2)` をそのまま使い、番号専用の正規化は作らない）。プレビュー画面に「🆔 職員番号をN件 取り込みます」の1行が出る。スタッフ一覧（`renderStfList`、管理者限定）で氏名の右に表示・編集でき、書き込みは `setStfNo(name, val)` → `saveD()`。**氏名と同じく個人を指す情報のため `writeLog` には残さない。** 次の更新（勤務希望のExcel出力）で使う想定。
 
 ### PHI Detection
 
@@ -929,7 +932,7 @@ D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透�
 - **キーが存在しない＝未評価**。`lv:0` は「未評価に戻した」記録（履歴を残すためキーごとは消さない。付けた段階をもう一度押すと戻る）で、読む側は `rec ? rec.lv : 0` なのでどちらも未評価に見える。`lv`：1=未／2=見学／3=介助／4=単独／5=指導可。押すたびに `hist` へ `{lv,by,ts}` を追記——現在値の上書きだけでなく履歴を必ず残す。書き込みは `eduSet`/`eduSetBulk`/`eduAddGoal`/`eduRemoveGoal`/`eduRestore` と改名の付け替え（`eduRenameKeys`/`renameStaffKeys`）だけを通し、`D.eduProgress` に直接代入しない。
 - **到達度の保存は `saveDPaths([['eduProgress', 氏名, 項目key], …])`**（変わった項目だけを `update()` で送る）。`D` 全体の `saveD()` に戻さないこと——1回押すごとに約0.6MBを送り、同時に他の人が保存すると後勝ちで段階が消えていた。守りは `saveDPage` と同じ（初回受信前・古いアプリは送らない、全体保存の進行中・予約中は `saveD()` に任せる、失敗したら `saveD()` で送り直す）。
 - **段階を変えたら「取り消す」付きのトースト**（`toast(msg, type, ms, {label, fn})`）を出し、`eduRestore(name, snaps)` で変える前の写しに戻す。**「まとめて設定」は既定で未評価の項目だけ**（`eduSetBulk(name, keys, lv, onlyUnrated)`）。以前は分類の全項目を上書きし、既に「単独」だった項目まで戻していた。
-- **改名で到達度を引き継ぐ**：スタッフ改名は `renameStaffKeys(旧, 新)`（到達度に加え `D.stfLinks`・`D.stfHidden`・`D.stfEdu` も移す）、術式マスタの科・中カテゴリ・術式と、教育項目・HD特殊治療の改名（✏️、`editEduItem`/`editHdTreat`）は `eduRenameKeys(catId, 旧の先頭部分, 新の先頭部分)`。移動先に記録があれば `eduMergeRec` で新しい方を残し履歴をつなぐ。過去の連絡表の症例名・治療名は書き換えないので、改名前の症例は「経験あり」の印・件数に数えられなくなる（使用物品マスタと同じ方針）。
+- **改名で到達度を引き継ぐ**：スタッフ改名は `renameStaffKeys(旧, 新)`（到達度に加え `D.stfLinks`・`D.stfHidden`・`D.stfEdu`・`D.stfNo` も移し、月ごとの入れ子である `D.shiftReq[ym][氏名]` は個別のループで移す。**氏名をキーにする `D` のマップを足したら、ここにも足すこと**——移し忘れると改名した人のその記録だけが旧姓のまま画面から消える）、術式マスタの科・中カテゴリ・術式と、教育項目・HD特殊治療の改名（✏️、`editEduItem`/`editHdTreat`）は `eduRenameKeys(catId, 旧の先頭部分, 新の先頭部分)`。移動先に記録があれば `eduMergeRec` で新しい方を残し履歴をつなぐ。過去の連絡表の症例名・治療名は書き換えないので、改名前の症例は「経験あり」の印・件数に数えられなくなる（使用物品マスタと同じ方針）。
 - 実績サブタブを開いている間は、`/data` の受信で `refreshPerfIfOpen(justSaved)` が描き直す（他の教育担当が付けた段階が反映される。ポップアップ表示中・入力中・自分の保存直後は見送る）。
 - **項目キーの名前空間**：大分類は `cat:<分類id>`（`eduCategories()` が返す固定6分類、id は `ope`/`cath`/`ward`/`device`/`hd`/`hdsp`）。細目は **OPE/カテだけ階層をキーに含める**（`ope:<科>|<中カテゴリ>|<術式>` / `cath:<同>`）。`ward`/`device`/`hd`/`hdsp` は階層が無いので `hd:<項目>` のまま。
 - **キー生成は必ず `eduKey(catId, dept, cat, name)` を通すこと。** 理由が2つある。①**禁止文字**：術式名にFirebase RTDBが使えない文字（`. # $ [ ] /`）が入りうる（初期マスタの「OCT/IVUS」「VT/PVC」が実例）。素通しすると `set()` が同期throwし `_saveWriting` が立ったままアプリ全体の保存が止まる。②**同名術式**：実データの「低位前方切除術」は消化器外科の腹腔鏡下とロボット支援下の**両方**にあり（他に右半結腸切除術・左半結腸切除術・S状結腸切除術も同様）、術式名だけをキーにすると2つの到達度が同じレコードに混ざる。
