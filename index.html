@@ -1506,6 +1506,13 @@ body.is-offline{--off-h:24px}
 .mk-upd{font-size:10px;color:var(--txt3);margin-top:8px}
 .mk-empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px;line-height:1.8}
 .mk-empty-ic{font-size:26px;display:block;margin-bottom:8px;opacity:.55}
+/* ===== 勤務希望（D.shiftReq） =====
+   カレンダーの日ごとに種類（D.shiftReqCodes）を選ぶだけなので、既存の .cg/.cd を流用し、
+   日付の下に種類ラベルを収めるぶんだけ縦に伸ばす（列数・ホバー・今日/日曜/土曜の色は .cd のまま）。 */
+.srq-grid.cg{gap:4px}
+.srq-grid .cd{min-height:54px;padding:4px 2px 5px;gap:2px}
+.srq-lbl{display:block;width:100%;box-sizing:border-box;text-align:center;border-radius:4px;padding:2px 2px;font-size:9.5px;font-weight:700;line-height:1.25;word-break:break-all;white-space:normal}
+.srq-extra{display:block;width:100%;font-size:8.5px;color:var(--txt3);line-height:1.3;word-break:break-all;margin-top:1px}
 /* ===== 検索モーダル ===== */
 .srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
 .srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
@@ -1684,6 +1691,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
       <!-- 業務集計・OC集計・HD集計をまとめた集計タブ。CE/HDどちらの主観でも表示する -->
       <div class="stab"     id="tab-sum"    onclick="swTab('sum')">📈 集計</div>
       <div class="stab"     id="tab-task"   onclick="swTab('task')">📋 タスク</div>
+      <div class="stab"     id="tab-shiftreq" onclick="swTab('shiftreq')">📝 勤務希望</div>
       <div class="stab"     id="tab-staff"  onclick="swTab('staff')"  style="display:none">👥 スタッフ</div>
       <div class="stab"     id="tab-master" onclick="swTab('master')" style="display:none">📋 マスタ</div>
       <div class="stab"     id="tab-lock"   onclick="swTab('lock')"   style="display:none">🔒 ロック</div>
@@ -1918,6 +1926,18 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
             <div id="auto-assign-mode-cfg" data-perm="admin" data-mode="ce">
               <div class="pt">🎲 月次自動割り当てモード</div>
               <div id="auto-assign-mode-form"></div>
+            </div>
+            <!-- 勤務希望の種類マスタ（D.shiftReqCodes）。D.wdDepts と同型で、改名ボタンは無い——
+                 過去の希望は文字列で D.shiftReq にそのまま残るため、改名すると過去分の表記だけ
+                 食い違ってしまう（追加・削除・並べ替えのみ）。data-mode を付けず両モードで出す。 -->
+            <div data-perm="mst">
+              <div class="pt">📝 勤務希望の種類</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">「📝 勤務希望」タブでカレンダーの日をタップしたときに選べる種類です。並び順がそのまま選択画面の並びになります。<b>名前の変更はできません</b>（削除・追加・並べ替えはできます）。</div>
+              <div class="rl" id="srq-code-list"></div>
+              <div class="ar" id="srq-code-ar">
+                <input type="text" id="in-srq-code" placeholder="種類を入力…" maxlength="20">
+                <button onclick="addShiftReqCode()">追加</button>
+              </div>
             </div>
           </div>
         </div>
@@ -2271,6 +2291,34 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <div id="pane-task" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div id="task-body"></div>
+      </div>
+    </div>
+
+    <!-- 勤務希望パネル（全ユーザー対象。カレンダーで種類を選んで入力し、管理者が全員分を一覧で確認する。
+         Excel出力は次の段階。データ・アクセサ・書き込みの入口は CLAUDE.md「勤務希望（D.shiftReq）」節） -->
+    <div id="pane-shiftreq" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+      <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
+        <div class="pt" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <span>📝 勤務希望</span>
+          <span id="srq-deadline-badge"></span>
+        </div>
+        <div class="mnav">
+          <button onclick="srqPrevM()">&#8249;</button>
+          <span class="ml" id="srq-ml"></span>
+          <button onclick="srqNextM()">&#8250;</button>
+        </div>
+        <div id="srq-admin-switch" style="display:none;margin-bottom:10px;font-size:12px"></div>
+        <div id="srq-nolink" style="display:none;margin-bottom:10px"></div>
+        <div id="srq-cal-wrap">
+          <div id="srq-legend"></div>
+          <div class="cg srq-grid" id="srq-grid"></div>
+        </div>
+        <div id="srq-admin-block" style="display:none;margin-top:20px;border-top:1px solid var(--bdr);padding-top:14px">
+          <div class="pt" style="margin-bottom:10px">⚙ 設定（管理者）</div>
+          <div id="srq-settings" style="margin-bottom:20px"></div>
+          <div class="pt" style="margin-bottom:10px">📋 全員の一覧（管理者）</div>
+          <div id="srq-matrix"></div>
+        </div>
       </div>
     </div>
 
@@ -2811,6 +2859,7 @@ var DEF_WD = {月:['月一BSM点検（第二 or 第四）— 内視鏡室・ケ�
 var DEF_OPE = ['全麻（一般）','全麻（心臓）','局麻','脊麻','硬膜外'];
 var DEF_SUP = ['清潔手袋','電気メス','超音波凝固切開装置','自動縫合器','吸引管','ドレープセット'];
 var DEF_CATH = ['CAG','PCI','EVT','アブレーション','ペースメーカー','ICD','TAVI','その他'];
+var DEF_SHIFT_REQ_CODES = ['日勤希望','準夜勤希望','宿直希望','休み','有休','計画年休','夏休み']; /* 勤務希望の種類マスタ（D.shiftReqCodes）の初期値 */
 
 /* ===== 術式ツリー（科 → 中カテゴリ → 術式） ===== */
 var DEF_OPE_TREE = [
@@ -2877,7 +2926,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[]};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3124,6 +3173,9 @@ function loadD() {
     D.eduCfg = s.eduCfg || {ceEdu:false};
     D.eduItems = s.eduItems || {ward:[],device:[],hd:[]};
     D.roboLayouts = s.roboLayouts || [];
+    D.shiftReq = s.shiftReq || {};
+    D.shiftReqCodes = (s.shiftReqCodes && s.shiftReqCodes.length) ? s.shiftReqCodes : DEF_SHIFT_REQ_CODES.slice();
+    D.shiftReqCfg = s.shiftReqCfg || {};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -3247,7 +3299,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[];
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={};
         _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
@@ -3443,6 +3495,9 @@ function fbInit() {
             D.eduCfg = d.eduCfg || {ceEdu:false};
             D.eduItems = d.eduItems || {ward:[],device:[],hd:[]};
             D.roboLayouts = d.roboLayouts || [];
+            D.shiftReq = d.shiftReq || {};
+            D.shiftReqCodes = (d.shiftReqCodes && d.shiftReqCodes.length) ? d.shiftReqCodes : DEF_SHIFT_REQ_CODES.slice();
+            D.shiftReqCfg = d.shiftReqCfg || {};
             /* このバージョンが知らない項目（新しいバージョンが足したもの）も消さずに持ち回る。
                保存は D 全体の上書きなので、ここで拾わないと1つ前のアプリが保存した瞬間にその項目が消える */
             Object.keys(d).forEach(function(k){
@@ -5489,11 +5544,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/21-86';
+var APP_VERSION = 'Ver.2026/09/21-87';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/21-87', date:'2026-09-21', title:'勤務希望をアプリで出せるようにしました', items:[
+    {t:'new', d:'📝 「勤務希望」タブを追加しました。カレンダーの日をタップして、日勤希望・準夜勤希望・宿直希望・休み・有休・計画年休・夏休みなどを入れられます。締切日を過ぎると自分では直せなくなります（管理者に連絡してください）'},
+    {t:'new', admin:true, d:'📝 勤務希望の締切日・他の人の希望の見え方（自分だけ／人数だけ／全員）を管理者が設定できます。全員分は月×人の一覧で確認できます。提出用のExcel出力は次の更新で追加します'}
+  ]},
   { ver:'Ver.2026/09/21-86', date:'2026-09-21', title:'教育項目マスタでオペ・カテ・特殊治療も編集できるようにしました', items:[
     {t:'imp', admin:true, d:'🎓 教育項目マスタから、オペ・カテの術式マスタとHD特殊治療マスタも編集できるようにしました（業務マスタと同じデータなので、どちらから直しても同じです）。教育到達度の権限を持つ人も編集できます'}
   ]},
@@ -12014,6 +12073,318 @@ function mvWdDept(i, d) {
   var arr = D.wdDepts || []; var j = i + d; if (j < 0 || j >= arr.length) return;
   var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
   renderWdDeptList(); saveD();
+}
+
+/* ===== 勤務希望（D.shiftReq） =====
+   翌月などの勤務希望を、各職員がカレンダーで入力し、管理者が全員分を一覧で確認する。
+   Excel出力・テンプレの取り込みは次の段階（今回は作らない・ボタンも置かない）。
+   D.shiftReq = { 'YYYY-MM': { 氏名: { '1':'休み', '2':'日勤希望', … } } }（日は文字列キー、
+   値は D.shiftReqCodes の文字列そのもの）。種類マスタ（D.shiftReqCodes）は D.wdDepts と同型の
+   単純な文字列配列で、初期値は7種類・改名ボタンは無い（過去の希望は文字列でそのまま残るため、
+   改名すると過去分の表記だけ食い違う）。設定（D.shiftReqCfg = {visibility, deadlines}）の既定値は
+   D.eduCfg.levels と同じ流儀で読むときに補う——既定リテラルには足さないので D.shiftReqCfg は
+   空 {} のまま持ち回り、shiftReqVisibility()/shiftReqDeadline() が既定を補う。
+   読み出しは shiftReqOf/shiftReqCodes/shiftReqVisibility/shiftReqDeadline の4アクセサに統一し、
+   D.shiftReq や D.shiftReqCfg を直接読まない。種類の選択はマスタからのボタン選択のみで自由記述欄が
+   無いため、detectPHI は通さない（メーカー担当者名・ヘルプ職員名と同じ判断）。 */
+function shiftReqOf(ym, name) {
+  return (D.shiftReq && D.shiftReq[ym] && D.shiftReq[ym][name]) || {};
+}
+function shiftReqCodes() {
+  /* getSchedPresets() と同じ流儀：空なら D.shiftReqCodes 自体を初期値で埋めてから返す（別配列を
+     返すだけだと、削除時に D.shiftReqCodes.splice() が実体の空配列に当たって効かなくなる） */
+  if (!D.shiftReqCodes || !D.shiftReqCodes.length) D.shiftReqCodes = DEF_SHIFT_REQ_CODES.slice();
+  return D.shiftReqCodes;
+}
+function shiftReqVisibility() {
+  return (D.shiftReqCfg && D.shiftReqCfg.visibility) || 'self';
+}
+function shiftReqDeadline(ym) {
+  return (D.shiftReqCfg && D.shiftReqCfg.deadlines && D.shiftReqCfg.deadlines[ym]) || '';
+}
+/* 書き込みの唯一の入口。code が空なら消去——D から消してから同じパス（['shiftReq',ym,name,day]）を
+   saveDPaths に渡す。saveDPaths はそのパスの「いまの値」を読んでから送るので、消した後に呼べば
+   undefined→null に変換されてFirebase側のそのキーも消える。到達度(eduProgress)と同じ理由で
+   全体保存はしない（他の人が同時に入れた希望を saveD() の後勝ちで消さないため）。saveDPaths の
+   既存の使い方にそのまま合うので saveD() へのフォールバックは無い。 */
+function shiftReqSave(ym, name, day, code) {
+  var dayKey = String(day);
+  if (code) {
+    if (!D.shiftReq) D.shiftReq = {};
+    if (!D.shiftReq[ym]) D.shiftReq[ym] = {};
+    if (!D.shiftReq[ym][name]) D.shiftReq[ym][name] = {};
+    D.shiftReq[ym][name][dayKey] = code;
+  } else if (D.shiftReq && D.shiftReq[ym] && D.shiftReq[ym][name]) {
+    delete D.shiftReq[ym][name][dayKey];
+  }
+  saveDPaths([['shiftReq', ym, name, dayKey]]);
+  writeLog('勤務希望', ym + ' ' + name + ' ' + dayKey + '日：' + (code || '消去'));
+  renderShiftReq();
+}
+
+var _srqY = null, _srqM = null;   /* 表示中の年月（非永続）。未初期化なら翌月を既定にする */
+var _srqAdminName = null;         /* 管理者が選んでいる代理入力対象の氏名（非永続） */
+function srqEnsureInit() {
+  if (_srqY === null || _srqM === null) {
+    var d = new Date(); d = new Date(d.getFullYear(), d.getMonth() + 1, 1); /* 翌月（day=1で月末繰り上がりを避ける） */
+    _srqY = d.getFullYear(); _srqM = d.getMonth();
+  }
+}
+function srqPrevM() { _srqM--; if (_srqM < 0) { _srqM = 11; _srqY--; } renderShiftReq(); }
+function srqNextM() { _srqM++; if (_srqM > 11) { _srqM = 0; _srqY++; } renderShiftReq(); }
+function srqSwitchStaff(name) { _srqAdminName = name || null; renderShiftReq(); }
+function srqPastDeadline(ym) {
+  var dl = shiftReqDeadline(ym); if (!dl) return false;
+  return dl < toDS(new Date());
+}
+/* カレンダー・マトリクスの色分け用。mkCatColor と同じくコード文字列自体をハッシュして固定パレット
+   （MK_PALETTE、アプリ既存の7色）から選ぶ——新しい色は定義しない。並べ替えても色は変わらない */
+function srqCodeColor(code) {
+  if (!code) return MK_NEUTRAL;
+  var str = String(code), h = 0;
+  for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) & 0x7fffffff;
+  return MK_PALETTE[h % MK_PALETTE.length];
+}
+
+/* ===== 種類を選ぶポップアップ ===== */
+function openShiftReqPicker(ym, name, day) {
+  if (!isAdmin && srqPastDeadline(ym)) { toast('締切を過ぎています。管理者に連絡してください', 'warn'); return; }
+  var old = document.getElementById('srq-pick-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'srq-pick-ov';
+  ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '340px';
+  md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
+  var cur = shiftReqOf(ym, name)[String(day)] || '';
+  var p = ym.split('-'), dLabel = parseInt(p[1], 10) + '/' + day;
+  var h = '<h3>' + escH(dLabel) + ' の勤務希望</h3>';
+  if (name !== taskSelfName()) h += '<div style="font-size:12px;font-weight:700;color:var(--or);margin-bottom:8px">👤 ' + escH(name) + ' さんの代理で入力中</div>';
+  h += '<div style="display:flex;flex-direction:column;gap:6px">';
+  shiftReqCodes().forEach(function (code) {
+    var col = srqCodeColor(code), on = code === cur;
+    h += '<button type="button" class="btn" data-code="' + escH(code) + '" style="min-height:44px;justify-content:flex-start;padding:10px 14px;font-size:13px;border-radius:var(--rs);border:1.5px solid ' + col.fg + ';background:' + (on ? col.fg : col.bg) + ';color:' + (on ? 'var(--on-ac)' : col.fg) + '">' + (on ? '✓ ' : '') + escH(code) + '</button>';
+  });
+  h += '</div><div style="margin-top:14px;display:flex;justify-content:space-between;gap:8px">'
+    + '<button type="button" class="btn btn-d" id="srq-pick-clear" style="min-height:44px"' + (cur ? '' : ' disabled') + '>消す</button>'
+    + '<button type="button" class="btn btn-g" id="srq-pick-cancel" style="min-height:44px">キャンセル</button></div>';
+  md.innerHTML = h; ov.appendChild(md); document.body.appendChild(ov);
+  ov.addEventListener('click', function (e) {
+    if (e.target === ov) { ov.remove(); return; }
+    if (e.target.closest('#srq-pick-cancel')) { ov.remove(); return; }
+    var clearBtn = e.target.closest('#srq-pick-clear');
+    if (clearBtn) { if (!clearBtn.disabled) { ov.remove(); shiftReqSave(ym, name, day, ''); } return; }
+    var codeBtn = e.target.closest('[data-code]');
+    if (codeBtn) { ov.remove(); shiftReqSave(ym, name, day, codeBtn.getAttribute('data-code')); }
+  });
+}
+
+/* ===== 画面本体 ===== */
+function renderShiftReq() {
+  srqEnsureInit();
+  if (!document.getElementById('pane-shiftreq')) return;
+  var ym = _srqY + '-' + pad(_srqM + 1);
+  document.getElementById('srq-ml').textContent = _srqY + '年' + (_srqM + 1) + '月';
+  document.getElementById('srq-deadline-badge').innerHTML = srqDeadlineBadgeHTML(ym);
+
+  var names = D.stf.filter(function (n) { return !(D.stfHidden && D.stfHidden[n]); });
+  var selfName = taskSelfName();
+  var switchWrap = document.getElementById('srq-admin-switch');
+  if (isAdmin) {
+    if (_srqAdminName === null || names.indexOf(_srqAdminName) === -1) _srqAdminName = (selfName && names.indexOf(selfName) !== -1) ? selfName : (names[0] || null);
+    var opts = names.map(function (n) { return '<option value="' + escH(n) + '"' + (n === _srqAdminName ? ' selected' : '') + '>' + escH(n) + '</option>'; }).join('');
+    switchWrap.style.display = '';
+    switchWrap.innerHTML = '<span style="font-weight:700;margin-right:6px">対象スタッフ</span>'
+      + '<select id="srq-stf-sel" onchange="srqSwitchStaff(this.value)">' + (opts || '<option value="">（スタッフ未登録）</option>') + '</select>'
+      + (_srqAdminName && _srqAdminName !== selfName ? ' <span style="font-weight:700;color:var(--or);margin-left:8px">👤 代理で入力中</span>' : '');
+  } else if (switchWrap) { switchWrap.style.display = 'none'; }
+
+  var targetName = isAdmin ? _srqAdminName : selfName;
+  var calWrap = document.getElementById('srq-cal-wrap');
+  var noLinkWrap = document.getElementById('srq-nolink');
+  if (!targetName) {
+    calWrap.style.display = 'none';
+    noLinkWrap.style.display = '';
+    noLinkWrap.innerHTML = '<div class="pool-empty">' + (isAdmin
+      ? 'スタッフが登録されていません。まず👥スタッフでスタッフを登録してください'
+      : 'アカウントとスタッフ名が紐づいていないため入力できません。管理者に連絡してください') + '</div>';
+  } else {
+    noLinkWrap.style.display = 'none';
+    calWrap.style.display = '';
+    document.getElementById('srq-legend').innerHTML = srqLegendHTML();
+    renderShiftReqCal(ym, targetName);
+  }
+
+  var adminBlock = document.getElementById('srq-admin-block');
+  if (adminBlock) {
+    adminBlock.style.display = isAdmin ? '' : 'none';
+    if (isAdmin) { renderShiftReqSettings(ym); renderShiftReqMatrix(ym); }
+  }
+}
+
+function srqDeadlineBadgeHTML(ym) {
+  var dl = shiftReqDeadline(ym); if (!dl) return '';
+  var today = toDS(new Date());
+  var p = dl.split('-'), label = parseInt(p[1], 10) + '/' + parseInt(p[2], 10);
+  if (dl < today) return '<span class="sum-badge" style="background:var(--rd-bg);color:var(--rd);border-color:var(--rd-bdr)">⏰ 締切 ' + label + '（締切を過ぎています）</span>';
+  if (dl === today) return '<span class="sum-badge" style="background:var(--or-bg);color:var(--or)">⏰ 締切 ' + label + '（今日まで）</span>';
+  var a = today.split('-'), b = dl.split('-');
+  var da = new Date(+a[0], +a[1] - 1, +a[2]), db = new Date(+b[0], +b[1] - 1, +b[2]);
+  var days = Math.round((db - da) / 86400000);
+  return '<span class="sum-badge" style="background:var(--ac-bg);color:var(--ac)">⏰ 締切 ' + label + '（あと' + days + '日）</span>';
+}
+function srqLegendHTML() {
+  var codes = shiftReqCodes(); if (!codes.length) return '';
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px">' + codes.map(function (c) {
+    var col = srqCodeColor(c);
+    return '<span style="display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:' + col.bg + ';color:' + col.fg + '">' + escH(c) + '</span>';
+  }).join('') + '</div>';
+}
+
+function renderShiftReqCal(ym, name) {
+  var g = document.getElementById('srq-grid'); if (!g) return;
+  g.innerHTML = '';
+  var dows = ['日', '月', '火', '水', '木', '金', '土'];
+  for (var i = 0; i < 7; i++) { var eh = document.createElement('div'); eh.className = 'cdow' + (i === 0 ? ' su' : i === 6 ? ' s' : ''); eh.textContent = dows[i]; g.appendChild(eh); }
+  var y = parseInt(ym.split('-')[0], 10), m = parseInt(ym.split('-')[1], 10) - 1;
+  var first = new Date(y, m, 1).getDay();
+  var days = new Date(y, m + 1, 0).getDate();
+  var today = toDS(new Date());
+  var recs = shiftReqOf(ym, name);
+  var vis = shiftReqVisibility(); /* 管理者は専用の全員一覧（マトリクス）で見るので、ここには重ねない */
+  for (var i2 = 0; i2 < first; i2++) { var e0 = document.createElement('div'); e0.className = 'cd emp'; g.appendChild(e0); }
+  for (var d = 1; d <= days; d++) {
+    var ds = ym + '-' + pad(d);
+    var w = new Date(y, m, d).getDay();
+    var code = recs[String(d)] || '';
+    var el = document.createElement('div');
+    el.className = 'cd' + (w === 0 ? ' sun' : w === 6 ? ' sat' : '') + (ds === today ? ' tod' : '');
+    var html = ds === today ? '<span class="dn">' + d + '</span>' : '<span class="dnp">' + d + '</span>';
+    if (code) { var col = srqCodeColor(code); html += '<span class="srq-lbl" style="background:' + col.bg + ';color:' + col.fg + '">' + escH(code) + '</span>'; }
+    if (!isAdmin && vis !== 'self') html += srqCellExtraHTML(ym, d, name, vis);
+    el.innerHTML = html;
+    (function (dd) { el.onclick = function () { openShiftReqPicker(ym, name, dd); }; })(d);
+    g.appendChild(el);
+  }
+}
+/* 'count'/'all' visibility 用：対象日の他スタッフの希望（本人を除く）。管理者は常に全員一覧
+   （マトリクス）で見られるので、ここは非管理者の自分のカレンダー限定で使う */
+function srqCellExtraHTML(ym, day, excludeName, vis) {
+  var names = D.stf.filter(function (n) { return !(D.stfHidden && D.stfHidden[n]) && n !== excludeName; });
+  var items = [];
+  names.forEach(function (n) {
+    var code = shiftReqOf(ym, n)[String(day)];
+    if (code) items.push({ n: n, c: code });
+  });
+  if (!items.length) return '';
+  if (vis === 'count') {
+    var cnt = {}, order = [];
+    items.forEach(function (it) { if (!cnt[it.c]) order.push(it.c); cnt[it.c] = (cnt[it.c] || 0) + 1; });
+    return '<span class="srq-extra">' + order.map(function (c) { return escH(c) + cnt[c]; }).join('・') + '</span>';
+  }
+  var SHOWN = 3;
+  var shown = items.slice(0, SHOWN).map(function (it) { return escH(it.n) + ':' + escH(it.c); }).join('、');
+  var more = items.length > SHOWN ? '他' + (items.length - SHOWN) + '件' : '';
+  return '<span class="srq-extra">' + shown + (more ? '　' + more : '') + '</span>';
+}
+
+/* ===== 管理者：設定（締切日・見え方） ===== */
+function renderShiftReqSettings(ym) {
+  var el = document.getElementById('srq-settings'); if (!el) return;
+  var dl = shiftReqDeadline(ym), vis = shiftReqVisibility();
+  var h = '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">';
+  h += '<label style="font-size:12px;font-weight:700">この月の締切日<br><input type="date" id="srq-deadline-input" value="' + escH(dl) + '" style="margin-top:4px"></label>';
+  h += '<label style="font-size:12px;font-weight:700">他の人の希望の見え方<br><select id="srq-visibility-input" style="margin-top:4px">'
+    + '<option value="self"' + (vis === 'self' ? ' selected' : '') + '>自分だけ</option>'
+    + '<option value="count"' + (vis === 'count' ? ' selected' : '') + '>人数だけ</option>'
+    + '<option value="all"' + (vis === 'all' ? ' selected' : '') + '>全員</option>'
+    + '</select></label>';
+  h += '<button class="btn btn-p btn-sm" onclick="saveShiftReqCfg()">保存</button>';
+  h += '</div><div style="font-size:11px;color:var(--txt3);margin-top:6px">締切日はこの月だけの設定です。月を変えたら別々に設定してください。見え方は全体共通です。</div>';
+  el.innerHTML = h;
+}
+function saveShiftReqCfg() {
+  if (!isAdmin) return;
+  var ym = _srqY + '-' + pad(_srqM + 1);
+  var dlInput = document.getElementById('srq-deadline-input');
+  var visInput = document.getElementById('srq-visibility-input');
+  var dl = dlInput ? dlInput.value : '';
+  var vis = visInput ? visInput.value : 'self';
+  if (!D.shiftReqCfg) D.shiftReqCfg = {};
+  D.shiftReqCfg.visibility = (vis === 'count' || vis === 'all') ? vis : 'self';
+  if (!D.shiftReqCfg.deadlines) D.shiftReqCfg.deadlines = {};
+  if (dl) D.shiftReqCfg.deadlines[ym] = dl; else delete D.shiftReqCfg.deadlines[ym];
+  saveD();
+  writeLog('勤務希望設定', ym + ' 締切:' + (dl || '未設定') + ' 見え方:' + D.shiftReqCfg.visibility);
+  toast('✅ 設定を保存しました', 'ok');
+  renderShiftReq();
+}
+
+/* ===== 管理者：全員の一覧（月×スタッフのマトリクス） ===== */
+function renderShiftReqMatrix(ym) {
+  var el = document.getElementById('srq-matrix'); if (!el) return;
+  var names = D.stf.filter(function (n) { return !(D.stfHidden && D.stfHidden[n]); });
+  if (!names.length) { el.innerHTML = '<div class="pool-empty">スタッフが登録されていません</div>'; return; }
+  var y = parseInt(ym.split('-')[0], 10), m = parseInt(ym.split('-')[1], 10) - 1;
+  var days = new Date(y, m + 1, 0).getDate();
+  var h = '<div class="data-wrap"><table class="data-tbl" style="min-width:' + (100 + days * 30) + 'px">';
+  h += '<thead><tr><th style="text-align:left;white-space:nowrap">スタッフ</th>';
+  for (var d = 1; d <= days; d++) {
+    var w = new Date(y, m, d).getDay();
+    h += '<th style="text-align:center;width:30px;' + (w === 0 ? 'color:var(--rd)' : w === 6 ? 'color:var(--ac)' : '') + '">' + d + '</th>';
+  }
+  h += '</tr></thead><tbody>';
+  names.forEach(function (n) {
+    var recs = shiftReqOf(ym, n);
+    h += '<tr><td style="text-align:left;font-weight:700;white-space:nowrap">' + escH(n) + '</td>';
+    for (var d = 1; d <= days; d++) {
+      var code = recs[String(d)] || '';
+      if (code) {
+        var col = srqCodeColor(code);
+        h += '<td class="num" title="' + escH(code) + '"><span style="display:inline-block;min-width:18px;padding:2px 4px;border-radius:4px;font-weight:700;background:' + col.bg + ';color:' + col.fg + '">' + escH(code.charAt(0)) + '</span></td>';
+      } else {
+        h += '<td class="num muted">–</td>';
+      }
+    }
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+  el.innerHTML = h;
+}
+
+/* ===== マスタ：勤務希望の種類（D.shiftReqCodes、D.wdDepts と同型） =====
+   改名ボタンは無い——過去の希望は文字列でそのまま D.shiftReq に残るため、改名すると過去分の
+   表記だけ食い違ってしまう。追加・削除・並べ替えのみ。 */
+function renderShiftReqCodeList() {
+  var l = document.getElementById('srq-code-list'); if (!l) return;
+  l.innerHTML = '';
+  var ok = can('mst');
+  var codes = shiftReqCodes();
+  if (!codes.length) { l.innerHTML = '<p class="cle">まだ種類が登録されていません</p>'; }
+  else {
+    for (var i = 0; i < codes.length; i++) {
+      var el = document.createElement('div'); el.className = 'ri';
+      var btns = ok ? '<button class="ru" onclick="mvShiftReqCode(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="rdw" onclick="mvShiftReqCode(' + i + ',1)"' + (i === codes.length - 1 ? ' disabled' : '') + '>↓</button><button class="rd2" onclick="rmShiftReqCode(' + i + ')">×</button>' : '';
+      el.innerHTML = '<span class="rn">📝 ' + escH(codes[i]) + '</span>' + btns;
+      l.appendChild(el);
+    }
+  }
+  var ar = document.getElementById('srq-code-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+}
+function addShiftReqCode() {
+  if (!can('mst')) return;
+  var el = document.getElementById('in-srq-code'); var v = el.value.trim(); if (!v) return;
+  if (shiftReqCodes().indexOf(v) !== -1) { toast('すでに登録されています', 'warn'); return; }
+  shiftReqCodes().push(v); el.value = ''; renderShiftReqCodeList(); saveD();
+}
+function rmShiftReqCode(i) {
+  if (!can('mst')) return;
+  D.shiftReqCodes.splice(i, 1); renderShiftReqCodeList(); saveD();
+  /* マスタから外しても、過去に提出済みの希望（D.shiftReq に文字列で残る）は消えない・変わらない */
+}
+function mvShiftReqCode(i, d) {
+  if (!can('mst')) return;
+  var arr = D.shiftReqCodes; var j = i + d; if (!arr || j < 0 || j >= arr.length) return;
+  var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  renderShiftReqCodeList(); saveD();
 }
 
 /* ===== HD特殊治療マスタ（HDモードの血液浄化件数入力「特殊」区分で選ぶ治療名の一覧） =====
@@ -23376,12 +23747,12 @@ function tabletDelete(ds, id){
 /* ===== TABS / SIDEBAR ===== */
 function swTab(t) {
   curTab = t; /* スマホ自動クローズ判定用に現在タブを記録 */
-  var tabs=['cal','assign','sum','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var tabs=['cal','assign','sum','task','shiftreq','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var docsTabs=['spec','manual','adminm','dev','regs','changelog'];
   var libTabs=['guide','makers'];
   /* PCではサイドバーを全幅に拡張してメインエリアに全面表示するパネル群。
      スケジュールはモーダル化したためここには含まれない（openSchedPanel/closeSchedPanel） */
-  var contentPanes=['assign','sum','task','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
+  var contentPanes=['assign','sum','task','shiftreq','guide','makers','staff','master','lock','logs','spec','manual','adminm','dev','regs','changelog'];
   var isSP=window.innerWidth<=768;
   var mn=document.getElementById('main');
   var sb2=document.getElementById('sb');
@@ -23426,8 +23797,9 @@ function swTab(t) {
   if(t==='assign'){ swSubTab(_viewMode==='hd' ? 'my' : 'at'); if(_viewMode!=='hd') renderAT(); }
   if(t==='sum'){ swSumTab(_curSumTab); }
   if(t==='task'){ _taskView = taskSelfName() || null; sweepDoneTaskMedia(); renderTasks(); }
+  if(t==='shiftreq'){ renderShiftReq(); }
   if(t==='master'){
-    renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList(); renderEduCfgUI(); renderEduItemMaster();
+    renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList(); renderEduCfgUI(); renderEduItemMaster(); renderShiftReqCodeList();
     if(can('mst')){renderOpeList();renderCathList();renderSupList();renderRoboMaster();renderDutyMasterList();renderSchedPresetList();}
     /* data-perm = 権限による出し分け（従来どおり）。
        data-mode = 主観モードによる出し分け（'ce'|'hd'、属性なし＝両モードで表示）。
@@ -24931,7 +25303,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -25083,7 +25455,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -25140,7 +25512,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
