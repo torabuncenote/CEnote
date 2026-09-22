@@ -253,17 +253,19 @@ applyMstGroups();   /* 各セクションの display が確定した「後」に
 - `data-perm="wm"` — 曜日別チェックリスト section (CE and HD each have their own) ＋ 設置部署マスタ
 - `data-perm="mst"` — OPE/カテ/使用物品/担当枠/スケジュールプリセット/PSG通知/タブレット台帳/HD特殊治療/OC対応フローチャート sections
 - `data-perm="admin"` — メール通知/Web Push/月次自動割り当て sections (admin-only regardless of locks)
-- `data-mode="ce"` / `data-mode="hd"` — show only in that 主観モード. **Omitting `data-mode` means "both modes"**, which is currently true of exactly one section: 🏥 設置部署マスタ.
+- `data-mode="ce"` / `data-mode="hd"` — show only in that 主観モード. **Omitting `data-mode` means "both modes"** — 設置部署、勤務希望、祝日、管理者向けEmailJS接続設定など。
 
 **設置部署マスタ must stay its own top-level section.** It was originally nested inside the CE 📅 曜日別業務 block, but `D.wdDepts` is shared by both CE and HD 曜日別業務 (the 🏥 部署 modal on either side reads the same list). Leaving it nested meant hiding the CE block in HD mode also took away the only place to add or reorder departments.
 
-#### マスタタブのグループ（`.mgrp`）
+#### マスタタブのグループと個別編集
 
-セクションが20近くまで増えて縦一列では目的のものを探せなくなったため、意味ごとに**6グループ**（`task` 業務・チェックリスト／`ops` 業務内容マスタ／`duty` 担当・スケジュール／`edu` 教育／`item` 備品・台帳／`notif` 通知・連絡）へ畳んである。各グループは `.mgrp > .mgrp-hd`（見出し・クリックで開閉）＋ `.mgrp-body`（中身）。
+6つの大カテゴリ（業務・チェックリスト／業務内容マスタ／担当・スケジュール／教育／備品・台帳／通知・連絡）は維持する。カテゴリを開くと項目名・短い説明・保存済み状態の一覧を表示し、「開く」でマスタ領域内の個別編集へ進む。「一覧へ戻る」で元のカテゴリ・スクロール位置を復元する。教育項目は6分類ごとに開き、術式・特殊治療は業務マスタと同じデータであることを表示する。
 
-- **新しいセクションは、必ずどれかの `.mgrp-body` の直接の子に置くこと。** どのグループにも入れないと画面に出ない。セレクタは `.sp div[data-perm]`（**子孫**セレクタ）なので、`.mgrp-body` の中でも権限・主観の出し分けはそのまま効く——以前の `.sp > div[data-perm]` 直接子セレクタから変更済み。
-- **`applyMstGroups()` は必ず「各セクションの `display` が確定した後」に呼ぶ。** 中に表示中のセクションが1つも無いグループを見出しごと隠す処理なので、順番が逆だと、権限や主観で中身が全部消えたグループの見出しだけが残る（HD主観では `duty` と `notif` の2グループが実際に空になる）。見出し右のバッジは「いま見えているセクション数」で、これも同じ集計を使う。
-- 開閉状態は端末ローカル（`localStorage` の `ce2_mstgrp`、`mstGrpState()`/`toggleMstGroup(id)`）。`D` に入れると他の端末の管理者の開閉まで動いてしまうため、`_viewMode`・テーマと同じ流儀にしている。**既定は全部閉じる**（開いた直後は見出しだけが並び、全体を見渡せる）。
+- `initMstNavigation()` が既存の編集DOMをその場に保持したまま一覧を作る。通常セクションは `.mgrp-body` 直下のまま。教育の各分類だけ既存の `#edu-items-section` 内を個別項目として扱う。入力欄IDや既存保存ハンドラを変更しない。
+- `mstEntryAllowed()` でタブ権限・各項目の `can()`／管理者・CE/HD・教育権限を確認する。`applyMstGroups()` の件数は「表示可能な項目数」で、詳細表示による非表示とは独立させる。現在の編集対象がモード・権限変更で非表示対象になったら一覧へ戻す。
+- `mstOpen()` / `mstBack()` はDOMの表示とフォーカスだけを切り替え、保存・再生成しない。EmailJS・FCM・特殊治療メール・OC本文の手動保存欄は入力イベントで未保存フラグを持ち、同期による再描画で上書きしない。保存時に解除し、利用者変更時にも解除する。下書きはDやlocalStorageに追加しない。
+- 大カテゴリの開閉状態は端末ローカル `ce2_mstgrp`（既定は閉じる）。詳細選択・一覧スクロール位置はメモリ内のみ。
+- 管理者のEmailJS設定はCE/HD双方に表示。HDの「特殊治療メール・送信先」は一覧に有効／無効と保存済み人数を表示。プレビューのみ、ひらがなの架空ユーザー3名で選択画面を表示し、設定はlocalStorageにだけ保存する。実ユーザー取得・外部メール送信はしない。
 
 ### Firebase Listener Lifecycle
 
@@ -434,6 +436,7 @@ All class names are abbreviated:
 | `buildOPS(ds, dat, locked)` | OPE/cath/ops record section |
 | `renderMemos(ds, dat, locked)` | Memo/comment thread (incl. nested replies) |
 | `memoKeyOf(m)` / `findMemoByKey(ds, key)` | 申し送り1件を指す安定キー（`ts+uid`）と逆引き。配列インデックスは Firebase のエコーでずれるので返信はこちらで親を特定する |
+| `priorUnfinishedMemos(ds)` / `refreshPriorMemoAlert(ds)` / `priorMemoAlertJump(ds,key)` | 表示中のCE/HDモードで前日以前から残る未完了を集め、ヘッダー直下に出所付きで表示し、安定キーで投稿へ移動する |
 | `memoReplies(m)` / `memoMediaArr(m)` / `memoReplyMediaArr(r)` | 申し送りの返信・添付の正規化アクセサ（Firebase の配列→オブジェクト化対策） |
 | `postMemoReply(ds, mkey)` / `delMemoReply(ds, mkey, rid)` / `toggleMemoReply(mkey)` | 申し送りへの返信の投稿・削除・入力欄の開閉 |
 | `bindMemoListEvents(el)` | `#memo-list` のクリック/change を**一度だけ**登録する（下記参照） |
@@ -501,7 +504,9 @@ All class names are abbreviated:
 | `updateTabletBtnBadge(ds)` | ヘッダー📱ボタンの貸出中バッジ（未返却台数）を更新 |
 | `renderTabletList()` / `addTablet()` / `rmTablet()` | タブレット台帳マスタ（`D.tablets`、`mst`権限、PHSマスタと同型） |
 | `openOcFlowModal()` / `saveOcFlow()` | OC対応フローチャートの閲覧モーダル（OC集計サブタブ上部の常設ボタンから、全ユーザー可）／マスタ保存（`mst`権限。textareaの値投入は `renderDlyList` 内） |
-| `openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` | 貸出/返却の記録モーダル（datalistでスタッフ選択＋手入力、`saveDPage`使用） |
+| `openTabletLendModal(ds, mode)` / `openTabletReturnModal(ds, id, mode)` | 今日限定の貸出／日付跨ぎ対応の返却モーダル。対象日と主観を固定し、保存前にも権限・日付を検査 |
+| `tabletIsReturned(l)` / `tabletCarryOver(ds, mode)` / `tabletReturnedHere(ds, mode)` | 午前0時を含む共通返却判定／全保存日から未返却と当日返却を検索 |
+| `renderHdTreatMailCfg()` / `saveHdTreatMailCfg()` / `hdTreatMailRecordNameChange(ds, action, rowId)` | HD管理者向けの限定宛先設定／治療名変更イベントの保存確認付きメール処理 |
 | `renderShiftReq()` / `shiftReqOf(ym, name)` / `shiftReqCodes()` / `shiftReqDeadline(ym)` | 勤務希望タブ（`pane-shiftreq`）の描画／その人のその月の希望`{日:種類}`／種類マスタ／締切日の4アクセサ。書き込みは `shiftReqSave(ym, name, day, code)` 経由（勤務希望節参照） |
 | `jpHolidayName(ds)` | 祝日判定の唯一の入口。`D.holidayOv` の上書きを先に見て、無ければ計算（振替休日・国民の休日を含む）で判定する。現状は勤務希望タブのカレンダーだけが参照する（勤務希望節参照） |
 | `renderMakers()` / `renderMakersList()` | メーカー担当者連絡先パネル全体（ヘッダーボタン・`#mk-catnav`のカテゴリチップ）／一覧のみ（`#mk-list`）を再描画。検索欄自体は静的HTMLで作り直さない |
@@ -585,7 +590,7 @@ dat.placement = {
 
 `_viewMode`（`'ce'|'hd'`）は端末ローカル設定（localStorage `ce2_viewmode`、`getViewMode()`/`setViewMode(m)`/`toggleViewMode()`）で、`D`には入れずログアウトでもリセットしない。トップバーの `#mode-toggle` ボタン（`updateModeToggleBtn()` が絵文字とラベル・`.hd-on`クラスを付け替え）で切り替える。`renderPage(ds)` は冒頭で `if(_viewMode==='hd'){ renderPageHD(ds); return; }` と分岐する。
 
-`renderPageHD(ds)` はCE版と別の日ページビルダー。並び順は **ヘッダー → イベント → 血液浄化ダッシュボード → HD担当表 → CE担当表（読み取り専用） → 進捗バー → HDチェックリスト → 人員配置管理 → 申し送り**。「今日の件数と人員」を上にまとめたいのでHD担当表をダッシュボードの真下に置いている。HD担当表は空の入れ物 `<div id="hd-roster-box" data-ds data-variant="hd">` を置くだけで、中身は `refreshHdRoster(ds)` が描く（組み立て順を変えても動く——`renderPlacementBoard` を呼ぶたびに自動で最新化されるため）。人員配置管理は `renderPlacementBoard` をCEとそのまま共有し、申し送りは `dat.memos` をCEと共有する。**`#dg`/`#pool-chips`/`#ops-grid` は絶対に作らない**（`buildDG`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。CE専用の`#dcl`/`#wcl`（`buildCL`が対象、nullガード無し）とは別に、HD版の`#hdcl`/`#hdwcl`は`buildHdCL`が冒頭で`if(!el) return;`する独自実装なので作ってよい。
+`renderPageHD(ds)` はCE版と別の日ページビルダー。並び順は **ヘッダー・通知 → イベント → 血液浄化 → 人員配置管理 → HD担当表 → CE担当表（読み取り専用） → 進捗バー → HDチェックリスト → 申し送り**。人員配置管理を上部へ移し、HD担当表と血液浄化の表示順も保つ。HD担当表は空の入れ物 `<div id="hd-roster-box" data-ds data-variant="hd">` を置くだけで、中身は `refreshHdRoster(ds)` が描く（`renderPlacementBoard` を呼ぶたびに自動で最新化される）。人員配置管理は `renderPlacementBoard` をCEとそのまま共有し、申し送りは `dat.hdMemos` に保存してCEの `dat.memos` と分ける。**`#dg`/`#pool-chips`/`#ops-grid` は絶対に作らない**（`buildDG`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。CE専用の`#dcl`/`#wcl`（`buildCL`が対象、nullガード無し）とは別に、HD版の`#hdcl`/`#hdwcl`は`buildHdCL`が冒頭で`if(!el) return;`する独自実装なので作ってよい。
 
 `dat.hdDuty = { overrides: {...} }` は**旧フィールド**（`plDerive()` が読み出し時にだけ吸収する。上記「人員配置管理（配置盤）」節）——現在のHD担当表の編集はすべて台帳（`dat.placement`）を `hdRosterMove`/`plMove` 経由で直接動かすので、新規には書き込まれない。`dat.hdNotes = { 実効氏名: 'テキスト' }` — 担当表の備考欄。`saveDPage(ds)`（行ごとに独立してデバウンス）。`buildHdRoster(ds)`は`hdShiftWorkers(ds)`（台帳から作る実効HD勤務者一覧。HD担当表と余剰人員パネルの両方がこの1関数を共通の入口にする）を`HD_DAY_CODES`順にソートして返す。
 
@@ -596,7 +601,7 @@ dat.placement = {
 - **編集ボタン（`hdRosterEditBtnHTML`）は見出し（`.st`／`.staffz-hd`）ではなく、表の最初の区切り行（通常は🔵 日勤。表が空なら「勤務表データがありません」の文言の横）の右端に置く**（`hdRosterGroupRowHTML`）。CE日ページ側（`variant='ce'`）は `.staffz` 折りたたみシェルを流用し、対象0件でも**編集中なら見出しごと出す**（全員を控えへ移した瞬間にセクションが消えて編集に戻れなくなるのを防ぐため）。編集ボタンは表の中にあるため折りたたみを閉じている間は見えないが、`hdRosterToggleEdit` は念のため非編集→編集に入る瞬間に `_hdRefOpen` を強制的に開く（閉じたままだと `#hd-ref-body` が `display:none` で編集モードに入っても何も見えないため）。
 - 印刷は編集用要素（`.hdr-hint`/`.hdr-tray`/`.hdr-edit-btn`/`.hdr-add`/`.hdr-empty-row`）をCSSで非表示にし、居る人の行だけが残る通常表示に近い紙面になる。備考列を隠す既存ルール（`#hd-roster-wrap`/`#hd-ref-body` の `td:last-child`）はそのまま効く。
 
-**血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。`{ day, night, bw, ward }`（数値文字列を直接入力）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`（数値化）／`hdCountSpArr(dat)`（Firebaseの疎配列→オブジェクト化対策。`ensureStaffZone`等と同じパターン）を経由する。`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列に正規化してから push/splice する。保存は`saveDPage(ds)`（`buildOPS`の`ops_cards`カード方式には乗せない——HD日ページには`#ops-grid`もカード追加/削除UIも無いため独立実装）。表示は`renderPageHD`内の`#hd-count-panel`（`.hdash`、安定要素で中身だけ`hdCountPanelInnerHTML(ds,dat)`が差し替える）：既定は**数字タイルを5枚横並び**にしたダッシュボード、`✏️編集`で5行の入力フォームに変わる（開閉状態はモジュール変数`_hdCountOpen`、非永続）。**0件の区分は`.hdash-tile.zero`で彩度を落とす** — 実際に実施した区分へ目が行くようにするための減算で、意図的な差。**特殊治療は件数だけでなく治療名をタグで出す**。同じ治療が複数あれば `PMX ×2` に集約する。**治療を選ぶ前の空行は件数から除く** — 読み取りは必ず `hdCountSpFilled(dat)`（＝`hdCountSpArr(dat).filter(Boolean)`）を通すこと。`hdCountSpArr` は編集フォームの行数をそのまま返すので、行の描画にだけ使う。編集中は入力のたびに全体を再描画せず `.hdash-total b` の合計だけ差し替える（フォーカスを保つため）。ロックは新規IDを作らずCE側の`ops`ロックを流用。マスタ`D.hdTreatments`は`D.wdDepts`と同型の単純文字列配列（Dの5箇所ルール＋バックアップ3配列に登録済み）。
+**血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。保存キーは従来どおり `{ day, night, bw, ward }`（`day` の表示名は「日中透析室」）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`／`hdCountSpArr(dat)` を経由し、`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列へ正規化する。各 `sp` 行は `{id,n,staff,edu}`。旧文字列・旧オブジェクトは読み出し時に `hdSpNorm` で正規化し、安定IDがない既存行は編集時にIDを付けて保存する。保存は`saveDPage(ds)`で、編集中は入力ごとに全体を再描画せず `.hdash-total b` の合計だけ差し替えてフォーカスを保つ。**特殊治療名の追加・変更・削除は今日または未来日のみメール通知候補**。管理者はHDモードの各種マスタで送信を有効にし、登録ユーザーから複数の宛先を選ぶ。EmailJS設定は既存の`D.emailjsCfg`を共有し、送信先設定は同プロパティ内の`hdTreatNotify`に保存する（新しいトップレベルD項目ではない）。治療名・職員名はメールに含めず、ページ内の`hdTreatMailLog`に保存確認・宛先別の送信結果を残す。送信経路は保存ACK後の編集操作だけで、Firebaseリスナーや再描画からは送らない。送信結果が不明なら自動再送しない。プレビューは模擬結果だけを記録し、実メールは送らない。
 
 **HD集計（`renderHdSummary()`）**：`dat.hdCount`の期間集計。📈 集計タブ（`pane-sum`）の `subpane-hd` にCE集計・OC集計と並べて置く。**主観でもパーミッションでも出し分けない**——集計は「どちらの目で見るか」に依らない事実なので、CE主観からもHD集計が見える（逆も同様）。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
 
@@ -610,9 +615,11 @@ dat.placement = {
 
 **カレンダーの完了ドットは主観に追従する**：`renderCal()` の日セル判定は `pctForView(ds)`（`_viewMode==='hd' ? getHdPct : getPct`）を通す。HD勤務者にCEの未完了を見せても意味が無いため。`setViewMode` と `updHdProg` の両方が `renderCal()` を呼んで塗り直す。**担当表（`renderAT`）はCE専用画面なので `getPct` のまま**——ここを `pctForView` にすると、HD主観で担当表を開いたときに日付セルの色だけHD基準になってしまう。
 
-**申し送りセクションのマークアップは `memoSectionHTML(ds, mlk)` に集約**：CE版とHD版が同一の `dat.memos` を共有しており、以前は両方に逐語的な複製があった。とくに患者情報を書かせないための注意書き（`.memo-notice`）が2箇所にあると、片方だけ文面を直したときにもう一方の主観に古い注意書きが残る。**患者安全に関わる文言なので複製を戻さないこと。**
+**申し送りセクションのマークアップは `memoSectionHTML(ds, mlk)` に集約**：CE版とHD版はそれぞれ `dat.memos` / `dat.hdMemos` を使うが、入力・注意書き・一覧UIは同じ関数で描く。とくに患者情報を書かせないための注意書き（`.memo-notice`）が2箇所にあると、片方だけ文面を直したときにもう一方の主観に古い注意書きが残る。**患者安全に関わる文言なので複製を戻さないこと。**
 
-**未返却タブレットの台数は `tabletUnreturnedCount(ds)` が唯一の集計元**：ヘッダーバッジ・CE日ページ・HD日ページが同じ数を出す必要がある。以前は同じ式が3箇所に複製され「完全に同じにすること」というコメントで支えられていた。
+**未返却タブレットの台数は `tabletUnreturnedCount(ds, mode)` が唯一の集計元**：ヘッダーバッジ・CE日ページ・HD日ページが同じ数を出し、CE/HD台帳を混ぜない。返却判定は `tabletIsReturned(l)` に統一し、新規記録は `returned:false`、返却時は `returned:true` を明示する。旧記録は返却日・返却者・時刻を使って互換判定するため、午前0時の返却も未返却に戻らない。
+
+**貸出・返却の日付規則**：新規貸出は今日の連絡表だけで許可する。過去・未来ページからは理由と「今日の連絡表へ」を表示し、今日のページが無い場合は作成権限のある既存導線で利用者が作る。モーダル開始時・保存直前・PHI確認後に権限、日付、CE/HDモードを再確認する。貸出中記録は貸出日のページに保持し、`tabletCarryOver(ds, mode)` と `tabletReturnedHere(ds, mode)` は保存済みページ全体を走査する（7日制限なし）。同一タブレットの未返却記録がある間は再貸出できず、保存直前にも確認する。返却日は今日が初期値で、貸出日から今日までの後追い入力が可能。未来日・貸出前の返却日時は拒否する。日付をまたいで開いたモーダルは保存せず、再入力を促す。
 
 **申し送り・スケジュール・掲示板・イベントのCE/HD分離**：どれも「読む相手が違う」ため分ける。関数は複製せず、主観で切り替えるアクセサ1組で扱う（`dat.checks`のような添字の共有規約が無いので複製が不要）。
 
@@ -1035,6 +1042,8 @@ Incomplete memo posts show a 📅 button (`.mp-move`) next to the 済 checkbox i
 - **`carryOverMemos` は `memos`/`hdMemos` をキー名で直接処理する**（`MEMO_THREADS`）。`memosOf`/`ensureMemos` は `_viewMode` で片方しか見ないので使わない。呼ぶのは初回の `/data` 受信直後（`wasFirstLoad`）・プレビュー起動時・`checkTimeNotifs`（1分毎）で日付が `_memoCarryDay` から変わったとき。`_fbDataLoaded` 前は何もしない。移した後は対象が残らないので、複数端末で同時に走っても重複しない
 - メンション通知は繰り越しのたびに送り直さない（消し込みバーの「自分あて未完了」には毎日載る）
 
+**前日以前の未完了申し送り通知（`priorUnfinishedMemos`）**：表示中の主観に属する本投稿だけを、全保存ページから走査する。`memoOrigDs(m, storageDs) < 今日`・現在の保存先日付が今日以前・`m.done`でないものだけを出し、未来日へ意図的に移した投稿はその日になるまで除外する。`memoKeyOf` と `memoOrigDs` を使い、`memoCarry`/`hdMemoCarry`の控えは通知件数に含めず、通知のために投稿を移動・複製しない。日ページのヘッダー直下に件数を置き、展開すると元の日付・CE/HD・投稿者・本文冒頭・現在の日付を示す。`priorMemoAlertJump` は保存先の日を開き、キーで再特定して `#memo-post-*` へ移動・強調する。同期直後に同じ日付のDOMが古い場合は `renderMemos` だけを更新し、送信欄と返信下書きを作り直さない。リスナー更新・完了・削除・移動・初回同期・毎分の日付確認で更新し、HTMLが変わらない限り展開状態を保つ。メンション設定に関係なく全員へ出すが、メールや毎日のポップアップは追加しない。
+
 ### Memo Editing (申し送りの編集)
 
 投稿済みの申し送りは `✏️` から本文を編集できる（`editMemo` / `cancelMemoEdit` / `saveMemoEdit` / `_doSaveMemoEdit`）。
@@ -1066,11 +1075,11 @@ Digitizes the paper tablet loan log. Two data pieces:
 
 - **Master `D.tablets`** — array of tablet names (strings), top-level D property (follows the 5-location rule; edited in pane-master's `📱 タブレット台帳` section via `renderTabletList`/`addTablet`/`rmTablet`, gated `can('mst')`, modeled on the PHS master).
 - **CE/HDで台帳が分かれる**：透析室のタブレットはCEのものとは別の端末なので、マスタ（`D.tablets` / `D.hdTablets`）も貸出ログ（`dat.tabletLogs` / `dat.hdTabletLogs`）も別に持つ。分けないと片方の未返却がもう片方のヘッダーバッジ・消し込みバー・持ち越し判定（`tabletCarryOver`）に混ざる。**読み書きは必ず `tabletMaster()` / `tabletLogsOf(dat)` / `ensureTabletLogs(dat)` / `tabletLogsKey()` を通す**（`_viewMode` で切り替わる）。チェックリスト（`dat.checks`/`dat.hdChecks`）と違い、ログは id で引く独立した配列で添字の共有規約が無いため、関数を複製せずこのアクセサ1組で足りている。マスタ編集UIだけはCE/HDそれぞれの `data-mode` セクションに分かれている（`renderTabletList`/`renderHdTabletList`）
-- **Per-page `D.pages[ds].tabletLogs`** — array of loan records `{ id, tablet, borrower, lentAt, returnedBy, returnedAt }`. Times are **minutes-from-midnight** (same unit as `schedule`; format with `schedMinToHM(m)`, parse with `tabletHMToMin("HH:MM")`, "now" via `tabletNowMin()`/`tabletNowHM()`). Unreturned = `returnedAt === 0`. Lazy-init with `dat.tabletLogs = dat.tabletLogs || []` (old pages predate the field). Persisted with `saveDPage(ds)` (single-page scope).
+- **Per-page `D.pages[ds].tabletLogs`** — array of loan records `{ id, tablet, borrower, lentAt, returnedBy, returnedAt, returned, returnedDs? }`. Times are **minutes-from-midnight**. Use `tabletIsReturned(l)` for all open/returned checks: `returnedAt===0` collides with midnight, so new records store explicit `returned:false/true` and legacy records use return date/person/time compatibility. The CE and HD ledgers stay separate.
 
 The day page does **not** show an inline tablet section (it would occupy too much space). Instead, `renderPage` adds a compact `📱 タブレット` button (`#tablet-btn`) to the page header next to 印刷, carrying a red `#tablet-btn-badge` showing the current unreturned count (glanceable 揃い確認; hidden when 0). Clicking it calls `openTabletPanel(ds)`, a modal `.ov`/`.md` (`#tablet-panel-ov`, max-height 85vh scroll, click-outside/✕ closes) whose body is filled by `renderTabletPanelBody(ds)`. That body shows the "現在貸出中: N台" summary (red when N>0), a record button, and a list/timeline toggle (`_tabletView`, `setTabletView` → re-renders the panel body). The **list** view shows each loan (green/red left-border by returned state) with 返却/削除 buttons; the **timeline** view (`buildTabletTimeline`) reuses the schedule grid structure — vertical time axis × one column per tablet — with returned loans as solid blocks and unreturned ones as red-striped blocks extending to the current time (today only, else axis end). Timeline is view-only; editing happens in the list. After any lend/return/delete, the handlers call `renderTabletPanelBody(ds)` **and** `updateTabletBtnBadge(ds)` so both the open panel and the header badge stay current.
 
-`openTabletLendModal(ds)` / `openTabletReturnModal(ds, idx)` are dynamic `.ov`/`.md` modals (appended to `document.body`, click-outside closes) with a tablet `<select>`, a borrower/returner `<input list=…>` backed by a `<datalist>` of `D.stf` (staff-pick **plus** free text for other-department people), and an `<input type="time">` defaulting to now with a 「今」button. Because the modals live **outside `#main`**, `initPHIGuard` does not cover them — `saveTabletLend`/`saveTabletReturn` call `detectPHI` on the free-text name explicitly (mirrors `saveTaskFromModal`). All record/return/delete operations are gated by `can('tablet')` (new lock, default unlocked = everyone can record). **No Firebase rule change needed** — both `D.tablets` and `tabletLogs` live under `/data`, unlike `/tasks`.
+`openTabletLendModal(ds, mode)` / `openTabletReturnModal(ds, id, mode)` are dynamic `.ov`/`.md` modals with tablet and borrower/returner fields. New lending is allowed only for today's date. Because the modals live **outside `#main`**, `saveTabletLend`/`saveTabletReturn` call `detectPHI` explicitly; the PHI confirmation callback also rechecks date and mode. A return modal remembers its loan ID, source date, mode, and opening date; save re-reads the record by ID and blocks a second return. All operations are gated by `can('tablet')`. **No Firebase rule change needed** — the ledgers live under `/data`.
 
 ### メーカー担当者連絡先 (`D.makers`)
 

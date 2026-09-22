@@ -316,7 +316,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .hdash-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .hdash-tile{text-align:center;padding:8px 4px;border-radius:var(--rs);background:var(--pu-bg);border:1px solid var(--pu)}
 .hdash-tile .n{font-family:var(--mo);font-size:26px;font-weight:700;line-height:1.1;color:var(--pu)}
-.hdash-tile .l{font-size:10px;font-weight:700;color:var(--pu);opacity:.75;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdash-tile .l{font-size:10px;font-weight:700;color:var(--pu);opacity:.75;margin-top:3px;white-space:normal;line-height:1.25;overflow:visible;overflow-wrap:anywhere}
 /* 0件：枠と地を消して数字も落とす。実施した区分との差を一目で付けるための減算 */
 .hdash-tile.zero{background:var(--sur2);border-color:var(--bdr)}
 .hdash-tile.zero .n{color:var(--txt3);font-weight:500}
@@ -440,6 +440,34 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .edu-set-add{display:flex;gap:6px;margin-top:8px}
 .ops-staff-chip-edu{border:none;background:none;cursor:pointer;font-size:11px;padding:0 0 0 3px;line-height:1}
 @media print{.edu-cat-arrow,.perf-hd .btn,.edu-cat-tools,.edu-filter{display:none!important}.perf-stats .edu-cat-body{display:block!important}.edu-rate-card{break-inside:avoid}}
+
+/* マスタの一覧・詳細。編集DOMは保持し、権限判定とは別のクラスで切り替える。 */
+#pane-master .mst-editor:not(.mst-active){display:none!important}
+#pane-master.mst-detail .mgrp-hd,#pane-master.mst-detail .mst-index,
+#pane-master.mst-detail .sp > .pn{display:none!important}
+#pane-master.mst-detail .mgrp-body{display:flex}
+.mst-index{display:flex;flex-direction:column;gap:0}
+.mst-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--bdr)}
+.mst-row:last-child{border-bottom:0}
+.mst-row-copy{flex:1;min-width:0;overflow-wrap:anywhere}
+.mst-row-title{font-size:13px;font-weight:700;line-height:1.6}
+.mst-row-desc{font-size:12px;color:var(--txt3);line-height:1.6;margin-top:3px}
+.mst-row-state{font-size:12px;color:var(--ac);line-height:1.6;margin-top:5px}
+.mst-row button{flex-shrink:0;min-height:44px;padding:8px 12px}
+.mst-detail-nav{display:flex;flex-direction:column;gap:12px;padding:4px 0 12px}
+.mst-detail-nav button{align-self:flex-start;min-height:44px}
+.mst-breadcrumb{font-size:13px;line-height:1.7;overflow-wrap:anywhere;font-weight:700}
+#pane-master .mst-editor > .pt{font-size:15px;line-height:1.6;margin-bottom:12px}
+#pane-master .mst-editor .ar,#pane-master .mst-editor .tree-add-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+#pane-master .mst-editor .ar input,#pane-master .mst-editor .tree-add-row input{min-width:0;flex:1 1 130px}
+#pane-master .mst-editor input,#pane-master .mst-editor select{max-width:100%;box-sizing:border-box}
+#pane-master .mst-help{font-size:12px;line-height:1.7;color:var(--txt3);margin-bottom:12px}
+#pane-master .mst-help summary{cursor:pointer;padding:6px 0}
+#pane-master .mst-form-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#pane-master .mst-form-row label{min-width:0!important}
+#pane-master .mst-form-row input{min-width:110px}
+@media(max-width:480px){.mst-row{gap:8px}.mst-row button{padding:8px}.mst-breadcrumb{font-size:12px}}
+
 /* ===== マスタタブのグループ（.mgrp） =====
    20近いセクションが縦一列に並んで探せなくなっていたので、意味ごとに6グループへ畳んだ。
    既定は全部閉じる（開いた直後は見出しだけが並ぶ）。開閉は端末ローカルに覚えさせる。 */
@@ -2077,10 +2105,15 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
               <textarea id="oc-flow-text" rows="10" style="width:100%;box-sizing:border-box;font-size:13px;font-family:var(--fn);border:1.5px solid var(--bdr);border-radius:var(--rs);padding:8px 10px;resize:vertical;background:var(--sur2);color:var(--txt)" placeholder="例:&#10;1. OC携帯が鳴ったら病棟名・用件を確認&#10;2. 機器トラブル → 現地へ&#10;   ↓解決しない場合&#10;3. リーダーへ連絡"></textarea>
               <div style="margin-top:6px;text-align:right"><button class="btn btn-p btn-sm" onclick="saveOcFlow()">保存</button></div>
             </div>
-            <div id="emailjs-cfg-section" data-perm="admin" data-mode="ce">
+            <div id="emailjs-cfg-section" data-perm="admin">
               <div class="pt">📧 メール通知設定（EmailJS）</div>
               <div class="pn" style="margin-bottom:8px"><a href="https://www.emailjs.com/" target="_blank" rel="noopener">EmailJS</a> の無料アカウント（月200通）でメール通知を有効にできます。テンプレート変数: <code>to_email</code> <code>to_name</code> <code>subject</code> <code>message</code></div>
               <div id="emailjs-cfg-form"></div>
+            </div>
+            <div id="hd-treat-mail-cfg-section" data-perm="admin" data-mode="hd">
+              <div class="pt">🩸 特殊治療メール・送信先</div>
+              <div class="pn" style="margin-bottom:8px">治療名を追加・変更・削除したとき、選択した登録ユーザーだけに通知します。メールには日付・変更種別・アプリへのリンクだけを記載します。</div>
+              <div id="hd-treat-mail-cfg-form"></div>
             </div>
             <div id="fcm-cfg-section" data-perm="admin" data-mode="ce">
               <div class="pt">🔔 Web Push設定（FCM）</div>
@@ -3278,7 +3311,8 @@ function fbInit() {
           if (_saveQueued && !_saveWriting && currentUser) {
             /* currentUserチェック: 認証未確立のまま書き込むとPERMISSION_DENIEDでキューが失われるのを防ぐ */
             var qd = _saveQueued; _saveQueued = null;
-            _doFbWrite(qd, 0);
+            var qCallbacks = _saveQueuedCallbacks; _saveQueuedCallbacks = [];
+            _doFbWrite(qd, 0, qCallbacks);
           }
         }
       } else if (_fbEverConn) {
@@ -3309,6 +3343,9 @@ function fbInit() {
         _perfView = 'person'; _perfName = null; _perfPick = false; _perfMapCol = null; _perfCatOpen = {}; _perfHistOpen = {}; _perfDetOpen = {}; _perfCatFilter = {}; _perfStatsOpen = false;
         _memosData = {}; _memoDenied = false; /* 別の人がログインしたときに前の人のメモが残らないようにする */
         _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
+        _saveQueuedCallbacks.forEach(function(cb){ try { cb(false, 'ログアウト'); } catch(e){} }); _saveQueuedCallbacks = [];
+        Object.keys(_savePageCallbacks).forEach(function(ds){ (_savePageCallbacks[ds]||[]).forEach(function(cb){ try { cb(false, 'ログアウト'); } catch(e){} }); });
+        _savePageCallbacks = {}; _savePageQueue = {}; _savePageWriting = false; _hdTreatMailInFlight = {};
         _fbEverConn = false; _fbConnected = false; /* 接続状態フラグをリセット */
         hideSyncOverlay(false); updateOfflineBanner(); /* 覆い・オフラインの帯を次の人に残さない */
         curDs = null;
@@ -3585,6 +3622,7 @@ function fbInit() {
                取れない日は掃除も止まっていた（数日開けると保持日数を超えて溜まる）。
                関数側に1日1回のガードがあるので、ここで呼んでも二重には走らない。 */
             cleanOldSnapshots();
+            refreshPriorMemoAlert(); /* 入力中でも専用通知部分だけは他端末の完了/移動を反映 */
             renderCal();
             renderStfList(); renderPhsList(); renderTabletList();
             renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
@@ -4636,7 +4674,7 @@ function renderSpec() {
   S += '<tr><td>🎓 実績</td><td>個人の実績（症例・治療の内訳／配置日数／指導回数／OC）と教育到達度、スキルマップ。両主観で表示。詳細は次節</td></tr>';
   S += '<tr><td rowspan="3">📈 集計</td><td>📈 CE集計</td><td>オペ・カテ等の件数を集計（日別／明細の切替あり）</td></tr>';
   S += '<tr><td>📞 OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>';
-  S += '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中・準夜・BW・病棟・特殊治療）を集計</td></tr>';
+  S += '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中透析室・準夜・BW・病棟・特殊治療）を集計</td></tr>';
   S += '<tr><td colspan="3" style="font-size:11px">公平性は列ごとに最多（赤）/最少（青）を強調し、最大−最小が一定（既定3）以上で偏り警告。表の描画は <code>fairnessHTML()</code> でCE/HD共通。</td></tr>';
   S += '</table>';
 
@@ -5027,7 +5065,7 @@ function renderManual() {
   S += '<table class="mn-tbl"><tr><th>サブタブ</th><th>内容</th></tr>'
     + '<tr><td>📈 CE集計</td><td>オペ・カテなどの件数を集計。「📅 日別／📋 明細」で切り替えられます</td></tr>'
     + '<tr><td>📞 OC集計</td><td>その月のオンコール担当回数をスタッフ別に集計</td></tr>'
-    + '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中・準夜・BW・病棟・特殊治療）を集計</td></tr>'
+    + '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中透析室・準夜・BW・病棟・特殊治療）を集計</td></tr>'
     + '</table>';
 
   // ===== 第10章　スケジュール =====
@@ -5084,6 +5122,9 @@ function renderAdminManual() {
   var SS = '<style>.a-h1{font-size:16px;font-weight:900;color:var(--gd);border-bottom:3px solid var(--gd);padding-bottom:5px;margin:18px 0 10px}.a-h2{font-size:13px;font-weight:800;margin:14px 0 5px;padding:3px 0 3px 9px;border-left:4px solid var(--gd);color:var(--txt)}.a-p{font-size:12px;color:var(--txt);line-height:1.9;margin:0 0 7px}.a-step{display:flex;align-items:flex-start;gap:8px;margin:6px 0;font-size:12px}.a-num{background:var(--gd);color:var(--on-ac);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}.a-ok{background:var(--gr-bg);border:1px solid var(--gr);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-warn{background:var(--warn-bg);border:1px solid var(--warn-bdr);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-err{background:var(--rd-bg);border:1px solid var(--rd);border-radius:6px;padding:7px 11px;margin:6px 0;font-size:12px}.a-code{background:var(--code-bg);color:var(--code-fg);border-radius:6px;padding:10px 14px;font-size:11px;font-family:monospace;line-height:1.8;margin:6px 0;white-space:pre}.a-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}.a-tbl th{background:var(--gd);color:var(--on-ac);padding:5px 8px;text-align:left}.a-tbl td{padding:5px 8px;border:1px solid var(--bdr)}.a-tbl tr:nth-child(even) td{background:var(--sur2)}</style>';
   var S = SS;
   S += '<div class="a-p" style="background:var(--gd-bg);border:1px solid var(--gd-bdr);border-radius:6px;padding:8px 12px">このページは管理者（CE部門責任者）向けのFirebase設定・アカウント管理の手順書です。</div>';
+
+  S += '<div class="a-h2">📋 マスタの探し方</div><ol class="a-p"><li>マスタで大カテゴリを開き、項目名と登録数・設定状況を確認します。</li><li>「開く」でその項目だけを編集します。長い補足は「詳しい説明」から読めます。</li><li>「一覧へ戻る」で元の場所に戻ります。追加や保存は各項目のボタンで行います。</li></ol>';
+  S += '<div class="a-p">特殊治療メールの送信先は、HDnote → マスタ → 通知・連絡 → 特殊治療メール・送信先です。通知を有効にし、相手を選んで「送信先設定を保存」を押します。EmailJSの接続設定も同じカテゴリから開けます。プレビューでは架空の相手で操作を確認でき、実メールは送りません。</div>';
 
   // 第1章: アカウントの種類
   S += '<div class="a-h1">1. アカウントの種類と権限</div>';
@@ -5563,11 +5604,23 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/22-88';
+var APP_VERSION = 'Ver.2026/09/22-90';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/22-90', date:'2026-09-22', title:'マスタを項目一覧から探せるようにしました', items:[
+    {t:'imp', d:'📋 マスタは項目名・設定状況の一覧から、必要な項目だけを開いて編集できます。教育項目も分類ごとに開けます'},
+    {t:'imp', d:'📧 HD特殊治療メールの送信先人数を一覧で確認でき、メール接続設定はCE・HDの双方から開けます', admin:true}
+  ]},
+  { ver:'Ver.2026/09/22-89', date:'2026-09-22', title:'貸出・申し送り・HD記録を分かりやすくしました', items:[
+    {t:'imp', d:'📱 タブレットの新しい貸出は今日の連絡表からだけ記録できます。翌日以降に返した場合も、貸出日の記録を残したまま返却日を記録できます'},
+    {t:'new', d:'📝 前日以前から残る未完了の申し送りを連絡表の上部に表示します。出所の日付・CE/HD・投稿者を確認して、該当の投稿へ移動できます'},
+    {t:'imp', d:'🩸 HD連絡表の人員配置管理を血液浄化のすぐ下へ移しました'},
+    {t:'new', d:'📧 HD特殊治療名の追加・変更・削除を、管理者が選んだ登録ユーザーだけにメール通知できます。通知には治療名や職員名を含めません'},
+    {t:'imp', d:'🩸 血液浄化の「日中」を「日中透析室」に変更しました。これまでの記録と件数はそのままです'},
+    {t:'fix', d:'📱 返却時刻が午前0時の場合も返却済みとして扱い、複数日にわたる未返却の台帳を今日の画面から確認できるようにしました'}
+  ]},
   { ver:'Ver.2026/09/22-88', date:'2026-09-22', title:'祝日と職員番号をアプリで持てるようにしました', items:[
     {t:'new', admin:true, d:'🎌 マスタタブに「祝日」を追加しました。祝日は自動で計算され（振替休日も含む）、院内の創立記念日などは管理者が追加・名前変更・除外できます'},
     {t:'imp', admin:true, d:'🆔 勤務表を取り込むと職員番号も一緒に覚えるようにしました（スタッフ一覧で直せます）。次の更新の勤務希望のExcel出力で使います'},
@@ -8391,7 +8444,7 @@ function renderHdSummary() {
   h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+escH(rng.label)+'　HD集計</span></div>';
   h += '<div class="sum-badges">';
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>合計 <b style="color:var(--pu)">'+grandTotal+'</b>件</span>';
-  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>日中 <b>'+sums.day+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>日中透析室 <b>'+sums.day+'</b>件</span>';
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>準夜 <b>'+sums.night+'</b>件</span>';
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>BW <b>'+sums.bw+'</b>件</span>';
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>病棟 <b>'+sums.ward+'</b>件</span>';
@@ -8407,7 +8460,7 @@ function renderHdSummary() {
       p.day += r.day; p.night += r.night; p.bw += r.bw; p.ward += r.ward; p.sp += r.sp.length;
     });
     h += '<div class="data-wrap" style="margin-bottom:14px"><table class="data-tbl" style="min-width:420px">';
-    h += '<thead><tr><th style="width:90px">月</th><th>日中</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>計</th></tr></thead><tbody>';
+    h += '<thead><tr><th style="width:90px">月</th><th>日中透析室</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>計</th></tr></thead><tbody>';
     mk.forEach(function(k){
       var p = per[k], t = p.day + p.night + p.bw + p.ward + p.sp;
       h += '<tr><td style="white-space:nowrap"><strong>'+sumMonthLabel(k)+'</strong></td>'
@@ -8445,7 +8498,7 @@ function renderHdSummary() {
   h += '<div class="data-wrap"><table class="data-tbl" style="min-width:520px">';
   h += '<thead><tr>'
     + sumSortTh('hd','ds','日付','width:'+(rng.multi?100:70)+'px')
-    + sumSortTh('hd','day','日中') + sumSortTh('hd','night','準夜')
+    + sumSortTh('hd','day','日中透析室') + sumSortTh('hd','night','準夜')
     + sumSortTh('hd','bw','BW') + sumSortTh('hd','ward','病棟')
     + sumSortTh('hd','sp','特殊') + sumSortTh('hd','total','計')
     + '</tr></thead><tbody>';
@@ -9011,7 +9064,7 @@ function renderGuide() {
   S += '<table class="gd-tbl"><tr><th>サブタブ</th><th>内容</th></tr>'
     + '<tr><td>📈 CE集計</td><td>オペ・カテなどの件数</td></tr>'
     + '<tr><td>📞 OC集計</td><td>オンコール対応の記録</td></tr>'
-    + '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中・準夜・BW・病棟・特殊治療）</td></tr>'
+    + '<tr><td>🩸 HD集計</td><td>血液浄化の実施件数（日中透析室・準夜・BW・病棟・特殊治療）</td></tr>'
     + '</table>';
   S += h2('集計する期間を選ぶ');
   S += '<div class="gd-p">どのタブも上部に「📅 月／🗓 年／📆 期間指定」の切替があります。「年」は1年分を月ごとの内訳付きで、「期間指定」は開始日〜終了日を自由に選んで集計します。CSV出力もそのとき選んでいる期間に合わせて出力されます。</div>';
@@ -9318,50 +9371,57 @@ function sanitizeEduProgressKeys() {
 var _savePending = false; /* 未保存変更フラグ（beforeunload用） */
 var _saveWriting = false; /* Firebase write in-flight */
 var _saveQueued  = null;  /* 直近のDスナップショット（write完了後に送る） */
+var _saveQueuedCallbacks = []; /* saveD(onComplete) の成功/失敗通知 */
 var _fbConnected = false; /* .info/connected 状態 */
 var _fbEverConn  = false; /* 初回接続済みフラグ */
 
 var _savePageWriting = false; /* saveDPage() の /data/pages/{ds} write in-flight（saveD本体の_saveWritingとは別管理） */
 var _savePageQueue   = {};    /* saveDPage() 書き込み中に追加された ds のキュー（ds → true） */
+var _savePageCallbacks = {};  /* dsごとの保存完了通知 */
 
-function saveD() {
+function saveD(onComplete) {
+  if(_mstEntries.length && curTab==='master') applyMstGroups();
   /* D.manualのキーにFirebase禁止文字があると全体が失敗するため事前に修正 */
   sanitizeManualKeys();
   sanitizeEduProgressKeys();
   /* localStorage には常に書く（Firebase失敗時のフォールバック兼オフライン対応） */
   try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
-  if (!FB_ON || !fbDB) return;
+  if (!FB_ON || !fbDB) { if (onComplete) onComplete(true, 'local'); return; }
   /* 未認証時は書かない（ログアウト直後にデバウンス保存が空Dを上書きするのを防ぐ） */
-  if (!currentUser) return;
+  if (!currentUser) { if (onComplete) onComplete(false, '未ログイン'); return; }
   /* Firebase から初回データを受信する前は絶対に書かない。
      ログイン直後・認証直後に空のDをFirebaseへ上書きするのを防ぐ最重要ガード。 */
   if (!_fbDataLoaded) {
     console.warn('[saveD] Firebase未ロードのため書き込みをスキップ（データ保護）');
+    if (onComplete) onComplete(false, '初回同期前');
     return;
   }
   /* 新しいバージョンのアプリが保存した後は書かない。この古いアプリの D には新しい項目が無いので、
      全体を上書きするとその項目が消える（9/12 に使用物品マスタが消えた原因） */
-  if (_staleApp) { console.warn('[saveD] 古いバージョンのため書き込みをスキップ（データ保護）'); return; }
+  if (_staleApp) { console.warn('[saveD] 古いバージョンのため書き込みをスキップ（データ保護）'); if (onComplete) onComplete(false, '古いバージョン'); return; }
   /* ページが空かつスタッフも空なら書かない（D消去バグの二重ガード） */
   if (Object.keys(D.pages || {}).length === 0 && (D.stf || []).length === 0) {
     console.warn('[saveD] D が空のため Firebase 書き込みをスキップ（データ保護）');
     writeLog && writeLog('saveD空スキップ', 'pages=0, stf=0, localSavedAt=' + _localSavedAt);
+    if (onComplete) onComplete(false, '空データ保護');
     return;
   }
   _savePending = true;
   var snap = JSON.parse(JSON.stringify(D)); /* 現時点のスナップショット */
   if (_saveWriting) {
     _saveQueued = snap; /* 書き込み中は最新データをキューに積む（コアレス） */
+    if (onComplete) _saveQueuedCallbacks.push(onComplete);
     _savingTs = Date.now(); /* エコー抑制ウィンドウをこの保存時点に更新 */
     return;
   }
-  _doFbWrite(snap, 0);
+  _doFbWrite(snap, 0, onComplete ? [onComplete] : []);
 }
 
 /* リトライ付きFirebase書き込み（最大4回: 2s/4s/8s/16s） */
-function _doFbWrite(data, attempt) {
+function _doFbWrite(data, attempt, callbacks) {
+  callbacks = callbacks || [];
   /* キューに積まれていた保存やリトライも、古いと分かった後は送らない */
-  if (_staleApp) { _saveWriting = false; _savePending = false; _saveQueued = null; return; }
+  if (_staleApp) { _saveWriting = false; _savePending = false; _saveQueued = null; callbacks.forEach(function(cb){ cb(false, '古いバージョン'); }); _saveQueuedCallbacks.forEach(function(cb){ cb(false, '古いバージョン'); }); _saveQueuedCallbacks=[]; return; }
   _saveWriting = true;
   data._appSeq = APP_SEQ; /* どのリリースのアプリが保存したか（checkStaleApp が読む） */
   setSyncLbl(attempt > 0 ? '再試行中... (' + attempt + '/4)' : '保存中...');
@@ -9389,9 +9449,11 @@ function _doFbWrite(data, attempt) {
           Object.assign({}, data, { _backupAt: Date.now() })
         ).catch(function(){});
       }
+      callbacks.forEach(function(cb){ try { cb(true, 'firebase'); } catch(e) { console.error('[saveD callback]', e); } });
       if (_saveQueued) {
         var nxt = _saveQueued; _saveQueued = null;
-        _doFbWrite(nxt, 0);
+        var nxtCallbacks = _saveQueuedCallbacks; _saveQueuedCallbacks = [];
+        _doFbWrite(nxt, 0, nxtCallbacks);
       }
     })
     .catch(function(err) {
@@ -9401,9 +9463,12 @@ function _doFbWrite(data, attempt) {
         /* リトライ時にユーザーが変わっていた or Firebase未ロードなら中断 */
         setTimeout(function() {
           if (!FB_ON || !fbDB || !currentUser || !_fbDataLoaded) {
-            _saveWriting = false; _savePending = false; _saveQueued = null; return;
+            _saveWriting = false; _savePending = false; _saveQueued = null;
+            callbacks.forEach(function(cb){ try { cb(false, '再試行前に接続終了'); } catch(e){} });
+            _saveQueuedCallbacks.forEach(function(cb){ try { cb(false, '再試行前に接続終了'); } catch(e){} }); _saveQueuedCallbacks=[];
+            return;
           }
-          _doFbWrite(data, attempt + 1);
+          _doFbWrite(data, attempt + 1, callbacks);
         }, delay);
       } else {
         _saveWriting = false;
@@ -9413,11 +9478,15 @@ function _doFbWrite(data, attempt) {
                 : (err.message || err.code || '不明');
         setSyncLbl('同期エラー: ' + msg + '（ローカル保存済）');
         writeLog('同期エラー発生', (err.code || '') + ': ' + (err.message || ''));
+        callbacks.forEach(function(cb){ try { cb(false, msg); } catch(e) { console.error('[saveD callback]', e); } });
         /* PERMISSION_DENIED以外の一時的エラーで新しいキューがあれば5秒後に再試行 */
         if (_saveQueued && err.code !== 'PERMISSION_DENIED' && currentUser) {
           var nxt = _saveQueued; _saveQueued = null;
-          setTimeout(function() { if (FB_ON && fbDB && currentUser) { _savePending = true; _doFbWrite(nxt, 0); } }, 5000);
+          var nxtCallbacks = _saveQueuedCallbacks; _saveQueuedCallbacks = [];
+          setTimeout(function() { if (FB_ON && fbDB && currentUser) { _savePending = true; _doFbWrite(nxt, 0, nxtCallbacks); } else { nxtCallbacks.forEach(function(cb){ cb(false, '再試行前に接続終了'); }); } }, 5000);
         } else {
+          _saveQueuedCallbacks.forEach(function(cb){ cb(false, '同期失敗'); });
+          _saveQueuedCallbacks = [];
           _saveQueued = null;
         }
       }
@@ -9432,22 +9501,23 @@ function _doFbWrite(data, attempt) {
    この上書きリスクを減らす。saveD本体の書き込みキュー（_saveWriting/_saveQueued等）
    には一切手を入れず、専用の状態変数（_savePageWriting/_savePageQueue）で
    直列化する。 */
-function saveDPage(ds) {
+function saveDPage(ds, onComplete) {
   /* localStorageへの全体書き込みはsaveDと同じ（オフライン/フォールバック対応） */
   sanitizeManualKeys();
   sanitizeEduProgressKeys();
   try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
-  if (!FB_ON || !fbDB) return; /* Firebase OFF → ローカル保存のみ（saveDと同じ） */
-  if (!currentUser) return;
+  if (!FB_ON || !fbDB) { if (onComplete) onComplete(true, 'local'); return; } /* Firebase OFF → ローカル保存のみ（saveDと同じ） */
+  if (!currentUser) { if (onComplete) onComplete(false, '未ログイン'); return; }
   /* _fbDataLoadedガードはsaveDと同様に絶対維持。falseなら書かない（ローカル保存のみ） */
   if (!_fbDataLoaded) {
     console.warn('[saveDPage] Firebase未ロードのため書き込みをスキップ（データ保護）');
+    if (onComplete) onComplete(false, '初回同期前');
     return;
   }
-  if (_staleApp) { console.warn('[saveDPage] 古いバージョンのため書き込みをスキップ（データ保護）'); return; }
+  if (_staleApp) { console.warn('[saveDPage] 古いバージョンのため書き込みをスキップ（データ保護）'); if (onComplete) onComplete(false, '古いバージョン'); return; }
   if (!D.pages || !D.pages[ds]) {
     /* ページが存在しない（削除された等）場合は部分書き込みの対象がないため全体保存に委譲 */
-    saveD();
+    saveD(onComplete);
     return;
   }
   /* 順序問題対策：full saveD()が進行中(_saveWriting)または予約中(_savePending)の間は
@@ -9457,45 +9527,58 @@ function saveDPage(ds) {
      （_saveWriting中ならキューされ、書き込み完了後に最新Dで再送されるため）このページの
      変更も確実に含まれる。 */
   if (_saveWriting || _savePending) {
-    saveD();
+    saveD(onComplete);
     return;
   }
   if (_savePageWriting) {
     /* 別ページ（または同じページ）の部分書き込みが進行中 → 完了後に処理するようキューに積む */
     _savePageQueue[ds] = true;
+    if (onComplete) { _savePageCallbacks[ds] = _savePageCallbacks[ds] || []; _savePageCallbacks[ds].push(onComplete); }
     _savingTs = Date.now(); /* エコー抑制ウィンドウを更新 */
     return;
   }
-  _doFbPageWrite(ds, 0);
+  _doFbPageWrite(ds, 0, onComplete ? [onComplete] : []);
 }
 
 /* リトライ付きページ単位Firebase書き込み（最大4回: 2s/4s/8s/16s、saveDのリトライ仕様に合わせる） */
-function _doFbPageWrite(ds, attempt) {
+function _doFbPageWrite(ds, attempt, callbacks) {
   attempt = attempt || 0;
+  callbacks = callbacks || [];
   /* 書き込み直前にもfull saveDが割り込んでいないか再確認（保険）。
      割り込んでいれば全体保存に委譲し、キューに残っている他ページの分も
      full saveDが丸ごとカバーするのでキューをクリアしてよい。 */
   if (_saveWriting || _savePending) {
-    _savePageQueue = {};
-    saveD();
+    var allCallbacks = callbacks.slice();
+    Object.keys(_savePageCallbacks).forEach(function(k){ allCallbacks = allCallbacks.concat(_savePageCallbacks[k] || []); });
+    _savePageQueue = {}; _savePageCallbacks = {};
+    saveD(function(ok, mode, err){ allCallbacks.forEach(function(cb){ try { cb(ok, mode, err); } catch(e){} }); });
     return;
   }
   var pageData = D.pages && D.pages[ds];
   if (!pageData) {
     /* 書き込み対象がすでに消えている（削除済み）→ このpage writeは何もしない */
+    callbacks.forEach(function(cb){ cb(false, 'ページが見つかりません'); });
+    var missingNext = null;
+    for (var mk in _savePageQueue) { missingNext = mk; break; }
+    if (missingNext) { delete _savePageQueue[missingNext]; var missingCbs=_savePageCallbacks[missingNext]||[]; delete _savePageCallbacks[missingNext]; _doFbPageWrite(missingNext,0,missingCbs); }
     return;
   }
   _savePageWriting = true;
   _savingTs = Date.now();
   fbDB.ref('/data/pages/' + ds).set(JSON.parse(JSON.stringify(pageData)))
     .then(function() {
-      _savePageWriting = false;
       _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長（saveDと同様） */
+      /* ACKコールバック内から次の saveDPage が呼ばれることがある（特殊治療メールの状態保存など）。
+         コールバック実行中もロックを保ち、ページ単位の保存が並行して古いスナップショットで
+         状態を巻き戻さないよう、追加分を同じキューへ積ませる。 */
+      callbacks.forEach(function(cb){ try { cb(true, 'firebase'); } catch(e) { console.error('[saveDPage callback]', e); } });
+      _savePageWriting = false;
       var nextDs = null;
       for (var k in _savePageQueue) { nextDs = k; break; }
       if (nextDs) {
         delete _savePageQueue[nextDs];
-        _doFbPageWrite(nextDs, 0);
+        var nextCallbacks = _savePageCallbacks[nextDs] || []; delete _savePageCallbacks[nextDs];
+        _doFbPageWrite(nextDs, 0, nextCallbacks);
       }
     })
     .catch(function(err) {
@@ -9504,19 +9587,24 @@ function _doFbPageWrite(ds, attempt) {
         var delay = [2000, 4000, 8000, 16000][attempt];
         setTimeout(function() {
           if (!FB_ON || !fbDB || !currentUser || !_fbDataLoaded) {
-            _savePageWriting = false; _savePageQueue = {}; return;
+            _savePageWriting = false; _savePageQueue = {};
+            callbacks.forEach(function(cb){ try { cb(false, '再試行前に接続終了'); } catch(e){} });
+            Object.keys(_savePageCallbacks).forEach(function(k){ (_savePageCallbacks[k]||[]).forEach(function(cb){ try { cb(false, '再試行前に接続終了'); } catch(e){} }); });
+            _savePageCallbacks = {}; return;
           }
-          _doFbPageWrite(ds, attempt + 1);
+          _doFbPageWrite(ds, attempt + 1, callbacks);
         }, delay);
       } else {
         _savePageWriting = false;
         console.error('saveDPage失敗:', ds, err.code, err.message);
         writeLog && writeLog('ページ同期エラー発生', ds + ': ' + (err.code || '') + ': ' + (err.message || ''));
+        callbacks.forEach(function(cb){ try { cb(false, err.message || err.code || 'ページ同期失敗'); } catch(e) { console.error('[saveDPage callback]', e); } });
         var nextDs2 = null;
         for (var k2 in _savePageQueue) { nextDs2 = k2; break; }
         if (nextDs2) {
           delete _savePageQueue[nextDs2];
-          _doFbPageWrite(nextDs2, 0);
+          var nextCallbacks2 = _savePageCallbacks[nextDs2] || []; delete _savePageCallbacks[nextDs2];
+          _doFbPageWrite(nextDs2, 0, nextCallbacks2);
         }
       }
     });
@@ -11086,6 +11174,17 @@ function closeItems(ds) {
     clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:checklistMine}); });
   }
 
+  /* 5. タブレット未返却（ヘッダーバッジと同じ式：当日分＋前日以前からの持ち越し分）。
+     CE/HDどちらの日ページにもタブレット貸出があるため、このセクションだけは
+     下の早期returnより前に置き、両主観で数える。tabletLogsOf/tabletCarryOverは
+     mode省略時 _viewMode に従うので、CE/HD台帳の読み分けは自動でついてくる。 */
+  tabletLogsOf(dat).forEach(function(l){
+    if (!tabletIsReturned(l)) byKey.tablet.items.push({mine: !!(self && l.borrower===self)});
+  });
+  tabletCarryOver(ds).forEach(function(o){
+    byKey.tablet.items.push({mine: !!(self && o.log.borrower===self)});
+  });
+
   /* 3/4/6. オペ・カテ・オンコールはCE日ページにしか無いセクション。
      dat.ops / dat.ocData はCE・HDで同じページオブジェクトを共有しているので、
      主観で分けないとHD日ページでもCEの未了が数えられてしまう。しかもジャンプ先
@@ -11111,14 +11210,6 @@ function closeItems(ds) {
       if (opsItemFilled(it) && it.done && !it.cancelled && opsItemTimeMissing(it))
         byKey.optime.items.push({mine: p[1] || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
     });
-  });
-
-  /* 5. タブレット未返却（ヘッダーバッジと同じ式：当日分＋前日以前からの持ち越し分） */
-  tabletLogsOf(dat).forEach(function(l){
-    if (!l.returnedAt) byKey.tablet.items.push({mine: !!(self && l.borrower===self)});
-  });
-  tabletCarryOver(ds).forEach(function(o){
-    byKey.tablet.items.push({mine: !!(self && o.log.borrower===self)});
   });
 
   /* 6. オンコール担当が未設定 */
@@ -11546,7 +11637,7 @@ function addTablet() { if(!can('mst'))return; var el=document.getElementById('in
 function saveOcFlow() {
   if(!can('mst')) return;
   var el = document.getElementById('oc-flow-text'); if(!el) return;
-  D.ocFlow = el.value;
+  D.ocFlow = el.value; mstClearDraft('oc-flow-text');
   saveD();
   writeLog('OCフローチャート更新', (D.ocFlow||'').slice(0,30));
   toast('保存しました', 'ok');
@@ -11600,6 +11691,7 @@ function rmHdTablet(i) {
 
 /* ===== DAILY MASTER ===== */
 function renderDlyList() {
+  if(_mstEntries.length) applyMstGroups();
   var l = document.getElementById('dly-list'); l.innerHTML = '';
   var ok = can('dm');
   var _psgEl = document.getElementById('psg-alert-time');
@@ -11608,8 +11700,8 @@ function renderDlyList() {
   if (_bsEl) { _bsEl.value = D.psgBannerStart || '07:30'; _bsEl.disabled = !ok; }
   if (_beEl) { _beEl.value = D.psgBannerEnd   || '08:30'; _beEl.disabled = !ok; }
   var _ofEl = document.getElementById('oc-flow-text');
-  if (_ofEl) { _ofEl.value = D.ocFlow || ''; _ofEl.disabled = !can('mst'); }
-  renderEmailjsCfg(); renderFCMCfg(); renderAutoAssignModeSetting();
+  if (_ofEl) { if(!mstHasDraft('oc-flow-text')) _ofEl.value = D.ocFlow || ''; _ofEl.disabled = !can('mst'); }
+  renderEmailjsCfg(); renderHdTreatMailCfg(); renderFCMCfg(); renderAutoAssignModeSetting();
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
     var el = document.createElement('div'); el.className = 'ri';
@@ -12744,17 +12836,130 @@ function toggleMstGroup(id) {
    renderEduItemMaster() が先に走って各セクションの display を決めた「後」に呼ぶこと
    ——中に表示中のセクションが1つも無いグループは見出しごと隠すため、順番が逆だと
    権限や主観で中身が全部消えたグループの見出しだけが残る。 */
-function applyMstGroups() {
-  var st = mstGrpState();
-  document.querySelectorAll('#pane-master .mgrp').forEach(function (g) {
-    var visible = 0;
-    g.querySelectorAll(':scope > .mgrp-body > div').forEach(function (s) {
-      if (s.style.display !== 'none') visible++;
+/* 一覧には編集DOMを複製せずメタ情報だけを作る。教育だけ既存親の中の各分類を項目にする。 */
+var _mstEntries = [], _mstSelected = null, _mstListScroll = 0, _mstDraftOwner = null;
+function mstPreview() { return /^[12]$/.test(new URLSearchParams(location.search).get('preview') || ''); }
+function mstHasDraft(id) { var el=document.getElementById(id); return !!(el && el.dataset.mstDirty==='1'); }
+function mstClearDraft(id) { var el=document.getElementById(id); if(el) delete el.dataset.mstDirty; }
+function mstEntryAllowed(entry) {
+  var el=entry.el;
+  if (!(isAdmin || (currentUser && currentUser.perms && currentUser.perms.tab_master))) return false;
+  if (el.closest('#edu-items-section') && !eduItemMasterOk()) return false;
+  if ((el.id==='edu-ope-block'||el.id==='edu-cath-block') && _viewMode!=='ce') return false;
+  for(var node=el;node && node.id!=='pane-master';node=node.parentElement){
+    var perm=node.getAttribute('data-perm'), mode=node.getAttribute('data-mode');
+    if(perm && !(perm==='admin'?isAdmin:can(perm))) return false;
+    if(mode && mode!==_viewMode) return false;
+  }
+  return true;
+}
+function mstEntryState(entry) {
+  var el=entry.el, count=function(v){return Array.isArray(v)?v.length:Object.keys(v||{}).length;};
+  if(el.id==='hd-treat-mail-cfg-section'){
+    var cfg=(D.emailjsCfg||{}).hdTreatNotify||{};
+    return (cfg.enabled?'有効':'無効')+' · 送信先 '+count(cfg.recipientUids)+' 人';
+  }
+  if(el.id==='emailjs-cfg-section'){var c=D.emailjsCfg||{};return c.publicKey&&c.serviceId&&c.templateId?'接続設定済み':'接続未設定';}
+  if(el.id==='fcm-cfg-section') return (D.fcmCfg||{}).vapidKey?'接続設定あり':'接続未設定';
+  var map={'dly-list':D.dly,'wdly-list':D.wd,'wd-dept-list':D.wdDepts,'hd-dly-list':D.hdDly,
+    'hd-wdly-list':D.hdWd,'ope-tree-list':D.opeTree,'cath-tree-list':D.cathTree,'sup-master-list':D.supMaster,
+    'robo-master-list':D.roboLayouts,'hd-treat-list':D.hdTreatments,'duty-master-list':D.dutyCfgMaster,
+    'sched-preset-list':D.schedPresets,'srq-code-list':D.shiftReqCodes,'tablet-master-list':D.tablets,
+    'hd-tablet-master-list':D.hdTablets,'edu-ope-tree-list':D.opeTree,'edu-cath-tree-list':D.cathTree,
+    'edu-hd-treat-list':D.hdTreatments,'edu-item-list-ward':(D.eduItems||{}).ward,
+    'edu-item-list-device':(D.eduItems||{}).device,'edu-item-list-hd':(D.eduItems||{}).hd};
+  for(var id in map){if(el.querySelector('#'+id)){
+    var value=map[id], unit='件';
+    if(id.indexOf('wdly-list')!==-1){value=Object.keys(value||{}).reduce(function(out,k){return out.concat(value[k]||[]);},[]);}
+    if(id.indexOf('tree-list')!==-1) unit='科';
+    if(id==='sup-master-list') unit='種類';
+    return '登録 '+count(value)+' '+unit;
+  }}
+  if(el.querySelector('#edu-ce-toggle')) return (D.eduCfg||{}).ceEdu?'有効':'無効';
+  if(el.querySelector('#oc-flow-text')) return D.ocFlow?'登録済み':'未登録';
+  if(el.querySelector('#holiday-list')) return '自動計算＋個別設定';
+  if(el.querySelector('#psg-alert-time')) return '通知 '+(D.psgAlertTime||'10:00');
+  if(el.id==='auto-assign-mode-cfg') return D.autoAssignMode==='weekday'?'曜日に合わせて割り当て':'設定済み';
+  return '設定を確認';
+}
+function initMstNavigation() {
+  if(_mstEntries.length) return;
+  _mstDraftOwner=currentUser&&currentUser.uid;
+  var pane=document.getElementById('pane-master'), sp=pane.querySelector('.sp');
+  var nav=document.createElement('div');nav.className='mst-detail-nav';nav.hidden=true;
+  nav.innerHTML='<button type="button" class="btn btn-g" onclick="mstBack()">← 一覧へ戻る</button><div class="mst-breadcrumb"></div>';
+  nav.style.display='none';sp.prepend(nav);
+  pane.addEventListener('input',function(ev){
+    var form=ev.target.closest('#emailjs-cfg-form,#hd-treat-mail-cfg-form,#fcm-cfg-form');
+    if(form) form.dataset.mstDirty='1';
+    if(ev.target.id==='oc-flow-text') ev.target.dataset.mstDirty='1';
+  });
+  pane.addEventListener('change',function(ev){
+    var form=ev.target.closest('#hd-treat-mail-cfg-form');if(form) form.dataset.mstDirty='1';
+  });
+  pane.querySelectorAll('.mgrp').forEach(function(group){
+    var body=group.querySelector('.mgrp-body'), list=document.createElement('div');list.className='mst-index';
+    var sections=Array.from(body.children);
+    sections.forEach(function(section){
+      section.classList.add('mst-editor');
+      var parts=section.id==='edu-items-section'?Array.from(section.children).filter(function(el){return el.tagName==='DIV'&&!el.classList.contains('pt')&&!el.classList.contains('pn');}):[section];
+      if(section.id==='edu-items-section') Array.from(section.children).forEach(function(el){if(el.classList.contains('pt')||el.classList.contains('pn')) el.hidden=true;});
+      parts.forEach(function(el){
+        el.classList.add('mst-editor');
+        var titleEl=el.querySelector(':scope > .pt')||el.firstElementChild;
+        var title=titleEl?titleEl.textContent.trim():'設定';
+        var edu=section.id==='edu-items-section';
+        if(edu) title+='（教育項目）';
+        var shared=edu && !!el.querySelector('#edu-ope-tree-list,#edu-cath-tree-list,#edu-hd-treat-list');
+        var pn=el.querySelector(':scope > .pn');
+        var desc=shared?'業務内容マスタと共通':(pn?pn.textContent.trim().split('。')[0]+'。':'選択肢の登録・編集・並べ替え');
+        if(desc.length>65) desc=desc.slice(0,64)+'…';
+        if(el.id==='hd-treat-mail-cfg-section') desc='特殊治療の変更を知らせる相手を選びます。';
+        if(el.id==='emailjs-cfg-section') desc='メール配信サービスへの接続を設定します。';
+        if(pn && pn.textContent.length>65){var help=document.createElement('details');help.className='mst-help';var summary=document.createElement('summary');summary.textContent='詳しい説明';pn.before(help);help.append(summary,pn);}
+        var key='mst-entry-'+_mstEntries.length;
+        var row=document.createElement('div');row.className='mst-row';
+        row.innerHTML='<div class="mst-row-copy"><div class="mst-row-title">'+escH(title)+'</div><div class="mst-row-desc">'+escH(desc)+'</div><div class="mst-row-state"></div></div><button type="button" class="btn btn-g btn-sm">開く</button>';
+        row.querySelector('button').setAttribute('aria-label',title+'を開く');
+        row.querySelector('button').onclick=function(){mstOpen(key);};list.appendChild(row);
+        _mstEntries.push({key:key,el:el,parent:section,group:group,row:row,title:title,shared:shared});
+      });
     });
-    g.style.display = visible ? '' : 'none';
-    g.classList.toggle('open', !!st[g.getAttribute('data-grp')]);
-    var cnt = g.querySelector('.mgrp-cnt');
-    if (cnt) cnt.textContent = visible;
+    body.prepend(list);
+  });
+}
+function mstOpen(key) {
+  var entry=_mstEntries.find(function(e){return e.key===key;});if(!entry||!mstEntryAllowed(entry))return;
+  var sp=document.querySelector('#pane-master .sp');_mstListScroll=sp.scrollTop;_mstSelected=key;
+  applyMstGroups();sp.scrollTop=0;
+  document.querySelector('.mst-detail-nav button').focus({preventScroll:true});
+}
+function mstBack() {
+  var previous=_mstSelected;_mstSelected=null;applyMstGroups();
+  document.querySelector('#pane-master .sp').scrollTop=_mstListScroll;
+  var entry=_mstEntries.find(function(e){return e.key===previous;});if(entry&&mstEntryAllowed(entry))entry.row.querySelector('button').focus({preventScroll:true});
+}
+function applyMstGroups() {
+  initMstNavigation();
+  var pane=document.getElementById('pane-master'),st=mstGrpState();
+  var owner=currentUser&&currentUser.uid;
+  if(_mstDraftOwner!==owner){pane.querySelectorAll('[data-mst-dirty]').forEach(function(el){delete el.dataset.mstDirty;});_mstDraftOwner=owner;_mstSelected=null;}
+  var selected=_mstEntries.find(function(e){return e.key===_mstSelected;});
+  if(selected&&!mstEntryAllowed(selected)){_mstSelected=null;selected=null;pane.querySelector('.sp').scrollTop=_mstListScroll;}
+  pane.classList.toggle('mst-detail',!!selected);
+  var nav=pane.querySelector('.mst-detail-nav');nav.hidden=!selected;nav.style.display=selected?'flex':'none';
+  if(selected) nav.querySelector('.mst-breadcrumb').textContent=selected.group.querySelector('.mgrp-lbl').textContent+' / '+selected.title;
+  pane.querySelectorAll('.mst-editor').forEach(function(el){el.classList.remove('mst-active');});
+  _mstEntries.forEach(function(e){
+    var allowed=mstEntryAllowed(e);e.row.style.display=allowed?'':'none';
+    e.row.querySelector('.mst-row-state').textContent=mstEntryState(e);
+    if(e===selected){e.el.classList.add('mst-active');e.parent.classList.add('mst-active');e.el.style.display='';e.parent.style.display='';}
+  });
+  pane.querySelectorAll('.mgrp').forEach(function(g){
+    var visible=_mstEntries.filter(function(e){return e.group===g&&mstEntryAllowed(e);}).length;
+    g.style.display=visible&&(!selected||selected.group===g)?'':'none';
+    g.classList.toggle('open',!!selected||!!st[g.getAttribute('data-grp')]);
+    g.querySelector('.mgrp-cnt').textContent=visible;
   });
 }
 
@@ -13390,6 +13595,7 @@ function updateTabVisibility() {
   if (hdfBtn)  hdfBtn.style.display  = (isAdmin &&  isHd) ? '' : 'none';
   if ( isHd && (_curSubTab === 'at' || _curSubTab === 'fair')) swSubTab('my');
   if (!isHd &&  _curSubTab === 'hdfair') swSubTab('my');
+  if(_mstEntries.length) applyMstGroups();
 }
 function renderLockList() {
   var w = document.getElementById('lock-list'); w.innerHTML = '';
@@ -16867,6 +17073,7 @@ function renderPage(ds) {
   h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="スケジュールを開く">⏰<span class="hd-btn-text"> スケジュール</span></button>';
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h+='</div>';
+  h+='<div id="prior-memo-alert" style="display:none">'+priorMemoAlertContents(ds)+'</div>';
   /* イベント表示エリア */
   var allEvts = si.evts || [];
   var pageEvts = (dat.events || []);
@@ -17033,6 +17240,7 @@ function renderPage(ds) {
   h+='</div>';
 
   document.getElementById('main').innerHTML = h;
+  bindPriorMemoAlertEvents(); refreshPriorMemoAlert(ds);
 
   /* HD担当表（相互参照）：renderPlacementBoard（この下）が呼ぶたびに refreshHdRoster するが、
      ここで先に一度呼んでおくことで #hd-roster-box が空のまま描画される瞬間を作らない。 */
@@ -17696,9 +17904,9 @@ function hdCountN(v) { return parseInt(v, 10) || 0; }
    {n:治療名, staff:実施者[], edu:教育者[]} のオブジェクトへ寄せる（値は書き換えない＝後方互換）。
    教育者が付いていれば「まだ独り立ちしていない」、空なら「独り立ち済み」を意味する。 */
 function hdSpNorm(v) {
-  if (typeof v === 'string') return { n: v, staff: [], edu: [] };
-  if (!v || typeof v !== 'object') return { n: '', staff: [], edu: [] };
-  return { n: v.n || '', staff: normArr(v.staff), edu: normArr(v.edu) };
+  if (typeof v === 'string') return { id: '', n: v, staff: [], edu: [] };
+  if (!v || typeof v !== 'object') return { id: '', n: '', staff: [], edu: [] };
+  return { id: v.id || '', n: v.n || '', staff: normArr(v.staff), edu: normArr(v.edu) };
 }
 /* dat.hdCount.sp の読み取り専用アクセサ。Firebaseは疎な配列をオブジェクトとして返すことがある
    （ensureStaffZone・taskAssignees等と同じ既知の対策パターン）ため、必ずこれ経由で読む。
@@ -17717,7 +17925,188 @@ function hdCountSpFilled(dat) { return hdCountSpArr(dat).filter(function(x){ ret
 function hdCountEnsureSpArr(dat) {
   dat.hdCount = dat.hdCount || {};
   dat.hdCount.sp = hdCountSpArr(dat);
+  dat.hdCount.sp.forEach(function(sp){ if (!sp.id) sp.id = hdSpNewId(); });
   return dat.hdCount.sp;
+}
+function hdSpNewId() {
+  return 'hdsp_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10);
+}
+function hdTreatMailLogOf(dat) {
+  return normArr(dat && dat.hdTreatMailLog).filter(function(x){ return x && x.id; });
+}
+function hdTreatMailFind(dat, id) {
+  var log = hdTreatMailLogOf(dat);
+  for (var i = 0; i < log.length; i++) if (log[i].id === id) return log[i];
+  return null;
+}
+function hdTreatMailStatusText(ev) {
+  var states = { awaiting_save:'保存・送信の結果を確認できません（自動再送なし）', save_failed:'保存を確認できず・メール未送信',
+    unsent_local:'ローカル保存・メール未送信', disabled:'通知設定なし・メール未送信', no_recipients:'送信先なし・メール未送信',
+    sending:'送信結果を確認中', sent:'送信済み', partial:'一部送信・一部未完了', failed:'送信失敗', unknown:'送信結果不明（自動再送なし）', preview:'プレビュー送信（模擬）' };
+  if (ev.status === 'sending') return '送信状態未確定（自動再送なし）';
+  return states[ev.status] || '状態不明';
+}
+function hdTreatMailStatusHTML(dat) {
+  var log = hdTreatMailLogOf(dat).slice(-3).reverse();
+  if (!log.length) return '';
+  var h = '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--bdr)"><div style="font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:4px">特殊治療メール通知の記録</div>';
+  log.forEach(function(ev){
+    var action = {added:'追加',changed:'変更',deleted:'削除'}[ev.action] || '変更';
+    var date = ev.ds || '';
+    var text = hdTreatMailStatusText(ev);
+    var results = (ev.recipients || []).map(function(r,i){
+      var label = {queued:'待機',sending:'送信中',sent:'送信済',preview:'模擬',failed:'失敗',unknown:'結果不明'}[r.status] || r.status || '未送信';
+      return '送信先'+(i+1)+'：'+escH(label);
+    }).join('、');
+    h += '<div style="font-size:10px;color:var(--txt3);padding:2px 0">'+escH(date)+' '+action+' — '+escH(text)+(results?'（'+results+'）':'')+'</div>';
+  });
+  return h + '</div>';
+}
+var _hdTreatMailInFlight = {};
+function hdTreatMailPreviewMode() {
+  var p = new URLSearchParams(window.location.search).get('preview');
+  return p === '1' || p === '2';
+}
+function hdTreatMailUpdate(ds, eventId, update, done) {
+  var pg = D.pages && D.pages[ds];
+  var ev = hdTreatMailFind(pg, eventId);
+  if (!pg || !ev) { if (done) done(false, 'ページまたは通知記録がありません'); return; }
+  update(ev);
+  try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
+  saveDPage(ds, function(ok, mode, err){
+    if (done) done(ok, mode, err);
+    if (curDs === ds && _viewMode === 'hd') refreshHdCountPanel(ds);
+  });
+}
+function hdTreatMailUpdateLocal(ds, eventId, update) {
+  var ev = hdTreatMailFind(D.pages && D.pages[ds], eventId);
+  if (!ev) return false;
+  update(ev);
+  try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
+  if (curDs === ds && _viewMode === 'hd') refreshHdCountPanel(ds);
+  return true;
+}
+function hdTreatMailRecordNameChange(ds, action, rowId) {
+  if (!rowId || ds < toDS(new Date()) || ['added','changed','deleted'].indexOf(action) < 0) return false;
+  var pg = D.pages && D.pages[ds]; if (!pg) return false;
+  var eventId = 'hdtm_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10);
+  pg.hdTreatMailLog = hdTreatMailLogOf(pg);
+  pg.hdTreatMailLog.push({ id:eventId, ds:ds, rowId:rowId, action:action, ts:Date.now(), status:'awaiting_save', recipients:[] });
+  saveDPage(ds, function(ok, mode, err){
+    if (!ok) {
+      /* 失敗後に同じページを再保存すると、変更本体まで後から保存される可能性がある。
+         結果はローカル表示用にだけ記録し、メール送信や追加のFirebase保存はしない。 */
+      hdTreatMailUpdateLocal(ds, eventId, function(ev){ ev.status='save_failed'; ev.error='保存を確認できませんでした'; });
+      showNotifToast('⚠️ 特殊治療の保存を確認できません', 'メールは送信していません');
+      return;
+    }
+    if (mode === 'local' && !hdTreatMailPreviewMode()) {
+      hdTreatMailUpdate(ds, eventId, function(ev){ ev.status='unsent_local'; }, function(){});
+      showNotifToast('特殊治療を端末に保存しました', 'Firebase未同期のためメールは未送信です');
+      return;
+    }
+    hdTreatMailStart(ds, eventId, mode === 'local');
+  });
+  if (curDs === ds && _viewMode === 'hd') refreshHdCountPanel(ds);
+  return true;
+}
+function hdTreatMailStart(ds, eventId, preview) {
+  if (_hdTreatMailInFlight[eventId]) return;
+  var cfg = D.emailjsCfg || {}, setting = cfg.hdTreatNotify || {};
+  var targets = Array.isArray(setting.recipientUids) ? Array.from(new Set(setting.recipientUids.filter(Boolean))) : [];
+  if (!setting.enabled) {
+    hdTreatMailUpdate(ds, eventId, function(ev){ ev.status='disabled'; ev.recipients=[]; }, function(){}); return;
+  }
+  if (!targets.length) {
+    hdTreatMailUpdate(ds, eventId, function(ev){ ev.status='no_recipients'; ev.recipients=[]; }, function(){}); return;
+  }
+  if (!preview && (!FB_ON || !fbDB || !currentUser || !cfg.publicKey || !cfg.serviceId || !cfg.templateId || typeof emailjs === 'undefined')) {
+    hdTreatMailUpdate(ds, eventId, function(ev){ ev.status='disabled'; ev.recipients=targets.map(function(uid){ return {uid:uid,status:'failed'}; }); }, function(){});
+    showNotifToast('⚠️ HD特殊治療メールは未送信です', '接続・EmailJS・送信先設定を確認してください'); return;
+  }
+  _hdTreatMailInFlight[eventId] = true;
+  var evNow = hdTreatMailFind(D.pages && D.pages[ds], eventId);
+  if (!evNow || evNow.status !== 'awaiting_save') { delete _hdTreatMailInFlight[eventId]; return; }
+  var initialRecipients = targets.map(function(uid){ return { uid:uid, status:'queued' }; });
+  hdTreatMailUpdate(ds, eventId, function(ev){ ev.status='sending'; ev.recipients=initialRecipients; }, function(ok, mode, err){
+    if (!ok || (!preview && mode !== 'firebase')) {
+      hdTreatMailUpdateLocal(ds, eventId, function(ev){ ev.status='unknown'; (ev.recipients||[]).forEach(function(r){ if(r.status==='queued') r.status='failed'; }); });
+      delete _hdTreatMailInFlight[eventId];
+      showNotifToast('⚠️ メール送信状態を保存できません', '送信は開始していません');
+      return;
+    }
+    hdTreatMailSendNext(ds, eventId, targets, 0, preview);
+  });
+}
+function hdTreatMailSendNext(ds, eventId, targets, index, preview) {
+  if (index >= targets.length) {
+    hdTreatMailUpdate(ds, eventId, function(ev){
+      var rec = ev.recipients || [];
+      var sent = rec.filter(function(r){ return r.status === 'sent' || r.status === 'preview'; }).length;
+      var failed = rec.filter(function(r){ return r.status === 'failed' || r.status === 'unknown'; }).length;
+      ev.status = preview ? 'preview' : (failed ? (sent ? 'partial' : 'failed') : 'sent');
+    }, function(ok,mode){
+      if (!ok || (!preview && mode !== 'firebase')) {
+        hdTreatMailUpdateLocal(ds,eventId,function(ev){ev.status='unknown';});
+        showNotifToast('⚠️ メール送信結果を同期できません', '結果不明として記録しました。自動再送はしません');
+      }
+      delete _hdTreatMailInFlight[eventId];
+    });
+    return;
+  }
+  var uid = targets[index];
+  hdTreatMailUpdate(ds, eventId, function(ev){
+    var r = (ev.recipients || []).find(function(x){ return x.uid === uid; });
+    if (r) r.status = 'sending';
+  }, function(markOk, markMode){
+    if (!markOk || (!preview && markMode !== 'firebase')) {
+      hdTreatMailUpdateLocal(ds, eventId, function(ev){
+        ev.status='unknown';
+        var r=(ev.recipients||[]).find(function(x){return x.uid===uid;}); if(r) r.status='failed';
+      });
+      delete _hdTreatMailInFlight[eventId];
+      return;
+    }
+    var emailPromise, sendStarted=false;
+    if (preview) emailPromise = Promise.resolve('preview@demo.invalid');
+    else emailPromise = fbDB.ref('/users/' + uid + '/email').once('value').then(function(snap){ return snap.val() || ''; });
+    emailPromise.then(function(email){
+      if (!email) throw new Error('メールアドレス未登録');
+      var ev = hdTreatMailFind(D.pages && D.pages[ds], eventId);
+      var actionText = {added:'追加',changed:'変更',deleted:'削除'}[(ev && ev.action) || ''] || '変更';
+      var appUrl = window.location.origin + window.location.pathname;
+      if (preview) return { preview:true };
+      emailjs.init((D.emailjsCfg || {}).publicKey);
+      sendStarted=true;
+      return emailjs.send((D.emailjsCfg || {}).serviceId, (D.emailjsCfg || {}).templateId, {
+        to_email:email, to_name:'', subject:'HD特殊治療の変更のお知らせ',
+        message:(ev && ev.ds ? ev.ds : ds)+'のHD特殊治療に'+actionText+'がありました。\nアプリを開く: '+appUrl
+      });
+    }).then(function(result){
+      hdTreatMailUpdate(ds, eventId, function(ev){
+        var r=(ev.recipients||[]).find(function(x){return x.uid===uid;}); if(r) r.status=(preview || (result && result.preview))?'preview':'sent';
+      }, function(ok, mode){
+        if (!ok || (!preview && mode !== 'firebase')) {
+          hdTreatMailUpdateLocal(ds,eventId,function(ev){ev.status='unknown'; var r=(ev.recipients||[]).find(function(x){return x.uid===uid;}); if(r) r.status='unknown';});
+          showNotifToast('⚠️ メール送信結果を同期できません', '結果不明として記録しました。自動再送はしません');
+          delete _hdTreatMailInFlight[eventId]; return;
+        }
+        hdTreatMailSendNext(ds,eventId,targets,index+1,preview);
+      });
+    }).catch(function(err){
+      console.warn('[HD特殊治療メール] 送信結果を確認できません', err);
+      hdTreatMailUpdate(ds, eventId, function(ev){
+        var r=(ev.recipients||[]).find(function(x){return x.uid===uid;}); if(r) r.status=sendStarted?'unknown':'failed';
+      }, function(ok, mode){
+        if (!ok || (!preview && mode !== 'firebase')) {
+          hdTreatMailUpdateLocal(ds,eventId,function(ev){ev.status='unknown'; var r=(ev.recipients||[]).find(function(x){return x.uid===uid;}); if(r) r.status='unknown';});
+          showNotifToast('⚠️ メール送信結果を同期できません', '結果不明として記録しました。自動再送はしません');
+          delete _hdTreatMailInFlight[eventId]; return;
+        }
+        hdTreatMailSendNext(ds,eventId,targets,index+1,preview);
+      });
+    });
+  });
 }
 function hdCountTotal(dat) {
   var c = dat.hdCount || {};
@@ -17733,6 +18122,16 @@ function hdCountPanelInnerHTML(ds, dat) {
   var spFilled = hdCountSpFilled(dat);  /* 件数として数える分（空行を除く） */
   var total = day + night + bw + ward + spFilled.length;
   var locked = !can('ops'); /* 新規ロックIDは作らず、CE側の業務内容ロック(ops)をそのまま流用 */
+  if (_hdCountOpen && !locked && spArr.some(function(sp){ return !sp.id; })) {
+    /* 編集操作は添字ではなく安定IDで対象行を引き直せるよう、旧行へIDを付ける（ローカルのDのみ）。
+       ここではFirebaseへ保存しない——render関数は書き込みをしてはならない
+       （CLAUDE.md「sweepDoneTaskMedia」節）。単に開いて閲覧しただけの端末で保存が
+       走ると、複数端末が同じ未ID行を同時に開いたとき別々のIDを振って競合しうる。
+       実際にこの行を操作（削除・担当者追加等）した時点で、そのイベントハンドラ内の
+       hdCountEnsureSpArr→saveDPageが同じIDのまま保存するので、それまでは
+       ローカル表示用のID（操作ボタンのdata-row-id）としてだけ使われる。 */
+    spArr = hdCountEnsureSpArr(dat);
+  }
   var h = '';
   if (!_hdCountOpen) {
     h += '<div class="hdash-hd"><span class="hdash-ttl">🩸 血液浄化</span>';
@@ -17740,7 +18139,7 @@ function hdCountPanelInnerHTML(ds, dat) {
     h += '</div>';
     /* 数字タイル。0件の区分は .zero で彩度を落とし、実施した区分だけが浮くようにする */
     h += '<div class="hdash-tiles">';
-    [[day,'日中'],[night,'準夜'],[bw,'BW'],[ward,'病棟'],[spFilled.length,'特殊']].forEach(function(t){
+    [[day,'日中透析室'],[night,'準夜'],[bw,'BW'],[ward,'病棟'],[spFilled.length,'特殊']].forEach(function(t){
       h += '<div class="hdash-tile'+(t[0]?'':' zero')+'"><div class="n">'+t[0]+'</div><div class="l">'+t[1]+'</div></div>';
     });
     h += '</div>';
@@ -17767,7 +18166,7 @@ function hdCountPanelInnerHTML(ds, dat) {
     h += '<span class="hdash-total" style="margin:0">合計 <b>'+total+'</b> 件</span>';
     h += '<button class="btn btn-g btn-sm" data-action="hdcnt-toggle">✕ 閉じる</button></div>';
     h += '<div style="width:100%">';
-    [['day', '日中'], ['night', '準夜'], ['bw', 'BW'], ['ward', '病棟']].forEach(function (f) {
+    [['day', '日中透析室'], ['night', '準夜'], ['bw', 'BW'], ['ward', '病棟']].forEach(function (f) {
       h += '<div class="ops-row"><span class="ops-lbl">' + f[1] + '</span><input type="number" class="ops-num" data-hdcnt-field="' + f[0] + '" min="0" value="' + (c[f[0]] || '') + '" placeholder="0"' + (locked ? ' disabled' : '') + '><span class="ops-unit">件</span></div>';
     });
     h += '<div class="ops-row" style="align-items:flex-start"><span class="ops-lbl" style="margin-top:6px">特殊</span><div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">';
@@ -17780,6 +18179,7 @@ function hdCountPanelInnerHTML(ds, dat) {
     h += '</div></div>';
     h += '</div>';
   }
+  h += hdTreatMailStatusHTML(dat);
   return h;
 }
 /* 特殊治療<select>のoption群。D.hdTreatmentsから削除済みでも現在選択中の値だけは
@@ -17802,24 +18202,24 @@ function hdSpStaffCandidates(ds) {
 function hdSpRowHTML(sp, i, locked, cands) {
   var h = '<div class="hdsp-row" style="padding:6px 0' + (locked ? '' : ';border-bottom:1px dashed var(--bdr)') + '">';
   h += '<div style="display:flex;gap:4px;align-items:center">';
-  h += '<select class="ds2" style="margin-bottom:0;flex:1;min-width:0" data-hdcnt-sp="' + i + '"' + (locked ? ' disabled' : '') + '>' + hdTreatOptsHTML(sp.n) + '</select>';
-  if (!locked) h += '<button class="pool-chip-x" data-action="hdcnt-sp-del" data-idx="' + i + '" style="position:static;font-size:16px">×</button>';
+  h += '<select class="ds2" style="margin-bottom:0;flex:1;min-width:0" data-hdcnt-sp="' + i + '" data-row-id="' + escH(sp.id || '') + '"' + (locked ? ' disabled' : '') + '>' + hdTreatOptsHTML(sp.n) + '</select>';
+  if (!locked) h += '<button class="pool-chip-x" data-action="hdcnt-sp-del" data-idx="' + i + '" data-row-id="' + escH(sp.id || '') + '" style="position:static;font-size:16px">×</button>';
   h += '</div>';
-  h += hdSpPeopleRowHTML(sp.staff, i, 'staff', '👤', '実施者', locked, cands, sp.n);
-  h += hdSpPeopleRowHTML(sp.edu, i, 'edu', '🎓', '教育者', locked, cands);
+  h += hdSpPeopleRowHTML(sp.staff, sp.id, 'staff', '👤', '実施者', locked, cands, sp.n);
+  h += hdSpPeopleRowHTML(sp.edu, sp.id, 'edu', '🎓', '教育者', locked, cands);
   h += '</div>';
   return h;
 }
 /* 実施者／教育者どちらかの1行（チップ＋追加セレクト）。担当者チップと同じ見た目・作りにする
    （buildItemMetaRows の担当者行と共通のCSSクラスを使う）。 */
-function hdSpPeopleRowHTML(list, i, role, icon, label, locked, cands, treat) {
+function hdSpPeopleRowHTML(list, rowId, role, icon, label, locked, cands, treat) {
   list = list || [];
   var h = '<div class="ops-staff-row" style="margin:2px 0 2px 2px">';
   h += '<span class="ops-meta-lbl">' + icon + '</span>';
   list.forEach(function (nm) {
     h += '<span class="ops-staff-chip">' + escH(nm);
     if (role === 'staff' && treat && canEdu()) h += '<button type="button" class="ops-staff-chip-edu" data-action="hdcnt-sp-edu" data-name="' + escH(nm) + '" data-treat="' + escH(treat) + '" title="この治療の到達度を付ける">🎓</button>';
-    if (!locked) h += '<button type="button" class="ops-staff-chip-x" data-action="hdcnt-sp-ppl-rm" data-idx="' + i + '" data-role="' + role + '" data-name="' + escH(nm) + '" title="外す">×</button>';
+    if (!locked) h += '<button type="button" class="ops-staff-chip-x" data-action="hdcnt-sp-ppl-rm" data-row-id="' + escH(rowId || '') + '" data-role="' + role + '" data-name="' + escH(nm) + '" title="外す">×</button>';
     h += '</span>';
   });
   if (!locked) {
@@ -17829,7 +18229,7 @@ function hdSpPeopleRowHTML(list, i, role, icon, label, locked, cands, treat) {
     if (dutyOpts.length) { oh += '<optgroup label="本日の勤務">'; dutyOpts.forEach(function (n) { oh += '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }); oh += '</optgroup>'; }
     if (allOpts.length) { oh += '<optgroup label="スタッフ">'; allOpts.forEach(function (n) { oh += '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }); oh += '</optgroup>'; }
     oh += '<option value="__free__">自由入力...</option>';
-    h += '<select class="ops-staff-add" data-hdcnt-sp-add="' + i + '" data-role="' + role + '">' + oh + '</select>';
+    h += '<select class="ops-staff-add" data-hdcnt-sp-add="' + escH(rowId || '') + '" data-role="' + role + '">' + oh + '</select>';
   }
   h += '</div>';
   return h;
@@ -17914,6 +18314,7 @@ function renderPageHD(ds) {
   h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="スケジュールを開く">⏰<span class="hd-btn-text"> スケジュール</span></button>';
   h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h += '</div>';
+  h += '<div id="prior-memo-alert" style="display:none">' + priorMemoAlertContents(ds) + '</div>';
 
   /* イベント表示エリア（renderPageのCE版と同一ロジック） */
   var allEvts = si.evts || [];
@@ -17924,8 +18325,22 @@ function renderPageHD(ds) {
   /* 血液浄化の実施件数（ダッシュボード） */
   h += '<div class="hdash" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
 
+  /* 人員配置管理を血液浄化の直後へ移し、当日の人員をすぐ確認できるようにする。
+     配置盤のDOM ID・折りたたみ状態・権限はCE版と共通。 */
+  var _hszc = plCounts(ds);
+  h += '<div class="staffz">';
+  h += '<div class="staffz-hd" onclick="toggleStaffZone()">';
+  h += '<span class="staffz-ttl">👥 人員配置管理</span>';
+  h += '<span class="staffz-badge" id="staffz-badge-staff">当日'+_hszc.staffN+'名</span>';
+  h += '<span class="staffz-badge" id="staffz-badge-unassigned" style="color:var(--rd)'+(_hszc.unassignedN?'':';display:none')+'">未割当'+_hszc.unassignedN+'</span>';
+  h += '<span class="staffz-arrow" id="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
+  h += '</div>';
+  h += '<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
+  h += '<div id="placement-wrap" class="pl-board" data-ds="'+ds+'"></div>';
+  h += '</div></div>';
+
   /* HD担当表：役割の入れ替え・編集ができる共通部品（#hd-roster-box / refreshHdRoster）。
-     「今日の件数と人員」を上にまとめたいのでダッシュボードの真下に置く。見出しも
+     「今日の件数と人員」を上にまとめたいので配置管理の直後に置く。見出しも
      入れ物の中に含む（編集ボタンを見出しの右に置くため）。中身は renderPlacementBoard
      経由で常に refreshHdRoster が最新化するので、ここでは空の入れ物を置くだけでよい。 */
   h += '<div id="hd-roster-box" data-ds="' + ds + '" data-variant="hd"></div>';
@@ -17944,25 +18359,11 @@ function renderPageHD(ds) {
   h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> HD共通業務（毎日・'+D.hdDly.length+'項目）</div><div id="hdcl"></div></div>';
   h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> HD曜日別業務 <span class="wb">'+wf+'</span></div><div id="hdwcl"></div></div><hr>';
 
-  /* 人員配置管理：CE主観とまったく同じ配置盤を出す（主観で見え方を変えない）。
-     .staffz シェル・#staffz-body・toggleStaffZone()/_staffZoneOpen はCEと共有するので、
-     新しいトグル関数もCSSも要らず、印刷時の #staffz-body{display:block!important} もそのまま効く。 */
-  var _hszc = plCounts(ds);
-  h += '<div class="staffz">';
-  h += '<div class="staffz-hd" onclick="toggleStaffZone()">';
-  h += '<span class="staffz-ttl">👥 人員配置管理</span>';
-  h += '<span class="staffz-badge" id="staffz-badge-staff">当日'+_hszc.staffN+'名</span>';
-  h += '<span class="staffz-badge" id="staffz-badge-unassigned" style="color:var(--rd)'+(_hszc.unassignedN?'':';display:none')+'">未割当'+_hszc.unassignedN+'</span>';
-  h += '<span class="staffz-arrow" id="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
-  h += '</div>';
-  h += '<div id="staffz-body" style="display:'+(_staffZoneOpen?'block':'none')+'">';
-  h += '<div id="placement-wrap" class="pl-board" data-ds="'+ds+'"></div>';
-  h += '</div></div>';
-
   /* 業務連絡・申し送り（HD専用スレッド dat.hdMemos。マークアップは memoSectionHTML でCEと共通） */
   h += memoSectionHTML(ds, mlk);
 
   document.getElementById('main').innerHTML = h;
+  bindPriorMemoAlertEvents(); refreshPriorMemoAlert(ds);
 
   /* data-action ボタンのイベント登録（renderPageのCE版と同一ロジック） */
   var evtArea = document.getElementById('evt-area');
@@ -17998,23 +18399,34 @@ function renderPageHD(ds) {
         refreshHdCountPanel(ds);
       } else if (action === 'hdcnt-sp-add') {
         if (!can('ops')) return;
-        hdCountEnsureSpArr(pg).push({ n: '', staff: [], edu: [] });
+        hdCountEnsureSpArr(pg).push({ id:hdSpNewId(), n: '', staff: [], edu: [] });
         saveDPage(ds);
         refreshHdCountPanel(ds);
       } else if (action === 'hdcnt-sp-del') {
         if (!can('ops')) return;
-        var idx = parseInt(btn.getAttribute('data-idx'), 10);
+        var rowId = btn.getAttribute('data-row-id') || '';
+        if (!rowId) { toast('治療行を特定できません。画面を更新してください', 'warn'); return; }
         var arr = hdCountEnsureSpArr(pg);
-        if (idx >= 0 && idx < arr.length) arr.splice(idx, 1);
+        var idx = arr.findIndex(function(sp){ return sp.id === rowId; });
+        var removed = (idx >= 0 && idx < arr.length) ? arr[idx] : null;
+        if (removed) arr.splice(idx, 1);
+        if (removed && removed.n) {
+          if (hdTreatMailRecordNameChange(ds, 'deleted', removed.id)) {
+            refreshHdCountPanel(ds);
+            return;
+          }
+        }
         saveDPage(ds);
         refreshHdCountPanel(ds);
       } else if (action === 'hdcnt-sp-ppl-rm') {
         if (!can('ops')) return;
-        var rmIdx = parseInt(btn.getAttribute('data-idx'), 10);
+        var rmRowId = btn.getAttribute('data-row-id') || '';
         var rmRole = btn.getAttribute('data-role');
         var rmName = btn.getAttribute('data-name');
         var arr2 = hdCountEnsureSpArr(pg);
-        if (arr2[rmIdx]) arr2[rmIdx][rmRole] = (arr2[rmIdx][rmRole] || []).filter(function (n) { return n !== rmName; });
+        var rmRow = arr2.find(function(sp){ return sp.id === rmRowId; });
+        if (!rmRow || ['staff','edu'].indexOf(rmRole) < 0) return;
+        rmRow[rmRole] = (rmRow[rmRole] || []).filter(function (n) { return n !== rmName; });
         saveDPage(ds);
         refreshHdCountPanel(ds);
       }
@@ -18042,7 +18454,18 @@ function renderPageHD(ds) {
         var idx = parseInt(sel.getAttribute('data-hdcnt-sp'), 10);
         var pg2 = D.pages[ds]; if (!pg2) return;
         var arr = hdCountEnsureSpArr(pg2);
-        if (idx >= 0 && idx < arr.length) arr[idx].n = sel.value;
+        var rowId = sel.getAttribute('data-row-id') || '';
+        if (!rowId) { toast('治療行を特定できません。画面を更新してください', 'warn'); return; }
+        idx = arr.findIndex(function(sp){ return sp.id === rowId; });
+        var row = (idx >= 0 && idx < arr.length) ? arr[idx] : null;
+        if (!row || row.n === sel.value) return;
+        var oldName = row.n || '', newName = sel.value || '';
+        row.n = newName;
+        var action = !oldName && newName ? 'added' : (oldName && !newName ? 'deleted' : (oldName && newName ? 'changed' : null));
+        if (action && hdTreatMailRecordNameChange(ds, action, row.id)) {
+          refreshHdCountPanel(ds);
+          return;
+        }
         saveDPage(ds);
         refreshHdCountPanel(ds); /* 選択肢は行の現在値ごとに生成する（hdTreatOptsHTML）ため、値が変わった行の
           「（旧）」表示を消すには再生成が要る。件数（行数）自体は変わらないので合計は不変。 */
@@ -18053,7 +18476,8 @@ function renderPageHD(ds) {
       if (!can('ops')) return;
       var v = addSel.value; addSel.value = '';
       if (!v) return;
-      var addIdx = parseInt(addSel.getAttribute('data-hdcnt-sp-add'), 10);
+      var addRowId = addSel.getAttribute('data-hdcnt-sp-add') || '';
+      if (!addRowId) { toast('治療行を特定できません。画面を更新してください', 'warn'); return; }
       var addRole = addSel.getAttribute('data-role');
       if (v === '__free__') {
         var nameInput = prompt((addRole === 'staff' ? '実施者' : '教育者') + '名を入力してください');
@@ -18063,10 +18487,11 @@ function renderPageHD(ds) {
         phiGuardText(nameInput, function () {
           var pg3 = D.pages[ds]; if (!pg3) return;
           var arr3 = hdCountEnsureSpArr(pg3);
-          if (!arr3[addIdx]) return;
-          var list3 = arr3[addIdx][addRole] || [];
+          var row3 = arr3.find(function(sp){ return sp.id === addRowId; });
+          if (!row3 || ['staff','edu'].indexOf(addRole) < 0) return;
+          var list3 = row3[addRole] || [];
           if (list3.indexOf(nameInput) === -1) list3.push(nameInput);
-          arr3[addIdx][addRole] = list3;
+          row3[addRole] = list3;
           saveDPage(ds);
           refreshHdCountPanel(ds);
         });
@@ -18074,10 +18499,11 @@ function renderPageHD(ds) {
       }
       var pg4 = D.pages[ds]; if (!pg4) return;
       var arr4 = hdCountEnsureSpArr(pg4);
-      if (!arr4[addIdx]) return;
-      var list4 = arr4[addIdx][addRole] || [];
+      var row4 = arr4.find(function(sp){ return sp.id === addRowId; });
+      if (!row4 || ['staff','edu'].indexOf(addRole) < 0) return;
+      var list4 = row4[addRole] || [];
       if (list4.indexOf(v) === -1) list4.push(v);
-      arr4[addIdx][addRole] = list4;
+      row4[addRole] = list4;
       saveDPage(ds);
       refreshHdCountPanel(ds);
     });
@@ -18301,6 +18727,77 @@ function ensureMemos(dat) { var k = memoKey(); if (!Array.isArray(dat[k])) dat[k
    同じ投稿を指し続けられるよう、インデックスではなく ts+uid で特定する
    （moveMemo が対象を再特定しているのと同じ考え方） */
 function memoKeyOf(m) { return String(m && m.ts || 0) + '_' + String((m && m.uid) || ''); }
+function priorUnfinishedMemos(viewDs){
+  var today=toDS(new Date()), mode=_viewMode, key=(mode==='hd'?'hdMemos':'memos'), out=[];
+  Object.keys(D.pages||{}).sort().forEach(function(storageDs){
+    if(storageDs>today) return;
+    var pg=D.pages[storageDs];
+    normArr(pg && pg[key]).forEach(function(m){
+      if(!m || m.done) return;
+      var origin=memoOrigDs(m,storageDs);
+      if(!origin || origin>=today) return;
+      out.push({ds:storageDs, origin:origin, mode:mode, key:memoKeyOf(m), name:m.name||'不明', text:m.text||''});
+    });
+  });
+  out.sort(function(a,b){ return a.origin===b.origin ? a.ds.localeCompare(b.ds) : a.origin.localeCompare(b.origin); });
+  return out;
+}
+function priorMemoAlertContents(viewDs){
+  var list=priorUnfinishedMemos(viewDs);
+  if(!list.length) return '';
+  var h='<details style="border:1px solid var(--or);background:var(--or-bg);border-radius:8px;margin:6px 0;padding:7px 10px;color:var(--txt)">';
+  h+='<summary style="cursor:pointer;font-size:12px;font-weight:800;color:var(--or)">⚠️ 前日以前の未完了申し送り '+list.length+'件</summary>';
+  h+='<div style="display:grid;gap:5px;margin-top:7px">';
+  list.forEach(function(m){
+    var text=(m.text||'（本文なし）').replace(/\s+/g,' ').slice(0,90);
+    h+='<button type="button" data-action="priorMemoJump" data-ds="'+escH(m.ds)+'" data-mkey="'+escH(m.key)+'" style="text-align:left;border:1px solid var(--bdr);background:var(--sur);color:var(--txt);border-radius:6px;padding:6px 8px;cursor:pointer">'
+      +'<span style="font-size:10px;color:var(--txt3)">出所 '+escH(fmtJ(m.origin))+' ・ '+(m.mode==='hd'?'HD':'CE')+' ・ '+escH(m.name)+' ／ 現在 '+escH(fmtJ(m.ds))+'</span><br>'
+      +'<span style="font-size:12px">'+escH(text)+'</span></button>';
+  });
+  return h+'</div></details>';
+}
+function refreshPriorMemoAlert(viewDs){
+  var el=document.getElementById('prior-memo-alert'); if(!el) return;
+  var html=priorMemoAlertContents(viewDs || curDs || '');
+  if (el.innerHTML !== html) {
+    var wasOpen=!!(el.querySelector('details') && el.querySelector('details').open);
+    el.innerHTML=html;
+    var details=el.querySelector('details'); if(details && wasOpen) details.open=true;
+  }
+  el.style.display=html ? '' : 'none';
+}
+var _priorMemoEventsBound=false;
+function bindPriorMemoAlertEvents(){
+  var main=document.getElementById('main'); if(!main || main._priorMemoBound) return;
+  main._priorMemoBound=true;
+  main.addEventListener('click',function(e){
+    var btn=e.target.closest('[data-action="priorMemoJump"]');
+    if(btn) priorMemoAlertJump(btn.getAttribute('data-ds'),btn.getAttribute('data-mkey'));
+  });
+  if(!_priorMemoEventsBound){
+    _priorMemoEventsBound=true;
+    document.addEventListener('visibilitychange',function(){ if(!document.hidden) refreshPriorMemoAlert(); });
+    window.addEventListener('focus',function(){ refreshPriorMemoAlert(); });
+  }
+}
+function priorMemoAlertJump(ds,key){
+  var f=findMemoByKey(ds,key);
+  if(!f || f.m.done){ refreshPriorMemoAlert(); toast('この申し送りは完了または移動済みです。一覧を更新しました', 'warn'); return; }
+  openPage(ds);
+  setTimeout(function(){
+    var live=findMemoByKey(ds,key);
+    if(!live || live.m.done){ refreshPriorMemoAlert(); toast('この申し送りは完了または移動済みです。一覧を更新しました', 'warn'); return; }
+    var target=document.getElementById('memo-post-'+key);
+    if (!target && curDs === ds) {
+      /* 同じ日付の画面は再描画されない。同期で新しく届いた投稿だけ一覧を更新し、
+         #memo-new の入力中本文には触れない（renderMemos は返信下書きも退避する）。 */
+      renderMemos(ds, D.pages[ds], !can('memo'));
+      target=document.getElementById('memo-post-'+key);
+    }
+    if (!target) { refreshPriorMemoAlert(); toast('申し送り一覧を更新できませんでした。もう一度お試しください', 'warn'); return; }
+    dashJump('#memo-post-'+key);
+  },100);
+}
 function findMemoByKey(ds, key) {
   var memos = memosOf(D.pages[ds]);
   for (var i = 0; i < memos.length; i++) {
@@ -18321,6 +18818,7 @@ function renderMemos(ds, dat, locked) {
   var stubsH = memoCarryStubsHTML(dat);
   if (!memos.length) {
     el.innerHTML = stubsH || '<div class="pool-empty" style="font-size:12px;padding:6px 0">申し送りはまだありません</div>';
+    refreshPriorMemoAlert();
     return;
   }
   var h = '';
@@ -18332,7 +18830,7 @@ function renderMemos(ds, dat, locked) {
        memo権限だけで他人の文章に手を入れられるようにはしない。 */
     var canEdit = canDel;
     var isDone = !!m.done;
-    h += '<div class="memo-post' + (isDone ? ' memo-done' : '') + '">';
+    h += '<div id="memo-post-' + escH(mkey) + '" data-mkey="' + escH(mkey) + '" class="memo-post' + (isDone ? ' memo-done' : '') + '">';
     /* 済チェックボックス：削除・移動ボタンの有無で右位置を調整 */
     /* 移動は削除と違い元の投稿を書き換えない（movedFrom記録のみ）ため、書いた本人以外・管理者以外でも
        memo権限があれば移動できるようにしている。誰が書いたかは m.name が常に元投稿者のまま保たれる
@@ -18438,6 +18936,7 @@ function renderMemos(ds, dat, locked) {
   }
   el.innerHTML = h + stubsH;
   draftApply(listDraft);
+  refreshPriorMemoAlert();
 }
 
 /* #memo-list は renderMemos のたびに innerHTML を差し替えるだけの永続DOMなので、
@@ -18469,6 +18968,7 @@ function bindMemoListEvents(el) {
       var post = cb.closest('.memo-post');
       if (post) post.classList.toggle('memo-done', cb.checked);
       updateCloseBar(bds);
+      refreshPriorMemoAlert();
     }
   });
   el.addEventListener('click', function(e) {
@@ -21469,8 +21969,12 @@ function checkTimeNotifs() {
   var now = new Date();
   var ds = toDS(now);
   var hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
-  /* 開いたまま日付をまたいだら申し送りの繰り越しを走らせる */
-  if (_memoCarryDay !== ds) carryOverMemos();
+  /* 開いたまま日付をまたいだら申し送りを更新し、貸出パネルが開いていればその部分だけ描き直す */
+  if (_memoCarryDay !== ds) {
+    carryOverMemos();
+    if (document.getElementById('tablet-panel-ov')) renderTabletPanelBody(_tabletPanelDs || curDs);
+  }
+  refreshPriorMemoAlert(); /* 日付をまたいだ未完了をページ全体の再描画なしで反映 */
   /* 毎日業務 */
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], n = dlyNotif(it);
@@ -21660,31 +22164,91 @@ function renderEmailjsCfg() {
   var sec = document.getElementById('emailjs-cfg-section');
   if (sec) sec.style.display = isAdmin ? '' : 'none';
   var el = document.getElementById('emailjs-cfg-form');
-  if (!el || !isAdmin) return;
+  if (!el || !isAdmin || mstHasDraft('emailjs-cfg-form')) return;
   var cfg = D.emailjsCfg || {};
   var ok = true;
   var dis = '';
   var configured = cfg.publicKey && cfg.serviceId && cfg.templateId;
   var badge = configured ? '<span style="font-size:11px;color:var(--gr);font-weight:700;margin-left:8px">✅ 設定済み</span>' : '';
   el.innerHTML = '<div style="display:grid;gap:6px">'
-    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">公開キー (Public Key)</label>'
+    + '<div class="mst-form-row"><label style="font-size:12px;min-width:110px">公開キー (Public Key)</label>'
     + '<input type="text" id="ejs-pk" value="' + escH(cfg.publicKey || '') + '" placeholder="user_xxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">' + (cfg.publicKey ? badge : '') + '</div>'
-    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">サービスID</label>'
+    + '<div class="mst-form-row"><label style="font-size:12px;min-width:110px">サービスID</label>'
     + '<input type="text" id="ejs-sid" value="' + escH(cfg.serviceId || '') + '" placeholder="service_xxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
-    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:110px">テンプレートID</label>'
+    + '<div class="mst-form-row"><label style="font-size:12px;min-width:110px">テンプレートID</label>'
     + '<input type="text" id="ejs-tid" value="' + escH(cfg.templateId || '') + '" placeholder="template_xxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
     + (ok ? '<div style="display:flex;align-items:center;gap:10px"><button class="btn btn-p" id="ejs-save-btn" onclick="saveEmailjsCfg()" style="font-size:12px">保存</button>' + (configured ? '<span style="font-size:11px;color:var(--gr)">✅ 3項目すべて設定済み — メール通知が有効です</span>' : '<span style="font-size:11px;color:var(--txt3)">3項目すべて入力して保存してください</span>') + '</div>' : '')
     + '</div>';
+}
+var _hdTreatRecipientsLoadSeq = 0;
+function renderHdTreatMailCfg() {
+  var sec = document.getElementById('hd-treat-mail-cfg-section');
+  if (sec) sec.style.display = (isAdmin && _viewMode === 'hd') ? '' : 'none';
+  var el = document.getElementById('hd-treat-mail-cfg-form');
+  if (!el || !isAdmin || _viewMode !== 'hd' || mstHasDraft('hd-treat-mail-cfg-form')) return;
+  var seq = ++_hdTreatRecipientsLoadSeq;
+  var cfg = D.emailjsCfg || {}, notify = cfg.hdTreatNotify || {};
+  el.innerHTML = '<div style="font-size:12px;color:var(--txt3)">登録ユーザーを読み込み中…</div>';
+  function showUsers(users) {
+    if (seq !== _hdTreatRecipientsLoadSeq || !isAdmin || _viewMode !== 'hd' || !el.isConnected || mstHasDraft('hd-treat-mail-cfg-form')) return;
+    users.sort(function(a,b){ return a.name.localeCompare(b.name, 'ja'); });
+    var chosen = Array.isArray(notify.recipientUids) ? notify.recipientUids : [];
+    var h = '<label style="display:flex;gap:8px;align-items:center;font-size:12px;margin:4px 0 8px"><input type="checkbox" id="hd-treat-mail-enabled"'+(notify.enabled?' checked':'')+'>通知を有効にする</label>';
+    h += '<div style="max-height:220px;overflow:auto;border:1px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;background:var(--sur2)">';
+    if (!users.length) h += '<div style="font-size:12px;color:var(--txt3);padding:6px">メールアドレスを登録済みのユーザーがいません。</div>';
+    users.forEach(function(u) {
+      h += '<label style="display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:12px"><input type="checkbox" data-hd-treat-recipient="'+escH(u.uid)+'"'+(chosen.indexOf(u.uid)!==-1?' checked':'')+'><span>'+escH(u.name)+' <span style="color:var(--txt3)">'+escH(u.email)+'</span></span></label>';
+    });
+    h += '</div><div class="pn" style="margin:7px 0">送信先はここで選んだ登録ユーザーだけです。EmailJS設定も必要です。</div>';
+    h += '<button class="btn btn-p btn-sm" type="button" onclick="saveHdTreatMailCfg()">送信先設定を保存</button>';
+    el.innerHTML = (mstPreview()?'<div class="pn">架空の送信先で確認できます。実メールは送信しません。</div>':'')+h;
+  }
+  if (mstPreview()) {
+    showUsers([{uid:'preview_mail_a',name:'あおい',email:''},{uid:'preview_mail_b',name:'ひなた',email:''},{uid:'preview_mail_c',name:'さくら',email:''}]);
+    return;
+  }
+  if (!FB_ON || !fbDB) { el.innerHTML='<div class="pn">接続できません。送信先設定はFirebase接続時に行えます。</div>';return; }
+  fbDB.ref('/users').once('value').then(function(snap){
+    var users=[];snap.forEach(function(child){var u=child.val()||{};if(u.email)users.push({uid:child.key,name:u.displayName||u.email,email:u.email});});
+    showUsers(users);
+  }).catch(function(err) {
+    if (seq !== _hdTreatRecipientsLoadSeq || !el.isConnected) return;
+    el.innerHTML = '<div class="pn" style="color:var(--rd)">登録ユーザー一覧を読み込めませんでした。接続を確認して再表示してください。</div>';
+    console.warn('[HD特殊治療メール設定] ユーザー一覧取得失敗', err);
+  });
+}
+function saveHdTreatMailCfg() {
+  if (!isAdmin || _viewMode !== 'hd') return;
+  var enabled = !!(document.getElementById('hd-treat-mail-enabled') || {}).checked;
+  var recipients = Array.prototype.slice.call(document.querySelectorAll('#hd-treat-mail-cfg-form [data-hd-treat-recipient]:checked'))
+    .map(function(el){ return el.getAttribute('data-hd-treat-recipient'); });
+  var cfg = Object.assign({}, D.emailjsCfg || {});
+  cfg.hdTreatNotify = { enabled: enabled, recipientUids: Array.from(new Set(recipients)) };
+  D.emailjsCfg = cfg;
+  mstClearDraft('hd-treat-mail-cfg-form');
+  if(mstPreview()){
+    try{localStorage.setItem('ce2',JSON.stringify(D));applyMstGroups();showNotifToast('✅ プレビューの送信先を保存しました','実メールは送信しません');}
+    catch(e){showNotifToast('⚠️ プレビュー設定を保存できません','端末の保存領域を確認してください');}
+    return;
+  }
+  saveD(function(ok, mode){
+    if (ok && mode === 'firebase') showNotifToast('✅ HD特殊治療メールの送信先を同期しました', '送信先 '+recipients.length+' 人');
+    else if (ok) showNotifToast('⚠️ 送信先は端末に保存しました', 'Firebase未同期のため他の端末には反映されていません');
+    else showNotifToast('⚠️ HD特殊治療メールの送信先を同期できません', '接続を確認してください');
+  });
 }
 function saveEmailjsCfg() {
   if (!isAdmin) return;
   var pk = (document.getElementById('ejs-pk') || {}).value || '';
   var sid = (document.getElementById('ejs-sid') || {}).value || '';
   var tid = (document.getElementById('ejs-tid') || {}).value || '';
-  D.emailjsCfg = { publicKey: pk.trim(), serviceId: sid.trim(), templateId: tid.trim() };
-  saveD();
-  renderEmailjsCfg();
-  showNotifToast('✅ メール通知設定を保存しました', '');
+  D.emailjsCfg = Object.assign({}, D.emailjsCfg || {}, { publicKey: pk.trim(), serviceId: sid.trim(), templateId: tid.trim() });
+  saveD(function(ok, mode){
+    if (ok && mode === 'firebase') showNotifToast('✅ メール通知設定を同期しました', '');
+    else if (ok) showNotifToast('⚠️ メール通知設定は端末に保存しました', 'Firebase未同期です');
+    else showNotifToast('⚠️ メール通知設定を同期できません', '接続を確認してください');
+  });
+  mstClearDraft('emailjs-cfg-form');renderEmailjsCfg();applyMstGroups();
 }
 
 /* ===== FCM Web Push ===== */
@@ -21726,14 +22290,14 @@ function renderFCMCfg() {
   var sec = document.getElementById('fcm-cfg-section');
   if (sec) sec.style.display = isAdmin ? '' : 'none';
   var el = document.getElementById('fcm-cfg-form');
-  if (!el || !isAdmin) return;
+  if (!el || !isAdmin || mstHasDraft('fcm-cfg-form')) return;
   var cfg = D.fcmCfg || {};
   var ok = true;
   var dis = '';
   el.innerHTML = '<div style="display:grid;gap:6px">'
-    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:120px">VAPIDキー（公開鍵）</label>'
+    + '<div class="mst-form-row"><label style="font-size:12px;min-width:120px">VAPIDキー（公開鍵）</label>'
     + '<input type="text" id="fcm-vapid" value="' + escH(cfg.vapidKey || '') + '" placeholder="BNxxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
-    + '<div style="display:flex;align-items:center;gap:8px"><label style="font-size:12px;min-width:120px">サーバーキー</label>'
+    + '<div class="mst-form-row"><label style="font-size:12px;min-width:120px">サーバーキー</label>'
     + '<input type="password" id="fcm-skey" value="' + escH(cfg.serverKey || '') + '" placeholder="AAAAxxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
     + (ok ? '<div><button class="btn btn-p" onclick="saveFCMCfg()" style="font-size:12px">保存</button></div>' : '')
     + '</div>';
@@ -21746,6 +22310,7 @@ function saveFCMCfg() {
   if (!D.fcmCfg) D.fcmCfg = {};
   D.fcmCfg.vapidKey = vapid.trim();
   D.fcmCfg.serverKey = skey.trim();
+  mstClearDraft('fcm-cfg-form');
   saveD();
   showNotifToast('✅ Web Push設定を保存しました', '');
 }
@@ -23133,7 +23698,7 @@ function exportOcCsv() {
   downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
 }
 function exportHdCsv() {
-  var rng = sumRange(), rows = [['日付','曜日','日中','準夜','BW','病棟','特殊','計']];
+  var rng = sumRange(), rows = [['日付','曜日','日中透析室','準夜','BW','病棟','特殊','計']];
   sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
     if (!pg || !pg.hdCount) return;
@@ -23621,69 +24186,87 @@ var _schedDragPreset=null;
    もう片方のヘッダーバッジ・消し込みバー・持ち越し判定に混ざって数が合わなくなる。
    チェックリスト（dat.checks / dat.hdChecks）と違い、ログは id で引く独立した配列で
    添字の共有規約が無いため、関数を複製せず主観で切り替えるアクセサ1組で足りる。 */
-function tabletMaster(){ return (_viewMode === 'hd' ? D.hdTablets : D.tablets) || []; }
-function tabletLogsKey(){ return _viewMode === 'hd' ? 'hdTabletLogs' : 'tabletLogs'; }
-function tabletLogsOf(dat){ return dat ? normArr(dat[tabletLogsKey()]) : []; }
-function ensureTabletLogs(dat){ var k = tabletLogsKey(); if (!Array.isArray(dat[k])) dat[k] = normArr(dat[k]); return dat[k]; }
+function tabletMaster(mode){ return ((mode || _viewMode) === 'hd' ? D.hdTablets : D.tablets) || []; }
+function tabletLogsKey(mode){ return (mode || _viewMode) === 'hd' ? 'hdTabletLogs' : 'tabletLogs'; }
+function tabletLogsOf(dat, mode){ return dat ? normArr(dat[tabletLogsKey(mode)]) : []; }
+function ensureTabletLogs(dat, mode){ var k = tabletLogsKey(mode); if (!Array.isArray(dat[k])) dat[k] = normArr(dat[k]); return dat[k]; }
 var _tabletView = 'list'; /* 'list' | 'timeline' */
+var _tabletPanelDs = null;
+function tabletNewLogId(){ return 'tl'+Date.now().toString(36)+Math.random().toString(36).slice(2,9); }
+function tabletEnsureLogIds(ds, mode){
+  Object.keys(D.pages||{}).sort().forEach(function(pds){
+    if(pds>ds) return;
+    var pg=D.pages[pds]; if(!pg) return;
+    var logs=ensureTabletLogs(pg,mode), changed=false;
+    logs.forEach(function(l){ if(!l.id){ l.id=tabletNewLogId(); changed=true; } });
+    if(changed) saveDPage(pds);
+  });
+}
 function tabletNowMin(){ var n=new Date(); return n.getHours()*60+n.getMinutes(); }
 function tabletNowHM(){ return schedMinToHM(tabletNowMin()); }
 function tabletHMToMin(hm){ if(!hm) return 0; var p=(''+hm).split(':'); return (parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0); }
 function tabletTodayStr(){ var n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0'); }
+/* returnedAt=0 は旧データの「未返却」と新データの「午前0時返却」が衝突するため、
+   新データは returned=true、旧データは返却者/返却日の有無も使って後方互換判定する。 */
+function tabletIsReturned(l){ return !!(l && (l.returned === true || l.returnedAt > 0 || l.returnedDs || l.returnedBy)); }
+function tabletHasOpenFor(tablet, mode){
+  var found=false;
+  Object.keys(D.pages||{}).some(function(ds){
+    if(found) return true;
+    tabletLogsOf(D.pages[ds], mode).some(function(l){ if(l.tablet===tablet && !tabletIsReturned(l)){ found=true; return true; } return false; });
+    return found;
+  });
+  return found;
+}
 /* 'YYYY-MM-DD' → 'M/D'（日跨ぎ表示用） */
 function tabletMD(dsStr){ var p=(dsStr||'').split('-'); return p.length===3 ? (parseInt(p[1],10)+'/'+parseInt(p[2],10)) : ''; }
 /* 貸出日と違う日に返却されたか（returnedDs は日を跨いだときだけ持つ） */
 function tabletCrossed(l, ds){ return !!(l && l.returnedDs && l.returnedDs !== ds); }
 
-function setTabletView(v){ _tabletView=v; if(curDs) renderTabletPanelBody(curDs); }
+function setTabletView(v){ _tabletView=v; if(_tabletPanelDs || curDs) renderTabletPanelBody(_tabletPanelDs || curDs); }
 
 /* ヘッダーの📱ボタンの貸出中バッジを更新 */
 /* 記録は id で特定する。添字だとモーダルを開いている間に他端末が前の記録を消したとき、
    別のタブレットを返却・削除してしまう（申し送り移動が ts+uid で解決しているのと同じ問題）。 */
-function tabletFindLog(ds, id){
+function tabletFindLog(ds, id, mode){
   var dat=D.pages[ds]; if(!dat) return null;
-  var _lg=tabletLogsOf(dat);
+  var _lg=tabletLogsOf(dat, mode);
   for(var i=0;i<_lg.length;i++){
     if(_lg[i].id===id) return {log:_lg[i], idx:i};
   }
   return null;
 }
 
-/* 日をまたいで借りたままの記録を直近7日分から拾う（貸出は日付ページ配下に入るため、
-   金曜に借りて月曜に返すと、そのままでは月曜のパネルに出てこない） */
-var TABLET_CARRY_DAYS = 7;
-function tabletCarryOver(ds){
+/* 日をまたいで借りたままの記録を保存済みページ全体から拾う（貸出は日付ページ配下に
+   入るため、長い休みを挟んでも当日のパネルから未返却分を確認できる） */
+function tabletCarryOver(ds, mode){
   var out=[];
-  var base=new Date(ds+'T00:00:00');
-  for(var k=1;k<=TABLET_CARRY_DAYS;k++){
-    var d=new Date(base); d.setDate(d.getDate()-k);
-    var pds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    var pdat=D.pages[pds]; if(!pdat) continue;
-    tabletLogsOf(pdat).forEach(function(l){ if(!l.returnedAt) out.push({ds:pds, log:l}); });
-  }
+  Object.keys(D.pages||{}).sort().forEach(function(pds){
+    if(pds>=ds) return;
+    var pdat=D.pages[pds]; if(!pdat) return;
+    tabletLogsOf(pdat, mode).forEach(function(l){ if(!tabletIsReturned(l)) out.push({ds:pds, log:l}); });
+  });
   return out;
 }
 
 /* 前日以前に借りて「この日」に返した分。記録は貸出日のページに残るため、
    返した当日のパネルからは消えてしまい操作した結果が見えなくなる。それを補う。 */
-function tabletReturnedHere(ds){
+function tabletReturnedHere(ds, mode){
   var out=[];
-  var base=new Date(ds+'T00:00:00');
-  for(var k=1;k<=TABLET_CARRY_DAYS;k++){
-    var d=new Date(base); d.setDate(d.getDate()-k);
-    var pds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    var pdat=D.pages[pds]; if(!pdat) continue;
-    tabletLogsOf(pdat).forEach(function(l){ if(l.returnedDs===ds) out.push({ds:pds, log:l}); });
-  }
+  Object.keys(D.pages||{}).sort().forEach(function(pds){
+    if(pds>=ds) return;
+    var pdat=D.pages[pds]; if(!pdat) return;
+    tabletLogsOf(pdat, mode).forEach(function(l){ if(tabletIsReturned(l) && l.returnedDs===ds) out.push({ds:pds, log:l}); });
+  });
   return out;
 }
 
 /* 未返却のタブレット台数（当日分＋前日以前からの持ち越し分）。ヘッダーバッジと
    CE/HD両方の日ページが同じ数を出す必要があるため、計算はここ1箇所に閉じる
    （以前は同じ式が3箇所に複製され、「完全に同じにすること」というコメントで支えられていた）。 */
-function tabletUnreturnedCount(ds){
+function tabletUnreturnedCount(ds, mode){
   var dat=D.pages[ds];
-  return tabletLogsOf(dat).filter(function(l){return !l.returnedAt;}).length + tabletCarryOver(ds).length;
+  return tabletLogsOf(dat, mode).filter(function(l){return !tabletIsReturned(l);}).length + tabletCarryOver(ds, mode).length;
 }
 function updateTabletBtnBadge(ds){
   var b=document.getElementById('tablet-btn-badge'); if(!b) return;
@@ -23691,10 +24274,19 @@ function updateTabletBtnBadge(ds){
   b.textContent=out; b.style.display=out?'inline-block':'none';
   updateCloseBar(ds);
 }
+function tabletOpenTodayPage(){
+  var today=tabletTodayStr();
+  ['tablet-panel-ov','tablet-md-ov'].forEach(function(id){ var el=document.getElementById(id); if(el) el.remove(); });
+  if(D.pages[today]) { openPage(today); return; }
+  swTab('cal'); renderCal();
+  toast('カレンダーで今日を選び、連絡表を作成してから貸出を記録してください', 'warn', 8000);
+}
 
 /* ヘッダーの📱ボタンから呼び出すモーダルパネル */
 function openTabletPanel(ds){
   if(!D.pages[ds]) return;
+  _tabletPanelMode = _viewMode;
+  _tabletPanelDs = ds;
   var ov=document.createElement('div'); ov.id='tablet-panel-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='680px'; md.style.width='94%'; md.style.maxHeight='calc(85vh / var(--ui-zoom,1))'; md.style.overflowY='auto';
   md.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">'
@@ -23705,20 +24297,25 @@ function openTabletPanel(ds){
   renderTabletPanelBody(ds);
 }
 
+var _tabletPanelMode = null;
 function renderTabletPanelBody(ds){
   var wrap=document.getElementById('tablet-panel-body'); if(!wrap) return;
+  ds = _tabletPanelDs || ds;
   var dat=D.pages[ds]; if(!dat) return;
+  var mode=_tabletPanelMode || _viewMode;
+  if(mode!==_viewMode){ toast('CE／HDモードが切り替わりました。タブレット画面を開き直してください', 'warn'); return; }
   var locked=!can('tablet');
-  var logs=ensureTabletLogs(dat);
-  var tablets=tabletMaster();
+  var logs=ensureTabletLogs(dat,mode);
+  var tablets=tabletMaster(mode);
   var h='';
   /* 古い記録は id を持たないことがあるため、ここで一度だけ採番して以降 id で扱えるようにする */
   var backfilled=false;
-  logs.forEach(function(l,i){ if(!l.id){ l.id='tl_bf'+i+'_'+(l.lentAt||0)+'_'+(l.tablet||''); backfilled=true; } });
+  logs.forEach(function(l){ if(!l.id){ l.id=tabletNewLogId(); backfilled=true; } });
   if(backfilled) saveDPage(ds);
-  var carry=tabletCarryOver(ds);
+  tabletEnsureLogIds(ds,mode);
+  var carry=tabletCarryOver(ds,mode);
   /* 貸出中サマリ */
-  var outLogs=logs.filter(function(l){return !l.returnedAt;});
+  var outLogs=logs.filter(function(l){return !tabletIsReturned(l);});
   var totalOut=outLogs.length+carry.length;
   h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">';
   if(totalOut){
@@ -23736,13 +24333,13 @@ function renderTabletPanelBody(ds){
       h+='<div class="tbl-row out" style="margin-bottom:4px">';
       h+='<span class="tbl-name">📱 '+escH(c.log.tablet)+'</span>';
       h+='<span class="tbl-info">'+fmtJ(c.ds)+' '+schedMinToHM(c.log.lentAt)+' '+escH(c.log.borrower)+'が貸出</span>';
-      if(!locked) h+='<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+c.ds+'\',\''+escJs(c.log.id)+'\')">返却</button>';
+      if(!locked) h+='<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+c.ds+'\',\''+escJs(c.log.id)+'\',\''+mode+'\')">返却</button>';
       h+='</div>';
     });
     h+='</div>';
   }
   /* 前日以前に借りて今日返した分（記録は貸出日のページに残るので、ここに控えを出す） */
-  var retHere=tabletReturnedHere(ds);
+  var retHere=tabletReturnedHere(ds,mode);
   if(retHere.length){
     h+='<div style="border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-bottom:10px;background:var(--sur2)">';
     h+='<div style="font-size:12px;font-weight:700;color:var(--gr);margin-bottom:6px">✅ この日に返却（前日以前の貸出分・'+retHere.length+'台）</div>';
@@ -23761,21 +24358,28 @@ function renderTabletPanelBody(ds){
     wrap.innerHTML=h; return;
   }
   /* コントロール */
-  if(!locked) h+='<div style="margin-bottom:10px"><button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;font-weight:800" onclick="openTabletLendModal(\''+ds+'\')">＋ 貸出を記録</button></div>';
+  if(ds!==tabletTodayStr()){
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px;margin-bottom:10px;border:1px solid var(--or);border-radius:8px;background:var(--or-bg);font-size:12px">'
+      +'<span>新しい貸出は当日分だけ記録できます。</span><button class="btn btn-p btn-sm" onclick="tabletOpenTodayPage()">今日の連絡表へ</button></div>';
+  } else if(!locked) {
+    var busy=tablets.filter(function(tb){return tabletHasOpenFor(tb,mode);});
+    var free=tablets.filter(function(tb){return busy.indexOf(tb)===-1;});
+    h+='<div style="margin-bottom:10px"><button class="btn btn-p" style="width:100%;padding:12px;font-size:14px;font-weight:800" '+(free.length?'':'disabled')+' onclick="openTabletLendModal(\''+ds+'\',\''+mode+'\')">'+(free.length?'＋ 貸出を記録':'貸出中のタブレットはありません')+'</button></div>';
+  }
   h+='<div style="display:flex;gap:6px;margin-bottom:8px">';
   h+='<button class="btn '+(_tabletView==='list'?'btn-p':'btn-g')+' btn-sm" style="flex:1" onclick="setTabletView(\'list\')">📋 リスト</button>';
   h+='<button class="btn '+(_tabletView==='timeline'?'btn-p':'btn-g')+' btn-sm" style="flex:1" onclick="setTabletView(\'timeline\')">📊 タイムライン</button>';
   h+='</div>';
-  h+=(_tabletView==='timeline')?buildTabletTimeline(ds,logs,tablets):buildTabletListView(ds,logs,locked);
+  h+=(_tabletView==='timeline')?buildTabletTimeline(ds,logs,tablets):buildTabletListView(ds,logs,locked,mode);
   wrap.innerHTML=h;
 }
 
-function buildTabletListView(ds, logs, locked){
+function buildTabletListView(ds, logs, locked, mode){
   if(!logs.length) return '<div class="pool-empty" style="font-size:12px;padding:8px 0">まだ貸出記録がありません</div>';
   var sorted = logs.slice().sort(function(a,b){ return (a.lentAt||0)-(b.lentAt||0); });
   var h = '<div class="tbl-list">';
   sorted.forEach(function(l){
-    var returned=!!l.returnedAt;
+    var returned=tabletIsReturned(l);
     h += '<div class="tbl-row'+(returned?'':' out')+'">';
     h += '<span class="tbl-name">📱 '+escH(l.tablet)+'</span>';
     h += '<span class="tbl-info">'+schedMinToHM(l.lentAt)+' '+escH(l.borrower)+'が貸出</span>';
@@ -23786,9 +24390,9 @@ function buildTabletListView(ds, logs, locked){
       h += '<span class="tbl-info">'+(crossed?'<b style="color:var(--or)">'+tabletMD(l.returnedDs)+'</b> ':'')+schedMinToHM(l.returnedAt)+' '+escH(l.returnedBy)+'が返却</span>';
     } else {
       h += '<span class="tbl-out-badge">未返却</span>';
-      if(!locked) h += '<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+ds+'\',\''+escJs(l.id)+'\')">返却</button>';
+      if(!locked) h += '<button class="btn btn-p btn-sm tbl-ret-btn" onclick="openTabletReturnModal(\''+ds+'\',\''+escJs(l.id)+'\',\''+(mode||_viewMode)+'\')">返却</button>';
     }
-    if(!locked) h += '<button class="tbl-del" onclick="tabletDelete(\''+ds+'\',\''+escJs(l.id)+'\')" title="削除">✕</button>';
+    if(!locked) h += '<button class="tbl-del" onclick="tabletDelete(\''+ds+'\',\''+escJs(l.id)+'\',\''+(mode||_viewMode)+'\')" title="削除">✕</button>';
     h += '</div>';
   });
   h += '</div>';
@@ -23800,7 +24404,7 @@ function buildTabletTimeline(ds, logs, tablets){
   logs.forEach(function(l){
     if(l.lentAt<START) START=Math.floor(l.lentAt/60)*60;
     /* 翌日以降に返した分はこの日の軸に収まらないので、軸の延長対象にしない */
-    var e=(l.returnedAt&&!tabletCrossed(l,ds))?l.returnedAt:l.lentAt;
+    var e=(tabletIsReturned(l)&&!tabletCrossed(l,ds))?l.returnedAt:l.lentAt;
     if(e>END) END=Math.ceil(e/60)*60;
   });
   var isToday=(ds===tabletTodayStr());
@@ -23816,9 +24420,9 @@ function buildTabletTimeline(ds, logs, tablets){
     h+='<div class="tbl-tl-track" style="height:'+totalH+'px;background:repeating-linear-gradient(to bottom,transparent,transparent '+(60*PX-1)+'px,var(--bdr) '+(60*PX-1)+'px,var(--bdr) '+(60*PX)+'px)">';
     logs.forEach(function(l){
       if(l.tablet!==tb) return;
-      var open=!l.returnedAt;
+      var open=!tabletIsReturned(l);
       var crossed=tabletCrossed(l, ds); /* 翌日以降に返却＝この日は終日貸出中として描く */
-      var end=(l.returnedAt&&!crossed) ? l.returnedAt
+      var end=(tabletIsReturned(l)&&!crossed) ? l.returnedAt
             : (crossed ? END : (isToday ? Math.max(l.lentAt+5, Math.min(nowMin,END)) : END));
       var top=(l.lentAt-START)*PX, hgt=Math.max(8,(end-l.lentAt)*PX);
       h+='<div class="tbl-tl-block'+(open||crossed?' open':'')+'" style="top:'+top+'px;height:'+hgt+'px" title="'+escH(l.borrower)+' '+schedMinToHM(l.lentAt)+(open?'〜（貸出中）':'〜'+(crossed?tabletMD(l.returnedDs)+' ':'')+schedMinToHM(l.returnedAt))+'">';
@@ -23851,10 +24455,16 @@ function tabletStfOptions(selected){
   return opts;
 }
 
-function openTabletLendModal(ds){
+function openTabletLendModal(ds, mode){
   if(!can('tablet')) return;
-  var tablets=tabletMaster();
-  if(!tablets.length){ toast('先に業務タブで'+(_viewMode==='hd'?'HD':'')+'タブレットを登録してください', 'warn'); return; }
+  mode=mode||_viewMode;
+  if(mode!==_viewMode){ toast('CE／HDモードが変わりました。今日の画面から開き直してください', 'warn'); return; }
+  if(ds!==tabletTodayStr()){ toast('タブレットの新規貸出は当日分だけ記録できます', 'warn'); return; }
+  if(!D.pages || !D.pages[ds]) { tabletOpenTodayPage(); return; }
+  var allTablets=tabletMaster(mode);
+  if(!allTablets.length){ toast('先に業務タブで'+(mode==='hd'?'HD':'')+'タブレットを登録してください', 'warn'); return; }
+  var tablets=allTablets.filter(function(t){return !tabletHasOpenFor(t,mode);});
+  if(!tablets.length){ toast('登録済みのタブレットはすべて貸出中です', 'warn'); return; }
   var tblOpts=tablets.map(function(t){ return '<option value="'+escH(t)+'">'+escH(t)+'</option>'; }).join('');
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
@@ -23869,12 +24479,19 @@ function openTabletLendModal(ds){
     +'<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
     +'<button class="btn btn-g" onclick="document.getElementById(\'tablet-md-ov\').remove()">キャンセル</button>'
     +'<button class="btn btn-p" id="tablet-md-save">記録</button></div>';
+  ov.setAttribute('data-ds',ds); ov.setAttribute('data-mode',mode); ov.setAttribute('data-opened-today',tabletTodayStr());
   ov.appendChild(md); document.body.appendChild(ov);
-  document.getElementById('tablet-md-save').addEventListener('click', function(){ saveTabletLend(ds); });
+  document.getElementById('tablet-md-save').addEventListener('click', function(){ saveTabletLend(ds,mode); });
 }
 
-function saveTabletLend(ds){
+function saveTabletLend(ds, mode){
   if(!can('tablet')) return;
+  mode=mode||_viewMode;
+  var modal=document.getElementById('tablet-md-ov');
+  if(!modal || modal.getAttribute('data-mode')!==mode || mode!==_viewMode){ toast('CE／HDモードが変わりました。貸出画面を開き直してください', 'warn'); if(modal) modal.remove(); return; }
+  if(ds!==tabletTodayStr() || modal.getAttribute('data-opened-today')!==tabletTodayStr()){
+    toast('日付が変わりました。今日の連絡表から貸出を記録し直してください', 'warn', 8000); modal.remove(); return;
+  }
   var name=document.getElementById('tablet-md-name').value;
   var borrower=tabletNameValue('tablet-md-borrower-sel','tablet-md-borrower');
   var timeStr=document.getElementById('tablet-md-time').value;
@@ -23884,28 +24501,37 @@ function saveTabletLend(ds){
   var phi=detectPHI(borrower);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
-      onProceed: phiHasBlock(phi) ? null : function(){ _doSaveTabletLend(ds,name,borrower,timeStr); },
+      onProceed: phiHasBlock(phi) ? null : function(){ _doSaveTabletLend(ds,name,borrower,timeStr,mode); },
       onFix:function(){ var inp=document.getElementById('tablet-md-borrower'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-borrower-sel'); if(e) e.focus(); } });
     return;
   }
-  _doSaveTabletLend(ds,name,borrower,timeStr);
+  _doSaveTabletLend(ds,name,borrower,timeStr,mode);
 }
-function _doSaveTabletLend(ds,name,borrower,timeStr){
-  var dat=D.pages[ds]; if(!dat) return;
-  ensureTabletLogs(dat).push({ id:'tl'+Date.now()+Math.floor(Math.random()*1000), tablet:name, borrower:borrower, lentAt:tabletHMToMin(timeStr), returnedBy:'', returnedAt:0 });
+function _doSaveTabletLend(ds,name,borrower,timeStr,mode){
+  mode=mode||_viewMode;
+  var modal=document.getElementById('tablet-md-ov');
+  if(!can('tablet') || !modal || modal.getAttribute('data-ds')!==ds || modal.getAttribute('data-mode')!==mode || modal.getAttribute('data-opened-today')!==tabletTodayStr() || mode!==_viewMode || ds!==tabletTodayStr()) { toast('日付またはCE／HDモードが変わりました。貸出画面を閉じ、今日の連絡表から入力し直してください', 'warn', 8000); if(modal) modal.remove(); return; }
+  var dat=D.pages[ds];
+  if(!dat) { tabletOpenTodayPage(); return; }
+  if(tabletHasOpenFor(name,mode)){ toast('このタブレットは未返却の貸出があります', 'warn'); return; }
+  ensureTabletLogs(dat,mode).push({ id:tabletNewLogId(), tablet:name, borrower:borrower, lentAt:tabletHMToMin(timeStr), returnedBy:'', returnedAt:0, returned:false });
   saveDPage(ds);
   writeLog('タブレット貸出', fmtJ(ds)+' '+name+'（'+borrower+'）');
   var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
-  renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
+  _tabletPanelMode=mode; renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
 }
 
-function openTabletReturnModal(ds, id){
+function openTabletReturnModal(ds, id, mode){
   if(!can('tablet')) return;
-  var found=tabletFindLog(ds, id); if(!found) return;
+  mode=mode||_viewMode;
+  if(mode!==_viewMode){ toast('CE／HDモードが変わりました。タブレット画面を開き直してください', 'warn'); return; }
+  var openedToday=tabletTodayStr();
+  if(ds>openedToday){ toast('未来日の貸出は返却できません', 'warn'); return; }
+  var found=tabletFindLog(ds, id, mode); if(!found || tabletIsReturned(found.log)) return;
   var l=found.log;
   var self=taskSelfName(); /* ログイン中の人がスタッフ登録されていれば初期選択、変更可 */
   /* 貸出日が今日でない＝日を跨いだ返却。そのときだけ返却日欄を出す（同日返却は時刻だけ） */
-  var today=tabletTodayStr();
+  var today=openedToday;
   var crossDay=(ds!==today);
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
@@ -23916,17 +24542,24 @@ function openTabletReturnModal(ds, id){
     +'<select id="tablet-md-retby-sel" class="ds2" style="width:100%" onchange="tabletToggleOther(\'tablet-md-retby-sel\',\'tablet-md-retby\')">'+tabletStfOptions(self)+'</select>'
     +'<input id="tablet-md-retby" class="fi" style="width:100%;box-sizing:border-box;margin-top:6px;margin-bottom:0;display:none" placeholder="名前を入力" autocomplete="off">'
     +(crossDay?'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">返却日</div>'
-      +'<input type="date" id="tablet-md-retdate" class="fi" style="width:100%;box-sizing:border-box;margin:0" value="'+today+'" min="'+ds+'">':'')
+      +'<input type="date" id="tablet-md-retdate" class="fi" style="width:100%;box-sizing:border-box;margin:0" value="'+today+'" min="'+ds+'" max="'+today+'">':'')
     +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">返却時刻</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input type="time" id="tablet-md-rettime" class="fi" style="width:auto;margin:0" value="'+tabletNowHM()+'"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-md-rettime\').value=tabletNowHM()">今</button></div>'
     +'<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
     +'<button class="btn btn-g" onclick="document.getElementById(\'tablet-md-ov\').remove()">キャンセル</button>'
     +'<button class="btn btn-p" id="tablet-md-retsave">返却</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
-  document.getElementById('tablet-md-retsave').addEventListener('click', function(){ saveTabletReturn(ds, id); });
+  ov.setAttribute('data-ds',ds); ov.setAttribute('data-mode',mode); ov.setAttribute('data-opened-today',openedToday);
+  document.getElementById('tablet-md-retsave').addEventListener('click', function(){ saveTabletReturn(ds, id, mode, openedToday); });
 }
-function saveTabletReturn(ds, id){
+function saveTabletReturn(ds, id, mode, openedToday){
   if(!can('tablet')) return;
+  mode=mode||_viewMode;
+  var modal=document.getElementById('tablet-md-ov');
+  if(!modal || modal.getAttribute('data-mode')!==mode || mode!==_viewMode){ toast('CE／HDモードが変わりました。返却画面を開き直してください', 'warn'); if(modal) modal.remove(); return; }
+  if(openedToday!==tabletTodayStr() || modal.getAttribute('data-opened-today')!==tabletTodayStr()){
+    toast('日付が変わりました。今日の画面から返却を記録し直してください', 'warn', 8000); modal.remove(); return;
+  }
   var retby=tabletNameValue('tablet-md-retby-sel','tablet-md-retby');
   var timeStr=document.getElementById('tablet-md-rettime').value;
   var dEl=document.getElementById('tablet-md-retdate');
@@ -23934,42 +24567,57 @@ function saveTabletReturn(ds, id){
   if(!retby){ toast('返した人を入力してください', 'warn'); return; }
   if(!timeStr){ toast('返却時刻を入力してください', 'warn'); return; }
   if(dEl&&!retDs){ toast('返却日を入力してください', 'warn'); return; }
-  if(retDs&&retDs<ds){ toast('返却日は貸出日（'+fmtJ(ds)+'）以降にしてください', 'warn'); return; }
+  if(!retDs) retDs=openedToday;
+  if(retDs<ds){ toast('返却日は貸出日（'+fmtJ(ds)+'）以降にしてください', 'warn'); return; }
+  if(retDs>tabletTodayStr()){ toast('返却日に未来の日付は指定できません', 'warn'); return; }
+  var retMin=tabletHMToMin(timeStr);
+  var found=tabletFindLog(ds,id,mode);
+  if(!found || tabletIsReturned(found.log)){ toast('この貸出はすでに返却済みか削除されています', 'warn'); if(modal) modal.remove(); return; }
+  var loanMin=parseInt(found.log.lentAt,10)||0;
+  if(retDs===ds && retMin<loanMin){ toast('返却時刻は貸出時刻以降にしてください', 'warn'); return; }
+  if(retDs===tabletTodayStr() && retMin>tabletNowMin()){ toast('返却時刻に未来の時刻は指定できません', 'warn'); return; }
   var phi=detectPHI(retby);
   if(phi.red.length||phi.yellow.length){
     showPHIPopup({ result:phi, mode:'memo',
-      onProceed: phiHasBlock(phi) ? null : function(){ _doSaveTabletReturn(ds,id,retby,timeStr,retDs); },
+      onProceed: phiHasBlock(phi) ? null : function(){ _doSaveTabletReturn(ds,id,retby,timeStr,retDs,mode,openedToday); },
       onFix:function(){ var inp=document.getElementById('tablet-md-retby'); var e=(inp&&inp.style.display!=='none')?inp:document.getElementById('tablet-md-retby-sel'); if(e) e.focus(); } });
     return;
   }
-  _doSaveTabletReturn(ds,id,retby,timeStr,retDs);
+  _doSaveTabletReturn(ds,id,retby,timeStr,retDs,mode,openedToday);
 }
-function _doSaveTabletReturn(ds,id,retby,timeStr,retDs){
+function _doSaveTabletReturn(ds,id,retby,timeStr,retDs,mode,openedToday){
+  mode=mode||_viewMode;
+  var modal=document.getElementById('tablet-md-ov');
+  if(!can('tablet') || !modal || modal.getAttribute('data-ds')!==ds || modal.getAttribute('data-mode')!==mode || modal.getAttribute('data-opened-today')!==tabletTodayStr() || mode!==_viewMode || openedToday!==tabletTodayStr()){ toast('日付またはCE／HDモードが変わりました。返却画面を閉じ、今日の画面から入力し直してください', 'warn', 8000); if(modal) modal.remove(); return; }
   /* 保存する瞬間に id で引き直す（モーダル表示中に他端末が記録を編集していても取り違えない） */
-  var found=tabletFindLog(ds, id);
-  if(!found){ toast('この貸出記録は既に削除されています', 'warn'); var o=document.getElementById('tablet-md-ov'); if(o) o.remove(); return; }
+  var found=tabletFindLog(ds, id, mode);
+  if(!found){ toast('この貸出記録は既に削除されています', 'warn'); if(modal) modal.remove(); return; }
   var l=found.log;
-  l.returnedBy=retby; l.returnedAt=tabletHMToMin(timeStr);
+  if(tabletIsReturned(l)){ toast('この貸出は既に返却されています', 'warn'); if(modal) modal.remove(); return; }
+  if(retDs<ds || retDs>tabletTodayStr() || (retDs===ds && tabletHMToMin(timeStr)<(parseInt(l.lentAt,10)||0)) || (retDs===tabletTodayStr() && tabletHMToMin(timeStr)>tabletNowMin())){ toast('返却日または時刻をもう一度確認してください', 'warn'); return; }
+  if(tabletIsReturned(l)){ toast('この貸出は既に返却されています', 'warn'); return; }
+  l.returnedBy=retby; l.returnedAt=tabletHMToMin(timeStr); l.returned=true;
   /* 貸出日と違う日に返した場合だけ日付を持たせる（同日返却はフィールドを持たない＝従来どおり） */
   if(retDs&&retDs!==ds) l.returnedDs=retDs; else delete l.returnedDs;
   saveDPage(ds);
   writeLog('タブレット返却', fmtJ(ds)+' '+l.tablet+'（'+retby+'）'+(l.returnedDs?' 返却日:'+fmtJ(l.returnedDs):''));
   var ov=document.getElementById('tablet-md-ov'); if(ov) ov.remove();
   /* 持ち越し分の返却は別日のページを更新するため、パネルは現在開いている日で描き直す */
-  if(curDs){ renderTabletPanelBody(curDs); updateTabletBtnBadge(curDs); }
+  if(curDs){ _tabletPanelMode=mode; renderTabletPanelBody(_tabletPanelDs || curDs); updateTabletBtnBadge(curDs); }
 }
-function tabletDelete(ds, id){
+function tabletDelete(ds, id, mode){
   if(!can('tablet')) return;
-  var found=tabletFindLog(ds, id); if(!found) return;
+  mode=mode||_tabletPanelMode||_viewMode;
+  var found=tabletFindLog(ds, id, mode); if(!found) return;
   var l=found.log;
   if(!confirm(l.tablet+'の貸出記録を削除しますか？')) return;
   /* 確認ダイアログの間に配列が変わっている可能性があるため、削除直前に引き直す */
-  var again=tabletFindLog(ds, id);
+  var again=tabletFindLog(ds, id, mode);
   if(!again){ toast('この貸出記録は既に削除されています', 'warn'); renderTabletPanelBody(ds); return; }
-  ensureTabletLogs(D.pages[ds]).splice(again.idx,1);
+  ensureTabletLogs(D.pages[ds], mode).splice(again.idx,1);
   saveDPage(ds);
   writeLog('タブレット記録削除', fmtJ(ds)+' '+l.tablet);
-  renderTabletPanelBody(ds); updateTabletBtnBadge(ds);
+  renderTabletPanelBody(ds); updateTabletBtnBadge(curDs || ds);
 }
 
 /* ===== TABS / SIDEBAR ===== */
@@ -24242,10 +24890,23 @@ function getViewMode() {
   return localStorage.getItem(VIEW_MODE_KEY) === 'hd' ? 'hd' : 'ce';
 }
 function setViewMode(m) {
+  /* 別主観のモーダルが開いたままになると、画面表示と記録先の台帳が食い違うため閉じる */
+  ['tablet-panel-ov','tablet-md-ov'].forEach(function(id){ var el=document.getElementById(id); if(el) el.remove(); });
+  _tabletPanelMode = null;
   _viewMode = (m === 'hd') ? 'hd' : 'ce';
   localStorage.setItem(VIEW_MODE_KEY, _viewMode);
   updateModeToggleBtn();
   updateTabVisibility();
+  if (curTab === 'master') {
+    document.querySelectorAll('#pane-master .sp div[data-mode]').forEach(function(sec){
+      var perm = sec.getAttribute('data-perm');
+      var mode = sec.getAttribute('data-mode');
+      var permOk = (!perm || (perm === 'admin' ? isAdmin : can(perm)));
+      sec.style.display = (permOk && mode === _viewMode) ? '' : 'none';
+    });
+    renderHdTreatMailCfg();
+    applyMstGroups();
+  }
   /* openPage の .pt2 再描画ガードを経由すると同じ日でも再描画されないため、直接呼ぶ */
   if (curDs && D.pages[curDs]) renderPage(curDs);
   /* PSG取り外しバナーは #main の外（固定要素）なので renderPage では再構築されない。
