@@ -1404,6 +1404,44 @@ body.is-offline{--off-h:24px}
 .sched-block .bh::after{content:'';position:absolute;left:50%;bottom:2px;width:18px;height:2px;background:rgba(255,255,255,.7);border-radius:2px;transform:translateX(-50%)}
 .sb-o{background:var(--or)}.sb-c{background:#0891b2}.sb-g{background:var(--gr)}.sb-pu{background:var(--pu)}.sb-ac{background:var(--ac)}.sb-gd{background:var(--gd)}.sb-gray{background:#64748b}.sb-rd{background:var(--rd)}
 .sched-empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px}
+/* ===== タイムライン（流れ／担当別の切り替え・流れの一覧・担当別に重ねる自動の予定） ===== */
+.tl-seg{display:flex;background:var(--sur2);border:1px solid var(--bdr);border-radius:9px;padding:2px;margin:0 0 12px;max-width:240px}
+.tl-seg button{flex:1;border:none;background:none;font-size:12px;font-weight:700;padding:6px 0;border-radius:7px;color:var(--txt2);cursor:pointer}
+.tl-seg button.on{background:var(--sur);color:var(--txt);box-shadow:0 0 0 1px var(--bdr)}
+.tl-filt{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.tl-filt button{font-size:11px;padding:4px 11px;border-radius:999px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);cursor:pointer}
+.tl-filt button.on{border-color:var(--txt);color:var(--txt);font-weight:700}
+.tl-flow{position:relative;padding-left:60px;max-width:640px}
+.tl-flow::before{content:'';position:absolute;left:51px;top:6px;bottom:6px;width:1px;background:var(--bdr)}
+.tl-ev{position:relative;margin-bottom:13px}
+.tl-ev .tl-tm{position:absolute;left:-60px;top:1px;width:44px;text-align:right;font-size:12px;color:var(--txt3);font-family:var(--mo)}
+.tl-ev .tl-dot{position:absolute;left:-13px;top:4px;width:10px;height:10px;border-radius:50%;background:var(--sur);border:2px solid var(--txt3);box-sizing:border-box}
+.tl-ev.done{opacity:.55}
+.tl-ev.cancel .tl-tt{text-decoration:line-through}
+.tl-tt{font-size:13px;font-weight:600;color:var(--txt);line-height:1.4}
+.tl-kd{font-size:11px;font-weight:800;margin-right:6px;color:var(--txt2)}
+.tl-sub{font-size:11px;color:var(--txt2);margin-top:1px}
+.tl-man{display:inline-block;font-size:10px;font-weight:600;padding:0 6px;border-radius:4px;background:var(--sur2);border:1px solid var(--bdr);color:var(--txt2);margin-left:6px;vertical-align:1px}
+.tl-ev.k-ope .tl-dot{border-color:var(--ac)} .tl-ev.k-ope .tl-kd{color:var(--ac)}
+.tl-ev.k-cath .tl-dot{border-color:var(--or)} .tl-ev.k-cath .tl-kd{color:var(--or)}
+.tl-ev.k-oc .tl-dot{border-color:var(--oc)} .tl-ev.k-oc .tl-kd{color:var(--oc)}
+.tl-ev.k-tab.open .tl-dot{border-color:var(--rd)} .tl-ev.k-tab.open .tl-kd,.tl-ev.k-tab.open .tl-sub{color:var(--rd)}
+.tl-now{position:relative;margin:2px 0 15px -60px;display:flex;align-items:center;gap:8px}
+.tl-now span{width:44px;text-align:right;font-size:12px;font-weight:700;color:var(--ac);font-family:var(--mo)}
+.tl-now i{flex:1;height:2px;background:var(--ac);border-radius:1px}
+.tl-band{border:1px dashed var(--bdr);border-radius:10px;padding:8px 10px 0 22px;margin:0 0 14px -18px}
+.tl-band-h{font-size:11px;font-weight:700;color:var(--txt3);margin:0 0 6px -12px}
+.tl-band .tl-ev .tl-dot{left:-15px}
+.sched-allcol .sched-colhd{background:var(--sur2);color:var(--txt2)}
+.sched-auto{position:absolute;left:2px;right:2px;border-radius:5px;padding:2px 4px;font-size:10px;font-weight:700;overflow:hidden;box-sizing:border-box;border:1px solid;pointer-events:none}
+.sched-auto .bn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sched-auto .bt{font-size:9px;font-weight:600;opacity:.8;font-family:var(--mo)}
+.sched-auto.sa-ope{background:var(--ac-bg);border-color:var(--ac);color:var(--ac)}
+.sched-auto.sa-cath{background:var(--or-bg);border-color:var(--or);color:var(--or)}
+.sched-auto.sa-tab{background:var(--rd-bg);border-color:var(--rd);color:var(--rd)}
+.sched-auto.sa-etc{background:var(--sur2);border-color:var(--bdr);color:var(--txt2)}
+.sched-auto.sa-open{border-style:dashed}
+.sched-auto.sa-done{opacity:.45}
 /* ===== メディア表示 ===== */
 .media-cell{position:relative;display:inline-block}
 /* ===== 変更履歴 ===== */
@@ -1932,8 +1970,8 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
               </div>
             </div>
             <div data-perm="mst" data-mode="ce">
-              <div class="pt">⏰ スケジュールプリセット</div>
-              <div class="pn" style="margin-bottom:8px">スケジュール画面で使う業務ブロックのプリセットを管理します。</div>
+              <div class="pt">🕒 タイムラインのプリセット</div>
+              <div class="pn" style="margin-bottom:8px">タイムラインの「担当別」で置く業務ブロックのプリセットを管理します。</div>
               <div class="rl" id="sched-preset-list"></div>
               <div class="ar" id="sched-preset-ar" style="flex-wrap:wrap;gap:6px">
                 <input type="text" id="in-sp-label" placeholder="プリセット名…" style="flex:1;min-width:100px">
@@ -2491,7 +2529,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 <div class="ov hd" id="sched-panel-ov" onclick="if(event.target===this)closeSchedPanel()">
   <div class="md" id="sched-panel-md" style="max-width:900px;width:100%;height:calc(85vh / var(--ui-zoom,1));display:flex;flex-direction:column;padding:0;overflow:hidden">
     <div class="sched-head" style="padding:12px 16px;margin-bottom:0;border-bottom:1px solid var(--bdr);flex-shrink:0">
-      <div class="sched-title" id="sched-title">⏰ スケジュール</div>
+      <div class="sched-title" id="sched-title">🕒 タイムライン</div>
       <div class="sched-tools" id="sched-tools"></div>
       <button class="btn btn-g btn-sm" onclick="closeSchedPanel()">✕</button>
     </div>
@@ -4234,7 +4272,7 @@ function renderStorageUsage() {
 
   var labels = {
     pages:'📅 日次ページ', manual:'📘 マニュアル(画像/動画)', shift:'🗓 シフト',
-    evts:'📌 予定', schedPresets:'⏰ プリセット', stf:'👥 スタッフ',
+    evts:'📌 予定', schedPresets:'🕒 プリセット', stf:'👥 スタッフ',
     phs:'☎ 内線', opeTree:'🏥 OPEマスタ', cathTree:'💉 カテマスタ',
     supTree:'📦 物品マスタ(旧)', supMaster:'🧰 使用物品マスタ', dutyCfg:'📋 担当設定', dutyCfgMaster:'📋 担当マスタ',
     dly:'✅ 毎日チェック', wd:'✅ 曜日別チェック', opsCfg:'⚙ 運用設定', oc:'📞 オンコール'
@@ -4632,7 +4670,7 @@ function renderSpec() {
   [['連絡表の閲覧・担当割り当て','✅','✅'],['チェックリスト操作','✅','✅（ロック時不可）'],
    ['申し送り投稿','✅','✅（ロック時不可）'],['申し送り削除','✅ 全員分','✅ 自分のみ'],
    ['掲示板の投稿・返信','✅','✅'],['掲示板の削除','✅ 全員分','✅ 自分のみ'],
-   ['スケジュール（タイムテーブル）','✅','✅（duty非ロック時）'],
+   ['タイムライン（旧スケジュール）','✅','✅（duty非ロック時）'],
    ['連絡表の生成・削除','✅','❌'],['スタッフ・業務マスタ編集','✅','❌'],
    ['ロック設定変更','✅','❌'],['操作ログ閲覧','✅','❌'],
    ['自動削除設定','✅','❌'],['Excelから勤務表インポート','✅','✅'],
@@ -4649,7 +4687,7 @@ function renderSpec() {
    ['📋 タスク','全員','日付にひもづかない仕事の割り振り（<code>/tasks</code>）と自分専用メモ（<code>/taskMemos/{uid}</code>）。画像添付可。以前は担当表のサブタブだったが、埋もれて気づかれないため独立タブに昇格'],
    ['📚 資料','全員','使い方ガイド・🏭メーカー担当者連絡先（サブメニュー）'],
    ['👥 スタッフ','管理者','スタッフ一覧・PHS番号の追加/削除/並び替え、勤務表Excelインポート'],
-   ['📋 業務','管理者','共通業務・曜日別業務・オペ/カテ術式・担当枠・スケジュールプリセットのマスタ管理'],
+   ['📋 業務','管理者','共通業務・曜日別業務・オペ/カテ術式・担当枠・タイムラインのプリセットのマスタ管理'],
    ['🔒 ロック','管理者','項目ごとにロック設定、PHS表示ON/OFF、自動削除設定'],
    ['📋 ログ','管理者','操作ログ最新100件を表示'],
    ['🔑 管理資料','管理者','仕様書・マニュアル・管理者設定・引き継ぎ・法令GL（サブメニュー）'],
@@ -4662,8 +4700,9 @@ function renderSpec() {
   S += '<div class="spec-h1">3-2. 追加機能の詳細</div>';
   S += '<div class="spec-h2">📢 掲示板</div>';
   S += '<div class="spec-p">連絡表とは独立した部門内の掲示板。Firebase <code>/board</code> に保存（連絡表データ <code>/data</code> とは別系統）。全員が投稿・返信でき、自分の投稿は自分で削除、管理者は全員分を削除・ピン留め可。サイドバーのタブは廃止し、日ページのヘッダーにある「📢 掲示板」ボタン（<code>openBoardPanel()</code>）からモーダルで開きます。未読の投稿数はそのボタンの赤バッジに出て、開くと既読になります（既読時刻は端末の localStorage <code>ce2_boardread</code> に保持。未読の数え元は <code>boardUnreadCount()</code> 1つ）。</div>';
-  S += '<div class="spec-h2">⏰ スケジュール（タイムテーブル）</div>';
-  S += '<div class="spec-p">日付ごとに、勤務者を列にした縦型タイムテーブル（8:00〜21:00／15分刻み）。プリセットブロック（業務マスタで編集可）をタップ選択→列タップ、またはドラッグ＆ドロップで配置。ブロックはドラッグで移動／下端ハンドルでリサイズ。<code>D.pages[ds].schedule</code> に保存。担当割り当てから一括取り込みも可能。duty がロックされている場合、一般ユーザーは閲覧のみ。掲示板と同じくサイドバーのタブは廃止し、日ページのヘッダーにある「⏰ スケジュール」ボタン（<code>openSchedPanel()</code>）からモーダルで開きます。</div>';
+  S += '<div class="spec-h2">🕒 タイムライン（旧スケジュール）</div>';
+  S += '<div class="spec-p">「流れ」と「担当別」の2画面を切り替える。流れは <code>timelineEvents(ds)</code> が集めた時刻つきの業務（CE：オペ・カテ入室時間、PSG外し、OC、通知時刻つきチェック／両主観：タブレット貸出、手で置いた予定）を時刻順に並べ、今日なら現在時刻の線を引く。AMOC/PMOC・入室時間なしの症例は末尾の「時刻未定」枠、前日以前からの未返却タブレットは先頭の枠に入る。自動の予定は元データを映すだけで、タイムラインからは書き込まない。担当別は下記の従来の表に、自動の予定を枠線付きで重ねる（担当者の列が無いものは「全体」列）。</div>';
+  S += '<div class="spec-p">日付ごとに、勤務者を列にした縦型タイムテーブル（8:00〜21:00／15分刻み）。プリセットブロック（業務マスタで編集可）をタップ選択→列タップ、またはドラッグ＆ドロップで配置。ブロックはドラッグで移動／下端ハンドルでリサイズ。<code>D.pages[ds].schedule</code> に保存。担当割り当てから一括取り込みも可能。duty がロックされている場合、一般ユーザーは閲覧のみ。掲示板と同じくサイドバーのタブは廃止し、日ページのヘッダーにある「🕒 タイムライン」ボタン（<code>openSchedPanel()</code>）からモーダルで開きます。</div>';
   S += '<div class="spec-h2">📊 担当表 / 📈 集計（サブタブ構成）</div>';
   S += '<div class="spec-box">担当表タブ（<code>#pane-assign</code> / <code>swSubTab</code>）は at / my / fair / hdfair / perf、集計タブ（<code>#pane-sum</code> / <code>swSumTab</code>）は ops / oc / hd。集計タブはCE・HDどちらの主観でも3つとも表示する。📋 タスクは以前ここのサブタブだったが独立タブ（<code>#pane-task</code>）へ移した。</div>';
   S += '<table class="spec-tbl"><tr><th>タブ</th><th>サブタブ</th><th>内容</th></tr>';
@@ -5069,12 +5108,12 @@ function renderManual() {
     + '</table>';
 
   // ===== 第10章　スケジュール =====
-  S += h1('第10章　スケジュール（タイムテーブル）');
-  S += '<div class="mn-p">連絡表ページのヘッダーにある「⏰ スケジュール」ボタンで、その日の勤務者ごとの時間割（8:00〜21:00）を作れます。</div>';
-  S += step(1,'連絡表ページ上部の「⏰ スケジュール」ボタンをクリック','勤務者が縦の列、時間が縦軸で表示されます。');
-  S += step(2,'予定ブロックを置く','上のプリセット（業務名）をタップ → 置きたい人の列をタップ。パソコンではドラッグ＆ドロップもできます。');
-  S += step(3,'時間や担当を調整','ブロックをドラッグで移動、下端をドラッグで長さ（時間）を変更できます。');
-  S += tip('「担当から取り込み」を使うと、その日の担当割り当てから自動で予定ブロックを作れます。');
+  S += h1('第10章　タイムライン');
+  S += '<div class="mn-p">連絡表ページのヘッダーにある「🕒 タイムライン」ボタンで、その日の予定を時刻順に見たり、勤務者ごとの時間割（8:00〜21:00）を作ったりできます。上の切り替えで「流れ」と「担当別」を行き来します。</div>';
+  S += step(1,'「流れ」を見る','オペ・カテの入室時間、PSG外し、オンコール、タブレット貸出、通知時刻を設定したチェックが自動で集まり、手で置いた予定と一緒に時刻順に並びます。「自分」「未完了」で絞り込めます。入室時間がAMOC/PMOCの症例は末尾の「時刻未定」の枠に入ります。');
+  S += step(2,'「担当別」で予定ブロックを置く','上のプリセット（業務名）をタップ → 置きたい人の列をタップ。パソコンではドラッグ＆ドロップもできます。ブロックはドラッグで移動、下端をドラッグで長さ（時間）を変更できます。');
+  S += step(3,'自動の予定を確認する','担当別の表にも症例・貸出などが枠線付きで重なります。担当者が決まっていないものは左端の「全体」列に出ます。これらはタイムラインからは動かせないので、元の症例行・タブレット画面で直してください。');
+  S += tip('「担当から取り込み」を使うと、その日の担当割り当てから自動で予定ブロックを作れます（CEのみ）。');
   S += warn('担当割り当てがロックされている場合、一般スタッフは閲覧のみになります。');
 
   // ===== 第11章　掲示板 =====
@@ -5318,7 +5357,7 @@ function renderAdminManual() {
   S += '<table class="a-tbl"><tr><th>グループ</th><th>入っている設定</th></tr>';
   S += '<tr><td>📋 業務・チェックリスト</td><td>共通業務（毎日）／曜日別業務／設置部署マスタ（HDモードではHD版の共通業務・曜日別業務）</td></tr>';
   S += '<tr><td>🔪 業務内容マスタ</td><td>オペ術式／カテ種別／使用物品（HDモードではHD特殊治療マスタ）</td></tr>';
-  S += '<tr><td>🎯 担当・スケジュール</td><td>担当枠マスタ／スケジュールプリセット／月次自動割り当てモード</td></tr>';
+  S += '<tr><td>🎯 担当・スケジュール</td><td>担当枠マスタ／タイムラインのプリセット／月次自動割り当てモード</td></tr>';
   S += '<tr><td>🎓 教育</td><td>教育者欄の設定／教育項目マスタ</td></tr>';
   S += '<tr><td>📱 備品・台帳</td><td>タブレット台帳（HDモードではHDタブレット台帳）</td></tr>';
   S += '<tr><td>🔔 通知・連絡</td><td>PSG通知設定／OC対応フローチャート／メール通知（EmailJS）／Web Push（FCM）</td></tr>';
@@ -5604,11 +5643,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/22-90';
+var APP_VERSION = 'Ver.2026/09/24-91';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/24-91', date:'2026-09-24', title:'スケジュールをタイムラインに作り替えました', items:[
+    {t:'new', notify:true, d:'🕒 連絡表の「⏰ スケジュール」を「🕒 タイムライン」に変えました。「流れ」では、オペ・カテの入室時間、タブレットの貸出、通知時刻を設定したチェックなどがその日の順番に自動で並び、今の時刻に線が引かれます。「自分」「未完了」で絞り込めます'},
+    {t:'imp', notify:true, d:'🕒 これまでのスケジュール表は「担当別」として残っています。症例や貸出も担当者の列に自動で重なり、担当者が決まっていないものは「全体」の列に出ます'}
+  ]},
   { ver:'Ver.2026/09/22-90', date:'2026-09-22', title:'マスタを項目一覧から探せるようにしました', items:[
     {t:'imp', d:'📋 マスタは項目名・設定状況の一覧から、必要な項目だけを開いて編集できます。教育項目も分類ごとに開けます'},
     {t:'imp', d:'📧 HD特殊治療メールの送信先人数を一覧で確認でき、メール接続設定はCE・HDの双方から開けます', admin:true}
@@ -6521,7 +6564,7 @@ function renderDev() {
    ['fbInit()','Firebase Auth監視→ログイン時に /data・/board リスナー開始'],
    ['saveD()','Firebase(/data) or localStorage(ce2)に保存'],
    ['swTab(t)','サイドバータブ切替。contentPanes はPCで .sb-expanded によりメインエリア全幅表示（担当表・各資料を含む）。掲示板・スケジュールはモーダル化済みでcontentPanesには含まれない'],
-   ['renderSched()','スケジュール（タイムテーブル）描画。schedImportDuties()で担当から取込'],
+   ['renderSched()','タイムライン（旧スケジュール）描画。流れ／担当別を _tlView で切替。自動の予定は timelineEvents(ds)'],
    ['renderBoard()/postBoard()/postBoardReply()/deleteBoard()/pinBoard()','掲示板（/board）。updateBoardBadge()で未読バッジ'],
    ['renderFairness()','担当表サブタブ：公平性マトリックス（FAIR_GAP_WARN）'],
    ['renderTasks()/openTaskModal(id,isMemo)/_doSaveTask()/_doSaveMemo()','タスク管理（/tasks・/taskMemos）。サイドバー独立タブ #pane-task。画像添付があるため保存は非同期（_uploadTaskMedia でアップロード完了後に persist→モーダルclose）。添付の読み出しは taskMediaArr 経由'],
@@ -8944,7 +8987,7 @@ function renderGuide() {
     + '<tr><td>連絡表の中身</td><td>担当割り当て・業務内容・オンコール</td><td>血液浄化の件数・HD担当表・HDチェックリスト</td></tr>'
     + '<tr><td>チェックリスト</td><td>CE用</td><td>HD用（別々に管理されます）</td></tr>'
     + '<tr><td>申し送り</td><td>CE用</td><td>HD用（別々のスレッドです）</td></tr>'
-    + '<tr><td>掲示板・スケジュール</td><td>CE用</td><td>HD用（別々です）</td></tr>'
+    + '<tr><td>掲示板・タイムライン</td><td>CE用</td><td>HD用（別々です）</td></tr>'
     + '<tr><td>タブレット台帳</td><td>CEのタブレット</td><td>透析室のタブレット</td></tr>'
     + '<tr><td>イベント</td><td colspan="2">両方から見えます（登録した側で色が変わります）</td></tr>'
     + '<tr><td>余剰人員</td><td colspan="2">両方から見えます（同じ内容です）</td></tr>'
@@ -9154,11 +9197,12 @@ function renderGuide() {
   S += ok('退勤が深夜0時以降なら翌日休み取得可、21時より後なら遅出出勤、といった翌日の出勤ルールが自動で表示されます。');
   S += warn('「対応」チェックを手動で外すときは、入力済みの対応時間を消すかどうか確認が出ます。「キャンセル」を選べば時刻は残ります。');
 
-  S += h1('⏰ スケジュール');
-  S += '<div class="gd-p">連絡表ページ上部の「⏰ スケジュール」ボタンで、その日の勤務者ごとの時間割を作れます。</div>';
-  S += step(1,'上のプリセット（業務名）をタップ','置きたい予定を選びます。');
-  S += step(2,'予定を置きたい人の列をタップ','PCではドラッグ＆ドロップでも置けます。');
-  S += step(3,'ブロックをドラッグで移動・伸縮','下端を引っぱると時間（長さ）を変えられます。');
+  S += h1('🕒 タイムライン');
+  S += '<div class="gd-p">連絡表ページ上部の「🕒 タイムライン」ボタンで、その日の予定を時刻順に見られます。上の切り替えで「流れ」と「担当別」を行き来します。</div>';
+  S += step(1,'「流れ」で一日の順番を見る','オペ・カテの入室時間、タブレット貸出、通知時刻つきのチェックなどが自動で時刻順に並びます。青い線が今の時刻です。');
+  S += step(2,'「担当別」で人ごとの予定を置く','上のプリセット（業務名）をタップ → 置きたい人の列をタップ。PCではドラッグ＆ドロップでも置けます。ブロックはドラッグで移動、下端を引っぱると長さを変えられます。');
+  S += step(3,'自動で並んだ予定は元の場所で直す','症例や貸出はタイムラインからは編集できません。連絡表の症例行・タブレット画面で直すと反映されます。');
+  S += tip('HDのチェックや特殊治療には時刻の欄が無いため、HDの「流れ」には手で置いた予定とタブレット貸出だけが並びます。');
 
   S += h1('📢 掲示板');
   S += '<div class="gd-p">掲示板は、日付に関係ない部門内のお知らせ板です。連絡表を開いて、上部の「📢 掲示板」ボタンから開きます。未読があるとボタンに赤い数字が出ます。</div>';
@@ -9186,7 +9230,7 @@ function renderGuide() {
     + '<tr><td>申し送りが送れない</td><td>同上。またはロック解除を依頼</td></tr>'
     + '<tr><td>名前が申し送りに出ない</td><td>右上の名前をクリックして表示名を設定</td></tr>'
     + '<tr><td>PSGのアラートが出た</td><td>装着欄に入力後、「付箋入力済」チェックを入れてください</td></tr>'
-    + '<tr><td>掲示板/スケジュールが見られない</td><td>ページを再読み込み。それでも不可なら管理者に連絡</td></tr>'
+    + '<tr><td>掲示板/タイムラインが見られない</td><td>ページを再読み込み。それでも不可なら管理者に連絡</td></tr>'
     + '<tr><td>HD勤務者が表示されない</td><td>その月の勤務表Excelを再取込してください</td></tr>'
     + '<tr><td>業務件数が表示されない</td><td>ページを閉じて再度開くか管理者に確認</td></tr>'
     + '</table>';
@@ -17070,7 +17114,7 @@ function renderPage(ds) {
   h+='<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"'+(_brdN?'':' style="display:none"')+'>'+(_brdN>99?'99+':_brdN)+'</span></button>';
   /* サイドバーのタブに置いていると活用されないため、タブレット・掲示板と同じ並びで
      連絡表ヘッダーから直接開けるようにする（サイドバー側のスケジュールタブは廃止） */
-  h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="スケジュールを開く">⏰<span class="hd-btn-text"> スケジュール</span></button>';
+  h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">🕒<span class="hd-btn-text"> タイムライン</span></button>';
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h+='</div>';
   h+='<div id="prior-memo-alert" style="display:none">'+priorMemoAlertContents(ds)+'</div>';
@@ -18311,7 +18355,7 @@ function renderPageHD(ds) {
      （掲示板は kind、スケジュールは dat.hdSchedule）なので、HDにはHDの分だけが出る。 */
   var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
   h += '<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"' + (_brdN ? '' : ' style="display:none"') + '>' + (_brdN > 99 ? '99+' : _brdN) + '</span></button>';
-  h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="スケジュールを開く">⏰<span class="hd-btn-text"> スケジュール</span></button>';
+  h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">🕒<span class="hd-btn-text"> タイムライン</span></button>';
   h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h += '</div>';
   h += '<div id="prior-memo-alert" style="display:none">' + priorMemoAlertContents(ds) + '</div>';
@@ -23939,6 +23983,169 @@ function schedColumns(ds, dat){
   }
   return staff;
 }
+/* ===== タイムライン（旧スケジュール） =====
+   ヘッダーの🕒ボタンで開くパネル。「流れ」（時刻順の一覧）と「担当別」（勤務者の列に並べた表＝旧スケジュール）を
+   切り替える。どちらも timelineEvents(ds) だけを読み、症例・貸出などを「自動の予定」として重ねる。
+   自動の予定は元データ（症例行・貸出記録…）を映しているだけで、ここからは一切書き込まない——
+   直すときは元の欄で直す。手で置く予定は従来どおり schedOf(dat) に保存する。 */
+var _tlView = 'flow';   /* 'flow' | 'grid'（端末内だけの表示状態。D には入れない） */
+var _tlFilter = 'all';  /* 流れの絞り込み 'all' | 'mine' | 'open' */
+function setTlView(v){ _tlView = (v === 'grid') ? 'grid' : 'flow'; renderSched(); }
+function setTlFilter(f){ _tlFilter = f; renderSched(); }
+function tlHM(m){ return schedMinToHM(Math.max(0, Math.min(1439, m))); }
+/* 前日にPSGを付けていれば、今日はPSG外しの日（buildDG・updateOpsHeader と同じ判定） */
+function tlIsPsgRemovalDay(ds){
+  var p = D.pages[getPrevDs(ds)];
+  return !!(p && ((p.ops_cards && p.ops_cards.indexOf('psg') !== -1) || (p.ops && p.ops.psg_on)));
+}
+/* その日の「時刻を持つ業務」を集める唯一の入口（流れ・担当別の両方がこれを読む。書き込みはしない）。
+   返す形：{kind, kl, title, sub, staff[], start?, end?, band?, done, cancel, open, manual}
+   - 手で置いた予定（schedOf）……両主観
+   - タブレット貸出……両主観（台帳は主観ごと）。前日以前から借りたままの分は band:'carry'
+   - オペ・カテ症例（入室時間）・PSG外し・OC・通知時刻つきチェック……CE主観だけ
+     （HDのチェック・特殊治療には時刻の欄が無いので、HDの流れは手入力と貸出だけになる）
+   - 入室時間が時刻にならない症例（AMOC/PMOC/空欄）は band:'am'|'pm'|'tbd' にして末尾の帯へ */
+function timelineEvents(ds){
+  var dat = D.pages[ds]; if (!dat) return [];
+  var out = [], ce = (_viewMode !== 'hd');
+  schedOf(dat).forEach(function(b){
+    out.push({kind:'man', kl:'', title:b.label || '予定', staff:b.staff ? [b.staff] : [], start:b.start, end:b.end, done:false, manual:true});
+  });
+  tabletLogsOf(dat).forEach(function(l){
+    var ret = tabletIsReturned(l), crossed = tabletCrossed(l, ds);
+    out.push({kind:'tab', kl:'貸出', title:'タブレット '+(l.tablet||''), staff:l.borrower ? [l.borrower] : [],
+      start:l.lentAt||0, end:(ret && !crossed) ? l.returnedAt : null, done:ret, open:!ret,
+      sub:(l.borrower||'')+(ret ? (crossed ? '・'+tabletMD(l.returnedDs)+' 返却' : '・返却済み') : '・未返却')});
+  });
+  tabletCarryOver(ds).forEach(function(o){
+    out.push({kind:'tab', kl:'貸出', title:'タブレット '+(o.log.tablet||''), staff:o.log.borrower ? [o.log.borrower] : [],
+      band:'carry', done:false, open:true, sub:(o.log.borrower||'')+'・'+tabletMD(o.ds)+' '+schedMinToHM(o.log.lentAt||0)+'から未返却'});
+  });
+  if (!ce) return out;
+  [['ope','オペ'],['cath','カテ']].forEach(function(p){
+    opsItemsOf(dat, p[0]).forEach(function(it){
+      if (!opsItemFilled(it)) return;
+      var ev = {kind:p[0], kl:p[1], title:opsItemTitle(it, p[0]) || opsItemDept(it) || p[1], staff:opsItemStaff(it),
+        done:!!it.done, cancel:!!it.cancelled, end:(it.endTime != null ? it.endTime : null)};
+      var st = opsItemStartMin(it), t = it.time || '';
+      if (st == null) ev.band = /^AM/.test(t) ? 'am' : (/^PM/.test(t) ? 'pm' : 'tbd'); else ev.start = st;
+      out.push(ev);
+    });
+  });
+  if (tlIsPsgRemovalDay(ds)) {
+    out.push({kind:'psg', kl:'PSG', title:'PSG取り外し', staff:[], start:tabletHMToMin(D.psgBannerStart||'07:30'),
+      end:tabletHMToMin(D.psgBannerEnd||'08:30'), done:false});
+  }
+  var oc = dat.ocData || {};
+  if (oc.startTime) {
+    var ocs = tabletHMToMin(oc.startTime), oce = oc.endTime ? tabletHMToMin(oc.endTime) : null;
+    out.push({kind:'oc', kl:'OC', title:ocKindLabel(ocKind(oc)), staff:oc.staff ? [oc.staff] : [], start:ocs,
+      end:(oce != null && oce > ocs) ? oce : null, done:!!oc.done, sub:oc.endTime && oce <= ocs ? '翌'+oc.endTime+'まで' : ''});
+  }
+  /* 通知時刻を設定したチェック項目だけ（時刻の無い項目は連絡表のチェックリストで扱う） */
+  var chk = dat.checks || [];
+  D.dly.forEach(function(it, i){
+    var n = dlyNotif(it);
+    if (!n || !n.enabled || !n.time || !isDlyShownOnDate(it, ds)) return;
+    out.push({kind:'chk', kl:'チェック', title:dlyText(it), staff:[], start:tabletHMToMin(n.time), end:null, done:!!chk[i]});
+  });
+  wdEntriesForDate(ds).forEach(function(ent, j){
+    var n = ent.it && typeof ent.it === 'object' ? ent.it.notif : null;
+    if (!n || !n.enabled || !n.time) return;
+    out.push({kind:'chk', kl:'チェック', title:ent.t, staff:[], start:tabletHMToMin(n.time), end:null,
+      done:!!(chk[D.dly.length + j] || wdOnceDoneOn(ds, ent))});
+  });
+  return out;
+}
+function tlSubText(e){
+  if (e.sub != null && e.sub !== '') return e.sub;
+  var s = e.staff.join('・');
+  if (e.start != null && e.end != null && e.end > e.start) s += (s ? '・' : '') + '〜' + tlHM(e.end);
+  if (e.cancel) s += (s ? '・' : '') + '中止';
+  else if (e.done && (e.kind === 'ope' || e.kind === 'cath')) s += (s ? '・' : '') + '終了';
+  return s;
+}
+function tlEventHTML(e, withTime){
+  var cls = 'tl-ev k-' + e.kind + (e.done ? ' done' : '') + (e.cancel ? ' cancel' : '') + (e.open ? ' open' : '');
+  var sub = tlSubText(e);
+  return '<div class="' + cls + '">' + (withTime ? '<span class="tl-tm">' + tlHM(e.start) + '</span>' : '') + '<span class="tl-dot"></span>'
+    + '<div class="tl-tt">' + (e.kl ? '<span class="tl-kd">' + escH(e.kl) + '</span>' : '') + escH(e.title)
+    + (e.manual ? '<span class="tl-man">手入力</span>' : '') + '</div>'
+    + (sub ? '<div class="tl-sub">' + escH(sub) + '</div>' : '') + '</div>';
+}
+function tlFlowHTML(ds, evs){
+  var self = taskSelfName();
+  var list = evs.filter(function(e){
+    if (_tlFilter === 'mine') return !!self && e.staff.indexOf(self) !== -1;
+    if (_tlFilter === 'open') return !e.done && !e.cancel;
+    return true;
+  });
+  var h = '<div class="tl-filt">';
+  [['all','すべて'],['mine','自分'],['open','未完了']].forEach(function(f){
+    h += '<button class="' + (_tlFilter === f[0] ? 'on' : '') + '" onclick="setTlFilter(\'' + f[0] + '\')">' + f[1] + '</button>';
+  });
+  h += '</div>';
+  if (_tlFilter === 'mine' && !self) return h + '<div class="sched-empty">アカウントがスタッフ名に紐づいていないため、「自分」で絞り込めません。</div>';
+  if (!list.length) {
+    return h + '<div class="sched-empty">🕒 ' + (_tlFilter === 'all' ? 'この日は時刻のある予定がありません。' : '該当する予定はありません。')
+      + (_tlFilter === 'all' ? '<br>「担当別」で予定を置くと、ここにも並びます。' + (_viewMode === 'hd' ? '<br>（HDのチェックや特殊治療には時刻の欄が無いため、ここには並びません）' : '') : '') + '</div>';
+  }
+  var carry = list.filter(function(e){ return e.band === 'carry'; });
+  var timed = list.filter(function(e){ return e.start != null; }).sort(function(a, b){ return a.start - b.start; });
+  var nowM = (ds === toDS(new Date())) ? opsNowMin() : null, nowDone = (nowM == null);
+  h += '<div class="tl-flow">';
+  if (carry.length) {
+    h += '<div class="tl-band"><div class="tl-band-h">前日以前から貸出中</div>';
+    carry.forEach(function(e){ h += tlEventHTML(e, false); });
+    h += '</div>';
+  }
+  timed.forEach(function(e){
+    if (!nowDone && e.start > nowM) { h += '<div class="tl-now"><span>' + tlHM(nowM) + '</span><i></i></div>'; nowDone = true; }
+    h += tlEventHTML(e, true);
+  });
+  if (!nowDone && timed.length) h += '<div class="tl-now"><span>' + tlHM(nowM) + '</span><i></i></div>';
+  [['am','午前（時刻未定）'],['pm','午後（時刻未定）'],['tbd','入室時間の入力なし']].forEach(function(b){
+    var arr = list.filter(function(e){ return e.band === b[0]; });
+    if (!arr.length) return;
+    h += '<div class="tl-band"><div class="tl-band-h">' + b[1] + '</div>';
+    arr.forEach(function(e){ h += tlEventHTML(e, false); });
+    h += '</div>';
+  });
+  return h + '</div>';
+}
+/* 担当別の表に重ねる自動の予定の縦位置（分）。終わりが無いものは種類ごとの目安の長さで描き、枠線を点線にする */
+function tlAutoSpan(e, nowM){
+  var st = Math.max(SCHED_START, Math.min(SCHED_END - SCHED_SLOT, e.start));
+  var en = e.end, openEnded = (en == null || en <= e.start);
+  if (openEnded) en = (e.kind === 'tab' && e.open && nowM != null) ? Math.max(e.start + 15, nowM) : e.start + ((e.kind === 'ope' || e.kind === 'cath') ? 60 : 20);
+  en = Math.max(st + SCHED_SLOT, Math.min(SCHED_END, en));
+  return {e:e, st:st, en:en, openEnded:openEnded};
+}
+/* 同じ列で時間の重なる自動の予定を横に並べる（重なりの塊ごとに列数を決める）。
+   並べないと、長い症例（8:30〜17:00 など）が同じ人の他の症例を丸ごと隠してしまう */
+function tlLayoutAuto(list, nowM){
+  var sp = list.map(function(e){ return tlAutoSpan(e, nowM); }).sort(function(a, b){ return a.st - b.st || b.en - a.en; });
+  var cluster = [], clusterEnd = -1, laneEnds = [];
+  function flush(){ cluster.forEach(function(x){ x.lanes = laneEnds.length; }); cluster = []; laneEnds = []; }
+  sp.forEach(function(x){
+    if (cluster.length && x.st >= clusterEnd) flush();
+    clusterEnd = cluster.length ? Math.max(clusterEnd, x.en) : x.en;
+    var lane = 0; while (lane < laneEnds.length && laneEnds[lane] > x.st) lane++;
+    laneEnds[lane] = x.en; x.lane = lane; cluster.push(x);
+  });
+  flush();
+  return sp;
+}
+/* 担当別の表に重ねる自動の予定（ドラッグ・削除の対象外。.sched-block ではないので操作は付かない） */
+function tlAutoBlockHTML(x){
+  var e = x.e, w = 100 / (x.lanes || 1);
+  var cls = 'sched-auto sa-' + (e.kind === 'ope' ? 'ope' : e.kind === 'cath' ? 'cath' : e.kind === 'tab' ? 'tab' : 'etc')
+    + (x.openEnded ? ' sa-open' : '') + ((e.done || e.cancel) ? ' sa-done' : '');
+  return '<div class="' + cls + '" style="top:' + ((x.st - SCHED_START) * SCHED_PXMIN) + 'px;height:' + ((x.en - x.st) * SCHED_PXMIN) + 'px;'
+    + 'left:calc(' + (w * x.lane) + '% + 2px);width:calc(' + w + '% - 4px);right:auto" title="' + escH(tlHM(e.start) + ' ' + (e.kl ? e.kl + ' ' : '') + e.title) + '">'
+    + '<div class="bn">' + escH((e.kl ? e.kl + ' ' : '') + e.title) + '</div><div class="bt">' + tlHM(e.start) + '</div></div>';
+}
+
 function renderSched(){
   var tools=document.getElementById('sched-tools');
   var body=document.getElementById('sched-body');
@@ -23946,15 +24153,25 @@ function renderSched(){
   if(!body) return;
   var ds=curDs;
   if(!ds || !D.pages[ds]){
-    title.textContent='⏰ スケジュール';
+    title.textContent='🕒 タイムライン';
     tools.innerHTML='';
-    body.innerHTML='<div class="sched-empty">📅 左のカレンダーから日付を選ぶと<br>その日のタイムテーブルを編集できます。</div>';
+    body.innerHTML='<div class="sched-empty">📅 左のカレンダーから日付を選ぶと<br>その日のタイムラインを表示します。</div>';
     return;
   }
   var dat=D.pages[ds];
   var locked=!can('duty');
-  title.textContent=(_viewMode==='hd'?'🩸 HD ':'🩺 CE ')+fmtJ(ds)+' のスケジュール';
-  /* ツールバー */
+  title.textContent=(_viewMode==='hd'?'🩸 HD ':'🩺 CE ')+fmtJ(ds)+' のタイムライン';
+  ensureSched(dat);
+  var evs=timelineEvents(ds);
+  var seg='<div class="tl-seg"><button class="'+(_tlView==='flow'?'on':'')+'" onclick="setTlView(\'flow\')">流れ</button>'
+    +'<button class="'+(_tlView==='grid'?'on':'')+'" onclick="setTlView(\'grid\')">担当別</button></div>';
+  /* 流れ：自動の予定と手で置いた予定を時刻順に並べるだけ（ここからは編集しない） */
+  if(_tlView==='flow'){
+    tools.innerHTML='';
+    body.innerHTML=seg+tlFlowHTML(ds, evs);
+    return;
+  }
+  /* ツールバー（担当別＝手で予定を置く画面だけ） */
   var th='';
   if(!locked){
     /* 取り込み元はCE専用データなので、HD主観ではボタン自体を出さない（実行側にもガードあり） */
@@ -23963,14 +24180,22 @@ function renderSched(){
   }
   tools.innerHTML=th;
 
-  ensureSched(dat);
   var staff=schedColumns(ds, dat);
   if(!staff.length){
-    body.innerHTML='<div class="sched-empty">👥 当日'+(_viewMode==='hd'?'HD':'')+'勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
+    body.innerHTML=seg+'<div class="sched-empty">👥 当日'+(_viewMode==='hd'?'HD':'')+'勤務者がいません。<br>連絡表ページで勤務者を追加するか、勤務表を取り込んでください。</div>';
     return;
   }
+  /* 自動の予定を列に振り分ける：担当者の列があればその列（複数人なら各列）、無ければ「全体」列 */
+  var nowM=(ds===toDS(new Date()))?opsNowMin():null;
+  var autoBy={}, autoAll=[];
+  evs.forEach(function(e){
+    if(e.manual || e.start==null) return;
+    var hit=false;
+    e.staff.forEach(function(n){ if(staff.some(function(x){return x.name===n;})){ (autoBy[n]=autoBy[n]||[]).push(e); hit=true; } });
+    if(!hit) autoAll.push(e);
+  });
 
-  var h='';
+  var h=seg;
   if(!locked){
     h+='<div class="sched-presets" id="sched-presets"><span class="sched-presets-lbl">業務プリセット（タップして選択 → 列をタップで配置／ドラッグでも配置可）</span>';
     var ps=getSchedPresets();
@@ -23995,12 +24220,24 @@ function renderSched(){
   }
   h+='</div>';
   /* スタッフ列 */
+  var trackBg='background:repeating-linear-gradient(to bottom,transparent,transparent '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN)+'px)';
   h+='<div class="sched-cols">';
+  /* 「全体」列：担当者が決まっていない自動の予定だけを置く。.sched-track ではないので
+     手で置く予定の配置・移動先にはならない（操作は schedBindInteractions が .sched-track だけに付ける） */
+  if(autoAll.length){
+    h+='<div class="sched-staffcol sched-allcol">';
+    h+='<div class="sched-colhd">全体</div>';
+    h+='<div class="sched-alltrack" style="position:relative;height:'+totalH+'px;'+trackBg+'">';
+    tlLayoutAuto(autoAll, nowM).forEach(function(x){ h+=tlAutoBlockHTML(x); });
+    h+='</div></div>';
+  }
   for(var s=0;s<staff.length;s++){
     var st=staff[s];
     h+='<div class="sched-staffcol" data-staff="'+escH(st.name)+'">';
     h+='<div class="sched-colhd'+(st.oc?' oc':'')+'">'+escH(st.name)+(st.oc?' 🟠':'')+'</div>';
-    h+='<div class="sched-track" data-staff="'+escH(st.name)+'" style="height:'+totalH+'px;background:repeating-linear-gradient(to bottom,transparent,transparent '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN-1)+'px,var(--bdr) '+(60*SCHED_PXMIN)+'px)">';
+    h+='<div class="sched-track" data-staff="'+escH(st.name)+'" style="height:'+totalH+'px;'+trackBg+'">';
+    /* 自動の予定（先に描いて、手で置いた予定がその上に重なるようにする） */
+    tlLayoutAuto(autoBy[st.name]||[], nowM).forEach(function(x){ h+=tlAutoBlockHTML(x); });
     /* ブロック */
     var _sc=schedOf(dat);
     for(var b=0;b<_sc.length;b++){
@@ -26252,7 +26489,7 @@ function renderAutoBackups() {
    ここでは選んだ項目だけを D に戻す。連絡表（pages）は対象にしない——日々の記録を戻すなら全体復元を使う */
 var PARTIAL_RESTORE_LABELS = {
   supMaster:'🧰 使用物品マスタ', roboLayouts:'🤖 ロボット配置マスタ', opeTree:'🏥 OPE術式マスタ', cathTree:'💉 カテ術式マスタ', supTree:'📦 物品マスタ（旧）',
-  dutyCfgMaster:'📋 担当枠マスタ', dutyCfg:'📋 担当枠テンプレ', opsCfg:'⚙ 業務カードのテンプレ', schedPresets:'⏰ スケジュールプリセット',
+  dutyCfgMaster:'📋 担当枠マスタ', dutyCfg:'📋 担当枠テンプレ', opsCfg:'⚙ 業務カードのテンプレ', schedPresets:'🕒 タイムラインのプリセット',
   dly:'✅ チェックリスト（共通）', wd:'✅ チェックリスト（曜日別）', hdDly:'🩸 HDチェックリスト（共通）', hdWd:'🩸 HDチェックリスト（曜日別）',
   wdDepts:'🏥 設置部署マスタ', hdTreatments:'🩸 HD特殊治療マスタ', tablets:'📱 タブレット台帳', hdTablets:'📱 HDタブレット台帳',
   stf:'👥 スタッフ', stfHidden:'🙈 非表示スタッフ', stfLinks:'🔗 スタッフとアカウントの紐づけ', phs:'☎ PHS番号',

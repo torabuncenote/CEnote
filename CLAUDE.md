@@ -347,7 +347,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
   .es     — empty-state placeholder (shown when no page is selected)
 ```
 
-`pane-board`（掲示板）と `pane-sched`（⏰ スケジュール）はどちらも元々サイドバーのタブだったが、タブに置いていると活用されないため連絡表ヘッダーのボタン（📢/⏰、`openBoardPanel()`/`openSchedPanel()`）から開くモーダルに変換済み——`.ov`/`.hd` トグルで開閉する `#board-panel-ov`/`#sched-panel-ov` が `<body>` 直下にあり、中身の要素 id（`#pane-board`、`#sched-title`/`#sched-tools`/`#sched-body`）は元のまま移設しているため `renderBoard()`/`renderSched()` は無改造で動く。`#pane-sched` は以前 `.sb` の内側にあり、スマホで `.sb` の `transform:translateX(-100%)` に巻き込まれて真っ白になる不具合を避ける防御コードが複数箇所に必要だったが、モーダル化によりその防御コードごと不要になった。
+`pane-board`（掲示板）と `pane-sched`（🕒 タイムライン。旧⏰スケジュール）はどちらも元々サイドバーのタブだったが、タブに置いていると活用されないため連絡表ヘッダーのボタン（📢/⏰、`openBoardPanel()`/`openSchedPanel()`）から開くモーダルに変換済み——`.ov`/`.hd` トグルで開閉する `#board-panel-ov`/`#sched-panel-ov` が `<body>` 直下にあり、中身の要素 id（`#pane-board`、`#sched-title`/`#sched-tools`/`#sched-body`）は元のまま移設しているため `renderBoard()`/`renderSched()` は無改造で動く。`#pane-sched` は以前 `.sb` の内側にあり、スマホで `.sb` の `transform:translateX(-100%)` に巻き込まれて真っ白になる不具合を避ける防御コードが複数箇所に必要だったが、モーダル化によりその防御コードごと不要になった。
 
 Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` is a `position:fixed` full-screen overlay on mobile.
 
@@ -450,7 +450,7 @@ All class names are abbreviated:
 | `wdSubProgress(ds, sid)` | `{locationName: doneDs}` map for a `subs`-bearing item, scanning only pages in `ds`'s calendar month (monthly reset) |
 | `renderWdDeptList()` / `addWdDept()` / `rmWdDept(i)` / `mvWdDept(i,d)` | `D.wdDepts` master list editor (add/reorder/remove) in the 曜日別業務 master section, gated by `can('wm')` |
 | `openWdSubsModal(i)` / `renderWdSubsModalBody(i)` / `addWdDeptFromModal(i)` / `saveWdSubs(i)` | Per-item department picker modal — checkboxes sourced from `D.wdDepts`; `addWdDeptFromModal` adds to the master inline without closing the modal |
-| `renderSched()` | Per-day timetable for `curDs` |
+| `renderSched()` / `timelineEvents(ds)` / `tlFlowHTML(ds, evs)` / `tlLayoutAuto(list, nowM)` | タイムライン（旧スケジュール）の描画／自動の予定を集める唯一の入口（書き込まない）／流れの一覧／担当別で重なる自動の予定を横に並べる |
 | `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board (also handles read-receipt marking, tag/resolved rendering, pin-expiry sort/cleanup, filter chips) |
 | `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
 | `toggleBoardReads(id)` / `setBoardFilter(f)` | Board: 既読者一覧の開閉／フィルタチップ切替（`_boardFilter`） |
@@ -799,9 +799,15 @@ Structure: `.ato#ato-wrap` > `#at-zoom-inner` > `#at-body` (table content).
 - Button clicks: ease-out cubic animation over 10 frames via `_atZoomAnimRAF`
 - `_atZoom` global tracks current zoom level (0.25–3)
 
-### Schedule Timetable
+### タイムライン（旧 Schedule Timetable）
 
-Vertical time axis 8:00–21:00 in 15-min steps, one column per on-duty staff. Blocks stored in `D.pages[ds].schedule` as `{ id, staff, label, start, end, color }` (times in minutes-from-midnight). Drag body to move, drag bottom handle to resize.
+ヘッダーの「🕒 タイムライン」ボタン（`openSchedPanel()`、パネル `#sched-panel-ov`、描画 `renderSched()`——id・関数名は旧スケジュールのまま）。上の切り替え（`_tlView`：`'flow'`|`'grid'`、`setTlView`。端末内の表示状態で `D` には入れない）で2画面を行き来する。
+
+- **自動の予定は `timelineEvents(ds)` が唯一の入口**。手で置いた予定（`schedOf(dat)`）に加え、タブレット貸出（両主観・台帳は主観ごと。前日以前からの未返却は `band:'carry'`）、CE主観だけオペ・カテ症例（`opsItemStartMin`。時刻にならない AMOC/PMOC/空欄は `band:'am'|'pm'|'tbd'`）・PSG外し（`tlIsPsgRemovalDay`、`psgBannerStart`〜`End`）・OC（`startTime`/`endTime`）・**通知時刻（`notif.enabled && notif.time`）を設定したチェック項目**を集める。**書き込みは一切しない**——元データを映すだけなので、直すのは元の症例行・タブレット画面。
+- **HDの流れは手入力とタブレット貸出だけになる。** HDのチェック（`D.hdDly`/`D.hdWd`、🔔欄を出していない）と特殊治療（`dat.hdCount.sp`）には時刻の欄が無いため。空のときは理由を表示する。HDにも流れを出したいなら、先に時刻の欄をデータに足すこと（時刻を推測して並べない）。
+- 流れ（`tlFlowHTML`）：時刻順、今日なら現在時刻の線（`.tl-now`）、絞り込み `_tlFilter`（すべて／自分＝`taskSelfName()`／未完了）。帯は先頭に「前日以前から貸出中」、末尾に「午前／午後（時刻未定）」「入室時間の入力なし」。
+- 担当別（従来の表）：縦軸 8:00–21:00・15分刻み・勤務者ごとの列。手で置くブロックは `D.pages[ds].schedule`（HDは `hdSchedule`）に `{ id, staff, label, start, end, color }`（分）で保存、本体ドラッグで移動・下端でリサイズ。**自動の予定は `.sched-auto`（`.sched-block` ではない・`pointer-events:none`）で重ねる**ので、`schedBindInteractions` の移動・削除・配置の対象にならない。担当者の列が無い予定は先頭の「全体」列（`.sched-allcol` / `.sched-alltrack`。`.sched-track` ではないので手のブロックの置き先にもならない）へ。同じ列で時間の重なる自動の予定は `tlLayoutAuto` が横に並べる（並べないと長い症例が他を隠す）。終わりの無い予定は種類ごとの目安の長さで点線（`.sa-open`）。
+- マスタの「🕒 タイムラインのプリセット」（`D.schedPresets`）は担当別で置くブロックの型。
 
 ### Checklist Items & Week-of-Month Filtering
 
