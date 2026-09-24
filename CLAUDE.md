@@ -806,6 +806,7 @@ Structure: `.ato#ato-wrap` > `#at-zoom-inner` > `#at-body` (table content).
 ヘッダーの「🕒 タイムライン」ボタン（`openSchedPanel()`、パネル `#sched-panel-ov`、描画 `renderSched()`——id・関数名は旧スケジュールのまま）。上の切り替え（`_tlView`：`'flow'`|`'grid'`、`setTlView`。端末内の表示状態で `D` には入れない）で2画面を行き来する。
 
 - **自動の予定は `timelineEvents(ds)` が唯一の入口**。手で置いた予定（`schedOf(dat)`）に加え、タブレット貸出（両主観・台帳は主観ごと。前日以前からの未返却は `band:'carry'`）、CE主観だけオペ・カテ症例（`opsItemStartMin`。時刻にならない AMOC/PMOC/空欄は `band:'am'|'pm'|'tbd'`）・PSG外し（`tlIsPsgRemovalDay`、`psgBannerStart`〜`End`）・OC（`startTime`/`endTime`）・**通知時刻（`notif.enabled && notif.time`）を設定したチェック項目**を集める。**書き込みは一切しない**——元データを映すだけなので、直すのは元の症例行・タブレット画面。
+- **担当者が未入力のオペ・カテ症例は、その日のオペ担当枠／カテ担当枠の人に仮に振り分ける**（`assumed:true`、流れでは「（担当枠）」、担当別では斜線 `.sa-assumed`）。枠の照合は label の部分一致（`/オペ|OPE/i`・`/カテ/`）。症例行に担当者が入ればそちらが正で、仮の振り分けは消える。書き込みはしない。
 - **HDの流れは手入力とタブレット貸出だけになる。** HDのチェック（`D.hdDly`/`D.hdWd`、🔔欄を出していない）と特殊治療（`dat.hdCount.sp`）には時刻の欄が無いため。空のときは理由を表示する。HDにも流れを出したいなら、先に時刻の欄をデータに足すこと（時刻を推測して並べない）。
 - 流れ（`tlFlowHTML`）：時刻順、今日なら現在時刻の線（`.tl-now`）、絞り込み `_tlFilter`（すべて／自分＝`taskSelfName()`／未完了）。帯は先頭に「前日以前から貸出中」、末尾に「午前／午後（時刻未定）」「入室時間の入力なし」。
 - 担当別（従来の表）：縦軸 8:00–21:00・15分刻み・勤務者ごとの列。手で置くブロックは `D.pages[ds].schedule`（HDは `hdSchedule`）に `{ id, staff, label, start, end, color }`（分）で保存、本体ドラッグで移動・下端でリサイズ。**自動の予定は `.sched-auto`（`.sched-block` ではない・`pointer-events:none`）で重ねる**ので、`schedBindInteractions` の移動・削除・配置の対象にならない。担当者の列が無い予定は先頭の「全体」列（`.sched-allcol` / `.sched-alltrack`。`.sched-track` ではないので手のブロックの置き先にもならない）へ。同じ列で時間の重なる自動の予定は `tlLayoutAuto` が横に並べる（並べないと長い症例が他を隠す）。終わりの無い予定は種類ごとの目安の長さで点線（`.sa-open`）。
