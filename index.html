@@ -1442,6 +1442,8 @@ body.is-offline{--off-h:24px}
 .sched-auto.sa-etc{background:var(--sur2);border-color:var(--bdr);color:var(--txt2)}
 .sched-auto.sa-open{border-style:dashed}
 .sched-auto.sa-done{opacity:.45}
+/* 症例行に担当者が未入力で、担当枠の人へ仮に振り分けた予定（担当者を入れると通常表示に戻る） */
+.sched-auto.sa-assumed{background-image:repeating-linear-gradient(135deg,transparent 0 5px,rgba(127,127,127,.12) 5px 10px)}
 /* ===== メディア表示 ===== */
 .media-cell{position:relative;display:inline-block}
 /* ===== 変更履歴 ===== */
@@ -1582,6 +1584,29 @@ body.is-offline{--off-h:24px}
 /* 種類マスタの行に並ぶ、Excel出力で書く文字（上段・下段）の小さな入力欄 */
 .srq-mark{display:inline-flex;gap:3px;margin-left:auto;margin-right:6px}
 .srq-mark input{width:38px;font-size:11px;padding:2px 4px;text-align:center;border:1px solid var(--bdr);border-radius:5px}
+/* 勤務希望の入力欄（対象スタッフ・締切日・見え方）。端末標準の見た目のままだと古く見えるので枠を揃える */
+.srq-card{background:var(--sur);border:1px solid var(--bdr);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:14px}
+.srq-who{max-width:560px;box-sizing:border-box;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px}
+.srq-who-l{font-size:11px;font-weight:700;color:var(--txt2)}
+.srq-proxy{font-size:11px;font-weight:700;color:var(--or);background:var(--or-bg);padding:3px 9px;border-radius:999px}
+.srq-fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.srq-fld-l{font-size:11px;font-weight:700;color:var(--txt2)}
+.srq-fld-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.srq-in{font-family:var(--fn);font-size:13px;font-weight:600;padding:7px 11px;min-height:36px;box-sizing:border-box;border:1px solid var(--bdr);border-radius:8px;background:var(--sur);color:var(--txt);outline:none;transition:border-color .15s,box-shadow .15s;max-width:100%}
+.srq-in:hover{border-color:var(--txt3)}
+.srq-in:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-bg)}
+.srq-in::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.5}
+.srq-in::-webkit-calendar-picker-indicator:hover{opacity:.9}
+select.srq-in{-webkit-appearance:none;appearance:none;padding-right:30px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a8f98' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+.srq-who select.srq-in{flex:1 1 140px;min-width:0}
+.srq-dl-note{font-size:11px;color:var(--txt3)}
+.srq-seg{display:flex;background:var(--sur2);border:1px solid var(--bdr);border-radius:9px;padding:2px;width:100%;max-width:360px;box-sizing:border-box}
+.srq-fld-row .btn{min-height:36px}
+.srq-card{max-width:560px}
+.srq-seg button{flex:1;border:none;background:none;font-family:var(--fn);font-size:12px;font-weight:700;padding:7px 4px;border-radius:7px;color:var(--txt2);cursor:pointer;white-space:nowrap}
+.srq-seg button.on{background:var(--sur);color:var(--txt);box-shadow:0 0 0 1px var(--bdr),0 1px 2px rgba(0,0,0,.06)}
+.srq-card-f{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.srq-hint{font-size:11px;color:var(--txt3);line-height:1.6}
 /* ===== 検索モーダル ===== */
 .srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
 .srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
@@ -2396,7 +2421,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
           <span class="ml" id="srq-ml"></span>
           <button onclick="srqNextM()">&#8250;</button>
         </div>
-        <div id="srq-admin-switch" style="display:none;margin-bottom:10px;font-size:12px"></div>
+        <div id="srq-admin-switch" style="display:none"></div>
         <div id="srq-nolink" style="display:none;margin-bottom:10px"></div>
         <div id="srq-cal-wrap">
           <div id="srq-legend"></div>
@@ -5649,11 +5674,16 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/24-93';
+var APP_VERSION = 'Ver.2026/09/25-94';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/25-94', date:'2026-09-25', title:'タイムラインでオペ・カテを担当者に振り分け、勤務希望の設定欄を見やすくしました', items:[
+    {t:'imp', d:'🕒 タイムラインで、担当者がまだ入っていないオペ・カテの症例を、その日のオペ担当・カテ担当の人に仮に振り分けて表示するようにしました（「（担当枠）」と表示。症例に担当者を入れるとそちらが優先されます）'},
+    {t:'imp', admin:true, notify:true, d:'📝 勤務希望の対象スタッフ・締切日・見え方の入力欄を見やすくしました。締切日の横に曜日を表示します'},
+    {t:'imp', admin:true, notify:true, d:'📧 連絡表の「特殊治療メール通知の記録」は管理者にだけ表示するようにしました'}
+  ]},
   { ver:'Ver.2026/09/24-93', date:'2026-09-24', title:'特殊治療メールの設定がオフのままになっていることに気づけるようにしました', items:[
     {t:'fix', admin:true, d:'📧 HD特殊治療メールの設定で「通知を有効にする」にチェックが無いまま保存しても「同期しました」と表示され、メールが送られていないことに気づけなかった問題を直しました。設定欄の先頭に今の状態（オン／オフ・送信先の人数・EmailJS未設定）を出し、送れない状態で保存したときは警告を出します'},
     {t:'imp', admin:true, d:'📧 連絡表に残る特殊治療メールの記録で、未送信の理由（通知がオフ／EmailJSが未設定）を分けて表示するようにしました'}
@@ -12549,9 +12579,9 @@ function renderShiftReq() {
     if (_srqAdminName === null || names.indexOf(_srqAdminName) === -1) _srqAdminName = (selfName && names.indexOf(selfName) !== -1) ? selfName : (names[0] || null);
     var opts = names.map(function (n) { return '<option value="' + escH(n) + '"' + (n === _srqAdminName ? ' selected' : '') + '>' + escH(n) + '</option>'; }).join('');
     switchWrap.style.display = '';
-    switchWrap.innerHTML = '<span style="font-weight:700;margin-right:6px">対象スタッフ</span>'
-      + '<select id="srq-stf-sel" onchange="srqSwitchStaff(this.value)">' + (opts || '<option value="">（スタッフ未登録）</option>') + '</select>'
-      + (_srqAdminName && _srqAdminName !== selfName ? ' <span style="font-weight:700;color:var(--or);margin-left:8px">👤 代理で入力中</span>' : '');
+    switchWrap.innerHTML = '<div class="srq-who"><span class="srq-who-l">対象スタッフ</span>'
+      + '<select class="srq-in" id="srq-stf-sel" onchange="srqSwitchStaff(this.value)">' + (opts || '<option value="">（スタッフ未登録）</option>') + '</select>'
+      + (_srqAdminName && _srqAdminName !== selfName ? '<span class="srq-proxy">👤 代理で入力中</span>' : '') + '</div>';
   } else if (switchWrap) { switchWrap.style.display = 'none'; }
 
   var targetName = isAdmin ? _srqAdminName : selfName;
@@ -12649,16 +12679,35 @@ function srqCellExtraHTML(ym, day, excludeName, vis) {
 function renderShiftReqSettings(ym) {
   var el = document.getElementById('srq-settings'); if (!el) return;
   var dl = shiftReqDeadline(ym), vis = shiftReqVisibility();
-  var h = '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">';
-  h += '<label style="font-size:12px;font-weight:700">この月の締切日<br><input type="date" id="srq-deadline-input" value="' + escH(dl) + '" style="margin-top:4px"></label>';
-  h += '<label style="font-size:12px;font-weight:700">他の人の希望の見え方<br><select id="srq-visibility-input" style="margin-top:4px">'
-    + '<option value="self"' + (vis === 'self' ? ' selected' : '') + '>自分だけ</option>'
-    + '<option value="count"' + (vis === 'count' ? ' selected' : '') + '>人数だけ</option>'
-    + '<option value="all"' + (vis === 'all' ? ' selected' : '') + '>全員</option>'
-    + '</select></label>';
-  h += '<button class="btn btn-p btn-sm" onclick="saveShiftReqCfg()">保存</button>';
-  h += '</div><div style="font-size:11px;color:var(--txt3);margin-top:6px">締切日はこの月だけの設定です。月を変えたら別々に設定してください。見え方は全体共通です。</div>';
+  var y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(5, 7), 10);
+  var h = '<div class="srq-card">';
+  h += '<div class="srq-fld"><span class="srq-fld-l">' + y + '年' + m + '月の締切日</span><div class="srq-fld-row">'
+    + '<input type="date" class="srq-in" id="srq-deadline-input" value="' + escH(dl) + '" oninput="srqDlNote()">'
+    + '<button type="button" class="btn btn-g btn-sm" onclick="srqDlClear()">なし</button>'
+    + '<span class="srq-dl-note" id="srq-dl-note"></span></div></div>';
+  h += '<div class="srq-fld"><span class="srq-fld-l">他の人の希望の見え方（全体共通）</span><div class="srq-seg" id="srq-visibility-input" data-v="' + vis + '">'
+    + [['self', '自分だけ'], ['count', '人数だけ'], ['all', '全員']].map(function (o) {
+      return '<button type="button" data-v="' + o[0] + '" class="' + (vis === o[0] ? 'on' : '') + '" onclick="srqVisPick(this)">' + o[1] + '</button>';
+    }).join('') + '</div></div>';
+  h += '<div class="srq-card-f"><span class="srq-hint">締切日は月ごとの設定です</span>'
+    + '<button class="btn btn-p btn-sm" onclick="saveShiftReqCfg()">保存</button></div>';
+  h += '</div>';
   el.innerHTML = h;
+  srqDlNote();
+}
+/* 締切日の横に「10/15（木）まで」を出す（端末標準の日付欄は曜日を出さないため） */
+function srqDlNote() {
+  var inp = document.getElementById('srq-deadline-input'), note = document.getElementById('srq-dl-note');
+  if (!inp || !note) return;
+  var v = inp.value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) { note.textContent = '未設定（いつでも入力できます）'; return; }
+  var p = v.split('-'), dt = new Date(+p[0], +p[1] - 1, +p[2]);
+  note.textContent = (+p[1]) + '/' + (+p[2]) + '（' + '日月火水木金土'.charAt(dt.getDay()) + '）まで';
+}
+function srqDlClear() { var inp = document.getElementById('srq-deadline-input'); if (inp) { inp.value = ''; srqDlNote(); } }
+function srqVisPick(btn) {
+  var seg = btn.parentNode; seg.setAttribute('data-v', btn.getAttribute('data-v'));
+  Array.prototype.forEach.call(seg.children, function (b) { b.classList.toggle('on', b === btn); });
 }
 function saveShiftReqCfg() {
   if (!isAdmin) return;
@@ -12666,7 +12715,7 @@ function saveShiftReqCfg() {
   var dlInput = document.getElementById('srq-deadline-input');
   var visInput = document.getElementById('srq-visibility-input');
   var dl = dlInput ? dlInput.value : '';
-  var vis = visInput ? visInput.value : 'self';
+  var vis = visInput ? visInput.getAttribute('data-v') : 'self';
   if (!D.shiftReqCfg) D.shiftReqCfg = {};
   D.shiftReqCfg.visibility = (vis === 'count' || vis === 'all') ? vis : 'self';
   if (!D.shiftReqCfg.deadlines) D.shiftReqCfg.deadlines = {};
@@ -18223,7 +18272,9 @@ function hdTreatMailStatusText(ev) {
   if (ev.status === 'sending') return '送信状態未確定（自動再送なし）';
   return states[ev.status] || '状態不明';
 }
+/* 送信記録は管理者だけに出す（送れなかったときの原因調べ用。他の職員には見せる必要が無い） */
 function hdTreatMailStatusHTML(dat) {
+  if (!isAdmin) return '';
   var log = hdTreatMailLogOf(dat).slice(-3).reverse();
   if (!log.length) return '';
   var h = '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--bdr)"><div style="font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:4px">特殊治療メール通知の記録</div>';
@@ -24276,10 +24327,21 @@ function timelineEvents(ds){
       band:'carry', done:false, open:true, sub:(o.log.borrower||'')+'・'+tabletMD(o.ds)+' '+schedMinToHM(o.log.lentAt||0)+'から未返却'});
   });
   if (!ce) return out;
+  /* 症例行に担当者がまだ無いときは、その日のオペ担当枠／カテ担当枠の人に仮に振り分ける（assumed）。
+     担当者を入れたらそちらが正。枠の照合は id ではなく label（myDutyLabels・closeItems と同じ理由） */
+  var dutyBy = {ope:[], cath:[]};
+  getDutyCfg(dat).forEach(function(s){
+    var who = dat.duties && dat.duties[s.id], lb = s.label || '';
+    if (!who) return;
+    var k = /オペ|OPE/i.test(lb) ? 'ope' : (/カテ/.test(lb) ? 'cath' : '');
+    if (k && dutyBy[k].indexOf(who) === -1) dutyBy[k].push(who);
+  });
   [['ope','オペ'],['cath','カテ']].forEach(function(p){
     opsItemsOf(dat, p[0]).forEach(function(it){
       if (!opsItemFilled(it)) return;
-      var ev = {kind:p[0], kl:p[1], title:opsItemTitle(it, p[0]) || opsItemDept(it) || p[1], staff:opsItemStaff(it),
+      var stf = opsItemStaff(it), assumed = false;
+      if (!stf.length && dutyBy[p[0]].length) { stf = dutyBy[p[0]].slice(); assumed = true; }
+      var ev = {kind:p[0], kl:p[1], title:opsItemTitle(it, p[0]) || opsItemDept(it) || p[1], staff:stf, assumed:assumed,
         done:!!it.done, cancel:!!it.cancelled, end:(it.endTime != null ? it.endTime : null)};
       var st = opsItemStartMin(it), t = it.time || '';
       if (st == null) ev.band = /^AM/.test(t) ? 'am' : (/^PM/.test(t) ? 'pm' : 'tbd'); else ev.start = st;
@@ -24313,7 +24375,7 @@ function timelineEvents(ds){
 }
 function tlSubText(e){
   if (e.sub != null && e.sub !== '') return e.sub;
-  var s = e.staff.join('・');
+  var s = e.staff.join('・') + (e.assumed ? '（担当枠）' : '');
   if (e.start != null && e.end != null && e.end > e.start) s += (s ? '・' : '') + '〜' + tlHM(e.end);
   if (e.cancel) s += (s ? '・' : '') + '中止';
   else if (e.done && (e.kind === 'ope' || e.kind === 'cath')) s += (s ? '・' : '') + '終了';
@@ -24394,9 +24456,9 @@ function tlLayoutAuto(list, nowM){
 function tlAutoBlockHTML(x){
   var e = x.e, w = 100 / (x.lanes || 1);
   var cls = 'sched-auto sa-' + (e.kind === 'ope' ? 'ope' : e.kind === 'cath' ? 'cath' : e.kind === 'tab' ? 'tab' : 'etc')
-    + (x.openEnded ? ' sa-open' : '') + ((e.done || e.cancel) ? ' sa-done' : '');
+    + (x.openEnded ? ' sa-open' : '') + ((e.done || e.cancel) ? ' sa-done' : '') + (e.assumed ? ' sa-assumed' : '');
   return '<div class="' + cls + '" style="top:' + ((x.st - SCHED_START) * SCHED_PXMIN) + 'px;height:' + ((x.en - x.st) * SCHED_PXMIN) + 'px;'
-    + 'left:calc(' + (w * x.lane) + '% + 2px);width:calc(' + w + '% - 4px);right:auto" title="' + escH(tlHM(e.start) + ' ' + (e.kl ? e.kl + ' ' : '') + e.title) + '">'
+    + 'left:calc(' + (w * x.lane) + '% + 2px);width:calc(' + w + '% - 4px);right:auto" title="' + escH(tlHM(e.start) + ' ' + (e.kl ? e.kl + ' ' : '') + e.title + (e.assumed ? '（担当枠から仮に表示）' : '')) + '">'
     + '<div class="bn">' + escH((e.kl ? e.kl + ' ' : '') + e.title) + '</div><div class="bt">' + tlHM(e.start) + '</div></div>';
 }
 
