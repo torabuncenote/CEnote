@@ -1579,6 +1579,9 @@ body.is-offline{--off-h:24px}
 .srq-grid .cd{min-height:54px;padding:4px 2px 5px;gap:2px}
 .srq-lbl{display:block;width:100%;box-sizing:border-box;text-align:center;border-radius:4px;padding:2px 2px;font-size:9.5px;font-weight:700;line-height:1.25;word-break:break-all;white-space:normal}
 .srq-extra{display:block;width:100%;font-size:8.5px;color:var(--txt3);line-height:1.3;word-break:break-all;margin-top:1px}
+/* 種類マスタの行に並ぶ、Excel出力で書く文字（上段・下段）の小さな入力欄 */
+.srq-mark{display:inline-flex;gap:3px;margin-left:auto;margin-right:6px}
+.srq-mark input{width:38px;font-size:11px;padding:2px 4px;text-align:center;border:1px solid var(--bdr);border-radius:5px}
 /* ===== 検索モーダル ===== */
 .srch-inp{width:100%;font-size:15px;padding:10px 12px;border:2px solid var(--ac);border-radius:8px;box-sizing:border-box;outline:none;font-family:var(--mo)}
 .srch-res{max-height:420px;overflow-y:auto;margin-top:8px}
@@ -1998,7 +2001,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
                  食い違ってしまう（追加・削除・並べ替えのみ）。data-mode を付けず両モードで出す。 -->
             <div data-perm="mst">
               <div class="pt">📝 勤務希望の種類</div>
-              <div class="pn" style="margin-bottom:8px;font-size:11px">「📝 勤務希望」タブでカレンダーの日をタップしたときに選べる種類です。並び順がそのまま選択画面の並びになります。<b>名前の変更はできません</b>（削除・追加・並べ替えはできます）。</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">「📝 勤務希望」タブでカレンダーの日をタップしたときに選べる種類です。並び順がそのまま選択画面の並びになります。<b>名前の変更はできません</b>（削除・追加・並べ替えはできます）。右の2つの欄は、Excel出力でその日のマスに書く文字（上段・下段）です（例：有休＝上「年」下「休」）。</div>
               <div class="rl" id="srq-code-list"></div>
               <div class="ar" id="srq-code-ar">
                 <input type="text" id="in-srq-code" placeholder="種類を入力…" maxlength="20">
@@ -2402,6 +2405,8 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         <div id="srq-admin-block" style="display:none;margin-top:20px;border-top:1px solid var(--bdr);padding-top:14px">
           <div class="pt" style="margin-bottom:10px">⚙ 設定（管理者）</div>
           <div id="srq-settings" style="margin-bottom:20px"></div>
+          <div class="pt" style="margin-bottom:10px">⬇️ Excel出力（管理者）</div>
+          <div id="srq-excel" style="margin-bottom:20px"></div>
           <div class="pt" style="margin-bottom:10px">📋 全員の一覧（管理者）</div>
           <div id="srq-matrix"></div>
         </div>
@@ -2899,6 +2904,7 @@ var LATEST_DB_RULES = [
 '      }',
 '    },',
 '    "robotImg":      { ".read": "auth != null", "$id": { ".write": "auth != null" } },',
+'    "shiftReqTpl":   { ".read": "auth != null", ".write": "auth != null && root.child(\'admins\').child(auth.uid).val() === true" },',
 '    "backups":       { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "backup_meta":   { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "recent_backup": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", ".write": "auth != null" },',
@@ -5643,11 +5649,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/24-91';
+var APP_VERSION = 'Ver.2026/09/24-92';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/24-92', date:'2026-09-24', title:'勤務希望をExcelで出力できるようにしました', items:[
+    {t:'new', admin:true, d:'⬇️ 勤務希望タブに「Excelで出力」を追加しました。部署の勤務表（.xlsx）を1回登録すると、その月の希望・日付・曜日・祝日名・職員番号・氏名を書き込み、土日祝の色も塗り直したExcelを出力できます'},
+    {t:'new', admin:true, d:'📝 マスタの「勤務希望の種類」で、Excelに書く文字（上段・下段）を種類ごとに設定できるようにしました（例：有休＝上「年」下「休」）'}
+  ]},
   { ver:'Ver.2026/09/24-91', date:'2026-09-24', title:'スケジュールをタイムラインに作り替えました', items:[
     {t:'new', notify:true, d:'🕒 連絡表の「⏰ スケジュール」を「🕒 タイムライン」に変えました。「流れ」では、オペ・カテの入室時間、タブレットの貸出、通知時刻を設定したチェックなどがその日の順番に自動で並び、今の時刻に線が引かれます。「自分」「未完了」で絞り込めます'},
     {t:'imp', notify:true, d:'🕒 これまでのスケジュール表は「担当別」として残っています。症例や貸出も担当者の列に自動で重なり、担当者が決まっていないものは「全体」の列に出ます'}
@@ -12420,7 +12430,7 @@ function restoreHolidayCalc(ds) {
 
 /* ===== 勤務希望（D.shiftReq） =====
    翌月などの勤務希望を、各職員がカレンダーで入力し、管理者が全員分を一覧で確認する。
-   Excel出力・テンプレの取り込みは次の段階（今回は作らない・ボタンも置かない）。
+   Excel出力（テンプレ登録と書き出し）は下の「勤務希望のExcel出力（段2b）」節。
    D.shiftReq = { 'YYYY-MM': { 氏名: { '1':'休み', '2':'日勤希望', … } } }（日は文字列キー、
    値は D.shiftReqCodes の文字列そのもの）。種類マスタ（D.shiftReqCodes）は D.wdDepts と同型の
    単純な文字列配列で、初期値は7種類・改名ボタンは無い（過去の希望は文字列でそのまま残るため、
@@ -12559,7 +12569,7 @@ function renderShiftReq() {
   var adminBlock = document.getElementById('srq-admin-block');
   if (adminBlock) {
     adminBlock.style.display = isAdmin ? '' : 'none';
-    if (isAdmin) { renderShiftReqSettings(ym); renderShiftReqMatrix(ym); }
+    if (isAdmin) { renderShiftReqSettings(ym); renderShiftReqExcel(ym); renderShiftReqMatrix(ym); }
   }
 }
 
@@ -12710,7 +12720,12 @@ function renderShiftReqCodeList() {
     for (var i = 0; i < codes.length; i++) {
       var el = document.createElement('div'); el.className = 'ri';
       var btns = ok ? '<button class="ru" onclick="mvShiftReqCode(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>↑</button><button class="rdw" onclick="mvShiftReqCode(' + i + ',1)"' + (i === codes.length - 1 ? ' disabled' : '') + '>↓</button><button class="rd2" onclick="rmShiftReqCode(' + i + ')">×</button>' : '';
-      el.innerHTML = '<span class="rn">📝 ' + escH(codes[i]) + '</span>' + btns;
+      /* Excel出力で書く文字（上段・下段）。種類名は onclick に埋め込まず data-code で渡す（引用符で壊れないように） */
+      var mk = shiftReqMark(codes[i]);
+      var marks = '<span class="srq-mark" title="Excel出力で書く文字（上段／下段）">'
+        + '<input type="text" maxlength="4" placeholder="上段" value="' + escH(mk.top) + '" data-code="' + escH(codes[i]) + '" data-pos="top" onchange="setShiftReqMark(this)"' + (ok ? '' : ' disabled') + '>'
+        + '<input type="text" maxlength="4" placeholder="下段" value="' + escH(mk.bot) + '" data-code="' + escH(codes[i]) + '" data-pos="bot" onchange="setShiftReqMark(this)"' + (ok ? '' : ' disabled') + '></span>';
+      el.innerHTML = '<span class="rn">📝 ' + escH(codes[i]) + '</span>' + marks + btns;
       l.appendChild(el);
     }
   }
@@ -12732,6 +12747,220 @@ function mvShiftReqCode(i, d) {
   var arr = D.shiftReqCodes; var j = i + d; if (!arr || j < 0 || j >= arr.length) return;
   var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
   renderShiftReqCodeList(); saveD();
+}
+
+/* ===== 勤務希望のExcel出力（段2b） =====
+   管理者が枠だけのテンプレ（部署の年度勤務表 .xlsx）を1回アップロードし、出力時に対象月のシートを
+   アプリのデータで埋めて書き出す。テンプレの実物（2026年度分院勤務表「分202703」）で確かめた配置：
+   - AH2＝年・AN2＝月（数値）。C2 は =DATE(AH2,AN2,1) なので追従する
+   - 3行目＝日付・4行目＝曜日・5行目（5〜6行の結合）＝祝日名。D列から2列ずつ31日ぶん（D〜BM）。
+     テンプレでは値の直書きなので必ず書き直す。月末を超える日の列は空にして色も外す
+   - 7〜56行目＝25人ぶん。2行1組で C列の上＝職員番号・下＝氏名。希望は日付の左列に上段・下段で書く
+   - 塗り（4〜56行目・日付ごとの2列）：土＝theme 8（accent5）tint 0.8／日・祝＝theme 9（accent6）tint 0.8
+   - 58行目以降の日別 COUNTIF・BN列の個人集計は本体の文字を数える式なので触らない
+   出力は対象月のシート1枚だけ（他の月の入力済みの中身を外に出さない）。他のシートを参照する式
+   （年度計の BO4 など）は参照先が無くなるので空にする。
+   テンプレ本体は D の外（/shiftReqTpl）に置き、D.shiftReqCfg.tpl には名前・大きさ・日時だけを持つ
+   （ロボット配置図 /robotImg と同じ流儀。D に入れると保存のたびに全員へ送り直し、バックアップにも複製される）。
+   上段・下段の文字は D.shiftReqCfg.marks = [{n:種類名, top, bot}]（名前をキーにしない配列＝Firebaseの
+   キー禁止文字の心配が無い）。未設定なら DEF_SHIFT_REQ_MARKS を読むときに補う。 */
+var DEF_SHIFT_REQ_MARKS = { '休み':['','休'], '有休':['年','休'], '計画年休':['計','休'], '夏休み':['','夏'],
+  '日勤希望':['','CE'], '準夜勤希望':['','準'], '宿直希望':['','宿直'] };
+var SRQ_TPL_WARN = 1024 * 1024, SRQ_TPL_MAX = 3 * 1024 * 1024;
+var SRQ_XL = { firstRow: 7, lastRow: 56, firstCol: 4, days: 31, fillTop: 4 }; /* D7:BM56・塗りは4行目から */
+var EXCELJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+function shiftReqMark(code) {
+  var arr = normArr(D.shiftReqCfg && D.shiftReqCfg.marks);
+  for (var i = 0; i < arr.length; i++) if (arr[i] && arr[i].n === code) return { top: arr[i].top || '', bot: arr[i].bot || '' };
+  var d = DEF_SHIFT_REQ_MARKS[code];
+  return d ? { top: d[0], bot: d[1] } : { top: '', bot: '' };
+}
+function setShiftReqMark(inp) {
+  if (!can('mst')) return;
+  var code = inp.getAttribute('data-code'), pos = inp.getAttribute('data-pos') === 'top' ? 'top' : 'bot';
+  if (shiftReqCodes().indexOf(code) === -1) { renderShiftReqCodeList(); return; }
+  if (!D.shiftReqCfg) D.shiftReqCfg = {};
+  var arr = normArr(D.shiftReqCfg.marks), cur = shiftReqMark(code), hit = null;
+  arr.forEach(function (m) { if (m && m.n === code) hit = m; });
+  if (!hit) { hit = { n: code, top: cur.top, bot: cur.bot }; arr.push(hit); }
+  hit[pos] = inp.value.trim();
+  D.shiftReqCfg.marks = arr;
+  saveD();
+  writeLog('勤務希望の文字', code + '：上段「' + hit.top + '」下段「' + hit.bot + '」');
+}
+/* ExcelJS は押したときだけ読み込む（連絡表を開くたびに約1MBを読ませない） */
+var _excelJsPromise = null;
+function srqLoadExcelJS() {
+  if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+  if (_excelJsPromise) return _excelJsPromise;
+  _excelJsPromise = new Promise(function (res, rej) {
+    var s = document.createElement('script'); s.src = EXCELJS_URL;
+    s.onload = function () { window.ExcelJS ? res(window.ExcelJS) : rej(new Error('ExcelJS')); };
+    s.onerror = function () { _excelJsPromise = null; rej(new Error('Excelの部品を読み込めませんでした（通信を確認してください）')); };
+    document.head.appendChild(s);
+  });
+  return _excelJsPromise;
+}
+function srqB64ToBuf(b64) { var bin = atob(b64), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; }
+function srqBufToB64(buf) { var u = new Uint8Array(buf), s = '', CH = 0x8000; for (var i = 0; i < u.length; i += CH) s += String.fromCharCode.apply(null, u.subarray(i, i + CH)); return btoa(s); }
+function srqTplMeta() { return (D.shiftReqCfg && D.shiftReqCfg.tpl) || null; }
+/* テンプレ本体の読み出し（出力するときだけ）。プレビューは端末内（ロボット配置図と同じ roboIsLocal 判定） */
+function srqTplGet() {
+  if (roboIsLocal()) { var v = null; try { v = localStorage.getItem('ce2_srqtpl'); } catch (e) {} return Promise.resolve(v); }
+  return fbDB.ref('/shiftReqTpl/data').once('value').then(function (s) { return s.val() || null; });
+}
+function srqTplUpload(inp) {
+  if (!isAdmin) return;
+  var f = inp.files && inp.files[0]; inp.value = '';
+  if (!f) return;
+  if (!/\.xlsx$/i.test(f.name)) { toast('.xlsx のファイルを選んでください', 'warn'); return; }
+  if (f.size > SRQ_TPL_MAX) { toast('ファイルが大きすぎます（3MBまで）。中身の多いシートを減らしてください', 'warn'); return; }
+  if (f.size > SRQ_TPL_WARN && !confirm('テンプレが ' + Math.round(f.size / 1024) + 'KB あります。保存すると出力のたびにこの大きさを読み込みます。続けますか？')) return;
+  var rd = new FileReader();
+  rd.onload = function () {
+    var buf = rd.result;
+    srqLoadExcelJS().then(function (X) {
+      var wb = new X.Workbook();
+      return wb.xlsx.load(buf).then(function () {
+        var sheets = wb.worksheets.map(function (w) { return w.name; });
+        if (!sheets.length) throw new Error('シートがありません');
+        srqTplSave(srqBufToB64(buf), { name: f.name, size: f.size, ts: Date.now(), by: (currentUser && currentUser.displayName) || '', sheets: sheets });
+      });
+    }).catch(function (e) { toast('テンプレを読み込めませんでした：' + (e.message || e), 'err', 8000); });
+  };
+  rd.readAsArrayBuffer(f);
+}
+function srqTplSave(b64, meta) {
+  var done = function () {
+    if (!D.shiftReqCfg) D.shiftReqCfg = {};
+    D.shiftReqCfg.tpl = meta; saveD();
+    writeLog('勤務希望テンプレ登録', meta.name + '（' + Math.round(meta.size / 1024) + 'KB）');
+    toast('✅ テンプレを登録しました', 'ok'); renderShiftReq();
+  };
+  if (roboIsLocal()) {
+    try { localStorage.setItem('ce2_srqtpl', b64); } catch (e) { toast('端末に保存できませんでした（容量不足）', 'err'); return; }
+    done(); return;
+  }
+  fbDB.ref('/shiftReqTpl').set({ data: b64, ts: meta.ts, by: meta.by, size: meta.size }).then(done).catch(function (e) {
+    toast('テンプレを保存できませんでした。Firebaseのルールに shiftReqTpl が反映されているか確認してください（' + (e.code || e.message || '') + '）', 'err', 10000);
+  });
+}
+function srqTplDelete() {
+  if (!isAdmin || !srqTplMeta() || !confirm('登録したテンプレを削除しますか？')) return;
+  var done = function () { delete D.shiftReqCfg.tpl; saveD(); writeLog('勤務希望テンプレ削除', ''); renderShiftReq(); };
+  if (roboIsLocal()) { try { localStorage.removeItem('ce2_srqtpl'); } catch (e) {} done(); return; }
+  fbDB.ref('/shiftReqTpl').remove().then(done).catch(function () { toast('削除できませんでした', 'err'); });
+}
+function srqFillOf(kind) {
+  if (kind === 'sat') return { type: 'pattern', pattern: 'solid', fgColor: { theme: 8, tint: 0.7999816888943144 }, bgColor: { indexed: 64 } };
+  if (kind === 'sun') return { type: 'pattern', pattern: 'solid', fgColor: { theme: 9, tint: 0.7999816888943144 }, bgColor: { indexed: 64 } };
+  return { type: 'pattern', pattern: 'none' };
+}
+/* セルの書式は他のセルと共有されていることがあるので、書式オブジェクトを作り直してから塗る */
+function srqSetFill(cell, kind) { cell.style = Object.assign({}, cell.style, { fill: srqFillOf(kind) }); }
+/* テンプレ（ArrayBuffer）を対象月のデータで埋めた Workbook を返す。issues に書けなかったものを積む */
+function srqBuildWorkbook(X, buf, ym, issues) {
+  var wb = new X.Workbook();
+  return wb.xlsx.load(buf).then(function () {
+    var y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(5, 7), 10), days = new Date(y, m, 0).getDate();
+    var want = '分' + y + pad(m);
+    var ws = wb.getWorksheet(want) || wb.worksheets.filter(function (w) { return /^分\d{6}$/.test(w.name); })[0] || wb.worksheets[0];
+    wb.worksheets.slice().forEach(function (w) { if (w.id !== ws.id) wb.removeWorksheet(w.id); });
+    ws.name = want;
+    /* 他のシートを参照する式は、参照先を消したので空にする（年度計など） */
+    ws.eachRow({ includeEmpty: false }, function (row) {
+      row.eachCell({ includeEmpty: false }, function (c) {
+        var f = c.formula; if (typeof f === 'string' && f.indexOf('!') !== -1) c.value = null;
+      });
+    });
+    ws.getCell('AH2').value = y; ws.getCell('AN2').value = m;
+    var WD = ['日','月','火','水','木','金','土'];
+    for (var d = 1; d <= SRQ_XL.days; d++) {
+      var col = SRQ_XL.firstCol + 2 * (d - 1), inM = d <= days, ds = ym + '-' + pad(d);
+      var w = inM ? new Date(y, m - 1, d).getDay() : -1, hn = inM ? (jpHolidayName(ds) || '') : '';
+      ws.getRow(3).getCell(col).value = inM ? d : null;
+      ws.getRow(4).getCell(col).value = inM ? WD[w] : null;
+      ws.getRow(5).getCell(col).value = hn || null;
+      var kind = !inM ? 'none' : (w === 0 || hn) ? 'sun' : (w === 6 ? 'sat' : 'none');
+      for (var r = SRQ_XL.fillTop; r <= SRQ_XL.lastRow; r++) { srqSetFill(ws.getRow(r).getCell(col), kind); srqSetFill(ws.getRow(r).getCell(col + 1), kind); }
+    }
+    var lastCol = SRQ_XL.firstCol + 2 * SRQ_XL.days - 1;
+    for (var rr = SRQ_XL.firstRow; rr <= SRQ_XL.lastRow; rr++) {
+      var row = ws.getRow(rr);
+      row.getCell(3).value = null;
+      for (var cc = SRQ_XL.firstCol; cc <= lastCol; cc++) row.getCell(cc).value = null;
+    }
+    var names = D.stf.filter(function (n) { return !(D.stfHidden && D.stfHidden[n]); });
+    var cap = (SRQ_XL.lastRow - SRQ_XL.firstRow + 1) / 2;
+    if (names.length > cap) issues.push('スタッフが' + names.length + '人いるため、' + (cap + 1) + '人目以降（' + names.slice(cap).join('、') + '）は書けませんでした');
+    var noNum = [], rawCodes = {};
+    names.slice(0, cap).forEach(function (name, k) {
+      var rTop = SRQ_XL.firstRow + 2 * k, no = (D.stfNo && D.stfNo[name]) || '';
+      if (!no) noNum.push(name);
+      ws.getRow(rTop).getCell(3).value = /^\d+$/.test(no) ? Number(no) : (no || null);
+      ws.getRow(rTop + 1).getCell(3).value = name;
+      var recs = shiftReqOf(ym, name);
+      Object.keys(recs).forEach(function (dk) {
+        var dd = parseInt(dk, 10), code = recs[dk];
+        if (!code || !(dd >= 1 && dd <= days)) return;
+        var col2 = SRQ_XL.firstCol + 2 * (dd - 1), mk = shiftReqMark(code);
+        if (!mk.top && !mk.bot) { rawCodes[code] = 1; mk = { top: '', bot: code }; }
+        ws.getRow(rTop).getCell(col2).value = mk.top || null;
+        ws.getRow(rTop + 1).getCell(col2).value = mk.bot || null;
+      });
+    });
+    if (noNum.length) issues.push('職員番号が未登録：' + noNum.join('、') + '（スタッフ一覧で入れられます）');
+    var rc = Object.keys(rawCodes);
+    if (rc.length) issues.push('Excelに書く文字が未設定の種類（種類名をそのまま下段に書きました）：' + rc.join('、') + '（マスタの「勤務希望の種類」で設定できます）');
+    /* 開いたときに集計式（COUNTIF・DATE）を計算し直させる */
+    wb.calcProperties = Object.assign({}, wb.calcProperties, { fullCalcOnLoad: true });
+    return wb;
+  });
+}
+var _srqExcelIssues = null; /* 直近の出力で書けなかったもの（表示用・非永続） */
+function srqExportExcel() {
+  if (!isAdmin) return;
+  var ym = _srqY + '-' + pad(_srqM + 1);
+  if (!srqTplMeta()) { toast('先にテンプレを登録してください', 'warn'); return; }
+  var btn = document.getElementById('srq-xl-btn'); if (btn) { btn.disabled = true; btn.textContent = '作成中…'; }
+  var issues = [];
+  Promise.all([srqLoadExcelJS(), srqTplGet()]).then(function (r) {
+    if (!r[1]) throw new Error('テンプレが見つかりません。登録し直してください');
+    return srqBuildWorkbook(r[0], srqB64ToBuf(r[1]), ym, issues);
+  }).then(function (wb) { return wb.xlsx.writeBuffer(); }).then(function (out) {
+    var blob = new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = '勤務希望_' + _srqY + '年' + (_srqM + 1) + '月.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    _srqExcelIssues = { ym: ym, list: issues };
+    writeLog('勤務希望Excel出力', ym + (issues.length ? '（注意' + issues.length + '件）' : ''));
+    toast(issues.length ? '⚠️ 出力しました（書けなかったものがあります）' : '✅ Excelを出力しました', issues.length ? 'warn' : 'ok');
+  }).catch(function (e) {
+    toast('Excelを出力できませんでした：' + (e.message || e), 'err', 8000);
+  }).then(function () { renderShiftReqExcel(ym); });
+}
+function renderShiftReqExcel(ym) {
+  var el = document.getElementById('srq-excel'); if (!el) return;
+  var meta = srqTplMeta(), y = parseInt(ym.slice(0, 4), 10), m = parseInt(ym.slice(5, 7), 10);
+  var h = '';
+  if (meta) {
+    var dt = new Date(meta.ts || 0);
+    h += '<div style="font-size:12px;margin-bottom:8px">📄 テンプレ：<b>' + escH(meta.name || '') + '</b>（' + Math.round((meta.size || 0) / 1024) + 'KB・'
+      + (dt.getMonth() + 1) + '/' + dt.getDate() + ' 登録' + (meta.by ? '・' + escH(meta.by) : '') + '）</div>';
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      + '<button class="btn btn-p btn-sm" id="srq-xl-btn" onclick="srqExportExcel()">⬇️ ' + y + '年' + m + '月をExcelで出力</button>'
+      + '<label class="btn btn-g btn-sm" style="cursor:pointer">📄 テンプレを差し替え<input type="file" accept=".xlsx" style="display:none" onchange="srqTplUpload(this)"></label>'
+      + '<button class="btn btn-g btn-sm" onclick="srqTplDelete()">🗑 テンプレを削除</button></div>';
+  } else {
+    h += '<div style="font-size:12px;color:var(--txt2);margin-bottom:8px">部署の勤務表（.xlsx）を1回登録すると、この月の希望を書き込んだExcelを出力できます。中身は出力のたびにアプリのデータで埋め直すので、枠だけ使われます。</div>'
+      + '<label class="btn btn-p btn-sm" style="cursor:pointer">📄 テンプレを登録<input type="file" accept=".xlsx" style="display:none" onchange="srqTplUpload(this)"></label>';
+  }
+  if (_srqExcelIssues && _srqExcelIssues.ym === ym && _srqExcelIssues.list.length) {
+    h += '<div class="al" style="margin-top:10px;font-size:12px;background:var(--warn-bg);border:1px solid var(--warn-bdr);color:var(--warn-fg);border-radius:8px;padding:8px 10px">⚠️ 直前の出力で注意が' + _srqExcelIssues.list.length + '件あります'
+      + '<ul style="margin:4px 0 0 18px;padding:0">' + _srqExcelIssues.list.map(function (s) { return '<li>' + escH(s) + '</li>'; }).join('') + '</ul></div>';
+  }
+  el.innerHTML = h;
 }
 
 /* ===== HD特殊治療マスタ（HDモードの血液浄化件数入力「特殊」区分で選ぶ治療名の一覧） =====

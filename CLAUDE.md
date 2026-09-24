@@ -283,6 +283,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /board/                     — 掲示板 posts (independent of /data)
 /tasks/                     — タスク管理 (independent of /data; see Task Management section)
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
+/shiftReqTpl                — 勤務希望のExcel出力テンプレ {data, ts, by, size}（/data の外。D.shiftReqCfg.tpl に名前・日時。書き込みは管理者のみ）
 /logs/                      — activity log (append-only via push())
 /admins/{uid}               — true for admin users
 /users/{uid}                — { email, displayName, lastLogin }
@@ -508,6 +509,7 @@ All class names are abbreviated:
 | `tabletIsReturned(l)` / `tabletCarryOver(ds, mode)` / `tabletReturnedHere(ds, mode)` | 午前0時を含む共通返却判定／全保存日から未返却と当日返却を検索 |
 | `renderHdTreatMailCfg()` / `saveHdTreatMailCfg()` / `hdTreatMailRecordNameChange(ds, action, rowId)` | HD管理者向けの限定宛先設定／治療名変更イベントの保存確認付きメール処理 |
 | `renderShiftReq()` / `shiftReqOf(ym, name)` / `shiftReqCodes()` / `shiftReqDeadline(ym)` | 勤務希望タブ（`pane-shiftreq`）の描画／その人のその月の希望`{日:種類}`／種類マスタ／締切日の4アクセサ。書き込みは `shiftReqSave(ym, name, day, code)` 経由（勤務希望節参照） |
+| `renderShiftReqExcel(ym)` / `srqExportExcel()` / `srqBuildWorkbook(X, buf, ym, issues)` / `srqTplUpload(inp)` / `shiftReqMark(code)` | 勤務希望のExcel出力：管理者ブロックの描画／出力（ExcelJSは押したときだけ読み込む）／テンプレを対象月で埋める本体／テンプレ登録（`/shiftReqTpl`）／種類ごとの上段・下段の文字 |
 | `jpHolidayName(ds)` | 祝日判定の唯一の入口。`D.holidayOv` の上書きを先に見て、無ければ計算（振替休日・国民の休日を含む）で判定する。現状は勤務希望タブのカレンダーだけが参照する（勤務希望節参照） |
 | `renderMakers()` / `renderMakersList()` | メーカー担当者連絡先パネル全体（ヘッダーボタン・`#mk-catnav`のカテゴリチップ）／一覧のみ（`#mk-list`）を再描画。検索欄自体は静的HTMLで作り直さない |
 | `mkCatColor(catId)` | カテゴリIDをハッシュして`MK_PALETTE`（アプリ既存の7色 --ac/--gr/--or/--pu/--rd/--oc/--gd を再利用、新規hexは定義しない）から固定色を返す。並べ替え・改名しても同じカテゴリは常に同じ色。カテゴリチップ・セクション見出し・カード左帯・電話アイコンの4箇所で同じ値を使い回して視覚的に連動させる |
@@ -861,7 +863,7 @@ Fixed bar at the bottom of the screen, shown only while a day page is open — `
 
 ### 勤務希望（`D.shiftReq`）
 
-翌月などの勤務希望を、各職員がカレンダーで入力し、管理者が全員分を一覧で確認する（トップレベルタブ「📝 勤務希望」、`pane-shiftreq`、全ユーザーに表示・主観では出し分けない）。**段1＝入力・締切・一覧のみ。Excel出力・テンプレの取り込みは段2で別途行う（今回は未実装・ボタンも無い）。**
+翌月などの勤務希望を、各職員がカレンダーで入力し、管理者が全員分を一覧で確認する（トップレベルタブ「📝 勤務希望」、`pane-shiftreq`、全ユーザーに表示・主観では出し分けない）。段1（入力・締切・一覧）・段2a（祝日・職員番号）・段2b（テンプレ登録とExcel出力）まで実装済み。
 
 ```js
 D.shiftReq = { 'YYYY-MM': { 氏名: { '1':'休み', '2':'日勤希望', … } } }  // 日は文字列キー、値は D.shiftReqCodes の文字列そのもの
@@ -881,6 +883,13 @@ D.shiftReqCfg = {}  // visibility:'self'|'count'|'all'、deadlines:{'YYYY-MM':'Y
 - 種類の選択はマスタからのボタン選択のみで自由記述欄が無いため、`detectPHI` は通さない（メーカー担当者名・ヘルプ職員名と同じ判断）。
 - タブ追加は「Adding a top-level sidebar tab」の6箇所を通常どおり配線した。`D.shiftReq`/`D.shiftReqCodes`/`D.shiftReqCfg` は `/data` 全体の一部として届くため、`/tasks`/`/board` のような専用リスナーは無く、「表示中だけ再描画する専用リスナー」の項目は該当しない（タブを開くたび `renderShiftReq()` が最新の `D` から描き直す）。
 - **祝日（`D.holidayOv` / `jpHolidayName(ds)`）**：祝日判定の唯一の入口は `jpHolidayName(ds)`。元日・成人の日・建国記念の日・天皇誕生日・春分の日・昭和の日・憲法記念日・みどりの日・こどもの日・海の日・山の日・敬老の日・秋分の日・スポーツの日・文化の日・勤労感謝の日を計算し（`jpHolidayFixed(y)`）、振替休日（日曜と重なった祝日の直後の平日）と国民の休日（祝日に挟まれた平日）も加える（`jpHolidayCalc(y)`、年ごとに `_holidayCalcCache` でメモ化する純計算）。春分・秋分は天文学的な近似式（1980〜2099年向けの略算式）を使っており、2100年以降は係数がずれるため合わなくなる。**`D.holidayOv = {'YYYY-MM-DD':'名前'}` を `jpHolidayName` は必ず先に見る**——値が空文字ならその日を祝日から外す印、それ以外の文字列なら祝日名の上書き、または院内の創立記念日など計算に無い日の追加。マスタタブ🎯担当・スケジュールグループの「🎌 祝日」セクション（`data-perm="mst"`、両モード共通）から年ごとに一覧・追加・名前変更・除外・取り消しができる（`renderHolidayMaster`/`addHolidayOv`/`renameHolidayOv`/`excludeHolidayCalc`/`restoreHolidayCalc`）。**現状は📝勤務希望タブだけが参照する**——カレンダー（`renderShiftReqCal`）と管理者の全員一覧の日付見出し（`renderShiftReqMatrix`）を、どちらも日曜と同じ `var(--rd)` で塗り `title` に祝日名を入れる。**連絡表のカレンダー（`renderCal`）にはまだ適用していない。**
+- **Excel出力（段2b、管理者のみ）**：勤務希望タブの「⬇️ Excel出力（管理者）」（`renderShiftReqExcel(ym)`）。管理者が部署の年度勤務表（.xlsx）を1回登録（`srqTplUpload`）し、「⬇️ ○年○月をExcelで出力」（`srqExportExcel`）で対象月のシートを埋めて書き出す。**ExcelJS（cdnjs、`EXCELJS_URL`）は押したときだけ読み込む**（`srqLoadExcelJS`。SheetJS（`XLSX`）は書式を保って書き出せないため別ライブラリ）。
+  - **テンプレ本体は `D` の外（`/shiftReqTpl` = `{data:base64, ts, by, size}`）**、`D.shiftReqCfg.tpl` には名前・大きさ・日時・シート名だけ（ロボット配置図 `/robotImg` と同じ流儀。`D` に入れると保存のたびに約0.8MBを全員へ送り直し、1時間ごとのバックアップにも複製される）。書き込みはルールで管理者のみ。**本番で使うには `database.rules.json` の `shiftReqTpl` の反映が必要**（未反映だと登録時にトーストで知らせる）。プレビューは端末内（`localStorage` の `ce2_srqtpl`、判定は `roboIsLocal()`）。
+  - **テンプレの配置（実物「分202703」で確認）**：AH2＝年・AN2＝月（数値。C2 は `=DATE(AH2,AN2,1)`）、3行目＝日付・4行目＝曜日・5行目（5〜6行結合）＝祝日名で、**いずれも値の直書きなので毎回書き直す**。D列から2列ずつ31日ぶん（D〜BM）、月末を超える列は空にして塗りも外す。7〜56行目が25人ぶん（2行1組、C列の上＝職員番号・下＝氏名）。希望は日付の左列に上段・下段で書く。**D7:BM56 と C7:C56 は出力前に全部消す**（テンプレに入っている休・育休・年などを持ち込まない）。58行目以降の日別 `COUNTIF` と BN列の個人集計は本体の文字を数える式なので触らない。定数は `SRQ_XL`。
+  - **塗り（4〜56行目・日付ごとの2列）**：土＝theme 8（accent5）tint 0.8（#DBEEF4）／日・祝＝theme 9（accent6）tint 0.8（#FDEADA）／平日＝塗りなし。祝日判定は `jpHolidayName`（`D.holidayOv` を含む）。3行目は塗らない。書式は他のセルと共有されていることがあるので `srqSetFill` で書式オブジェクトを作り直してから塗る。
+  - **出力は対象月のシート1枚だけ**（`分YYYYMM` があればそれ、無ければ最初の `分\d{6}`、それも無ければ1枚目を使い、他は削除。シート名は `分YYYYMM` に変える）。他のシートを参照する式（年度計 BO4 など）は参照先が無くなるので空にする。開いたときに式を計算し直させるため `fullCalcOnLoad` を立てる。テーマ（色の基準・日本語フォント）・結合・印刷設定・固定枠は ExcelJS がそのまま引き継ぐことを実物で確認済み。**既知の差**：書式を持たないセルの既定フォントが Calibri 11 になる（ExcelJS が書き出す既定フォントのため。元は ＭＳ Ｐゴシック 12）。
+  - **Excelに書く文字**は `D.shiftReqCfg.marks = [{n:種類名, top, bot}]`（**種類名をキーにしない配列**＝Firebaseのキー禁止文字の心配が無い）。読み出しは `shiftReqMark(code)`、未設定は `DEF_SHIFT_REQ_MARKS` を読むときに補う（休み＝/休、有休＝年/休、計画年休＝計/休、夏休み＝/夏、日勤希望＝/CE、準夜勤希望＝/準、宿直希望＝/宿直）。マスタ「勤務希望の種類」の各行の2つの欄（`setShiftReqMark`、`mst` 権限。種類名は `data-code` で渡し onclick に埋め込まない）。上段・下段とも空の種類は、種類名をそのまま下段に書いて注意に出す。
+  - 書けなかったもの（25人を超えたスタッフ・職員番号の未登録・文字未設定の種類）は出力後にボタンの下へ一覧で出す（`_srqExcelIssues`、非永続）。
 - **職員番号（`D.stfNo`）**：`D.stfNo = {氏名:"職員番号"}`。勤務表インポート（`parseShiftSheet`）がスタッフの2行1組（職員番号行→氏名行）のうち職員番号行のcol2（数字）を拾い、取り込み確定（`doSaveSIM`）時に `D.stfNo` へマージする（氏名は取り込み側の既存正規化＝`fbSafeKey(col2)` をそのまま使い、番号専用の正規化は作らない）。プレビュー画面に「🆔 職員番号をN件 取り込みます」の1行が出る。スタッフ一覧（`renderStfList`、管理者限定）で氏名の右に表示・編集でき、書き込みは `setStfNo(name, val)` → `saveD()`。**氏名と同じく個人を指す情報のため `writeLog` には残さない。** 次の更新（勤務希望のExcel出力）で使う想定。
 
 ### PHI Detection
