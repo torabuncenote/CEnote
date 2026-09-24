@@ -5649,11 +5649,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/24-92';
+var APP_VERSION = 'Ver.2026/09/24-93';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/24-93', date:'2026-09-24', title:'特殊治療メールの設定がオフのままになっていることに気づけるようにしました', items:[
+    {t:'fix', admin:true, d:'📧 HD特殊治療メールの設定で「通知を有効にする」にチェックが無いまま保存しても「同期しました」と表示され、メールが送られていないことに気づけなかった問題を直しました。設定欄の先頭に今の状態（オン／オフ・送信先の人数・EmailJS未設定）を出し、送れない状態で保存したときは警告を出します'},
+    {t:'imp', admin:true, d:'📧 連絡表に残る特殊治療メールの記録で、未送信の理由（通知がオフ／EmailJSが未設定）を分けて表示するようにしました'}
+  ]},
   { ver:'Ver.2026/09/24-92', date:'2026-09-24', title:'勤務希望をExcelで出力できるようにしました', items:[
     {t:'new', admin:true, d:'⬇️ 勤務希望タブに「Excelで出力」を追加しました。部署の勤務表（.xlsx）を1回登録すると、その月の希望・日付・曜日・祝日名・職員番号・氏名を書き込み、土日祝の色も塗り直したExcelを出力できます'},
     {t:'new', admin:true, d:'📝 マスタの「勤務希望の種類」で、Excelに書く文字（上段・下段）を種類ごとに設定できるようにしました（例：有休＝上「年」下「休」）'}
@@ -13130,7 +13134,7 @@ function mstEntryState(entry) {
   var el=entry.el, count=function(v){return Array.isArray(v)?v.length:Object.keys(v||{}).length;};
   if(el.id==='hd-treat-mail-cfg-section'){
     var cfg=(D.emailjsCfg||{}).hdTreatNotify||{};
-    return (cfg.enabled?'有効':'無効')+' · 送信先 '+count(cfg.recipientUids)+' 人';
+    return (cfg.enabled?'🟢 有効':'🔴 無効（メールは送信されません）')+' · 送信先 '+count(cfg.recipientUids)+' 人';
   }
   if(el.id==='emailjs-cfg-section'){var c=D.emailjsCfg||{};return c.publicKey&&c.serviceId&&c.templateId?'接続設定済み':'接続未設定';}
   if(el.id==='fcm-cfg-section') return (D.fcmCfg||{}).vapidKey?'接続設定あり':'接続未設定';
@@ -18214,7 +18218,7 @@ function hdTreatMailFind(dat, id) {
 }
 function hdTreatMailStatusText(ev) {
   var states = { awaiting_save:'保存・送信の結果を確認できません（自動再送なし）', save_failed:'保存を確認できず・メール未送信',
-    unsent_local:'ローカル保存・メール未送信', disabled:'通知設定なし・メール未送信', no_recipients:'送信先なし・メール未送信',
+    unsent_local:'ローカル保存・メール未送信', disabled:'通知がオフのため未送信（管理者がHDのマスタで有効にできます）', no_mailcfg:'メール設定（EmailJS）が無いため未送信', no_recipients:'送信先なし・メール未送信',
     sending:'送信結果を確認中', sent:'送信済み', partial:'一部送信・一部未完了', failed:'送信失敗', unknown:'送信結果不明（自動再送なし）', preview:'プレビュー送信（模擬）' };
   if (ev.status === 'sending') return '送信状態未確定（自動再送なし）';
   return states[ev.status] || '状態不明';
@@ -18294,7 +18298,7 @@ function hdTreatMailStart(ds, eventId, preview) {
     hdTreatMailUpdate(ds, eventId, function(ev){ ev.status='no_recipients'; ev.recipients=[]; }, function(){}); return;
   }
   if (!preview && (!FB_ON || !fbDB || !currentUser || !cfg.publicKey || !cfg.serviceId || !cfg.templateId || typeof emailjs === 'undefined')) {
-    hdTreatMailUpdate(ds, eventId, function(ev){ ev.status='disabled'; ev.recipients=targets.map(function(uid){ return {uid:uid,status:'failed'}; }); }, function(){});
+    hdTreatMailUpdate(ds, eventId, function(ev){ ev.status='no_mailcfg'; ev.recipients=targets.map(function(uid){ return {uid:uid,status:'failed'}; }); }, function(){});
     showNotifToast('⚠️ HD特殊治療メールは未送信です', '接続・EmailJS・送信先設定を確認してください'); return;
   }
   _hdTreatMailInFlight[eventId] = true;
@@ -22466,7 +22470,11 @@ function renderHdTreatMailCfg() {
     if (seq !== _hdTreatRecipientsLoadSeq || !isAdmin || _viewMode !== 'hd' || !el.isConnected || mstHasDraft('hd-treat-mail-cfg-form')) return;
     users.sort(function(a,b){ return a.name.localeCompare(b.name, 'ja'); });
     var chosen = Array.isArray(notify.recipientUids) ? notify.recipientUids : [];
-    var h = '<label style="display:flex;gap:8px;align-items:center;font-size:12px;margin:4px 0 8px"><input type="checkbox" id="hd-treat-mail-enabled"'+(notify.enabled?' checked':'')+'>通知を有効にする</label>';
+    /* 保存済みの状態を先頭に出す。以前はオフのままでも保存時に「同期しました」としか出ず、
+       送信先だけ選んで有効化を忘れた状態（=メールが1通も出ない）に気づけなかった */
+    var st = hdTreatMailCfgState(notify);
+    var h = '<div style="font-size:12px;font-weight:700;margin:2px 0 6px;color:'+(st.ok?'var(--gr)':'var(--rd)')+'">現在の状態：'+escH(st.label)+'</div>';
+    h += '<label style="display:flex;gap:8px;align-items:center;font-size:12px;margin:4px 0 8px;font-weight:700"><input type="checkbox" id="hd-treat-mail-enabled"'+(notify.enabled?' checked':'')+'>通知を有効にする（チェックが無いとメールは送信されません）</label>';
     h += '<div style="max-height:220px;overflow:auto;border:1px solid var(--bdr);border-radius:var(--rs);padding:6px 8px;background:var(--sur2)">';
     if (!users.length) h += '<div style="font-size:12px;color:var(--txt3);padding:6px">メールアドレスを登録済みのユーザーがいません。</div>';
     users.forEach(function(u) {
@@ -22490,6 +22498,15 @@ function renderHdTreatMailCfg() {
     console.warn('[HD特殊治療メール設定] ユーザー一覧取得失敗', err);
   });
 }
+/* 特殊治療メールの設定が「実際に送れる状態か」。送れない理由を1つだけ返す（設定欄の先頭と保存時の表示に使う） */
+function hdTreatMailCfgState(notify, cfg) {
+  notify = notify || {}; cfg = cfg || D.emailjsCfg || {};
+  var n = Array.isArray(notify.recipientUids) ? notify.recipientUids.length : 0;
+  if (!notify.enabled) return { ok:false, label:'🔴 オフ（メールは送信されません。「通知を有効にする」にチェックを入れて保存してください）' };
+  if (!n) return { ok:false, label:'🔴 送信先が0人（メールは送信されません）' };
+  if (!cfg.publicKey || !cfg.serviceId || !cfg.templateId) return { ok:false, label:'🔴 メール通知設定（EmailJS）が未設定（メールは送信されません）' };
+  return { ok:true, label:'🟢 オン・送信先 ' + n + ' 人' };
+}
 function saveHdTreatMailCfg() {
   if (!isAdmin || _viewMode !== 'hd') return;
   var enabled = !!(document.getElementById('hd-treat-mail-enabled') || {}).checked;
@@ -22499,15 +22516,23 @@ function saveHdTreatMailCfg() {
   cfg.hdTreatNotify = { enabled: enabled, recipientUids: Array.from(new Set(recipients)) };
   D.emailjsCfg = cfg;
   mstClearDraft('hd-treat-mail-cfg-form');
+  var st = hdTreatMailCfgState(cfg.hdTreatNotify, cfg);
   if(mstPreview()){
-    try{localStorage.setItem('ce2',JSON.stringify(D));applyMstGroups();showNotifToast('✅ プレビューの送信先を保存しました','実メールは送信しません');}
+    try{localStorage.setItem('ce2',JSON.stringify(D));applyMstGroups();
+      if(st.ok) showNotifToast('✅ プレビューの送信先を保存しました','実メールは送信しません');
+      else showNotifToast('⚠️ 保存しました。ただしメールは送信されません', st.label);
+      renderHdTreatMailCfg();}
     catch(e){showNotifToast('⚠️ プレビュー設定を保存できません','端末の保存領域を確認してください');}
     return;
   }
   saveD(function(ok, mode){
-    if (ok && mode === 'firebase') showNotifToast('✅ HD特殊治療メールの送信先を同期しました', '送信先 '+recipients.length+' 人');
+    if (ok && mode === 'firebase') {
+      if (st.ok) showNotifToast('✅ HD特殊治療メールを有効にしました', '送信先 '+recipients.length+' 人');
+      else showNotifToast('⚠️ 保存しました。ただしメールは送信されません', st.label);
+    }
     else if (ok) showNotifToast('⚠️ 送信先は端末に保存しました', 'Firebase未同期のため他の端末には反映されていません');
     else showNotifToast('⚠️ HD特殊治療メールの送信先を同期できません', '接続を確認してください');
+    renderHdTreatMailCfg();
   });
 }
 function saveEmailjsCfg() {
