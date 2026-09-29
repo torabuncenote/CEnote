@@ -182,6 +182,13 @@ function can(id) {
 
 **Always use `can(id)` for permission checks — not `lk(id)&&!isAdmin`.** The latter ignores per-user grants.
 
+**職員とアカウント（👥 スタッフタブ、`renderStfList`）**：名簿（`D.stf`）とログイン用アカウント（`/users`・`/admins`・`/userPerms`）を1人1行にまとめた画面。アカウント情報は `loadStfAcct()` が開いたときに読んで `_stfAcct` に持つ（60秒で読み直し）。プレビューでは Firebase に触れず `stfAcctDemo()` の見本で描く（`stfAcctReal()` が偽）。
+- 追加は `openStfAddModal()` → `doRegister()`：氏名だけなら名簿へ、メールもあれば別アプリ枠（secondApp）でアカウントを作り `D.stfLinks[氏名]=uid` まで一度に行う。既存の職員にアカウントを足すときは `openRegModal(氏名)`（氏名欄は読み取り専用）
+- 職員ごとの `openStfAcctModal(氏名)`：パスワード再設定メール（`sendStfResetMail` → `sendPasswordResetEmail`。メールアドレスはログに残さない）・管理者・編集権限（`acctPermsHTML(uid, perms)`、ユーザー管理画面と共用）・紐付け
+- **退職は `retireStaff(氏名)` だけを通す**：名簿から外す・`D.stfLinks`/`D.stfHidden` を外す・アカウントがあれば `/users/{uid}/retired=true`＋`/admins`・`/userPerms` を消す。過去の記録（連絡表・到達度・職員番号）は消さない。ログイン時（`fbInit` の `/admins` 読み込みと同じ Promise.all）に `retired` を見て、管理者以外は締め出す——`/users` の `set()` より前で判定すること（set すると印が消える）。**鍵ではなくガードレール**なので、確実に止めるには Firebase Console でアカウントを無効化する（確認画面でも案内）。旧 `rmStf` は確認なしで消していたので `retireStaff` へ寄せた
+- 本人のパスワード変更は `openPwChangeModal()`（右上の名前 → 表示名の画面のボタン）。今のパスワードで `reauthenticateWithCredential` してから `updatePassword`
+- 名簿の誰にも紐付いていないアカウントは表の下（`#stf-orphans`）に出し、`stfAdoptAccount(uid)` で氏名を決めて名簿に入れられる
+
 **Exception — スタッフマスタ is `isAdmin`, not a lock.** `renderStfList` / `addStf` / `rmStf` / `mvStf` / `editStfItem` / `confirmEditModal`'s `type:'stf'` branch all gate on `isAdmin` directly, and the 👥 スタッフ tab itself is admin-only (which also puts PHS番号 and 勤務表インポート behind admin, since they share `pane-staff`). The old `sm` lock was **removed from `LOCK_DEFS`** rather than left as a dead toggle. Before removing it, `sm` was doubling as the permission for 使用物品マスタ (`supTree`) renames while `opeTree`/`cathTree` referenced `om`/`cm` — ids that never existed in `LOCK_DEFS`, so `lk()` returned false and `can()` always allowed them; all three now use `mst`, matching their sections' own `data-perm`. Stale `D.lk.sm` / `userPerms[uid].sm` values are simply never read.
 
 #### Lock IDs (`LOCK_DEFS`)
