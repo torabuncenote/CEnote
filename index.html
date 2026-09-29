@@ -540,6 +540,25 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .pl-btn.del:hover{background:var(--rd-bg);color:var(--rd);border-color:var(--rd)}
 .pl-role-sel{font-size:9px;padding:0 2px;height:18px;border:1px solid var(--bdr);border-radius:4px;background:var(--sur);color:var(--txt)}
 @media(max-width:768px){.pl-cols{flex-direction:column}.pl-zones{flex-direction:column}/* 狭い画面ではヒント文がボタンを押し下げて操作しづらくなるので隠す（操作自体は同じ） */.pl-hint{display:none}.pl-toolbar{justify-content:flex-end}.pl-btn{font-size:11px;padding:3px 8px}.pl-role-sel{height:24px;font-size:11px}}
+/* ===== 職員とアカウント（👥 スタッフタブ） ===== */
+.stf-note{font-size:11px;color:var(--txt3);line-height:1.6;margin:0 0 8px}
+.stf-row{border:1px solid var(--bdr);border-radius:10px;padding:8px 10px;margin-bottom:6px;background:var(--sur);display:flex;flex-direction:column;gap:5px}
+.stf-row.hid{opacity:.55}
+.stf-top{display:flex;align-items:center;gap:6px;min-width:0}
+.stf-mv{display:inline-flex;gap:2px;flex:none}
+.stf-name{font-size:13px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;user-select:none}
+.stf-row.hid .stf-name{text-decoration:line-through}
+.stf-no{width:70px!important;font-size:11px!important;padding:3px 6px!important;margin:0!important;flex:none}
+.stf-acct{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.stf-chip{font-size:11px;font-weight:700;border-radius:6px;padding:2px 8px;background:var(--sur2);color:var(--txt2);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stf-chip.ok{background:var(--ac-bg);color:var(--ac)}
+.stf-chip.warn{background:var(--or-bg);color:var(--or)}
+.stf-chip.bad{background:var(--rd-bg);color:var(--rd)}
+.stf-sub{font-size:10px;color:var(--txt3);white-space:nowrap}
+.stf-wait{color:var(--or)}
+.stf-btns{display:flex;gap:5px;flex-wrap:wrap}
+.stf-sec{font-size:11px;font-weight:800;color:var(--txt2);margin:12px 0 5px;padding-top:8px;border-top:1px solid var(--bdr)}
+.stf-mbtns{display:flex;gap:6px;flex-wrap:wrap}
 /* ===== 配置ボード（新・renderPlacementBoardV2） =====
    左＝CEの担当枠、右＝HDの役割を1行ずつ並べ、下に共通の控え。スマホでも2列のまま（積まない）。
    行の高さを変えたいときは .pl2-row の min-height を変える（全員を1画面に収めるため30px前後に保つ） */
@@ -1756,16 +1775,18 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
       <button class="btn btn-g" style="flex:1" onclick="closeNameModal()">キャンセル</button>
       <button class="btn btn-p" style="flex:1" onclick="saveDisplayName()">保存</button>
     </div>
+    <button type="button" class="btn btn-g btn-sm" id="name-pw-btn" style="width:100%;margin-top:10px;justify-content:center" onclick="closeNameModal();openPwChangeModal()">🔑 パスワードを変更する</button>
   </div>
 </div>
 
 <!-- ===== 新規ユーザー登録モーダル ===== -->
 <div id="modal-reg" class="ov hd">
   <div class="name-box" style="width:380px;max-width:96vw">
-    <h3>➕ 新規ユーザー登録</h3>
-    <p>新しいスタッフのアカウントを作成します。<br>初期パスワードは本人に直接お伝えください。</p>
-    <input type="email" id="reg-email" placeholder="メールアドレス" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()">
-    <input type="password" id="reg-pass" placeholder="初期パスワード（8文字以上・英数字混合）" autocomplete="new-password" oninput="checkRegPwStrength(this.value)" onkeydown="if(event.key==='Enter')doRegister()">
+    <h3 id="reg-title">➕ 職員を追加</h3>
+    <p id="reg-desc">氏名を名簿に加え、メールアドレスを入れればログイン用のアカウントも同時に作って紐付けます。<br>メールを空にすると名簿にだけ追加します。初期パスワードは本人に直接お伝えください。</p>
+    <input type="text" id="reg-name" placeholder="氏名（例：山田 太郎）" maxlength="20" autocomplete="off">
+    <input type="email" id="reg-email" placeholder="メールアドレス（任意）" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('reg-pass').focus()">
+    <input type="password" id="reg-pass" placeholder="初期パスワード（メールを入れたとき・8文字以上）" autocomplete="new-password" oninput="checkRegPwStrength(this.value)" onkeydown="if(event.key==='Enter')doRegister()">
     <div class="pw-strength" id="reg-pw-bars">
       <div class="pw-strength-bar" id="rpsb1"></div>
       <div class="pw-strength-bar" id="rpsb2"></div>
@@ -1844,7 +1865,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <div class="sd" id="sync-dot"></div>
   <span class="sl" id="sl">ローカル保存</span>
   <span class="sl" id="month-size" style="display:none;margin-left:6px;color:var(--txt3);font-size:10px"></span>
-  <div id="uc-label" class="uc-name" style="display:none" onclick="openNameModal()" title="クリックして表示名を変更"></div>
+  <div id="uc-label" class="uc-name" style="display:none" onclick="openNameModal()" title="クリックして表示名・パスワードを変更"></div>
   <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()" title="ログアウト">⏻<span class="lo-text"> ログアウト</span></button>
 </div>
 
@@ -1909,12 +1930,10 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <div id="pane-staff" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp">
         <div>
-          <div class="pt">👤 スタッフ一覧</div>
+          <div class="pt" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">👥 職員とアカウント<button class="btn btn-p btn-sm" style="margin-left:auto" onclick="openStfAddModal()">＋ 職員を追加</button></div>
+          <div class="stf-note" id="stf-acct-note"></div>
           <div class="rl" id="stf-list"></div>
-          <div class="ar" id="stf-ar">
-            <input type="text" id="in-stf" placeholder="氏名を入力…" maxlength="20">
-            <button onclick="addStf()">追加</button>
-          </div>
+          <div id="stf-orphans"></div>
         </div>
         <div>
           <div class="pt">📞 PHS番号</div>
@@ -3266,7 +3285,7 @@ function init() {
   renderLockList();
   initPHIGuard();
   initTextareaAutoGrow();
-  document.getElementById('in-stf').addEventListener('keydown', function(e){ if(e.key==='Enter') addStf(); });
+  var _inStf = document.getElementById('in-stf'); if (_inStf) _inStf.addEventListener('keydown', function(e){ if(e.key==='Enter') addStf(); });
   document.getElementById('in-phs').addEventListener('keydown', function(e){ if(e.key==='Enter') addPhs(); });
   document.getElementById('in-dly').addEventListener('keydown', function(e){ if(e.key==='Enter') addDly(); });
   document.getElementById('in-wdly').addEventListener('keydown', function(e){ if(e.key==='Enter') addWdly(); });
@@ -3525,11 +3544,23 @@ function fbInit() {
       Promise.all([
         fbDB.ref('/admins/' + user.uid).once('value'),
         /* /userPerms読み取り失敗（ルール未設定等）でもログイン全体を止めないようフォールバック */
-        fbDB.ref('/userPerms/' + user.uid).once('value').catch(function(){ return null; })
+        fbDB.ref('/userPerms/' + user.uid).once('value').catch(function(){ return null; }),
+        fbDB.ref('/users/' + user.uid + '/retired').once('value').catch(function(){ return null; })
       ]).then(function(snapResults) {
         /* ===== isAdminが確定してからUI全体を更新 ===== */
         var snap = snapResults[0];
         isAdmin = !!snap.val();
+        /* 退職処理（retireStaff）で利用停止にしたアカウントはここで締め出す。/data のルールは
+           「認証済みなら読み書き可」なので鍵ではなくガードレール——確実に止めるには
+           Firebase Console でアカウントを無効化する（退職処理の確認画面でも案内している）。
+           下の /users の set() より前で止めること（set すると retired の印が消える）。 */
+        if (!isAdmin && snapResults[2] && snapResults[2].val && snapResults[2].val() === true) {
+          firebase.auth().signOut().then(function(){
+            var le = document.getElementById('li-err');
+            if (le) le.textContent = 'このアカウントは利用停止になっています。管理者に連絡してください。';
+          });
+          return;
+        }
         var perms = (snapResults[1] && snapResults[1].val && snapResults[1].val()) || {};
         currentUser = { uid: user.uid, email: user.email,
           displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin, perms: perms };
@@ -5366,7 +5397,7 @@ function renderAdminManual() {
    ['編集権限の個別付与','一般ユーザーの「🔑 編集権限」を開き、機能ごとに付与。🔒ロック中の機能でも、権限を与えたユーザーだけ編集可能になります。'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';});
   S += '</table>';
-  S += '<div class="a-warn">⚠ 一度もログインしていないスタッフは一覧に表示されません。退職者の完全削除・パスワード変更は引き続き Firebase Console（Authentication）で行います。</div>';
+  S += '<div class="a-warn">職員の追加・退職・パスワード再設定メールは 👥 スタッフタブの「職員とアカウント」から行えます。パスワードの変更は本人が右上の名前から行います。ログインアカウント本体の無効化・完全削除だけは引き続き Firebase Console（Authentication）で行います。</div>';
 
   // 第11章: バックアップ運用
   S += '<div class="a-h1">11. バックアップ運用</div>';
@@ -5504,7 +5535,7 @@ function renderAdminUsers() {
     });
 
     var S = '<div style="font-size:14px;font-weight:800;color:var(--gd);border-bottom:2px solid var(--gd-bdr);padding-bottom:5px;margin-bottom:10px">👑 ユーザー管理</div>';
-    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">登録済みスタッフの管理者権限と編集権限をここから管理できます。新規ユーザー登録は下のボタンから行えます。</div>';
+    S += '<div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">職員の追加・退職・パスワード再設定メールは <b>👥 スタッフ</b> タブの「職員とアカウント」にまとめました。ここでは登録済みアカウントの権限を一覧で確認できます。</div>';
 
     if (!uids.length) {
       S += '<div style="font-size:12px;color:var(--txt3);background:var(--or-bg);border:1px solid var(--or);border-radius:6px;padding:8px 12px">⚠ まだ誰もログインしていません。</div>';
@@ -5550,29 +5581,8 @@ function renderAdminUsers() {
           S += '🔑 権限設定' + ((grantCount||tabCount) ? ' (' + (grantCount?'編集'+grantCount:'') + (grantCount&&tabCount?'・':'') + (tabCount?'タブ'+tabCount:'') + '件付与中)' : '') + ' ▾</button>';
           S += '<div id="' + panelId + '" style="display:none;margin-top:6px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)">';
           S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:6px">🔒 がロックされている機能でも、権限を付与したユーザーは編集できます。</div>';
-          S += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
-          LOCK_DEFS.forEach(function(def) {
-            if (def.id === 'show_phs') return;
-            var granted = !!userPerms[def.id];
-            S += '<button class="btn ' + (granted ? 'btn-p' : 'btn-g') + ' btn-sm"';
-            S += ' style="font-size:11px' + (granted ? '' : ';opacity:0.6') + '"';
-            S += ' onclick="saveUserPerm(\'' + escH(uid) + '\',\'' + def.id + '\',' + !granted + ')">';
-            S += def.icon + ' ' + def.label + (granted ? ' ✓' : '');
-            S += '</button>';
-          });
-          S += '</div>';
-          S += '<div style="margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px">';
-          S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">📑 タブ表示（このユーザーに追加表示するタブ）</div>';
-          S += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
-          [{id:'tab_master',icon:'📋',label:'業務タブ'},{id:'perm_edu',icon:'🎓',label:'教育到達度'}].forEach(function(tp){
-            var granted = !!userPerms[tp.id];
-            S += '<button class="btn ' + (granted ? 'btn-p' : 'btn-g') + ' btn-sm"';
-            S += ' style="font-size:11px' + (granted ? '' : ';opacity:0.6') + '"';
-            S += ' onclick="saveUserPerm(\'' + escH(uid) + '\',\'' + tp.id + '\',' + !granted + ')">';
-            S += tp.icon + ' ' + tp.label + (granted ? ' ✓' : '');
-            S += '</button>';
-          });
-          S += '</div></div></div></div>';
+          S += acctPermsHTML(uid, userPerms);
+          S += '</div></div>';
         }
         S += '</div>';
       });
@@ -5633,6 +5643,7 @@ function saveUserPerm(uid, permId, grant) {
   (grant ? ref.set(true) : ref.remove()).then(function() {
     writeLog((grant ? '編集権限付与' : '編集権限取り消し'), uid + ' : ' + permId);
     renderAdminUsers();
+    stfAcctAfterChange();
     if(currentUser && currentUser.uid === uid) {
       if(!currentUser.perms) currentUser.perms = {};
       if(grant) currentUser.perms[permId] = true;
@@ -5654,6 +5665,7 @@ function toggleAdminPriv(uid, currentlyAdmin) {
   p.then(function() {
     writeLog(currentlyAdmin ? '管理者権限を取り消し' : '管理者権限を付与', uid);
     renderAdminUsers();
+    stfAcctAfterChange();
   }).catch(function(err) {
     toast('エラーが発生しました: ' + err.message, 'err');
   });
@@ -5672,7 +5684,11 @@ function deleteAppUser(uid, name) {
 }
 
 /* ===== 新規ユーザー登録 ===== */
-function openRegModal() {
+function openRegModal(presetName) {
+  var nm = document.getElementById('reg-name');
+  if (nm) { nm.value = presetName || ''; nm.readOnly = !!presetName; }
+  var tt = document.getElementById('reg-title');
+  if (tt) tt.textContent = presetName ? ('🔑 ' + presetName + ' さんのアカウントを作る') : '➕ 職員を追加';
   document.getElementById('reg-email').value = '';
   document.getElementById('reg-pass').value  = '';
   document.getElementById('reg-err').textContent = '';
@@ -5683,8 +5699,9 @@ function openRegModal() {
   var btn = document.getElementById('reg-btn');
   if(btn){ btn.disabled = false; btn.textContent = '登録する'; }
   document.getElementById('modal-reg').classList.remove('hd');
-  setTimeout(function(){ document.getElementById('reg-email').focus(); }, 50);
+  setTimeout(function(){ document.getElementById(presetName ? 'reg-email' : 'reg-name').focus(); }, 50);
 }
+function openStfAddModal(){ if (!isAdmin) return; openRegModal(''); }
 
 function closeRegModal() {
   document.getElementById('modal-reg').classList.add('hd');
@@ -5702,15 +5719,30 @@ function checkRegPwStrength(pw) {
   hint.textContent = pw.length ? hints[score] : '';
 }
 
+/* 職員の追加（氏名＋任意でアカウント）。氏名は名簿（D.stf）に入り、メールがあれば
+   ログイン用アカウントを別アプリ枠（secondApp）で作って D.stfLinks で紐付ける——管理者自身の
+   ログインを切り替えないため。氏名だけならアカウントは作らない。 */
 function doRegister() {
-  if(!isAdmin || !FB_ON || !fbDB) return;
+  if(!isAdmin) return;
+  var nmEl  = document.getElementById('reg-name');
+  var name  = nmEl ? fbSafeKey(nmEl.value.trim()) : '';
   var email = document.getElementById('reg-email').value.trim();
   var pass  = document.getElementById('reg-pass').value;
   var errEl = document.getElementById('reg-err');
   var btn   = document.getElementById('reg-btn');
   errEl.textContent = '';
-
-  if(!email){ errEl.textContent = 'メールアドレスを入力してください'; return; }
+  var existing = name && D.stf.indexOf(name) !== -1;
+  var presetMode = nmEl && nmEl.readOnly; /* 既存の職員にアカウントを足す */
+  if(!name && !email){ errEl.textContent = '氏名を入力してください'; return; }
+  if(existing && !presetMode){ errEl.textContent = '同じ氏名の職員がすでに名簿にいます'; return; }
+  if(name && D.stfLinks && D.stfLinks[name]){ errEl.textContent = 'この職員にはすでにアカウントが紐付いています'; return; }
+  if(!email){
+    D.stf.push(name); saveD(); writeLog('職員を追加', name);
+    closeRegModal(); renderStfList(); if(curDs) safeRenderPage();
+    toast(name + ' さんを名簿に追加しました（アカウントなし）', 'ok');
+    return;
+  }
+  if(!stfAcctReal()){ errEl.textContent = 'プレビューではアカウントを作れません（名簿への追加はメールを空にするとできます）'; return; }
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ errEl.textContent = 'メールアドレスの形式が正しくありません'; return; }
   if(pass.length < 8){ errEl.textContent = 'パスワードは8文字以上で入力してください'; return; }
 
@@ -5724,13 +5756,21 @@ function doRegister() {
       var uid = cred.user.uid;
       return fbDB.ref('/users/' + uid).set({
         email: email,
-        displayName: email.split('@')[0],
+        displayName: name || email.split('@')[0],
         lastLogin: null
       }).then(function() {
         secondApp.auth().signOut();
         try{ secondApp.delete(); }catch(e){}
-        writeLog('新規ユーザー登録', email);
+        if (name) {
+          if (D.stf.indexOf(name) === -1) D.stf.push(name);
+          if (!D.stfLinks) D.stfLinks = {};
+          D.stfLinks[name] = uid;
+          saveD();
+        }
+        writeLog('新規ユーザー登録', name || email);
         closeRegModal();
+        toast((name ? name + ' さんを追加し、' : '') + 'アカウントを作りました。初期パスワードを本人に伝えてください', 'ok', 8000);
+        _stfAcct = null; renderStfList(); if(curDs) safeRenderPage();
         renderAdminUsers();
       });
     })
@@ -5746,11 +5786,16 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/29-99';
+var APP_VERSION = 'Ver.2026/09/29-100';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/29-100', date:'2026-09-29', title:'職員の登録・退職とパスワード変更をまとめて行えるようにしました', items:[
+    {t:'new', notify:true, d:'🔑 右上の名前から、自分でパスワードを変更できるようにしました。忘れたときは同じ画面から、自分のメールに再設定メールを送れます'},
+    {t:'new', admin:true, notify:true, d:'👥 スタッフタブを「職員とアカウント」にまとめました。職員の追加（氏名＋メール＋初期パスワードで、名簿・アカウント作成・紐付けを一度に）、⚙からの権限設定とパスワード再設定メールの送信、「退職」ボタンでの名簿からの取り外しとアプリの利用停止を、1つの画面で行えます'},
+    {t:'fix', admin:true, d:'👥 スタッフ一覧の「×」が確認なしで職員を消していた問題を直しました（退職処理の確認画面を通すようにしました）'}
+  ]},
   { ver:'Ver.2026/09/29-99', date:'2026-09-29', title:'配置ボードで、払った名前をそのまま行き先へ運べるようにしました', items:[
     {t:'imp', d:'👥 スマホの配置ボードで名前を横に払うと名前が指に付いてくるようにし、指を離した行へそのまま移せるようにしました（人がいれば入れ替え）。余剰や控えの人を上の担当枠へ運ぶこともできます。何もない所で離すと、今までどおり反対側（CE⇄HD）の行き先を選べます'}
   ]},
@@ -11959,28 +12004,292 @@ function prevM() { calM--; if (calM<0){calM=11;calY--;} renderCal(); }
 function nextM() { calM++; if (calM>11){calM=0;calY++;} renderCal(); }
 
 /* ===== STAFF ===== */
+/* ===== 職員とアカウント（👥 スタッフタブ・管理者限定） =====
+   名簿（D.stf）とログイン用アカウント（/users・/admins・/userPerms）を1人1行にまとめる。
+   紐付けは従来どおり D.stfLinks（氏名→uid）。アカウント情報は開いたときに読み、_stfAcct に持つ。
+   プレビューでは Firebase に触れず、名簿から作った見本のアカウントで画面だけ確かめられる。 */
+var _stfAcct = null, _stfAcctLoading = false, _stfAcctModal = null;
+function stfAcctReal(){ return !!(FB_ON && fbDB && currentUser && currentUser.uid !== 'preview'); }
+function stfAcctDemo(){
+  var users = {}, admins = {}, perms = {}, links = {};
+  (D.stf || []).slice(0, 4).forEach(function(n, i){
+    var uid = 'demo' + i; links[n] = uid;
+    users[uid] = {email:'staff' + (i+1) + '@example.com', displayName:n, lastLogin: i === 3 ? null : Date.now() - i * 86400000};
+    if (i === 0) admins[uid] = true;
+  });
+  users.demo9 = {email:'newcomer@example.com', displayName:'newcomer', lastLogin:null};
+  return {users:users, admins:admins, perms:perms, demoLinks:links, ts:Date.now(), demo:true};
+}
+function loadStfAcct(){
+  if (_stfAcctLoading) return;
+  if (!stfAcctReal()) { _stfAcct = _stfAcct && _stfAcct.demo ? _stfAcct : stfAcctDemo(); return; }
+  _stfAcctLoading = true;
+  Promise.all([fbDB.ref('/users').once('value'), fbDB.ref('/admins').once('value'), fbDB.ref('/userPerms').once('value')])
+    .then(function(r){
+      _stfAcct = {users:r[0].val() || {}, admins:r[1].val() || {}, perms:r[2].val() || {}, ts:Date.now()};
+      _stfAcctLoading = false; renderStfList(); refreshStfAcctModal();
+    }).catch(function(err){
+      _stfAcctLoading = false; _stfAcct = {users:{}, admins:{}, perms:{}, ts:Date.now(), err:err.message};
+      renderStfList();
+    });
+}
+function stfLinkOf(name){
+  if (_stfAcct && _stfAcct.demo) return (_stfAcct.demoLinks || {})[name] || '';
+  return (D.stfLinks && D.stfLinks[name]) || '';
+}
+function stfAcctAfterChange(){ if (_stfAcct && !_stfAcct.demo) { _stfAcct = null; } if (document.getElementById('stf-list')) renderStfList(); refreshStfAcctModal(); }
+/* 1人のアカウントの状態 {kind, uid, user, admin} */
+function stfAcctState(name){
+  var uid = stfLinkOf(name);
+  if (!_stfAcct) return {kind:'loading', uid:uid};
+  if (!uid) return {kind:'none'};
+  var u = _stfAcct.users[uid];
+  if (!u) return {kind:'broken', uid:uid};
+  if (u.retired) return {kind:'retired', uid:uid, user:u};
+  return {kind:'ok', uid:uid, user:u, admin:!!_stfAcct.admins[uid]};
+}
+function stfAcctChipHTML(st){
+  if (st.kind === 'loading') return '<span class="stf-chip">確認中…</span>';
+  if (st.kind === 'none')    return '<span class="stf-chip warn">アカウントなし</span>';
+  if (st.kind === 'broken')  return '<span class="stf-chip bad">紐付け先が見つかりません</span>';
+  if (st.kind === 'retired') return '<span class="stf-chip">利用停止中</span>';
+  var u = st.user;
+  return '<span class="stf-chip ok">' + (st.admin ? '👑 ' : '') + escH(u.email || '（メール不明）') + '</span>'
+    + '<span class="stf-sub">' + (u.lastLogin ? '最終ログイン ' + fmtTS(u.lastLogin) : '<b class="stf-wait">未ログイン</b>') + '</span>';
+}
 function renderStfList() {
-  var l = document.getElementById('stf-list'); l.innerHTML = '';
-  var ok = isAdmin; /* スタッフ一覧の編集は管理者限定（sm ロックは廃止） */
+  var l = document.getElementById('stf-list'); if (!l) return;
+  if (!isAdmin) { l.innerHTML = ''; return; }
+  if (!_stfAcct || (!_stfAcct.demo && Date.now() - _stfAcct.ts > 60000)) loadStfAcct();
+  var note = document.getElementById('stf-acct-note');
+  if (note) note.innerHTML = (_stfAcct && _stfAcct.demo)
+    ? '👀 プレビューなので、メールアドレス等は見本です。アカウントの作成・メール送信は行われません。'
+    : (_stfAcct && _stfAcct.err ? '❌ アカウント情報を読めませんでした：' + escH(_stfAcct.err) : 'ダブルクリック（長押し）で氏名を変更。「⚙」で権限・パスワード再設定メール、「退職」で名簿から外してアプリの利用を止めます。');
+  var h = '';
   for (var i = 0; i < D.stf.length; i++) {
-    var name = D.stf[i];
-    var el = document.createElement('div'); el.className = 'ri';
-    var linkedUid = D.stfLinks && D.stfLinks[name];
-    var eduSlots = D.stfEdu && D.stfEdu[name];
-    var linkBtn = isAdmin ? (linkedUid
-      ? '<span style="font-size:10px;color:var(--ac);margin:0 3px">🔗</span><button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showLinkStfModal('+i+')">変更</button><button class="btn btn-d" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="unlinkStf('+i+')">解除</button>'
-      : '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showLinkStfModal('+i+')">🔗 紐付け</button>') : '';
-    var eduBtn = isAdmin ? '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="showStfEduModal('+i+')" title="教育スロット設定">'+(eduSlots && eduSlots.length ? '🎓' : '🎓 設定')+'</button>' : (eduSlots && eduSlots.length ? '<span style="font-size:10px;color:var(--or);margin-right:3px">🎓</span>' : '');
-    var btns = ok ? '<button class="ru" onclick="mvStf('+i+',-1)">↑</button><button class="rdw" onclick="mvStf('+i+',1)">↓</button><button class="rd2" onclick="rmStf('+i+')">×</button>' : '';
+    var name = D.stf[i], st = stfAcctState(name);
     var isHidden = !!(D.stfHidden && D.stfHidden[name]);
-    var nameSpan = '<span class="rn" id="stf-name-'+i+'" ondblclick="editStfItem('+i+')" style="cursor:pointer;user-select:none;'+(isHidden?'opacity:.4;text-decoration:line-through':'')+'">👤 ' + escH(name) + '</span>';
+    var eduSlots = D.stfEdu && D.stfEdu[name];
     var stfNoVal = (D.stfNo && D.stfNo[name]) || '';
-    var noInput = isAdmin ? '<input type="text" inputmode="numeric" class="fi" style="width:58px;font-size:10px;padding:2px 4px;margin-right:3px" placeholder="職員番号" value="'+escH(stfNoVal)+'" onchange="setStfNo(\''+escJs(name)+'\',this.value)">' : (stfNoVal ? '<span style="font-size:10px;color:var(--txt3);margin-right:3px">#'+escH(stfNoVal)+'</span>' : '');
-    var hideBtn = isAdmin ? '<button class="btn btn-g" style="font-size:10px;padding:2px 5px;margin-right:3px" onclick="toggleStfHidden(\''+escJs(name)+'\')" title="'+(isHidden?'担当表・割当に表示する':'担当表・割当から非表示にする')+'">'+(isHidden?'👁 表示':'🚫 非表示')+'</button>' : '';
-    el.innerHTML = nameSpan + noInput + hideBtn + linkBtn + eduBtn + btns;
-    l.appendChild(el);
+    h += '<div class="stf-row' + (isHidden ? ' hid' : '') + '">'
+      + '<div class="stf-top">'
+      + '<span class="stf-mv"><button class="ru" onclick="mvStf(' + i + ',-1)" title="上へ">↑</button><button class="rdw" onclick="mvStf(' + i + ',1)" title="下へ">↓</button></span>'
+      + '<span class="rn stf-name" id="stf-name-' + i + '" ondblclick="editStfItem(' + i + ')" title="ダブルクリックで氏名を変更">' + escH(name) + '</span>'
+      + '<input type="text" inputmode="numeric" class="fi stf-no" placeholder="職員番号" value="' + escH(stfNoVal) + '" onchange="setStfNo(\'' + escJs(name) + '\',this.value)">'
+      + '</div>'
+      + '<div class="stf-acct">' + stfAcctChipHTML(st) + '</div>'
+      + '<div class="stf-btns">'
+      + '<button class="btn btn-g btn-sm" onclick="openStfAcctModal(\'' + escJs(name) + '\')">⚙ アカウント</button>'
+      + '<button class="btn btn-g btn-sm" onclick="toggleStfHidden(\'' + escJs(name) + '\')" title="' + (isHidden ? '担当表・割当に表示する' : '担当表・割当から非表示にする（休職など）') + '">' + (isHidden ? '👁 表示に戻す' : '🚫 非表示') + '</button>'
+      + '<button class="btn btn-g btn-sm" onclick="showStfEduModal(' + i + ')" title="教育スロット設定">' + (eduSlots && eduSlots.length ? '🎓 教育中' : '🎓') + '</button>'
+      + '<button class="btn btn-d btn-sm" style="margin-left:auto" onclick="retireStaff(\'' + escJs(name) + '\')">🚪 退職</button>'
+      + '</div></div>';
   }
-  document.getElementById('stf-ar').style.display = ok ? 'flex' : 'none';
+  if (!D.stf.length) h = '<div class="pool-empty">まだ職員がいません。「＋ 職員を追加」から登録してください。</div>';
+  l.innerHTML = h;
+  /* 名簿の誰にも紐付いていないアカウント（登録したが紐付けていない・名簿から消えた人） */
+  var orph = document.getElementById('stf-orphans');
+  if (orph) {
+    var oh = '';
+    if (_stfAcct) {
+      var linked = {}; D.stf.forEach(function(n){ var u = stfLinkOf(n); if (u) linked[u] = 1; });
+      Object.keys(_stfAcct.users).forEach(function(uid){
+        var u = _stfAcct.users[uid]; if (linked[uid] || !u || u.retired) return;
+        if (currentUser && uid === currentUser.uid) return;
+        oh += '<div class="stf-row"><div class="stf-top"><span class="rn stf-name">' + escH(u.displayName || u.email || uid) + '</span></div>'
+          + '<div class="stf-acct">' + stfAcctChipHTML({kind:'ok', uid:uid, user:u, admin:!!_stfAcct.admins[uid]}) + '</div>'
+          + '<div class="stf-btns"><button class="btn btn-g btn-sm" onclick="stfAdoptAccount(\'' + escJs(uid) + '\')">＋ 名簿に入れて紐付け</button>'
+          + '<button class="btn btn-g btn-sm" onclick="openStfAcctModal(\'\',\'' + escJs(uid) + '\')">⚙ アカウント</button></div></div>';
+      });
+    }
+    orph.innerHTML = oh ? '<div class="pt" style="margin-top:14px">🔎 名簿に紐付いていないアカウント</div><div class="stf-note">アカウントはあるのに名簿の誰とも結び付いていません。名簿に入れるか、退職した人ならそのままで構いません。</div>' + oh : '';
+  }
+}
+/* 名簿に紐付いていないアカウントを、氏名を決めて名簿に入れる */
+function stfAdoptAccount(uid){
+  if (!isAdmin || !_stfAcct) return;
+  var u = _stfAcct.users[uid] || {};
+  plDialog({title:'名簿に入れて紐付け', body: escH(u.email || '') + ' のアカウントを、名簿の職員として登録します。', input:{label:'氏名', value:(u.displayName && u.displayName.indexOf('@') === -1) ? u.displayName : '', placeholder:'例：山田 太郎'}, okLabel:'登録'}, function(v){
+    var name = fbSafeKey(String(v || '').trim()); if (!name) return;
+    if (D.stf.indexOf(name) === -1) D.stf.push(name);
+    else if (D.stfLinks && D.stfLinks[name]) { toast('その氏名にはすでに別のアカウントが紐付いています', 'warn'); return; }
+    if (_stfAcct.demo) { _stfAcct.demoLinks[name] = uid; }
+    else { if (!D.stfLinks) D.stfLinks = {}; D.stfLinks[name] = uid; }
+    saveD(); writeLog('職員を追加（アカウント紐付け）', name);
+    renderStfList(); if (curDs) safeRenderPage();
+    toast(name + ' さんを名簿に入れて紐付けました', 'ok');
+  });
+}
+/* 編集権限・タブ表示のボタン群（ユーザー管理と職員アカウント画面で共用） */
+function acctPermsHTML(uid, userPerms){
+  userPerms = userPerms || {};
+  var S = '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+  LOCK_DEFS.forEach(function(def) {
+    if (def.id === 'show_phs') return;
+    var granted = !!userPerms[def.id];
+    S += '<button class="btn ' + (granted ? 'btn-p' : 'btn-g') + ' btn-sm" style="font-size:11px' + (granted ? '' : ';opacity:0.6') + '"'
+      + ' onclick="saveUserPerm(\'' + escH(uid) + '\',\'' + def.id + '\',' + !granted + ')">' + def.icon + ' ' + def.label + (granted ? ' ✓' : '') + '</button>';
+  });
+  S += '</div><div style="margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px">'
+    + '<div style="font-size:11px;color:var(--txt3);margin-bottom:5px">📑 タブ表示（このユーザーに追加表示するタブ）</div><div style="display:flex;flex-wrap:wrap;gap:5px">';
+  [{id:'tab_master',icon:'📋',label:'業務タブ'},{id:'perm_edu',icon:'🎓',label:'教育到達度'}].forEach(function(tp){
+    var granted = !!userPerms[tp.id];
+    S += '<button class="btn ' + (granted ? 'btn-p' : 'btn-g') + ' btn-sm" style="font-size:11px' + (granted ? '' : ';opacity:0.6') + '"'
+      + ' onclick="saveUserPerm(\'' + escH(uid) + '\',\'' + tp.id + '\',' + !granted + ')">' + tp.icon + ' ' + tp.label + (granted ? ' ✓' : '') + '</button>';
+  });
+  return S + '</div></div>';
+}
+/* 職員1人のアカウント画面。name が空なら uid だけで開く（名簿に紐付いていないアカウント） */
+function openStfAcctModal(name, uidOnly){
+  if (!isAdmin) return;
+  _stfAcctModal = {name:name || '', uid:uidOnly || ''};
+  var old = document.getElementById('stf-acct-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'stf-acct-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeStfAcctModal(); };
+  var md = document.createElement('div'); md.className = 'md'; md.id = 'stf-acct-md'; md.style.maxWidth = '440px';
+  md.style.maxHeight = 'calc(88vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
+  ov.appendChild(md); document.body.appendChild(ov);
+  refreshStfAcctModal();
+}
+function closeStfAcctModal(){ _stfAcctModal = null; var o = document.getElementById('stf-acct-ov'); if (o) o.remove(); }
+function refreshStfAcctModal(){
+  var md = document.getElementById('stf-acct-md'); if (!md || !_stfAcctModal) return;
+  var name = _stfAcctModal.name, st;
+  if (name) st = stfAcctState(name);
+  else { var u0 = _stfAcct && _stfAcct.users[_stfAcctModal.uid]; st = u0 ? {kind:u0.retired ? 'retired' : 'ok', uid:_stfAcctModal.uid, user:u0, admin:!!(_stfAcct.admins[_stfAcctModal.uid])} : {kind:'loading'}; }
+  var isSelf = st.uid && currentUser && st.uid === currentUser.uid;
+  var h = '<h3>' + escH(name || (st.user && (st.user.displayName || st.user.email)) || 'アカウント') + '</h3>';
+  h += '<div class="stf-acct" style="margin:4px 0 12px">' + stfAcctChipHTML(st) + '</div>';
+  var sec = function(t){ return '<div class="stf-sec">' + t + '</div>'; };
+  if (st.kind === 'loading') h += '<div class="pool-empty">読み込み中…</div>';
+  if (st.kind === 'none' || st.kind === 'broken') {
+    h += sec('ログイン用アカウント');
+    h += '<div class="stf-note">' + (st.kind === 'broken' ? '紐付けていたアカウントが見つかりません。作り直すか、既存のアカウントに紐付け直してください。' : 'まだアカウントがありません。作ると、この人がスマホからログインできるようになります。') + '</div>';
+    h += '<div class="stf-mbtns"><button class="btn btn-p btn-sm" onclick="closeStfAcctModal();openRegModal(\'' + escJs(name) + '\')">＋ アカウントを作る</button>'
+      + '<button class="btn btn-g btn-sm" onclick="closeStfAcctModal();showLinkStfModal(' + D.stf.indexOf(name) + ')">🔗 既存のアカウントに紐付け</button>'
+      + (st.kind === 'broken' ? '<button class="btn btn-g btn-sm" onclick="closeStfAcctModal();clearBrokenLink(' + D.stf.indexOf(name) + ')">✖ 紐付けを外す</button>' : '') + '</div>';
+  }
+  if (st.kind === 'ok') {
+    h += sec('パスワード');
+    h += '<div class="stf-note">パスワードは管理者からは見えません。本人が忘れたときは、登録メールアドレスに再設定メールを送ります（本人がメールのリンクから新しいパスワードを決めます）。</div>';
+    h += '<div class="stf-mbtns"><button class="btn btn-g btn-sm" ' + (st.user.email ? '' : 'disabled ') + 'onclick="sendStfResetMail(\'' + escJs(st.uid) + '\')">✉ パスワード再設定メールを送る</button></div>';
+    if (!isSelf) {
+      h += sec('管理者');
+      h += '<div class="stf-mbtns"><button class="btn ' + (st.admin ? 'btn-d' : 'btn-g') + ' btn-sm" onclick="stfToggleAdmin(\'' + escJs(st.uid) + '\',' + !!st.admin + ')">' + (st.admin ? '👑 管理者を外す' : '👑 管理者にする') + '</button></div>';
+      if (!st.admin) { h += sec('編集権限'); h += acctPermsHTML(st.uid, (_stfAcct && _stfAcct.perms[st.uid]) || {}); }
+    } else h += '<div class="stf-note" style="margin-top:10px">自分のアカウントです。パスワードの変更は右上の名前から行えます。</div>';
+    if (name) h += sec('紐付け') + '<div class="stf-mbtns"><button class="btn btn-g btn-sm" onclick="closeStfAcctModal();showLinkStfModal(' + D.stf.indexOf(name) + ')">🔗 別のアカウントに付け替え</button></div>';
+  }
+  if (st.kind === 'retired') {
+    h += sec('利用停止中');
+    h += '<div class="stf-note">退職処理でアプリを使えなくしたアカウントです。戻すと再びログインできます（名簿には「名簿に入れて紐付け」で戻します）。</div>';
+    h += '<div class="stf-mbtns"><button class="btn btn-g btn-sm" onclick="stfReactivate(\'' + escJs(st.uid) + '\')">↩ 利用を再開する</button></div>';
+  }
+  h += '<div class="mdb"><button class="btn btn-g" onclick="closeStfAcctModal()">閉じる</button></div>';
+  md.innerHTML = h;
+}
+function stfToggleAdmin(uid, isAdm){
+  if (_stfAcct && _stfAcct.demo) { if (isAdm) delete _stfAcct.admins[uid]; else _stfAcct.admins[uid] = true; toast('プレビューなので保存はしません', 'ok'); stfAcctAfterChange(); return; }
+  toggleAdminPriv(uid, isAdm);
+}
+/* パスワード再設定メール（Firebase が本人のメールに再設定リンクを送る）。メールアドレスはログに残さない */
+function sendStfResetMail(uid){
+  if (!isAdmin || !_stfAcct) return;
+  var u = _stfAcct.users[uid]; if (!u || !u.email) return;
+  plDialog({title:'✉ パスワード再設定メール', body:escH(u.email) + ' に、パスワードを決め直すためのメールを送ります。\n本人にメール（迷惑メールフォルダも）を確認してもらってください。今のパスワードはリンクを開いて新しく決めるまで使えます。', okLabel:'送る'}, function(){
+    if (_stfAcct.demo) { toast('プレビューなので実際には送りません', 'ok'); return; }
+    firebase.auth().sendPasswordResetEmail(u.email).then(function(){
+      writeLog('パスワード再設定メール送信', u.displayName || uid);
+      toast('再設定メールを送りました', 'ok');
+    }).catch(function(err){ toast('送れませんでした：' + err.message, 'err'); });
+  });
+}
+function stfReactivate(uid){
+  if (!isAdmin) return;
+  if (_stfAcct && _stfAcct.demo) { delete _stfAcct.users[uid].retired; stfAcctAfterChange(); return; }
+  fbDB.ref('/users/' + uid + '/retired').remove().then(function(){
+    writeLog('利用を再開', uid); toast('利用を再開しました', 'ok'); stfAcctAfterChange();
+  }).catch(function(err){ toast('エラー：' + err.message, 'err'); });
+}
+/* 退職処理：名簿から外し、アカウントがあれば利用停止（/users に retired、管理者・編集権限を外す）と
+   紐付け解除をまとめて行う。過去の記録（連絡表・到達度・職員番号など）は消さない。
+   ログインアカウント本体の削除・無効化は Firebase Console でしかできない（確認画面で案内する）。 */
+function retireStaff(name){
+  if (!isAdmin) return;
+  var idx = D.stf.indexOf(name); if (idx === -1) return;
+  var uid = stfLinkOf(name);
+  if (uid && currentUser && uid === currentUser.uid) { toast('自分自身は退職処理できません', 'warn'); return; }
+  var body = escH(name) + ' さんを退職扱いにします。\n\n'
+    + '・名簿から外します（担当表・割当の候補に出なくなります）\n'
+    + '・過去の連絡表・申し送り・到達度などの記録はそのまま残ります\n'
+    + (uid ? '・アプリを使えなくします（次にログインしようとしたときに締め出されます）\n・管理者・編集権限を外し、アカウントとの紐付けを解除します\n\n'
+      + '<b>確実に止めるには</b>、Firebase Console の Authentication でこの人のアカウントを「無効にする」か削除してください。' : '・ログイン用アカウントはありません');
+  plDialog({title:'🚪 退職処理', body:body, okLabel:'退職にする', danger:true}, function(){
+    D.stf.splice(idx, 1);
+    if (D.stfLinks) delete D.stfLinks[name];
+    if (D.stfHidden) delete D.stfHidden[name];
+    saveD();
+    writeLog('退職処理', name);
+    var done = function(){ _stfAcct && _stfAcct.demo ? null : (_stfAcct = null); renderStfList(); if (curDs) safeRenderPage(); toast(name + ' さんを退職にしました', 'ok'); };
+    if (uid && _stfAcct && _stfAcct.demo) { _stfAcct.users[uid] && (_stfAcct.users[uid].retired = true); delete _stfAcct.demoLinks[name]; done(); return; }
+    if (uid && stfAcctReal()) {
+      var up = {}; up['/users/' + uid + '/retired'] = true; up['/users/' + uid + '/retiredAt'] = Date.now();
+      up['/admins/' + uid] = null; up['/userPerms/' + uid] = null;
+      fbDB.ref().update(up).then(done).catch(function(err){ toast('名簿からは外しましたが、アカウントの利用停止に失敗しました：' + err.message, 'err', 10000); done(); });
+    } else done();
+  });
+}
+
+/* ===== 自分のパスワード変更（右上の名前 → 表示名の画面から） =====
+   Firebase は安全のため直前のログイン確認を求めるので、今のパスワードで確認してから変える。
+   忘れた人向けに、自分のメールへ再設定メールを送る道も同じ画面に置く。 */
+function openPwChangeModal(){
+  if (!currentUser) return;
+  var real = false;
+  try { real = !!(FB_ON && currentUser.uid !== 'preview' && firebase.apps.length && firebase.auth().currentUser); } catch(e) { real = false; }
+  var old = document.getElementById('pw-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'pw-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '380px';
+  md.innerHTML = '<h3>🔑 パスワードを変更</h3>'
+    + (real ? '' : '<div class="stf-note">プレビューなので、実際には変更しません。</div>')
+    + '<div class="md-flbl">今のパスワード</div><input type="password" id="pw-cur" class="fi" autocomplete="current-password">'
+    + '<div class="md-flbl">新しいパスワード（8文字以上・英字と数字を含む）</div><input type="password" id="pw-new" class="fi" autocomplete="new-password">'
+    + '<div class="md-flbl">新しいパスワード（もう一度）</div><input type="password" id="pw-new2" class="fi" autocomplete="new-password">'
+    + '<div class="login-err" id="pw-err"></div>'
+    + '<div class="mdb"><button class="btn btn-g" id="pw-cancel">キャンセル</button><button class="btn btn-p" id="pw-ok">変更する</button></div>'
+    + '<button type="button" class="login-link" id="pw-forgot" style="margin-top:10px">今のパスワードを忘れた → 再設定メールを自分に送る</button>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  var $ = function(id){ return document.getElementById(id); };
+  setTimeout(function(){ $('pw-cur').focus(); }, 50);
+  $('pw-cancel').onclick = function(){ ov.remove(); };
+  $('pw-forgot').onclick = function(){
+    if (!real) { toast('プレビューなので送りません', 'ok'); return; }
+    firebase.auth().sendPasswordResetEmail(firebase.auth().currentUser.email).then(function(){
+      toast('再設定メールを送りました。メールのリンクから新しいパスワードを決めてください', 'ok', 8000); ov.remove();
+    }).catch(function(err){ $('pw-err').textContent = '送れませんでした：' + err.message; });
+  };
+  $('pw-ok').onclick = function(){
+    var cur = $('pw-cur').value, nw = $('pw-new').value, nw2 = $('pw-new2').value, err = $('pw-err');
+    err.textContent = '';
+    if (!cur) { err.textContent = '今のパスワードを入れてください'; return; }
+    if (nw.length < 8 || !/[a-zA-Z]/.test(nw) || !/\d/.test(nw)) { err.textContent = '新しいパスワードは8文字以上で、英字と数字を両方含めてください'; return; }
+    if (nw !== nw2) { err.textContent = '新しいパスワードが2回で一致しません'; return; }
+    if (nw === cur) { err.textContent = '今と同じパスワードです'; return; }
+    if (!real) { toast('プレビューなので変更はしません', 'ok'); ov.remove(); return; }
+    var btn = $('pw-ok'); btn.disabled = true; btn.textContent = '変更中…';
+    var u = firebase.auth().currentUser;
+    u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, cur))
+      .then(function(){ return u.updatePassword(nw); })
+      .then(function(){ writeLog('パスワード変更', currentUser.displayName || ''); toast('パスワードを変更しました。次回から新しいパスワードでログインしてください', 'ok', 8000); ov.remove(); })
+      .catch(function(e){
+        var m = e.message;
+        if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') m = '今のパスワードが違います';
+        else if (e.code === 'auth/too-many-requests') m = '試行回数が多すぎます。しばらく待ってからお試しください';
+        else if (e.code === 'auth/weak-password') m = '新しいパスワードが弱すぎます';
+        err.textContent = m; btn.disabled = false; btn.textContent = '変更する';
+      });
+  };
 }
 function toggleStfHidden(name) {
   if (!isAdmin) return;
@@ -12002,7 +12311,7 @@ function setStfNo(name, val) {
    氏名が D に入る入り口（ここ・改名・ヘルプ職員の手入力・勤務表インポート）で必ず
    fbSafeKey() を通す。入り口さえ押さえれば、下流のキーはすべて安全になる。 */
 function addStf() { if(!isAdmin)return; var v=fbSafeKey(document.getElementById('in-stf').value.trim()); if(!v)return; D.stf.push(v); document.getElementById('in-stf').value=''; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
-function rmStf(i) { if(!isAdmin)return; D.stf.splice(i,1); renderStfList(); saveD(); if(curDs)safeRenderPage(); }
+function rmStf(i) { if(!isAdmin)return; if (D.stf[i]) retireStaff(D.stf[i]); } /* 確認なしで消していた旧ボタンの受け皿。退職処理に寄せる */
 function mvStf(i,d) { if(!isAdmin)return; var j=i+d; if(j<0||j>=D.stf.length)return; var t=D.stf[i];D.stf[i]=D.stf[j];D.stf[j]=t; renderStfList(); saveD(); if(curDs)safeRenderPage(); }
 
 /* モーダル編集状態 */
