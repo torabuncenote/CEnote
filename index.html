@@ -591,6 +591,11 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .pl2-bar button.pri{background:var(--ac);color:var(--on-ac)}
 .pl2-swiping{box-shadow:0 3px 10px rgba(0,0,0,.18);position:relative;z-index:3;transition:none!important}
 .pl2-swiping.ok{border-color:var(--ac)!important}
+.pl2-board .pl2-swiping{opacity:.45}
+.pl2-board .pl2-over{border-color:var(--ac)!important;border-style:solid!important;background:var(--ac-bg)!important;box-shadow:0 0 0 2px var(--ac)}
+/* 払っている間に指に付いてくる名前札。反対側へ出す距離まで動いたら色が変わる */
+.pl2-ghost{position:fixed;z-index:9999;pointer-events:none;transform:translate(-50%,-130%);background:var(--ac);color:var(--on-ac);border-radius:8px;padding:5px 11px;font-size:13px;font-weight:700;white-space:nowrap;box-shadow:var(--shl)}
+.pl2-ghost.far{background:var(--pu)}
 .pl2-switch{font-size:10px;color:var(--txt3);background:none;border:none;text-decoration:underline;cursor:pointer;padding:2px 0}
 .pl2-hint{font-size:11px;color:var(--txt3);flex:1;min-width:150px}
 @media(max-width:768px){.pl2-hint{display:none}}
@@ -5741,11 +5746,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/29-98';
+var APP_VERSION = 'Ver.2026/09/29-99';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/29-99', date:'2026-09-29', title:'配置ボードで、払った名前をそのまま行き先へ運べるようにしました', items:[
+    {t:'imp', d:'👥 スマホの配置ボードで名前を横に払うと名前が指に付いてくるようにし、指を離した行へそのまま移せるようにしました（人がいれば入れ替え）。余剰や控えの人を上の担当枠へ運ぶこともできます。何もない所で離すと、今までどおり反対側（CE⇄HD）の行き先を選べます'}
+  ]},
   { ver:'Ver.2026/09/29-98', date:'2026-09-29', title:'配置ボードの文字が折り返さないようにしました', items:[
     {t:'imp', d:'👥 配置ボードの文字の大きさを画面の幅に合わせて変わるようにし、枠名や控えの見出しが2行に折り返さないようにしました'}
   ]},
@@ -8204,44 +8212,78 @@ function bindPlacementV2(wrap){
     if (tg) pl2Apply(ds, _pl2Pick.name, tg.spec, tg.other);
   });
 
-  /* スマホ：行・チップを横に払うと「反対側へ」。縦に先に動いたらスクロールとして手を離す */
+  /* スマホ：行・チップを横に払い始めると、名前が指に付いてくる。
+     ・指を離した所が行・控えの見出し・控えの人なら、そこへ移す（人がいれば入れ替え。タップ2回と同じ規則）
+     ・何もない所で離し、横に PL2_SWIPE_PX 以上動いていれば「反対側へ」（反対側の行き先を選ぶ）
+     縦に先に動いたときはスクロールとして手を離す（払い始めの判定は横だけ） */
   var sw = null;
+  function pl2Scroller(){
+    var m = document.getElementById('main');
+    return (m && m.scrollHeight > m.clientHeight + 1) ? m : (document.scrollingElement || document.documentElement);
+  }
+  function pl2OverAt(x, y){
+    var hit = document.elementFromPoint(x, y);
+    var el = hit && hit.closest && hit.closest('[data-t]');
+    return (el && wrap.contains(el)) ? el : null;
+  }
   wrap.addEventListener('touchstart', function(e){
     if (!plBoardV2() || !can('duty')) return;
     if (e.target.closest('button,[data-pl-act]')) return;
     var el = e.target.closest('[data-t][data-name]'); if (!el) return;
     var t = e.touches[0];
     if (t.clientX < PL2_EDGE_PX) return;
-    sw = {el:el, x:t.clientX, y:t.clientY, dx:0, on:false, off:false};
+    sw = {el:el, name:el.getAttribute('data-name'), x:t.clientX, y:t.clientY, lx:t.clientX, ly:t.clientY, dx:0, on:false, off:false, ghost:null, over:null};
   }, {passive:true});
   wrap.addEventListener('touchmove', function(e){
     if (!sw || sw.off) return;
     var t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
     if (!sw.on) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw.off = true; return; }
-      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5) { sw.on = true; sw.el.classList.add('pl2-swiping'); }
-      else return;
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        sw.on = true; sw.el.classList.add('pl2-swiping');
+        var g = document.createElement('div'); g.className = 'pl2-ghost'; g.textContent = sw.name;
+        document.body.appendChild(g); sw.ghost = g;
+        if (navigator.vibrate) { try { navigator.vibrate(10); } catch(err){} }
+      } else return;
     }
     e.preventDefault();
-    sw.dx = dx;
-    var lim = 90, v = Math.max(-lim, Math.min(lim, dx));
-    sw.el.style.transform = 'translateX(' + v + 'px)';
-    sw.el.classList.toggle('ok', Math.abs(dx) >= PL2_SWIPE_PX);
+    sw.dx = dx; sw.lx = t.clientX; sw.ly = t.clientY;
+    sw.ghost.style.left = t.clientX + 'px'; sw.ghost.style.top = t.clientY + 'px';
+    var over = pl2OverAt(t.clientX, t.clientY);
+    if (over && over.getAttribute('data-name') === sw.name) over = null;
+    if (over !== sw.over) {
+      if (sw.over) sw.over.classList.remove('pl2-over');
+      if (over) over.classList.add('pl2-over');
+      sw.over = over;
+    }
+    sw.ghost.classList.toggle('far', !over && Math.abs(dx) >= PL2_SWIPE_PX);
+    /* 画面の上下の端では自動でスクロールする（控えから上の担当枠へ運ぶため） */
+    var sc = pl2Scroller(), edge = 70, bottomEdge = window.innerHeight - edge - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cbar-h')) || 0);
+    if (t.clientY < edge) sc.scrollTop -= 12;
+    else if (t.clientY > bottomEdge) sc.scrollTop += 12;
   }, {passive:false});
-  function endSwipe(){
+  function endSwipe(cancelled){
     if (!sw) return;
     var s = sw; sw = null;
-    s.el.style.transform = ''; s.el.classList.remove('pl2-swiping', 'ok');
-    if (!s.on) return;
+    s.el.classList.remove('pl2-swiping');
+    if (s.ghost) { try { document.body.removeChild(s.ghost); } catch(err){} }
+    if (s.over) s.over.classList.remove('pl2-over');
+    if (!s.on || cancelled) return;
     wrap._pl2SwipeTs = Date.now();
+    var ds = dsOf();
+    /* スクロールで位置がずれていることがあるので、離した座標で引き直す */
+    var over = pl2OverAt(s.lx, s.ly);
+    if (over && over.getAttribute('data-name') !== s.name) {
+      var tg = pl2TargetOf(ds, over, s.name, false);
+      if (tg) { pl2Apply(ds, s.name, tg.spec, tg.other); return; }
+    }
     if (Math.abs(s.dx) < PL2_SWIPE_PX) return;
-    var ds = dsOf(), nm = s.el.getAttribute('data-name');
-    _pl2Pick = {ds:ds, name:nm, cross:true};
+    _pl2Pick = {ds:ds, name:s.name, cross:true};
     if (navigator.vibrate) { try { navigator.vibrate(12); } catch(err){} }
     pl2Rerender(ds);
   }
-  wrap.addEventListener('touchend', endSwipe, {passive:true});
-  wrap.addEventListener('touchcancel', function(){ if (sw) { sw.off = true; sw.on = false; } endSwipe(); }, {passive:true});
+  wrap.addEventListener('touchend', function(){ endSwipe(false); }, {passive:true});
+  wrap.addEventListener('touchcancel', function(){ endSwipe(true); }, {passive:true});
 
   /* PC：名前をつかんで行き先へ落とす（タップ2回と同じ規則） */
   wrap.addEventListener('dragstart', function(e){
