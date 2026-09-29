@@ -540,6 +540,53 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .pl-btn.del:hover{background:var(--rd-bg);color:var(--rd);border-color:var(--rd)}
 .pl-role-sel{font-size:9px;padding:0 2px;height:18px;border:1px solid var(--bdr);border-radius:4px;background:var(--sur);color:var(--txt)}
 @media(max-width:768px){.pl-cols{flex-direction:column}.pl-zones{flex-direction:column}/* 狭い画面ではヒント文がボタンを押し下げて操作しづらくなるので隠す（操作自体は同じ） */.pl-hint{display:none}.pl-toolbar{justify-content:flex-end}.pl-btn{font-size:11px;padding:3px 8px}.pl-role-sel{height:24px;font-size:11px}}
+/* ===== 配置ボード（新・renderPlacementBoardV2） =====
+   左＝CEの担当枠、右＝HDの役割を1行ずつ並べ、下に共通の控え。スマホでも2列のまま（積まない）。
+   行の高さを変えたいときは .pl2-row の min-height を変える（全員を1画面に収めるため30px前後に保つ） */
+.pl2-sum{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--txt2);font-weight:700;margin-bottom:6px;flex-wrap:wrap}
+.pl2-sum .emp-n{color:var(--or)}
+.pl2-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+.pl2-col{min-width:0;display:flex;flex-direction:column;gap:3px;transition:opacity .15s}
+.pl2-ch{display:flex;justify-content:space-between;font-size:11px;font-weight:800;padding:4px 8px;border-radius:7px;margin-bottom:2px}
+.pl2-ch.ce{background:var(--ac-bg);color:var(--ac)}
+.pl2-ch.hd{background:var(--rd-bg);color:var(--rd)}
+.pl2-row{display:flex;align-items:center;gap:4px;min-height:30px;padding:0 2px 0 6px;border:1px solid var(--bdr);border-left:3px solid var(--c,var(--bdr2));border-radius:7px;background:var(--sur);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:pan-y;transition:background .12s}
+.pl2-l{font-size:9px;font-weight:800;color:var(--txt3);width:40px;flex:none;overflow:hidden;line-height:1.15;word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+@media(min-width:769px){.pl2-l{width:62px;font-size:10px}}
+.pl2-n{font-size:12px;font-weight:700;color:var(--txt);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl2-row.emp{border-style:dashed;border-left-style:solid}
+.pl2-row.emp .pl2-n{color:var(--txt3);font-weight:600;font-size:11px}
+.pl2-mk{font-size:8.5px;font-weight:700;border-radius:3px;padding:0 3px;flex:none}
+.pl2-mk.oc{background:var(--oc-bg);color:var(--oc)}
+.pl2-mk.from{color:var(--txt3)}
+.pl2-mk.help{color:var(--gd);border:1px solid var(--gd)}
+.pl2-mk.offer{background:var(--pu-bg);color:var(--pu)}
+.pl2-more{border:none;background:none;color:var(--txt3);font-size:14px;line-height:1;padding:4px 5px;cursor:pointer;flex:none}
+.pl2-grp{font-size:10px;font-weight:800;color:var(--txt3);display:flex;align-items:center;gap:6px;margin:4px 2px 0}
+.pl2-add{font-size:10px;font-weight:700;border:1px dashed var(--bdr2);border-radius:10px;padding:2px 9px;color:var(--txt2);cursor:pointer;background:var(--sur)}
+.pl2-tray{margin-top:8px;border-top:1px solid var(--bdr);padding-top:6px;display:flex;flex-direction:column;gap:4px}
+.pl2-tg{display:flex;align-items:center;gap:5px;flex-wrap:wrap;border:1px dashed transparent;border-radius:8px;padding:3px 4px;min-height:30px;cursor:pointer}
+.pl2-tgl{font-size:10px;font-weight:800;color:var(--txt3);width:44px;flex:none}
+.pl2-none{font-size:10px;color:var(--txt3)}
+.pl2-chip{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;border:1px solid var(--bdr);border-left:3px solid var(--ac);border-radius:12px;padding:2px 2px 2px 8px;background:var(--sur);color:var(--txt);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:pan-y;max-width:100%}
+.pl2-chip.hd{border-left-color:var(--rd)}
+.pl2-chip small{font-size:9px;color:var(--txt3);font-weight:600}
+.pl2-chip .pl2-more{padding:2px 5px;font-size:12px}
+.pl2-board .pl2-sel{border-color:var(--ac)!important;background:var(--ac-bg)!important;box-shadow:0 0 0 2px var(--ac)}
+.pl2-picking .pl2-row:not(.pl2-sel){border-color:var(--ac);border-style:dashed}
+.pl2-picking .pl2-row:not(.pl2-sel):not(.emp) .pl2-n::after{content:' ⇄';color:var(--ac);font-weight:800}
+.pl2-picking .pl2-tg{border-color:var(--ac)}
+.pl2-picking .pl2-add{border-color:var(--ac);color:var(--ac)}
+.pl2-cross .pl2-col.same{opacity:.4}
+.pl2-bar{position:sticky;bottom:calc(8px + var(--cbar-h,0px));margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:var(--txt);color:var(--sur);border-radius:10px;padding:8px 10px;font-size:12px;z-index:5;box-shadow:var(--shl)}
+.pl2-bar span{flex:1;min-width:150px}
+.pl2-bar button{font-family:var(--fn);font-size:11px;font-weight:700;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;background:var(--sur);color:var(--txt)}
+.pl2-bar button.pri{background:var(--ac);color:var(--on-ac)}
+.pl2-swiping{box-shadow:0 3px 10px rgba(0,0,0,.18);position:relative;z-index:3;transition:none!important}
+.pl2-swiping.ok{border-color:var(--ac)!important}
+.pl2-switch{font-size:10px;color:var(--txt3);background:none;border:none;text-decoration:underline;cursor:pointer;padding:2px 0}
+.pl2-hint{font-size:11px;color:var(--txt3);flex:1;min-width:150px}
+@media(max-width:768px){.pl2-hint{display:none}}
 /* ===== HD担当表：役割の編集（#hd-roster-box） ===== */
 .hdr-hint{font-size:11px;color:var(--txt2);background:var(--sur2);border-radius:6px;padding:6px 10px;margin-bottom:6px}
 /* 区切り行（🔵日勤／🌙準夜）の右端、または表が空のときは.pool-emptyの横に置くボタン。
@@ -5687,11 +5734,16 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/26-95';
+var APP_VERSION = 'Ver.2026/09/29-97';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/29-97', date:'2026-09-29', title:'人員配置管理を、左右2列の配置ボードに作り直しました', items:[
+    {t:'new', notify:true, d:'👥 人員配置管理を、左にCEの担当枠・右にHDの役割を並べた「配置ボード」にしました。名前をタップして行き先をタップするだけで移動でき、行き先に人がいれば2人の居場所が入れ替わります（CEとHDの間、控え・余剰の人とも同じ操作）'},
+    {t:'new', notify:true, d:'👥 スマホでは名前の行を横に払うと、反対側（CE⇄HD）へ移す行き先を選べます。どの操作のあとにも「取り消す」が出ます'},
+    {t:'imp', d:'👥 しばらくの間は、ボード右上の「以前の画面に戻す」で今までの画面にも切り替えられます（記録は共通です）'}
+  ]},
   { ver:'Ver.2026/09/26-95', date:'2026-09-26', title:'勤務希望の種類を選ぶ画面を見やすくしました', items:[
     {t:'imp', d:'📝 勤務希望で日付を押したときの選択画面を2列にして、縦に短くしました。見出しに曜日と祝日名を表示します'}
   ]},
@@ -7617,6 +7669,8 @@ function renderPlacementBoard(ds, dat, locked){
   refreshHdRoster(ds);
   var wrap = document.getElementById('placement-wrap'); if (!wrap) return;
   dat = dat || D.pages[ds]; if (!dat) return;
+  if (plBoardV2()) { renderPlacementBoardV2(ds, dat); return; }
+  wrap.classList.remove('pl2-board', 'pl2-picking', 'pl2-cross');
   var dlk = !can('duty');
   var names = plNames(ds);
   var cfg = getDutyCfg(dat);
@@ -7676,6 +7730,7 @@ function renderPlacementBoard(ds, dat, locked){
     h += '<button type="button" class="btn btn-g btn-sm" data-pl-act="add" data-side="hd">＋ HDに追加</button>';
     h += '<button type="button" class="btn btn-g btn-sm" data-pl-act="resync" title="勤務表を直したあとに押すと差分を確認して反映します">🔄 勤務表から取り込み直す</button>';
   }
+  h += '<button type="button" class="pl2-switch" data-pl2="new">✨ 新しい配置ボードに切り替える</button>';
   h += '</div>';
   /* 自分の主観側を先に並べる（スマホでは上に来る） */
   h += '<div class="pl-cols">' + (_viewMode === 'hd' ? (hdH + ceH) : (ceH + hdH)) + '</div>';
@@ -7688,6 +7743,7 @@ function renderPlacementBoard(ds, dat, locked){
   });
   h += '</div>';
   wrap.innerHTML = h;
+  bindPlacementV2(wrap); /* 「新しい配置ボードに切り替える」ボタンのため（中身は新ボードのときだけ動く） */
   updateStaffZoneBadge(ds);
 }
 
@@ -7842,6 +7898,364 @@ function bindPlacementDnD(ds){
   }, {passive:true});
 
   wrap.addEventListener('touchcancel', function(){ endTouchDrag(); }, {passive:true});
+}
+
+/* ===== 配置ボード（新）=====
+   左＝CEの担当枠、右＝HDの役割を1行ずつ、下に共通の控え（未割当・余剰・メンテ・休み・その他）。
+   操作は「人をタップ → 行き先をタップ」。行き先に人がいれば、その人は動かした人の元の場所へ移る
+   （入れ替えの規則はこの1つだけ。CE⇄HD・控えとの間も同じ）。スマホは行を横に払うと反対側へ。
+   最初の2週間は新旧を端末ごとに切り替えられる（localStorage ce2_plv2。記録は共通なので消えない）。
+   書き込みは pl2Apply だけを通す。中身は plMove と同じく plClearSpot で外してから入れる。 */
+var PL2_KEY = 'ce2_plv2';
+var PL2_SWIPE_PX = 60;  /* 横にこれだけ動かしたら「反対側へ」とみなす。誤作動が多ければ大きくする */
+var PL2_EDGE_PX = 20;   /* 画面の左端からこの幅で始まった指は iPhone の「戻る」に譲る */
+var _pl2Pick = null;    /* 選択中 {ds, name, cross}。cross＝スワイプで反対側へ出そうとしている */
+function plBoardV2(){ try { return localStorage.getItem(PL2_KEY) !== '0'; } catch(e){ return true; } }
+function setPlBoardV2(on){
+  try { localStorage.setItem(PL2_KEY, on ? '1' : '0'); } catch(e){}
+  _pl2Pick = null;
+  if (curDs && D.pages[curDs]) { renderPlacementBoard(curDs, D.pages[curDs], !can('duty')); refreshHdRoster(curDs); }
+}
+/* いまの居場所（plSpot の戻り値）を、そこへ人を入れるための行き先に変換する */
+function pl2SpecOf(sp){
+  if (!sp) return {kind:'pool'};
+  if (sp.kind === 'duty')    return {kind:'duty', slot:sp.slot};
+  if (sp.kind === 'free')    return {kind:'free', idx:sp.idx};
+  if (sp.kind === 'hdrole')  return sp.role ? {kind:'hdrole', role:sp.role} : {kind:'surplus', side:'hd'};
+  if (sp.kind === 'surplus') return {kind:'surplus', side:sp.side || 'ce'};
+  if (sp.kind === 'zone')    return {kind:'zone', zone:sp.zone, side:sp.side || 'ce'};
+  return {kind:'pool'};
+}
+function pl2SpecLabel(ds, spec){
+  if (spec.kind === 'duty') {
+    var c = getDutyCfg(D.pages[ds] || {}).filter(function(s){ return s.id === spec.slot; })[0];
+    return c ? (c.label || c.id) : '担当枠';
+  }
+  if (spec.kind === 'free')    return 'フリー';
+  if (spec.kind === 'hdrole')  return 'HD ' + (spec.role === '準' ? '準夜' : spec.role);
+  if (spec.kind === 'surplus') return (spec.side === 'hd' ? 'HD' : 'CE') + '余剰';
+  if (spec.kind === 'zone')    { var z = plZone(spec.zone); return z ? z.label : spec.zone; }
+  return '未割当';
+}
+function pl2SameSpec(a, b){
+  if (!a || !b || a.kind !== b.kind) return false;
+  if (a.kind === 'duty')    return a.slot === b.slot;
+  if (a.kind === 'free')    return a.idx === b.idx;
+  if (a.kind === 'hdrole')  return a.role === b.role && a.role !== '準';
+  if (a.kind === 'surplus') return a.side === b.side;
+  if (a.kind === 'zone')    return a.zone === b.zone && a.side === b.side;
+  return a.kind === 'pool';
+}
+/* 外した後の人を行き先へ入れる（保存しない）。plMove の各分岐と同じ書き方 */
+function pl2Put(ds, name, spec){
+  var dat = D.pages[ds], p = plFix(ds);
+  if (!p.people[name]) p.people[name] = plNewPerson({base:'', side:'ce', spot:'pool', manual:true});
+  var pp = p.people[name];
+  if (spec.kind === 'duty') {
+    if (!dat.duties) dat.duties = {};
+    dat.duties[spec.slot] = name; pp.side = 'ce'; pp.spot = '';
+    markDutyEdited(ds);
+  } else if (spec.kind === 'free') {
+    if (!Array.isArray(dat.extra_free)) dat.extra_free = normArr(dat.extra_free);
+    var i = spec.idx;
+    if (i == null || !dat.extra_free[i] || dat.extra_free[i].name) {
+      i = -1;
+      for (var k=0;k<dat.extra_free.length;k++) if (dat.extra_free[k] && !dat.extra_free[k].name) { i = k; break; }
+      if (i === -1) { dat.extra_free.push({name:'', note:''}); i = dat.extra_free.length - 1; }
+    }
+    dat.extra_free[i].name = name; pp.side = 'ce'; pp.spot = '';
+    markDutyEdited(ds);
+  } else if (spec.kind === 'hdrole') {
+    pp.side = 'hd'; pp.spot = spec.role || '';
+    if (pp.base !== 'hd' && !pp.from) pp.from = 'ce';
+  } else if (spec.kind === 'surplus') {
+    pp.side = spec.side || pp.side || 'ce'; pp.spot = 'surplus';
+  } else if (spec.kind === 'zone') {
+    pp.side = spec.side || pp.side || 'ce'; pp.spot = spec.zone;
+  } else {
+    pp.side = 'ce'; pp.spot = 'pool';
+    if (pp.base === 'hd' && !pp.from) pp.from = 'hd';
+  }
+  if (pp.base && ((pp.base === 'hd' && pp.side === 'hd') || (pp.base !== 'hd' && pp.side === 'ce'))) pp.from = '';
+}
+/* 配置ボードの唯一の書き込み口。other（行き先に居る人）がいれば入れ替え、いなければ移動。
+   取り消し付きのお知らせを出す（写しの取り方は hdRosterMove と同じ） */
+function pl2Apply(ds, name, spec, other){
+  if (!can('duty')) return;
+  var dat = D.pages[ds]; if (!dat || !name || !spec) return;
+  if (other === name) other = '';
+  var fromSpec = pl2SpecOf(plSpot(ds, name));
+  if (!other && pl2SameSpec(fromSpec, spec)) { _pl2Pick = null; renderPlacementBoard(ds, dat, false); return; }
+  var before = {
+    placement:  JSON.parse(JSON.stringify(dat.placement  || null)),
+    duties:     JSON.parse(JSON.stringify(dat.duties     || null)),
+    extra_free: JSON.parse(JSON.stringify(dat.extra_free || null))
+  };
+  var oldDuty = (spec.kind === 'duty') ? ((dat.duties || {})[spec.slot] || '') : '';
+  plFix(ds);
+  plClearSpot(ds, name);
+  if (other) plClearSpot(ds, other);
+  pl2Put(ds, name, spec);
+  if (other) pl2Put(ds, other, fromSpec);
+  var toLabel = pl2SpecLabel(ds, spec), backLabel = pl2SpecLabel(ds, fromSpec);
+  var msg = other
+    ? (name + ' さん（→' + toLabel + '）と ' + other + ' さん（→' + backLabel + '）を入れ替えました')
+    : (name + ' さんを ' + toLabel + ' へ移しました');
+  _pl2Pick = null;
+  saveD();
+  renderPlacementBoard(ds, D.pages[ds], false);
+  updateStaffZoneBadge(ds); updateCloseBar(ds);
+  var dutyTouched = spec.kind === 'duty' || spec.kind === 'free' || fromSpec.kind === 'duty' || fromSpec.kind === 'free';
+  if (spec.kind === 'duty') maybeLateToast(D.pages[ds], spec.slot, name, oldDuty);
+  if (other && fromSpec.kind === 'duty') maybeLateToast(D.pages[ds], fromSpec.slot, other, name);
+  if (dutyTouched) safeRenderPage();
+  writeLog('人員配置変更', fmtJ(ds) + ' ' + msg);
+  toast(msg, 'ok', 8000, { label:'取り消す', fn:function(){
+    if (!can('duty')) return;
+    var dat2 = D.pages[ds]; if (!dat2) return;
+    dat2.placement = before.placement; dat2.duties = before.duties; dat2.extra_free = before.extra_free;
+    saveD();
+    renderPlacementBoard(ds, D.pages[ds], !can('duty'));
+    if (dutyTouched) safeRenderPage();
+    updateStaffZoneBadge(ds); updateCloseBar(ds);
+    writeLog('人員配置変更', fmtJ(ds) + ' 取り消し：' + msg);
+  }});
+}
+
+function renderPlacementBoardV2(ds, dat){
+  var wrap = document.getElementById('placement-wrap'); if (!wrap) return;
+  var dlk = !can('duty');
+  var ppl = plPeople(ds), names = plNames(ds), cfg = getDutyCfg(dat);
+  if (_pl2Pick && (_pl2Pick.ds !== ds || !ppl[_pl2Pick.name] || dlk)) _pl2Pick = null;
+  var pick = _pl2Pick;
+  var sp = {}; names.forEach(function(n){ sp[n] = plSpot(ds, n, ppl); });
+  var pickSide = pick ? (sp[pick.name].side === 'hd' ? 'hd' : 'ce') : '';
+
+  function marks(n){
+    var pp = ppl[n] || {}, s = '';
+    if (pp.oc) s += '<span class="pl2-mk oc">OC</span>';
+    if (pp.base === 'help') s += '<span class="pl2-mk help" title="他部署からのヘルプ">🆘</span>';
+    if (pp.from) s += '<span class="pl2-mk from" title="応援で来ています">' + (pp.from === 'ce' ? '🩺' : '🩸') + '</span>';
+    if (pp.offer) s += '<span class="pl2-mk offer">→' + (pp.offer === 'hd' ? 'HD' : 'CE') + '</span>';
+    if (pp.memo) s += '<span class="pl2-mk from" title="' + escH(pp.memo) + '">📝</span>';
+    return s;
+  }
+  function more(n){ return dlk ? '' : '<button type="button" class="pl2-more" data-pl-act="menu" data-name="' + escH(n) + '" title="メモ・提供・名簿から外す">⋯</button>'; }
+  function row(attrs, label, n, color){
+    var sel = pick && n && pick.name === n;
+    return '<div class="pl2-row' + (n ? '' : ' emp') + (sel ? ' pl2-sel' : '') + '"' + attrs
+      + (n ? ' data-name="' + escH(n) + '"' + (dlk ? '' : ' draggable="true"') : '')
+      + (color ? ' style="--c:' + color + '"' : '') + '>'
+      + '<span class="pl2-l">' + escH(label) + '</span>'
+      + '<span class="pl2-n">' + (n ? escH(n) : '＋空き') + '</span>'
+      + (n ? marks(n) + more(n) : '') + '</div>';
+  }
+
+  /* --- CE列：担当枠を1行ずつ（空きは点線）、その下にフリー枠に居る人 --- */
+  var emptyN = 0, ceN = 0, hdN = 0;
+  names.forEach(function(n){ if (sp[n].side === 'hd') hdN++; else ceN++; });
+  var ceH = '';
+  cfg.forEach(function(s){
+    var n = (dat.duties && dat.duties[s.id]) || '';
+    if (!n) emptyN++;
+    ceH += row(' data-t="duty" data-slot="' + escH(s.id) + '"', s.label || s.id, n, dutyColorFor(s).fg);
+  });
+  normArr(dat.extra_free).forEach(function(f, i){
+    if (f && f.name) ceH += row(' data-t="free" data-idx="' + i + '"', 'フリー', f.name, 'var(--gr)');
+  });
+  if (!cfg.length) ceH += '<div class="pl2-none">担当枠がありません（下の担当割り当てで追加）</div>';
+
+  /* --- HD列：日勤の役割を1行ずつ、準夜は見出し＋居る人 --- */
+  var byRole = {};
+  names.forEach(function(n){ if (sp[n].kind === 'hdrole' && sp[n].role) (byRole[sp[n].role] = byRole[sp[n].role] || []).push(n); });
+  var hdH = '';
+  HD_DAY_CODES.forEach(function(c){
+    var list = byRole[c] || [];
+    if (!list.length) { emptyN++; hdH += row(' data-t="role" data-role="' + c + '"', c, '', 'var(--rd)'); }
+    else list.forEach(function(n){ hdH += row(' data-t="role" data-role="' + c + '"', c, n, 'var(--rd)'); });
+  });
+  hdH += '<div class="pl2-grp">🌙 準夜 <span class="pl2-add" data-t="night">＋追加</span></div>';
+  (byRole['準'] || []).forEach(function(n){ hdH += row(' data-t="role" data-role="準"', '準夜', n, 'var(--pu)'); });
+
+  /* --- 控え：未割当（CE未割当＋HDで役割なし）・余剰・メンテ・休み・その他 --- */
+  var grp = {pool:[], surplus:[]}; PL_ZONES.forEach(function(z){ grp[z.key] = []; });
+  names.forEach(function(n){
+    var s = sp[n];
+    if (s.kind === 'pool' || s.kind === 'none' || (s.kind === 'hdrole' && !s.role)) grp.pool.push(n);
+    else if (s.kind === 'surplus') grp.surplus.push(n);
+    else if (s.kind === 'zone') grp[s.zone].push(n);
+  });
+  function chip(n){
+    var s = sp[n], pp = ppl[n] || {}, sel = pick && pick.name === n;
+    var sub = pp.shift && pp.shift !== 'ヘルプ' ? '<small>' + escH(pp.shift) + '</small>' : '';
+    return '<span class="pl2-chip ' + (s.side === 'hd' ? 'hd' : 'ce') + (sel ? ' pl2-sel' : '') + '" data-t="chip" data-name="' + escH(n) + '"' + (dlk ? '' : ' draggable="true"') + '>'
+      + escH(n) + sub + marks(n) + more(n) + '</span>';
+  }
+  function tg(key, label, list){
+    return '<div class="pl2-tg" data-t="grp" data-grp="' + key + '"><span class="pl2-tgl">' + label + '</span>'
+      + (list.length ? list.map(chip).join('') : '<span class="pl2-none">—</span>') + '</div>';
+  }
+  var tray = '<div class="pl2-tray">' + tg('pool', '📋 未割当', grp.pool) + tg('surplus', '🔄 余剰', grp.surplus);
+  PL_ZONES.forEach(function(z){ tray += tg('zone:' + z.key, z.icon + ' ' + z.label, grp[z.key]); });
+  tray += '</div>';
+  /* 提供されている人（相手の判断待ち）は受け取りボタンを控えの下にまとめて出す */
+  var offered = names.filter(function(n){ return (ppl[n] || {}).offer; });
+  if (offered.length && !dlk) {
+    tray += '<div class="pl2-tg" style="cursor:default"><span class="pl2-tgl">🤝 提供中</span>'
+      + offered.map(function(n){ var o = ppl[n].offer; return '<span class="pl2-chip ' + (o === 'hd' ? 'hd' : 'ce') + '" style="cursor:default">' + escH(n) + '<small>→' + (o === 'hd' ? 'HD' : 'CE') + '</small>'
+        + '<button type="button" class="pl-btn ok" data-pl-act="accept" data-name="' + escH(n) + '">受け取る</button></span>'; }).join('')
+      + '</div>';
+  }
+
+  var h = '<div class="pl2-sum"><span>🩺 CE ' + ceN + '名</span><span>🩸 HD ' + hdN + '名</span>'
+    + (emptyN ? '<span class="emp-n">空き ' + emptyN + '</span>' : '<span>空きなし</span>')
+    + '<span class="pl2-hint">' + (dlk ? '閲覧のみ' : '名前をタップ → 行き先をタップ（人がいれば入れ替え）') + '</span></div>';
+  if (!dlk) {
+    h += '<div class="pl-toolbar" style="margin-bottom:6px">'
+      + '<button type="button" class="btn btn-g btn-sm" data-pl-act="add" data-side="ce">＋ CE</button>'
+      + '<button type="button" class="btn btn-g btn-sm" data-pl-act="add" data-side="hd">＋ HD</button>'
+      + '<button type="button" class="btn btn-g btn-sm" data-pl-act="resync" title="勤務表を直したあとに押すと差分を確認して反映します">🔄 取り込み直す</button>'
+      + '<button type="button" class="pl2-switch" data-pl2="old" style="margin-left:auto">以前の画面に戻す</button></div>';
+  }
+  h += '<div class="pl2-cols">'
+    + '<div class="pl2-col' + (pick && pick.cross && pickSide === 'ce' ? ' same' : '') + '" data-col="ce"><div class="pl2-ch ce"><span>🩺 CE</span><span>' + ceN + '</span></div>' + ceH + '</div>'
+    + '<div class="pl2-col' + (pick && pick.cross && pickSide === 'hd' ? ' same' : '') + '" data-col="hd"><div class="pl2-ch hd"><span>🩸 HD</span><span>' + hdN + '</span></div>' + hdH + '</div>'
+    + '</div>' + tray;
+  if (pick) {
+    var otherSide = pickSide === 'hd' ? 'CE' : 'HD';
+    h += '<div class="pl2-bar"><span>' + (pick.cross
+        ? '<b>' + escH(pick.name) + '</b> さんを ' + otherSide + ' 側へ：行き先をタップ（人がいれば入れ替え）'
+        : '<b>' + escH(pick.name) + '</b> さんの行き先をタップ（人がいれば入れ替え）') + '</span>'
+      + (pick.cross ? '<button type="button" class="pri" data-pl2="toSurplus">' + otherSide + 'の余剰へ</button>' : '')
+      + '<button type="button" data-pl2="cancel">やめる</button></div>';
+  }
+  wrap.innerHTML = h;
+  wrap.classList.add('pl2-board');
+  wrap.classList.toggle('pl2-picking', !!pick);
+  wrap.classList.toggle('pl2-cross', !!(pick && pick.cross));
+  bindPlacementV2(wrap);
+  updateStaffZoneBadge(ds);
+}
+
+/* 行き先の要素（行・準夜の＋追加・控えの小見出し・控えのチップ）から {spec, other} を作る */
+function pl2TargetOf(ds, el, name, cross){
+  var t = el.getAttribute('data-t'), occ = el.getAttribute('data-name') || '';
+  var mySide = plSpot(ds, name).side === 'hd' ? 'hd' : 'ce';
+  var side = cross ? (mySide === 'hd' ? 'ce' : 'hd') : mySide;
+  if (t === 'duty')  return {spec:{kind:'duty', slot:el.getAttribute('data-slot')}, other:occ};
+  if (t === 'free')  return {spec:{kind:'free', idx:parseInt(el.getAttribute('data-idx'), 10)}, other:occ};
+  if (t === 'role')  return {spec:{kind:'hdrole', role:el.getAttribute('data-role')}, other:occ};
+  if (t === 'night') return {spec:{kind:'hdrole', role:'準'}, other:''};
+  if (t === 'chip')  return {spec:pl2SpecOf(plSpot(ds, occ)), other:occ};
+  if (t === 'grp') {
+    var g = el.getAttribute('data-grp');
+    if (g === 'pool')    return {spec:{kind:'pool'}, other:''};
+    if (g === 'surplus') return {spec:{kind:'surplus', side:side}, other:''};
+    if (g.indexOf('zone:') === 0) return {spec:{kind:'zone', zone:g.slice(5), side:side}, other:''};
+  }
+  return null;
+}
+function pl2Rerender(ds){ renderPlacementBoard(ds, D.pages[ds], !can('duty')); }
+
+/* 配置ボードの操作（タップ・スワイプ・PCのドラッグ）。#placement-wrap に1回だけ委譲する。
+   旧配置盤の bindPlacementDnD と同じ要素に付くが、あちらは .pl-chip / [data-pl-kind] しか見ないので
+   互いに干渉しない。⋯・受け取る・＋追加・取り込み直しは [data-pl-act] で旧側の処理に任せる。 */
+function bindPlacementV2(wrap){
+  if (wrap._pl2Bound) return;
+  wrap._pl2Bound = true;
+  function dsOf(){ return wrap.getAttribute('data-ds') || curDs; }
+
+  wrap.addEventListener('click', function(e){
+    var ds = dsOf();
+    var ctl = e.target.closest('[data-pl2]');
+    if (ctl) {
+      var v = ctl.getAttribute('data-pl2');
+      if (v === 'old') { setPlBoardV2(false); return; }
+      if (v === 'new') { setPlBoardV2(true); return; }
+      if (v === 'cancel') { _pl2Pick = null; pl2Rerender(ds); return; }
+      if (v === 'toSurplus' && _pl2Pick) {
+        var nm = _pl2Pick.name, s = plSpot(ds, nm).side === 'hd' ? 'ce' : 'hd';
+        pl2Apply(ds, nm, {kind:'surplus', side:s}, '');
+      }
+      return;
+    }
+    if (!plBoardV2() || e.target.closest('[data-pl-act]')) return;
+    if (wrap._pl2SwipeTs && Date.now() - wrap._pl2SwipeTs < 450) return; /* スワイプ直後の合成click */
+    if (!can('duty')) return;
+    var el = e.target.closest('[data-t]'); if (!el) return;
+    var nm2 = el.getAttribute('data-name') || '';
+    if (!_pl2Pick) {
+      if (nm2) { _pl2Pick = {ds:ds, name:nm2, cross:false}; pl2Rerender(ds); }
+      else toast('先に動かす人の名前をタップしてください', 'warn', 2500);
+      return;
+    }
+    if (nm2 && nm2 === _pl2Pick.name) { _pl2Pick = null; pl2Rerender(ds); return; }
+    var tg = pl2TargetOf(ds, el, _pl2Pick.name, _pl2Pick.cross);
+    if (tg) pl2Apply(ds, _pl2Pick.name, tg.spec, tg.other);
+  });
+
+  /* スマホ：行・チップを横に払うと「反対側へ」。縦に先に動いたらスクロールとして手を離す */
+  var sw = null;
+  wrap.addEventListener('touchstart', function(e){
+    if (!plBoardV2() || !can('duty')) return;
+    if (e.target.closest('button,[data-pl-act]')) return;
+    var el = e.target.closest('[data-t][data-name]'); if (!el) return;
+    var t = e.touches[0];
+    if (t.clientX < PL2_EDGE_PX) return;
+    sw = {el:el, x:t.clientX, y:t.clientY, dx:0, on:false, off:false};
+  }, {passive:true});
+  wrap.addEventListener('touchmove', function(e){
+    if (!sw || sw.off) return;
+    var t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (!sw.on) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { sw.off = true; return; }
+      if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.5) { sw.on = true; sw.el.classList.add('pl2-swiping'); }
+      else return;
+    }
+    e.preventDefault();
+    sw.dx = dx;
+    var lim = 90, v = Math.max(-lim, Math.min(lim, dx));
+    sw.el.style.transform = 'translateX(' + v + 'px)';
+    sw.el.classList.toggle('ok', Math.abs(dx) >= PL2_SWIPE_PX);
+  }, {passive:false});
+  function endSwipe(){
+    if (!sw) return;
+    var s = sw; sw = null;
+    s.el.style.transform = ''; s.el.classList.remove('pl2-swiping', 'ok');
+    if (!s.on) return;
+    wrap._pl2SwipeTs = Date.now();
+    if (Math.abs(s.dx) < PL2_SWIPE_PX) return;
+    var ds = dsOf(), nm = s.el.getAttribute('data-name');
+    _pl2Pick = {ds:ds, name:nm, cross:true};
+    if (navigator.vibrate) { try { navigator.vibrate(12); } catch(err){} }
+    pl2Rerender(ds);
+  }
+  wrap.addEventListener('touchend', endSwipe, {passive:true});
+  wrap.addEventListener('touchcancel', function(){ if (sw) { sw.off = true; sw.on = false; } endSwipe(); }, {passive:true});
+
+  /* PC：名前をつかんで行き先へ落とす（タップ2回と同じ規則） */
+  wrap.addEventListener('dragstart', function(e){
+    if (!plBoardV2()) return;
+    var el = e.target.closest && e.target.closest('[data-t][data-name][draggable]'); if (!el) return;
+    e.dataTransfer.setData('pl2', el.getAttribute('data-name'));
+    e.dataTransfer.effectAllowed = 'move';
+    wrap._pl2Drag = el.getAttribute('data-name');
+  });
+  wrap.addEventListener('dragover', function(e){
+    if (!plBoardV2() || !wrap._pl2Drag) return;
+    if (e.target.closest && e.target.closest('[data-t]')) e.preventDefault();
+  });
+  wrap.addEventListener('drop', function(e){
+    if (!plBoardV2() || !wrap._pl2Drag) return;
+    var name = wrap._pl2Drag; wrap._pl2Drag = '';
+    var el = e.target.closest && e.target.closest('[data-t]'); if (!el) return;
+    e.preventDefault();
+    var ds = dsOf();
+    if ((el.getAttribute('data-name') || '') === name) return;
+    var tg = pl2TargetOf(ds, el, name, false);
+    if (tg) pl2Apply(ds, name, tg.spec, tg.other);
+  });
+  wrap.addEventListener('dragend', function(){ wrap._pl2Drag = ''; });
 }
 
 /* 旧APIの受け皿：呼び出し箇所が多いので名前は残し、中身は配置盤の再描画に寄せる */
@@ -17860,6 +18274,8 @@ function hdRosterGroupRowHTML(label, btn) {
 }
 function hdRosterEditBtnHTML(editing) {
   if (!can('duty')) return '';
+  /* 新しい配置ボードでは人を動かす場所をボードに集めたので、HD担当表は見る専用（備考は書ける） */
+  if (plBoardV2() && !editing) return '';
   return '<button type="button" class="btn btn-g btn-sm hdr-edit-btn" data-action="hdr-edit-toggle" style="margin-left:auto;font-size:11px">' + (editing ? '✅ 完了' : '✏️ 役割を編集') + '</button>';
 }
 /* variant='hd'：HD日ページの「🩸 HD担当表」見出し＋表（常に出す。0件でも編集で人を入れられる）。
