@@ -5786,11 +5786,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/30-101';
+var APP_VERSION = 'Ver.2026/09/30-102';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/30-102', date:'2026-09-30', title:'特殊治療メールの文面を編集できるようにしました', items:[
+    {t:'new', admin:true, d:'✉️ HD特殊治療メールの件名・本文を、HDモードの各種マスタで編集できるようにしました。{日付}{治療内容}{操作}{URL} を差し込めて、見本で仕上がりを確認できます'},
+    {t:'imp', admin:true, d:'✉️ 特殊治療メールに治療日（例：10月2日（金））と治療内容（変更なら「PE → PMX」）を載せるようにしました'}
+  ]},
   { ver:'Ver.2026/09/30-101', date:'2026-09-30', title:'「使い方」を今の画面に合わせて書き直しました', items:[
     {t:'imp', d:'📘 「使い方」を今の画面に合わせて全面的に書き直しました。朝の流れ・配置ボード・オペ／カテ・申し送り・HDモード・困ったときなどを、上の目次から開けます'},
     {t:'fix', d:'📘 「使い方」を開いても中身が表示されなかった問題を直しました'}
@@ -18988,12 +18992,12 @@ function hdTreatMailUpdateLocal(ds, eventId, update) {
   if (curDs === ds && _viewMode === 'hd') refreshHdCountPanel(ds);
   return true;
 }
-function hdTreatMailRecordNameChange(ds, action, rowId) {
+function hdTreatMailRecordNameChange(ds, action, rowId, names) {
   if (!rowId || ds < toDS(new Date()) || ['added','changed','deleted'].indexOf(action) < 0) return false;
   var pg = D.pages && D.pages[ds]; if (!pg) return false;
   var eventId = 'hdtm_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,10);
   pg.hdTreatMailLog = hdTreatMailLogOf(pg);
-  pg.hdTreatMailLog.push({ id:eventId, ds:ds, rowId:rowId, action:action, ts:Date.now(), status:'awaiting_save', recipients:[] });
+  pg.hdTreatMailLog.push({ id:eventId, ds:ds, rowId:rowId, action:action, from:(names&&names.from)||'', to:(names&&names.to)||'', ts:Date.now(), status:'awaiting_save', recipients:[] });
   saveDPage(ds, function(ok, mode, err){
     if (!ok) {
       /* 失敗後に同じページを再保存すると、変更本体まで後から保存される可能性がある。
@@ -19075,14 +19079,12 @@ function hdTreatMailSendNext(ds, eventId, targets, index, preview) {
     emailPromise.then(function(email){
       if (!email) throw new Error('メールアドレス未登録');
       var ev = hdTreatMailFind(D.pages && D.pages[ds], eventId);
-      var actionText = {added:'追加',changed:'変更',deleted:'削除'}[(ev && ev.action) || ''] || '変更';
-      var appUrl = window.location.origin + window.location.pathname;
+      var mail = hdTreatMailCompose(ev, ds);
       if (preview) return { preview:true };
       emailjs.init((D.emailjsCfg || {}).publicKey);
       sendStarted=true;
       return emailjs.send((D.emailjsCfg || {}).serviceId, (D.emailjsCfg || {}).templateId, {
-        to_email:email, to_name:'', subject:'HD特殊治療の変更のお知らせ',
-        message:(ev && ev.ds ? ev.ds : ds)+'のHD特殊治療に'+actionText+'がありました。\nアプリを開く: '+appUrl
+        to_email:email, to_name:'', subject:mail.subject, message:mail.body
       });
     }).then(function(result){
       hdTreatMailUpdate(ds, eventId, function(ev){
@@ -19413,7 +19415,7 @@ function renderPageHD(ds) {
         var removed = (idx >= 0 && idx < arr.length) ? arr[idx] : null;
         if (removed) arr.splice(idx, 1);
         if (removed && removed.n) {
-          if (hdTreatMailRecordNameChange(ds, 'deleted', removed.id)) {
+          if (hdTreatMailRecordNameChange(ds, 'deleted', removed.id, {from:removed.n})) {
             refreshHdCountPanel(ds);
             return;
           }
@@ -19464,7 +19466,7 @@ function renderPageHD(ds) {
         var oldName = row.n || '', newName = sel.value || '';
         row.n = newName;
         var action = !oldName && newName ? 'added' : (oldName && !newName ? 'deleted' : (oldName && newName ? 'changed' : null));
-        if (action && hdTreatMailRecordNameChange(ds, action, row.id)) {
+        if (action && hdTreatMailRecordNameChange(ds, action, row.id, {from:oldName, to:newName})) {
           refreshHdCountPanel(ds);
           return;
         }
@@ -23182,6 +23184,51 @@ function renderEmailjsCfg() {
     + (ok ? '<div style="display:flex;align-items:center;gap:10px"><button class="btn btn-p" id="ejs-save-btn" onclick="saveEmailjsCfg()" style="font-size:12px">保存</button>' + (configured ? '<span style="font-size:11px;color:var(--gr)">✅ 3項目すべて設定済み — メール通知が有効です</span>' : '<span style="font-size:11px;color:var(--txt3)">3項目すべて入力して保存してください</span>') + '</div>' : '')
     + '</div>';
 }
+/* 特殊治療メールの件名・本文（HDの各種マスタで管理者が編集。D.emailjsCfg.hdTreatNotify.subject/body）。
+   {日付}{治療内容}{操作}{URL} を差し込む。職員名は差し込めない（外部のメールに載せないため） */
+var HD_TREAT_MAIL_DEF_SUBJECT = 'HD特殊治療の{操作}のお知らせ';
+var HD_TREAT_MAIL_DEF_BODY = '{日付}のHD特殊治療に{操作}がありました。\n治療内容：{治療内容}\n\nアプリを開く：{URL}';
+var HD_TREAT_MAIL_TAGS = ['日付','治療内容','操作','URL'];
+function hdTreatMailTpl(notify) {
+  notify = notify || ((D.emailjsCfg || {}).hdTreatNotify) || {};
+  return { subject: notify.subject || HD_TREAT_MAIL_DEF_SUBJECT, body: notify.body || HD_TREAT_MAIL_DEF_BODY };
+}
+function hdTreatMailVars(ev, ds) {
+  var d = (ev && ev.ds) || ds, dt = new Date(d + 'T00:00:00');
+  var date = (dt.getMonth()+1) + '月' + dt.getDate() + '日（' + '日月火水木金土'[dt.getDay()] + '）';
+  var act = (ev && ev.action) || '';
+  var from = (ev && ev.from) || '', to = (ev && ev.to) || '';
+  var tx = act === 'added' ? to : act === 'deleted' ? from : (from && to ? from + ' → ' + to : (to || from));
+  return { '日付': date, '治療内容': tx || '（記録なし）', '操作': {added:'追加',changed:'変更',deleted:'削除'}[act] || '変更',
+    'URL': window.location.origin + window.location.pathname };
+}
+function hdTreatMailFill(tpl, vars) {
+  return String(tpl || '').replace(/\{(日付|治療内容|操作|URL)\}/g, function(m, k){ return vars[k]; });
+}
+function hdTreatMailCompose(ev, ds, notify) {
+  var t = hdTreatMailTpl(notify), v = hdTreatMailVars(ev, ds);
+  return { subject: hdTreatMailFill(t.subject, v), body: hdTreatMailFill(t.body, v) };
+}
+function hdTreatMailTplPreview() {
+  var box = document.getElementById('hd-treat-mail-tpl-prev'); if (!box) return;
+  var subj = (document.getElementById('hd-treat-mail-subj') || {}).value || '';
+  var body = (document.getElementById('hd-treat-mail-body') || {}).value || '';
+  var m = hdTreatMailCompose({ ds: toDS(new Date()), action:'changed', from:'PE', to:'PMX' }, null, { subject: subj, body: body });
+  box.innerHTML = '<div style="font-weight:700;margin-bottom:4px">件名：' + escH(m.subject) + '</div><div style="white-space:pre-wrap">' + escH(m.body) + '</div>';
+}
+function hdTreatMailInsertTag(k) {
+  var el = _hdTreatMailLastField || document.getElementById('hd-treat-mail-body'); if (!el) return;
+  var a = el.selectionStart != null ? el.selectionStart : el.value.length, b = el.selectionEnd != null ? el.selectionEnd : a;
+  el.value = el.value.slice(0, a) + '{' + k + '}' + el.value.slice(b);
+  el.focus(); var pos = a + k.length + 2; try { el.setSelectionRange(pos, pos); } catch(e) {}
+  el.dispatchEvent(new Event('input', { bubbles:true }));
+}
+var _hdTreatMailLastField = null;
+function hdTreatMailTplReset() {
+  var s = document.getElementById('hd-treat-mail-subj'), b = document.getElementById('hd-treat-mail-body');
+  if (s) s.value = HD_TREAT_MAIL_DEF_SUBJECT; if (b) b.value = HD_TREAT_MAIL_DEF_BODY;
+  if (b) b.dispatchEvent(new Event('input', { bubbles:true }));
+}
 var _hdTreatRecipientsLoadSeq = 0;
 function renderHdTreatMailCfg() {
   var sec = document.getElementById('hd-treat-mail-cfg-section');
@@ -23206,8 +23253,25 @@ function renderHdTreatMailCfg() {
       h += '<label style="display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:12px"><input type="checkbox" data-hd-treat-recipient="'+escH(u.uid)+'"'+(chosen.indexOf(u.uid)!==-1?' checked':'')+'><span>'+escH(u.name)+' <span style="color:var(--txt3)">'+escH(u.email)+'</span></span></label>';
     });
     h += '</div><div class="pn" style="margin:7px 0">送信先はここで選んだ登録ユーザーだけです。EmailJS設定も必要です。</div>';
-    h += '<button class="btn btn-p btn-sm" type="button" onclick="saveHdTreatMailCfg()">送信先設定を保存</button>';
+    var tpl = hdTreatMailTpl(notify);
+    h += '<div style="font-size:12px;font-weight:700;margin:12px 0 4px">✉️ メールの文面</div>';
+    h += '<input type="text" id="hd-treat-mail-subj" value="'+escH(tpl.subject)+'" placeholder="件名" style="width:100%;box-sizing:border-box;font-size:12px;padding:5px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);margin-bottom:6px">';
+    h += '<textarea id="hd-treat-mail-body" rows="5" placeholder="本文" style="width:100%;box-sizing:border-box;font-size:12px;padding:6px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);resize:vertical">'+escH(tpl.body)+'</textarea>';
+    h += '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:5px 0;font-size:11px;color:var(--txt3)">差し込む：';
+    HD_TREAT_MAIL_TAGS.forEach(function(k){ h += '<button type="button" class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onmousedown="event.preventDefault()" onclick="hdTreatMailInsertTag(\''+k+'\')">{'+k+'}</button>'; });
+    h += '<button type="button" class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px;margin-left:auto" onclick="hdTreatMailTplReset()">初期の文面に戻す</button></div>';
+    h += '<div class="pn" style="margin:4px 0">職員名はメールに載せません。</div>';
+    h += '<div style="font-size:11px;color:var(--txt3);margin:6px 0 3px">見本（今日・PE → PMX に変更した場合）</div>';
+    h += '<div id="hd-treat-mail-tpl-prev" style="font-size:12px;padding:8px 10px;border:1px dashed var(--bdr);border-radius:var(--rs);background:var(--sur2);margin-bottom:8px"></div>';
+    h += '<button class="btn btn-p btn-sm" type="button" onclick="saveHdTreatMailCfg()">送信先と文面を保存</button>';
     el.innerHTML = (mstPreview()?'<div class="pn">架空の送信先で確認できます。実メールは送信しません。</div>':'')+h;
+    ['hd-treat-mail-subj','hd-treat-mail-body'].forEach(function(id){
+      var f = document.getElementById(id); if (!f) return;
+      f.addEventListener('focus', function(){ _hdTreatMailLastField = f; });
+      f.addEventListener('input', hdTreatMailTplPreview);
+    });
+    _hdTreatMailLastField = null;
+    hdTreatMailTplPreview();
   }
   if (mstPreview()) {
     showUsers([{uid:'preview_mail_a',name:'あおい',email:''},{uid:'preview_mail_b',name:'ひなた',email:''},{uid:'preview_mail_c',name:'さくら',email:''}]);
@@ -23238,7 +23302,12 @@ function saveHdTreatMailCfg() {
   var recipients = Array.prototype.slice.call(document.querySelectorAll('#hd-treat-mail-cfg-form [data-hd-treat-recipient]:checked'))
     .map(function(el){ return el.getAttribute('data-hd-treat-recipient'); });
   var cfg = Object.assign({}, D.emailjsCfg || {});
+  var subj = ((document.getElementById('hd-treat-mail-subj') || {}).value || '').trim();
+  var body = ((document.getElementById('hd-treat-mail-body') || {}).value || '').trim();
   cfg.hdTreatNotify = { enabled: enabled, recipientUids: Array.from(new Set(recipients)) };
+  /* 初期の文面と同じなら保存しない（あとで初期の文面を直したときに追随させるため） */
+  if (subj && subj !== HD_TREAT_MAIL_DEF_SUBJECT) cfg.hdTreatNotify.subject = subj;
+  if (body && body !== HD_TREAT_MAIL_DEF_BODY) cfg.hdTreatNotify.body = body;
   D.emailjsCfg = cfg;
   mstClearDraft('hd-treat-mail-cfg-form');
   var st = hdTreatMailCfgState(cfg.hdTreatNotify, cfg);
