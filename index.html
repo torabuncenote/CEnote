@@ -3502,7 +3502,7 @@ function fbInit() {
            実績・教育到達度が表示され続ける（宣言側コメントの「ログアウトで破棄する」を実装する） */
         _perfView = 'person'; _perfName = null; _perfPick = false; _perfMapCol = null; _perfCatOpen = {}; _perfHistOpen = {}; _perfDetOpen = {}; _perfCatFilter = {}; _perfStatsOpen = false;
         _memosData = {}; _memoDenied = false; /* 別の人がログインしたときに前の人のメモが残らないようにする */
-        _saveWriting = false; _savePending = false; _saveQueued = null; /* 旧セッションの書き込みキューを破棄 */
+        _saveWriting = false; _savePending = false; _saveQueued = null; _syncBase = null; _recentBkTs = 0; /* 旧セッションの書き込みキューを破棄 */
         _saveQueuedCallbacks.forEach(function(cb){ try { cb(false, 'ログアウト'); } catch(e){} }); _saveQueuedCallbacks = [];
         Object.keys(_savePageCallbacks).forEach(function(ds){ (_savePageCallbacks[ds]||[]).forEach(function(cb){ try { cb(false, 'ログアウト'); } catch(e){} }); });
         _savePageCallbacks = {}; _savePageQueue = {}; _savePageWriting = false; _hdTreatMailInFlight = {};
@@ -3633,6 +3633,7 @@ function fbInit() {
                   '受信 ' + new Date(incomingSavedAt).toLocaleTimeString() +
                   ' / 自 ' + new Date(_localSavedAt).toLocaleTimeString() +
                   ' / セッション:' + (d._sessionId || '不明'));
+                _syncBase = null; /* 差分ではなく全経路を送り直す */
                 saveD(); /* 自分の最新Dで上書き修正 */
               }
               return; /* このリスナー更新でDを書き換えない */
@@ -3732,6 +3733,13 @@ function fbInit() {
               if (k.charAt(0) !== '_' && !Object.prototype.hasOwnProperty.call(D, k)) D[k] = d[k];
             });
             D._migVer = d._migVer || 0; /* マイグレーションチェック前に復元（未復元だとリロードごとに再実行される） */
+            /* 差分保存の基準＝いまサーバーにある状態。既定値で補った項目も含めて今の D から作る（補っただけの値を送り直さない）。
+               手元に残した送信待ちのページだけは、受信した側の値を基準にする（次の保存で送られるように） */
+            _syncBase = syncSigMap(D);
+            Object.keys(keepPages).forEach(function(k){
+              var sv = d.pages && d.pages[k];
+              if (sv) _syncBase['pages/' + k] = JSON.stringify(sv); else delete _syncBase['pages/' + k];
+            });
             /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
             if (!D._migVer || D._migVer < 1) {
               D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -5786,11 +5794,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/30-103';
+var APP_VERSION = 'Ver.2026/09/30-104';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/30-104', date:'2026-09-30', title:'保存と同期を速くしました', items:[
+    {t:'imp', d:'⚡ 保存のたびにデータ全体（約0.8MB）を送っていたのをやめ、変わった所だけを送るようにしました。保存と他の人への反映が速くなります'},
+    {t:'fix', d:'🔄 同時に保存したとき、他の人の入力が古い内容で上書きされて消えることがあった問題を直しました'}
+  ]},
   { ver:'Ver.2026/09/30-103', date:'2026-09-30', title:'ログが読み込めない問題を直しました', items:[
     {t:'fix', admin:true, d:'📋 ログタブが「読み込み中…」のまま表示されない問題を直しました'},
     {t:'fix', admin:true, d:'🔄 管理者の画面で、他の人の保存を受け取ったあとの描き直しが途中で止まり、入力が反映されにくかった問題を直しました'}
@@ -9881,7 +9893,45 @@ function sanitizeEduProgressKeys() {
 
 var _savePending = false; /* 未保存変更フラグ（beforeunload用） */
 var _saveWriting = false; /* Firebase write in-flight */
-var _saveQueued  = null;  /* 直近のDスナップショット（write完了後に送る） */
+var _saveQueued  = null;  /* 書き込み中に溜まった変更 {経路:値}（write完了後にまとめて送る） */
+/* ===== 変わった所だけを送る（差分保存） =====
+   以前の saveD() は D 全体（実測0.77MB）を /data へ set し、成功のたびに /recent_backup にも同じ量を送っていた。
+   保存1回で約1.5MBを上げ、開いている全員が0.77MBを受け取り直すので、病棟の回線では1回の保存に数秒かかり、
+   その間に積まれた保存は待たされ、しかも古い全体の写しが他の人の入力を上書きして消していた。
+   いまは「最後にサーバーと一致していた状態」（_syncBase：経路→JSON文字列）と今の D を比べ、
+   違う経路だけを update() で送る。経路は最上位のキー、ただし pages だけは日ごと（pages/YYYY-MM-DD）。
+   _syncBase は /data を受信して D を差し替えた直後と、差分を取った直後に更新する。
+   null にすると次の保存は全経路を送る（古いセッションの上書きを直すときに使う）。 */
+var _syncBase = null;
+var SYNC_META = { _appSeq:1, _savedAt:1, _sessionId:1, _lastWriter:1 };
+function syncSigMap(obj) {
+  var m = {};
+  Object.keys(obj || {}).forEach(function (k) {
+    if (SYNC_META[k]) return;
+    if (k === 'pages') {
+      var pg = obj.pages || {};
+      Object.keys(pg).forEach(function (ds) { var t = JSON.stringify(pg[ds]); if (t !== undefined && t !== 'null') m['pages/' + ds] = t; });
+      return;
+    }
+    var t = JSON.stringify(obj[k]);
+    if (t !== undefined && t !== 'null') m[k] = t;
+  });
+  return m;
+}
+/* 今の D と _syncBase の違いを {経路: 値（消えたものは null）} で返し、_syncBase を今の D に合わせる */
+function syncTakeDiff() {
+  var cur = syncSigMap(D), base = _syncBase, out = {};
+  Object.keys(cur).forEach(function (k) { if (!base || base[k] !== cur[k]) out[k] = JSON.parse(cur[k]); });
+  if (base) Object.keys(base).forEach(function (k) { if (!(k in cur)) out[k] = null; });
+  _syncBase = cur;
+  return out;
+}
+/* 送れなかった変更は、次の保存でもう一度送られるよう _syncBase から外す */
+function syncForget(changes) {
+  if (!_syncBase || !changes) return;
+  Object.keys(changes).forEach(function (k) { _syncBase[k] = '\u0000未送信'; });
+}
+var _recentBkTs = 0, RECENT_BK_MS = 10 * 60 * 1000; /* /recent_backup は10分に1回まで（毎回だと保存のたびに全体を送る） */
 var _saveQueuedCallbacks = []; /* saveD(onComplete) の成功/失敗通知 */
 var _fbConnected = false; /* .info/connected 状態 */
 var _fbEverConn  = false; /* 初回接続済みフラグ */
@@ -9917,48 +9967,51 @@ function saveD(onComplete) {
     if (onComplete) onComplete(false, '空データ保護');
     return;
   }
+  var changes = syncTakeDiff(); /* 変わった経路だけ（書き込み中でも、この時点の差分を取る） */
+  if (!Object.keys(changes).length && !_saveWriting) { if (onComplete) onComplete(true, 'firebase'); return; }
   _savePending = true;
-  var snap = JSON.parse(JSON.stringify(D)); /* 現時点のスナップショット */
   if (_saveWriting) {
-    _saveQueued = snap; /* 書き込み中は最新データをキューに積む（コアレス） */
+    _saveQueued = Object.assign(_saveQueued || {}, changes); /* 書き込み中は差分を積み増す（コアレス） */
     if (onComplete) _saveQueuedCallbacks.push(onComplete);
     _savingTs = Date.now(); /* エコー抑制ウィンドウをこの保存時点に更新 */
     return;
   }
-  _doFbWrite(snap, 0, onComplete ? [onComplete] : []);
+  _doFbWrite(changes, 0, onComplete ? [onComplete] : []);
 }
 
 /* リトライ付きFirebase書き込み（最大4回: 2s/4s/8s/16s） */
 function _doFbWrite(data, attempt, callbacks) {
   callbacks = callbacks || [];
   /* キューに積まれていた保存やリトライも、古いと分かった後は送らない */
-  if (_staleApp) { _saveWriting = false; _savePending = false; _saveQueued = null; callbacks.forEach(function(cb){ cb(false, '古いバージョン'); }); _saveQueuedCallbacks.forEach(function(cb){ cb(false, '古いバージョン'); }); _saveQueuedCallbacks=[]; return; }
+  if (_staleApp) { syncForget(data); syncForget(_saveQueued); _saveWriting = false; _savePending = false; _saveQueued = null; callbacks.forEach(function(cb){ cb(false, '古いバージョン'); }); _saveQueuedCallbacks.forEach(function(cb){ cb(false, '古いバージョン'); }); _saveQueuedCallbacks=[]; return; }
   _saveWriting = true;
-  data._appSeq = APP_SEQ; /* どのリリースのアプリが保存したか（checkStaleApp が読む） */
   setSyncLbl(attempt > 0 ? '再試行中... (' + attempt + '/4)' : '保存中...');
   _savingTs = Date.now();
-  data._savedAt = _savingTs;        /* 書き込み時刻を埋め込む */
-  data._sessionId = _sessionId;     /* 書き込みセッションを埋め込む */
+  var upd = Object.assign({}, data);
+  upd._appSeq = APP_SEQ;            /* どのリリースのアプリが保存したか（checkStaleApp が読む） */
+  upd._savedAt = _savingTs;         /* 書き込み時刻を埋め込む */
+  upd._sessionId = _sessionId;      /* 書き込みセッションを埋め込む */
   /* 書き込みアカウントの情報を記録（不審な書き込みの特定に使う） */
-  data._lastWriter = currentUser ? {
+  upd._lastWriter = currentUser ? {
     uid:   currentUser.uid,
     email: currentUser.email || '',
     name:  currentUser.displayName || '',
-    pages: Object.keys(data.pages || {}).length,
+    pages: Object.keys(D.pages || {}).length,
     ts:    _savingTs
   } : null;
-  fbDB.ref('/data').set(data)
+  fbDB.ref('/data').update(upd)
     .then(function() {
       _saveWriting = false;
       _savePending = false;
       setSyncLbl('同期済');
-      _localSavedAt = data._savedAt; /* 確定した書き込み時刻を記録 */
+      _localSavedAt = upd._savedAt; /* 確定した書き込み時刻を記録 */
       _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長 */
-      /* ACK確定のたびに /recent_backup へ最新スナップを保存（データ消去時の復元用） */
-      if (Object.keys(data.pages || {}).length > 0) {
-        fbDB.ref('/recent_backup').set(
-          Object.assign({}, data, { _backupAt: Date.now() })
-        ).catch(function(){});
+      /* /recent_backup へ最新の全体を保存（データ消去時の復元用）。毎回だと保存のたびに全体を送るので10分に1回 */
+      if (Object.keys(D.pages || {}).length > 0 && Date.now() - _recentBkTs > RECENT_BK_MS) {
+        _recentBkTs = Date.now();
+        var bk = JSON.parse(JSON.stringify(D));
+        bk._appSeq = APP_SEQ; bk._savedAt = upd._savedAt; bk._sessionId = _sessionId; bk._lastWriter = upd._lastWriter; bk._backupAt = Date.now();
+        fbDB.ref('/recent_backup').set(bk).catch(function(){ _recentBkTs = 0; });
       }
       callbacks.forEach(function(cb){ try { cb(true, 'firebase'); } catch(e) { console.error('[saveD callback]', e); } });
       if (_saveQueued) {
@@ -9974,6 +10027,7 @@ function _doFbWrite(data, attempt, callbacks) {
         /* リトライ時にユーザーが変わっていた or Firebase未ロードなら中断 */
         setTimeout(function() {
           if (!FB_ON || !fbDB || !currentUser || !_fbDataLoaded) {
+            syncForget(data); syncForget(_saveQueued);
             _saveWriting = false; _savePending = false; _saveQueued = null;
             callbacks.forEach(function(cb){ try { cb(false, '再試行前に接続終了'); } catch(e){} });
             _saveQueuedCallbacks.forEach(function(cb){ try { cb(false, '再試行前に接続終了'); } catch(e){} }); _saveQueuedCallbacks=[];
@@ -9984,6 +10038,7 @@ function _doFbWrite(data, attempt, callbacks) {
       } else {
         _saveWriting = false;
         _savePending = false;
+        syncForget(data); /* 次の保存でもう一度送る */
         console.error('saveD失敗:', err.code, err.message);
         var msg = err.code === 'PERMISSION_DENIED' ? 'セキュリティルール拒否'
                 : (err.message || err.code || '不明');
@@ -9996,6 +10051,7 @@ function _doFbWrite(data, attempt, callbacks) {
           var nxtCallbacks = _saveQueuedCallbacks; _saveQueuedCallbacks = [];
           setTimeout(function() { if (FB_ON && fbDB && currentUser) { _savePending = true; _doFbWrite(nxt, 0, nxtCallbacks); } else { nxtCallbacks.forEach(function(cb){ cb(false, '再試行前に接続終了'); }); } }, 5000);
         } else {
+          syncForget(_saveQueued);
           _saveQueuedCallbacks.forEach(function(cb){ cb(false, '同期失敗'); });
           _saveQueuedCallbacks = [];
           _saveQueued = null;

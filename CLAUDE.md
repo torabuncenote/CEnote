@@ -96,7 +96,7 @@ When adding a new top-level property to `D`, update **all five** of these locati
 
 ### Persistence
 
-- **Firebase ON**: `saveD()` writes the entire `D` object to `fbDB.ref('/data').set(D)`
+- **Firebase ON**: `saveD()` sends **only the paths that changed** with `fbDB.ref('/data').update()` (差分保存, 2026-09-30). Paths are top-level keys, except `pages`, which is split per day (`pages/YYYY-MM-DD`). `_syncBase` (path → JSON string) holds "what the server last had"; `syncTakeDiff()` compares it with the current `D`, returns `{path: value|null}` and advances the base. The `/data` listener resets `_syncBase` right after hydrating `D` (before migrations), using the incoming value for pages kept from `_savePageQueue`. Failed writes call `syncForget()` so the paths go out again next time; `_syncBase = null` forces every path (used when correcting a stale-session overwrite). **Do not go back to `set(D)`**: at 0.77MB per save plus the same again to `/recent_backup`, a save took seconds on the ward network, queued saves waited, and the stale full copy overwrote other people's input.
 - **Firebase OFF / fallback**: writes to `localStorage` key `'ce2'`
 - **Logs**: written via `writeLog()` to Firebase `/logs`
 - **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}` (manuals), `memo/{ds}/{ts}_{idx}_{filename}` (memos), `board/{ts}_{idx}_{filename}` (board post images), `board/reply_{ts}_{idx}_{filename}` (board reply images)
@@ -105,7 +105,7 @@ When adding a new top-level property to `D`, update **all five** of these locati
   - **カテゴリタグ**: posts carry `tag` (`'info'`|`'req'`|`'etc'`, default `'etc'`, see `BOARD_TAGS`). `req`-tagged posts can be marked `resolved: true/false` (with `resolvedBy`/`resolvedAt`) by the author or an admin via `toggleBoardResolved()`; resolved posts render dimmed (`.brd-post.resolved`). `board-list` has a filter chip row (`setBoardFilter()`, module-level `_boardFilter`) for all/info/req/etc/unresolved-only.
   - **ピン留め期限**: `pinBoard(id, pin)` prompts for a number of days when pinning (blank = no expiry) and stores `pinUntil` (ts). `boardPinActive(p)` — `p.pin && (!p.pinUntil || p.pinUntil > Date.now())` — is the single source of truth for sort order and the 📌 badge/expiry-date label. Admins auto-clear expired pins (`/board/{id}/pin` → `false`) inside `renderBoard()`.
 
-`saveD()` always writes the **full** `D` object. After mutating any property of `D`, call `saveD()`.
+`saveD()` always writes the **full** `D` object to localStorage; Firebase receives only the diff. After mutating any property of `D`, call `saveD()`.
 
 **Critical guard**: `_fbDataLoaded` must be `true` before `saveD()` writes to Firebase. It is set when the `/data` listener first fires. This prevents empty-D overwrites on login. **Do not bypass this guard.**
 
@@ -311,7 +311,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 | Layer | Where | Retention | Trigger |
 |---|---|---|---|
 | ☁️ Firebase hourly snapshot | `/backups/YYYY-MM-DD_HH` | 7 days × 24h | `saveFirebaseSnapshot()` — daily auto + 1h interval |
-| ⚡ Recent backup | `/recent_backup` | Latest 1 | Every successful `saveD()` write |
+| ⚡ Recent backup | `/recent_backup` | Latest 1 | Successful `saveD()` write, at most every 10 min (`RECENT_BK_MS`) |
 | 🔄 PC local auto-backup | `localStorage ce2_autobk` | Latest 5 | Firebase first-load, 30-min interval, before destructive ops |
 
 **1時間ごとのスナップショットには画像を入れない（`bkStripMedia(copy)` / `bkRestoreMedia(data, cur)`）。** 画像は Storage が使えないため base64 で `D` の中にあり（実測でDB全体の3割超）、`D` を丸ごとコピーすると画像1枚が最大168回（7日×24時間）複製されていた。`saveFirebaseSnapshot()` はコピー直後に `bkStripMedia` を通し、申し送り（`memos`/`hdMemos` の本文と返信）とマニュアルの埋め込み画像（`_isEmbeddedMedia`）の `url`/`data` を外して `{bkStripped:true, len}` に置き換える。復元（`restoreFirebaseSnapshot` と、`doPartialRestore` で `manual` を選んだとき）は `D` に代入する**前に** `bkRestoreMedia(data, D)` を呼び、いまの `D` にある同じ画像（申し送りは `memoKeyOf`＋返信の `rid`、マニュアルは業務名で場所を特定し、`name`＋`len` で照合）を付け直す。見つからない画像は中身が無く表示が壊れるので配列から除き、その枚数をトーストで知らせる。**`/recent_backup`（最新1個）・端末内の自動バックアップ・JSONファイル書き出しは画像を残す**——データが全部消えたときの最後の砦で、1個分なので容量への影響は小さい。`bkStripped` を持たない古いスナップショットは今までどおりそのまま戻る。
