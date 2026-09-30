@@ -5786,11 +5786,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/30-102';
+var APP_VERSION = 'Ver.2026/09/30-103';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/30-103', date:'2026-09-30', title:'ログが読み込めない問題を直しました', items:[
+    {t:'fix', admin:true, d:'📋 ログタブが「読み込み中…」のまま表示されない問題を直しました'},
+    {t:'fix', admin:true, d:'🔄 管理者の画面で、他の人の保存を受け取ったあとの描き直しが途中で止まり、入力が反映されにくかった問題を直しました'}
+  ]},
   { ver:'Ver.2026/09/30-102', date:'2026-09-30', title:'特殊治療メールの文面を編集できるようにしました', items:[
     {t:'new', admin:true, notify:true, d:'✉️ HD特殊治療メールの件名・本文を、HDモードの各種マスタで編集できるようにしました。{日付}{治療内容}{操作}{URL} を差し込めて、見本で仕上がりを確認できます'},
     {t:'imp', admin:true, notify:true, d:'✉️ 特殊治療メールに治療日（例：10月2日（金））と治療内容（変更なら「PE → PMX」）を載せるようにしました'}
@@ -9702,6 +9706,17 @@ function renderGuide() {
   S += '</div>';
   el.innerHTML = S;
 }
+var _logsData = null; /* 読み込んだログを保持（ソート・絞り込み用） */
+var LOG_SHOW_MAX = 100; /* 画面に表示する上限件数（取得件数とは別。主観で絞ってからこの件数で切る） */
+var LOG_FETCH_MAX = 3000; /* 取得件数は固定（「さらに読み込む」は表示上限が変わらず紛らわしいため廃止）。
+                              保存期間60日・実測35件/日で約2,100件のため余裕を持たせた値 */
+
+var LOG_KEEP_DAYS_DEF = 60; /* ログの保存日数の既定 */
+
+/* ログの保存日数。0 なら自動削除しない。
+   D.autoDelCfg の既定値リテラル {enabled:false,period:365,...} はファイル内に何箇所も散らばっており、
+   新キーをそこへ足すと必ず足し忘れが出る（足し忘れた経路を通ったときだけ古い値になり、再現しづらい）。
+   なので設定側は触らず、読み出し時にここで既定を補う。ensureStaffZone / hdCountSpArr と同じ方針。 */
 function logKeepDays() {
   var v = D.autoDelCfg && D.autoDelCfg.logKeepDays;
   if (v === 0) return 0;
