@@ -128,7 +128,7 @@ Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` 
 
 **`D` に入る値が新しくオブジェクトのキーになるときは、必ずこの表に足して入り口で正規化すること。** 保存前のサニタイズ（`sanitizeManualKeys` / `sanitizeEduProgressKeys`）は既存データの後始末であって、キーと値の対応が崩れる（`D.stf` の氏名は元のまま、`D.stfLinks` のキーだけ変わる等）ので、新規の防御には使わない。
 
-After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state. **見送った再描画は捨てずに後で行う**：リスナーは入力中（`#main` の入力欄にフォーカス）と保存直後2秒は `renderPage` を見送るが、開いている連絡表の中身が本当に変わっていれば（`pageSig(v)` で比較。Firebase が空配列・null を保存しない差と `_` で始まるキーは無視するので、自分の保存のエコーは「変わっていない」になる）`markPageRenderPending()` で印を付け、`flushPendingRender()` が入力欄から離れ・指も離れて600ms後に描き直す。すぐ描き直さないのは、入力欄の次に押そうとしたボタンが押す前に作り直されてタップが空振りするため。入力欄が DOM ごと消えると `focusout` が出ない端末があるので、見送り中は1.5秒ごとに自分でも見直す。`safeRenderPage()` も入力中なら同じ印を付ける。
+After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state. **見送った再描画は捨てずに後で行う**：リスナーは入力中（`#main` の入力欄にフォーカス）と保存直後2秒は `renderPage` を見送るが、開いている連絡表の中身が本当に変わっていれば（`pageSig(v)` で比較。Firebase が空配列・null を保存しない差と `_` で始まるキーは無視するので、自分の保存のエコーは「変わっていない」になる）`markPageRenderPending()` で印を付け、`flushPendingRender()` が入力欄から離れ・指も離れて600ms後に描き直す。**「入力中」は `mainEditing()` が唯一の判定**（リスナー・`safeRenderPage`・`flushPendingRender` 共通）：文字を打つ欄（`isTypingField`）はカーソルがある間ずっと、チェックボックス等は最後の操作から3秒、選択欄は8秒だけ入力中とみなす。PCは押したあともカーソルが残るので、カーソルの有無だけで判定すると他の人の変更を延々と出さなくなる（2026-09-30「PCだけ同期が不安定」の原因）。文字欄も描き直し待ちのまま20秒打たなければカーソルを外して（blur）進める（変換中は除く）。すぐ描き直さないのは、入力欄の次に押そうとしたボタンが押す前に作り直されてタップが空振りするため。入力欄が DOM ごと消えると `focusout` が出ない端末があるので、見送り中は1.5秒ごとに自分でも見直す。`safeRenderPage()` も入力中なら同じ印を付ける。
 
 #### 送信前の入力（下書き）を作り直しから守る
 

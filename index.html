@@ -3327,7 +3327,10 @@ function init() {
   });
   /* 見送った再描画（flushPendingRender）は、入力欄から離れ・指も離れたあとで行う */
   document.addEventListener('focusout', function(){ schedulePendingFlush(); });
-  document.addEventListener('pointerdown', function(){ _pointerDown = true; }, true);
+  document.addEventListener('pointerdown', function(){ _pointerDown = true; _lastInputTs = Date.now(); }, true);
+  ['keydown','input','change','wheel'].forEach(function(ev){ document.addEventListener(ev, function(){ _lastInputTs = Date.now(); }, true); });
+  document.addEventListener('compositionstart', function(){ _imeComposing = true; _lastInputTs = Date.now(); }, true);
+  document.addEventListener('compositionend', function(){ _imeComposing = false; _lastInputTs = Date.now(); }, true);
   document.addEventListener('pointerup', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
   document.addEventListener('pointercancel', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
   if (isPreview) { carryOverMemos(); openDefaultPage(); maybeShowWhatsNew(); }
@@ -3810,11 +3813,7 @@ function fbInit() {
             renderLockList(); renderAutoAssignModeSetting();
             updateTabVisibility();
             /* 入力フォーカス中はページを再描画しない（入力内容が消えるのを防ぐ） */
-            var focused = document.activeElement;
-            var mainEl  = document.getElementById('main');
-            var isEditingInPage = focused &&
-              (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT') &&
-              mainEl && mainEl.contains(focused);
+            var isEditingInPage = mainEditing();
             /* saveD()後2秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
             var justSaved = (Date.now() - _savingTs) < 2000;
             if (wasFirstLoad) carryOverMemos(); /* 未済で繰り越しONの申し送りを今日（以降）へ */
@@ -5794,11 +5793,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/09/30-104';
+var APP_VERSION = 'Ver.2026/09/30-105';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/09/30-105', date:'2026-09-30', title:'PCで他の人の変更が出にくい問題を直しました', items:[
+    {t:'fix', d:'💻 PCで、チェックや選択欄を押したあとカーソルが残っている間、他の人の変更が画面に出ないままになる問題を直しました'}
+  ]},
   { ver:'Ver.2026/09/30-104', date:'2026-09-30', title:'保存と同期を速くしました', items:[
     {t:'imp', d:'⚡ 保存のたびにデータ全体（約0.8MB）を送っていたのをやめ、変わった所だけを送るようにしました。保存と他の人への反映が速くなります'},
     {t:'fix', d:'🔄 同時に保存したとき、他の人の入力が古い内容で上書きされて消えることがあった問題を直しました'}
@@ -15733,12 +15735,7 @@ function showEmpty() {
 /* 入力中でなければrenderPageを実行する安全なラッパー */
 function safeRenderPage() {
   if (!curDs || !D.pages[curDs]) return;
-  var focused = document.activeElement;
-  var mainEl  = document.getElementById('main');
-  var isEditing = focused &&
-    (focused.tagName==='INPUT'||focused.tagName==='TEXTAREA'||focused.tagName==='SELECT') &&
-    mainEl && mainEl.contains(focused);
-  if (!isEditing) renderPage(curDs);
+  if (!mainEditing()) renderPage(curDs);
   else markPageRenderPending(); /* 入力欄から離れたあとで描き直す（見送った再描画の節） */
 }
 
@@ -15814,9 +15811,32 @@ var _pageRenderPending = false;
 var _boardRenderPending = false;
 var _pointerDown = false;
 var _pendingFlushTimer = null;
-function mainEditing() {
+/* 「入力中」の判定。PC ではチェックボックスや選択欄を押したあともカーソルがそこに残り続けるので、
+   カーソルがあるだけで入力中とみなすと、他の人の変更を画面に出すのを延々と見送ってしまう（スマホは
+   入力後にカーソルが外れるので起きにくい＝「PCだけ同期が遅い」の原因だった）。
+   ・チェックボックスなど押すだけの欄：最後の操作から EDIT_IDLE_PICK_MS だけ入力中
+   ・選択欄：EDIT_IDLE_SELECT_MS（開いた一覧を読む時間を見込む）
+   ・文字を打つ欄：カーソルがある間は入力中。ただし描き直し待ちのまま EDIT_IDLE_TYPE_MS 何も打たなければ、
+     flushPendingRender がカーソルを外す（＝欄の外を押したのと同じ。保存の処理が普通に走る）
+   ・日本語の変換中は常に入力中 */
+var _lastInputTs = 0, _imeComposing = false;
+var EDIT_IDLE_PICK_MS = 3000, EDIT_IDLE_SELECT_MS = 8000, EDIT_IDLE_TYPE_MS = 20000;
+function isTypingField(f) {
+  if (!f) return false;
+  if (f.tagName === 'TEXTAREA') return true;
+  if (f.tagName !== 'INPUT') return false;
+  return ['checkbox','radio','button','submit','reset','range','color','file','image'].indexOf((f.type || 'text').toLowerCase()) < 0;
+}
+function mainFocusedField() {
   var f = document.activeElement, m = document.getElementById('main');
-  return !!(f && (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA' || f.tagName === 'SELECT') && m && m.contains(f));
+  return (f && (f.tagName === 'INPUT' || f.tagName === 'TEXTAREA' || f.tagName === 'SELECT') && m && m.contains(f)) ? f : null;
+}
+function mainEditing() {
+  var f = mainFocusedField();
+  if (!f) return false;
+  if (_imeComposing) return true;
+  if (isTypingField(f)) return true;
+  return (Date.now() - _lastInputTs) < (f.tagName === 'SELECT' ? EDIT_IDLE_SELECT_MS : EDIT_IDLE_PICK_MS);
 }
 function boardEditing() {
   var f = document.activeElement, b = document.getElementById('board-list');
@@ -15839,7 +15859,12 @@ function flushPendingRender() {
   if (!curDs || !D.pages[curDs]) { _pageRenderPending = false; return; }
   /* 入力欄から離れたとき（focusout）にもう一度予約されるが、入力欄が DOM ごと消えると focusout が
      出ない端末がある（消し込みバーの _cbarInputFocused と同じ罠）ので、見送り中は自分でも見直す */
-  if (mainEditing()) { clearTimeout(_pendingFlushTimer); _pendingFlushTimer = setTimeout(flushPendingRender, 1500); return; }
+  if (mainEditing()) {
+    /* 文字を打つ欄にカーソルを置いたまま手が止まっているなら、カーソルを外して描き直しへ進む */
+    var ff = mainFocusedField();
+    if (ff && isTypingField(ff) && !_imeComposing && Date.now() - _lastInputTs > EDIT_IDLE_TYPE_MS) { try { ff.blur(); } catch(e) {} }
+    clearTimeout(_pendingFlushTimer); _pendingFlushTimer = setTimeout(flushPendingRender, 1500); return;
+  }
   var wait = 2000 - (Date.now() - _savingTs);
   if (wait > 0) { clearTimeout(_pendingFlushTimer); _pendingFlushTimer = setTimeout(flushPendingRender, wait + 50); return; }
   renderPage(curDs); /* mainDraftsAfter が _pageRenderPending を下ろす */
