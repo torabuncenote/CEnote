@@ -1418,6 +1418,25 @@ body.is-offline{--off-h:24px}
 .cli-subbtn:hover{border-color:var(--ac);color:var(--ac)}
 .cli-subs{display:none;padding:2px 0 6px 24px}
 .cli-wrap.open .cli-subs{display:block}
+/* 機器の消し込み（devCfg を持つ項目）。部署と同じ行に並べ、開閉は別に持つ */
+.cli-devs{display:none;padding:2px 0 6px 24px}
+.cli-wrap.dev-open .cli-devs{display:block}
+.dev-kind{margin:4px 0;border:1px solid var(--bdr);border-radius:8px;background:var(--sur)}
+.dev-kind>summary{cursor:pointer;padding:5px 9px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;list-style:none}
+.dev-kind>summary::-webkit-details-marker{display:none}
+.dev-kind>summary::before{content:'▸';color:var(--txt3);transition:transform .15s}
+.dev-kind[open]>summary::before{transform:rotate(90deg)}
+.dev-kind .dev-cnt{margin-left:auto;font-size:11px;font-weight:400;color:var(--txt3)}
+.dev-kind .dev-cnt.all{color:var(--gr);font-weight:700}
+.dev-kind .dc-cbs{padding:0 8px 8px}
+.dev-sub{font-size:10px;color:var(--txt3);margin-left:4px}
+.dev-mst-unit{display:flex;align-items:center;gap:6px;padding:4px 8px;border-top:1px dashed var(--bdr);font-size:12px}
+.dev-mst-unit .rn{flex:1;min-width:0}
+.dev-mst-add{display:flex;flex-wrap:wrap;gap:5px;padding:6px 8px;border-top:1px dashed var(--bdr)}
+.dev-mst-add input,.dev-mst-add select{font-size:12px;padding:4px 6px;border:1.5px solid var(--bdr);border-radius:var(--rs);min-width:0}
+.dev-seg{display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 10px}
+.dev-seg button{font-size:12px;padding:5px 10px;border-radius:14px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);cursor:pointer;font-family:var(--fn)}
+.dev-seg button.on{background:var(--ac);border-color:var(--ac);color:var(--on-ac);font-weight:700}
 /* ===== 改善要望（pane-feedback） ===== */
 .fb-badge{display:inline-block;margin-left:4px;background:var(--rd);color:var(--on-ac);border-radius:9px;font-size:10px;font-weight:700;padding:0 6px;line-height:16px}
 .fb-wrap{max-width:640px;margin:0 auto}
@@ -2021,6 +2040,16 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
               <div class="ar" id="wd-dept-ar">
                 <input type="text" id="in-wd-dept" placeholder="部署名を入力…">
                 <button onclick="addWdDept()">追加</button>
+              </div>
+            </div>
+            <!-- 機器マスタ（D.devMaster）。機種→機器（1台ずつ）の2段。設置部署と同じくCE/HD共通・wm 権限 -->
+            <div data-perm="wm">
+              <div class="pt">🩺 機器マスタ</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">点検する機器を「機種 → 1台ずつ」で登録します。チェックリストの各業務の「🩺 機器」で対象を選ぶと、当日のチェックリストで1台ずつ消し込めます。CE・HD共通です。</div>
+              <div class="rl" id="dev-master-list"></div>
+              <div class="ar" id="dev-master-ar">
+                <input type="text" id="in-dev-kind" placeholder="機種名を入力（例：人工呼吸器）…">
+                <button onclick="addDevKind()">機種を追加</button>
               </div>
             </div>
             <!-- HDチェックリストマスタ。CE側と同じdm/wmロックを流用し、別セクションとして表示する -->
@@ -3175,7 +3204,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3417,6 +3446,7 @@ function loadD() {
     D.ocFlow = s.ocFlow || '';
     D.makers = normMakers(s.makers);
     D.wdDepts = s.wdDepts || [];
+    D.devMaster = s.devMaster || [];
     D.hdTreatments = s.hdTreatments || [];
     D.hdDly = s.hdDly || [];
     D.hdWd = s.hdWd || {};
@@ -3557,7 +3587,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={};
         _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
@@ -3758,6 +3788,7 @@ function fbInit() {
             D.ocFlow = d.ocFlow || '';
             D.makers = normMakers(d.makers);
             D.wdDepts = d.wdDepts || [];
+            D.devMaster = d.devMaster || [];
             D.hdTreatments = d.hdTreatments || [];
             D.hdDly = d.hdDly || [];
             D.hdWd = d.hdWd || {};
@@ -5834,11 +5865,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/01-107';
+var APP_VERSION = 'Ver.2026/10/02-108';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/02-108', date:'2026-10-02', title:'機器マスタと、機器ごとの消し込みを追加しました', items:[
+    {t:'new', admin:true, notify:true, d:'🩺 マスタに「機器マスタ」を追加しました。機種ごとに機器を1台ずつ（名前・管理番号・設置場所）登録でき、機種ごとに開いたり閉じたりできます'},
+    {t:'new', notify:true, d:'🩺 チェックリストの項目で、点検する機器を1台ずつ消し込めるようになりました。「毎日」「月内に1回」「一巡したらリセット」から選べます'}
+  ]},
   { ver:'Ver.2026/10/01-107', date:'2026-10-01', title:'「改善要望」を送れるようになりました', items:[
     {t:'new', notify:true, d:'💡 📚 資料に「改善要望」を追加しました。種類と画面を選んで、ヒントに沿って書くだけで送れます。写真の添付や、名前を出さずに送ることもできます（内容を見られるのは管理者だけです）'},
     {t:'new', admin:true, notify:true, d:'📥 届いた改善要望を「💡 改善要望」で一覧できます。未確認の件数がボタンに出て、状態（対応予定・対応済みなど）とメモを付けられます'}
@@ -12597,7 +12632,7 @@ function renderDlyList() {
       });
       return s?'<span style="display:inline-flex;gap:3px;align-items:center">'+s+'</span>':'';
     })();
-    var btns = ok ? '<button class="re2" onclick="editDly('+i+')">✏️</button><button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
+    var btns = ok ? devCfgBtnHTML('dly', i, it) + '<button class="re2" onclick="editDly('+i+')">✏️</button><button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
     var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
     var notifRow = '';
     if (ok) {
@@ -12696,7 +12731,7 @@ function renderHdDlyList() {
       });
       return s?'<span style="display:inline-flex;gap:3px;align-items:center">'+s+'</span>':'';
     })();
-    var btns = ok ? '<button class="re2" onclick="editHdDly('+i+')">✏️</button><button class="ru" onclick="mvHdDly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdDly('+i+',1)">↓</button><button class="rd2" onclick="rmHdDly('+i+')">×</button>' : '';
+    var btns = ok ? devCfgBtnHTML('hdDly', i, it) + '<button class="re2" onclick="editHdDly('+i+')">✏️</button><button class="ru" onclick="mvHdDly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdDly('+i+',1)">↓</button><button class="rd2" onclick="rmHdDly('+i+')">×</button>' : '';
     var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
     el.innerHTML = head;
     l.appendChild(el);
@@ -12769,7 +12804,7 @@ function renderWdlyList() {
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
       var subsBadge = '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openWdSubsModal('+i+')">🏥 部署'+(subs?' ('+subs.length+')':'')+'</button>';
-      var btns = ok ? (subsBadge + '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>') : '';
+      var btns = ok ? (subsBadge + devCfgBtnHTML('wd', i, it) + '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>') : '';
       var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
                + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
       var freq = '';
@@ -12946,7 +12981,7 @@ function renderHdWdlyList() {
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
       var subsBadge = '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openHdWdSubsModal('+i+')">🏥 部署'+(subs?' ('+subs.length+')':'')+'</button>';
-      var btns = ok ? (subsBadge + '<button class="re2" onclick="editHdWdly('+i+')">✏️</button><button class="ru" onclick="mvHdWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdWdly('+i+',1)">↓</button><button class="rd2" onclick="rmHdWdly('+i+')">×</button>') : '';
+      var btns = ok ? (subsBadge + devCfgBtnHTML('hdWd', i, it) + '<button class="re2" onclick="editHdWdly('+i+')">✏️</button><button class="ru" onclick="mvHdWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdWdly('+i+',1)">↓</button><button class="rd2" onclick="rmHdWdly('+i+')">×</button>') : '';
       var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
                + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
       var freq = '';
@@ -13071,6 +13106,7 @@ function renderWdDeptList() {
     }
   }
   var ar = document.getElementById('wd-dept-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+  renderDevMaster(); /* 機器マスタの設置場所は部署マスタから選ぶので一緒に描き直す */
 }
 function addWdDept() {
   if (!can('wm')) return;
@@ -13981,7 +14017,7 @@ function mstEntryState(entry) {
   }
   if(el.id==='emailjs-cfg-section'){var c=D.emailjsCfg||{};return c.publicKey&&c.serviceId&&c.templateId?'接続設定済み':'接続未設定';}
   if(el.id==='fcm-cfg-section') return (D.fcmCfg||{}).vapidKey?'接続設定あり':'接続未設定';
-  var map={'dly-list':D.dly,'wdly-list':D.wd,'wd-dept-list':D.wdDepts,'hd-dly-list':D.hdDly,
+  var map={'dly-list':D.dly,'wdly-list':D.wd,'wd-dept-list':D.wdDepts,'dev-master-list':D.devMaster,'hd-dly-list':D.hdDly,
     'hd-wdly-list':D.hdWd,'ope-tree-list':D.opeTree,'cath-tree-list':D.cathTree,'sup-master-list':D.supMaster,
     'robo-master-list':D.roboLayouts,'hd-treat-list':D.hdTreatments,'duty-master-list':D.dutyCfgMaster,
     'sched-preset-list':D.schedPresets,'srq-code-list':D.shiftReqCodes,'tablet-master-list':D.tablets,
@@ -14148,6 +14184,310 @@ function saveWdSubs(i) {
   writeLog('曜日別業務の設置部署を編集', wdText(arr[i]) + '（' + checked.length + '件）');
   var ov = document.getElementById('wd-subs-md-ov'); if (ov) ov.remove();
   toast('保存しました', 'ok');
+}
+
+
+/* ===== 機器マスタ（D.devMaster）と、チェック項目ごとの機器の消し込み =====
+   D.devMaster = [{id:'dk…', n:'人工呼吸器', items:[{id:'dv…', n:'1号機', no:'ME-0123', loc:'ICU'}]}]
+   設置部署（D.wdDepts＝名前の配列、消し込みも名前で記録）と違い、機器は台数が多く改名・管理番号の
+   付け替えもあるので、機種・機器とも固定ID（devNewId）を持ち、消し込みは機器IDで記録する。
+   設置場所は設置部署マスタから選ぶ（表記ゆれを作らない）。CE/HD共通・権限は設置部署と同じ wm。
+   チェック項目（D.dly/D.wd/D.hdDly/D.hdWd の各項目オブジェクト）には itemRebuild で
+     dev = { k:[機種ID＝その機種の全台。あとで足した台も含む], i:[個別に選んだ機器ID], x:[機種丸ごとから外した機器ID],
+             r:'day'|'month'|'cycle' }
+   と、消し込みのキー sid（設置部署と共用。無ければ保存時に採番）を持たせる。
+   消し込みは D.pages[ds].devChecks[sid][機器ID] = {by, ts}。リセットは r で決まる：
+     day＝その日のページだけ／month＝同じ月のページ（wdSubProgress と同じ月次リセット）／
+     cycle＝期限なし。全台そろった時点でそのページに devCycle[sid] = {ts, by} を書き、それより後の消し込みだけを数える。
+   いずれも新しいトップレベルDを増やさず、ページを走査して求める（月・巡回が変われば自然に0へ戻る）。
+   親のチェック項目は全台そろっても自動ではチェックしない（設置部署と同じ）。 */
+var DEV_RESET_LABEL = { day:'毎日', month:'月内に1回', cycle:'一巡したらリセット' };
+function devNewId(p) { return p + Date.now().toString(36) + Math.floor(Math.random()*46656).toString(36); }
+function devMasterOf() {
+  return normArr(D.devMaster).filter(function(k){ return k && k.id; }).map(function(k){
+    return { id:k.id, n:k.n || '', items: normArr(k.items).filter(function(u){ return u && u.id; }).map(function(u){
+      return { id:u.id, n:u.n || '', no:u.no || '', loc:u.loc || '' };
+    }) };
+  });
+}
+function devMasterSave(m) { D.devMaster = m; renderDevMaster(); saveD(); }
+function devUnitLabel(u) { return u.n + (u.no || u.loc ? '（' + [u.no, u.loc].filter(Boolean).join('・') + '）' : ''); }
+function itemDev(it) {
+  if (!it || typeof it !== 'object' || !it.dev || typeof it.dev !== 'object') return null;
+  var c = { k:normArr(it.dev.k), i:normArr(it.dev.i), x:normArr(it.dev.x), r: DEV_RESET_LABEL[it.dev.r] ? it.dev.r : 'month' };
+  return (c.k.length || c.i.length) ? c : null;
+}
+/* 項目の対象機器を、マスタの並び順で機種ごとにまとめて返す [{kind, units:[…]}] */
+function devResolve(cfg) {
+  if (!cfg) return [];
+  var out = [];
+  devMasterOf().forEach(function(k){
+    var all = cfg.k.indexOf(k.id) !== -1;
+    var units = k.items.filter(function(u){ return all ? cfg.x.indexOf(u.id) === -1 : cfg.i.indexOf(u.id) !== -1; });
+    if (units.length) out.push({ kind:k, units:units });
+  });
+  return out;
+}
+function devCount(cfg) { return devResolve(cfg).reduce(function(n, g){ return n + g.units.length; }, 0); }
+/* 消し込みの状態 { done:{機器ID:{ds,by,ts}}, last:前回一巡の {ds,ts,by}|null } */
+function devProgress(ds, sid, mode) {
+  var done = {}, last = null, pages = D.pages || {};
+  var keys = mode === 'day' ? [ds] : Object.keys(pages).filter(function(p){ return mode === 'cycle' || p.slice(0, 7) === ds.slice(0, 7); });
+  if (mode === 'cycle') keys.forEach(function(p){
+    var c = pages[p] && pages[p].devCycle && pages[p].devCycle[sid];
+    if (c && c.ts && (!last || c.ts > last.ts)) last = { ds:p, ts:c.ts, by:c.by || '' };
+  });
+  keys.forEach(function(p){
+    var dc = pages[p] && pages[p].devChecks && pages[p].devChecks[sid]; if (!dc) return;
+    Object.keys(dc).forEach(function(id){
+      var r = dc[id]; if (!r) return;
+      if (last && (r.ts || 0) <= last.ts) return; /* 前の巡回の分 */
+      if (!done[id] || p < done[id].ds) done[id] = { ds:p, by:r.by || '', ts:r.ts || 0 };
+    });
+  });
+  return { done:done, last:last };
+}
+
+/* ---- マスタ画面 ---- */
+var _devMstOpen = {};
+function renderDevMaster() {
+  var l = document.getElementById('dev-master-list'); if (!l) return;
+  if (l.contains(document.activeElement)) return; /* 追加欄に入力中は同期で消さない */
+  var ok = can('wm'), m = devMasterOf(), depts = D.wdDepts || [];
+  var ar = document.getElementById('dev-master-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
+  if (!m.length) { l.innerHTML = '<p class="cle">まだ機種が登録されていません</p>'; return; }
+  var locOpts = '<option value="">設置場所（任意）</option>' + depts.map(function(d){ return '<option value="'+escH(d)+'">'+escH(d)+'</option>'; }).join('');
+  l.innerHTML = m.map(function(k, ki){
+    var kb = ok ? '<button class="re2" onclick="event.preventDefault();editDevKind('+ki+')">✏️</button><button class="ru" onclick="event.preventDefault();mvDevKind('+ki+',-1)"'+(ki===0?' disabled':'')+'>↑</button><button class="rdw" onclick="event.preventDefault();mvDevKind('+ki+',1)"'+(ki===m.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="event.preventDefault();rmDevKind('+ki+')">×</button>' : '';
+    var units = k.items.map(function(u, ui){
+      var ub = ok ? '<button class="re2" onclick="editDevUnit('+ki+','+ui+')">✏️</button><button class="ru" onclick="mvDevUnit('+ki+','+ui+',-1)"'+(ui===0?' disabled':'')+'>↑</button><button class="rdw" onclick="mvDevUnit('+ki+','+ui+',1)"'+(ui===k.items.length-1?' disabled':'')+'>↓</button><button class="rd2" onclick="rmDevUnit('+ki+','+ui+')">×</button>' : '';
+      return '<div class="dev-mst-unit"><span class="rn">🔧 '+escH(u.n)+(u.no||u.loc?'<span class="dev-sub">'+escH([u.no,u.loc].filter(Boolean).join('・'))+'</span>':'')+'</span>'+ub+'</div>';
+    }).join('');
+    var add = ok ? '<div class="dev-mst-add"><input type="text" id="dev-add-n-'+ki+'" placeholder="機器名（例：1号機）" style="flex:2 1 110px"><input type="text" id="dev-add-no-'+ki+'" placeholder="管理番号" style="flex:1 1 80px"><select id="dev-add-loc-'+ki+'" style="flex:1 1 90px">'+locOpts+'</select><button class="btn btn-p btn-sm" onclick="addDevUnit('+ki+')">追加</button></div>' : '';
+    return '<details class="dev-kind" data-kid="'+escH(k.id)+'"'+(_devMstOpen[k.id]?' open':'')+'><summary>🩺 '+escH(k.n)+'<span class="dev-cnt">'+k.items.length+'台</span>'+kb+'</summary>'+units+add+'</details>';
+  }).join('');
+  l.querySelectorAll('details.dev-kind').forEach(function(dt){ dt.addEventListener('toggle', function(){ _devMstOpen[dt.getAttribute('data-kid')] = dt.open; }); });
+}
+function addDevKind() {
+  if (!can('wm')) return;
+  var el = document.getElementById('in-dev-kind'); var v = (el.value || '').trim(); if (!v) return;
+  var m = devMasterOf();
+  if (m.some(function(k){ return k.n === v; })) { toast('同じ名前の機種があります', 'warn'); return; }
+  var id = devNewId('dk'); m.push({ id:id, n:v, items:[] }); _devMstOpen[id] = true;
+  el.value = ''; devMasterSave(m); writeLog('機器マスタ：機種を追加', v);
+}
+function editDevKind(ki) {
+  if (!can('wm')) return;
+  var m = devMasterOf(), k = m[ki]; if (!k) return;
+  devEditDialog('機種名を変更', [{key:'n', label:'機種名', val:k.n}], function(v){
+    var m2 = devMasterOf(), k2 = m2.filter(function(x){ return x.id === k.id; })[0]; if (!k2) return;
+    if (!v.n) return '機種名を入れてください';
+    k2.n = v.n; devMasterSave(m2); writeLog('機器マスタ：機種名を変更', k.n + ' → ' + v.n);
+  });
+}
+function mvDevKind(ki, d) {
+  if (!can('wm')) return;
+  var m = devMasterOf(), j = ki + d; if (j < 0 || j >= m.length) return;
+  var t = m[ki]; m[ki] = m[j]; m[j] = t; devMasterSave(m);
+}
+function rmDevKind(ki) {
+  if (!can('wm')) return;
+  var m = devMasterOf(), k = m[ki]; if (!k) return;
+  if (!confirm('機種「' + k.n + '」' + (k.items.length ? 'と登録済みの ' + k.items.length + ' 台' : '') + 'をマスタから削除しますか？\n（過去の消し込み記録は残ります）')) return;
+  m.splice(ki, 1); devMasterSave(m); writeLog('機器マスタ：機種を削除', k.n);
+}
+function addDevUnit(ki) {
+  if (!can('wm')) return;
+  var n = ((document.getElementById('dev-add-n-'+ki) || {}).value || '').trim();
+  var no = ((document.getElementById('dev-add-no-'+ki) || {}).value || '').trim();
+  var loc = (document.getElementById('dev-add-loc-'+ki) || {}).value || '';
+  if (!n) { toast('機器名を入れてください', 'warn'); return; }
+  var m = devMasterOf(), k = m[ki]; if (!k) return;
+  if (k.items.some(function(u){ return u.n === n; })) { toast('この機種に同じ名前の機器があります', 'warn'); return; }
+  k.items.push({ id:devNewId('dv'), n:n, no:no, loc:loc }); _devMstOpen[k.id] = true;
+  if (document.activeElement) document.activeElement.blur();
+  devMasterSave(m); writeLog('機器マスタ：機器を追加', k.n + ' / ' + n);
+  var nx = document.getElementById('dev-add-n-'+ki); if (nx) nx.focus();
+}
+function editDevUnit(ki, ui) {
+  if (!can('wm')) return;
+  var m = devMasterOf(), k = m[ki], u = k && k.items[ui]; if (!u) return;
+  devEditDialog('機器を編集（' + k.n + '）', [
+    {key:'n', label:'機器名', val:u.n}, {key:'no', label:'管理番号', val:u.no},
+    {key:'loc', label:'設置場所', val:u.loc, opts:D.wdDepts || []}
+  ], function(v){
+    if (!v.n) return '機器名を入れてください';
+    var m2 = devMasterOf(), k2 = m2.filter(function(x){ return x.id === k.id; })[0];
+    var u2 = k2 && k2.items.filter(function(x){ return x.id === u.id; })[0]; if (!u2) return;
+    u2.n = v.n; u2.no = v.no; u2.loc = v.loc; devMasterSave(m2); writeLog('機器マスタ：機器を編集', k.n + ' / ' + v.n);
+  });
+}
+function mvDevUnit(ki, ui, d) {
+  if (!can('wm')) return;
+  var m = devMasterOf(), k = m[ki]; if (!k) return; var j = ui + d; if (j < 0 || j >= k.items.length) return;
+  var t = k.items[ui]; k.items[ui] = k.items[j]; k.items[j] = t; devMasterSave(m);
+}
+function rmDevUnit(ki, ui) {
+  if (!can('wm')) return;
+  var m = devMasterOf(), k = m[ki], u = k && k.items[ui]; if (!u) return;
+  if (!confirm('「' + u.n + '」をマスタから削除しますか？\n（過去の消し込み記録は残ります）')) return;
+  k.items.splice(ui, 1); devMasterSave(m); writeLog('機器マスタ：機器を削除', k.n + ' / ' + u.n);
+}
+/* 小さな編集ダイアログ。onSave(値) が文字列を返したらエラーとして表示して閉じない */
+function devEditDialog(title, fields, onSave) {
+  var old = document.getElementById('dev-edit-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'dev-edit-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var h = '<div class="md" style="max-width:360px"><h3>' + escH(title) + '</h3>';
+  fields.forEach(function(f, i){
+    h += '<label style="display:block;font-size:12px;margin:8px 0 3px;color:var(--txt2)">' + escH(f.label) + '</label>';
+    if (f.opts) h += '<select class="fi" id="dev-ed-' + i + '" style="width:100%;box-sizing:border-box"><option value="">（なし）</option>' + f.opts.concat(f.val && f.opts.indexOf(f.val) < 0 ? [f.val] : []).map(function(o){ return '<option value="'+escH(o)+'"'+(o===f.val?' selected':'')+'>'+escH(o)+'</option>'; }).join('') + '</select>';
+    else h += '<input type="text" class="fi" id="dev-ed-' + i + '" value="' + escH(f.val || '') + '" style="width:100%;box-sizing:border-box">';
+  });
+  h += '<div id="dev-ed-err" style="color:var(--rd);font-size:12px;margin-top:6px"></div><div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" id="dev-ed-cancel">キャンセル</button><button class="btn btn-p" id="dev-ed-ok">保存</button></div></div>';
+  ov.innerHTML = h; document.body.appendChild(ov);
+  document.getElementById('dev-ed-cancel').onclick = function(){ ov.remove(); };
+  document.getElementById('dev-ed-ok').onclick = function(){
+    var v = {}; fields.forEach(function(f, i){ v[f.key] = (document.getElementById('dev-ed-' + i).value || '').trim(); });
+    var err = onSave(v); if (err) { document.getElementById('dev-ed-err').textContent = err; return; }
+    ov.remove();
+  };
+  var f0 = document.getElementById('dev-ed-0'); if (f0 && f0.focus) f0.focus();
+}
+
+/* ---- チェック項目ごとの「🩺 機器」設定 ---- */
+var DEV_LISTS = {
+  dly:   { arr:function(){ return D.dly; },   perm:'dm', label:'共通業務',   after:function(){ renderDlyList(); } },
+  wd:    { arr:function(){ return D.wd[selWd] || (D.wd[selWd] = []); },  perm:'wm', label:'曜日別業務', after:function(){ renderWdlyList(); } },
+  hdDly: { arr:function(){ return D.hdDly; }, perm:'dm', label:'HD共通業務', after:function(){ renderHdDlyList(); } },
+  hdWd:  { arr:function(){ return D.hdWd[_hdSelWd] || (D.hdWd[_hdSelWd] = []); }, perm:'wm', label:'HD曜日別業務', after:function(){ renderHdWdlyList(); } }
+};
+function devCfgBtnHTML(list, i, it) {
+  var n = devCount(itemDev(it));
+  return '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openDevCfgModal(\'' + list + '\',' + i + ')">🩺 機器' + (n ? ' (' + n + ')' : '') + '</button>';
+}
+var _devCfg = null; /* モーダルの作業中の状態 {list, i, text, r, k:{}, i:{}, x:{}} */
+function openDevCfgModal(list, i) {
+  var L = DEV_LISTS[list]; if (!L || !can(L.perm)) return;
+  var item = L.arr()[i]; if (item === undefined) return;
+  var c = itemDev(item) || { k:[], i:[], x:[], r:'month' };
+  var set = function(a){ var o = {}; a.forEach(function(x){ o[x] = true; }); return o; };
+  _devCfg = { list:list, idx:i, text:(typeof item === 'string' ? item : (item.t || '')), r:c.r, k:set(c.k), i:set(c.i), x:set(c.x), open:{} };
+  devMasterOf().forEach(function(k){ if (_devCfg.k[k.id] || k.items.some(function(u){ return _devCfg.i[u.id]; })) _devCfg.open[k.id] = true; });
+  var old = document.getElementById('dev-cfg-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'dev-cfg-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.id = 'dev-cfg-md'; md.className = 'md'; md.style.maxWidth = '460px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderDevCfgBody();
+}
+function renderDevCfgBody() {
+  var md = document.getElementById('dev-cfg-md'); if (!md || !_devCfg) return;
+  var c = _devCfg, m = devMasterOf();
+  var h = '<h3>🩺 点検する機器（' + escH(c.text) + '）</h3>';
+  h += '<div style="font-size:12px;font-weight:700;margin-top:4px">消し込みのリセット</div><div class="dev-seg">';
+  ['day','month','cycle'].forEach(function(r){ h += '<button type="button" class="' + (c.r === r ? 'on' : '') + '" onclick="devCfgSetR(\'' + r + '\')">' + DEV_RESET_LABEL[r] + '</button>'; });
+  h += '</div><div class="pn" style="font-size:11px;margin:-4px 0 10px">' + ({day:'その日の連絡表だけで数えます。翌日はまた全台が未実施に戻ります。', month:'同じ月のうちに1回ずつ。月が変わると全台が未実施に戻ります。', cycle:'期限はありません。全台そろった時点で次の巡回が始まります。'})[c.r] + '</div>';
+  if (!m.length) h += '<div class="pool-empty" style="padding:10px 0">まだ機器マスタが登録されていません。マスタの「🩺 機器マスタ」から登録してください。</div>';
+  c.m = m; /* onchange には ID ではなく添字を渡す（ID を JS の文字列に埋め込まない） */
+  m.forEach(function(k, ki){
+    var all = !!c.k[k.id];
+    var n = k.items.filter(function(u){ return all ? !c.x[u.id] : c.i[u.id]; }).length;
+    h += '<details class="dev-kind" data-kid="' + escH(k.id) + '"' + (c.open[k.id] ? ' open' : '') + '><summary>' + escH(k.n) + '<span class="dev-cnt' + (n ? ' all' : '') + '">' + n + ' / ' + k.items.length + '台</span></summary>';
+    h += '<div style="padding:0 8px 8px"><label class="dc-cb-item' + (all ? ' checked' : '') + '" style="font-weight:700"><input type="checkbox" onchange="devCfgToggleKind(' + ki + ', this.checked)"' + (all ? ' checked' : '') + '>この機種すべて（あとで足した台も含む）</label>';
+    h += '<div class="dc-cbs" style="margin-top:4px">' + k.items.map(function(u, ui){
+      var on = all ? !c.x[u.id] : !!c.i[u.id];
+      return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox" onchange="devCfgToggleUnit(' + ki + ',' + ui + ', this.checked)"' + (on ? ' checked' : '') + '>' + escH(u.n) + (u.no || u.loc ? '<span class="dev-sub">' + escH([u.no, u.loc].filter(Boolean).join('・')) + '</span>' : '') + '</label>';
+    }).join('') + (k.items.length ? '' : '<span class="cle">機器が未登録です</span>') + '</div></div></details>';
+  });
+  h += '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'dev-cfg-ov\').remove()">キャンセル</button><button class="btn btn-p" onclick="saveDevCfg()">保存</button></div>';
+  md.innerHTML = h;
+  md.querySelectorAll('details.dev-kind').forEach(function(dt){ dt.addEventListener('toggle', function(){ c.open[dt.getAttribute('data-kid')] = dt.open; }); });
+}
+function devCfgSetR(r) { if (_devCfg) { _devCfg.r = r; renderDevCfgBody(); } }
+function devCfgToggleKind(ki, on) {
+  var c = _devCfg; if (!c || !c.m) return;
+  var k = c.m[ki]; if (!k) return; var kid = k.id;
+  /* 丸ごと⇄個別を切り替えるときは、いま選ばれている台をそのまま引き継ぐ */
+  k.items.forEach(function(u){ delete c.x[u.id]; delete c.i[u.id]; });
+  if (on) c.k[kid] = true; else delete c.k[kid];
+  c.open[kid] = true; renderDevCfgBody();
+}
+function devCfgToggleUnit(ki, ui, on) {
+  var c = _devCfg; if (!c || !c.m) return;
+  var k = c.m[ki], u = k && k.items[ui]; if (!u) return; var kid = k.id, uid = u.id;
+  if (c.k[kid]) { if (on) delete c.x[uid]; else c.x[uid] = true; }
+  else { if (on) c.i[uid] = true; else delete c.i[uid]; }
+  c.open[kid] = true; renderDevCfgBody();
+}
+function saveDevCfg() {
+  var c = _devCfg; if (!c) return;
+  var L = DEV_LISTS[c.list]; if (!L || !can(L.perm)) return;
+  var arr = L.arr(), item = arr[c.idx]; if (item === undefined) return;
+  var cfg = { k:Object.keys(c.k), i:Object.keys(c.i), x:Object.keys(c.x), r:c.r };
+  var any = cfg.k.length || cfg.i.length;
+  var patch = { dev: any ? cfg : null };
+  if (any && !wdSid(item)) patch.sid = newSid();
+  arr[c.idx] = itemRebuild(item, patch);
+  L.after(); saveD();
+  writeLog(L.label + 'の点検機器を編集', c.text + '（' + devCount(itemDev(arr[c.idx])) + '台・' + DEV_RESET_LABEL[c.r] + '）');
+  var ov = document.getElementById('dev-cfg-ov'); if (ov) ov.remove();
+  _devCfg = null; toast('保存しました', 'ok');
+  if (typeof safeRenderPage === 'function') safeRenderPage();
+}
+
+/* ---- 当日のチェックリストの消し込み欄 ---- */
+var _devOpen = {}, _devKindOpen = {};
+function renderDevPanel(ds, it, wrapEl) {
+  var chip = wrapEl.querySelector('.cli-devbtn'), box = wrapEl.querySelector('.cli-devs');
+  var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid) return;
+  var groups = devResolve(cfg), pr = devProgress(ds, sid, cfg.r), total = 0, doneN = 0;
+  var h = groups.map(function(g){
+    var dn = 0;
+    var units = g.units.map(function(u){
+      var d = pr.done[u.id]; if (d) dn++;
+      return '<label class="dc-cb-item' + (d ? ' checked' : '') + '"><input type="checkbox" data-dev="' + escH(u.id) + '"' + (d ? ' checked' : '') + '>' + escH(u.n) + '<span class="dev-sub">' + escH([u.no, u.loc].filter(Boolean).join('・')) + (d && cfg.r !== 'day' ? (u.no || u.loc ? ' ' : '') + fmtMD(d.ds) : '') + '</span></label>';
+    }).join('');
+    total += g.units.length; doneN += dn;
+    var key = sid + '|' + g.kind.id, open = (key in _devKindOpen) ? _devKindOpen[key] : dn < g.units.length;
+    return '<details class="dev-kind" data-key="' + escH(key) + '"' + (open ? ' open' : '') + '><summary>' + escH(g.kind.n) + '<span class="dev-cnt' + (dn === g.units.length ? ' all' : '') + '">' + dn + ' / ' + g.units.length + '</span></summary><div class="dc-cbs">' + units + '</div></details>';
+  }).join('');
+  var note = cfg.r === 'cycle' ? ('🔁 一巡したらリセット' + (pr.last ? '・前回の一巡 ' + fmtMD(pr.last.ds) : '')) : (cfg.r === 'day' ? '📅 毎日リセット' : '🗓 月内に1回');
+  if (chip) chip.textContent = '🩺 ' + doneN + '/' + total + ' ▾';
+  if (box) {
+    box.innerHTML = '<div class="dev-sub" style="margin:2px 0 2px">' + note + '</div>' + (h || '<span class="cle">対象の機器がマスタにありません</span>');
+    box.querySelectorAll('details.dev-kind').forEach(function(dt){ dt.addEventListener('toggle', function(){ _devKindOpen[dt.getAttribute('data-key')] = dt.open; }); });
+  }
+}
+function devCheckChange(ds, it, task, wrapEl, devId, on) {
+  var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid || !D.pages[ds]) return;
+  var u = null; devResolve(cfg).forEach(function(g){ g.units.forEach(function(x){ if (x.id === devId) u = x; }); });
+  var uname = u ? u.n : devId, me = (typeof taskSelfName === 'function' ? (taskSelfName() || '') : '');
+  if (on) {
+    var pg = D.pages[ds];
+    if (!pg.devChecks) pg.devChecks = {};
+    if (!pg.devChecks[sid]) pg.devChecks[sid] = {};
+    pg.devChecks[sid][devId] = { by:me, ts:Date.now() };
+    writeLog('機器を消し込み', fmtJ(ds) + ' ' + task + ' ' + uname);
+    if (cfg.r === 'cycle') {
+      var pr = devProgress(ds, sid, 'cycle'), all = devResolve(cfg).every(function(g){ return g.units.every(function(x){ return pr.done[x.id]; }); });
+      if (all) {
+        if (!pg.devCycle) pg.devCycle = {};
+        pg.devCycle[sid] = { ts:Date.now() + 1, by:me };
+        writeLog('機器の点検が一巡', fmtJ(ds) + ' ' + task);
+        toast('🎉 全台そろいました。次の巡回を始めます', 'ok', 5000);
+      }
+    }
+    saveDPage(ds);
+  } else {
+    var owner = (devProgress(ds, sid, cfg.r).done[devId] || {}).ds;
+    if (owner && D.pages[owner] && D.pages[owner].devChecks && D.pages[owner].devChecks[sid]) {
+      delete D.pages[owner].devChecks[sid][devId];
+      saveDPage(owner);
+      writeLog('機器の消し込みを解除', fmtJ(owner) + ' ' + task + ' ' + uname);
+    }
+  }
+  renderDevPanel(ds, it, wrapEl);
 }
 
 /* ===== HD曜日別業務：設置部署の選択モーダル =====
@@ -23692,7 +24032,7 @@ function fixBrokenLink(idx) {
 function buildCL(ds,dat,wtl,all,locked) {
   for(var i=0;i<D.dly.length;i++){
     if(!isDlyShownOnDate(D.dly[i],ds)) continue;
-    document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked,null));
+    document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked,null,D.dly[i]));
   }
   var we=document.getElementById('wcl');
   if(!wtl.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
@@ -23702,7 +24042,7 @@ function buildCL(ds,dat,wtl,all,locked) {
 /* it は曜日別業務のマスタ項目（once判定に使う）。共通業務からの呼び出しはnull。
    mkCk/mkHdCkの共通実装。読みに行くdat上のキー・onceDoneOn判定・updProg呼び出し・
    writeLogのアクション名だけがCE/HDで違うため、記述子nsで吸収する。 */
-function _clMkCk(ns, ds,idx,task,dat,locked,it) {
+function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
   var own=!!(dat[ns.checks]&&dat[ns.checks][idx]);
   var onceDs = own ? null : _clWdOnceDoneOn(ns, ds, {t:task, it:it});
   var ck=own||!!onceDs;
@@ -23723,6 +24063,11 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it) {
   var subs = it ? wdSubs(it) : null;
   var subBtn = null;
   if (subs) { subBtn=document.createElement('button'); subBtn.type='button'; subBtn.className='cli-subbtn'; }
+  /* 機器（🩺）の消し込みは共通業務にも付けられるので、共通業務のマスタ項目 dlyIt も見る */
+  var devIt = it || dlyIt || null, devCfg = devIt ? itemDev(devIt) : null;
+  if (devCfg && !wdSid(devIt)) devCfg = null;
+  var devBtn = null;
+  if (devCfg) { devBtn=document.createElement('button'); devBtn.type='button'; devBtn.className='cli-subbtn cli-devbtn'; }
 
   if(!locked && !onceDs){
     (function(ds,idx,div,cb){
@@ -23742,7 +24087,7 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it) {
         writeLog(cb.checked?ns.logDone:ns.logUndo, fmtJ(ds)+' '+task);
       };
       div.onclick=function(e){
-        if(e.target===cb||e.target===peekBtn||e.target===subBtn) return;
+        if(e.target===cb||e.target===peekBtn||e.target===subBtn||e.target===devBtn) return;
         toggle();
       };
     })(ds,idx,div,cb);
@@ -23763,13 +24108,27 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it) {
      onceによる無効化はcb/div.onclickにしか効かせない——第3週側で部署を消し込んでいる
      途中に親がonceで満たされても、部署パネルはそのまま操作できる必要があるため。 */
   if (subs) div.appendChild(subBtn);
+  if (devBtn) div.appendChild(devBtn);
   div.appendChild(peekBtn);
 
-  if (!subs) return div;
+  if (!subs && !devCfg) return div;
 
-  var wrap=document.createElement('div'); wrap.className='cli-wrap'+(_subOpen[wdSid(it)]?' open':'');
+  var wrap=document.createElement('div'); wrap.className='cli-wrap'+(subs&&_subOpen[wdSid(it)]?' open':'')+(devCfg&&_devOpen[wdSid(devIt)]?' dev-open':'');
+  wrap.appendChild(div);
+  if (devCfg) {
+    var devEl=document.createElement('div'); devEl.className='cli-devs';
+    wrap.appendChild(devEl);
+    renderDevPanel(ds, devIt, wrap);
+    devBtn.onclick=function(e){ e.stopPropagation(); wrap.classList.toggle('dev-open'); _devOpen[wdSid(devIt)]=wrap.classList.contains('dev-open'); };
+    devEl.addEventListener('change', function(e){
+      var c2=e.target; if(c2.tagName!=='INPUT'||!c2.getAttribute('data-dev')) return;
+      if (locked) { c2.checked=!c2.checked; return; }
+      devCheckChange(ds, devIt, task, wrap, c2.getAttribute('data-dev'), c2.checked);
+    });
+  }
+  if (!subs) return wrap;
   var subsEl=document.createElement('div'); subsEl.className='cli-subs';
-  wrap.appendChild(div); wrap.appendChild(subsEl);
+  wrap.insertBefore(subsEl, wrap.children[1] || null);
   renderSubPanel(ds, it, wrap);
   subBtn.onclick=function(e){
     e.stopPropagation();
@@ -23796,7 +24155,7 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it) {
   });
   return wrap;
 }
-function mkCk(ds,idx,task,dat,locked,it) { return _clMkCk(CL_CE, ds,idx,task,dat,locked,it); }
+function mkCk(ds,idx,task,dat,locked,it,dlyIt) { return _clMkCk(CL_CE, ds,idx,task,dat,locked,it,dlyIt); }
 /* ===== HDチェックリスト（buildCL/mkCkのHD版） =====
    #hdcl/#hdwclへ描画する。CE版と違い呼び出し元で必ずnullチェック済みで呼ぶ規約はやめ、
    ここ自身が冒頭でnullガードする——renderPageHDのコメントで「#hdclは絶対に作らない」と
@@ -23808,7 +24167,7 @@ function buildHdCL(ds,dat,locked) {
   dc.innerHTML='';
   for(var i=0;i<D.hdDly.length;i++){
     if(!isDlyShownOnDate(D.hdDly[i],ds)) continue;
-    dc.appendChild(mkHdCk(ds,i,dlyText(D.hdDly[i]),dat,locked,null));
+    dc.appendChild(mkHdCk(ds,i,dlyText(D.hdDly[i]),dat,locked,null,D.hdDly[i]));
   }
   var we=document.getElementById('hdwcl'); if(!we) return;
   we.innerHTML='';
@@ -23818,7 +24177,7 @@ function buildHdCL(ds,dat,locked) {
 }
 /* mkCkの共通実装（_clMkCk）をHD名前空間で呼ぶだけの薄いラッパー。writeLogのアクション名は
    先頭にHDを付け、ログ画面でCE側のチェックと区別できるようにする（ns.logDone/logUndoで解決）。 */
-function mkHdCk(ds,idx,task,dat,locked,it) { return _clMkCk(CL_HD, ds,idx,task,dat,locked,it); }
+function mkHdCk(ds,idx,task,dat,locked,it,dlyIt) { return _clMkCk(CL_HD, ds,idx,task,dat,locked,it,dlyIt); }
 
 /* 部署パネルの開閉状態。sidキーで持ち、renderPage/safeRenderPageで再描画しても
    開いたままになるようにする（_treeOpenと同じ考え方）。 */
@@ -27876,7 +28235,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -28028,7 +28387,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -28085,7 +28444,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
