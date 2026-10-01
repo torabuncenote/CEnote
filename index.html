@@ -3060,7 +3060,7 @@ var LATEST_DB_RULES = [
 '      }',
 '    },',
 '    "robotImg":      { ".read": "auth != null", "$id": { ".write": "auth != null" } },',
-'    "feedback":      { ".read": "auth != null && root.child(\'admins\').child(auth.uid).val() === true", ".indexOn": ["ts"], "$id": { ".write": "auth != null && (!data.exists() || root.child(\'admins\').child(auth.uid).val() === true)", ".validate": "!newData.exists() || (newData.child(\'text\').isString() && newData.child(\'text\').val().length <= 4000 && (!newData.child(\'img\').exists() || (newData.child(\'img\').isString() && newData.child(\'img\').val().length <= 400000)))" } },',
+'    "feedback":      { ".read": "auth != null && root.child(\'admins\').child(auth.uid).val() === true", ".indexOn": ["ts"], "$id": { ".write": "auth != null && (!data.exists() || root.child(\'admins\').child(auth.uid).val() === true)", ".validate": "!newData.exists() || (newData.child(\'text\').isString() && newData.child(\'text\').val().length <= 4000 && (!newData.child(\'img\').exists() || (newData.child(\'img\').isString() && newData.child(\'img\').val().beginsWith(\'data:image/\') && newData.child(\'img\').val().length <= 400000)))" } },',
 '    "shiftReqTpl":   { ".read": "auth != null", ".write": "auth != null && root.child(\'admins\').child(auth.uid).val() === true" },',
 '    "backups":       { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
 '    "backup_meta":   { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
@@ -26077,6 +26077,9 @@ var FB_LEVELS = [ { id:'low', label:'🙂 いつでもよい' }, { id:'mid', lab
 var FB_STATUS = [ { id:'new', label:'未確認' }, { id:'seen', label:'確認済み' }, { id:'plan', label:'対応予定' }, { id:'done', label:'対応済み' }, { id:'skip', label:'見送り' } ];
 var FB_PV_KEY = 'ce2_feedback_pv', FB_SENT_KEY = 'ce2_fb_sent';
 var _fbFrom = null, _fbDraft = null, _fbView = 'form', _fbAdminTab = 'inbox', _fbList = null, _fbFilter = 'open';
+/* 画像は自分で圧縮した dataURL（JPEG/PNG）だけを表示する。/feedback は誰でも作成できるので、細工した値で
+   管理者の画面に属性やスクリプトを差し込まれないよう、形式を確かめてから escH して埋め込む */
+function fbSafeImg(u) { return (typeof u === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(u)) ? u : ''; }
 function fbIsLocal() { return !FB_ON || !fbDB || (currentUser && currentUser.uid === 'preview'); }
 function fbKind(id) { return FB_KINDS.filter(function(k){ return k.id === id; })[0] || null; }
 function fbGuessArea() {
@@ -26127,7 +26130,7 @@ function fbFormHTML() {
   FB_LEVELS.forEach(function(l){ h += '<button type="button" class="fb-chip' + (d.level === l.id ? ' on' : '') + '" onclick="fbSet(\'level\',\'' + l.id + '\')">' + l.label + '</button>'; });
   h += '</div></div>';
   h += '<div class="fb-step"><div class="fb-step-h"><span class="fb-num">5</span>画面の写真 <span class="fb-opt">（任意・1枚）</span></div>';
-  if (d.img) h += '<div style="display:flex;align-items:flex-start;gap:10px"><img src="' + d.img + '" style="max-width:160px;max-height:120px;border-radius:8px;border:1px solid var(--bdr)"><button class="btn btn-g btn-sm" onclick="fbSet(\'img\',\'\')">✕ 外す</button></div>';
+  if (fbSafeImg(d.img)) h += '<div style="display:flex;align-items:flex-start;gap:10px"><img src="' + escH(fbSafeImg(d.img)) + '" style="max-width:160px;max-height:120px;border-radius:8px;border:1px solid var(--bdr)"><button class="btn btn-g btn-sm" onclick="fbSet(\'img\',\'\')">✕ 外す</button></div>';
   else h += '<label class="btn btn-g btn-sm" style="cursor:pointer">📷 写真・スクリーンショットを選ぶ<input type="file" accept="image/*" style="display:none" onchange="fbPickImg(this)"></label>';
   h += '<div class="fb-opt" style="margin-top:6px">患者さんの名前やIDが写っていないか確認してから添付してください。</div></div>';
   h += '<div class="fb-step"><label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox"' + (d.anon ? ' checked' : '') + ' onchange="fbSet(\'anon\', this.checked)">名前を出さずに送る</label>';
@@ -26163,7 +26166,7 @@ function fbPickImg(inp) {
   fbSyncText();
   compressImage(f, function(dataUrl, blob){
     function done(u) {
-      if (!u || u.length > 400000) { toast('画像が大きすぎて添付できませんでした', 'warn'); return; }
+      if (!fbSafeImg(u) || u.length > 400000) { toast('画像が大きすぎて添付できませんでした', 'warn'); return; }
       _fbDraft.img = u; renderFeedback();
     }
     if (blob) { var r = new FileReader(); r.onload = function(){ done(r.result); }; r.readAsDataURL(blob); }
@@ -26186,7 +26189,7 @@ function fbSubmit() {
 function fbDoSubmit(text) {
   var d = _fbDraft;
   var rec = { kind:d.kind, area:d.area || 'アプリ全体', level:d.level, text:text, anon:!!d.anon, ts:Date.now(), ver:APP_VERSION, dev:fbDevInfo(), status:'new' };
-  if (d.img) rec.img = d.img;
+  if (fbSafeImg(d.img)) rec.img = d.img;
   if (!d.anon && currentUser) { rec.uid = currentUser.uid; rec.name = taskSelfName() || currentUser.displayName || currentUser.email || ''; }
   var btn = document.querySelector('.fb-send'); if (btn) { btn.disabled = true; btn.textContent = '送信中…'; }
   var ok = function(){
@@ -26261,22 +26264,23 @@ function fbInboxHTML() {
   rows.forEach(function(r){
     var k = fbKind(r.kind) || { icon:'💬', label:'その他' };
     var lv = FB_LEVELS.filter(function(l){ return l.id === r.level; })[0];
-    var id = escH(r._id);
-    h += '<div class="fb-card' + ((r.status || 'new') === 'new' ? ' new' : '') + '"><div class="hd"><span class="tg">' + k.icon + ' ' + escH(k.label) + '</span><span class="tg">' + escH(r.area || '') + '</span>' + (lv ? '<span class="tg">' + lv.label + '</span>' : '')
+    h += '<div data-fbid="' + escH(r._id) + '" class="fb-card' + ((r.status || 'new') === 'new' ? ' new' : '') + '"><div class="hd"><span class="tg">' + k.icon + ' ' + escH(k.label) + '</span><span class="tg">' + escH(r.area || '') + '</span>' + (lv ? '<span class="tg">' + lv.label + '</span>' : '')
       + '<span style="margin-left:auto">' + (r.anon ? '🙈 匿名' : '👤 ' + escH(r.name || '不明')) + '・' + new Date(r.ts || 0).toLocaleString('ja-JP', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) + '</span></div>'
       + '<div class="tx">' + escH(r.text || '') + '</div>'
-      + (r.img ? '<img src="' + r.img + '" onclick="fbZoomImg(this.src)">' : '')
+      + (fbSafeImg(r.img) ? '<img src="' + escH(fbSafeImg(r.img)) + '" onclick="fbZoomImg(this.src)">' : '')
       + '<div class="fb-opt" style="margin-top:4px">' + escH((r.ver || '') + (r.dev ? '・' + r.dev : '')) + '</div>'
-      + '<div class="ft"><select onchange="fbUpdate(\'' + id + '\',{status:this.value})">' + FB_STATUS.map(function(s){ return '<option value="' + s.id + '"' + ((r.status || 'new') === s.id ? ' selected' : '') + '>' + s.label + '</option>'; }).join('') + '</select>'
-      + '<input type="text" placeholder="管理者メモ" value="' + escH(r.memo || '') + '" style="flex:1;min-width:120px" onchange="fbUpdate(\'' + id + '\',{memo:this.value})">'
-      + '<button class="btn btn-g btn-sm" onclick="fbDelete(\'' + id + '\')">🗑</button></div></div>';
+      + '<div class="ft"><select onchange="fbUpdate(fbCardId(this),{status:this.value})">' + FB_STATUS.map(function(s){ return '<option value="' + s.id + '"' + ((r.status || 'new') === s.id ? ' selected' : '') + '>' + s.label + '</option>'; }).join('') + '</select>'
+      + '<input type="text" placeholder="管理者メモ" value="' + escH(r.memo || '') + '" style="flex:1;min-width:120px" onchange="fbUpdate(fbCardId(this),{memo:this.value})">'
+      + '<button class="btn btn-g btn-sm" onclick="fbDelete(fbCardId(this))">🗑</button></div></div>';
   });
   return h;
 }
+function fbCardId(el) { var c = el && el.closest('[data-fbid]'); return c ? c.getAttribute('data-fbid') : ''; }
 function fbSetFilter(f) { _fbFilter = f; renderFeedback(); }
 function fbZoomImg(src) {
+  src = fbSafeImg(src); if (!src) return;
   var ov = document.createElement('div'); ov.className = 'ov'; ov.onclick = function(){ ov.remove(); };
-  ov.innerHTML = '<img src="' + src + '" style="max-width:92vw;max-height:88vh;border-radius:8px">';
+  ov.innerHTML = '<img src="' + escH(src) + '" style="max-width:92vw;max-height:88vh;border-radius:8px">';
   document.body.appendChild(ov);
 }
 function fbUpdate(id, patch) {
