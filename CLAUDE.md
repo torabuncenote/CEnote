@@ -74,6 +74,7 @@ var D = {
   tablets: [],      // タブレット台帳（貸出対象名の配列）— 日々の貸出ログは D.pages[ds].tabletLogs
   ocFlow: '',       // OC対応フローチャート本文（複数行テキスト。OC集計タブのボタン→openOcFlowModal で全員閲覧、業務マスタの mst セクションで編集）
   makers: { cats: [], list: [] }, // メーカー担当者連絡先。cats:[{id,name}]（表示順）、list:[{id,cat,maker,person,tel1,tel2,mail,note,upd,ts,by}]。詳細は下記「メーカー担当者連絡先」節
+  devMaster: [],    // 機器マスタ [{id:'dk…', n:機種名, items:[{id:'dv…', n:機器名, no:管理番号, loc:設置場所}]}]。詳細は「機器マスタ」節
   wdDepts: [],      // 設置部署マスタ（D.wd項目のsubsで選ぶ部署名の共通リスト。PHSマスタ/tabletsと同型の単純な文字列配列）
   eduProgress: {},  // 教育到達度 { 氏名: { 項目key: {lv,by,ts,hist[],goalFy?} } }。詳細は下記「実績・教育到達度」節
   eduCfg: { ceEdu:false }, // オペ・カテ症例行に教育者欄を出すか（既定OFF）
@@ -847,6 +848,16 @@ Weekday-master items (`D.wd[曜日][i]`) are either a plain string (legacy) or a
 - **`once:true`** ("月内どれか1回でよい" — only one occurrence in the month needs doing) is only allowed when `wk` (week-of-month restriction) is set; going back to "毎週" auto-clears it. `wdOnceDoneOn(ds, ent)` looks for whether the item was already checked on an earlier applicable date **in the same month** — it only scans backward (`d < day`), never forward, so checking a later occurrence can never retroactively flip an earlier day's display (that would look like a past inspection record being rewritten after the fact). Notification firing (`checkTimeNotifs()`'s weekday-item loop, not `runPsgFusenCheck`) also skips items already satisfied via `wdOnceDoneOn`.
 - **`subs`** is an array of installed-location names (e.g. department names) for items that need per-location sign-off (e.g. "各部署の生体情報モニタ点検"), selected via checkboxes from the shared **`D.wdDepts`** master (not free-typed per item — an earlier free-text-per-item design was replaced after real-world feedback, since retyping the same ward names on every item invites spelling drift). `openWdSubsModal`/`renderWdSubsModalBody` render one checkbox per `D.wdDepts` entry; `addWdDeptFromModal` lets an admin add a missing department to the master inline (saved immediately) without leaving the modal — but, like the other checkboxes, whether it ends up in *this item's* `subs` is only decided when `saveWdSubs` is clicked. **`sid`** is a stable id assigned once (`newSid()`) when the list is first saved, and is deliberately kept even if `subs` is later emptied — signoff progress is looked up by `sid`, not by item text, so renaming the item or removing/renaming a department in `D.wdDepts` never breaks the link (mirrors — and is a deliberate fix for — the weakness where `D.manual` keys by task name and breaks on rename). Per-location signoffs live in `D.pages[ds].subChecks[sid][name] = {by, ts}` (a page-scoped field, not a new top-level `D` property — this makes the monthly reset automatic, since `wdSubProgress(ds, sid)` only scans pages within the current calendar month). The parent checklist item itself is **not** auto-checked when all locations are signed off — that requires a manual check.
 - The **`once` checkbox is always rendered** in `renderWdlyList()` once `can('wm')`, even when the item has no week restriction (`wk` unset = 毎週) — it's shown `disabled` with an explanatory label/title rather than omitted entirely. It was originally hidden outright when `!weeks`, but the seed data's `月一BSM点検（第二 or 第四）` item is actually stored as a plain string (`wk` unset) despite its name, and with `weeks=null` every week-chip renders as "selected" — so an admin looking at that item saw no obvious next step to reach the `once` option. Showing it disabled-with-reason fixed the discoverability gap.
+
+### 機器マスタ（`D.devMaster`）と機器の消し込み
+
+設置部署（`D.wdDepts`）の機器版。台数が多いので **機種 → 機器（1台ずつ）** の2段で、機種・機器とも固定ID（`devNewId('dk'|'dv')`）を持つ。**消し込みは機器IDで記録する**（部署は名前で記録しているが、機器は改名・管理番号の付け替えがあり、名前で持つと台数分ずれる）。設置場所は `D.wdDepts` から選ぶ。CE/HD共通、権限は設置部署と同じ `wm`（マスタ）／項目への割り当ては共通業務 `dm`・曜日別 `wm`。
+
+- 読み出しは必ず `devMasterOf()`（正規化した新しい配列）、書き換えは取ったものを直して `devMasterSave(m)`。
+- チェック項目（`D.dly`/`D.wd`/`D.hdDly`/`D.hdWd`）は `itemRebuild` で `dev:{k:[機種ID＝全台。後で足した台も含む], i:[個別の機器ID], x:[機種丸ごとから外した機器ID], r:'day'|'month'|'cycle'}` と `sid`（設置部署と共用）を持つ。読み出しは `itemDev(it)`、対象機器は `devResolve(cfg)`（マスタ順・機種ごと）。設定画面は `openDevCfgModal(list, i)`（`DEV_LISTS` が4つのリストを束ねる）。
+- 共通業務にも付けられるよう、`buildCL`/`buildHdCL` は `mkCk`/`mkHdCk` の7番目の引数に共通業務のマスタ項目（`dlyIt`）を渡す。`_clMkCk` の `it`（曜日別の項目）は once 判定に使うので、そこへ共通業務の項目を入れないこと。
+- 消し込みは `D.pages[ds].devChecks[sid][機器ID] = {by, ts}`、状態は `devProgress(ds, sid, r)`。`day`＝その日だけ／`month`＝同じ月（`wdSubProgress` と同じ月次リセット）／`cycle`＝期限なし。全台そろった瞬間にそのページへ `devCycle[sid] = {ts, by}` を書き、それより後の消し込みだけを数える。新しいトップレベルDは増やさず、ページを走査して求める。
+- 親のチェック項目は全台そろっても自動でチェックしない（設置部署と同じ）。マスタから消した機器・機種の記録は残る（表示されなくなるだけ）。
 
 ### 消し込みバー（`.cbar` / `closeItems(ds)` / `updateCloseBar(ds)`）
 
