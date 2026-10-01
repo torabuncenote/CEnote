@@ -5865,11 +5865,18 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/02-108';
+var APP_VERSION = 'Ver.2026/10/02-109';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/02-109', date:'2026-10-02', title:'機器マスタと同期まわりの細かな不具合を直しました', items:[
+    {t:'fix', admin:true, d:'🩺 機器マスタで並べ替え・削除をしても、画面が古いまま残ることがあった問題を直しました'},
+    {t:'imp', d:'🩺 「一巡したらリセット」で最後の1台を押し間違えたとき、取り消せるようにしました'},
+    {t:'fix', d:'🩺 過去の日の連絡表で、後日に消し込んだ機器まで「済」と表示されていた問題を直しました'},
+    {t:'fix', d:'🔄 入力欄に書きかけのまま手を止めたとき、勝手にカーソルが外れて警告が出ることがあったのを、「他の人の更新があります」の案内に変えました'},
+    {t:'fix', admin:true, d:'⚡ 保存が重なったとき、中身のない送信が1回余分に出ていたのを止めました'}
+  ]},
   { ver:'Ver.2026/10/02-108', date:'2026-10-02', title:'機器マスタと、機器ごとの消し込みを追加しました', items:[
     {t:'new', admin:true, notify:true, d:'🩺 マスタに「機器マスタ」を追加しました。機種ごとに機器を1台ずつ（名前・管理番号・設置場所）登録でき、機種ごとに開いたり閉じたりできます'},
     {t:'new', notify:true, d:'🩺 チェックリストの項目で、点検する機器を1台ずつ消し込めるようになりました。「毎日」「月内に1回」「一巡したらリセット」から選べます'}
@@ -10050,7 +10057,12 @@ function saveD(onComplete) {
     return;
   }
   var changes = syncTakeDiff(); /* 変わった経路だけ（書き込み中でも、この時点の差分を取る） */
-  if (!Object.keys(changes).length && !_saveWriting) { if (onComplete) onComplete(true, 'firebase'); return; }
+  if (!Object.keys(changes).length) {
+    /* 送るものが無い。書き込み中なら、その完了を待ってから知らせる（空の update を積まない） */
+    if (!_saveWriting) { if (onComplete) onComplete(true, 'firebase'); }
+    else if (onComplete) _saveQueuedCallbacks.push(onComplete);
+    return;
+  }
   _savePending = true;
   if (_saveWriting) {
     _saveQueued = Object.assign(_saveQueued || {}, changes); /* 書き込み中は差分を積み増す（コアレス） */
@@ -10096,6 +10108,10 @@ function _doFbWrite(data, attempt, callbacks) {
         fbDB.ref('/recent_backup').set(bk).catch(function(){ _recentBkTs = 0; });
       }
       callbacks.forEach(function(cb){ try { cb(true, 'firebase'); } catch(e) { console.error('[saveD callback]', e); } });
+      if (!_saveQueued && _saveQueuedCallbacks.length) { /* 差分の無かった保存の待ち合わせ */
+        var waiting = _saveQueuedCallbacks; _saveQueuedCallbacks = [];
+        waiting.forEach(function(cb){ try { cb(true, 'firebase'); } catch(e) { console.error('[saveD callback]', e); } });
+      }
       if (_saveQueued) {
         var nxt = _saveQueued; _saveQueued = null;
         var nxtCallbacks = _saveQueuedCallbacks; _saveQueuedCallbacks = [];
@@ -14232,7 +14248,8 @@ function devCount(cfg) { return devResolve(cfg).reduce(function(n, g){ return n 
 /* 消し込みの状態 { done:{機器ID:{ds,by,ts}}, last:前回一巡の {ds,ts,by}|null } */
 function devProgress(ds, sid, mode) {
   var done = {}, last = null, pages = D.pages || {};
-  var keys = mode === 'day' ? [ds] : Object.keys(pages).filter(function(p){ return mode === 'cycle' || p.slice(0, 7) === ds.slice(0, 7); });
+  /* 開いている日より後の日付は数えない（過去の日を開いたとき、後日の消し込みで「済」に化けないように。wdOnceDoneOn と同じ考え方） */
+  var keys = mode === 'day' ? [ds] : Object.keys(pages).filter(function(p){ return p <= ds && (mode === 'cycle' || p.slice(0, 7) === ds.slice(0, 7)); });
   if (mode === 'cycle') keys.forEach(function(p){
     var c = pages[p] && pages[p].devCycle && pages[p].devCycle[sid];
     if (c && c.ts && (!last || c.ts > last.ts)) last = { ds:p, ts:c.ts, by:c.by || '' };
@@ -14252,7 +14269,8 @@ function devProgress(ds, sid, mode) {
 var _devMstOpen = {};
 function renderDevMaster() {
   var l = document.getElementById('dev-master-list'); if (!l) return;
-  if (l.contains(document.activeElement)) return; /* 追加欄に入力中は同期で消さない */
+  var fa = document.activeElement; /* 追加欄に入力中だけ同期で消さない（ボタンにフォーカスが残っているだけなら描き直す） */
+  if (fa && l.contains(fa) && /^(INPUT|SELECT|TEXTAREA)$/.test(fa.tagName)) return;
   var ok = can('wm'), m = devMasterOf(), depts = D.wdDepts || [];
   var ar = document.getElementById('dev-master-ar'); if (ar) ar.style.display = ok ? 'flex' : 'none';
   if (!m.length) { l.innerHTML = '<p class="cle">まだ機種が登録されていません</p>'; return; }
@@ -14453,11 +14471,20 @@ function renderDevPanel(ds, it, wrapEl) {
     return '<details class="dev-kind" data-key="' + escH(key) + '"' + (open ? ' open' : '') + '><summary>' + escH(g.kind.n) + '<span class="dev-cnt' + (dn === g.units.length ? ' all' : '') + '">' + dn + ' / ' + g.units.length + '</span></summary><div class="dc-cbs">' + units + '</div></details>';
   }).join('');
   var note = cfg.r === 'cycle' ? ('🔁 一巡したらリセット' + (pr.last ? '・前回の一巡 ' + fmtMD(pr.last.ds) : '')) : (cfg.r === 'day' ? '📅 毎日リセット' : '🗓 月内に1回');
+  /* 一巡がこの日に完了していれば、ここから取り消せる（トーストを見逃したときの戻り道） */
+  if (cfg.r === 'cycle' && pr.last && pr.last.ds === ds) note += ' <button type="button" class="btn btn-g btn-sm" data-dev-undo="1" style="font-size:10px;padding:1px 7px;margin-left:4px">一巡を取り消す</button>';
   if (chip) chip.textContent = '🩺 ' + doneN + '/' + total + ' ▾';
   if (box) {
     box.innerHTML = '<div class="dev-sub" style="margin:2px 0 2px">' + note + '</div>' + (h || '<span class="cle">対象の機器がマスタにありません</span>');
     box.querySelectorAll('details.dev-kind').forEach(function(dt){ dt.addEventListener('toggle', function(){ _devKindOpen[dt.getAttribute('data-key')] = dt.open; }); });
   }
+}
+function devCycleUndo(ds, it, task, wrapEl) {
+  var sid = wdSid(it), pg = D.pages[ds]; if (!sid || !pg || !pg.devCycle || !pg.devCycle[sid]) return;
+  if (!confirm('この日の「一巡」を取り消しますか？\n直前の巡回の消し込みが元に戻ります。')) return;
+  delete pg.devCycle[sid];
+  saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
+  renderDevPanel(ds, it, wrapEl);
 }
 function devCheckChange(ds, it, task, wrapEl, devId, on) {
   var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid || !D.pages[ds]) return;
@@ -14475,7 +14502,13 @@ function devCheckChange(ds, it, task, wrapEl, devId, on) {
         if (!pg.devCycle) pg.devCycle = {};
         pg.devCycle[sid] = { ts:Date.now() + 1, by:me };
         writeLog('機器の点検が一巡', fmtJ(ds) + ' ' + task);
-        toast('🎉 全台そろいました。次の巡回を始めます', 'ok', 5000);
+        toast('🎉 全台そろいました。次の巡回を始めます', 'ok', 10000, { label:'取り消す', fn:function(){
+          var p2 = D.pages[ds]; if (!p2) return;
+          if (p2.devCycle) delete p2.devCycle[sid];
+          if (p2.devChecks && p2.devChecks[sid]) delete p2.devChecks[sid][devId]; /* 押し間違えた最後の1台も外す */
+          saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
+          if (wrapEl.isConnected) renderDevPanel(ds, it, wrapEl); else safeRenderPage();
+        } });
       }
     }
     saveDPage(ds);
@@ -16233,6 +16266,17 @@ function schedulePendingFlush() {
   clearTimeout(_pendingFlushTimer);
   _pendingFlushTimer = setTimeout(flushPendingRender, 600);
 }
+function showPendingRenderChip() {
+  if (document.getElementById('pending-render-chip')) return;
+  var b = document.createElement('button'); b.id = 'pending-render-chip'; b.type = 'button';
+  b.textContent = '🔄 他の人の更新があります（ここを押すと反映）';
+  b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + var(--cbar-h,0px));z-index:260;background:var(--ac);color:var(--on-ac);border:none;border-radius:20px;padding:8px 16px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer;font-family:var(--fn)';
+  /* pointerdown で入力欄のフォーカスを先に外し、そのまま描き直す（本人が押したので警告が出ても自然） */
+  b.addEventListener('mousedown', function(e){ e.preventDefault(); });
+  b.addEventListener('click', function(){ var f = mainFocusedField(); if (f) { try { f.blur(); } catch(e) {} } hidePendingRenderChip(); setTimeout(flushPendingRender, 50); });
+  document.body.appendChild(b);
+}
+function hidePendingRenderChip() { var b = document.getElementById('pending-render-chip'); if (b) b.remove(); }
 function flushPendingRender() {
   if (_pointerDown) return; /* 指を離したとき（pointerup）にもう一度予約される */
   if (_boardRenderPending && !boardEditing()) {
@@ -16240,16 +16284,25 @@ function flushPendingRender() {
     var bp = document.getElementById('pane-board');
     if (bp && bp.style.display !== 'none') renderBoard();
   }
-  if (!_pageRenderPending) return;
-  if (!curDs || !D.pages[curDs]) { _pageRenderPending = false; return; }
+  if (!_pageRenderPending) { hidePendingRenderChip(); return; }
+  if (!curDs || !D.pages[curDs]) { _pageRenderPending = false; hidePendingRenderChip(); return; }
   /* 入力欄から離れたとき（focusout）にもう一度予約されるが、入力欄が DOM ごと消えると focusout が
      出ない端末がある（消し込みバーの _cbarInputFocused と同じ罠）ので、見送り中は自分でも見直す */
   if (mainEditing()) {
     /* 文字を打つ欄にカーソルを置いたまま手が止まっているなら、カーソルを外して描き直しへ進む */
+    /* 書き換えていない欄（data-phi-base と同じ値）なら黙って外してよい（保存も警告も起きない）。
+       書き換えた欄を勝手に外すと、患者情報の警告や保存が本人の操作なしに走るので、外さずに
+       「他の人の更新があります」の案内を出し、押してもらう */
     var ff = mainFocusedField();
-    if (ff && isTypingField(ff) && !_imeComposing && Date.now() - _lastInputTs > EDIT_IDLE_TYPE_MS) { try { ff.blur(); } catch(e) {} }
+    if (ff && isTypingField(ff) && !_imeComposing && Date.now() - _lastInputTs > EDIT_IDLE_TYPE_MS) {
+      var base = ff.getAttribute('data-phi-base');
+      if (base === null) base = ff.defaultValue || ''; /* focusin を取りこぼしたときは描画時の値と比べる */
+      if (base === (ff.value || '')) { try { ff.blur(); } catch(e) {} }
+      else showPendingRenderChip();
+    }
     clearTimeout(_pendingFlushTimer); _pendingFlushTimer = setTimeout(flushPendingRender, 1500); return;
   }
+  hidePendingRenderChip();
   var wait = 2000 - (Date.now() - _savingTs);
   if (wait > 0) { clearTimeout(_pendingFlushTimer); _pendingFlushTimer = setTimeout(flushPendingRender, wait + 50); return; }
   renderPage(curDs); /* mainDraftsAfter が _pageRenderPending を下ろす */
@@ -24124,6 +24177,11 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
       var c2=e.target; if(c2.tagName!=='INPUT'||!c2.getAttribute('data-dev')) return;
       if (locked) { c2.checked=!c2.checked; return; }
       devCheckChange(ds, devIt, task, wrap, c2.getAttribute('data-dev'), c2.checked);
+    });
+    devEl.addEventListener('click', function(e){
+      var ub=e.target.closest('[data-dev-undo]'); if(!ub) return;
+      e.stopPropagation(); if (locked) return;
+      devCycleUndo(ds, devIt, task, wrap);
     });
   }
   if (!subs) return wrap;

@@ -129,7 +129,7 @@ Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` 
 
 **`D` に入る値が新しくオブジェクトのキーになるときは、必ずこの表に足して入り口で正規化すること。** 保存前のサニタイズ（`sanitizeManualKeys` / `sanitizeEduProgressKeys`）は既存データの後始末であって、キーと値の対応が崩れる（`D.stf` の氏名は元のまま、`D.stfLinks` のキーだけ変わる等）ので、新規の防御には使わない。
 
-After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state. **見送った再描画は捨てずに後で行う**：リスナーは入力中（`#main` の入力欄にフォーカス）と保存直後2秒は `renderPage` を見送るが、開いている連絡表の中身が本当に変わっていれば（`pageSig(v)` で比較。Firebase が空配列・null を保存しない差と `_` で始まるキーは無視するので、自分の保存のエコーは「変わっていない」になる）`markPageRenderPending()` で印を付け、`flushPendingRender()` が入力欄から離れ・指も離れて600ms後に描き直す。**「入力中」は `mainEditing()` が唯一の判定**（リスナー・`safeRenderPage`・`flushPendingRender` 共通）：文字を打つ欄（`isTypingField`）はカーソルがある間ずっと、チェックボックス等は最後の操作から3秒、選択欄は8秒だけ入力中とみなす。PCは押したあともカーソルが残るので、カーソルの有無だけで判定すると他の人の変更を延々と出さなくなる（2026-09-30「PCだけ同期が不安定」の原因）。文字欄も描き直し待ちのまま20秒打たなければカーソルを外して（blur）進める（変換中は除く）。すぐ描き直さないのは、入力欄の次に押そうとしたボタンが押す前に作り直されてタップが空振りするため。入力欄が DOM ごと消えると `focusout` が出ない端末があるので、見送り中は1.5秒ごとに自分でも見直す。`safeRenderPage()` も入力中なら同じ印を付ける。
+After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state. **見送った再描画は捨てずに後で行う**：リスナーは入力中（`#main` の入力欄にフォーカス）と保存直後2秒は `renderPage` を見送るが、開いている連絡表の中身が本当に変わっていれば（`pageSig(v)` で比較。Firebase が空配列・null を保存しない差と `_` で始まるキーは無視するので、自分の保存のエコーは「変わっていない」になる）`markPageRenderPending()` で印を付け、`flushPendingRender()` が入力欄から離れ・指も離れて600ms後に描き直す。**「入力中」は `mainEditing()` が唯一の判定**（リスナー・`safeRenderPage`・`flushPendingRender` 共通）：文字を打つ欄（`isTypingField`）はカーソルがある間ずっと、チェックボックス等は最後の操作から3秒、選択欄は8秒だけ入力中とみなす。PCは押したあともカーソルが残るので、カーソルの有無だけで判定すると他の人の変更を延々と出さなくなる（2026-09-30「PCだけ同期が不安定」の原因）。文字欄は描き直し待ちのまま20秒打たなければ、**書き換えていない欄（`data-phi-base`／`defaultValue` と同じ値）だけ**カーソルを外して進める（変換中は除く）。書き換えた欄を勝手に外すと患者情報の警告や保存が本人の操作なしに走るので、外さずに「🔄 他の人の更新があります」の案内（`showPendingRenderChip`）を出して押してもらう。すぐ描き直さないのは、入力欄の次に押そうとしたボタンが押す前に作り直されてタップが空振りするため。入力欄が DOM ごと消えると `focusout` が出ない端末があるので、見送り中は1.5秒ごとに自分でも見直す。`safeRenderPage()` も入力中なら同じ印を付ける。
 
 #### 送信前の入力（下書き）を作り直しから守る
 
@@ -858,6 +858,8 @@ Weekday-master items (`D.wd[曜日][i]`) are either a plain string (legacy) or a
 - チェック項目（`D.dly`/`D.wd`/`D.hdDly`/`D.hdWd`）は `itemRebuild` で `dev:{k:[機種ID＝全台。後で足した台も含む], i:[個別の機器ID], x:[機種丸ごとから外した機器ID], r:'day'|'month'|'cycle'}` と `sid`（設置部署と共用）を持つ。読み出しは `itemDev(it)`、対象機器は `devResolve(cfg)`（マスタ順・機種ごと）。設定画面は `openDevCfgModal(list, i)`（`DEV_LISTS` が4つのリストを束ねる）。
 - 共通業務にも付けられるよう、`buildCL`/`buildHdCL` は `mkCk`/`mkHdCk` の7番目の引数に共通業務のマスタ項目（`dlyIt`）を渡す。`_clMkCk` の `it`（曜日別の項目）は once 判定に使うので、そこへ共通業務の項目を入れないこと。
 - 消し込みは `D.pages[ds].devChecks[sid][機器ID] = {by, ts}`、状態は `devProgress(ds, sid, r)`。`day`＝その日だけ／`month`＝同じ月（`wdSubProgress` と同じ月次リセット）／`cycle`＝期限なし。全台そろった瞬間にそのページへ `devCycle[sid] = {ts, by}` を書き、それより後の消し込みだけを数える。新しいトップレベルDは増やさず、ページを走査して求める。
+- 開いている日より後の日付のページは数えない（過去の日を開いたとき、後日の消し込みで「済」に化けないように）。
+- 一巡の押し間違いは、完了時のトーストの「取り消す」（最後の1台の消し込みも外す）か、その日のパネルの「一巡を取り消す」（`devCycleUndo`）で戻せる。
 - 親のチェック項目は全台そろっても自動でチェックしない（設置部署と同じ）。マスタから消した機器・機種の記録は残る（表示されなくなるだけ）。
 
 ### 消し込みバー（`.cbar` / `closeItems(ds)` / `updateCloseBar(ds)`）
