@@ -14344,14 +14344,15 @@ function renderDevCfgBody() {
   ['day','month','cycle'].forEach(function(r){ h += '<button type="button" class="' + (c.r === r ? 'on' : '') + '" onclick="devCfgSetR(\'' + r + '\')">' + DEV_RESET_LABEL[r] + '</button>'; });
   h += '</div><div class="pn" style="font-size:11px;margin:-4px 0 10px">' + ({day:'その日の連絡表だけで数えます。翌日はまた全台が未実施に戻ります。', month:'同じ月のうちに1回ずつ。月が変わると全台が未実施に戻ります。', cycle:'期限はありません。全台そろった時点で次の巡回が始まります。'})[c.r] + '</div>';
   if (!m.length) h += '<div class="pool-empty" style="padding:10px 0">まだ機器マスタが登録されていません。マスタの「🩺 機器マスタ」から登録してください。</div>';
-  m.forEach(function(k){
+  c.m = m; /* onchange には ID ではなく添字を渡す（ID を JS の文字列に埋め込まない） */
+  m.forEach(function(k, ki){
     var all = !!c.k[k.id];
     var n = k.items.filter(function(u){ return all ? !c.x[u.id] : c.i[u.id]; }).length;
     h += '<details class="dev-kind" data-kid="' + escH(k.id) + '"' + (c.open[k.id] ? ' open' : '') + '><summary>' + escH(k.n) + '<span class="dev-cnt' + (n ? ' all' : '') + '">' + n + ' / ' + k.items.length + '台</span></summary>';
-    h += '<div style="padding:0 8px 8px"><label class="dc-cb-item' + (all ? ' checked' : '') + '" style="font-weight:700"><input type="checkbox" onchange="devCfgToggleKind(\'' + k.id + '\', this.checked)"' + (all ? ' checked' : '') + '>この機種すべて（あとで足した台も含む）</label>';
-    h += '<div class="dc-cbs" style="margin-top:4px">' + k.items.map(function(u){
+    h += '<div style="padding:0 8px 8px"><label class="dc-cb-item' + (all ? ' checked' : '') + '" style="font-weight:700"><input type="checkbox" onchange="devCfgToggleKind(' + ki + ', this.checked)"' + (all ? ' checked' : '') + '>この機種すべて（あとで足した台も含む）</label>';
+    h += '<div class="dc-cbs" style="margin-top:4px">' + k.items.map(function(u, ui){
       var on = all ? !c.x[u.id] : !!c.i[u.id];
-      return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox" onchange="devCfgToggleUnit(\'' + k.id + '\',\'' + u.id + '\', this.checked)"' + (on ? ' checked' : '') + '>' + escH(u.n) + (u.no || u.loc ? '<span class="dev-sub">' + escH([u.no, u.loc].filter(Boolean).join('・')) + '</span>' : '') + '</label>';
+      return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox" onchange="devCfgToggleUnit(' + ki + ',' + ui + ', this.checked)"' + (on ? ' checked' : '') + '>' + escH(u.n) + (u.no || u.loc ? '<span class="dev-sub">' + escH([u.no, u.loc].filter(Boolean).join('・')) + '</span>' : '') + '</label>';
     }).join('') + (k.items.length ? '' : '<span class="cle">機器が未登録です</span>') + '</div></div></details>';
   });
   h += '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'dev-cfg-ov\').remove()">キャンセル</button><button class="btn btn-p" onclick="saveDevCfg()">保存</button></div>';
@@ -14359,16 +14360,17 @@ function renderDevCfgBody() {
   md.querySelectorAll('details.dev-kind').forEach(function(dt){ dt.addEventListener('toggle', function(){ c.open[dt.getAttribute('data-kid')] = dt.open; }); });
 }
 function devCfgSetR(r) { if (_devCfg) { _devCfg.r = r; renderDevCfgBody(); } }
-function devCfgToggleKind(kid, on) {
-  var c = _devCfg; if (!c) return;
-  var k = devMasterOf().filter(function(x){ return x.id === kid; })[0]; if (!k) return;
+function devCfgToggleKind(ki, on) {
+  var c = _devCfg; if (!c || !c.m) return;
+  var k = c.m[ki]; if (!k) return; var kid = k.id;
   /* 丸ごと⇄個別を切り替えるときは、いま選ばれている台をそのまま引き継ぐ */
   k.items.forEach(function(u){ delete c.x[u.id]; delete c.i[u.id]; });
   if (on) c.k[kid] = true; else delete c.k[kid];
   c.open[kid] = true; renderDevCfgBody();
 }
-function devCfgToggleUnit(kid, uid, on) {
-  var c = _devCfg; if (!c) return;
+function devCfgToggleUnit(ki, ui, on) {
+  var c = _devCfg; if (!c || !c.m) return;
+  var k = c.m[ki], u = k && k.items[ui]; if (!u) return; var kid = k.id, uid = u.id;
   if (c.k[kid]) { if (on) delete c.x[uid]; else c.x[uid] = true; }
   else { if (on) c.i[uid] = true; else delete c.i[uid]; }
   c.open[kid] = true; renderDevCfgBody();
