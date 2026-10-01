@@ -290,6 +290,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /data/                      — full D object (saveD())
 /board/                     — 掲示板 posts (independent of /data)
 /tasks/                     — タスク管理 (independent of /data; see Task Management section)
+/feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, memo}（/data の外。読めるのは管理者だけ、作成は全員・変更削除は管理者＝ルールで強制）
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
 /shiftReqTpl                — 勤務希望のExcel出力テンプレ {data, ts, by, size}（/data の外。D.shiftReqCfg.tpl に名前・日時。書き込みは管理者のみ）
 /logs/                      — activity log (append-only via push())
@@ -1115,6 +1116,17 @@ Digitizes the paper tablet loan log. Two data pieces:
 The day page does **not** show an inline tablet section (it would occupy too much space). Instead, `renderPage` adds a compact `📱 タブレット` button (`#tablet-btn`) to the page header next to 印刷, carrying a red `#tablet-btn-badge` showing the current unreturned count (glanceable 揃い確認; hidden when 0). Clicking it calls `openTabletPanel(ds)`, a modal `.ov`/`.md` (`#tablet-panel-ov`, max-height 85vh scroll, click-outside/✕ closes) whose body is filled by `renderTabletPanelBody(ds)`. That body shows the "現在貸出中: N台" summary (red when N>0), a record button, and a list/timeline toggle (`_tabletView`, `setTabletView` → re-renders the panel body). The **list** view shows each loan (green/red left-border by returned state) with 返却/削除 buttons; the **timeline** view (`buildTabletTimeline`) reuses the schedule grid structure — vertical time axis × one column per tablet — with returned loans as solid blocks and unreturned ones as red-striped blocks extending to the current time (today only, else axis end). Timeline is view-only; editing happens in the list. After any lend/return/delete, the handlers call `renderTabletPanelBody(ds)` **and** `updateTabletBtnBadge(ds)` so both the open panel and the header badge stay current.
 
 `openTabletLendModal(ds, mode)` / `openTabletReturnModal(ds, id, mode)` are dynamic `.ov`/`.md` modals with tablet and borrower/returner fields. New lending is allowed only for today's date. Because the modals live **outside `#main`**, `saveTabletLend`/`saveTabletReturn` call `detectPHI` explicitly; the PHI confirmation callback also rechecks date and mode. A return modal remembers its loan ID, source date, mode, and opening date; save re-reads the record by ID and blocks a second return. All operations are gated by `can('tablet')`. **No Firebase rule change needed** — the ledgers live under `/data`.
+
+### 改善要望（`/feedback`、📚 資料 → 💡 改善要望）
+
+`pane-feedback`（`renderFeedback()`）。一般職員は「種類 → 画面 → くわしく（種類ごとの書き出しヒント）→ 困り具合 → 写真1枚（任意）→ 匿名」を選んで送り、送信後はお礼画面（「続けて書く」／「終わる＝来た画面へ戻る」）に移る。管理者は同じタブで「📥 届いた要望」（未完了／未確認／支障あり／すべて、状態・管理者メモ・削除）と「✏️ 自分も書く」を切り替える。未確認数は資料サブメニューの `#fb-badge`（管理者のログイン後に1回だけ読む、常時の受信はしない）。
+
+- **読めるのは管理者だけ（`/feedback` のルールで強制）。** 一般職員は自分の送った分も読めない（この端末から送った件数だけ `localStorage ce2_fb_sent` に残す）。
+- **匿名（`anon`）のときは uid も名前も保存せず、`writeLog` も呼ばない**（writeLog は操作者名を自動で記録するため）。
+- 本文は `#main` の外なので `detectPHI` を明示的に通すが、**止めるのは赤（患者ID・患者の姓名など）だけ**。黄色（氏名らしい文字列）は、要望がアプリの言葉（「どの操作が」「担当表」）だらけで毎回当たるため止めない（使用物品・メーカー担当者名と同じ判断）。
+- 画像は `compressImage` → dataURL で本体に入れる（Storage は使えない）。ルールで1枚40万文字までに制限。
+- 場所の初期値は「どの画面から来たか」（`swTab` が `_fbFrom` に記録）から推測する。プレビューは `localStorage ce2_feedback_pv` に保存して管理者画面まで試せる。
+- **本番で使うには `database.rules.json` の `feedback` の反映が必要**（未反映だと送信・読み込み時にトーストで知らせる）。
 
 ### メーカー担当者連絡先 (`D.makers`)
 
