@@ -1245,8 +1245,12 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
    隠したので、出ている間は body.is-offline で --off-h ぶん画面全体を下げる（トップバーの高さを使う
    レイアウト3か所＝.ab／スマホの .sb／#pane-assign,#pane-sum が --off-h を足している）。
    高さを固定するため1行に収め、はみ出しは…にする */
-body.is-offline{--off-h:24px}
-#offline-bar{position:fixed;left:0;right:0;top:var(--th-all);height:var(--off-h,24px);box-sizing:border-box;line-height:22px;z-index:300;background:var(--warn-bg);color:var(--warn-fg);border-bottom:1px solid var(--warn-bdr);font-size:11px;font-weight:700;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* --off-h は「トップバーの下に出る帯」の合計。オフラインの帯（--offline-h）とPSG外しの帯（--psgb-h）を足す。
+   PSG外しのバナーは以前 top:0・z-index:9000 でトップバーの上に重ねており、7:30〜8:30の間トップバーのボタンが押せなかった */
+body{--off-h:calc(var(--offline-h,0px) + var(--psgb-h,0px))}
+body.is-offline{--offline-h:24px}
+body.has-psgb{--psgb-h:36px}
+#offline-bar{position:fixed;left:0;right:0;top:var(--th-all);height:var(--offline-h,24px);box-sizing:border-box;line-height:22px;z-index:300;background:var(--warn-bg);color:var(--warn-fg);border-bottom:1px solid var(--warn-bdr);font-size:11px;font-weight:700;padding:0 10px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* 自動ログアウト警告 */
 #idle-warn{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-fg);border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;z-index:9998;display:none;gap:14px;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 #idle-warn.show{display:flex}
@@ -1827,7 +1831,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 </style>
 </head>
 <body>
-<div id="psg-removal-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9000;background:var(--warn-bg);color:var(--warn-fg);border-bottom:2px solid var(--warn-bdr);padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;font-size:14px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.15)">🌙 PSG取り外しがあります<button onclick="document.getElementById('psg-removal-banner').style.display='none'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;color:var(--warn-fg);line-height:1">✕</button></div>
+<div id="psg-removal-banner" role="status" style="display:none;position:fixed;top:calc(var(--th-all) + var(--offline-h,0px));left:0;right:0;height:var(--psgb-h,36px);box-sizing:border-box;line-height:34px;z-index:299;background:var(--warn-bg);color:var(--warn-fg);border-bottom:2px solid var(--warn-bdr);padding:0 40px;font-size:14px;font-weight:700;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🌙 PSG取り外しがあります<button onclick="closePsgRemovalBanner()" aria-label="閉じる" style="position:absolute;right:6px;top:0;bottom:0;width:34px;background:none;border:none;font-size:18px;cursor:pointer;color:var(--warn-fg);line-height:1">✕</button></div>
 <!-- ===== 表示名変更モーダル ===== -->
 <div id="modal-name" class="hd">
   <div class="name-box">
@@ -5876,16 +5880,19 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/11-112';
+var APP_VERSION = 'Ver.2026/10/11-113';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/10/11-112', date:'2026-10-11', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
+  { ver:'Ver.2026/10/11-113', date:'2026-10-11', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
     {t:'new', notify:true, d:'👤 メーカー連絡先のカードに「担当交代」ボタンを追加しました。今の担当者・電話・メールを「前任」として残したまま、新しい担当者を入力できます（誤字や番号の修正は今までどおり ✏️ から）'},
     {t:'new', notify:true, d:'🔍 カードの「前任 N名」を開くと、前の担当者の名前・交代日・電話番号が見られます（番号はコピーもできます）。検索で前任の名前を入れても見つかります'},
     {t:'imp', notify:true, d:'📅 メーカー連絡先を編集するとき、更新日に今日の日付が自動で入るようにしました（必要なら変更できます）'},
     {t:'imp', admin:true, d:'📥 Excel取込で担当者だけが変わったメーカーは、別のカードを増やさず担当交代として前任を残すようにしました（そのメーカーの担当が1人の場合）'}
+  ]},
+  { ver:'Ver.2026/10/08-112', date:'2026-10-08', title:'PSG外しのお知らせで上のボタンが押せない問題を直しました', items:[
+    {t:'fix', d:'🌙 朝の「PSG取り外しがあります」の帯が上部のボタンに重なって押せなかった問題を直しました。帯は上部バーのすぐ下に出て、✕で閉じるとその日はもう出ません'}
   ]},
   { ver:'Ver.2026/10/07-111', date:'2026-10-07', title:'画像付きの送信が「送信中」のまま止まる問題を直しました', items:[
     {t:'fix', d:'📷 画像を付けて申し送り・掲示板・タスクを送ると、「送信中...」のまま進まなくなる問題を直しました'}
@@ -18723,20 +18730,34 @@ function updateStaffZoneBadge(ds){
   if(elStaff) elStaff.textContent='当日'+c.staffN+'名';
   if(elUn){ elUn.textContent='未割当'+c.unassignedN; elUn.style.display=c.unassignedN?'':'none'; }
 }
+/* ✕で閉じたらその日はもう出さない（毎分の見直しで出し直さない）。端末ローカル */
+function closePsgRemovalBanner(){
+  var n=new Date(),t=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
+  try{ localStorage.setItem('ce2_psgb_closed', t); }catch(e){}
+  setPsgBannerShown(false);
+}
+function setPsgBannerShown(show){
+  var el=document.getElementById('psg-removal-banner'); if(!el) return;
+  el.style.display=show?'':'none';
+  document.body.classList.toggle('has-psgb', !!show); /* 帯の高さぶん画面全体を下げる（CSSの --psgb-h） */
+}
 function updatePsgRemovalBanner(ds){
   var el=document.getElementById('psg-removal-banner'); if(!el) return;
-  if(_viewMode==='hd'){el.style.display='none';return;} /* PSG取り外しはCE業務 */
-  if(!ds){el.style.display='none';return;}
+  var hide=function(){ setPsgBannerShown(false); };
+  if(_viewMode==='hd'){hide();return;} /* PSG取り外しはCE業務 */
+  if(!ds){hide();return;}
   var n=new Date(),todayStr=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0');
-  if(ds!==todayStr){el.style.display='none';return;}
+  if(ds!==todayStr){hide();return;}
+  var closed=''; try{ closed=localStorage.getItem('ce2_psgb_closed')||''; }catch(e){}
+  if(closed===todayStr){hide();return;}
   var prevDsBN=getPrevDs(ds),prevDatBN=D.pages[prevDsBN];
   var isPsgR=!!(prevDatBN&&((prevDatBN.ops_cards&&prevDatBN.ops_cards.indexOf('psg')!==-1)||(prevDatBN.ops&&prevDatBN.ops.psg_on)));
-  if(!isPsgR){el.style.display='none';return;}
+  if(!isPsgR){hide();return;}
   var nowMin=n.getHours()*60+n.getMinutes();
   var _bsT=(D.psgBannerStart||'07:30').split(':'),_beT=(D.psgBannerEnd||'08:30').split(':');
   var _bsMin=parseInt(_bsT[0],10)*60+(parseInt(_bsT[1],10)||0);
   var _beMin=parseInt(_beT[0],10)*60+(parseInt(_beT[1],10)||0);
-  el.style.display=(nowMin>=_bsMin&&nowMin<_beMin)?'':'none';
+  setPsgBannerShown(nowMin>=_bsMin&&nowMin<_beMin);
 }
 function renderPage(ds) {
   if (!D.pages[ds]) return;
