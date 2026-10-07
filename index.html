@@ -3277,6 +3277,10 @@ function dashJumpTop(el) {
   var z = useMain ? uiZoom() : 1;
   var tb = document.querySelector('.tb');
   var off = (tb ? tb.getBoundingClientRect().height : 0) + 8;
+  /* ページ全体をスクロールする経路では、トップバーの下に出る帯（オフライン・PSG外し）の裏にも隠れるので、その高さも足す */
+  if (!useMain) ['offline-bar', 'psg-removal-banner'].forEach(function(id){
+    var b = document.getElementById(id); if (b && getComputedStyle(b).display !== 'none') off += b.getBoundingClientRect().height;
+  });
   var top = useMain
     ? ((el.getBoundingClientRect().top - mainEl.getBoundingClientRect().top - off) / z + mainEl.scrollTop)
     : (el.getBoundingClientRect().top + (window.pageYOffset || doc.scrollTop || 0) - off);
@@ -16410,7 +16414,9 @@ function pageNavGo(ds, dir) {
 var PNAV_SWIPE_MIN = 80, PNAV_SWIPE_MS = 600, PNAV_EDGE = 24;
 function pnavSwipeBlocked(el) {
   for (var n = el; n && n !== document.body; n = n.parentElement) {
-    if (n.id === 'main') return false;
+    /* 文字サイズ「大」「特大」では #main 自体が横にスクロールする（:root[data-fs] .main{overflow-x:auto}）。
+       そのときに払うと横スクロールのつもりが日付の移動になるので、#main が横にはみ出していれば数えない */
+    if (n.id === 'main') return n.scrollWidth > n.clientWidth + 2;
     var tg = n.tagName;
     if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT' || tg === 'BUTTON' || tg === 'LABEL' || tg === 'A' || n.isContentEditable) return true;
     /* 中でドラッグ・横スワイプを使う部品（配置盤・HD担当表・担当カード・プール） */
