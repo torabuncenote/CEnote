@@ -842,6 +842,10 @@ for (var j = 0; j < ents.length; j++) {
 }
 ```
 
+#### `roles` — チェック項目の役割（CE・HD、共通業務・曜日別業務すべて）
+
+各項目に `roles:[…]` を持てる（`itemRebuild` 経由で書く）。CEは担当枠の**名前**（`getDutyMaster()` の label。id は追加のたびに振り直されるので使わない）、HDは `HD_DAY_CODES` ＋ `'準'`。読み出しは `itemRoles(it)`、その日の自分の役割は `myClRoles(ds, isHd)`（CE＝`myDutyLabels`、HD＝`hdShiftWorkers` の自分の行）。編集はマスタの「🏷 役割」（`openRoleCfgModal(list, i)`、対象と権限は「🩺 機器」と同じ `DEV_LISTS`）。当日のチェックリストに印（`.cli-role`、自分の役割は `.me`）、見出しの「自分の役割だけ」（`_clMineOnly`、端末ローカル `ce2_clmine`）で役割が付いて自分の役割を含まない項目を隠す。**数え方（`clStatus`/`getPct`）は役割で変えない**——隠しても未了は未了。`_clStatusNs` の `undone` は `roles` を持ち、`closeItems` は役割付きの項目だけ「自分の役割を含むか」で `mine` を決める（役割なしの項目は従来の判定のまま）。消し込みバーの内訳には役割ごとの残り件数（`.cbar-roles`）を出す。
+
 #### `once` / `subs` / `sid` — per-item fields on `D.wd[曜日]` entries
 
 Weekday-master items (`D.wd[曜日][i]`) are either a plain string (legacy) or an object `{t, wk, once, subs, sid, notif, ...}`. **All writes to these items (and to `D.dly[i]`) must go through `itemRebuild(oldIt, patch)`** — it merges `patch` into a copy of the existing item (a `null`/`undefined` value in `patch` deletes that key) and collapses back to a plain string if only `t` remains. Building the replacement object inline (e.g. `{t:..., notif:...}`) instead silently drops any key not mentioned — this exact bug previously wiped `once`/`wk`/`subs` when only toggling notifications, and vice versa.
