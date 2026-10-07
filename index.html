@@ -17883,11 +17883,13 @@ function mwCount(pg, header) {
   var cards = pg.ops_cards != null ? pg.ops_cards : (D.opsCfg || []);
   var hasCard = cards.indexOf('mw') !== -1;
   var its = mwItems(pg);
+  var n = parseInt(pg.ops && pg.ops.mw_n, 10) || 0;
   if (its.length) {
     if (Array.isArray(pg.ops_cards) && !hasCard) return 0; /* カードを消した日の残骸は数えない（opsItemsOf と同じ） */
-    return header ? its.length : its.filter(mwItemFilled).length;
+    /* 件数だけの古い日にブロックを足したときは、多い方で数える。ブロックだけで数えると
+       「3件」の記録が1件に減り、足すと同じ症例を二重に数えるおそれがあるため */
+    return Math.max(header ? its.length : its.filter(mwItemFilled).length, n);
   }
-  var n = parseInt(pg.ops && pg.ops.mw_n, 10) || 0;
   if (header) return hasCard ? (n || 1) : 0;
   return n;
 }
@@ -17907,10 +17909,13 @@ function mwDocNames() {
   Object.keys(D.pages).forEach(function(d){ mwItems(D.pages[d]).forEach(function(it){ var n = String(it.doc || '').trim(); if (n && !seen[n]) { seen[n] = 1; out.push(n); } }); });
   return out.sort();
 }
+/* 保存の待ち合わせは日ごとに持つ（1つの待ち合わせを共有すると、入力した直後に別の日へ移って操作したとき
+   前の日の保存が取り消されてしまう） */
+var _mwSaveTO = {};
 function mwAfterChange(ds, now) {
-  clearTimeout(mwAfterChange._to);
-  var run = function(){ saveDPage(ds); updateOpsHeader(ds); updateCloseBar(ds); };
-  if (now) run(); else mwAfterChange._to = setTimeout(run, 600);
+  clearTimeout(_mwSaveTO[ds]); delete _mwSaveTO[ds];
+  var run = function(){ delete _mwSaveTO[ds]; saveDPage(ds); if (ds === curDs) { updateOpsHeader(ds); updateCloseBar(ds); } };
+  if (now) run(); else _mwSaveTO[ds] = setTimeout(run, 600);
 }
 function renderMwBlocks(ds, box, locked) {
   var pg = D.pages[ds]; if (!pg || !box) return;
@@ -17950,7 +17955,8 @@ function renderMwBlocks(ds, box, locked) {
       a.push({ _rid: opsNewRid() });
       renderMwBlocks(ds2, box, false); mwAfterChange(ds2, true);
       writeLog('6MWを追加', fmtJ(ds2));
-      var last = box.querySelectorAll('.mw-blk'); last = last[last.length - 1]; if (last) { var t = last.querySelector('.mw-time'); if (t) t.focus(); }
+      /* 時刻欄に focus すると iPhone では時刻のホイールがいきなり開くので、見える位置へ寄せるだけにする */
+      var last = box.querySelectorAll('.mw-blk'); last = last[last.length - 1]; if (last && last.scrollIntoView) last.scrollIntoView({block:'nearest'});
     } else if (act === 'del') {
       var rid = blkOf(b), arr = mwLiveArr(ds2), it = mwFind(ds2, rid); if (!it) return;
       if (mwItemFilled(it) && !confirm('この6MWの記録を削除しますか？')) return;
@@ -23544,7 +23550,7 @@ function buildOPS(ds,dat,locked) {
     if (!uid) c2.id = 'ops-card-mw';
     var sfx=uid?'-'+uid:'';
     /* 件数だけだった頃の日：件数は読むだけ（書き換えない）、カード共通の備考は値がある日だけ残す */
-    if (ops.mw_n && !mwItems(dat).length) c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">件数</span><span class="mw-legacy">'+escH(String(parseInt(ops.mw_n,10)||0))+'件（旧形式）</span></div>';
+    if (ops.mw_n) c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">件数</span><span class="mw-legacy">'+escH(String(parseInt(ops.mw_n,10)||0))+'件（旧形式）'+(mwItems(dat).length?'・下のブロックと多い方で数えます':'')+'</span></div>';
     if (ops.mw_note) c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">📝 備考（旧）</span><textarea class="ops-txt" id="ops-mw-note'+sfx+'" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.mw_note||'')+'</textarea></div>';
     var mwBox=document.createElement('div'); mwBox.className='mw-list'; c2.appendChild(mwBox);
     g.appendChild(c2);
