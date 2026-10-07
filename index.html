@@ -5876,16 +5876,19 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/11-111';
+var APP_VERSION = 'Ver.2026/10/11-112';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/10/11-111', date:'2026-10-11', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
+  { ver:'Ver.2026/10/11-112', date:'2026-10-11', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
     {t:'new', notify:true, d:'👤 メーカー連絡先のカードに「担当交代」ボタンを追加しました。今の担当者・電話・メールを「前任」として残したまま、新しい担当者を入力できます（誤字や番号の修正は今までどおり ✏️ から）'},
     {t:'new', notify:true, d:'🔍 カードの「前任 N名」を開くと、前の担当者の名前・交代日・電話番号が見られます（番号はコピーもできます）。検索で前任の名前を入れても見つかります'},
     {t:'imp', notify:true, d:'📅 メーカー連絡先を編集するとき、更新日に今日の日付が自動で入るようにしました（必要なら変更できます）'},
     {t:'imp', admin:true, d:'📥 Excel取込で担当者だけが変わったメーカーは、別のカードを増やさず担当交代として前任を残すようにしました（そのメーカーの担当が1人の場合）'}
+  ]},
+  { ver:'Ver.2026/10/07-111', date:'2026-10-07', title:'画像付きの送信が「送信中」のまま止まる問題を直しました', items:[
+    {t:'fix', d:'📷 画像を付けて申し送り・掲示板・タスクを送ると、「送信中...」のまま進まなくなる問題を直しました'}
   ]},
   { ver:'Ver.2026/10/07-110', date:'2026-10-07', title:'Androidで画像を添付できないことがある問題を直しました', items:[
     {t:'fix', d:'📷 Androidで選んだ写真（JPEG）が、申し送り・掲示板・タスクに添付されずに消えることがあった問題を直しました。読み込み方を2通りにし、それでも読めない画像は理由を表示するようにしました'},
@@ -20949,30 +20952,50 @@ function _uploadFallback(dataOrBlob, callback) {
     callback(null, dataOrBlob, null);
   }
 }
+/* 画像サーバー（Storage）が使えないと分かったら、以後はこの画面を開いている間ずっと直接 base64 にする。
+   本番のバケットは存在せず（404）、SDK はそれを「やり直せる失敗」として最長10分ほど再試行し続けるため、
+   待っている間「送信中...」のまま止まっていた（2026-10-07、Android で報告。PCのChromeでも20秒以上止まるのを確認）。 */
+var STORAGE_UPLOAD_TIMEOUT_MS = 12000;
+/* 本番にはバケットが無い（Sparkプランのため。CLAUDE.md の Media Uploads 節）ので、最初から使わず base64 にする。
+   Storage を本当に使えるようにしたら false に戻す（そのときも上の時間切れがあるので止まりはしない） */
+var _storageDown = true;
 function uploadToStorage(path, dataOrBlob, callback) {
-  if (!fbST) {
+  if (!fbST || _storageDown) {
     /* Storage未接続時：フォールバック（サイズにより添付自体を諦める場合あり） */
     _uploadFallback(dataOrBlob, callback);
     return;
   }
-  var ref = fbST.ref(path);
-  /* BlobはputBlobで直接アップロード（base64より高速） */
-  var uploadPromise = (dataOrBlob instanceof Blob)
-    ? ref.put(dataOrBlob)
-    : ref.putString(dataOrBlob, 'data_url');
+  var settled = false;
+  var task = null;
+  function giveUp(err) {
+    if (settled) return;
+    settled = true; clearTimeout(timer);
+    _storageDown = true;
+    if (err) console.error('Storage upload error:', err);
+    try { if (task && task.cancel) task.cancel(); } catch (e) {}
+    /* エラー時：フォールバック（サイズにより添付自体を諦める場合あり） */
+    _uploadFallback(dataOrBlob, callback);
+  }
+  var timer = setTimeout(function(){ giveUp(new Error('upload timeout')); }, STORAGE_UPLOAD_TIMEOUT_MS);
+  var ref;
+  try {
+    ref = fbST.ref(path);
+    /* BlobはputBlobで直接アップロード（base64より高速） */
+    task = (dataOrBlob instanceof Blob)
+      ? ref.put(dataOrBlob)
+      : ref.putString(dataOrBlob, 'data_url');
+  } catch (e) { giveUp(e); return; }
 
   var uploadedSize = null;
-  uploadPromise.then(function(snapshot) {
+  task.then(function(snapshot) {
     /* snapshot.metadata.size がアップロード済みバイト数。取れなければnullのまま */
     uploadedSize = (snapshot && snapshot.metadata && typeof snapshot.metadata.size === 'number') ? snapshot.metadata.size : null;
     return ref.getDownloadURL();
   }).then(function(url) {
+    if (settled) return;
+    settled = true; clearTimeout(timer);
     callback(url, null, uploadedSize);
-  }).catch(function(err) {
-    console.error('Storage upload error:', err);
-    /* エラー時：フォールバック（サイズにより添付自体を諦める場合あり） */
-    _uploadFallback(dataOrBlob, callback);
-  });
+  }).catch(giveUp);
 }
 
 /* ===== 1年経過データの自動削除チェック ===== */
