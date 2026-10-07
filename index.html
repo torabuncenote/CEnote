@@ -4165,6 +4165,7 @@ function onSPMediaAdd(input) {
     }
     var processFile = function(dataUrl, blob) {
       var uploadData = blob || dataUrl; /* blobがあればblobを優先 */
+      if (!uploadData) { pending--; if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); } return; }
       var path = 'manual/' + encodeURIComponent(_spTask) + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
       uploadToStorage(path, uploadData, function(url, fallback, size) {
         if (!url && !fallback) {
@@ -5875,16 +5876,20 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/06-110';
+var APP_VERSION = 'Ver.2026/10/11-111';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/10/06-110', date:'2026-10-06', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
+  { ver:'Ver.2026/10/11-111', date:'2026-10-11', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
     {t:'new', notify:true, d:'👤 メーカー連絡先のカードに「担当交代」ボタンを追加しました。今の担当者・電話・メールを「前任」として残したまま、新しい担当者を入力できます（誤字や番号の修正は今までどおり ✏️ から）'},
     {t:'new', notify:true, d:'🔍 カードの「前任 N名」を開くと、前の担当者の名前・交代日・電話番号が見られます（番号はコピーもできます）。検索で前任の名前を入れても見つかります'},
     {t:'imp', notify:true, d:'📅 メーカー連絡先を編集するとき、更新日に今日の日付が自動で入るようにしました（必要なら変更できます）'},
     {t:'imp', admin:true, d:'📥 Excel取込で担当者だけが変わったメーカーは、別のカードを増やさず担当交代として前任を残すようにしました（そのメーカーの担当が1人の場合）'}
+  ]},
+  { ver:'Ver.2026/10/07-110', date:'2026-10-07', title:'Androidで画像を添付できないことがある問題を直しました', items:[
+    {t:'fix', d:'📷 Androidで選んだ写真（JPEG）が、申し送り・掲示板・タスクに添付されずに消えることがあった問題を直しました。読み込み方を2通りにし、それでも読めない画像は理由を表示するようにしました'},
+    {t:'fix', d:'📷 写真の選び方によって「画像ではありません」と弾かれていた問題を直しました（ファイルの種類が空でも、拡張子で画像と判断します）'}
   ]},
   { ver:'Ver.2026/10/02-109', date:'2026-10-02', title:'機器マスタと同期まわりの細かな不具合を直しました', items:[
     {t:'fix', admin:true, d:'🩺 機器マスタで並べ替え・削除をしても、画面が古いまま残ることがあった問題を直しました'},
@@ -20721,13 +20726,14 @@ function onMemoReplyMediaAdd(input, mkey) {
   if (!_memoReplyMediaBuf[mkey]) _memoReplyMediaBuf[mkey] = [];
   var pending = files.length;
   files.forEach(function(file) {
-    if (!file.type || file.type.indexOf('image/') !== 0) {
+    if (!isImageFile(file)) {
       toast('返信に添付できるのは画像だけです', 'warn');
       pending--; if (pending === 0) renderMemoReplyPreview(mkey);
       return;
     }
     compressImage(file, function(dataUrl, blob) {
       var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
+      if (!dataUrl && !blob) { pending--; if (pending === 0) renderMemoReplyPreview(mkey); return; }
       _memoReplyMediaBuf[mkey].push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
       pending--;
       if (pending === 0) renderMemoReplyPreview(mkey);
@@ -20858,26 +20864,58 @@ function delMemoReply(ds, mkey, rid) {
 var _memoMediaBuf = [];
 
 /* ===== 画像圧縮（Canvas JPEG 55%, 長辺800px上限） ===== */
+/* 画像かどうか。Android の一部の写真の選び方（クラウド上の写真・ファイルアプリ等）では file.type が空になるので、
+   そのときは拡張子で判断する（空のまま「画像ではありません」と弾くと、普通の JPEG が添付できなくなる） */
+var IMG_EXT_RE = /\.(jpe?g|jfif|png|gif|webp|bmp|heic|heif|avif)$/i;
+function isImageFile(f) {
+  if (!f) return false;
+  if (f.type) return f.type.indexOf('image/') === 0;
+  return IMG_EXT_RE.test(f.name || '');
+}
+var _imgFailToastTs = 0;
+function _imgFailToast(file) {
+  var now = Date.now(); if (now - _imgFailToastTs < 2000) return; _imgFailToastTs = now;
+  var mb = file && file.size ? (Math.round(file.size / 1024 / 1024 * 10) / 10) + 'MB' : '';
+  toast('「' + ((file && file.name) || '画像') + '」を読み込めませんでした（' + ((file && file.type) || '種類不明') + (mb ? '・' + mb : '') + '）。スクリーンショットにしてから添付すると送れることがあります', 'warn', 8000);
+}
+/* 読み込めなかったときは callback(null, null) を返す（呼び出し側は両方 null なら飛ばす）。
+   以前は失敗時に何も返さず、選んだ画像が黙って消えていた（Android の高画素カメラの写真などで起きる） */
 function compressImage(file, callback) {
   var MAX_PX = 800, QUALITY = 0.55; /* 1280px/80%→800px/65%→800px/55%。書類・ホワイトボードの字を読むので長辺800pxは下げない（下げると小さい字が潰れる）。55%は字のにじみが目立たない下限 */
-  var img = new Image();
-  var url = URL.createObjectURL(file);
-  img.onload = function() {
-    var w = img.width, h = img.height;
+  var finished = false;
+  var timer = setTimeout(fail, 30000);
+  function finish(a, b) { if (finished) return; finished = true; clearTimeout(timer); callback(a, b); }
+  function fail() { if (finished) return; finished = true; clearTimeout(timer); _imgFailToast(file); callback(null, null); }
+  function draw(src, sw, sh, onErr) {
+    if (!sw || !sh) { onErr(); return; }
+    var w = sw, h = sh;
     if (w > MAX_PX || h > MAX_PX) {
       if (w > h) { h = Math.round(h * MAX_PX / w); w = MAX_PX; }
       else        { w = Math.round(w * MAX_PX / h); h = MAX_PX; }
     }
     var canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
-    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    URL.revokeObjectURL(url);
+    try { canvas.getContext('2d').drawImage(src, 0, 0, w, h); } catch (e) { onErr(); return; }
+    if (src.close) src.close();
     /* Blob経由でアップロード → base64変換のオーバーヘッドを回避 */
     canvas.toBlob(function(blob) {
-      if (blob) callback(null, blob); /* blobとして返す */
-      else callback(canvas.toDataURL('image/jpeg', QUALITY), null); /* フォールバック */
+      if (blob) { finish(null, blob); return; } /* blobとして返す */
+      try { finish(canvas.toDataURL('image/jpeg', QUALITY), null); } catch (e) { fail(); } /* フォールバック */
     }, 'image/jpeg', QUALITY);
+  }
+  /* <img> で読めなかったときの2つ目の道。createImageBitmap はファイルから直接読み込む */
+  function viaBitmap() {
+    if (finished) return;
+    if (!window.createImageBitmap) { fail(); return; }
+    createImageBitmap(file).then(function(bm){ draw(bm, bm.width, bm.height, fail); }, fail);
+  }
+  var img = new Image();
+  var url = URL.createObjectURL(file);
+  img.onload = function() {
+    URL.revokeObjectURL(url);
+    draw(img, img.naturalWidth || img.width, img.naturalHeight || img.height, viaBitmap);
   };
+  img.onerror = function() { URL.revokeObjectURL(url); viaBitmap(); };
   img.src = url;
 }
 
@@ -21122,6 +21160,7 @@ function onMemoMediaAdd(input) {
     } else {
       /* 画像はCanvas圧縮 */
       compressImage(file, function(dataUrl, blob) {
+        if (!dataUrl && !blob) { pending--; if (pending === 0) renderMemoMediaPreview(); return; }
         var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
         _memoMediaBuf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc, isStorage:false });
         pending--;
@@ -25308,12 +25347,13 @@ function onTaskMediaAdd(input) {
   if (!files.length) return;
   var pending = files.length;
   files.forEach(function(file){
-    if (!file.type || file.type.indexOf('image/') !== 0) {
+    if (!isImageFile(file)) {
       toast('添付できるのは画像だけです', 'warn');
       pending--; if (pending === 0) renderTaskMediaPreview();
       return;
     }
     compressImage(file, function(dataUrl, blob){
+      if (!dataUrl && !blob) { pending--; if (pending === 0) renderTaskMediaPreview(); return; }
       var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
       _taskMediaBuf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
       pending--;
@@ -26730,6 +26770,7 @@ function fbPickImg(inp) {
   var f = inp.files && inp.files[0]; if (!f) return;
   fbSyncText();
   compressImage(f, function(dataUrl, blob){
+    if (!dataUrl && !blob) return;
     function done(u) {
       if (!fbSafeImg(u) || u.length > 400000) { toast('画像が大きすぎて添付できませんでした', 'warn'); return; }
       _fbDraft.img = u; renderFeedback();
@@ -27543,13 +27584,14 @@ function onBoardMediaAdd(input) {
   if (!files.length) return;
   var pending = files.length;
   files.forEach(function(file) {
-    if (!file.type.startsWith('image/')) {
+    if (!isImageFile(file)) {
       toast(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。', 'warn');
       pending--;
       if (pending === 0) renderBoardMediaPreview();
       return;
     }
     compressImage(file, function(dataUrl, blob) {
+      if (!dataUrl && !blob) { pending--; if (pending === 0) renderBoardMediaPreview(); return; }
       var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
       _boardMediaBuf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
       pending--;
@@ -27586,13 +27628,14 @@ function onBoardReplyMediaAdd(input, postId) {
   var buf = _boardReplyMediaBuf[postId];
   var pending = files.length;
   files.forEach(function(file) {
-    if (!file.type.startsWith('image/')) {
+    if (!isImageFile(file)) {
       toast(file.name + ' は画像ではありません。掲示板には画像のみ添付できます。', 'warn');
       pending--;
       if (pending === 0) renderBoardReplyMediaPreview(postId);
       return;
     }
     compressImage(file, function(dataUrl, blob) {
+      if (!dataUrl && !blob) { pending--; if (pending === 0) renderBoardReplyMediaPreview(postId); return; }
       var previewSrc = blob ? URL.createObjectURL(blob) : dataUrl;
       buf.push({ type:'image', name:file.name, data:dataUrl, blob:blob, previewSrc:previewSrc });
       pending--;
