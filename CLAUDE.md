@@ -792,7 +792,7 @@ var isPsgRemoval = !!(prevDat && (
 ));
 ```
 
-Used in: `buildDG` (duty card checkbox), `updateOpsHeader` (header chip), `updatePsgRemovalBanner` (persistent banner). The banner shows only when `ds === todayStr` and `nowMin` is within `[psgBannerStart, psgBannerEnd)`. Called every minute via `runPsgFusenCheck()`.
+Used in: `buildDG` (duty card checkbox), `updateOpsHeader` (header chip), `updatePsgRemovalBanner` (persistent banner). The banner is a strip right under the top bar (not over it — it used to sit at `top:0`/`z-index:9000` and covered the top-bar buttons every morning). It is shown/hidden only through `setPsgBannerShown(show)`, which also toggles `body.has-psgb`; that sets `--psgb-h`, and `--off-h` is defined as `--offline-h + --psgb-h`, so the layouts that already add `var(--off-h,0px)` move down for both strips. ✕ calls `closePsgRemovalBanner()`, which stores today's date in localStorage `ce2_psgb_closed` so the per-minute re-check doesn't bring it back that day. The banner shows only when `ds === todayStr` and `nowMin` is within `[psgBannerStart, psgBannerEnd)`. Called every minute via `runPsgFusenCheck()`.
 
 ### Dashboard Jump（`dashJump(sel)` / `dashJumpTop(el)`）
 
