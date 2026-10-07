@@ -1378,6 +1378,37 @@ body.has-psgb{--psgb-h:36px}
 .psg-fusen-cb{width:15px;height:15px;accent-color:var(--ac);cursor:pointer;flex-shrink:0}
 .psg-fusen-lbl{font-size:12px;color:var(--txt2);cursor:pointer;white-space:nowrap}
 .psg-fusen-alert{border-color:var(--rd)!important;background:var(--rd-bg)!important}
+.ops-chk{margin-top:6px;border:1px solid var(--bdr);border-radius:8px;background:var(--sur2)}
+.ops-chk>summary{display:flex;align-items:center;gap:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;color:var(--txt2);list-style:none}
+.ops-chk>summary::-webkit-details-marker{display:none}
+.ops-chk>summary::after{content:'▸';margin-left:4px;color:var(--txt3)}
+.ops-chk[open]>summary::after{content:'▾'}
+.ops-chk-n{margin-left:auto;font-weight:800;color:var(--or)}
+.ops-chk-n.all{color:var(--gr)}
+.ops-chk-body{display:flex;flex-direction:column;gap:4px;padding:0 10px 8px}
+.ops-chk .psg-fusen-wrap{flex:none}
+.mw-list{display:flex;flex-direction:column;gap:8px}
+.mw-blk{border:1px solid var(--bdr);border-left:3px solid var(--gr);border-radius:8px;padding:8px 10px;background:var(--sur)}
+.mw-hd{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.mw-no{font-weight:800;font-size:12px;color:var(--gr)}
+.mw-time{font-size:13px;padding:2px 6px;border:1px solid var(--bdr);border-radius:6px;background:var(--sur);color:var(--txt)}
+.mw-del{margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:6px;color:var(--txt3);cursor:pointer;width:26px;height:26px}
+.mw-stf{display:flex;flex-wrap:wrap;gap:4px;align-items:center;flex:1;min-width:0}
+.mw-chip{display:inline-flex;align-items:center;gap:2px;padding:1px 4px 1px 8px;border-radius:10px;background:var(--gr-bg);color:var(--gr);font-size:12px;font-weight:600}
+.mw-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:0 3px}
+.mw-addstf{max-width:9em}
+.mw-add{align-self:flex-start}
+.mw-hint,.mw-legacy,.mw-none{font-size:11px;color:var(--txt3)}
+.mw-legacy{font-size:12px;color:var(--txt2)}
+.mw-sum{margin-top:12px}
+.mw-sum-hd{font-weight:800;font-size:13px;margin-bottom:6px}
+.mw-sum-cols{display:flex;flex-wrap:wrap;gap:12px}
+.mw-sum-col{flex:1 1 220px;min-width:0}
+.mw-sum-ttl{font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:4px}
+.ops-chk-ms{margin-bottom:12px}
+.ops-chk-ms-hd{font-size:12px;font-weight:800;margin-bottom:4px}
+.tl-ev.k-mw .tl-dot{border-color:var(--gr)} .tl-ev.k-mw .tl-kd{color:var(--gr)}
+@media print{.ops-chk-body{display:flex!important}.mw-del,.mw-add,.mw-addstf,.mw-chip button{display:none!important}}
 /* ===== サイドピーク ===== */
 .sp-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1800;opacity:0;transition:opacity .2s;pointer-events:none}
 .sp-overlay.open{opacity:1;pointer-events:auto}
@@ -2116,6 +2147,11 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
                 <input type="text" id="in-robo" placeholder="＋ 配置名を追加…" onkeydown="if(event.key==='Enter'){event.preventDefault();addRoboLayout();}">
                 <button onclick="addRoboLayout()">配置を追加</button>
               </div>
+            </div>
+            <div data-perm="mst" data-mode="ce">
+              <div class="pt">✅ 6MW・PSGの確認項目</div>
+              <div class="pn" style="margin-bottom:8px;font-size:11px">6MWの1件ごと、PSGの装着・外しのカードに出す確認項目です。連絡表では閉じた形で「2 / 4」のように進み具合が出て、残りは消し込みバーにも出ます。PSG装着の「付箋入力済」は最初から入っています。</div>
+              <div id="ops-chk-master-list"></div>
             </div>
             <div data-perm="mst" data-mode="hd">
               <div class="pt">🩸 HD特殊治療マスタ</div>
@@ -3208,7 +3244,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3451,6 +3487,7 @@ function loadD() {
     D.makers = normMakers(s.makers);
     D.wdDepts = s.wdDepts || [];
     D.devMaster = s.devMaster || [];
+    D.opsChk = (s.opsChk && typeof s.opsChk === 'object') ? s.opsChk : {};
     D.hdTreatments = s.hdTreatments || [];
     D.hdDly = s.hdDly || [];
     D.hdWd = s.hdWd || {};
@@ -3591,7 +3628,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={};
         _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
@@ -3793,6 +3830,7 @@ function fbInit() {
             D.makers = normMakers(d.makers);
             D.wdDepts = d.wdDepts || [];
             D.devMaster = d.devMaster || [];
+            D.opsChk = (d.opsChk && typeof d.opsChk === 'object') ? d.opsChk : {};
             D.hdTreatments = d.hdTreatments || [];
             D.hdDly = d.hdDly || [];
             D.hdWd = d.hdWd || {};
@@ -5870,11 +5908,19 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/08-112';
+var APP_VERSION = 'Ver.2026/10/11-116';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-116', date:'2026-10-11', title:'6MWを1件ずつ記録し、6MW・PSGに確認チェックを付けました', items:[
+    {t:'new', d:'🚶 6MWを1件ずつのブロックで記録できるようになりました（開始時刻・担当医・実施CE・備考）。担当医は以前に入れた名前が候補に出ます'},
+    {t:'new', d:'✅ 6MWの各ブロックと、PSGの装着・外しに確認チェックリストが付きました。普段は閉じて「2 / 4」のように進み具合だけ出ます。PSGの「付箋入力済」もこの中にあります'},
+    {t:'imp', d:'🔔 6MW・PSGの確認のやり残しが消し込みバーに出るようになりました（6MWは実施CE、PSGは名前に「PSG」を含む担当枠の人に「自分あて」）'},
+    {t:'imp', d:'🕒 開始時刻を入れた6MWがタイムラインに並ぶようになりました'},
+    {t:'new', admin:true, d:'📊 CE集計に「6MWの内訳」（担当医別・実施CE別）を追加しました'},
+    {t:'new', admin:true, d:'✅ 業務マスタに「6MW・PSGの確認項目」を追加しました（6MW用・PSG装着用・PSG外し用）'}
+  ]},
   { ver:'Ver.2026/10/08-112', date:'2026-10-08', title:'PSG外しのお知らせで上のボタンが押せない問題を直しました', items:[
     {t:'fix', d:'🌙 朝の「PSG取り外しがあります」の帯が上部のボタンに重なって押せなかった問題を直しました。帯は上部バーのすぐ下に出て、✕で閉じるとその日はもう出ません'}
   ]},
@@ -8550,6 +8596,11 @@ function removeOpsCard(ds, cid) {
   /* オペ・カテは入力済みの症例が消えるので先に確認する（PSG・フリーは1枚ぶんの
      入力しか無いので従来どおり確認なし）。残したままカードだけ消すと、画面に無い
      症例がヘッダーの件数・消し込みバー・集計に出続けてしまうため、消すなら一緒に消す。 */
+  if (cid === 'mw') {
+    var mwFilled = mwItems(dat).filter(mwItemFilled).length;
+    if (mwFilled && !confirm('入力済みの6MW ' + mwFilled + '件も一緒に削除します。よろしいですか？')) return;
+    if (dat.ops) delete dat.ops.mw_items;
+  }
   if (cid === 'ope' || cid === 'cath') {
     var kindLabel = (cid === 'ope' ? 'オペ' : 'カテ');
     var filledN = 0;
@@ -8564,6 +8615,7 @@ function removeOpsCard(ds, cid) {
     if (dat.ops) {
       delete dat.ops.psg_on; delete dat.ops.psg_off;
       delete dat.ops.psg_rest; delete dat.ops.psg_fusen;
+      delete dat.ops.psg_chk_on; delete dat.ops.psg_chk_off;
     }
     var nextDs = getNextDs(ds);
     var nextDat = D.pages[nextDs];
@@ -9288,8 +9340,8 @@ function renderOpsSummary() {
     /* オペ・カテ：何らかの入力がある行数（カードを消した日の残骸は opsItemsOf が除く） */
     opsItemsOf(pg,'ope').forEach(function(it){ if(opsItemFilled(it)){ hasAny=true; if(it.cancelled){cxN++;}else{opeN++;} } });
     opsItemsOf(pg,'cath').forEach(function(it){ if(opsItemFilled(it)){ hasAny=true; if(it.cancelled){cxN++;}else{cathN++;} } });
-    /* 6MW：mw_nの値 */
-    if (ops.mw_n) { mwN = parseInt(ops.mw_n)||0; if(mwN) hasAny=true; }
+    /* 6MW：1件ずつのブロック（無い日は従来の件数 mw_n）。mwCount が唯一の入口 */
+    mwN = mwCount(pg); if (mwN) hasAny = true;
     /* PSG：装着欄に入力があれば1件（外しはカウントしない） */
     if (ops.psg_on) { psgN = 1; hasAny=true; }
     /* フリー業務：削除済みカードの残骸を数えないよう opsFreeCards() 経由で走査する */
@@ -9458,7 +9510,8 @@ function renderOpsSummary() {
   h += '<td class="num">'+totals.free+'</td>';
   h += '</tr>';
   h += '</tbody></table></div>';
-  h += '<div style="font-size:11px;color:var(--txt3);margin-top:8px">※ 行をクリックすると連絡表を開きます。オペ・カテは入力した術式/種別の行数、6MWは入力した件数、PSGは装着欄に入力があれば1件と集計しています。</div>';
+  h += mwBreakdownHTML();
+  h += '<div style="font-size:11px;color:var(--txt3);margin-top:8px">※ 行をクリックすると連絡表を開きます。オペ・カテは入力した術式/種別の行数、6MWは入力した件数（1件ずつ記録した日はその件数）、PSGは装着欄に入力があれば1件と集計しています。</div>';
   el.innerHTML = h;
 }
 
@@ -11818,6 +11871,8 @@ function closeItems(ds) {
     {key:'ope',       label:'🔪 オペ終了未チェック',   sel:'#ops-card-ope',  items:[]},
     {key:'cath',      label:'🫀 カテ終了未チェック',   sel:'#ops-card-cath', items:[]},
     {key:'optime',    label:'⏱ 入室時間未入力',       sel:'.ops-time-warn', items:[]},
+    {key:'mwchk',     label:'🚶 6MWの確認残り',        sel:'#ops-card-mw',   items:[]},
+    {key:'psgchk',    label:'🌙 PSGの確認残り',        sel:'#ops-card-psg',  items:[]},
     {key:'tablet',    label:'📱 タブレット未返却',     sel:'#tablet-btn',    items:[]},
     {key:'oc',        label:'📞 オンコール担当未設定', sel:'.oc-card',       items:[]}
   ];
@@ -11880,6 +11935,25 @@ function closeItems(ds) {
   opsItemsOf(dat,'cath').forEach(function(it){
     if (opsItemFilled(it) && !it.done && !it.cancelled) byKey.cath.items.push({mine: myCath || !!(self && opsItemStaff(it).indexOf(self)!==-1)});
   });
+  /* 3c. 6MW・PSGの確認残り。6MWは実施CEに自分がいれば、PSGは名前に「PSG」を含む担当枠の人が自分あて */
+  var mwL = opsChkList('mw');
+  if (mwL.length && mwCount(dat, true)) mwItems(dat).forEach(function(it){
+    if (!mwItemFilled(it)) return;
+    var ck = mwChk(it), mine = !!(self && opsItemStaff(it).indexOf(self) !== -1);
+    mwL.forEach(function(c){ if (!ck[c.id]) byKey.mwchk.items.push({mine:mine}); });
+  });
+  var myPsg = myLabels.some(function(l){ return /PSG/i.test(l); });
+  var pCards = dat.ops_cards != null ? dat.ops_cards : (D.opsCfg || []);
+  var pOps = dat.ops || {};
+  if (pCards.indexOf('psg') !== -1 && String(pOps.psg_on || '').trim()) {
+    if (!pOps.psg_fusen) byKey.psgchk.items.push({mine:myPsg});
+    var onCk = pOps.psg_chk_on || {};
+    opsChkList('psgOn').forEach(function(c){ if (!onCk[c.id]) byKey.psgchk.items.push({mine:myPsg}); });
+  }
+  if (tlIsPsgRemovalDay(ds)) {
+    var offCk = pOps.psg_chk_off || {};
+    opsChkList('psgOff').forEach(function(c){ if (!offCk[c.id]) byKey.psgchk.items.push({mine:myPsg}); });
+  }
   /* 3b. 入室時間がOC・空欄のまま終了した症例（行の「⚠ 入室時間未入力」と同じ条件）。
      入室前の予定まで数えると一日中並び続けるので、終了済みだけを数える */
   [['ope', myOpe], ['cath', myCath]].forEach(function(p){
@@ -14050,7 +14124,7 @@ function mstEntryState(entry) {
   if(el.id==='fcm-cfg-section') return (D.fcmCfg||{}).vapidKey?'接続設定あり':'接続未設定';
   var map={'dly-list':D.dly,'wdly-list':D.wd,'wd-dept-list':D.wdDepts,'dev-master-list':D.devMaster,'hd-dly-list':D.hdDly,
     'hd-wdly-list':D.hdWd,'ope-tree-list':D.opeTree,'cath-tree-list':D.cathTree,'sup-master-list':D.supMaster,
-    'robo-master-list':D.roboLayouts,'hd-treat-list':D.hdTreatments,'duty-master-list':D.dutyCfgMaster,
+    'robo-master-list':D.roboLayouts,'ops-chk-master-list':['mw','psgOn','psgOff'].reduce(function(a,k){return a.concat(opsChkList(k));},[]),'hd-treat-list':D.hdTreatments,'duty-master-list':D.dutyCfgMaster,
     'sched-preset-list':D.schedPresets,'srq-code-list':D.shiftReqCodes,'tablet-master-list':D.tablets,
     'hd-tablet-master-list':D.hdTablets,'edu-ope-tree-list':D.opeTree,'edu-cath-tree-list':D.cathTree,
     'edu-hd-treat-list':D.hdTreatments,'edu-item-list-ward':(D.eduItems||{}).ward,
@@ -17707,6 +17781,214 @@ function openOpsTimeFixModal(opts) {
   };
 }
 
+/* ===== 6MW・PSGの確認項目（D.opsChk = {mw:[{id,t}], psgOn:[…], psgOff:[…]}） =====
+   当日の記録は確認項目の id で持つ（6MW＝ops.mw_items[i].chk、PSG＝ops.psg_chk_on / psg_chk_off）。
+   名前ではなく id にするのは、改名・並べ替えでチェックが外れないように（設置部署の sid と同じ考え方）。
+   PSG装着の「付箋入力済」は従来の ops.psg_fusen のまま固定で先頭に出す（10時の未入力のお知らせがこれを見ている）。 */
+var OPS_CHK_KINDS = [['mw','🚶 6MW（1件ごと）'],['psgOn','🌙 PSG 装着'],['psgOff','🌙 PSG 外し']];
+function opsChkList(kind) {
+  var o = (D.opsChk && typeof D.opsChk === 'object') ? D.opsChk : {};
+  return normArr(o[kind]).filter(function(x){ return x && x.id && x.t; });
+}
+function opsChkSave(kind, arr) {
+  if (!D.opsChk || typeof D.opsChk !== 'object') D.opsChk = {};
+  D.opsChk[kind] = arr;
+  saveD(); renderOpsChkMaster();
+  if (curDs && D.pages[curDs] && typeof safeRenderPage === 'function') safeRenderPage();
+}
+function opsChkKindLabel(kind) { var k = OPS_CHK_KINDS.filter(function(x){ return x[0] === kind; })[0]; return k ? k[1] : kind; }
+function renderOpsChkMaster() {
+  var el = document.getElementById('ops-chk-master-list'); if (!el) return;
+  el.innerHTML = OPS_CHK_KINDS.map(function(kd){
+    var kind = kd[0], a = opsChkList(kind);
+    var h = '<div class="ops-chk-ms"><div class="ops-chk-ms-hd">' + kd[1] + '</div>';
+    if (kind === 'psgOn') h += '<div class="tree-item"><span style="flex:1;min-width:0">付箋入力済 <span class="sup-ms-tag">固定</span></span></div>';
+    h += a.map(function(c, i){
+      return '<div class="tree-item"><span style="flex:1;min-width:0">' + escH(c.t) + '</span>'
+        + supMsBtn('↑', '上へ', 'mvOpsChk(\'' + kind + '\',' + i + ',-1)', i === 0)
+        + supMsBtn('↓', '下へ', 'mvOpsChk(\'' + kind + '\',' + i + ',1)', i === a.length - 1)
+        + supMsBtn('✏️', '名前を変更', 'renameOpsChk(\'' + kind + '\',' + i + ')')
+        + supMsBtn('×', '削除', 'rmOpsChk(\'' + kind + '\',' + i + ')', false, true) + '</div>';
+    }).join('') + (a.length || kind === 'psgOn' ? '' : '<div class="sup-pick-empty">まだ項目がありません</div>');
+    h += '<div class="tree-add-row" style="margin-top:6px"><input type="text" id="in-opschk-' + kind + '" placeholder="＋ 確認項目を追加…" maxlength="40" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addOpsChk(\'' + kind + '\');}"><button onclick="addOpsChk(\'' + kind + '\')">追加</button></div></div>';
+    return h;
+  }).join('');
+}
+function addOpsChk(kind) {
+  if (!can('mst')) return;
+  var inp = document.getElementById('in-opschk-' + kind); if (!inp) return;
+  var v = inp.value.trim(); if (!v) return;
+  var a = opsChkList(kind);
+  if (a.some(function(c){ return c.t === v; }) || (kind === 'psgOn' && v === '付箋入力済')) { toast('同じ項目が既にあります', 'warn'); return; }
+  a.push({ id: 'ck' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), t: v });
+  inp.value = '';
+  opsChkSave(kind, a); writeLog('確認項目を追加', opsChkKindLabel(kind) + '：' + v);
+}
+function rmOpsChk(kind, i) {
+  if (!can('mst')) return;
+  var a = opsChkList(kind), c = a[i]; if (!c) return;
+  if (!confirm('「' + c.t + '」を確認項目から外しますか？（過去の記録は残ります）')) return;
+  a.splice(i, 1); opsChkSave(kind, a); writeLog('確認項目を削除', opsChkKindLabel(kind) + '：' + c.t);
+}
+function mvOpsChk(kind, i, d) {
+  if (!can('mst')) return;
+  var a = opsChkList(kind), j = i + d; if (j < 0 || j >= a.length) return;
+  var t = a[i]; a[i] = a[j]; a[j] = t; opsChkSave(kind, a);
+}
+function renameOpsChk(kind, i) {
+  if (!can('mst')) return;
+  var a = opsChkList(kind), c = a[i]; if (!c) return;
+  var v = prompt('確認項目の名前', c.t); if (v == null) return; v = v.trim(); if (!v || v === c.t) return;
+  if (a.some(function(x){ return x.t === v; })) { toast('同じ項目が既にあります', 'warn'); return; }
+  var old = c.t; c.t = v; opsChkSave(kind, a); writeLog('確認項目の名前を変更', opsChkKindLabel(kind) + '：' + old + ' → ' + v);
+}
+/* 連絡表に出す折りたたみ。pre は先頭に固定で置く行（PSG装着の付箋）{html, done} */
+var _opsChkOpen = {};
+function opsChkDetailsHTML(key, title, list, ck, locked, pre) {
+  var total = list.length + (pre ? 1 : 0);
+  var dn = list.filter(function(c){ return ck[c.id]; }).length + (pre && pre.done ? 1 : 0);
+  var h = '<details class="ops-chk" data-chkkey="' + escH(key) + '"' + (_opsChkOpen[key] ? ' open' : '') + '><summary><span class="ops-chk-t">' + title + '</span><span class="ops-chk-n' + (total && dn === total ? ' all' : '') + '">' + dn + ' / ' + total + '</span></summary><div class="ops-chk-body">';
+  if (pre) h += pre.html;
+  h += list.map(function(c){
+    return '<label class="dc-cb-item' + (ck[c.id] ? ' checked' : '') + '"><input type="checkbox" data-chk="' + escH(c.id) + '"' + (ck[c.id] ? ' checked' : '') + (locked ? ' disabled' : '') + '>' + escH(c.t) + '</label>';
+  }).join('');
+  return h + '</div></details>';
+}
+function opsChkRefreshCount(det) {
+  if (!det) return;
+  var cbs = det.querySelectorAll('.ops-chk-body input[type=checkbox]'), dn = 0;
+  cbs.forEach(function(cb){ if (cb.checked) dn++; var lb = cb.closest('label'); if (lb) lb.classList.toggle('checked', cb.checked); });
+  var n = det.querySelector('.ops-chk-n'); if (n) { n.textContent = dn + ' / ' + cbs.length; n.classList.toggle('all', !!cbs.length && dn === cbs.length); }
+}
+/* details の開閉は bubbling しないので capture で拾う */
+function opsChkBindToggle(root) {
+  if (!root || root._opsChkToggle) return; root._opsChkToggle = true;
+  root.addEventListener('toggle', function(e){ var d = e.target; if (d && d.classList && d.classList.contains('ops-chk')) _opsChkOpen[d.getAttribute('data-chkkey')] = d.open; }, true);
+}
+
+/* ===== 6MW：1件ずつのブロック（ops.mw_items = [{_rid, time:'HH:MM', doc, staff:[], note, chk:{確認項目id:true}}]） =====
+   以前は件数（ops.mw_n）と備考だけだった。件数だけの古い日は書き換えず、そのまま件数で数える（mwCount）。
+   担当医は自由入力（以前に入れた名前を候補に出す）。医師名に氏名パターンの警告を出すと毎回止まるので data-no-phi で外す
+   （メーカー担当者名と同じ判断。備考欄は今までどおり警告をかける）。 */
+function mwItems(pg) { return normArr(pg && pg.ops && pg.ops.mw_items).filter(function(x){ return x && typeof x === 'object'; }); }
+function mwChk(it) { return (it && it.chk && typeof it.chk === 'object') ? it.chk : {}; }
+function mwItemFilled(it) {
+  var ck = mwChk(it);
+  return !!(it && (it.time || it.doc || opsItemStaff(it).length || it.note || Object.keys(ck).some(function(k){ return ck[k]; })));
+}
+/* 6MWの件数の唯一の入口。header=true は連絡表の見出し用（カードがあれば最低1件）。
+   ブロックがある日はブロックで数え、無い日は従来の件数（mw_n）で数える */
+function mwCount(pg, header) {
+  if (!pg) return 0;
+  var cards = pg.ops_cards != null ? pg.ops_cards : (D.opsCfg || []);
+  var hasCard = cards.indexOf('mw') !== -1;
+  var its = mwItems(pg);
+  if (its.length) {
+    if (Array.isArray(pg.ops_cards) && !hasCard) return 0; /* カードを消した日の残骸は数えない（opsItemsOf と同じ） */
+    return header ? its.length : its.filter(mwItemFilled).length;
+  }
+  var n = parseInt(pg.ops && pg.ops.mw_n, 10) || 0;
+  if (header) return hasCard ? (n || 1) : 0;
+  return n;
+}
+function mwLiveArr(ds) {
+  var pg = D.pages[ds]; if (!pg) return null;
+  if (!pg.ops) pg.ops = {};
+  pg.ops.mw_items = normArr(pg.ops.mw_items);
+  return pg.ops.mw_items;
+}
+function mwFind(ds, rid) {
+  var a = mwLiveArr(ds); if (!a) return null;
+  for (var i = 0; i < a.length; i++) if (a[i] && a[i]._rid === rid) return a[i];
+  return null;
+}
+function mwDocNames() {
+  var seen = {}, out = [];
+  Object.keys(D.pages).forEach(function(d){ mwItems(D.pages[d]).forEach(function(it){ var n = String(it.doc || '').trim(); if (n && !seen[n]) { seen[n] = 1; out.push(n); } }); });
+  return out.sort();
+}
+function mwAfterChange(ds, now) {
+  clearTimeout(mwAfterChange._to);
+  var run = function(){ saveDPage(ds); updateOpsHeader(ds); updateCloseBar(ds); };
+  if (now) run(); else mwAfterChange._to = setTimeout(run, 600);
+}
+function renderMwBlocks(ds, box, locked) {
+  var pg = D.pages[ds]; if (!pg || !box) return;
+  box._mwDs = ds; box._mwLocked = locked;
+  var its = mwItems(pg), list = opsChkList('mw'), dis = locked ? ' disabled' : '';
+  var cand = opsStaffCandidates(ds);
+  var opt = function(n){ return '<option value="' + escH(n) + '">' + escH(n) + '</option>'; };
+  var h = '';
+  its.forEach(function(it, i){
+    var rid = it._rid || '', ck = mwChk(it), stf = opsItemStaff(it);
+    h += '<div class="mw-blk" data-rid="' + escH(rid) + '">';
+    h += '<div class="mw-hd"><span class="mw-no">🚶 ' + (i + 1) + '件目</span><input type="time" step="300" class="mw-time" value="' + escH(it.time || '') + '"' + dis + ' aria-label="開始時刻">'
+      + (locked ? '' : '<button type="button" class="mw-del" data-act="del" title="この6MWを削除" aria-label="この6MWを削除">✕</button>') + '</div>';
+    h += '<div class="ops-row"><span class="ops-lbl">担当医</span><input type="text" class="ops-txt mw-doc" list="mw-doc-list" data-no-phi="1" maxlength="30" placeholder="〇〇先生" value="' + escH(it.doc || '') + '"' + dis + '></div>';
+    h += '<div class="ops-row"><span class="ops-lbl">実施CE</span><div class="mw-stf">' + stf.map(function(n, k){
+      return '<span class="mw-chip">' + escH(n) + (locked ? '' : '<button type="button" data-act="rmstf" data-k="' + k + '" aria-label="外す">×</button>') + '</span>';
+    }).join('') + (locked ? (stf.length ? '' : '<span class="mw-none">—</span>') : '<select class="ds2 mw-addstf"><option value="">＋ 追加</option>'
+      + (cand.duty.length ? '<optgroup label="本日の担当">' + cand.duty.map(opt).join('') + '</optgroup>' : '')
+      + '<optgroup label="スタッフ">' + cand.all.map(opt).join('') + '</optgroup></select>') + '</div></div>';
+    h += '<div class="ops-row"><span class="ops-lbl">備考</span><textarea class="ops-txt mw-note" rows="1" placeholder="検査室・号室など（患者名・IDは書かない）"' + dis + '>' + escH(it.note || '') + '</textarea></div>';
+    if (list.length) h += opsChkDetailsHTML('mw:' + rid, '✅ 確認', list, ck, locked, null);
+    h += '</div>';
+  });
+  if (!locked) h += '<button type="button" class="btn btn-g btn-sm mw-add" data-act="add">＋ 6MWを追加</button>';
+  if (!list.length && its.length && can('mst')) h += '<div class="mw-hint">確認項目はマスタの「✅ 6MW・PSGの確認項目」で登録できます</div>';
+  h += '<datalist id="mw-doc-list">' + mwDocNames().map(function(n){ return '<option value="' + escH(n) + '">'; }).join('') + '</datalist>';
+  box.innerHTML = h;
+  opsChkBindToggle(box);
+  if (box._mwBound) return;
+  box._mwBound = true;
+  var blkOf = function(el){ var b = el.closest('.mw-blk'); return b ? b.getAttribute('data-rid') : null; };
+  box.addEventListener('click', function(e){
+    var b = e.target.closest('[data-act]'); if (!b || box._mwLocked) return;
+    var ds2 = box._mwDs, act = b.getAttribute('data-act');
+    if (act === 'add') {
+      var a = mwLiveArr(ds2); if (!a) return;
+      a.push({ _rid: opsNewRid() });
+      renderMwBlocks(ds2, box, false); mwAfterChange(ds2, true);
+      writeLog('6MWを追加', fmtJ(ds2));
+      var last = box.querySelectorAll('.mw-blk'); last = last[last.length - 1]; if (last) { var t = last.querySelector('.mw-time'); if (t) t.focus(); }
+    } else if (act === 'del') {
+      var rid = blkOf(b), arr = mwLiveArr(ds2), it = mwFind(ds2, rid); if (!it) return;
+      if (mwItemFilled(it) && !confirm('この6MWの記録を削除しますか？')) return;
+      arr.splice(arr.indexOf(it), 1);
+      renderMwBlocks(ds2, box, false); mwAfterChange(ds2, true);
+      writeLog('6MWを削除', fmtJ(ds2));
+    } else if (act === 'rmstf') {
+      var it2 = mwFind(ds2, blkOf(b)); if (!it2) return;
+      var st = opsItemStaff(it2).slice(); st.splice(parseInt(b.getAttribute('data-k'), 10), 1);
+      if (st.length) it2.staff = st; else delete it2.staff;
+      renderMwBlocks(ds2, box, false); mwAfterChange(ds2, true);
+    }
+  });
+  box.addEventListener('change', function(e){
+    if (box._mwLocked) return;
+    var el = e.target, ds2 = box._mwDs, it = mwFind(ds2, blkOf(el)); if (!it) return;
+    if (el.classList.contains('mw-time')) { if (el.value) it.time = el.value; else delete it.time; mwAfterChange(ds2, true); }
+    else if (el.classList.contains('mw-addstf')) {
+      var n = el.value; if (!n) return;
+      var st = opsItemStaff(it).slice(); if (st.indexOf(n) === -1) st.push(n); it.staff = st;
+      renderMwBlocks(ds2, box, false); mwAfterChange(ds2, true);
+    } else if (el.getAttribute('data-chk')) {
+      var ck = mwChk(it); ck = Object.assign({}, ck);
+      if (el.checked) ck[el.getAttribute('data-chk')] = true; else delete ck[el.getAttribute('data-chk')];
+      if (Object.keys(ck).length) it.chk = ck; else delete it.chk;
+      opsChkRefreshCount(el.closest('details')); mwAfterChange(ds2, true);
+    }
+  });
+  box.addEventListener('input', function(e){
+    if (box._mwLocked) return;
+    var el = e.target, ds2 = box._mwDs, it = mwFind(ds2, blkOf(el)); if (!it) return;
+    var k = el.classList.contains('mw-doc') ? 'doc' : (el.classList.contains('mw-note') ? 'note' : '');
+    if (!k) return;
+    if (el.value) it[k] = el.value; else delete it[k];
+    mwAfterChange(ds2, false);
+  });
+}
+
 /* ===== ロボット配置マスタ（D.roboLayouts = [{id, n, img, sz}]） =====
    img＝配置図を登録した時刻（0なら図なし）、sz＝図の保存サイズ（ストレージ画面用）。
    図そのものは /robotImg/{id} に置く——D に入れると、誰かが保存するたびに画像ごと全員へ
@@ -18560,7 +18842,7 @@ function updateOpsHeader(ds){
   var opeN=0,opeDone=0,opeCancelled=0; opsItemsOf(D.pages[ds],'ope').forEach(function(it){if(opsItemFilled(it)){opeN++;if(it.done)opeDone++;if(it.cancelled)opeCancelled++;}});
   var cathN=0,cathDone=0,cathCancelled=0; opsItemsOf(D.pages[ds],'cath').forEach(function(it){if(opsItemFilled(it)){cathN++;if(it.done)cathDone++;if(it.cancelled)cathCancelled++;}});
   /* 6MW：カード存在で1、件数入力があればその値 */
-  var mwN=cards.indexOf('mw')!==-1?(parseInt(o.mw_n)||1):0;
+  var mwN=mwCount(D.pages[ds], true);
   /* PSG：カードが追加されているか、または psg_on に入力があれば1 */
   var _opsCards=D.pages[ds].ops_cards;
   var psgN=!!(o.psg_on||(_opsCards&&_opsCards.indexOf('psg')!==-1))?1:0;
@@ -18650,7 +18932,7 @@ function renderPage(ds) {
   var _cards=dat.ops_cards!=null?dat.ops_cards:(D.opsCfg||[]);
   var _opeN=0,_opeDone=0,_opeCancelled=0; opsItemsOf(dat,'ope').forEach(function(it){if(opsItemFilled(it)){_opeN++;if(it.done)_opeDone++;if(it.cancelled)_opeCancelled++;}});
   var _cathN=0,_cathDone=0,_cathCancelled=0; opsItemsOf(dat,'cath').forEach(function(it){if(opsItemFilled(it)){_cathN++;if(it.done)_cathDone++;if(it.cancelled)_cathCancelled++;}});
-  var _mwN=_cards.indexOf('mw')!==-1?(parseInt(_ops.mw_n)||1):0;
+  var _mwN=mwCount(dat, true);
   var _opsCardsRP=dat.ops_cards;
   var _psgN=!!(_ops.psg_on||(_opsCardsRP&&_opsCardsRP.indexOf('psg')!==-1))?1:0;
   var _prevDsRP=getPrevDs(ds),_prevDatRP=D.pages[_prevDsRP];
@@ -21475,6 +21757,7 @@ function initPHIGuard() {
     var isText = tag==='TEXTAREA' || (tag==='INPUT' && /^(text|search|)$/i.test(el.type));
     if (!isText) return;
     if (el.id === 'memo-new') return;      /* 申し送りは送信時にチェック */
+    if (el.hasAttribute('data-no-phi')) return; /* 職員・医師の名前を入れる欄（6MWの担当医など） */
     if (el.disabled || el.readOnly) return;
     var base = el.getAttribute('data-phi-base');
     if (base !== null && base === (el.value || '')) return; /* 無編集で離脱 → 警告しない */
@@ -23260,9 +23543,12 @@ function buildOPS(ds,dat,locked) {
     var c2=card('🚶 6MW（6分間歩行）');
     if (!uid) c2.id = 'ops-card-mw';
     var sfx=uid?'-'+uid:'';
-    c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">件数</span><input type="number" class="ops-num" id="ops-mw-n'+sfx+'" min="0" value="'+(ops.mw_n||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span></div>'
-      +'<div class="ops-row"><span class="ops-lbl">備考</span><textarea class="ops-txt" id="ops-mw-note'+sfx+'" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.mw_note||'')+'</textarea></div>';
+    /* 件数だけだった頃の日：件数は読むだけ（書き換えない）、カード共通の備考は値がある日だけ残す */
+    if (ops.mw_n && !mwItems(dat).length) c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">件数</span><span class="mw-legacy">'+escH(String(parseInt(ops.mw_n,10)||0))+'件（旧形式）</span></div>';
+    if (ops.mw_note) c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">📝 備考（旧）</span><textarea class="ops-txt" id="ops-mw-note'+sfx+'" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.mw_note||'')+'</textarea></div>';
+    var mwBox=document.createElement('div'); mwBox.className='mw-list'; c2.appendChild(mwBox);
     g.appendChild(c2);
+    renderMwBlocks(ds, mwBox, locked);
   }
   function buildPsgCard(uid, removalOnly){
     var c3=card('🌙 PSG（睡眠検査）');
@@ -23274,12 +23560,13 @@ function buildOPS(ds,dat,locked) {
       var psgOnRow=document.createElement('div'); psgOnRow.className='ops-row';
       psgOnRow.innerHTML=
         '<span class="ops-lbl">装着</span>'
-        +'<textarea class="ops-txt" id="ops-psg-on'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_on||'')+'</textarea>'
-        +'<div class="psg-fusen-wrap">'
-        +'<input type="checkbox" class="psg-fusen-cb" id="ops-psg-fusen'+sfx+'"'+(fusenChecked?' checked':'')+(locked?' disabled':'')+'>'
-        +'<label class="psg-fusen-lbl" for="ops-psg-fusen'+sfx+'">付箋入力済</label>'
-        +'</div>';
+        +'<textarea class="ops-txt" id="ops-psg-on'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_on||'')+'</textarea>';
       c3.appendChild(psgOnRow);
+      /* 装着の確認（付箋入力済＋マスタの項目）。普段は閉じて進み具合だけ見せる */
+      var fus='<label class="dc-cb-item psg-fusen-wrap'+(fusenChecked?' checked':'')+'"><input type="checkbox" class="psg-fusen-cb" id="ops-psg-fusen'+sfx+'"'+(fusenChecked?' checked':'')+(locked?' disabled':'')+'><span class="psg-fusen-lbl">付箋入力済</span></label>';
+      var onW=document.createElement('div');
+      onW.innerHTML=opsChkDetailsHTML('psgOn','✅ 装着の確認',opsChkList('psgOn'),ops.psg_chk_on||{},locked,{html:fus,done:fusenChecked});
+      c3.appendChild(onW.firstChild);
     }
     /* 外し行（前日に PSG カードがある日だけ表示。psg_off は当日データに保存）
        psg_on テキストの有無だけでなく ops_cards に 'psg' があれば表示する */
@@ -23294,10 +23581,28 @@ function buildOPS(ds,dat,locked) {
       var psgOffDefault = ops.psg_off || (prevDatPsg && prevDatPsg.ops && prevDatPsg.ops.psg_on) || '';
       psgOffRow.innerHTML='<span class="ops-lbl">外し<br><span style="font-size:10px;color:var(--txt3);white-space:nowrap">（前日装着分）</span></span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(psgOffDefault)+'</textarea>';
       c3.appendChild(psgOffRow);
+      if (opsChkList('psgOff').length) {
+        var offW=document.createElement('div');
+        offW.innerHTML=opsChkDetailsHTML('psgOff','✅ 外しの確認',opsChkList('psgOff'),ops.psg_chk_off||{},locked,null);
+        c3.appendChild(offW.firstChild);
+      }
     }
     var psgRestRow=document.createElement('div'); psgRestRow.className='ops-row';
     psgRestRow.innerHTML='<span class="ops-lbl">解析残</span><input type="number" class="ops-num" id="ops-psg-rest'+sfx+'" min="0" value="'+(ops.psg_rest||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span>';
     c3.appendChild(psgRestRow);
+    opsChkBindToggle(c3);
+    c3.addEventListener('change', function(e){
+      var el=e.target, det=el.closest && el.closest('details.ops-chk'); if(!det) return;
+      if (el.getAttribute('data-chk') && !locked) {
+        var fld = det.getAttribute('data-chkkey')==='psgOff' ? 'psg_chk_off' : 'psg_chk_on';
+        if(!D.pages[ds].ops) D.pages[ds].ops={};
+        var m = Object.assign({}, D.pages[ds].ops[fld]||{});
+        if (el.checked) m[el.getAttribute('data-chk')] = true; else delete m[el.getAttribute('data-chk')];
+        if (Object.keys(m).length) D.pages[ds].ops[fld] = m; else delete D.pages[ds].ops[fld];
+        saveDPage(ds);
+      }
+      opsChkRefreshCount(det); updateCloseBar(ds);
+    });
     g.appendChild(c3);
   }
   function buildFreeCard(uid){
@@ -23430,6 +23735,7 @@ function runPsgFusenCheck() {
   var notChecked = !cbEl.checked;
   if(hasOn && after10 && notChecked) {
     onEl.classList.add('psg-fusen-alert');
+    var fDet = cbEl.closest && cbEl.closest('details'); if (fDet && !fDet.open) { fDet.open = true; _opsChkOpen.psgOn = true; }
     if(cbEl.parentElement) cbEl.parentElement.style.color='var(--rd)';
     if(!window._psgAlerted) {
       window._psgAlerted = true;
@@ -25446,6 +25752,26 @@ function exportHdCsv() {
   if (rows.length===1){toast(rng.label+'に血液浄化の記録がありません', 'warn');return;}
   downloadCsv('分院CE_HD集計_'+sumFileLabel()+'.csv', rows);
 }
+/* CE集計の「🚶 6MWの内訳」：期間内の1件ずつの記録を担当医別・実施CE別に数える（件数だけの古い日は対象外） */
+function mwBreakdownHTML() {
+  var byDoc = {}, byCe = {}, n = 0;
+  sumDsList().forEach(function(ds){
+    var pg = D.pages[ds]; if (!pg) return;
+    if (Array.isArray(pg.ops_cards) && pg.ops_cards.indexOf('mw') === -1) return;
+    mwItems(pg).forEach(function(it){
+      if (!mwItemFilled(it)) return; n++;
+      var d = String(it.doc || '').trim() || '（未入力）'; byDoc[d] = (byDoc[d] || 0) + 1;
+      var st = opsItemStaff(it); if (!st.length) st = ['（未入力）'];
+      st.forEach(function(x){ byCe[x] = (byCe[x] || 0) + 1; });
+    });
+  });
+  if (!n) return '';
+  var tbl = function(title, o){
+    var ks = Object.keys(o).sort(function(a, b){ return o[b] - o[a] || a.localeCompare(b, 'ja'); });
+    return '<div class="mw-sum-col"><div class="mw-sum-ttl">' + title + '</div><table class="data-tbl"><tbody>' + ks.map(function(k){ return '<tr><td>' + escH(k) + '</td><td style="text-align:right;white-space:nowrap">' + o[k] + '件</td></tr>'; }).join('') + '</tbody></table></div>';
+  };
+  return '<div class="mw-sum"><div class="mw-sum-hd">🚶 6MWの内訳（1件ずつ記録した ' + n + '件）</div><div class="mw-sum-cols">' + tbl('担当医別', byDoc) + tbl('実施CE別', byCe) + '</div></div>';
+}
 function exportOpsCsv() {
   if (_opsSumView === 'detail') { exportOpsDetailCsv(); return; }
   var rng = sumRange(), rows = [['日付','曜日','オペ','カテ','6MW','PSG','フリー']];
@@ -25456,7 +25782,7 @@ function exportOpsCsv() {
     var opeN=0,cathN=0,mwN=0,psgN=0,freeN=0;
     opsItemsOf(pg,'ope').forEach(function(it){if(opsItemFilled(it))opeN++;});
     opsItemsOf(pg,'cath').forEach(function(it){if(opsItemFilled(it))cathN++;});
-    if(ops.mw_n) mwN=parseInt(ops.mw_n)||0;
+    mwN=mwCount(pg);
     if(ops.psg_on) psgN=1;
     opsFreeCards(pg).forEach(function(f){if(opsFreeFilled(f))freeN++;});
     if(!opeN&&!cathN&&!mwN&&!psgN&&!freeN) return;
@@ -25732,6 +26058,13 @@ function timelineEvents(ds){
       if (st == null) ev.band = /^AM/.test(t) ? 'am' : (/^PM/.test(t) ? 'pm' : 'tbd'); else ev.start = st;
       out.push(ev);
     });
+  });
+  /* 6MW：開始時刻のあるブロックだけ（時刻の無いものは連絡表のカードで扱う） */
+  if (mwCount(dat, true)) mwItems(dat).forEach(function(it){
+    if (!it.time) return;
+    var st6 = tabletHMToMin(it.time); if (st6 == null || isNaN(st6)) return;
+    var ck6 = mwChk(it), l6 = opsChkList('mw'), dn6 = l6.length && l6.every(function(c){ return ck6[c.id]; });
+    out.push({kind:'mw', kl:'6MW', title:'6MW' + (it.doc ? '（' + it.doc + '）' : ''), staff:opsItemStaff(it), start:st6, end:null, done:!!dn6});
   });
   if (tlIsPsgRemovalDay(ds)) {
     out.push({kind:'psg', kl:'PSG', title:'PSG取り外し', staff:[], start:tabletHMToMin(D.psgBannerStart||'07:30'),
@@ -26861,7 +27194,7 @@ function swTab(t) {
   if(t==='shiftreq'){ renderShiftReq(); }
   if(t==='master'){
     renderWdlyList();renderDlyList();renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList(); renderEduCfgUI(); renderEduItemMaster(); renderShiftReqCodeList();
-    if(can('mst')){renderOpeList();renderCathList();renderSupList();renderRoboMaster();renderDutyMasterList();renderSchedPresetList();renderHolidayMaster();}
+    if(can('mst')){renderOpeList();renderCathList();renderSupList();renderRoboMaster();renderOpsChkMaster();renderDutyMasterList();renderSchedPresetList();renderHolidayMaster();}
     /* data-perm = 権限による出し分け（従来どおり）。
        data-mode = 主観モードによる出し分け（'ce'|'hd'、属性なし＝両モードで表示）。
        セクションは .mgrp-body の中に入っているので子孫セレクタで拾う。新セクションは
@@ -28380,7 +28713,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -28512,7 +28845,7 @@ function doPartialRestore(dateStr, data, sel) {
   writeLog('バックアップから項目を復元', dateStr + '：' + sel.map(function(k){ return PARTIAL_RESTORE_LABELS[k]; }).join('、'));
   renderCal(); safeRenderPage();
   renderStfList(); renderPhsList(); renderTabletList(); renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
-  renderOpeList(); renderCathList(); renderLockList(); renderSupMaster(); renderRoboMaster();
+  renderOpeList(); renderCathList(); renderLockList(); renderSupMaster(); renderRoboMaster(); renderOpsChkMaster();
   toast('✅ ' + sel.length + '項目を戻しました', 'ok');
   if (lostMedia) toast('⚠️ バックアップの後に消えたマニュアルの画像 ' + lostMedia + '枚は戻せませんでした', 'warn');
 }
@@ -28532,7 +28865,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -28589,7 +28922,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
