@@ -249,6 +249,15 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .es-t{font-size:15px;font-weight:700;color:var(--txt2)}
 .es-s{font-size:13px;line-height:1.7}
 .pt2{font-size:21px;font-weight:900;margin-bottom:14px;line-height:1.3;letter-spacing:-.02em}
+.pnav{display:flex;align-items:center;gap:6px;min-width:0}
+.pnav-ttl{min-width:0;flex:0 1 auto}
+.pnav-btn{flex:0 0 auto;width:32px;height:32px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);font-size:18px;font-weight:700;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.pnav-btn:hover{background:var(--sur2);color:var(--txt)}
+@keyframes pnav-in-l{from{transform:translateX(-28px);opacity:.3}to{transform:none;opacity:1}}
+@keyframes pnav-in-r{from{transform:translateX(28px);opacity:.3}to{transform:none;opacity:1}}
+.main.pnav-from-l>*{animation:pnav-in-l .18s ease-out}
+.main.pnav-from-r>*{animation:pnav-in-r .18s ease-out}
+@media print{.pnav-btn{display:none!important}}
 /* ダッシュボード：項目数が可変なので3列グリッドをやめ、内容幅で横に詰める。
    ラベルと値も縦積みではなく横並びにして高さを半分にする */
 .pp{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;box-shadow:var(--sh)}
@@ -3352,6 +3361,7 @@ function init() {
      _viewMode（CE/HD主観）は localStorage から init 冒頭で復元されるため、ここで評価しないと
      HDモードのまま再読み込みしたときに担当表が残りHD集計が出ない状態になる。 */
   updateTabVisibility();
+  initPageSwipe(); /* 連絡表を左右に払って前後の日へ */
   renderCal();
   renderStfList(); renderPhsList(); renderTabletList();
   renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
@@ -5870,11 +5880,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/08-112';
+var APP_VERSION = 'Ver.2026/10/11-114';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-114', date:'2026-10-11', title:'連絡表で前後の日へすぐ移れるようにしました', items:[
+    {t:'new', d:'‹ › 連絡表の日付の左右のボタンで、前の日・次の日へ移れるようになりました。スマホでは画面を左右に払っても移れます（入力欄や配置盤の上では反応しません）'},
+    {t:'imp', d:'📅 連絡表がまだ無い日へ移ろうとしたときは、作るか聞くようにしました（作る権限が無い人は、次に連絡表がある日を開きます）'}
+  ]},
   { ver:'Ver.2026/10/08-112', date:'2026-10-08', title:'PSG外しのお知らせで上のボタンが押せない問題を直しました', items:[
     {t:'fix', d:'🌙 朝の「PSG取り外しがあります」の帯が上部のボタンに重なって押せなかった問題を直しました。帯は上部バーのすぐ下に出て、✕で閉じるとその日はもう出ません'}
   ]},
@@ -16348,6 +16362,94 @@ function openDefaultPage() {
   else showEmpty();
 }
 
+/* ===== 前後の日へ移る（ボタン・スワイプ） ===== */
+function pageNavTitleHTML(title) {
+  return '<span class="pnav">'
+    + '<button class="pnav-btn" onclick="pageNav(-1)" title="前の日" aria-label="前の日">‹</button>'
+    + '<span class="pnav-ttl">' + title + '</span>'
+    + '<button class="pnav-btn" onclick="pageNav(1)" title="次の日" aria-label="次の日">›</button>'
+    + '</span>';
+}
+/* 連絡表が無い日：作れる人には作るか聞く（カレンダーの空き日と同じ「1日分を追加」）。
+   作れない人は、その方向で一番近い連絡表まで飛ばす（作れないのに空の日で止まると先へ進めないため） */
+function pageNav(dir) {
+  if (!curDs) return;
+  var target = dir < 0 ? getPrevDs(curDs) : getNextDs(curDs);
+  if (D.pages[target]) { pageNavGo(target, dir); return; }
+  if (can('pg')) {
+    var nm = document.getElementById('nm-date'); if (nm) nm.value = target;
+    openNM();
+    return;
+  }
+  var t = target;
+  for (var i = 0; i < 31; i++) {
+    t = dir < 0 ? getPrevDs(t) : getNextDs(t);
+    if (D.pages[t]) { toast(fmtJ(target) + 'の連絡表は無いので、' + fmtJ(t) + 'を開きました', 'ok'); pageNavGo(t, dir); return; }
+  }
+  toast((dir < 0 ? 'これより前' : 'これより後') + 'の連絡表はありません', 'warn');
+}
+function pageNavGo(ds, dir) {
+  var pt = ds.split('-'); calY = parseInt(pt[0], 10); calM = parseInt(pt[1], 10) - 1;
+  openPage(ds);
+  var mn = document.getElementById('main');
+  if (mn) {
+    mn.scrollTop = 0;
+    mn.classList.remove('pnav-from-l', 'pnav-from-r');
+    void mn.offsetWidth; /* アニメーションをやり直す */
+    mn.classList.add(dir < 0 ? 'pnav-from-l' : 'pnav-from-r');
+    clearTimeout(mn._pnavTO);
+    mn._pnavTO = setTimeout(function(){ mn.classList.remove('pnav-from-l', 'pnav-from-r'); }, 260);
+  }
+  if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+}
+/* スワイプは誤作動を避けるため、条件を絞る：
+   ・横に80px以上、かつ縦の2倍以上動いた素早い（600ms以内）1本指の払いだけ
+   ・入力欄・ボタン類・配置盤・横にスクロールできる箱の上から始めたものは無視（中の操作を優先）
+   ・画面の左右24px以内から始めたものは無視（iPhone の「戻る」操作とぶつかる）
+   ・ピンチで拡大中、文字を選択中、長押しドラッグ中は無視 */
+var PNAV_SWIPE_MIN = 80, PNAV_SWIPE_MS = 600, PNAV_EDGE = 24;
+function pnavSwipeBlocked(el) {
+  for (var n = el; n && n !== document.body; n = n.parentElement) {
+    if (n.id === 'main') return false;
+    var tg = n.tagName;
+    if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT' || tg === 'BUTTON' || tg === 'LABEL' || tg === 'A' || n.isContentEditable) return true;
+    /* 中でドラッグ・横スワイプを使う部品（配置盤・HD担当表・担当カード・プール） */
+    if (n.id === 'placement-wrap' || n.id === 'hd-roster-box' || n.id === 'pool-chips' || (n.classList && (n.classList.contains('pl-board') || n.classList.contains('dg') || n.classList.contains('cbar')))) return true;
+    if (n.scrollWidth > n.clientWidth + 2) {
+      var ox = getComputedStyle(n).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+    }
+  }
+  return true; /* #main の外（モーダル等）は対象外 */
+}
+function initPageSwipe() {
+  var mn = document.getElementById('main'); if (!mn || mn._pnavBound) return;
+  mn._pnavBound = true;
+  var st = null;
+  mn.addEventListener('touchstart', function(e){
+    st = null;
+    if (!curDs || e.touches.length !== 1) return;
+    if (window.visualViewport && window.visualViewport.scale > 1.01) return;
+    var t = e.touches[0];
+    if (t.clientX < PNAV_EDGE || t.clientX > window.innerWidth - PNAV_EDGE) return;
+    if (pnavSwipeBlocked(e.target)) return;
+    st = { x: t.clientX, y: t.clientY, ts: Date.now(), ds: curDs, multi: false };
+  }, {passive: true});
+  mn.addEventListener('touchmove', function(e){ if (st && e.touches.length > 1) st.multi = true; }, {passive: true});
+  mn.addEventListener('touchend', function(e){
+    var s0 = st; st = null;
+    if (!s0 || s0.multi || s0.ds !== curDs) return;
+    var t = e.changedTouches && e.changedTouches[0]; if (!t) return;
+    var dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+    if (Date.now() - s0.ts > PNAV_SWIPE_MS) return;
+    if (Math.abs(dx) < PNAV_SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 2) return;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && String(sel).length) return;
+    if (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    pageNav(dx > 0 ? -1 : 1); /* 右へ払う＝前の日（紙をめくる向き） */
+  }, {passive: true});
+  mn.addEventListener('touchcancel', function(){ st = null; }, {passive: true});
+}
 function openPage(ds) {
   var prev = curDs;
   curDs = ds;
@@ -18625,7 +18727,7 @@ function renderPage(ds) {
   var si=getShiftForDay(ds);
 
   var h='<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
-  h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
+  h+='<div class="pt2" style="flex:1">'+pageNavTitleHTML('分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）')+'</div>';
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
   var _tblOut=tabletUnreturnedCount(ds);
   h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
@@ -19871,7 +19973,7 @@ function renderPageHD(ds) {
   var hdPct = hdTotal===0 ? 100 : Math.round(hdDone/hdTotal*100);
 
   var h = '<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
-  h += '<div class="pt2" style="flex:1">🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）</div>';
+  h += '<div class="pt2" style="flex:1">' + pageNavTitleHTML('🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）') + '</div>';
   var _tblOut = tabletUnreturnedCount(ds);
   h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
   /* 掲示板・スケジュールもCE版と同じ並びで出す。中身は主観ごとに別スレッド

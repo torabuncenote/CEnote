@@ -361,6 +361,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 
 Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` is a `position:fixed` full-screen overlay on mobile.
 
+**前後の日への移動（`pageNav(dir)` / `pageNavTitleHTML(title)` / `initPageSwipe()`）**：連絡表の見出し（CE・HDとも）の左右に ‹ › を置く。連絡表が無い日は、`can('pg')` なら「1日分を追加」（`openNM`、カレンダーの空き日と同じ入口）を開き、無ければその方向で31日以内の一番近い連絡表へ飛ぶ。スワイプは `#main` に1回だけ登録し、横80px以上・縦の2倍以上・600ms以内・1本指だけを数える。入力欄・ボタン・配置盤（`#placement-wrap`）・HD担当表・担当カード（`.dg`）・プール・横スクロールできる箱・画面端24px・ピンチ拡大中・文字選択中は無視する（`pnavSwipeBlocked`）。**中でドラッグや横スワイプを使う部品を `#main` に足したら、`pnavSwipeBlocked` にも足すこと。**
+
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
 連絡表を1日だけ作る入り口は、カレンダーで連絡表の無い日を押したとき（`renderCal` の日セル）だけ。トップバーの「＋ 1日追加」ボタンは使われていなかったので削除した（`openNM` と `#modal-nm` はこの入り口のために残してある）。
