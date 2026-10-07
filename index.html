@@ -965,6 +965,8 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .cl-mine-btn{margin-left:auto;font-size:11px;padding:2px 9px;border-radius:12px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);cursor:pointer;font-weight:600}
 .cl-mine-btn.on{background:var(--ac);border-color:var(--ac);color:var(--on-ac)}
 .cbar-roles{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 6px 22px}
+@media screen{.cl-role-hide{display:none!important}}
+@media print{.cl-mine-btn{display:none!important}}
 .clt{font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px}
 .wb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--or-bg);color:var(--or)}
 .cli{display:flex;align-items:flex-start;gap:9px;padding:5px 3px;border-radius:4px;transition:background .1s}
@@ -14434,19 +14436,14 @@ function clRoleOptions(list) {
   return out;
 }
 function clRoleLabel(r) { return r === '準' ? '準夜' : r; }
-/* その日の自分の役割。CE＝自分が入っている担当枠の名前、HD＝HD担当表での自分の役割 */
-var _myClRolesCache = null;
+/* その日の自分の役割。CE＝自分が入っている担当枠の名前、HD＝HD担当表での自分の役割。
+   時間で覚えておく（キャッシュ）と、担当を変えた直後の消し込みバーが古い役割のまま数えるので、毎回求める */
 function myClRoles(ds, isHd) {
-  var key = ds + '|' + (isHd ? 'hd' : 'ce'), now = Date.now();
-  if (_myClRolesCache && _myClRolesCache.key === key && now - _myClRolesCache.ts < 800) return _myClRolesCache.v;
-  var self = taskSelfName(), v = [];
-  if (self && D.pages[ds]) {
-    v = isHd
-      ? hdShiftWorkers(ds).filter(function(h){ return h.name === self; }).map(function(h){ return h.shift || (h.night ? '準' : ''); }).filter(Boolean)
-      : myDutyLabels(ds);
-  }
-  _myClRolesCache = { key:key, ts:now, v:v };
-  return v;
+  var self = taskSelfName();
+  if (!self || !D.pages[ds]) return [];
+  return isHd
+    ? hdShiftWorkers(ds).filter(function(h){ return h.name === self; }).map(function(h){ return h.shift || (h.night ? '準' : ''); }).filter(Boolean)
+    : myDutyLabels(ds);
 }
 function rolesHit(roles, mine) { return roles.some(function(r){ return mine.indexOf(r) !== -1; }); }
 function clRoleBadgesHTML(roles, mine, counts) {
@@ -24368,7 +24365,8 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
     var myR = myClRoles(ds, ns === CL_HD);
     var rb = document.createElement('span'); rb.className = 'cli-roles'; rb.innerHTML = clRoleBadgesHTML(roles, myR);
     div.appendChild(rb);
-    roleHidden = _clMineOnly && !rolesHit(roles, myR);
+    /* 自分が誰か分からない（アカウントがスタッフ名に紐づいていない）ときは絞り込まない——全部隠れてしまうため */
+    roleHidden = _clMineOnly && !!taskSelfName() && !rolesHit(roles, myR);
   }
   /* 月内1回でよい項目が、別の対象日で既に実施済みのときの案内。
      チェックボックスをdisabledにしているのは、押しても兄弟日の実績は消えないため
@@ -24386,11 +24384,11 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
   if (devBtn) div.appendChild(devBtn);
   div.appendChild(peekBtn);
 
-  if (!subs && !devCfg) { if (roleHidden) div.style.display = 'none'; return div; }
+  /* 隠すのは画面だけ（印刷では全項目を出す。紙の記録から項目が消えないように） */
+  if (!subs && !devCfg) { if (roleHidden) div.classList.add('cl-role-hide'); return div; }
 
   var wrap=document.createElement('div');
-  if (roleHidden) wrap.style.display = 'none';
-  wrap.className='cli-wrap'+(subs&&_subOpen[wdSid(it)]?' open':'')+(devCfg&&_devOpen[wdSid(devIt)]?' dev-open':'');
+  wrap.className='cli-wrap'+(subs&&_subOpen[wdSid(it)]?' open':'')+(devCfg&&_devOpen[wdSid(devIt)]?' dev-open':'')+(roleHidden?' cl-role-hide':'');
   wrap.appendChild(div);
   if (devCfg) {
     var devEl=document.createElement('div'); devEl.className='cli-devs';
