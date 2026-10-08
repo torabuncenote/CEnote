@@ -74,10 +74,12 @@ var D = {
   tablets: [],      // タブレット台帳（貸出対象名の配列）— 日々の貸出ログは D.pages[ds].tabletLogs
   ocFlow: '',       // OC対応フローチャート本文（複数行テキスト。OC集計タブのボタン→openOcFlowModal で全員閲覧、業務マスタの mst セクションで編集）
   makers: { cats: [], list: [] }, // メーカー担当者連絡先。cats:[{id,name}]（表示順）、list:[{id,cat,maker,person,tel1,tel2,mail,note,upd,ts,by}]。詳細は下記「メーカー担当者連絡先」節
+  devMaster: [],    // 機器マスタ [{id:'dk…', n:機種名, items:[{id:'dv…', n:機器名, no:管理番号, loc:設置場所}]}]。詳細は「機器マスタ」節
   wdDepts: [],      // 設置部署マスタ（D.wd項目のsubsで選ぶ部署名の共通リスト。PHSマスタ/tabletsと同型の単純な文字列配列）
   eduProgress: {},  // 教育到達度 { 氏名: { 項目key: {lv,by,ts,hist[],goalFy?} } }。詳細は下記「実績・教育到達度」節
   eduCfg: { ceEdu:false }, // オペ・カテ症例行に教育者欄を出すか（既定OFF）
   eduItems: { ward:[], device:[], hd:[] }, // 教育到達度6分類のうち病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
+  opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
   _migVer: 6        // data migration version flag (increment when running one-time migrations)
 };
 ```
@@ -96,7 +98,7 @@ When adding a new top-level property to `D`, update **all five** of these locati
 
 ### Persistence
 
-- **Firebase ON**: `saveD()` writes the entire `D` object to `fbDB.ref('/data').set(D)`
+- **Firebase ON**: `saveD()` sends **only the paths that changed** with `fbDB.ref('/data').update()` (差分保存, 2026-09-30). Paths are top-level keys, except `pages`, which is split per day (`pages/YYYY-MM-DD`). `_syncBase` (path → JSON string) holds "what the server last had"; `syncTakeDiff()` compares it with the current `D`, returns `{path: value|null}` and advances the base. The `/data` listener resets `_syncBase` right after hydrating `D` (before migrations), using the incoming value for pages kept from `_savePageQueue`. Failed writes call `syncForget()` so the paths go out again next time; `_syncBase = null` forces every path (used when correcting a stale-session overwrite). **Do not go back to `set(D)`**: at 0.77MB per save plus the same again to `/recent_backup`, a save took seconds on the ward network, queued saves waited, and the stale full copy overwrote other people's input.
 - **Firebase OFF / fallback**: writes to `localStorage` key `'ce2'`
 - **Logs**: written via `writeLog()` to Firebase `/logs`
 - **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}` (manuals), `memo/{ds}/{ts}_{idx}_{filename}` (memos), `board/{ts}_{idx}_{filename}` (board post images), `board/reply_{ts}_{idx}_{filename}` (board reply images)
@@ -105,7 +107,7 @@ When adding a new top-level property to `D`, update **all five** of these locati
   - **カテゴリタグ**: posts carry `tag` (`'info'`|`'req'`|`'etc'`, default `'etc'`, see `BOARD_TAGS`). `req`-tagged posts can be marked `resolved: true/false` (with `resolvedBy`/`resolvedAt`) by the author or an admin via `toggleBoardResolved()`; resolved posts render dimmed (`.brd-post.resolved`). `board-list` has a filter chip row (`setBoardFilter()`, module-level `_boardFilter`) for all/info/req/etc/unresolved-only.
   - **ピン留め期限**: `pinBoard(id, pin)` prompts for a number of days when pinning (blank = no expiry) and stores `pinUntil` (ts). `boardPinActive(p)` — `p.pin && (!p.pinUntil || p.pinUntil > Date.now())` — is the single source of truth for sort order and the 📌 badge/expiry-date label. Admins auto-clear expired pins (`/board/{id}/pin` → `false`) inside `renderBoard()`.
 
-`saveD()` always writes the **full** `D` object. After mutating any property of `D`, call `saveD()`.
+`saveD()` always writes the **full** `D` object to localStorage; Firebase receives only the diff. After mutating any property of `D`, call `saveD()`.
 
 **Critical guard**: `_fbDataLoaded` must be `true` before `saveD()` writes to Firebase. It is set when the `/data` listener first fires. This prevents empty-D overwrites on login. **Do not bypass this guard.**
 
@@ -128,7 +130,7 @@ Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` 
 
 **`D` に入る値が新しくオブジェクトのキーになるときは、必ずこの表に足して入り口で正規化すること。** 保存前のサニタイズ（`sanitizeManualKeys` / `sanitizeEduProgressKeys`）は既存データの後始末であって、キーと値の対応が崩れる（`D.stf` の氏名は元のまま、`D.stfLinks` のキーだけ変わる等）ので、新規の防御には使わない。
 
-After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state. **見送った再描画は捨てずに後で行う**：リスナーは入力中（`#main` の入力欄にフォーカス）と保存直後2秒は `renderPage` を見送るが、開いている連絡表の中身が本当に変わっていれば（`pageSig(v)` で比較。Firebase が空配列・null を保存しない差と `_` で始まるキーは無視するので、自分の保存のエコーは「変わっていない」になる）`markPageRenderPending()` で印を付け、`flushPendingRender()` が入力欄から離れ・指も離れて600ms後に描き直す。すぐ描き直さないのは、入力欄の次に押そうとしたボタンが押す前に作り直されてタップが空振りするため。入力欄が DOM ごと消えると `focusout` が出ない端末があるので、見送り中は1.5秒ごとに自分でも見直す。`safeRenderPage()` も入力中なら同じ印を付ける。
+After `saveD()`, `_savingTs` suppresses listener-triggered re-renders for 2 seconds to prevent the Firebase echo from overwriting in-progress UI state. **見送った再描画は捨てずに後で行う**：リスナーは入力中（`#main` の入力欄にフォーカス）と保存直後2秒は `renderPage` を見送るが、開いている連絡表の中身が本当に変わっていれば（`pageSig(v)` で比較。Firebase が空配列・null を保存しない差と `_` で始まるキーは無視するので、自分の保存のエコーは「変わっていない」になる）`markPageRenderPending()` で印を付け、`flushPendingRender()` が入力欄から離れ・指も離れて600ms後に描き直す。**「入力中」は `mainEditing()` が唯一の判定**（リスナー・`safeRenderPage`・`flushPendingRender` 共通）：文字を打つ欄（`isTypingField`）はカーソルがある間ずっと、チェックボックス等は最後の操作から3秒、選択欄は8秒だけ入力中とみなす。PCは押したあともカーソルが残るので、カーソルの有無だけで判定すると他の人の変更を延々と出さなくなる（2026-09-30「PCだけ同期が不安定」の原因）。文字欄は描き直し待ちのまま20秒打たなければ、**書き換えていない欄（`data-phi-base`／`defaultValue` と同じ値）だけ**カーソルを外して進める（変換中は除く）。書き換えた欄を勝手に外すと患者情報の警告や保存が本人の操作なしに走るので、外さずに「🔄 他の人の更新があります」の案内（`showPendingRenderChip`）を出して押してもらう。すぐ描き直さないのは、入力欄の次に押そうとしたボタンが押す前に作り直されてタップが空振りするため。入力欄が DOM ごと消えると `focusout` が出ない端末があるので、見送り中は1.5秒ごとに自分でも見直す。`safeRenderPage()` も入力中なら同じ印を付ける。
 
 #### 送信前の入力（下書き）を作り直しから守る
 
@@ -181,6 +183,13 @@ function can(id) {
 ```
 
 **Always use `can(id)` for permission checks — not `lk(id)&&!isAdmin`.** The latter ignores per-user grants.
+
+**職員とアカウント（👥 スタッフタブ、`renderStfList`）**：名簿（`D.stf`）とログイン用アカウント（`/users`・`/admins`・`/userPerms`）を1人1行にまとめた画面。アカウント情報は `loadStfAcct()` が開いたときに読んで `_stfAcct` に持つ（60秒で読み直し）。プレビューでは Firebase に触れず `stfAcctDemo()` の見本で描く（`stfAcctReal()` が偽）。
+- 追加は `openStfAddModal()` → `doRegister()`：氏名だけなら名簿へ、メールもあれば別アプリ枠（secondApp）でアカウントを作り `D.stfLinks[氏名]=uid` まで一度に行う。既存の職員にアカウントを足すときは `openRegModal(氏名)`（氏名欄は読み取り専用）
+- 職員ごとの `openStfAcctModal(氏名)`：パスワード再設定メール（`sendStfResetMail` → `sendPasswordResetEmail`。メールアドレスはログに残さない）・管理者・編集権限（`acctPermsHTML(uid, perms)`、ユーザー管理画面と共用）・紐付け
+- **退職は `retireStaff(氏名)` だけを通す**：名簿から外す・`D.stfLinks`/`D.stfHidden` を外す・アカウントがあれば `/users/{uid}/retired=true`＋`/admins`・`/userPerms` を消す。過去の記録（連絡表・到達度・職員番号）は消さない。ログイン時（`fbInit` の `/admins` 読み込みと同じ Promise.all）に `retired` を見て、管理者以外は締め出す——`/users` の `set()` より前で判定すること（set すると印が消える）。**鍵ではなくガードレール**なので、確実に止めるには Firebase Console でアカウントを無効化する（確認画面でも案内）。旧 `rmStf` は確認なしで消していたので `retireStaff` へ寄せた
+- 本人のパスワード変更は `openPwChangeModal()`（右上の名前 → 表示名の画面のボタン）。今のパスワードで `reauthenticateWithCredential` してから `updatePassword`
+- 名簿の誰にも紐付いていないアカウントは表の下（`#stf-orphans`）に出し、`stfAdoptAccount(uid)` で氏名を決めて名簿に入れられる
 
 **Exception — スタッフマスタ is `isAdmin`, not a lock.** `renderStfList` / `addStf` / `rmStf` / `mvStf` / `editStfItem` / `confirmEditModal`'s `type:'stf'` branch all gate on `isAdmin` directly, and the 👥 スタッフ tab itself is admin-only (which also puts PHS番号 and 勤務表インポート behind admin, since they share `pane-staff`). The old `sm` lock was **removed from `LOCK_DEFS`** rather than left as a dead toggle. Before removing it, `sm` was doubling as the permission for 使用物品マスタ (`supTree`) renames while `opeTree`/`cathTree` referenced `om`/`cm` — ids that never existed in `LOCK_DEFS`, so `lk()` returned false and `can()` always allowed them; all three now use `mst`, matching their sections' own `data-perm`. Stale `D.lk.sm` / `userPerms[uid].sm` values are simply never read.
 
@@ -282,6 +291,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /data/                      — full D object (saveD())
 /board/                     — 掲示板 posts (independent of /data)
 /tasks/                     — タスク管理 (independent of /data; see Task Management section)
+/feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, memo}（/data の外。読めるのは管理者だけ、作成は全員・変更削除は管理者＝ルールで強制）
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
 /shiftReqTpl                — 勤務希望のExcel出力テンプレ {data, ts, by, size}（/data の外。D.shiftReqCfg.tpl に名前・日時。書き込みは管理者のみ）
 /logs/                      — activity log (append-only via push())
@@ -304,7 +314,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 | Layer | Where | Retention | Trigger |
 |---|---|---|---|
 | ☁️ Firebase hourly snapshot | `/backups/YYYY-MM-DD_HH` | 7 days × 24h | `saveFirebaseSnapshot()` — daily auto + 1h interval |
-| ⚡ Recent backup | `/recent_backup` | Latest 1 | Every successful `saveD()` write |
+| ⚡ Recent backup | `/recent_backup` | Latest 1 | Successful `saveD()` write, at most every 10 min (`RECENT_BK_MS`) |
 | 🔄 PC local auto-backup | `localStorage ce2_autobk` | Latest 5 | Firebase first-load, 30-min interval, before destructive ops |
 
 **1時間ごとのスナップショットには画像を入れない（`bkStripMedia(copy)` / `bkRestoreMedia(data, cur)`）。** 画像は Storage が使えないため base64 で `D` の中にあり（実測でDB全体の3割超）、`D` を丸ごとコピーすると画像1枚が最大168回（7日×24時間）複製されていた。`saveFirebaseSnapshot()` はコピー直後に `bkStripMedia` を通し、申し送り（`memos`/`hdMemos` の本文と返信）とマニュアルの埋め込み画像（`_isEmbeddedMedia`）の `url`/`data` を外して `{bkStripped:true, len}` に置き換える。復元（`restoreFirebaseSnapshot` と、`doPartialRestore` で `manual` を選んだとき）は `D` に代入する**前に** `bkRestoreMedia(data, D)` を呼び、いまの `D` にある同じ画像（申し送りは `memoKeyOf`＋返信の `rid`、マニュアルは業務名で場所を特定し、`name`＋`len` で照合）を付け直す。見つからない画像は中身が無く表示が壊れるので配列から除き、その枚数をトーストで知らせる。**`/recent_backup`（最新1個）・端末内の自動バックアップ・JSONファイル書き出しは画像を残す**——データが全部消えたときの最後の砦で、1個分なので容量への影響は小さい。`bkStripped` を持たない古いスナップショットは今までどおりそのまま戻る。
@@ -351,6 +361,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 `pane-board`（掲示板）と `pane-sched`（🕒 タイムライン。旧⏰スケジュール）はどちらも元々サイドバーのタブだったが、タブに置いていると活用されないため連絡表ヘッダーのボタン（📢/⏰、`openBoardPanel()`/`openSchedPanel()`）から開くモーダルに変換済み——`.ov`/`.hd` トグルで開閉する `#board-panel-ov`/`#sched-panel-ov` が `<body>` 直下にあり、中身の要素 id（`#pane-board`、`#sched-title`/`#sched-tools`/`#sched-body`）は元のまま移設しているため `renderBoard()`/`renderSched()` は無改造で動く。`#pane-sched` は以前 `.sb` の内側にあり、スマホで `.sb` の `transform:translateX(-100%)` に巻き込まれて真っ白になる不具合を避ける防御コードが複数箇所に必要だったが、モーダル化によりその防御コードごと不要になった。
 
 Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` is a `position:fixed` full-screen overlay on mobile.
+
+**前後の日への移動（`pageNav(dir)` / `pageNavTitleHTML(title)` / `initPageSwipe()`）**：連絡表の見出し（CE・HDとも）の左右に ‹ › を置く。連絡表が無い日は、`can('pg')` なら「1日分を追加」（`openNM`、カレンダーの空き日と同じ入口）を開き、無ければその方向で31日以内の一番近い連絡表へ飛ぶ。スワイプは `#main` に1回だけ登録し、横80px以上・縦の2倍以上・600ms以内・1本指だけを数える。入力欄・ボタン・配置盤（`#placement-wrap`）・HD担当表・担当カード（`.dg`）・プール・横スクロールできる箱・画面端24px・ピンチ拡大中・文字選択中は無視する（`pnavSwipeBlocked`）。**中でドラッグや横スワイプを使う部品を `#main` に足したら、`pnavSwipeBlocked` にも足すこと。** ページの途中用に、`#main` の左右の端へ薄い丸ボタン（`#pnav-float`、`updatePnavFloat(ds)`）を置く。出し入れは `updateCloseBar` の先頭から呼ぶ（日ページの表示・非表示・タブ切替がすべてそこを通るため）。普段は `opacity:.2`、マウスを乗せる・押すと濃くなる。スマホで入力中（キーボード表示中）は `body.pnav-kb` で隠す。z-index は150（スマホのサイドバー200・消し込みバー250より下）。
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
@@ -526,7 +538,7 @@ All class names are abbreviated:
 | `opsItemTitle(it, kind)` / `opsItemTimeLabel(it)` / `opsItemIsRobot(it)` / `opsItemRobo(it)` | 症例行の1行表示／入室時間の表記／ロボット支援下の判定／症例の配置 |
 | `opsApplyLiveRow(...)` / `opsApplyPatch(it, patch)` | 症例行のポップアップ（使用物品・術式）で決定したときの書き戻し |
 | `supPickListHTML(o)` / `opsItemIsLap(it)` | 使用物品の一覧（使用物品・術式ポップアップ共用）／腹腔鏡下の判定（スコープ欄を出すか） |
-| `opsItemTimeMissing(it)` / `openOpsTimeFixModal(opts)` | 入室時間が空欄・OCか／終了時に実際の入室時間を聞くポップアップ || `renderRoboMaster()` / `compressDiagram(file, cb)` / `roboImgGet(r, cb)` / `openRoboImgModal(id)` | ロボット配置マスタ／配置図の圧縮・読み込み・拡大表示 |
+| `opsItemTimeMissing(it)` / `openOpsTimeFixModal(opts)` | 入室時間が空欄・OCか／終了時に実際の入室時間を聞くポップアップ || `renderRoboMaster()` / `openRoboImgsEditor(i)` / `compressDiagram(file, cb)` / `roboImgGet(im, cb)` / `roboFillImg(el, r, start)` / `openRoboImgModal(id, start)` | ロボット配置マスタ／配置図（最大5枚）の管理／圧縮／読み込み／1枚ずつ切り替える表示／拡大表示 |
 | `getFontScale()` / `setFontScale(v)` / `cycleFontScale()` / `applyFontScale()` / `uiZoom()` | 文字サイズ（小／標準／大／特大）。`--ui-zoom` と `data-fs` を書く。座標を測る側は `uiZoom()` で正規化する |
 | `getTheme()` / `setTheme(t)` / `cycleTheme()` / `effectiveTheme()` / `applyTheme()` | 表示テーマ（ライト／ダーク／端末設定）。`data-theme` には常に light/dark のどちらかを書く |
 | `repaintForTheme()` | テーマ切替時に、JSが色を埋めている箇所（担当枠・集計グラフ）を塗り直す |
@@ -584,6 +596,7 @@ dat.placement = {
 - **HD担当表の編集・配置盤の役割ピッカーからの移動は、必ず `hdRosterMove(ds, name, spec)` を通す**（`plMove` を直接呼ばない）。**呼ぶ前に行き先がいまの居場所と同じ（空振り）かを確認し、同じなら `plMove` を呼ばず保存・トースト・ログも出さない**（控え→控え、同じ日勤役割へ、準夜→準夜はすべて空振り扱い——準夜は `with` を無視するので、誰の行に落としても実質は元のまま）。入れ替わったかどうかは `with` の有無ではなく**相手の `plSpot`（`kind`・`role`・`side`）が `plMove` の前後で実際に変わったか**で判定し、トースト文面も「役割どうしの入れ替え」「控えへの押し出しを伴う単独の移動」「空いている役割への単独の移動」で書き分ける（`with` が指す相手が実は動いていなければ、入れ替えとは表示しない）。操作前に `placement`/`duties`/`extra_free` を写し取り、成功したら「取り消す」付きトースト（`toast(msg,'ok',8000,{label,fn})`）を出す。取り消しはその時点の `D.pages[ds]` へ写しを書き戻し、`renderPlacementBoard`（＝担当表も揃う）・`writeLog` を行う。
 - 見出しバッジは `.staffz`（`toggleStaffZone()` / `_staffZoneOpen`、既定 `false`）に出す。集計の実体は `plCounts(ds)` ひとつで、`staffZoneCounts()` はその別名。`updateStaffZoneBadge(ds)` が `#staffz-badge-staff` / `#staffz-badge-unassigned` だけを差し替える。
 - **スマホのドラッグは長押し（250ms）で開始する。** `touchstart` で即ドラッグ状態に入ると、以降の `touchmove` を `preventDefault` するせいでチップの上から始めたスワイプがページスクロールにならず、指を離した枠へその人が移動してしまう（配置盤は面積の大半がチップなので誤操作が起きやすい）。長押しが成立する前に8px以上動いたらスクロールとみなしてドラッグ候補を捨てる。
+- **配置ボード（新・既定）**：`renderPlacementBoard` は `plBoardV2()`（端末ローカル `ce2_plv2`、既定ON。`setPlBoardV2(on)`）なら `renderPlacementBoardV2(ds, dat)` を描く。左＝CE担当枠（`getDutyCfg` の1枠1行＋フリー枠）、右＝HD役割（`HD_DAY_CODES` の1役割1行＋準夜の見出し「＋追加」と居る人）、下に共通の控え（未割当・余剰・`PL_ZONES`）。スマホでも2列のまま。**書き込みは `pl2Apply(ds, name, spec, other)` だけを通す**——`other`（行き先に居る人）がいれば、その人は `pl2SpecOf(plSpot(動かす人))`＝動かした人の元の場所へ移る（入れ替えの規則はこれ1つ。CE⇄HD・控えも同じ）。中身は `plClearSpot` で2人とも外してから `pl2Put` で入れ、保存・ログ・「取り消す」付きトーストは1回。操作は `bindPlacementV2(wrap)`：タップ2回（`_pl2Pick`）、スマホの横スワイプ（横に払い始めると名前札 `.pl2-ghost` が指に付き、離した所の行・控え（`[data-t]`、`elementFromPoint` で離した座標から引き直す）へ `pl2Apply`＝人がいれば入れ替え。何もない所で `PL2_SWIPE_PX`＝60px 以上動いていれば `cross:true` で反対側が行き先・「余剰へ」ボタン。画面の上下端では自動スクロール。左端 `PL2_EDGE_PX` は iPhone の戻るに譲る。縦に先に動いたらスクロール）、PCのドラッグ。⋯・受け取る・＋追加・取り込み直しは `[data-pl-act]` のまま旧側の `bindPlacementDnD` が処理する。新ボードのときHD担当表の「役割を編集」ボタンは出さない（`hdRosterEditBtnHTML`。人を動かす場所をボードに集めたため）。旧配置盤は切替スイッチの期間（2026-10中旬まで）残し、その後に消すか判断する
 - 監査ログは `plMove`（`人員配置変更`）・`plOffer`/`plCancelOffer`/`plAccept`（`応援の提供`／`取り下げ`／`受け取り`）・`plAddPerson`/`plRemovePerson`（`名簿に追加`／`名簿から除外`）・`plResync`（`勤務表から取り込み直し`）が書く。
 - **配置盤は主観で中身を変えない。** `_viewMode` が効くのは「自分側の列を先に並べる」ことだけ（スマホでは自分側が上に来る）。CE主観・HD主観で別の画面を作らないこと——CE/HDの双子関数がこれ以上増えるのを避けるため、`renderPlacementBoard` は1つしかない。
 - **担当表・マイ担当・担当表CSVの状態表示（CE未振分・CE余剰・ゾーン・HD（未振り分け）・HD応援）は `plPlaceLabel` が唯一の入口。** 呼び出し側は日ごとに `plPeople(ds)` を1回取って渡す。OC専用（`base:'oc'`）は未振分にしない。
@@ -603,7 +616,7 @@ dat.placement = {
 - **編集ボタン（`hdRosterEditBtnHTML`）は見出し（`.st`／`.staffz-hd`）ではなく、表の最初の区切り行（通常は🔵 日勤。表が空なら「勤務表データがありません」の文言の横）の右端に置く**（`hdRosterGroupRowHTML`）。CE日ページ側（`variant='ce'`）は `.staffz` 折りたたみシェルを流用し、対象0件でも**編集中なら見出しごと出す**（全員を控えへ移した瞬間にセクションが消えて編集に戻れなくなるのを防ぐため）。編集ボタンは表の中にあるため折りたたみを閉じている間は見えないが、`hdRosterToggleEdit` は念のため非編集→編集に入る瞬間に `_hdRefOpen` を強制的に開く（閉じたままだと `#hd-ref-body` が `display:none` で編集モードに入っても何も見えないため）。
 - 印刷は編集用要素（`.hdr-hint`/`.hdr-tray`/`.hdr-edit-btn`/`.hdr-add`/`.hdr-empty-row`）をCSSで非表示にし、居る人の行だけが残る通常表示に近い紙面になる。備考列を隠す既存ルール（`#hd-roster-wrap`/`#hd-ref-body` の `td:last-child`）はそのまま効く。
 
-**血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。保存キーは従来どおり `{ day, night, bw, ward }`（`day` の表示名は「日中透析室」）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`／`hdCountSpArr(dat)` を経由し、`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列へ正規化する。各 `sp` 行は `{id,n,staff,edu}`。旧文字列・旧オブジェクトは読み出し時に `hdSpNorm` で正規化し、安定IDがない既存行は編集時にIDを付けて保存する。保存は`saveDPage(ds)`で、編集中は入力ごとに全体を再描画せず `.hdash-total b` の合計だけ差し替えてフォーカスを保つ。**特殊治療名の追加・変更・削除は今日または未来日のみメール通知候補**。管理者はHDモードの各種マスタで送信を有効にし、登録ユーザーから複数の宛先を選ぶ。EmailJS設定は既存の`D.emailjsCfg`を共有し、送信先設定は同プロパティ内の`hdTreatNotify`に保存する（新しいトップレベルD項目ではない）。治療名・職員名はメールに含めず、ページ内の`hdTreatMailLog`に保存確認・宛先別の送信結果を残す。送信経路は保存ACK後の編集操作だけで、Firebaseリスナーや再描画からは送らない。送信結果が不明なら自動再送しない。プレビューは模擬結果だけを記録し、実メールは送らない。
+**血液浄化の実施件数（`dat.hdCount`）**：その日に実施した血液浄化の回数を区分ごとに数える（スタッフ数ではない）。保存キーは従来どおり `{ day, night, bw, ward }`（`day` の表示名は「日中透析室」）＋ `sp`（特殊治療名の配列、`D.hdTreatments`から選ぶ。**配列の長さがそのまま件数**）。読み取りは必ず `hdCountN(v)`／`hdCountSpArr(dat)` を経由し、`sp`を書き換える前には`hdCountEnsureSpArr(dat)`で実配列へ正規化する。各 `sp` 行は `{id,n,staff,edu}`。旧文字列・旧オブジェクトは読み出し時に `hdSpNorm` で正規化し、安定IDがない既存行は編集時にIDを付けて保存する。保存は`saveDPage(ds)`で、編集中は入力ごとに全体を再描画せず `.hdash-total b` の合計だけ差し替えてフォーカスを保つ。**特殊治療名の追加・変更・削除は今日または未来日のみメール通知候補**。管理者はHDモードの各種マスタで送信を有効にし、登録ユーザーから複数の宛先を選ぶ。EmailJS設定は既存の`D.emailjsCfg`を共有し、送信先設定は同プロパティ内の`hdTreatNotify`に保存する（新しいトップレベルD項目ではない）。メールの件名・本文は管理者がマスタで編集でき（`hdTreatNotify.subject`/`body`、未設定・初期文面と同じなら保存せず `HD_TREAT_MAIL_DEF_*` を読むときに補う）、`hdTreatMailCompose(ev, ds)` が `{日付}{治療内容}{操作}{URL}` を差し込む。治療名は2026-09-30に本人の依頼で載せるようにした（ログの `from`/`to` に記録時の治療名を残し、削除後も送れるようにしている）。**職員名は差し込めるようにしないこと**（外部のメールに載るため）。ページ内の`hdTreatMailLog`に保存確認・宛先別の送信結果を残す。送信経路は保存ACK後の編集操作だけで、Firebaseリスナーや再描画からは送らない。送信結果が不明なら自動再送しない。プレビューは模擬結果だけを記録し、実メールは送らない。
 
 **HD集計（`renderHdSummary()`）**：`dat.hdCount`の期間集計。📈 集計タブ（`pane-sum`）の `subpane-hd` にCE集計・OC集計と並べて置く。**主観でもパーミッションでも出し分けない**——集計は「どちらの目で見るか」に依らない事実なので、CE主観からもHD集計が見える（逆も同様）。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
 
@@ -690,7 +703,7 @@ dat.placement = {
 - 「決定」の書き戻しは使用物品と共通の `opsApplyLiveRow(...)`：`D.pages[ds]` から読み直し、開いた時点の `supRowSig` で行を探してその行にだけ当てる。**開いた時点の `items` を丸ごと書き戻さないこと**（開いている間の他人の入力が消える）。
 - 入室時間の「今」ボタンはツリー版では廃止。フラット版 `buildItemList`（マスタが空のときの予備）は3段セレクト・「今」ボタンのまま残してある。入室時間の部品（`makeTimeHourOpts` ほか）はポップアップからも使うのでグローバルに出した。
 - **ロボット配置**：`opsItemIsRobot(it)`（中カテゴリか術式名に「ロボット」を含む）のときだけ、ポップアップに配置欄、行に `.ops-robo-chip`（押すと `openRoboImgModal(id)` で配置図。ロック中でも見るだけはできる）を出す。症例には `item.robo = {id, n}`（`n` は記録時の名前の写し＝マスタから消しても明細・CSVに名前が残る）。読み出しは必ず `opsItemRobo(it)`（マスタにあれば今の名前＝改名に追随）。ロボットでない術式に選び直したら `robo` は消す。CE集計の明細・明細CSV・横断検索に「配置」を出す。
-- マスタは `D.roboLayouts`（業務マスタ🔪グループの「🤖 ロボット配置マスタ」、`mst`、`renderRoboMaster()`）。**配置図は `D` に入れず `/robotImg/{id}` に置く**——`D` に入れると保存のたびに画像ごと全員へ送り直し、1時間ごとのバックアップにも毎回複製される。読むのは配置を選んだとき・チップを押したときだけ（`roboImgGet(r, cb)`、`id@img` でキャッシュするので差し替えれば自然に取り直す）。圧縮は写真向けの `compressImage`（800px・55%）ではなく `compressDiagram(file, cb)`（長辺1600px・JPEG85%から、300KBに収まるまで画質→大きさの順に落とす。透過PNGは白で塗ってから）。プレビューモードは端末内（localStorage）に置く。**本番で使うには `database.rules.json` の `robotImg` の反映が必要**（未反映だと保存時にその旨をトーストで出す）。バックアップには入らない（元のパワポから入れ直す前提）。ストレージ画面は `D.roboLayouts[].sz` を足して出す（図そのものは読まない）。
+- マスタは `D.roboLayouts`（業務マスタ🔪グループの「🤖 ロボット配置マスタ」、`mst`、`renderRoboMaster()`）。**配置図は1配置に最大5枚（`ROBO_IMG_MAX_N`）。`D.roboLayouts[i].imgs = [{k, ts, sz, cap}]` に置き場所・登録時刻・大きさ・説明（任意）だけを持ち、図そのものは `D` に入れず `/robotImg/{k}` に置く**——`D` に入れると保存のたびに画像ごと全員へ送り直し、1時間ごとのバックアップにも毎回複製される。以前の1枚だけの形（`img`＝登録時刻・`sz`）は、読み出し（`roboImgsOf(r)`）で `k`＝配置の id の1枚目として読む（移し替えはしない。保存し直したときに新しい形になる）。`roboLayouts()` が返す `r.img`（1枚目の時刻）・`r.sz`（合計）は「図があるか」「容量」の判定用。追加・説明・並べ替え・差し替え・削除はマスタの📷（`openRoboImgsEditor(i)`、開いている間は配置の id で引き直す）、説明は `phiHasBlock` が弾くもの（患者IDなど）だけ止める（氏名パターンの黄色警告は「術者側から」でも出るので、使用物品の自由入力と同じく止めない）。見るのは `roboFillImg(el, r, start)`（1枚ずつ・‹ ›・左右に払う・下の小さな一覧）で、拡大モーダル `openRoboImgModal(id, start)` と術式ポップアップの配置欄が共用する。読むのは見るときだけ（`roboImgGet(im, cb)`、`k@ts` でキャッシュするので差し替えれば自然に取り直す）。`/robotImg/$id` のルールは名前を問わないので、2枚目以降（`{配置id}_{時刻}`）もルールの変更は要らない。圧縮は写真向けの `compressImage`（800px・55%）ではなく `compressDiagram(file, cb)`（長辺1600px・JPEG85%から、300KBに収まるまで画質→大きさの順に落とす。透過PNGは白で塗ってから）。プレビューモードは端末内（localStorage）に置く。**本番で使うには `database.rules.json` の `robotImg` の反映が必要**（未反映だと保存時にその旨をトーストで出す）。バックアップには入らない（元のパワポから入れ直す前提）。ストレージ画面は `D.roboLayouts[].sz` を足して出す（図そのものは読まない）。
 - **使用物品・スコープもこのポップアップで選ぶ**（ツリー版のオペ）。使用物品は一番下の折りたたみ（既定は閉じる＝術式だけ入れる手数を増やさない）で、中身は `supPickListHTML(o)`（使用物品ポップアップ `renderSupPickBody` と共用。複製しないこと）。並びに使う科は「いま選んでいる術式の科」。行には `supViewHTML` の一覧だけを置き、押すと使用物品を開いた状態でポップアップを出す（行の「選ぶ」ボタンは廃止）。スコープは `opsItemIsLap(it)`（中カテゴリか術式名に「腹腔鏡」）のときだけトグルを出し、行に `.ops-scope-chip`。**腹腔鏡でない術式に選び直しても既存の `scope` は消さない**（チップも出したまま）。代わりに、以前🔭を付けた症例はポップアップにもスコープ欄を出し、そこで外せるようにしている（`opsPickShowScope(c)`）。フラット版は従来どおり🏷行のスコープボタンと `buildSupRow`——`buildItemMetaRows` の第9引数 `{picker:true}` で出し分けており、ツリー版の🏷行は「急患・中止」（カテは中止だけ）、フラット版は中止が終了行に残る。
 - **入室時間の後追い**：`opsItemTimeMissing(it)`（空欄・OC＝`AMOC`/`PMOC`/`9:OC`）のまま終了にすると `openOpsTimeFixModal(opts)` で実際の時刻を聞く。入力は術式ポップアップと同じ端末標準の時刻入力（0〜23時なので時間外の緊急も入る）で、今の時刻から始める。「後で入れる」なら行に `.ops-time-warn`（押すと同じ画面）、消し込みバーの `optime` に数える。どちらも**終了済み・中止以外だけ**が対象（入室前の予定まで数えると一日中並び続ける）。⚠は「（旧）」表示の行にも出す。消し込みバーは**ツリー版のカードの症例だけ**を数える——フラット版は⚠を出さないので、数えると飛び先の無い項目になる。
 
@@ -719,6 +732,10 @@ dat.placement = {
 - **復元3経路は `supMasterAfterRestore(data)` を必ず呼ぶ。** 旧バックアップ（`supMaster` を持たない）から戻すと supTree だけが古くなるので、その場で新しい形へ移す（復元は `_migVer` を回し直さない）
 - **手動復旧（`rebuildSupMasterFromLegacy()`）**：`supMasterOf()` が空のとき、`renderSupMaster()` の空表示に「📦 物品マスタ（旧）から作り直す」ボタンを出す（`can('mst')`）。2026-09-12、古いアプリの保存で `D.supMaster` が空になり、以後の1時間ごとのバックアップも壊れた状態のまま上書きされ続けた（バックアップは「今のD」を保存するだけなので、壊れてから何度保存されても直らない）——過去のスナップショットを探すより、削除していない `D.supTree`（旧マスタ）へもう一度 `supLegacyToMaster()`（移行 `_migVer` 6 と同じ変換）をかける方が確実。**空のときだけボタンを出す**——データがある状態で押せると、移行後に使用物品マスタだけへ加えた変更（追加・改名・科の付け替え）を無言で消してしまう。
 - **自由入力は氏名パターンの黄色警告では止めない**（`phiHasBlock` のブロック対象＝患者IDや姓名フル一致だけ弾く）。ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名はほとんどが氏名パターンに当たり（中心静脈カテーテル／生体情報モニタ／自己血回収装置／電気メス先端チップ／吸収糸…）、毎回警告を挟むとアラート疲れで本物の患者情報の警告まで読み飛ばされる。**`phiGuardText` にそのまま通す形へ戻さないこと**
+
+**6MW（`ops.mw_items`）**：1件ずつのブロック `[{_rid, time:'HH:MM', doc, staff:[], note, chk:{確認項目id:true}}]`。描画・編集は `renderMwBlocks(ds, box, locked)`（ブロックの入れ物に1回だけ委譲。書き込みは毎回 `mwFind(ds, rid)` で `D.pages[ds]` から引き直す）。**件数は必ず `mwCount(pg, header)` を通す**——ブロックがある日はブロック数（集計は `mwItemFilled` の行だけ）、無い日は従来の `ops.mw_n`（書き換えない。画面では「N件（旧形式）」と読むだけ）。担当医は自由入力で `data-no-phi`（`initPHIGuard` が飛ばす。医師名で毎回止めないため）、候補は全ページの入力済みの名前（`mwDocNames`）。CE集計の `mwBreakdownHTML()` が担当医別・実施CE別、タイムラインは開始時刻のあるブロックだけ（`kind:'mw'`）。
+
+**6MW・PSGの確認項目（`D.opsChk`）**：`{mw, psgOn, psgOff}` の各配列 `[{id, t}]`。読み出しは `opsChkList(kind)`、保存は `opsChkSave(kind, arr)`、マスタは業務マスタ🔪グループの「✅ 6MW・PSGの確認項目」（`renderOpsChkMaster`、`mst`）。当日の記録は**項目の id で持つ**（6MW＝各ブロックの `chk`、PSG＝`ops.psg_chk_on`／`psg_chk_off`）ので、改名・並べ替えでチェックは外れない。連絡表では `opsChkDetailsHTML(key, title, list, ck, locked, pre)` の折りたたみ（開閉は `_opsChkOpen`、非永続）。PSG装着の「付箋入力済」は従来の `ops.psg_fusen` のまま先頭に固定で置く（`runPsgFusenCheck` の10時のお知らせがこれを見ていて、お知らせのときは折りたたみを開く）。消し込みバーは `mwchk`（実施CEに自分がいれば自分あて）・`psgchk`（名前に「PSG」を含む担当枠の人が自分あて。装着は装着欄に入力がある日、外しは `tlIsPsgRemovalDay` の日）。
 
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
@@ -782,7 +799,7 @@ var isPsgRemoval = !!(prevDat && (
 ));
 ```
 
-Used in: `buildDG` (duty card checkbox), `updateOpsHeader` (header chip), `updatePsgRemovalBanner` (persistent banner). The banner shows only when `ds === todayStr` and `nowMin` is within `[psgBannerStart, psgBannerEnd)`. Called every minute via `runPsgFusenCheck()`.
+Used in: `buildDG` (duty card checkbox), `updateOpsHeader` (header chip), `updatePsgRemovalBanner` (persistent banner). The banner is a strip right under the top bar (not over it — it used to sit at `top:0`/`z-index:9000` and covered the top-bar buttons every morning). It is shown/hidden only through `setPsgBannerShown(show)`, which also toggles `body.has-psgb`; that sets `--psgb-h`, and `--off-h` is defined as `--offline-h + --psgb-h`, so the layouts that already add `var(--off-h,0px)` move down for both strips. ✕ calls `closePsgRemovalBanner()`, which stores today's date in localStorage `ce2_psgb_closed` so the per-minute re-check doesn't bring it back that day. The banner shows only when `ds === todayStr` and `nowMin` is within `[psgBannerStart, psgBannerEnd)`. Called every minute via `runPsgFusenCheck()`.
 
 ### Dashboard Jump（`dashJump(sel)` / `dashJumpTop(el)`）
 
@@ -832,6 +849,10 @@ for (var j = 0; j < ents.length; j++) {
 }
 ```
 
+#### `roles` — チェック項目の役割（CE・HD、共通業務・曜日別業務すべて）
+
+各項目に `roles:[…]` を持てる（`itemRebuild` 経由で書く）。CEは担当枠の**名前**（`getDutyMaster()` の label。id は追加のたびに振り直されるので使わない）、HDは `HD_DAY_CODES` ＋ `'準'`。読み出しは `itemRoles(it)`、その日の自分の役割は `myClRoles(ds, isHd)`（CE＝`myDutyLabels`、HD＝`hdShiftWorkers` の自分の行）。編集はマスタの「🏷 役割」（`openRoleCfgModal(list, i)`、対象と権限は「🩺 機器」と同じ `DEV_LISTS`）。当日のチェックリストに印（`.cli-role`、自分の役割は `.me`）、見出しの「自分の役割だけ」（`_clMineOnly`、端末ローカル `ce2_clmine`）で役割が付いて自分の役割を含まない項目を隠す。**数え方（`clStatus`/`getPct`）は役割で変えない**——隠しても未了は未了。`_clStatusNs` の `undone` は `roles` を持ち、`closeItems` は役割付きの項目だけ「自分の役割を含むか」で `mine` を決める（役割なしの項目は従来の判定のまま）。消し込みバーの内訳には役割ごとの残り件数（`.cbar-roles`）を出す。
+
 #### `once` / `subs` / `sid` — per-item fields on `D.wd[曜日]` entries
 
 Weekday-master items (`D.wd[曜日][i]`) are either a plain string (legacy) or an object `{t, wk, once, subs, sid, notif, ...}`. **All writes to these items (and to `D.dly[i]`) must go through `itemRebuild(oldIt, patch)`** — it merges `patch` into a copy of the existing item (a `null`/`undefined` value in `patch` deletes that key) and collapses back to a plain string if only `t` remains. Building the replacement object inline (e.g. `{t:..., notif:...}`) instead silently drops any key not mentioned — this exact bug previously wiped `once`/`wk`/`subs` when only toggling notifications, and vice versa.
@@ -839,6 +860,18 @@ Weekday-master items (`D.wd[曜日][i]`) are either a plain string (legacy) or a
 - **`once:true`** ("月内どれか1回でよい" — only one occurrence in the month needs doing) is only allowed when `wk` (week-of-month restriction) is set; going back to "毎週" auto-clears it. `wdOnceDoneOn(ds, ent)` looks for whether the item was already checked on an earlier applicable date **in the same month** — it only scans backward (`d < day`), never forward, so checking a later occurrence can never retroactively flip an earlier day's display (that would look like a past inspection record being rewritten after the fact). Notification firing (`checkTimeNotifs()`'s weekday-item loop, not `runPsgFusenCheck`) also skips items already satisfied via `wdOnceDoneOn`.
 - **`subs`** is an array of installed-location names (e.g. department names) for items that need per-location sign-off (e.g. "各部署の生体情報モニタ点検"), selected via checkboxes from the shared **`D.wdDepts`** master (not free-typed per item — an earlier free-text-per-item design was replaced after real-world feedback, since retyping the same ward names on every item invites spelling drift). `openWdSubsModal`/`renderWdSubsModalBody` render one checkbox per `D.wdDepts` entry; `addWdDeptFromModal` lets an admin add a missing department to the master inline (saved immediately) without leaving the modal — but, like the other checkboxes, whether it ends up in *this item's* `subs` is only decided when `saveWdSubs` is clicked. **`sid`** is a stable id assigned once (`newSid()`) when the list is first saved, and is deliberately kept even if `subs` is later emptied — signoff progress is looked up by `sid`, not by item text, so renaming the item or removing/renaming a department in `D.wdDepts` never breaks the link (mirrors — and is a deliberate fix for — the weakness where `D.manual` keys by task name and breaks on rename). Per-location signoffs live in `D.pages[ds].subChecks[sid][name] = {by, ts}` (a page-scoped field, not a new top-level `D` property — this makes the monthly reset automatic, since `wdSubProgress(ds, sid)` only scans pages within the current calendar month). The parent checklist item itself is **not** auto-checked when all locations are signed off — that requires a manual check.
 - The **`once` checkbox is always rendered** in `renderWdlyList()` once `can('wm')`, even when the item has no week restriction (`wk` unset = 毎週) — it's shown `disabled` with an explanatory label/title rather than omitted entirely. It was originally hidden outright when `!weeks`, but the seed data's `月一BSM点検（第二 or 第四）` item is actually stored as a plain string (`wk` unset) despite its name, and with `weeks=null` every week-chip renders as "selected" — so an admin looking at that item saw no obvious next step to reach the `once` option. Showing it disabled-with-reason fixed the discoverability gap.
+
+### 機器マスタ（`D.devMaster`）と機器の消し込み
+
+設置部署（`D.wdDepts`）の機器版。台数が多いので **機種 → 機器（1台ずつ）** の2段で、機種・機器とも固定ID（`devNewId('dk'|'dv')`）を持つ。**消し込みは機器IDで記録する**（部署は名前で記録しているが、機器は改名・管理番号の付け替えがあり、名前で持つと台数分ずれる）。設置場所は `D.wdDepts` から選ぶ。CE/HD共通、権限は設置部署と同じ `wm`（マスタ）／項目への割り当ては共通業務 `dm`・曜日別 `wm`。
+
+- 読み出しは必ず `devMasterOf()`（正規化した新しい配列）、書き換えは取ったものを直して `devMasterSave(m)`。
+- チェック項目（`D.dly`/`D.wd`/`D.hdDly`/`D.hdWd`）は `itemRebuild` で `dev:{k:[機種ID＝全台。後で足した台も含む], i:[個別の機器ID], x:[機種丸ごとから外した機器ID], r:'day'|'month'|'cycle'}` と `sid`（設置部署と共用）を持つ。読み出しは `itemDev(it)`、対象機器は `devResolve(cfg)`（マスタ順・機種ごと）。設定画面は `openDevCfgModal(list, i)`（`DEV_LISTS` が4つのリストを束ねる）。
+- 共通業務にも付けられるよう、`buildCL`/`buildHdCL` は `mkCk`/`mkHdCk` の7番目の引数に共通業務のマスタ項目（`dlyIt`）を渡す。`_clMkCk` の `it`（曜日別の項目）は once 判定に使うので、そこへ共通業務の項目を入れないこと。
+- 消し込みは `D.pages[ds].devChecks[sid][機器ID] = {by, ts}`、状態は `devProgress(ds, sid, r)`。`day`＝その日だけ／`month`＝同じ月（`wdSubProgress` と同じ月次リセット）／`cycle`＝期限なし。全台そろった瞬間にそのページへ `devCycle[sid] = {ts, by}` を書き、それより後の消し込みだけを数える。新しいトップレベルDは増やさず、ページを走査して求める。
+- 開いている日より後の日付のページは数えない（過去の日を開いたとき、後日の消し込みで「済」に化けないように）。
+- 一巡の押し間違いは、完了時のトーストの「取り消す」（最後の1台の消し込みも外す）か、その日のパネルの「一巡を取り消す」（`devCycleUndo`）で戻せる。
+- 親のチェック項目は全台そろっても自動でチェックしない（設置部署と同じ）。マスタから消した機器・機種の記録は残る（表示されなくなるだけ）。
 
 ### 消し込みバー（`.cbar` / `closeItems(ds)` / `updateCloseBar(ds)`）
 
@@ -1097,6 +1130,17 @@ The day page does **not** show an inline tablet section (it would occupy too muc
 
 `openTabletLendModal(ds, mode)` / `openTabletReturnModal(ds, id, mode)` are dynamic `.ov`/`.md` modals with tablet and borrower/returner fields. New lending is allowed only for today's date. Because the modals live **outside `#main`**, `saveTabletLend`/`saveTabletReturn` call `detectPHI` explicitly; the PHI confirmation callback also rechecks date and mode. A return modal remembers its loan ID, source date, mode, and opening date; save re-reads the record by ID and blocks a second return. All operations are gated by `can('tablet')`. **No Firebase rule change needed** — the ledgers live under `/data`.
 
+### 改善要望（`/feedback`、📚 資料 → 💡 改善要望）
+
+`pane-feedback`（`renderFeedback()`）。一般職員は「種類 → 画面 → くわしく（種類ごとの書き出しヒント）→ 困り具合 → 写真1枚（任意）→ 匿名」を選んで送り、送信後はお礼画面（「続けて書く」／「終わる＝来た画面へ戻る」）に移る。管理者は同じタブで「📥 届いた要望」（未完了／未確認／支障あり／すべて、状態・管理者メモ・削除）と「✏️ 自分も書く」を切り替える。未確認数は資料サブメニューの `#fb-badge`（管理者のログイン後に1回だけ読む、常時の受信はしない）。
+
+- **読めるのは管理者だけ（`/feedback` のルールで強制）。** 一般職員は自分の送った分も読めない（この端末から送った件数だけ `localStorage ce2_fb_sent` に残す）。
+- **匿名（`anon`）のときは uid も名前も保存せず、`writeLog` も呼ばない**（writeLog は操作者名を自動で記録するため）。
+- 本文は `#main` の外なので `detectPHI` を明示的に通すが、**止めるのは赤（患者ID・患者の姓名など）だけ**。黄色（氏名らしい文字列）は、要望がアプリの言葉（「どの操作が」「担当表」）だらけで毎回当たるため止めない（使用物品・メーカー担当者名と同じ判断）。
+- 画像は `compressImage` → dataURL で本体に入れる（Storage は使えない）。ルールで1枚40万文字までに制限。
+- 場所の初期値は「どの画面から来たか」（`swTab` が `_fbFrom` に記録）から推測する。プレビューは `localStorage ce2_feedback_pv` に保存して管理者画面まで試せる。
+- **本番で使うには `database.rules.json` の `feedback` の反映が必要**（未反映だと送信・読み込み時にトーストで知らせる）。
+
 ### メーカー担当者連絡先 (`D.makers`)
 
 Independent of any day page — a flat lookup table for manufacturer support contacts (機器トラブル時にすぐ電話できるように), reachable from `pane-guide`'s sibling tab `pane-makers` (📚 資料 → 🏭 メーカー, visible to all users).
@@ -1117,6 +1161,7 @@ D.makers = {
 - **`onclick` handlers pass only the record `id`, never inline field values** (`mkEdit('mk_xxx')`, `mkCopyTel('mk_xxx', 1)`, etc. — never e.g. `onclick="mkEdit('${r.maker}')"`). A manufacturer name containing an apostrophe would otherwise break the generated `onclick` string (this class of bug has bitten this codebase before — see the `changelog` entry for staff/duty names with `'`). Card text itself still goes through `escH()`.
 - **Excel bulk import (`openMkImpModal`/`doSaveMkImp`) is admin-only** (`isAdmin`, not `can('maker')`) — a single import can replace or delete on the order of a hundred records in one action, a blast radius roughly two orders of magnitude larger than editing one record, so it is deliberately not covered by the `maker` lock/per-user-permission model that governs individual add/edit/delete.
 - **Category deletion never deletes records.** `mkCatDel(i)` in the category-management modal: if the category being removed still has records (`mkCountByCat`), it prompts for confirmation, then sets `cat:''` on every record that referenced it (moving them to the virtual "未分類" bucket, which only appears in the UI when it has ≥1 member) before splicing the category out of `cats`. The modal batches all category add/rename/reorder/delete edits into a single `saveD()` on close (`mkCatModalClose()`) rather than saving on every keystroke/click, since a ~150-record dataset makes a full-`D` write on every micro-edit expensive.
+- **担当交代の履歴（`r.hist`）**：各レコードが `hist:[{person,tel1,tel2,mail,until,ts,by}]`（新しい順、`MK_HIST_MAX`=5件まで）を持つ。前任を別カードにしない（一覧に同じメーカーが並んで今の担当を探しにくくなるため）。読み出しは `normMakers` 内の `mkHistNorm`、積むのは `mkPushHist(rec, until, by)` だけ。**✏️（`openMakerModal(id)`＝誤字・番号の修正）では履歴を残さず、👤（`openMakerModal(id, true)`＝担当交代）だけが積む**——直すたびに履歴が増えないように分けている。検索は前任の名前・電話にも当て、前任だけに一致したカードは前任一覧を開いて出す。Excel取込（全入れ替え・更新）は「Excel側でそのメーカーが1行、手元でも1件」のときだけ担当者名の違いを交代とみなす（`mkImpHandoverTarget`。複数担当のメーカーは誰が誰に代わったか決められないため）。全入れ替えでも同じ担当なら履歴を引き継ぐ。
 - Manufacturer/person/phone/email fields are intentionally excluded from `detectPHI` (see PHI Detection section above); only `note` is guarded.
 
 ### Changelog System
