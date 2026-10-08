@@ -819,6 +819,23 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 /* 配置図 */
 .robo-img-box{margin-top:8px}
 .robo-img{display:block;max-width:100%;max-height:calc(70vh / var(--ui-zoom,1));margin:0 auto;border:1px solid var(--bdr);border-radius:var(--rs);background:#fff}
+.robo-view{display:flex;flex-direction:column;gap:6px}
+.robo-stage{position:relative}
+.robo-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur);color:var(--txt);font-size:20px;font-weight:700;line-height:1;cursor:pointer;opacity:.85;box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;padding:0}
+.robo-nav.l{left:6px}.robo-nav.r{right:6px}
+.robo-meta{display:flex;align-items:center;gap:8px;min-height:18px;font-size:12px}
+.robo-cap{flex:1;min-width:0;font-weight:700;color:var(--txt2)}
+.robo-cnt{color:var(--txt3);font-weight:700}
+.robo-thumbs{display:flex;gap:6px;flex-wrap:wrap}
+.robo-thumb{width:56px;height:40px;border:2px solid var(--bdr);border-radius:6px;background:#fff center/cover no-repeat;cursor:pointer;padding:0}
+.robo-thumb.on{border-color:var(--ac)}
+.robo-ed-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)}
+.robo-ed-th{width:72px;height:52px;flex:0 0 auto;border:1px solid var(--bdr);border-radius:6px;background:#fff center/cover no-repeat;cursor:zoom-in}
+.robo-ed-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.robo-ed-no{font-size:11px;font-weight:700;color:var(--txt2)}
+.robo-ed-sz{margin-left:6px;font-weight:400;color:var(--txt3)}
+.robo-ed-cap{width:100%;box-sizing:border-box;font-size:13px}
+.robo-ed-acts{display:flex;gap:2px;flex-wrap:wrap;justify-content:flex-end;max-width:120px}
 .robo-ms-img{font-size:10px;border:1px solid var(--pu);color:var(--pu);background:var(--pu-bg);border-radius:10px;padding:0 6px;cursor:pointer;font-family:var(--fn)}
 .sup-ms-n{font-size:10px;font-weight:400;color:var(--txt3)}
 .tree-item .sup-ms-tag{flex:none;font-size:10px;color:var(--ac);background:var(--ac-bg);border-radius:8px;padding:0 6px;margin-left:4px;white-space:nowrap}
@@ -5950,11 +5967,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/11-116';
+var APP_VERSION = 'Ver.2026/10/08-117';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/08-117', date:'2026-10-08', title:'ロボット配置図を複数枚登録できるようにしました', items:[
+    {t:'imp', d:'🤖 ロボット配置の🤖チップを押すと、配置図が複数あるときは ‹ › や左右に払う操作で1枚ずつ切り替えて見られます（図の説明も表示）'},
+    {t:'imp', admin:true, d:'📷 ロボット配置マスタで、1つの配置に配置図を5枚まで登録できるようになりました。図ごとに説明（例：術者側から）を付け、並べ替え・差し替え・削除ができます'}
+  ]},
   { ver:'Ver.2026/10/11-116', date:'2026-10-11', title:'6MWを1件ずつ記録し、6MW・PSGに確認チェックを付けました', items:[
     {t:'new', notify:true, d:'🚶 6MWを1件ずつのブロックで記録できるようになりました（開始時刻・担当医・実施CE・備考）。担当医は以前に入れた名前が候補に出ます'},
     {t:'new', notify:true, d:'✅ 6MWの各ブロックと、PSGの装着・外しに確認チェックリストが付きました。普段は閉じて「2 / 4」のように進み具合だけ出ます。PSGの「付箋入力済」もこの中にあります'},
@@ -18416,11 +18437,23 @@ function renderMwBlocks(ds, box, locked) {
    送り直し、1時間ごとのバックアップ（約75個）にも毎回複製されてしまうため。
    症例には item.robo = {id, n} を持たせる。n は記録時の名前の写しで、マスタから消した後も
    明細・CSVに名前が残るようにするため（マスタにあればマスタの今の名前を優先＝改名に追随する）。 */
-var _roboImgCache = {};   /* 'id@img' → dataURL（null＝無かった）。img が変われば自然に取り直す */
-var ROBO_IMG_MAX_PX = 1600, ROBO_IMG_LIMIT = 300 * 1024;
+var _roboImgCache = {};   /* 'k@ts' → dataURL（null＝無かった）。差し替えれば ts が変わるので自然に取り直す */
+var ROBO_IMG_MAX_PX = 1600, ROBO_IMG_LIMIT = 300 * 1024, ROBO_IMG_MAX_N = 5;
+/* 1つの配置に図を ROBO_IMG_MAX_N 枚まで。imgs:[{k, ts, sz, cap}]
+   k＝図の置き場所の名前（/robotImg/{k}）。以前の1枚だけの形（img＝登録時刻・sz）は、k＝配置の id の1枚目として読む
+   （移し替えはしない。保存し直したときに新しい形で書く）。r.img / r.sz は「図があるか」「合計の大きさ」として残す */
+function roboImgsOf(r) {
+  var a = normArr(r && r.imgs).filter(function(x){ return x && x.k && x.ts; })
+    .map(function(x){ return { k: String(x.k), ts: +x.ts || 0, sz: +x.sz || 0, cap: String(x.cap || '') }; });
+  if (!a.length && r && +r.img) a = [{ k: String(r.id), ts: +r.img, sz: +r.sz || 0, cap: '' }];
+  return a.slice(0, ROBO_IMG_MAX_N);
+}
 function roboLayouts() {
   return normArr(D.roboLayouts).filter(function(r){ return r && r.id && r.n; })
-    .map(function(r){ return { id: String(r.id), n: String(r.n), img: +r.img || 0, sz: +r.sz || 0 }; });
+    .map(function(r){
+      var imgs = roboImgsOf(r);
+      return { id: String(r.id), n: String(r.n), imgs: imgs, img: imgs.length ? imgs[0].ts : 0, sz: imgs.reduce(function(t, x){ return t + x.sz; }, 0) };
+    });
 }
 function roboFind(id) {
   var a = roboLayouts();
@@ -18436,33 +18469,33 @@ function opsItemRobo(it) {
 /* id はアプリが 'rl_…' で作るが、onclick に埋め込むので念のため英数字だけに限る */
 function roboSafeId(id) { return /^[\w-]+$/.test(id || '') ? id : ''; }
 function roboIsLocal() { return !FB_ON || !fbDB || !currentUser || currentUser.uid === 'preview'; }
-function roboImgGet(r, cb) {
-  var ck = r.id + '@' + r.img;
+function roboImgGet(im, cb) {
+  var ck = im.k + '@' + im.ts;
   if (Object.prototype.hasOwnProperty.call(_roboImgCache, ck)) { cb(_roboImgCache[ck]); return; }
   if (roboIsLocal()) {
-    var v = null; try { v = localStorage.getItem('ce2_roboimg_' + r.id); } catch (e) {}
+    var v = null; try { v = localStorage.getItem('ce2_roboimg_' + im.k); } catch (e) {}
     _roboImgCache[ck] = v; cb(v); return;
   }
-  fbDB.ref('/robotImg/' + r.id + '/data').once('value').then(function(s){
+  fbDB.ref('/robotImg/' + im.k + '/data').once('value').then(function(s){
     var v2 = s.val() || null; _roboImgCache[ck] = v2; cb(v2);
   }).catch(function(){ cb(null); });
 }
-function roboImgPut(id, ts, data, size, cb) {
-  var done = function(){ _roboImgCache[id + '@' + ts] = data; cb(true); };
+function roboImgPut(k, ts, data, size, cb) {
+  var done = function(){ _roboImgCache[k + '@' + ts] = data; cb(true); };
   if (roboIsLocal()) {
-    try { localStorage.setItem('ce2_roboimg_' + id, data); } catch (e) { toast('端末に保存できませんでした（容量不足）', 'err'); cb(false); return; }
+    try { localStorage.setItem('ce2_roboimg_' + k, data); } catch (e) { toast('端末に保存できませんでした（容量不足）', 'err'); cb(false); return; }
     done(); return;
   }
-  fbDB.ref('/robotImg/' + id).set({ data: data, ts: ts, by: (currentUser && currentUser.displayName) || '', size: size })
+  fbDB.ref('/robotImg/' + k).set({ data: data, ts: ts, by: (currentUser && currentUser.displayName) || '', size: size })
     .then(done)
     .catch(function(){
       toast('⚠️ 配置図を保存できませんでした。Firebaseのルールに robotImg が反映されているか確認してください', 'err');
       cb(false);
     });
 }
-function roboImgDel(id) {
-  if (roboIsLocal()) { try { localStorage.removeItem('ce2_roboimg_' + id); } catch (e) {} return; }
-  fbDB.ref('/robotImg/' + id).remove().catch(function(){});
+function roboImgDel(k) {
+  if (roboIsLocal()) { try { localStorage.removeItem('ce2_roboimg_' + k); } catch (e) {} return; }
+  fbDB.ref('/robotImg/' + k).remove().catch(function(){});
 }
 /* 配置図（パワポを画像で書き出したもの）用の圧縮。写真向けの compressImage（800px・JPEG65%）だと
    細かい文字や線がつぶれるので、長辺1600px・JPEG85%から始め、300KBに収まるまで
@@ -18485,21 +18518,54 @@ function compressDiagram(file, cb) {
   img.onerror = function(){ URL.revokeObjectURL(url); cb(null, 0); };
   img.src = url;
 }
-/* 配置図を el に描く。未登録・読み込み失敗はその旨を出す */
-function roboFillImg(el, r) {
+/* 配置図を el に描く。複数あるときは1枚ずつ（‹ › ・左右に払う・下の小さな一覧で切り替え）。
+   未登録・読み込み失敗はその旨を出す */
+function roboFillImg(el, r, start) {
   if (!el) return;
   if (!r) { el.innerHTML = ''; return; }
-  if (!r.img) { el.innerHTML = '<div class="sup-pick-empty">配置図は未登録です（業務マスタの「🤖 ロボット配置マスタ」で登録できます）</div>'; return; }
-  el.innerHTML = '<div class="sup-pick-empty">配置図を読み込み中…</div>';
-  roboImgGet(r, function(data){
-    if (!document.body.contains(el)) return;
-    if (!data) { el.innerHTML = '<div class="sup-pick-empty">配置図を読み込めませんでした</div>'; return; }
-    el.innerHTML = '';
-    var im = new Image(); im.className = 'robo-img'; im.alt = '配置図：' + r.n; im.src = data;
-    el.appendChild(im);
+  var imgs = r.imgs || roboImgsOf(r);
+  if (!imgs.length) { el.innerHTML = '<div class="sup-pick-empty">配置図は未登録です（業務マスタの「🤖 ロボット配置マスタ」で登録できます）</div>'; return; }
+  var st = { r: r, imgs: imgs, i: Math.min(Math.max(0, start || 0), imgs.length - 1) };
+  el._robo = st;
+  var multi = imgs.length > 1;
+  el.innerHTML = '<div class="robo-view">'
+    + '<div class="robo-stage"><div class="robo-stage-img"><div class="sup-pick-empty">配置図を読み込み中…</div></div>'
+    + (multi ? '<button type="button" class="robo-nav l" data-rv="-1" aria-label="前の図">‹</button><button type="button" class="robo-nav r" data-rv="1" aria-label="次の図">›</button>' : '')
+    + '</div><div class="robo-meta"><span class="robo-cap"></span>' + (multi ? '<span class="robo-cnt"></span>' : '') + '</div>'
+    + (multi ? '<div class="robo-thumbs">' + imgs.map(function(x, k){ return '<button type="button" class="robo-thumb" data-rk="' + k + '" aria-label="' + (k + 1) + '枚目"></button>'; }).join('') + '</div>' : '')
+    + '</div>';
+  var show = function(){
+    var im = st.imgs[st.i], stage = el.querySelector('.robo-stage-img');
+    var cap = el.querySelector('.robo-cap'); if (cap) cap.textContent = im.cap || '';
+    var cnt = el.querySelector('.robo-cnt'); if (cnt) cnt.textContent = (st.i + 1) + ' / ' + st.imgs.length;
+    el.querySelectorAll('.robo-thumb').forEach(function(b, k){ b.classList.toggle('on', k === st.i); });
+    var want = st.i;
+    roboImgGet(im, function(data){
+      if (!document.body.contains(el) || st.i !== want) return;
+      if (!data) { stage.innerHTML = '<div class="sup-pick-empty">配置図を読み込めませんでした</div>'; return; }
+      stage.innerHTML = '';
+      var pic = new Image(); pic.className = 'robo-img'; pic.alt = '配置図：' + r.n + (im.cap ? '（' + im.cap + '）' : ''); pic.src = data;
+      stage.appendChild(pic);
+    });
+  };
+  var go = function(k){ st.i = (k + st.imgs.length) % st.imgs.length; show(); };
+  el.querySelectorAll('.robo-thumb').forEach(function(b, k){
+    roboImgGet(imgs[k], function(data){ if (data && document.body.contains(b)) b.style.backgroundImage = 'url("' + data + '")'; });
   });
+  el.onclick = function(e){
+    var b = e.target.closest('[data-rv],[data-rk]'); if (!b || !el.contains(b)) return;
+    if (b.hasAttribute('data-rv')) go(st.i + parseInt(b.getAttribute('data-rv'), 10));
+    else go(parseInt(b.getAttribute('data-rk'), 10));
+  };
+  var sx = null;
+  el.ontouchstart = multi ? function(e){ sx = (e.touches.length === 1 && e.target.closest('.robo-stage')) ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null; } : null;
+  el.ontouchend = multi ? function(e){
+    if (!sx) return; var t = e.changedTouches[0], dx = t.clientX - sx.x, dy = t.clientY - sx.y; sx = null;
+    if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(st.i + (dx < 0 ? 1 : -1));
+  } : null;
+  show();
 }
-function openRoboImgModal(id) {
+function openRoboImgModal(id, start) {
   var r = roboFind(id); if (!r) { toast('この配置はマスタから削除されています', 'warn'); return; }
   var old = document.getElementById('robo-img-ov'); if (old) old.remove();
   var ov = document.createElement('div'); ov.id = 'robo-img-ov'; ov.className = 'ov';
@@ -18508,14 +18574,15 @@ function openRoboImgModal(id) {
     + '<div class="robo-img-box" id="robo-img-view"></div>'
     + '<div style="margin-top:12px;text-align:right"><button class="btn btn-g" onclick="document.getElementById(\'robo-img-ov\').remove()">閉じる</button></div></div>';
   document.body.appendChild(ov);
-  roboFillImg(document.getElementById('robo-img-view'), r);
+  roboFillImg(document.getElementById('robo-img-view'), r, start || 0);
 }
 
 /* --- マスタ編集（業務マスタの「🤖 ロボット配置マスタ」、mst 権限） --- */
 function roboSave(a) {
   D.roboLayouts = a.map(function(r){
     var o = { id: r.id, n: r.n };
-    if (r.img) { o.img = r.img; o.sz = r.sz || 0; }
+    var imgs = (r.imgs || []).map(function(x){ var y = { k: x.k, ts: x.ts, sz: x.sz || 0 }; if (x.cap) y.cap = x.cap; return y; });
+    if (imgs.length) o.imgs = imgs;
     return o;
   });
   saveD();
@@ -18526,13 +18593,12 @@ function renderRoboMaster() {
   var a = roboLayouts();
   if (!a.length) { el.innerHTML = '<div class="sup-pick-empty">まだ配置がありません。下の欄から追加してください。</div>'; return; }
   el.innerHTML = a.map(function(r, i){
-    var sid = roboSafeId(r.id);
+    var sid = roboSafeId(r.id), n = r.imgs.length;
     return '<div class="tree-item"><span style="flex:1;min-width:0">🤖 ' + escH(r.n)
-      + (r.img && sid ? ' <button type="button" class="robo-ms-img" onclick="openRoboImgModal(\'' + sid + '\')" title="配置図を見る">🖼 図あり</button>'
-                      : ' <span class="sup-ms-tag">図なし</span>')
+      + (n && sid ? ' <button type="button" class="robo-ms-img" onclick="openRoboImgModal(\'' + sid + '\')" title="配置図を見る">🖼 図' + n + '枚</button>'
+                  : ' <span class="sup-ms-tag">図なし</span>')
       + '</span>'
-      + supMsBtn('📷', r.img ? '配置図を差し替え' : '配置図を登録', 'roboPickImage(' + i + ')')
-      + (r.img ? supMsBtn('🗑', '配置図を外す', 'roboRemoveImage(' + i + ')') : '')
+      + supMsBtn('📷', '配置図の登録・説明・並べ替え', 'openRoboImgsEditor(' + i + ')')
       + supMsBtn('↑', '上へ', 'mvRoboLayout(' + i + ',-1)', i === 0)
       + supMsBtn('↓', '下へ', 'mvRoboLayout(' + i + ',1)', i === a.length - 1)
       + supMsBtn('✏️', '配置名を変更', 'renameRoboLayout(' + i + ')')
@@ -18546,7 +18612,7 @@ function addRoboLayout() {
   var v = inp.value.trim(); if (!v) return;
   var a = roboLayouts();
   if (a.some(function(r){ return r.n === v; })) { toast('この配置名は既に登録されています', 'warn'); return; }
-  a.push({ id: 'rl_' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36), n: v, img: 0, sz: 0 });
+  a.push({ id: 'rl_' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36), n: v, imgs: [] });
   inp.value = '';
   roboSave(a); renderRoboMaster();
   writeLog('マスタ編集', 'ロボット配置を追加：' + v);
@@ -18571,43 +18637,123 @@ function mvRoboLayout(i, d) {
 function rmRoboLayout(i) {
   if (!supMstOk()) return;
   var a = roboLayouts(), r = a[i]; if (!r) return;
-  if (!confirm('配置「' + r.n + '」' + (r.img ? 'と配置図' : '') + 'を削除しますか？\n（これまでの症例には配置名だけが残ります）')) return;
-  if (r.img) roboImgDel(r.id);
+  if (!confirm('配置「' + r.n + '」' + (r.imgs.length ? 'と配置図' + r.imgs.length + '枚' : '') + 'を削除しますか？\n（これまでの症例には配置名だけが残ります）')) return;
+  r.imgs.forEach(function(x){ roboImgDel(x.k); });
   a.splice(i, 1);
   roboSave(a); renderRoboMaster();
   writeLog('マスタ編集', 'ロボット配置を削除：' + r.n);
 }
-function roboPickImage(i) {
+/* --- 配置図の管理（1配置に最大5枚：追加・説明・並べ替え・削除）。操作のたびに保存する ---
+   開いている間に他の管理者が並べ替え・削除しても別の配置に書かないよう、添字ではなく配置の id で引き直す */
+var _roboEd = null;
+function openRoboImgsEditor(i) {
   if (!supMstOk()) return;
   var r = roboLayouts()[i]; if (!r) return;
+  _roboEd = { id: r.id };
+  var old = document.getElementById('robo-ed-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'robo-ed-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) closeRoboImgsEditor(); };
+  ov.innerHTML = '<div class="md" id="robo-ed-md" style="max-width:520px;max-height:calc(85vh / var(--ui-zoom,1));overflow-y:auto"></div>';
+  document.body.appendChild(ov);
+  renderRoboImgsEditor();
+}
+function closeRoboImgsEditor() { var ov = document.getElementById('robo-ed-ov'); if (ov) ov.remove(); _roboEd = null; renderRoboMaster(); }
+function roboEdGet() {
+  if (!_roboEd) return null;
+  var a = roboLayouts(), j = roboIdx(a, _roboEd.id);
+  if (j < 0) { toast('この配置は削除されました', 'warn'); closeRoboImgsEditor(); return null; }
+  return { a: a, r: a[j] };
+}
+function renderRoboImgsEditor() {
+  var md = document.getElementById('robo-ed-md'); var g = roboEdGet(); if (!md || !g) return;
+  var r = g.r, n = r.imgs.length;
+  var h = '<h3>📷 配置図（' + escH(r.n) + '）</h3>'
+    + '<div class="pn" style="font-size:11px;margin-bottom:8px">' + ROBO_IMG_MAX_N + '枚まで登録できます。1枚目が最初に表示されます。説明は任意です（例：術者側から、入室前）。<b>病院名・ロゴ・患者さんの情報が写っていないか確認してから登録してください。</b></div>';
+  h += r.imgs.map(function(x, k){
+    return '<div class="robo-ed-row"><div class="robo-ed-th" data-k="' + k + '"></div>'
+      + '<div class="robo-ed-body"><div class="robo-ed-no">' + (k + 1) + '枚目<span class="robo-ed-sz">' + fmtBytes(x.sz) + '</span></div>'
+      + '<input type="text" class="fi robo-ed-cap" data-k="' + k + '" maxlength="30" placeholder="説明（任意）" value="' + escH(x.cap) + '"></div>'
+      + '<div class="robo-ed-acts">'
+      + supMsBtn('↑', '前へ', 'roboEdMove(' + k + ',-1)', k === 0)
+      + supMsBtn('↓', '後ろへ', 'roboEdMove(' + k + ',1)', k === n - 1)
+      + supMsBtn('📷', 'この図を差し替え', 'roboEdPick(' + k + ')')
+      + supMsBtn('🗑', 'この図を外す', 'roboEdRemove(' + k + ')', false, true)
+      + '</div></div>';
+  }).join('') || '<div class="sup-pick-empty">まだ配置図がありません</div>';
+  h += '<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px">'
+    + (n < ROBO_IMG_MAX_N ? '<button class="btn btn-g btn-sm" onclick="roboEdPick(-1)">＋ 図を追加（あと' + (ROBO_IMG_MAX_N - n) + '枚）</button>' : '<span class="pn" style="font-size:11px">' + ROBO_IMG_MAX_N + '枚登録済みです</span>')
+    + '<button class="btn btn-p" onclick="closeRoboImgsEditor()">閉じる</button></div>';
+  md.innerHTML = h;
+  md.querySelectorAll('.robo-ed-th').forEach(function(t){
+    var x = r.imgs[+t.getAttribute('data-k')];
+    roboImgGet(x, function(data){ if (data && document.body.contains(t)) t.style.backgroundImage = 'url("' + data + '")'; });
+    t.onclick = function(){ openRoboImgModal(r.id, +t.getAttribute('data-k')); };
+  });
+  md.querySelectorAll('.robo-ed-cap').forEach(function(inp){
+    inp.onchange = function(){ roboEdCaption(+inp.getAttribute('data-k'), inp.value); };
+  });
+}
+function roboEdCaption(k, v) {
+  if (!supMstOk()) return;
+  v = String(v || '').trim();
+  var save = function(){
+    var g = roboEdGet(); if (!g || !g.r.imgs[k]) return;
+    g.r.imgs[k].cap = v;
+    roboSave(g.a);
+    writeLog('マスタ編集', 'ロボット配置図の説明：' + g.r.n + ' ' + (k + 1) + '枚目「' + v + '」');
+  };
+  /* マスタのモーダルは #main の外なので、患者情報の確認をここでかける。ただし使用物品の自由入力と同じく、
+     氏名パターンの黄色警告では止めない（「術者側から」でも出るので、毎回止めると本物の警告まで読み飛ばされる）。
+     止めるのは患者ID・姓名のフル一致など phiHasBlock が弾くものだけ */
+  if (v && phiHasBlock(detectPHI(v))) { toast('患者さんの情報と思われる内容は登録できません', 'err'); renderRoboImgsEditor(); return; }
+  save();
+}
+function roboEdMove(k, d) {
+  if (!supMstOk()) return;
+  var g = roboEdGet(); if (!g) return;
+  var im = g.r.imgs, j = k + d; if (!im[k] || j < 0 || j >= im.length) return;
+  var t = im[k]; im[k] = im[j]; im[j] = t;
+  roboSave(g.a); renderRoboImgsEditor();
+}
+function roboEdRemove(k) {
+  if (!supMstOk()) return;
+  var g = roboEdGet(); if (!g || !g.r.imgs[k]) return;
+  if (!confirm('「' + g.r.n + '」の' + (k + 1) + '枚目の配置図を外しますか？')) return;
+  var x = g.r.imgs.splice(k, 1)[0];
+  roboImgDel(x.k);
+  roboSave(g.a); renderRoboImgsEditor();
+  writeLog('マスタ編集', 'ロボット配置図を削除：' + g.r.n + ' ' + (k + 1) + '枚目');
+}
+/* k = -1 は追加、それ以外はその枚目の差し替え（差し替えは置き場所 k をそのまま使い、ts を変えて取り直させる） */
+function roboEdPick(k) {
+  if (!supMstOk()) return;
+  var g0 = roboEdGet(); if (!g0) return;
+  if (k < 0 && g0.r.imgs.length >= ROBO_IMG_MAX_N) { toast('配置図は' + ROBO_IMG_MAX_N + '枚までです', 'warn'); return; }
   var inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
   inp.onchange = function(){
     var f = inp.files && inp.files[0]; if (!f) return;
-    if (!confirm('「' + r.n + '」の配置図として登録します。\n\n病院名・ロゴ・患者さんの情報が写っていないか確認しましたか？')) return;
+    if (!confirm('「' + g0.r.n + '」の配置図として登録します。\n\n病院名・ロゴ・患者さんの情報が写っていないか確認しましたか？')) return;
     toast('配置図を圧縮しています…');
     compressDiagram(f, function(data, sz){
       if (!data) { toast('画像を読み込めませんでした', 'err'); return; }
       var ts = Date.now();
-      roboImgPut(r.id, ts, data, sz, function(ok){
+      var g = roboEdGet(); if (!g) return;
+      var cur = k >= 0 ? g.r.imgs[k] : null;
+      if (k >= 0 && !cur) return;
+      if (k < 0 && g.r.imgs.length >= ROBO_IMG_MAX_N) { toast('配置図は' + ROBO_IMG_MAX_N + '枚までです', 'warn'); return; }
+      var key = cur ? cur.k : (g.r.id + '_' + ts.toString(36));
+      roboImgPut(key, ts, data, sz, function(ok){
         if (!ok) return;
-        var a = roboLayouts(), j = roboIdx(a, r.id); if (j < 0) return;
-        a[j].img = ts; a[j].sz = sz;
-        roboSave(a); renderRoboMaster();
+        var g2 = roboEdGet(); if (!g2) return;
+        if (cur) { var c2 = g2.r.imgs.filter(function(x){ return x.k === key; })[0]; if (!c2) return; c2.ts = ts; c2.sz = sz; }
+        else g2.r.imgs.push({ k: key, ts: ts, sz: sz, cap: '' });
+        roboSave(g2.a); renderRoboImgsEditor();
         toast('✅ 配置図を登録しました（' + fmtBytes(sz) + '）', 'ok');
-        writeLog('マスタ編集', 'ロボット配置図を登録：' + r.n + '（' + fmtBytes(sz) + '）');
+        writeLog('マスタ編集', 'ロボット配置図を' + (cur ? '差し替え' : '登録') + '：' + g2.r.n + '（' + fmtBytes(sz) + '）');
       });
     });
   };
   inp.click();
-}
-function roboRemoveImage(i) {
-  if (!supMstOk()) return;
-  var a = roboLayouts(), r = a[i]; if (!r || !r.img) return;
-  if (!confirm('「' + r.n + '」の配置図を外しますか？')) return;
-  roboImgDel(r.id);
-  r.img = 0; r.sz = 0;
-  roboSave(a); renderRoboMaster();
-  writeLog('マスタ編集', 'ロボット配置図を削除：' + r.n);
 }
 
 /* ===== 症例行のポップアップ（使用物品・術式）から「決定」したときの書き戻し =====
@@ -23493,7 +23639,8 @@ function buildOPS(ds,dat,locked) {
             var rbv=opsItemRobo(item);
             if(rbv){
               var rChip=document.createElement('button'); rChip.type='button'; rChip.className='ops-robo-chip';
-              rChip.textContent='🤖 '+(rbv.n||'配置')+(rbv.img?' 🖼':''); rChip.title='配置図を見る';
+              var rbN=(roboFind(rbv.id)||{imgs:[]}).imgs.length;
+              rChip.textContent='🤖 '+(rbv.n||'配置')+(rbN?' 🖼'+(rbN>1?rbN:''):''); rChip.title='配置図を見る';
               rChip.onclick=(function(id2){return function(){openRoboImgModal(id2);};})(rbv.id);
               roboRow.appendChild(rChip);
             } else if(!locked){
