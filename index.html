@@ -249,6 +249,23 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .es-t{font-size:15px;font-weight:700;color:var(--txt2)}
 .es-s{font-size:13px;line-height:1.7}
 .pt2{font-size:21px;font-weight:900;margin-bottom:14px;line-height:1.3;letter-spacing:-.02em}
+.pnav{display:flex;align-items:center;gap:6px;min-width:0}
+.pnav-ttl{min-width:0;flex:0 1 auto}
+.pnav-btn{flex:0 0 auto;width:32px;height:32px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);font-size:18px;font-weight:700;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0}
+.pnav-btn:hover{background:var(--sur2);color:var(--txt)}
+@keyframes pnav-in-l{from{transform:translateX(-28px);opacity:.3}to{transform:none;opacity:1}}
+@keyframes pnav-in-r{from{transform:translateX(28px);opacity:.3}to{transform:none;opacity:1}}
+.main.pnav-from-l>*{animation:pnav-in-l .18s ease-out}
+.main.pnav-from-r>*{animation:pnav-in-r .18s ease-out}
+@media print{.pnav-btn{display:none!important}}
+/* ページの途中でも日付を移れる左右の丸ボタン。普段は薄くして本文の邪魔をしない（マウスを乗せる・押すと濃くなる） */
+#pnav-float .pnav-fl{position:fixed;top:50%;transform:translateY(-50%);z-index:150;width:34px;height:34px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);font-size:20px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;opacity:.2;transition:opacity .15s;box-shadow:var(--sh)}
+#pnav-float .pnav-fl.l{left:calc(var(--pnf-l,0px) + 4px)}
+#pnav-float .pnav-fl.r{right:calc(var(--pnf-r,0px) + 4px)}
+@media (hover:hover){#pnav-float .pnav-fl:hover{opacity:1}}
+#pnav-float .pnav-fl:active,#pnav-float .pnav-fl:focus-visible{opacity:1}
+body.pnav-kb #pnav-float{display:none!important}
+@media print{#pnav-float{display:none!important}}
 /* ダッシュボード：項目数が可変なので3列グリッドをやめ、内容幅で横に詰める。
    ラベルと値も縦積みではなく横並びにして高さを半分にする */
 .pp{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;box-shadow:var(--sh)}
@@ -3278,6 +3295,10 @@ function dashJumpTop(el) {
   var z = useMain ? uiZoom() : 1;
   var tb = document.querySelector('.tb');
   var off = (tb ? tb.getBoundingClientRect().height : 0) + 8;
+  /* ページ全体をスクロールする経路では、トップバーの下に出る帯（オフライン・PSG外し）の裏にも隠れるので、その高さも足す */
+  if (!useMain) ['offline-bar', 'psg-removal-banner'].forEach(function(id){
+    var b = document.getElementById(id); if (b && getComputedStyle(b).display !== 'none') off += b.getBoundingClientRect().height;
+  });
   var top = useMain
     ? ((el.getBoundingClientRect().top - mainEl.getBoundingClientRect().top - off) / z + mainEl.scrollTop)
     : (el.getBoundingClientRect().top + (window.pageYOffset || doc.scrollTop || 0) - off);
@@ -3362,6 +3383,7 @@ function init() {
      _viewMode（CE/HD主観）は localStorage から init 冒頭で復元されるため、ここで評価しないと
      HDモードのまま再読み込みしたときに担当表が残りHD集計が出ない状態になる。 */
   updateTabVisibility();
+  initPageSwipe(); /* 連絡表を左右に払って前後の日へ */
   renderCal();
   renderStfList(); renderPhsList(); renderTabletList();
   renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
@@ -3395,6 +3417,7 @@ function init() {
     var t = e.target;
     if (!t || (t.tagName!=='INPUT' && t.tagName!=='TEXTAREA')) return;
     _cbarInputFocused = true;
+    if (window.innerWidth <= 768) document.body.classList.add('pnav-kb'); /* スマホは入力中（キーボード表示中）だけ左右の丸ボタンも隠す */
     var bar = document.getElementById('cbar');
     if (bar && bar.getAttribute('data-ds')) bar.style.display = 'none';
   });
@@ -3405,6 +3428,7 @@ function init() {
       var active = document.activeElement;
       if (active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA')) return; /* 別の入力欄へ移っただけ */
       _cbarInputFocused = false;
+      document.body.classList.remove('pnav-kb');
       var bar = document.getElementById('cbar');
       if (bar && bar.getAttribute('data-ds')) bar.style.display = 'flex';
     }, 0);
@@ -5880,11 +5904,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/11-113';
+var APP_VERSION = 'Ver.2026/10/11-114';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-114', date:'2026-10-11', title:'連絡表で前後の日へすぐ移れるようにしました', items:[
+    {t:'new', notify:true, d:'‹ › 連絡表の日付の左右のボタンで、前の日・次の日へ移れるようになりました。ページの途中でも、画面の左右の端にある薄い丸ボタンで移れます。スマホでは画面を左右に払っても移れます（入力欄や配置盤の上では反応しません）'},
+    {t:'imp', d:'📅 連絡表がまだ無い日へ移ろうとしたときは、作るか聞くようにしました（作る権限が無い人は、次に連絡表がある日を開きます）'}
+  ]},
   { ver:'Ver.2026/10/11-113', date:'2026-10-11', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
     {t:'new', notify:true, d:'👤 メーカー連絡先のカードに「担当交代」ボタンを追加しました。今の担当者・電話・メールを「前任」として残したまま、新しい担当者を入力できます（誤字や番号の修正は今までどおり ✏️ から）'},
     {t:'new', notify:true, d:'🔍 カードの「前任 N名」を開くと、前の担当者の名前・交代日・電話番号が見られます（番号はコピーもできます）。検索で前任の名前を入れても見つかります'},
@@ -11921,13 +11949,14 @@ function closeItems(ds) {
 /* バー本体の表示更新。updateOpsHeader(ds)/updateTabletBtnBadge(ds) と同じ場所（呼び出し元）から呼ぶ。
    ds が未指定・該当ページ無しのときはバーごと非表示にする（日ページを開いているときだけ表示） */
 function updateCloseBar(ds) {
+  updatePnavFloat(ds);
   var bar = document.getElementById('cbar'); if (!bar) return;
   /* _cbarInputFocused の自己修復：入力欄にフォーカス中に renderPage() が #main を
      丸ごと差し替えると、フォーカス中の要素がDOMごと消えて focusout が発火しない。
      すると true のまま固まり、リロードするまでバーが二度と出なくなる。
      フラグを信用せず、呼ばれるたびに実際の focus 状態で上書きする。 */
   var _ae = document.activeElement;
-  if (!(_ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA'))) _cbarInputFocused = false;
+  if (!(_ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA'))) { _cbarInputFocused = false; document.body.classList.remove('pnav-kb'); }
   /* バーが出ている間はトーストと自動ログアウト警告を上へ逃がす（画面下端で重なるため） */
   function markBody(on){ document.body.classList[on ? 'add' : 'remove']('has-cbar'); }
   if (!ds || !D.pages[ds]) {
@@ -16364,6 +16393,116 @@ function openDefaultPage() {
   else showEmpty();
 }
 
+/* ===== 前後の日へ移る（ボタン・スワイプ） ===== */
+function pageNavTitleHTML(title) {
+  return '<span class="pnav">'
+    + '<button class="pnav-btn" onclick="pageNav(-1)" title="前の日" aria-label="前の日">‹</button>'
+    + '<span class="pnav-ttl">' + title + '</span>'
+    + '<button class="pnav-btn" onclick="pageNav(1)" title="次の日" aria-label="次の日">›</button>'
+    + '</span>';
+}
+/* 連絡表が無い日：作れる人には作るか聞く（カレンダーの空き日と同じ「1日分を追加」）。
+   作れない人は、その方向で一番近い連絡表まで飛ばす（作れないのに空の日で止まると先へ進めないため） */
+function pageNav(dir) {
+  if (!curDs) return;
+  var target = dir < 0 ? getPrevDs(curDs) : getNextDs(curDs);
+  if (D.pages[target]) { pageNavGo(target, dir); return; }
+  if (can('pg')) {
+    var nm = document.getElementById('nm-date'); if (nm) nm.value = target;
+    openNM();
+    return;
+  }
+  var t = target;
+  for (var i = 0; i < 31; i++) {
+    t = dir < 0 ? getPrevDs(t) : getNextDs(t);
+    if (D.pages[t]) { toast(fmtJ(target) + 'の連絡表は無いので、' + fmtJ(t) + 'を開きました', 'ok'); pageNavGo(t, dir); return; }
+  }
+  toast((dir < 0 ? 'これより前' : 'これより後') + 'の連絡表はありません', 'warn');
+}
+/* 左右の丸ボタン（#pnav-float）。日ページを開いている間だけ、#main の左右の端に置く。
+   表示の切り替えは updateCloseBar から呼ぶ（日ページの表示・非表示・タブ切替のすべてがそこを通るため） */
+function updatePnavFloat(ds) {
+  var w = document.getElementById('pnav-float');
+  var show = !!(ds && D.pages[ds]);
+  if (!w) {
+    if (!show) return;
+    w = document.createElement('div'); w.id = 'pnav-float';
+    w.innerHTML = '<button type="button" class="pnav-fl l" onclick="pageNav(-1)" aria-label="前の日" title="前の日">‹</button>'
+      + '<button type="button" class="pnav-fl r" onclick="pageNav(1)" aria-label="次の日" title="次の日">›</button>';
+    document.body.appendChild(w);
+  }
+  var mn = document.getElementById('main'), r = mn ? mn.getBoundingClientRect() : null;
+  if (!show || !r || r.width < 50) { w.style.display = 'none'; return; }
+  w.style.display = '';
+  var sbw = mn.offsetWidth - mn.clientWidth; /* 縦のスクロールバーに重ねない */
+  w.style.setProperty('--pnf-l', Math.max(0, r.left) + 'px');
+  w.style.setProperty('--pnf-r', Math.max(0, window.innerWidth - r.right + (sbw > 0 && sbw < 30 ? sbw : 0)) + 'px');
+}
+function pageNavGo(ds, dir) {
+  var pt = ds.split('-'); calY = parseInt(pt[0], 10); calM = parseInt(pt[1], 10) - 1;
+  openPage(ds);
+  var mn = document.getElementById('main');
+  if (mn) {
+    mn.scrollTop = 0;
+    mn.classList.remove('pnav-from-l', 'pnav-from-r');
+    void mn.offsetWidth; /* アニメーションをやり直す */
+    mn.classList.add(dir < 0 ? 'pnav-from-l' : 'pnav-from-r');
+    clearTimeout(mn._pnavTO);
+    mn._pnavTO = setTimeout(function(){ mn.classList.remove('pnav-from-l', 'pnav-from-r'); }, 260);
+  }
+  if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+}
+/* スワイプは誤作動を避けるため、条件を絞る：
+   ・横に80px以上、かつ縦の2倍以上動いた素早い（600ms以内）1本指の払いだけ
+   ・入力欄・ボタン類・配置盤・横にスクロールできる箱の上から始めたものは無視（中の操作を優先）
+   ・画面の左右24px以内から始めたものは無視（iPhone の「戻る」操作とぶつかる）
+   ・ピンチで拡大中、文字を選択中、長押しドラッグ中は無視 */
+var PNAV_SWIPE_MIN = 80, PNAV_SWIPE_MS = 600, PNAV_EDGE = 24;
+function pnavSwipeBlocked(el) {
+  for (var n = el; n && n !== document.body; n = n.parentElement) {
+    /* 文字サイズ「大」「特大」では #main 自体が横にスクロールする（:root[data-fs] .main{overflow-x:auto}）。
+       そのときに払うと横スクロールのつもりが日付の移動になるので、#main が横にはみ出していれば数えない */
+    if (n.id === 'main') return n.scrollWidth > n.clientWidth + 2;
+    var tg = n.tagName;
+    if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT' || tg === 'BUTTON' || tg === 'LABEL' || tg === 'A' || n.isContentEditable) return true;
+    /* 中でドラッグ・横スワイプを使う部品（配置盤・HD担当表・担当カード・プール） */
+    if (n.id === 'placement-wrap' || n.id === 'hd-roster-box' || n.id === 'pool-chips' || (n.classList && (n.classList.contains('pl-board') || n.classList.contains('dg') || n.classList.contains('cbar')))) return true;
+    if (n.scrollWidth > n.clientWidth + 2) {
+      var ox = getComputedStyle(n).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+    }
+  }
+  return true; /* #main の外（モーダル等）は対象外 */
+}
+function initPageSwipe() {
+  var mn = document.getElementById('main'); if (!mn || mn._pnavBound) return;
+  mn._pnavBound = true;
+  window.addEventListener('resize', function(){ var bar = document.getElementById('cbar'); updatePnavFloat(bar ? (bar.getAttribute('data-ds') || null) : null); });
+  var st = null;
+  mn.addEventListener('touchstart', function(e){
+    st = null;
+    if (!curDs || e.touches.length !== 1) return;
+    if (window.visualViewport && window.visualViewport.scale > 1.01) return;
+    var t = e.touches[0];
+    if (t.clientX < PNAV_EDGE || t.clientX > window.innerWidth - PNAV_EDGE) return;
+    if (pnavSwipeBlocked(e.target)) return;
+    st = { x: t.clientX, y: t.clientY, ts: Date.now(), ds: curDs, multi: false };
+  }, {passive: true});
+  mn.addEventListener('touchmove', function(e){ if (st && e.touches.length > 1) st.multi = true; }, {passive: true});
+  mn.addEventListener('touchend', function(e){
+    var s0 = st; st = null;
+    if (!s0 || s0.multi || s0.ds !== curDs) return;
+    var t = e.changedTouches && e.changedTouches[0]; if (!t) return;
+    var dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+    if (Date.now() - s0.ts > PNAV_SWIPE_MS) return;
+    if (Math.abs(dx) < PNAV_SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 2) return;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && String(sel).length) return;
+    if (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    pageNav(dx > 0 ? -1 : 1); /* 右へ払う＝前の日（紙をめくる向き） */
+  }, {passive: true});
+  mn.addEventListener('touchcancel', function(){ st = null; }, {passive: true});
+}
 function openPage(ds) {
   var prev = curDs;
   curDs = ds;
@@ -18773,7 +18912,7 @@ function renderPage(ds) {
   var si=getShiftForDay(ds);
 
   var h='<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
-  h+='<div class="pt2" style="flex:1">分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）</div>';
+  h+='<div class="pt2" style="flex:1">'+pageNavTitleHTML('分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）')+'</div>';
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
   var _tblOut=tabletUnreturnedCount(ds);
   h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
@@ -20019,7 +20158,7 @@ function renderPageHD(ds) {
   var hdPct = hdTotal===0 ? 100 : Math.round(hdDone/hdTotal*100);
 
   var h = '<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
-  h += '<div class="pt2" style="flex:1">🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）</div>';
+  h += '<div class="pt2" style="flex:1">' + pageNavTitleHTML('🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）') + '</div>';
   var _tblOut = tabletUnreturnedCount(ds);
   h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
   /* 掲示板・スケジュールもCE版と同じ並びで出す。中身は主観ごとに別スレッド
