@@ -79,6 +79,7 @@ var D = {
   eduProgress: {},  // 教育到達度 { 氏名: { 項目key: {lv,by,ts,hist[],goalFy?} } }。詳細は下記「実績・教育到達度」節
   eduCfg: { ceEdu:false }, // オペ・カテ症例行に教育者欄を出すか（既定OFF）
   eduItems: { ward:[], device:[], hd:[] }, // 教育到達度6分類のうち病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
+  opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
   _migVer: 6        // data migration version flag (increment when running one-time migrations)
 };
 ```
@@ -731,6 +732,10 @@ dat.placement = {
 - **復元3経路は `supMasterAfterRestore(data)` を必ず呼ぶ。** 旧バックアップ（`supMaster` を持たない）から戻すと supTree だけが古くなるので、その場で新しい形へ移す（復元は `_migVer` を回し直さない）
 - **手動復旧（`rebuildSupMasterFromLegacy()`）**：`supMasterOf()` が空のとき、`renderSupMaster()` の空表示に「📦 物品マスタ（旧）から作り直す」ボタンを出す（`can('mst')`）。2026-09-12、古いアプリの保存で `D.supMaster` が空になり、以後の1時間ごとのバックアップも壊れた状態のまま上書きされ続けた（バックアップは「今のD」を保存するだけなので、壊れてから何度保存されても直らない）——過去のスナップショットを探すより、削除していない `D.supTree`（旧マスタ）へもう一度 `supLegacyToMaster()`（移行 `_migVer` 6 と同じ変換）をかける方が確実。**空のときだけボタンを出す**——データがある状態で押せると、移行後に使用物品マスタだけへ加えた変更（追加・改名・科の付け替え）を無言で消してしまう。
 - **自由入力は氏名パターンの黄色警告では止めない**（`phiHasBlock` のブロック対象＝患者IDや姓名フル一致だけ弾く）。ヘルプ職員名・メーカー担当者名と同じ判断。実測すると漢字を含む品名はほとんどが氏名パターンに当たり（中心静脈カテーテル／生体情報モニタ／自己血回収装置／電気メス先端チップ／吸収糸…）、毎回警告を挟むとアラート疲れで本物の患者情報の警告まで読み飛ばされる。**`phiGuardText` にそのまま通す形へ戻さないこと**
+
+**6MW（`ops.mw_items`）**：1件ずつのブロック `[{_rid, time:'HH:MM', doc, staff:[], note, chk:{確認項目id:true}}]`。描画・編集は `renderMwBlocks(ds, box, locked)`（ブロックの入れ物に1回だけ委譲。書き込みは毎回 `mwFind(ds, rid)` で `D.pages[ds]` から引き直す）。**件数は必ず `mwCount(pg, header)` を通す**——ブロックがある日はブロック数（集計は `mwItemFilled` の行だけ）、無い日は従来の `ops.mw_n`（書き換えない。画面では「N件（旧形式）」と読むだけ）。担当医は自由入力で `data-no-phi`（`initPHIGuard` が飛ばす。医師名で毎回止めないため）、候補は全ページの入力済みの名前（`mwDocNames`）。CE集計の `mwBreakdownHTML()` が担当医別・実施CE別、タイムラインは開始時刻のあるブロックだけ（`kind:'mw'`）。
+
+**6MW・PSGの確認項目（`D.opsChk`）**：`{mw, psgOn, psgOff}` の各配列 `[{id, t}]`。読み出しは `opsChkList(kind)`、保存は `opsChkSave(kind, arr)`、マスタは業務マスタ🔪グループの「✅ 6MW・PSGの確認項目」（`renderOpsChkMaster`、`mst`）。当日の記録は**項目の id で持つ**（6MW＝各ブロックの `chk`、PSG＝`ops.psg_chk_on`／`psg_chk_off`）ので、改名・並べ替えでチェックは外れない。連絡表では `opsChkDetailsHTML(key, title, list, ck, locked, pre)` の折りたたみ（開閉は `_opsChkOpen`、非永続）。PSG装着の「付箋入力済」は従来の `ops.psg_fusen` のまま先頭に固定で置く（`runPsgFusenCheck` の10時のお知らせがこれを見ていて、お知らせのときは折りたたみを開く）。消し込みバーは `mwchk`（実施CEに自分がいれば自分あて）・`psgchk`（名前に「PSG」を含む担当枠の人が自分あて。装着は装着欄に入力がある日、外しは `tlIsPsgRemovalDay` の日）。
 
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
