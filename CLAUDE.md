@@ -361,6 +361,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 
 Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` is a `position:fixed` full-screen overlay on mobile.
 
+**前後の日への移動（`pageNav(dir)` / `pageNavTitleHTML(title)` / `initPageSwipe()`）**：連絡表の見出し（CE・HDとも）の左右に ‹ › を置く。連絡表が無い日は、`can('pg')` なら「1日分を追加」（`openNM`、カレンダーの空き日と同じ入口）を開き、無ければその方向で31日以内の一番近い連絡表へ飛ぶ。スワイプは `#main` に1回だけ登録し、横80px以上・縦の2倍以上・600ms以内・1本指だけを数える。入力欄・ボタン・配置盤（`#placement-wrap`）・HD担当表・担当カード（`.dg`）・プール・横スクロールできる箱・画面端24px・ピンチ拡大中・文字選択中は無視する（`pnavSwipeBlocked`）。**中でドラッグや横スワイプを使う部品を `#main` に足したら、`pnavSwipeBlocked` にも足すこと。** ページの途中用に、`#main` の左右の端へ薄い丸ボタン（`#pnav-float`、`updatePnavFloat(ds)`）を置く。出し入れは `updateCloseBar` の先頭から呼ぶ（日ページの表示・非表示・タブ切替がすべてそこを通るため）。普段は `opacity:.2`、マウスを乗せる・押すと濃くなる。スマホで入力中（キーボード表示中）は `body.pnav-kb` で隠す。z-index は150（スマホのサイドバー200・消し込みバー250より下）。
+
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
 連絡表を1日だけ作る入り口は、カレンダーで連絡表の無い日を押したとき（`renderCal` の日セル）だけ。トップバーの「＋ 1日追加」ボタンは使われていなかったので削除した（`openNM` と `#modal-nm` はこの入り口のために残してある）。
@@ -1154,6 +1156,7 @@ D.makers = {
 - **`onclick` handlers pass only the record `id`, never inline field values** (`mkEdit('mk_xxx')`, `mkCopyTel('mk_xxx', 1)`, etc. — never e.g. `onclick="mkEdit('${r.maker}')"`). A manufacturer name containing an apostrophe would otherwise break the generated `onclick` string (this class of bug has bitten this codebase before — see the `changelog` entry for staff/duty names with `'`). Card text itself still goes through `escH()`.
 - **Excel bulk import (`openMkImpModal`/`doSaveMkImp`) is admin-only** (`isAdmin`, not `can('maker')`) — a single import can replace or delete on the order of a hundred records in one action, a blast radius roughly two orders of magnitude larger than editing one record, so it is deliberately not covered by the `maker` lock/per-user-permission model that governs individual add/edit/delete.
 - **Category deletion never deletes records.** `mkCatDel(i)` in the category-management modal: if the category being removed still has records (`mkCountByCat`), it prompts for confirmation, then sets `cat:''` on every record that referenced it (moving them to the virtual "未分類" bucket, which only appears in the UI when it has ≥1 member) before splicing the category out of `cats`. The modal batches all category add/rename/reorder/delete edits into a single `saveD()` on close (`mkCatModalClose()`) rather than saving on every keystroke/click, since a ~150-record dataset makes a full-`D` write on every micro-edit expensive.
+- **担当交代の履歴（`r.hist`）**：各レコードが `hist:[{person,tel1,tel2,mail,until,ts,by}]`（新しい順、`MK_HIST_MAX`=5件まで）を持つ。前任を別カードにしない（一覧に同じメーカーが並んで今の担当を探しにくくなるため）。読み出しは `normMakers` 内の `mkHistNorm`、積むのは `mkPushHist(rec, until, by)` だけ。**✏️（`openMakerModal(id)`＝誤字・番号の修正）では履歴を残さず、👤（`openMakerModal(id, true)`＝担当交代）だけが積む**——直すたびに履歴が増えないように分けている。検索は前任の名前・電話にも当て、前任だけに一致したカードは前任一覧を開いて出す。Excel取込（全入れ替え・更新）は「Excel側でそのメーカーが1行、手元でも1件」のときだけ担当者名の違いを交代とみなす（`mkImpHandoverTarget`。複数担当のメーカーは誰が誰に代わったか決められないため）。全入れ替えでも同じ担当なら履歴を引き継ぐ。
 - Manufacturer/person/phone/email fields are intentionally excluded from `detectPHI` (see PHI Detection section above); only `note` is guarded.
 
 ### Changelog System
