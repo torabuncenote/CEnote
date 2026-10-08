@@ -976,6 +976,14 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 @media(max-width:768px){.ops-hier-row select,.ops-hier-row input{flex:1 1 100%}}
 .clg{background:var(--sur);border:1px solid var(--bdr);border-radius:var(--r);padding:13px 15px;margin-bottom:9px;box-shadow:var(--sh)}
 .clg.lg{border-color:var(--rd-bdr);background:var(--sur2)}
+.cli-roles{display:inline-flex;flex-wrap:wrap;gap:3px;margin-left:6px;vertical-align:middle}
+.cli-role{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;line-height:1.5;white-space:nowrap;border:1px solid var(--bdr);background:var(--sur2);color:var(--txt2)}
+.cli-role.me{font-weight:800;box-shadow:0 0 0 1.5px currentColor}
+.cl-mine-btn{margin-left:auto;font-size:11px;padding:2px 9px;border-radius:12px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);cursor:pointer;font-weight:600}
+.cl-mine-btn.on{background:var(--ac);border-color:var(--ac);color:var(--on-ac)}
+.cbar-roles{display:flex;flex-wrap:wrap;gap:4px;padding:0 10px 6px 22px}
+@media screen{.cl-role-hide{display:none!important}}
+@media print{.cl-mine-btn{display:none!important}}
 .clt{font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px}
 .wb{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;background:var(--or-bg);color:var(--or)}
 .cli{display:flex;align-items:flex-start;gap:9px;padding:5px 3px;border-radius:4px;transition:background .1s}
@@ -5904,11 +5912,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/11-114';
+var APP_VERSION = 'Ver.2026/10/11-115';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-115', date:'2026-10-11', title:'チェックリストの各業務に役割を付けられるようにしました', items:[
+    {t:'new', notify:true, d:'🏷 チェックリストの各業務に、誰の仕事か（CEは担当枠、HDは M・A3 などの役割）が印で出るようになりました。自分の役割の印は太字になります'},
+    {t:'new', notify:true, d:'👤 チェックリストの見出しのボタンで「自分の役割の業務だけ」に絞って表示できます（役割の付いていない業務は常に出ます）'},
+    {t:'imp', notify:true, d:'✅ 消し込みバーで、自分の役割のチェックが「自分あて」になり、残りがどの役割の分かも分かるようになりました'},
+    {t:'new', admin:true, notify:true, d:'🏷 マスタの共通業務・曜日別業務（CE・HD）の各項目に「🏷 役割」を追加しました。いくつでも選べます'}
+  ]},
   { ver:'Ver.2026/10/11-114', date:'2026-10-11', title:'連絡表で前後の日へすぐ移れるようにしました', items:[
     {t:'new', notify:true, d:'‹ › 連絡表の日付の左右のボタンで、前の日・次の日へ移れるようになりました。ページの途中でも、画面の左右の端にある薄い丸ボタンで移れます。スマホでは画面を左右に払っても移れます（入力欄や配置盤の上では反応しません）'},
     {t:'imp', d:'📅 連絡表がまだ無い日へ移ろうとしたときは、作るか聞くようにしました（作る権限が無い人は、次に連絡表がある日を開きます）'}
@@ -11803,13 +11817,13 @@ function _clStatusNs(ns, ds) {
     if (!isDlyShownOnDate(D[ns.dly][i], ds)) continue;
     out.total++;
     if (dat[ns.checks] && dat[ns.checks][i]) out.done++;
-    else out.undone.push({ label: dlyText(D[ns.dly][i]) });
+    else out.undone.push({ label: dlyText(D[ns.dly][i]), roles: itemRoles(D[ns.dly][i]) });
   }
   var ents = _clWdEntries(ns, ds);
   for (var j = 0; j < ents.length; j++) {
     out.total++;
     if ((dat[ns.checks] && dat[ns.checks][D[ns.dly].length + j]) || _clWdOnceDoneOn(ns, ds, ents[j])) out.done++;
-    else out.undone.push({ label: ents[j].t });
+    else out.undone.push({ label: ents[j].t, roles: itemRoles(ents[j].it) });
   }
   return out;
 }
@@ -11890,12 +11904,14 @@ function closeItems(ds) {
      mine判定もCE側「オペ/カテ担当枠が無い人だけ自分ごと」はHDに担当枠の概念自体が
      無いため意味を成さず、HDでは自分が特定できていれば単純に自分ごとにする。 */
   if (_viewMode === 'hd') {
-    hdClStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:!!self}); });
+    var myHdR = myClRoles(ds, true);
+    /* 役割が付いた項目は、その役割の人だけの「自分あて」。付いていない項目は今までどおり */
+    hdClStatus(ds).undone.forEach(function(u){ byKey.checklist.items.push({mine: u.roles && u.roles.length ? rolesHit(u.roles, myHdR) : !!self, roles:u.roles || []}); });
   } else {
     /* オペ/カテいずれの担当枠も無い人（フリー・機器管理など、または担当なし）が
        共通業務の担い手という実際の運用に合わせ、その場合だけ自分ごとにする */
     var checklistMine = !!self && !myOpe && !myCath;
-    clStatus(ds).undone.forEach(function(){ byKey.checklist.items.push({mine:checklistMine}); });
+    clStatus(ds).undone.forEach(function(u){ byKey.checklist.items.push({mine: u.roles && u.roles.length ? rolesHit(u.roles, myLabels) : checklistMine, roles:u.roles || []}); });
   }
 
   /* 5. タブレット未返却（ヘッダーバッジと同じ式：当日分＋前日以前からの持ち越し分）。
@@ -12049,6 +12065,21 @@ function renderCbarDetail(ds, cats){
     h += '<span class="cbar-row-arrow" onclick="dashJump(\''+c.sel+'\')">→</span>';
     h += '<button type="button" class="cbar-row-skip" onclick="closeBarSkip(\''+ds+'\',\''+c.key+'\')">対象外</button>';
     h += '</div>';
+    /* チェックリストは、残りが誰の役割の分かを印で添える（自分の役割を先頭・強調） */
+    if (c.key === 'checklist') {
+      var byRole = {}, order = [];
+      c.items.forEach(function(it){
+        if (_cbarMineOnly && !it.mine) return;
+        (it.roles && it.roles.length ? it.roles : ['']).forEach(function(r){ if (!(r in byRole)) { byRole[r] = 0; order.push(r); } byRole[r]++; });
+      });
+      if (order.some(function(r){ return r !== ''; })) {
+        var myR = myClRoles(ds, _viewMode === 'hd');
+        order.sort(function(a, b){ return (myR.indexOf(b) !== -1) - (myR.indexOf(a) !== -1); });
+        h += '<div class="cbar-roles">' + order.map(function(r){
+          return r ? clRoleBadgesHTML([r], myR, byRole) : '<span class="cli-role">役割なし ' + byRole[r] + '</span>';
+        }).join('') + '</div>';
+      }
+    }
   });
   detail.innerHTML = h;
 }
@@ -12708,7 +12739,7 @@ function renderDlyList() {
       });
       return s?'<span style="display:inline-flex;gap:3px;align-items:center">'+s+'</span>':'';
     })();
-    var btns = ok ? devCfgBtnHTML('dly', i, it) + '<button class="re2" onclick="editDly('+i+')">✏️</button><button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
+    var btns = ok ? roleCfgBtnHTML('dly', i, it) + devCfgBtnHTML('dly', i, it) + '<button class="re2" onclick="editDly('+i+')">✏️</button><button class="ru" onclick="mvDly('+i+',-1)">↑</button><button class="rdw" onclick="mvDly('+i+',1)">↓</button><button class="rd2" onclick="rmDly('+i+')">×</button>' : '';
     var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
     var notifRow = '';
     if (ok) {
@@ -12807,7 +12838,7 @@ function renderHdDlyList() {
       });
       return s?'<span style="display:inline-flex;gap:3px;align-items:center">'+s+'</span>':'';
     })();
-    var btns = ok ? devCfgBtnHTML('hdDly', i, it) + '<button class="re2" onclick="editHdDly('+i+')">✏️</button><button class="ru" onclick="mvHdDly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdDly('+i+',1)">↓</button><button class="rd2" onclick="rmHdDly('+i+')">×</button>' : '';
+    var btns = ok ? roleCfgBtnHTML('hdDly', i, it) + devCfgBtnHTML('hdDly', i, it) + '<button class="re2" onclick="editHdDly('+i+')">✏️</button><button class="ru" onclick="mvHdDly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdDly('+i+',1)">↓</button><button class="rd2" onclick="rmHdDly('+i+')">×</button>' : '';
     var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
     el.innerHTML = head;
     l.appendChild(el);
@@ -12880,7 +12911,7 @@ function renderWdlyList() {
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
       var subsBadge = '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openWdSubsModal('+i+')">🏥 部署'+(subs?' ('+subs.length+')':'')+'</button>';
-      var btns = ok ? (subsBadge + devCfgBtnHTML('wd', i, it) + '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>') : '';
+      var btns = ok ? (subsBadge + roleCfgBtnHTML('wd', i, it) + devCfgBtnHTML('wd', i, it) + '<button class="re2" onclick="editWdly('+i+')">✏️</button><button class="ru" onclick="mvWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvWdly('+i+',1)">↓</button><button class="rd2" onclick="rmWdly('+i+')">×</button>') : '';
       var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
                + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
       var freq = '';
@@ -13057,7 +13088,7 @@ function renderHdWdlyList() {
       el.className = 'ri';
       el.style.flexDirection = 'column'; el.style.alignItems = 'stretch'; el.style.gap = '6px';
       var subsBadge = '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openHdWdSubsModal('+i+')">🏥 部署'+(subs?' ('+subs.length+')':'')+'</button>';
-      var btns = ok ? (subsBadge + devCfgBtnHTML('hdWd', i, it) + '<button class="re2" onclick="editHdWdly('+i+')">✏️</button><button class="ru" onclick="mvHdWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdWdly('+i+',1)">↓</button><button class="rd2" onclick="rmHdWdly('+i+')">×</button>') : '';
+      var btns = ok ? (subsBadge + roleCfgBtnHTML('hdWd', i, it) + devCfgBtnHTML('hdWd', i, it) + '<button class="re2" onclick="editHdWdly('+i+')">✏️</button><button class="ru" onclick="mvHdWdly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdWdly('+i+',1)">↓</button><button class="rd2" onclick="rmHdWdly('+i+')">×</button>') : '';
       var head = '<div style="display:flex;align-items:center;gap:6px;width:100%">'
                + '<span class="rn" style="font-size:11px;flex:1">📅 ' + escH(text) + '</span>' + btns + '</div>';
       var freq = '';
@@ -14431,6 +14462,103 @@ function devEditDialog(title, fields, onSave) {
     ov.remove();
   };
   var f0 = document.getElementById('dev-ed-0'); if (f0 && f0.focus) f0.focus();
+}
+
+/* ---- チェック項目の「役割」（roles） ----
+   その業務が誰の領域かを示す。CEは担当枠の名前（オペ担当・病棟外回り…）、HDは役割コード（M・A1…B・準）。
+   CEを枠の id ではなく名前で持つのは、id が「追加」のたびに振り直されるため（dutyColorFor・myDutyLabels と同じ理由）。
+   表示（当日のチェックリストの印・「自分の役割だけ」）と消し込みバーの「自分あて」に使う。数え方（clStatus）は変えない。 */
+function itemRoles(it) {
+  if (!it || typeof it !== 'object' || !it.roles) return [];
+  var r = it.roles;
+  return (Array.isArray(r) ? r : Object.keys(r).map(function(k){ return r[k]; })).filter(function(x){ return typeof x === 'string' && x; });
+}
+function clRoleIsHd(list) { return list === 'hdDly' || list === 'hdWd'; }
+function clRoleOptions(list) {
+  if (clRoleIsHd(list)) return HD_DAY_CODES.concat(['準']);
+  var seen = {}, out = [];
+  getDutyMaster().forEach(function(sl){ var l = String(sl.label || '').trim(); if (l && !seen[l]) { seen[l] = 1; out.push(l); } });
+  return out;
+}
+function clRoleLabel(r) { return r === '準' ? '準夜' : r; }
+/* その日の自分の役割。CE＝自分が入っている担当枠の名前、HD＝HD担当表での自分の役割。
+   時間で覚えておく（キャッシュ）と、担当を変えた直後の消し込みバーが古い役割のまま数えるので、毎回求める */
+function myClRoles(ds, isHd) {
+  var self = taskSelfName();
+  if (!self || !D.pages[ds]) return [];
+  return isHd
+    ? hdShiftWorkers(ds).filter(function(h){ return h.name === self; }).map(function(h){ return h.shift || (h.night ? '準' : ''); }).filter(Boolean)
+    : myDutyLabels(ds);
+}
+function rolesHit(roles, mine) { return roles.some(function(r){ return mine.indexOf(r) !== -1; }); }
+function clRoleBadgesHTML(roles, mine, counts) {
+  return roles.map(function(r){
+    return '<span class="cli-role' + (mine && mine.indexOf(r) !== -1 ? ' me' : '') + '" style="' + dutyChipStyle({label:r}) + '">' + escH(clRoleLabel(r)) + (counts ? ' ' + counts[r] : '') + '</span>';
+  }).join('');
+}
+/* 「自分の役割だけ」表示。端末ローカル（D には入れない）。役割の付いていない項目は常に出す */
+var _clMineOnly = (function(){ try { return localStorage.getItem('ce2_clmine') === '1'; } catch(e) { return false; } })();
+function clMineBtnHTML(isHd) {
+  var lists = isHd ? [D.hdDly].concat(Object.keys(D.hdWd || {}).map(function(k){ return D.hdWd[k]; }))
+                   : [D.dly].concat(Object.keys(D.wd || {}).map(function(k){ return D.wd[k]; }));
+  var any = lists.some(function(arr){ return normArr(arr).some(function(it){ return itemRoles(it).length; }); });
+  if (!any) return '';
+  return '<button type="button" class="cl-mine-btn' + (_clMineOnly ? ' on' : '') + '" onclick="toggleClMineOnly()" title="自分の役割の項目だけを表示（役割の無い項目は常に表示）">' + (_clMineOnly ? '👤 自分の役割だけ' : '👥 すべて表示') + '</button>';
+}
+function toggleClMineOnly() {
+  _clMineOnly = !_clMineOnly;
+  try { localStorage.setItem('ce2_clmine', _clMineOnly ? '1' : '0'); } catch(e) {}
+  if (curDs && D.pages[curDs]) renderPage(curDs);
+}
+function roleCfgBtnHTML(list, i, it) {
+  var r = itemRoles(it);
+  return '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openRoleCfgModal(\'' + list + '\',' + i + ')">🏷 役割' + (r.length ? '（' + escH(r.map(clRoleLabel).join('・')) + '）' : '') + '</button>';
+}
+var _roleCfg = null;
+function openRoleCfgModal(list, i) {
+  var L = DEV_LISTS[list]; if (!L || !can(L.perm)) return;
+  var item = L.arr()[i]; if (item === undefined) return;
+  var sel = {}; itemRoles(item).forEach(function(r){ sel[r] = true; });
+  var opts = clRoleOptions(list);
+  itemRoles(item).forEach(function(r){ if (opts.indexOf(r) === -1) opts.push(r); }); /* マスタから消えた枠名も外せるように出す */
+  _roleCfg = { list:list, idx:i, text:(typeof item === 'string' ? item : (item.t || '')), sel:sel, opts:opts };
+  var old = document.getElementById('role-cfg-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'role-cfg-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.id = 'role-cfg-md'; md.className = 'md'; md.style.maxWidth = '420px';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderRoleCfgBody();
+}
+function renderRoleCfgBody() {
+  var md = document.getElementById('role-cfg-md'); if (!md || !_roleCfg) return;
+  var c = _roleCfg, hd = clRoleIsHd(c.list);
+  var h = '<h3>🏷 役割（' + escH(c.text) + '）</h3>'
+    + '<div class="pn" style="font-size:11px;margin-bottom:8px">' + (hd ? 'この業務を担当するHDの役割を選びます。' : 'この業務を担当する担当枠を選びます。') + 'いくつでも選べます。選んだ役割の人には、消し込みバーで「自分あて」として出ます。</div>'
+    + '<div class="dc-cbs">' + c.opts.map(function(r, k){
+      var on = !!c.sel[r];
+      return '<label class="dc-cb-item' + (on ? ' checked' : '') + '"><input type="checkbox" onchange="roleCfgToggle(' + k + ', this.checked)"' + (on ? ' checked' : '') + '>' + escH(clRoleLabel(r)) + '</label>';
+    }).join('') + (c.opts.length ? '' : '<span class="cle">担当枠がまだありません</span>') + '</div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'role-cfg-ov\').remove()">キャンセル</button><button class="btn btn-p" onclick="saveRoleCfg()">保存</button></div>';
+  md.innerHTML = h;
+}
+function roleCfgToggle(k, on) {
+  var c = _roleCfg; if (!c) return; var r = c.opts[k]; if (!r) return;
+  if (on) c.sel[r] = true; else delete c.sel[r];
+  renderRoleCfgBody();
+}
+function saveRoleCfg() {
+  var c = _roleCfg; if (!c) return;
+  var L = DEV_LISTS[c.list]; if (!L || !can(L.perm)) return;
+  var arr = L.arr(), item = arr[c.idx]; if (item === undefined) return;
+  /* 開いている間に並べ替え・改名されていたら、別の項目に保存しないよう止める */
+  if ((typeof item === 'string' ? item : (item.t || '')) !== c.text) { toast('項目が変わったため保存しませんでした。もう一度開いてください', 'warn'); return; }
+  var roles = c.opts.filter(function(r){ return c.sel[r]; });
+  arr[c.idx] = itemRebuild(item, { roles: roles.length ? roles : null });
+  L.after(); saveD();
+  writeLog(L.label + 'の役割を編集', c.text + '（' + (roles.length ? roles.map(clRoleLabel).join('・') : 'なし') + '）');
+  var ov = document.getElementById('role-cfg-ov'); if (ov) ov.remove();
+  _roleCfg = null; toast('保存しました', 'ok');
+  if (typeof safeRenderPage === 'function') safeRenderPage();
 }
 
 /* ---- チェック項目ごとの「🩺 機器」設定 ---- */
@@ -19071,7 +19199,7 @@ function renderPage(ds) {
 
   /* チェックリスト */
   h+='<div class="st">✅ 業務チェックリスト'+(clk?'<span class="slb lk">🔒</span>':'')+'</div>';
-  h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> 共通業務（毎日・'+D.dly.length+'項目）</div><div id="dcl"></div></div>';
+  h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> 共通業務（毎日・'+D.dly.length+'項目）'+clMineBtnHTML(false)+'</div><div id="dcl"></div></div>';
   h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> 曜日別業務 <span class="wb">'+wf+'</span></div><div id="wcl"></div></div><hr>';
 
   /* 業務連絡（マークアップは memoSectionHTML に集約。HD日ページと同一のものを使う） */
@@ -20210,7 +20338,7 @@ function renderPageHD(ds) {
 
   /* HDチェックリスト（共通業務・曜日別業務）。.clgラッパーはCE版と同じクラスなので、
      dashJump('.clg')・closeItemsの sel:'.clg' がCE/HDどちらの日ページでも無改造で動く */
-  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> HD共通業務（毎日・'+D.hdDly.length+'項目）</div><div id="hdcl"></div></div>';
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> HD共通業務（毎日・'+D.hdDly.length+'項目）'+clMineBtnHTML(true)+'</div><div id="hdcl"></div></div>';
   h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> HD曜日別業務 <span class="wb">'+wf+'</span></div><div id="hdwcl"></div></div><hr>';
 
   /* 業務連絡・申し送り（HD専用スレッド dat.hdMemos。マークアップは memoSectionHTML でCEと共通） */
@@ -24518,6 +24646,15 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
   peekBtn.onclick=function(e){ e.stopPropagation(); openSP(task); };
 
   div.appendChild(cb); div.appendChild(lb);
+  /* 役割の印。「自分の役割だけ」のときは、役割が付いていて自分の役割を含まない項目を隠す（数え方は変えない） */
+  var roles = itemRoles(it || dlyIt), roleHidden = false;
+  if (roles.length) {
+    var myR = myClRoles(ds, ns === CL_HD);
+    var rb = document.createElement('span'); rb.className = 'cli-roles'; rb.innerHTML = clRoleBadgesHTML(roles, myR);
+    div.appendChild(rb);
+    /* 自分が誰か分からない（アカウントがスタッフ名に紐づいていない）ときは絞り込まない——全部隠れてしまうため */
+    roleHidden = _clMineOnly && !!taskSelfName() && !rolesHit(roles, myR);
+  }
   /* 月内1回でよい項目が、別の対象日で既に実施済みのときの案内。
      チェックボックスをdisabledにしているのは、押しても兄弟日の実績は消えないため
      （有効にすると「押しても何も変わらない」ボタンになる）。やり直すなら実施した日を
@@ -24534,9 +24671,11 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
   if (devBtn) div.appendChild(devBtn);
   div.appendChild(peekBtn);
 
-  if (!subs && !devCfg) return div;
+  /* 隠すのは画面だけ（印刷では全項目を出す。紙の記録から項目が消えないように） */
+  if (!subs && !devCfg) { if (roleHidden) div.classList.add('cl-role-hide'); return div; }
 
-  var wrap=document.createElement('div'); wrap.className='cli-wrap'+(subs&&_subOpen[wdSid(it)]?' open':'')+(devCfg&&_devOpen[wdSid(devIt)]?' dev-open':'');
+  var wrap=document.createElement('div');
+  wrap.className='cli-wrap'+(subs&&_subOpen[wdSid(it)]?' open':'')+(devCfg&&_devOpen[wdSid(devIt)]?' dev-open':'')+(roleHidden?' cl-role-hide':'');
   wrap.appendChild(div);
   if (devCfg) {
     var devEl=document.createElement('div'); devEl.className='cli-devs';
