@@ -825,6 +825,7 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .robo-img{display:block;max-width:100%;max-height:calc(70vh / var(--ui-zoom,1));margin:0 auto;border:1px solid var(--bdr);border-radius:var(--rs);background:#fff}
 .robo-view{display:flex;flex-direction:column;gap:6px}
 .robo-view .robo-img{cursor:zoom-in}
+.robo-zoom-hint{font-size:10.5px;color:var(--txt3);text-align:center;margin-top:-2px}
 .rz-ov{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.92);display:flex;flex-direction:column;touch-action:none}
 .rz-bar{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 10px 8px;color:#fff}
 .rz-ttl{flex:1;min-width:0;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -5983,11 +5984,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/09-120';
+var APP_VERSION = 'Ver.2026/10/09-121';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/09-121', date:'2026-10-09', title:'配置図の拡大を案内するようにしました', items:[
+    {t:'imp', d:'🔍 ロボット配置図の下に「図をタップすると全画面で開き、拡大・縮小できます」と小さく案内を出しました'}
+  ]},
   { ver:'Ver.2026/10/09-120', date:'2026-10-09', title:'ロボット配置図を拡大して見られるようにしました', items:[
     {t:'imp', d:'🔍 ロボット配置図を押すと全画面で開き、2本指で広げる・ダブルタップ・＋ボタンで拡大できるようになりました。拡大中は指でずらして細かいところを見られます（PCはホイールでも拡大できます）'}
   ]},
@@ -18557,6 +18561,7 @@ function roboFillImg(el, r, start) {
     + '<div class="robo-stage"><div class="robo-stage-img"><div class="sup-pick-empty">配置図を読み込み中…</div></div>'
     + (multi ? '<button type="button" class="robo-nav l" data-rv="-1" aria-label="前の図">‹</button><button type="button" class="robo-nav r" data-rv="1" aria-label="次の図">›</button>' : '')
     + '</div><div class="robo-meta"><span class="robo-cap"></span>' + (multi ? '<span class="robo-cnt"></span>' : '') + '</div>'
+    + '<div class="robo-zoom-hint">🔍 図をタップすると全画面で開き、拡大・縮小できます</div>'
     + (multi ? '<div class="robo-thumbs">' + imgs.map(function(x, k){ return '<button type="button" class="robo-thumb" data-rk="' + k + '" aria-label="' + (k + 1) + '枚目"></button>'; }).join('') + '</div>' : '')
     + '</div>';
   var show = function(){
