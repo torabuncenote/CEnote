@@ -824,6 +824,16 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .robo-img-box{margin-top:8px}
 .robo-img{display:block;max-width:100%;max-height:calc(70vh / var(--ui-zoom,1));margin:0 auto;border:1px solid var(--bdr);border-radius:var(--rs);background:#fff}
 .robo-view{display:flex;flex-direction:column;gap:6px}
+.robo-view .robo-img{cursor:zoom-in}
+.rz-ov{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.92);display:flex;flex-direction:column;touch-action:none}
+.rz-bar{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top,0px)) 10px 8px;color:#fff}
+.rz-ttl{flex:1;min-width:0;font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rz-bar button{min-width:40px;height:36px;border-radius:18px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;font-size:15px;font-weight:700;cursor:pointer;padding:0 10px}
+.rz-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:grab}
+.rz-ov:not(.zoomed) .rz-stage{cursor:zoom-in}
+.rz-img{max-width:100%;max-height:100%;transform-origin:center center;user-select:none;-webkit-user-select:none;background:#fff;will-change:transform}
+.rz-hint{color:rgba(255,255,255,.7);font-size:11px;text-align:center;padding:6px 0 calc(8px + env(safe-area-inset-bottom,0px))}
+.rz-ov.zoomed .rz-hint{visibility:hidden}
 /* 図の下に説明・一覧・閉じるボタンが続くので、図はその分を引いた高さに抑える（モーダル内をスクロールしないと閉じるが見えなかった） */
 .robo-view .robo-img{max-height:max(180px, calc(100vh / var(--ui-zoom,1) - 300px))}
 .robo-stage{position:relative}
@@ -5973,11 +5983,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/08-119';
+var APP_VERSION = 'Ver.2026/10/09-120';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/09-120', date:'2026-10-09', title:'ロボット配置図を拡大して見られるようにしました', items:[
+    {t:'imp', d:'🔍 ロボット配置図を押すと全画面で開き、2本指で広げる・ダブルタップ・＋ボタンで拡大できるようになりました。拡大中は指でずらして細かいところを見られます（PCはホイールでも拡大できます）'}
+  ]},
   { ver:'Ver.2026/10/08-119', date:'2026-10-08', title:'担当カードの見た目をすっきりさせました', items:[
     {t:'imp', d:'👥 担当カードの青い太枠をやめ、担当ごとの色をカード左端の帯で示すようにしました。名前・PHS番号の選び方は今までと同じです'}
   ]},
@@ -18557,6 +18570,8 @@ function roboFillImg(el, r, start) {
       if (!data) { stage.innerHTML = '<div class="sup-pick-empty">配置図を読み込めませんでした</div>'; return; }
       stage.innerHTML = '';
       var pic = new Image(); pic.className = 'robo-img'; pic.alt = '配置図：' + r.n + (im.cap ? '（' + im.cap + '）' : ''); pic.src = data;
+      pic.title = '押すと全画面で拡大できます';
+      pic.onclick = function(){ openRoboZoom(data, r.n + (im.cap ? '｜' + im.cap : '')); };
       stage.appendChild(pic);
     });
   };
@@ -18576,6 +18591,98 @@ function roboFillImg(el, r, start) {
     if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(st.i + (dx < 0 ? 1 : -1));
   } : null;
   show();
+}
+/* 配置図の全画面表示。スマホでは図が小さく字が読めないので、2本指で広げる・ダブルタップ・＋−ボタン・
+   （PCは）ホイールで拡大し、1本指（マウス）でずらして見る。拡大は画面の中だけで行い、ページ全体の拡大は使わない
+   （iPhone はページを拡大すると戻しにくく、ほかのモーダルの位置もずれるため） */
+var RZ_MAX = 5;
+function openRoboZoom(src, title) {
+  var old = document.getElementById('robo-zoom-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'robo-zoom-ov'; ov.className = 'rz-ov';
+  ov.innerHTML = '<div class="rz-bar"><span class="rz-ttl"></span>'
+    + '<button type="button" data-z="-" aria-label="縮小">−</button><button type="button" data-z="0" aria-label="元の大きさ">等倍</button><button type="button" data-z="+" aria-label="拡大">＋</button>'
+    + '<button type="button" data-z="x" aria-label="閉じる">✕</button></div>'
+    + '<div class="rz-stage"><img class="rz-img" alt="" draggable="false"></div>'
+    + '<div class="rz-hint">2本指で広げる・ダブルタップで拡大</div>';
+  ov.querySelector('.rz-ttl').textContent = title || '';
+  var img = ov.querySelector('.rz-img'); img.src = src; img.alt = '配置図：' + (title || '');
+  document.body.appendChild(ov);
+  var stage = ov.querySelector('.rz-stage');
+  var z = { s: 1, x: 0, y: 0 };
+  function clamp() {
+    z.s = Math.min(RZ_MAX, Math.max(1, z.s));
+    var w = img.offsetWidth, h = img.offsetHeight;
+    var mx = Math.max(0, (w * z.s - stage.clientWidth) / 2), my = Math.max(0, (h * z.s - stage.clientHeight) / 2);
+    if (z.s === 1) { z.x = 0; z.y = 0; }
+    z.x = Math.min(mx, Math.max(-mx, z.x)); z.y = Math.min(my, Math.max(-my, z.y));
+  }
+  function apply(anim) {
+    clamp();
+    img.style.transition = anim ? 'transform .18s ease-out' : 'none';
+    img.style.transform = 'translate(' + z.x + 'px,' + z.y + 'px) scale(' + z.s + ')';
+    ov.classList.toggle('zoomed', z.s > 1.01);
+  }
+  /* (cx, cy)＝画面上の点。その点が指の下から動かないように倍率を変える */
+  function zoomAt(ns, cx, cy, anim) {
+    var r = stage.getBoundingClientRect();
+    var px = cx - (r.left + r.width / 2), py = cy - (r.top + r.height / 2);
+    ns = Math.min(RZ_MAX, Math.max(1, ns));
+    var k = ns / z.s;
+    z.x = px - (px - z.x) * k; z.y = py - (py - z.y) * k; z.s = ns;
+    apply(anim);
+  }
+  function center() { var r = stage.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }
+  function close() { document.removeEventListener('keydown', onKey); ov.remove(); }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+  document.addEventListener('keydown', onKey);
+  ov.querySelector('.rz-bar').onclick = function(e){
+    var b = e.target.closest('[data-z]'); if (!b) return;
+    var t = b.getAttribute('data-z'), c = center();
+    if (t === 'x') close();
+    else if (t === '0') { z.s = 1; apply(true); }
+    else zoomAt(z.s * (t === '+' ? 1.6 : 1 / 1.6), c[0], c[1], true);
+  };
+  /* タッチ：2本指＝拡大縮小、1本指＝拡大中だけずらす、すばやく2回＝拡大⇔等倍 */
+  var t0 = null, lastTap = 0;
+  function dist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+  stage.addEventListener('touchstart', function(e){
+    if (e.touches.length === 2) {
+      var a = e.touches[0], b = e.touches[1];
+      t0 = { pinch: true, d: dist(a, b), s: z.s, x: z.x, y: z.y, mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2 };
+    } else if (e.touches.length === 1) {
+      var t = e.touches[0], now = Date.now();
+      if (now - lastTap < 300) { lastTap = 0; zoomAt(z.s > 1.01 ? 1 : 2.5, t.clientX, t.clientY, true); t0 = null; e.preventDefault(); return; }
+      lastTap = now;
+      t0 = { pinch: false, px: t.clientX, py: t.clientY, x: z.x, y: z.y };
+    }
+  }, { passive: false });
+  stage.addEventListener('touchmove', function(e){
+    if (!t0) return;
+    e.preventDefault();
+    if (t0.pinch && e.touches.length === 2) {
+      var a = e.touches[0], b = e.touches[1];
+      var ns = Math.min(RZ_MAX, Math.max(1, t0.s * dist(a, b) / t0.d));
+      var r = stage.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      var mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2, k = ns / t0.s;
+      z.s = ns;
+      z.x = (t0.mx - cx) - ((t0.mx - cx) - t0.x) * k + (mx - t0.mx);
+      z.y = (t0.my - cy) - ((t0.my - cy) - t0.y) * k + (my - t0.my);
+      apply(false);
+    } else if (!t0.pinch && e.touches.length === 1 && z.s > 1.01) {
+      var t = e.touches[0];
+      z.x = t0.x + (t.clientX - t0.px); z.y = t0.y + (t.clientY - t0.py);
+      apply(false);
+    }
+  }, { passive: false });
+  stage.addEventListener('touchend', function(e){ if (!e.touches.length) t0 = null; else if (e.touches.length === 1 && t0 && t0.pinch) { var t = e.touches[0]; t0 = { pinch: false, px: t.clientX, py: t.clientY, x: z.x, y: z.y }; } });
+  /* PC：ホイールで拡大縮小、ドラッグでずらす、ダブルクリックで拡大⇔等倍 */
+  stage.addEventListener('wheel', function(e){ e.preventDefault(); zoomAt(z.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX, e.clientY, false); }, { passive: false });
+  var md = null;
+  stage.addEventListener('mousedown', function(e){ if (z.s <= 1.01) return; md = { px: e.clientX, py: e.clientY, x: z.x, y: z.y }; e.preventDefault(); });
+  window.addEventListener('mousemove', function mm(e){ if (!document.body.contains(ov)) { window.removeEventListener('mousemove', mm); return; } if (!md) return; z.x = md.x + (e.clientX - md.px); z.y = md.y + (e.clientY - md.py); apply(false); });
+  window.addEventListener('mouseup', function mu(){ if (!document.body.contains(ov)) { window.removeEventListener('mouseup', mu); return; } md = null; });
+  stage.addEventListener('dblclick', function(e){ zoomAt(z.s > 1.01 ? 1 : 2.5, e.clientX, e.clientY, true); });
+  img.onload = function(){ apply(false); };
 }
 function openRoboImgModal(id, start) {
   var r = roboFind(id); if (!r) { toast('この配置はマスタから削除されています', 'warn'); return; }
