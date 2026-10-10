@@ -1523,6 +1523,19 @@ body.has-psgb{--psgb-h:36px}
 .dev-kind .dev-cnt{margin-left:auto;font-size:11px;font-weight:400;color:var(--txt3)}
 .dev-kind .dev-cnt.all{color:var(--gr);font-weight:700}
 .dev-kind .dc-cbs{padding:0 8px 8px}
+.dev-u{display:inline-flex;align-items:center;gap:2px;max-width:100%}
+.dev-st-btn{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur);color:var(--txt3);font-size:13px;line-height:1;cursor:pointer;padding:0}
+.dc-cb-item.st-skip{background:var(--or-bg);border-color:var(--or);color:var(--or)}
+.dc-cb-item.st-ng{background:var(--rd-bg);border-color:var(--rd);color:var(--rd)}
+.dc-cb-item.st-away{background:var(--sur2);border-color:var(--txt3);color:var(--txt2);border-style:dashed}
+.dev-st-tag{font-size:10px;font-weight:700;padding:0 5px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:14em}
+.dev-st-tag.st-skip{color:var(--or)}.dev-st-tag.st-ng{color:var(--rd)}.dev-st-tag.st-away{color:var(--txt3)}
+.dev-st-pick{display:flex;flex-direction:column;gap:6px}
+.dev-st-opt{display:flex;align-items:center;gap:10px;text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--bdr);background:var(--sur);color:var(--txt);cursor:pointer;font-family:var(--fn)}
+.dev-st-opt span{font-size:11px;color:var(--txt3)}
+.dev-st-opt.st-skip.on{border-color:var(--or);background:var(--or-bg)}
+.dev-st-opt.st-ng.on{border-color:var(--rd);background:var(--rd-bg)}
+.dev-st-opt.st-away.on{border-color:var(--txt3);background:var(--sur2)}
 .dev-sub{font-size:10px;color:var(--txt3);margin-left:4px}
 .dev-mst-unit{display:flex;align-items:center;gap:6px;padding:4px 8px;border-top:1px dashed var(--bdr);font-size:12px}
 .dev-mst-unit .rn{flex:1;min-width:0}
@@ -5984,11 +5997,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/09-121';
+var APP_VERSION = 'Ver.2026/10/11-122';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-122', date:'2026-10-11', title:'機器の点検で「見送り」などを記録できるようにしました', items:[
+    {t:'new', d:'🩺 チェックリストの機器の消し込みで、各機器の「⋯」から「見送り（使用中）」「点検不可（故障・修理中）」「不在（貸出・移動中）」を記録できるようになりました。色（橙・赤・灰）と理由のメモで、点検できなかった理由がほかの人にも伝わります'},
+    {t:'new', admin:true, d:'🩺 マスタの各業務の「🩺 機器」で、見送りなどを「済」として数えるかを選べます（数えない場合は未了のまま残り、あとで点検できたら普段どおりチェック）'}
+  ]},
   { ver:'Ver.2026/10/09-121', date:'2026-10-09', title:'配置図の拡大を案内するようにしました', items:[
     {t:'imp', d:'🔍 ロボット配置図の下に「図をタップすると全画面で開き、拡大・縮小できます」と小さく案内を出しました'}
   ]},
@@ -14433,6 +14450,13 @@ function saveWdSubs(i) {
    いずれも新しいトップレベルDを増やさず、ページを走査して求める（月・巡回が変われば自然に0へ戻る）。
    親のチェック項目は全台そろっても自動ではチェックしない（設置部署と同じ）。 */
 var DEV_RESET_LABEL = { day:'毎日', month:'月内に1回', cycle:'一巡したらリセット' };
+/* 点検できなかったときの状態。記録は devChecks[sid][機器id] = {by, ts, st, note}（st が無いものが「済」）。
+   「済」として数えるかは項目ごとの設定（cfg.sd）。数えないときは未了のまま残し、最後の状態を印で出す */
+var DEV_ST = {
+  skip: { l:'見送り',   ic:'⏸', hint:'患者さんに使用中など' },
+  ng:   { l:'点検不可', ic:'⛔', hint:'故障・修理中など' },
+  away: { l:'不在',     ic:'↗', hint:'貸出・移動中など' }
+};
 function devNewId(p) { return p + Date.now().toString(36) + Math.floor(Math.random()*46656).toString(36); }
 function devMasterOf() {
   return normArr(D.devMaster).filter(function(k){ return k && k.id; }).map(function(k){
@@ -14445,7 +14469,7 @@ function devMasterSave(m) { D.devMaster = m; renderDevMaster(); saveD(); }
 function devUnitLabel(u) { return u.n + (u.no || u.loc ? '（' + [u.no, u.loc].filter(Boolean).join('・') + '）' : ''); }
 function itemDev(it) {
   if (!it || typeof it !== 'object' || !it.dev || typeof it.dev !== 'object') return null;
-  var c = { k:normArr(it.dev.k), i:normArr(it.dev.i), x:normArr(it.dev.x), r: DEV_RESET_LABEL[it.dev.r] ? it.dev.r : 'month' };
+  var c = { k:normArr(it.dev.k), i:normArr(it.dev.i), x:normArr(it.dev.x), r: DEV_RESET_LABEL[it.dev.r] ? it.dev.r : 'month', sd: !!it.dev.sd };
   return (c.k.length || c.i.length) ? c : null;
 }
 /* 項目の対象機器を、マスタの並び順で機種ごとにまとめて返す [{kind, units:[…]}] */
@@ -14461,8 +14485,8 @@ function devResolve(cfg) {
 }
 function devCount(cfg) { return devResolve(cfg).reduce(function(n, g){ return n + g.units.length; }, 0); }
 /* 消し込みの状態 { done:{機器ID:{ds,by,ts}}, last:前回一巡の {ds,ts,by}|null } */
-function devProgress(ds, sid, mode) {
-  var done = {}, last = null, pages = D.pages || {};
+function devProgress(ds, sid, mode, sd) {
+  var done = {}, stat = {}, last = null, pages = D.pages || {};
   /* 開いている日より後の日付は数えない（過去の日を開いたとき、後日の消し込みで「済」に化けないように。wdOnceDoneOn と同じ考え方） */
   var keys = mode === 'day' ? [ds] : Object.keys(pages).filter(function(p){ return p <= ds && (mode === 'cycle' || p.slice(0, 7) === ds.slice(0, 7)); });
   if (mode === 'cycle') keys.forEach(function(p){
@@ -14474,10 +14498,16 @@ function devProgress(ds, sid, mode) {
     Object.keys(dc).forEach(function(id){
       var r = dc[id]; if (!r) return;
       if (last && (r.ts || 0) <= last.ts) return; /* 前の巡回の分 */
-      if (!done[id] || p < done[id].ds) done[id] = { ds:p, by:r.by || '', ts:r.ts || 0 };
+      var st = DEV_ST[r.st] ? r.st : '';
+      if (st && !sd) { /* 済に数えない状態は、いちばん新しいものだけ印として持つ */
+        if (!stat[id] || (r.ts || 0) > stat[id].ts) stat[id] = { ds:p, by:r.by || '', ts:r.ts || 0, st:st, note:r.note || '' };
+        return;
+      }
+      if (!done[id] || p < done[id].ds) done[id] = { ds:p, by:r.by || '', ts:r.ts || 0, st:st, note:r.note || '' };
     });
   });
-  return { done:done, last:last };
+  Object.keys(stat).forEach(function(id){ if (done[id]) delete stat[id]; });
+  return { done:done, stat:stat, last:last };
 }
 
 /* ---- マスタ画面 ---- */
@@ -14702,7 +14732,7 @@ function openDevCfgModal(list, i) {
   var item = L.arr()[i]; if (item === undefined) return;
   var c = itemDev(item) || { k:[], i:[], x:[], r:'month' };
   var set = function(a){ var o = {}; a.forEach(function(x){ o[x] = true; }); return o; };
-  _devCfg = { list:list, idx:i, text:(typeof item === 'string' ? item : (item.t || '')), r:c.r, k:set(c.k), i:set(c.i), x:set(c.x), open:{} };
+  _devCfg = { list:list, idx:i, text:(typeof item === 'string' ? item : (item.t || '')), r:c.r, sd:!!c.sd, k:set(c.k), i:set(c.i), x:set(c.x), open:{} };
   devMasterOf().forEach(function(k){ if (_devCfg.k[k.id] || k.items.some(function(u){ return _devCfg.i[u.id]; })) _devCfg.open[k.id] = true; });
   var old = document.getElementById('dev-cfg-ov'); if (old) old.remove();
   var ov = document.createElement('div'); ov.id = 'dev-cfg-ov'; ov.className = 'ov';
@@ -14718,6 +14748,8 @@ function renderDevCfgBody() {
   h += '<div style="font-size:12px;font-weight:700;margin-top:4px">消し込みのリセット</div><div class="dev-seg">';
   ['day','month','cycle'].forEach(function(r){ h += '<button type="button" class="' + (c.r === r ? 'on' : '') + '" onclick="devCfgSetR(\'' + r + '\')">' + DEV_RESET_LABEL[r] + '</button>'; });
   h += '</div><div class="pn" style="font-size:11px;margin:-4px 0 10px">' + ({day:'その日の連絡表だけで数えます。翌日はまた全台が未実施に戻ります。', month:'同じ月のうちに1回ずつ。月が変わると全台が未実施に戻ります。', cycle:'期限はありません。全台そろった時点で次の巡回が始まります。'})[c.r] + '</div>';
+  h += '<label class="dc-cb-item' + (c.sd ? ' checked' : '') + '" style="margin:-2px 0 10px;display:inline-flex"><input type="checkbox" onchange="devCfgSetSd(this.checked)"' + (c.sd ? ' checked' : '') + '>見送り・点検不可・不在も「済」として数える</label>'
+    + '<div class="pn" style="font-size:11px;margin:-6px 0 10px">' + (c.sd ? '使用中などで点検できなかった機器も、その回は終わりとして進み具合に入れます。' : '使用中などで点検できなかった機器は未了のまま残し、印だけ付けます（あとで点検できたら普段どおりチェック）。') + '</div>';
   if (!m.length) h += '<div class="pool-empty" style="padding:10px 0">まだ機器マスタが登録されていません。マスタの「🩺 機器マスタ」から登録してください。</div>';
   c.m = m; /* onchange には ID ではなく添字を渡す（ID を JS の文字列に埋め込まない） */
   m.forEach(function(k, ki){
@@ -14735,6 +14767,7 @@ function renderDevCfgBody() {
   md.querySelectorAll('details.dev-kind').forEach(function(dt){ dt.addEventListener('toggle', function(){ c.open[dt.getAttribute('data-kid')] = dt.open; }); });
 }
 function devCfgSetR(r) { if (_devCfg) { _devCfg.r = r; renderDevCfgBody(); } }
+function devCfgSetSd(on) { if (_devCfg) { _devCfg.sd = !!on; renderDevCfgBody(); } }
 function devCfgToggleKind(ki, on) {
   var c = _devCfg; if (!c || !c.m) return;
   var k = c.m[ki]; if (!k) return; var kid = k.id;
@@ -14755,6 +14788,7 @@ function saveDevCfg() {
   var L = DEV_LISTS[c.list]; if (!L || !can(L.perm)) return;
   var arr = L.arr(), item = arr[c.idx]; if (item === undefined) return;
   var cfg = { k:Object.keys(c.k), i:Object.keys(c.i), x:Object.keys(c.x), r:c.r };
+  if (c.sd) cfg.sd = true;
   var any = cfg.k.length || cfg.i.length;
   var patch = { dev: any ? cfg : null };
   if (any && !wdSid(item)) patch.sid = newSid();
@@ -14771,12 +14805,15 @@ var _devOpen = {}, _devKindOpen = {};
 function renderDevPanel(ds, it, wrapEl) {
   var chip = wrapEl.querySelector('.cli-devbtn'), box = wrapEl.querySelector('.cli-devs');
   var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid) return;
-  var groups = devResolve(cfg), pr = devProgress(ds, sid, cfg.r), total = 0, doneN = 0;
+  var groups = devResolve(cfg), pr = devProgress(ds, sid, cfg.r, cfg.sd), total = 0, doneN = 0, stN = 0;
   var h = groups.map(function(g){
     var dn = 0;
     var units = g.units.map(function(u){
-      var d = pr.done[u.id]; if (d) dn++;
-      return '<label class="dc-cb-item' + (d ? ' checked' : '') + '"><input type="checkbox" data-dev="' + escH(u.id) + '"' + (d ? ' checked' : '') + '>' + escH(u.n) + '<span class="dev-sub">' + escH([u.no, u.loc].filter(Boolean).join('・')) + (d && cfg.r !== 'day' ? (u.no || u.loc ? ' ' : '') + fmtMD(d.ds) : '') + '</span></label>';
+      var d = pr.done[u.id], sx = d ? (d.st ? d : null) : pr.stat[u.id];
+      if (d) dn++; if (sx && !d) stN++;
+      var tag = sx ? '<span class="dev-st-tag st-' + sx.st + '"' + (sx.note ? ' title="' + escH(sx.note) + '"' : '') + '>' + DEV_ST[sx.st].ic + ' ' + DEV_ST[sx.st].l + (sx.ds !== ds || cfg.r !== 'day' ? ' ' + fmtMD(sx.ds) : '') + (sx.note ? '：' + escH(sx.note) : '') + '</span>' : '';
+      return '<span class="dev-u"><label class="dc-cb-item' + (d ? ' checked' : '') + (sx ? ' st-' + sx.st : '') + '"><input type="checkbox" data-dev="' + escH(u.id) + '"' + (d ? ' checked' : '') + '>' + escH(u.n) + '<span class="dev-sub">' + escH([u.no, u.loc].filter(Boolean).join('・')) + (d && !d.st && cfg.r !== 'day' ? (u.no || u.loc ? ' ' : '') + fmtMD(d.ds) : '') + '</span>' + tag + '</label>'
+        + '<button type="button" class="dev-st-btn" data-dev-st="' + escH(u.id) + '" title="見送り・点検不可・不在を記録" aria-label="' + escH(u.n) + 'の状態を記録">⋯</button></span>';
     }).join('');
     total += g.units.length; doneN += dn;
     var key = sid + '|' + g.kind.id, open = (key in _devKindOpen) ? _devKindOpen[key] : dn < g.units.length;
@@ -14785,11 +14822,81 @@ function renderDevPanel(ds, it, wrapEl) {
   var note = cfg.r === 'cycle' ? ('🔁 一巡したらリセット' + (pr.last ? '・前回の一巡 ' + fmtMD(pr.last.ds) : '')) : (cfg.r === 'day' ? '📅 毎日リセット' : '🗓 月内に1回');
   /* 一巡がこの日に完了していれば、ここから取り消せる（トーストを見逃したときの戻り道） */
   if (cfg.r === 'cycle' && pr.last && pr.last.ds === ds) note += ' <button type="button" class="btn btn-g btn-sm" data-dev-undo="1" style="font-size:10px;padding:1px 7px;margin-left:4px">一巡を取り消す</button>';
-  if (chip) chip.textContent = '🩺 ' + doneN + '/' + total + ' ▾';
+  if (chip) chip.textContent = '🩺 ' + doneN + '/' + total + (stN ? ' ⏸' + stN : '') + ' ▾';
   if (box) {
     box.innerHTML = '<div class="dev-sub" style="margin:2px 0 2px">' + note + '</div>' + (h || '<span class="cle">対象の機器がマスタにありません</span>');
     box.querySelectorAll('details.dev-kind').forEach(function(dt){ dt.addEventListener('toggle', function(){ _devKindOpen[dt.getAttribute('data-key')] = dt.open; }); });
   }
+}
+/* 見送り・点検不可・不在の記録。保存はその日の連絡表に {st, note}。同じ日に「済」があれば置き換える */
+function openDevStModal(ds, it, task, wrapEl, devId) {
+  var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid || !D.pages[ds]) return;
+  var u = null; devResolve(cfg).forEach(function(g){ g.units.forEach(function(x){ if (x.id === devId) u = x; }); });
+  if (!u) return;
+  var pr = devProgress(ds, sid, cfg.r, cfg.sd), cur = pr.done[devId] && pr.done[devId].st ? pr.done[devId] : pr.stat[devId];
+  var here = cur && cur.ds === ds ? cur : null;   /* この日に付けた状態だけ、ここで外せる */
+  var sel = here ? here.st : '';
+  var old = document.getElementById('dev-st-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'dev-st-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '380px';
+  md.innerHTML = '<h3>🩺 ' + escH(u.n) + '</h3>'
+    + '<div class="pn" style="font-size:11px;margin-bottom:8px">点検できなかった理由を選びます。' + (cfg.sd ? 'この業務では「済」として数えます。' : 'この業務では「済」に数えず、点検できたら普段どおりチェックします。') + '</div>'
+    + (cur && !here ? '<div class="pn" style="font-size:11px;margin-bottom:8px">前回：' + DEV_ST[cur.st].ic + ' ' + DEV_ST[cur.st].l + '（' + fmtMD(cur.ds) + (cur.by ? '・' + escH(cur.by) : '') + '）</div>' : '')
+    + '<div class="dev-st-pick">' + Object.keys(DEV_ST).map(function(k){
+        return '<button type="button" class="dev-st-opt st-' + k + (sel === k ? ' on' : '') + '" data-st="' + k + '"><b>' + DEV_ST[k].ic + ' ' + DEV_ST[k].l + '</b><span>' + DEV_ST[k].hint + '</span></button>';
+      }).join('') + '</div>'
+    + '<input type="text" id="dev-st-note" class="fi" maxlength="40" placeholder="理由のメモ（任意・患者名は書かない）" style="width:100%;box-sizing:border-box;margin-top:8px" value="' + escH(here ? here.note : '') + '">'
+    + '<div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">'
+    + (here ? '<button class="btn btn-g" id="dev-st-clear">状態を外す</button>' : '')
+    + '<button class="btn btn-g" onclick="document.getElementById(\'dev-st-ov\').remove()">キャンセル</button>'
+    + '<button class="btn btn-p" id="dev-st-save">保存</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  md.querySelectorAll('.dev-st-opt').forEach(function(b){ b.onclick = function(){ sel = b.getAttribute('data-st'); md.querySelectorAll('.dev-st-opt').forEach(function(x){ x.classList.toggle('on', x === b); }); }; });
+  var clr = document.getElementById('dev-st-clear');
+  if (clr) clr.onclick = function(){
+    var pg = D.pages[ds];
+    if (pg && pg.devChecks && pg.devChecks[sid] && pg.devChecks[sid][devId] && pg.devChecks[sid][devId].st) {
+      delete pg.devChecks[sid][devId];
+      saveDPage(ds); writeLog('機器の状態を解除', fmtJ(ds) + ' ' + task + ' ' + u.n);
+    }
+    ov.remove(); renderDevPanel(ds, it, wrapEl);
+  };
+  document.getElementById('dev-st-save').onclick = function(){
+    if (!sel) { toast('状態を選んでください', 'warn'); return; }
+    var note = (document.getElementById('dev-st-note').value || '').trim();
+    var save = function(){
+      var pg = D.pages[ds]; if (!pg) return;
+      if (!pg.devChecks) pg.devChecks = {};
+      if (!pg.devChecks[sid]) pg.devChecks[sid] = {};
+      var rec = { by: (typeof taskSelfName === 'function' ? (taskSelfName() || '') : ''), ts: Date.now(), st: sel };
+      if (note) rec.note = note;
+      pg.devChecks[sid][devId] = rec;
+      writeLog('機器を' + DEV_ST[sel].l, fmtJ(ds) + ' ' + task + ' ' + u.n + (note ? '（' + note + '）' : ''));
+      if (cfg.sd && cfg.r === 'cycle') devMaybeCycle(ds, it, task, wrapEl, devId, cfg);
+      saveDPage(ds);
+      ov.remove(); renderDevPanel(ds, it, wrapEl);
+    };
+    /* モーダルは #main の外なので、患者情報の確認をここでかける（メモに患者名を書かせない） */
+    if (note) phiGuardText(note, save, function(){ var e = document.getElementById('dev-st-note'); if (e) e.focus(); }); else save();
+  };
+}
+/* 「済」で全台そろったら一巡の区切りを置く（取り消し付き）。cycle の項目だけ */
+function devMaybeCycle(ds, it, task, wrapEl, devId, cfg) {
+  var sid = wdSid(it), pg = D.pages[ds]; if (!pg) return;
+  var me = (typeof taskSelfName === 'function' ? (taskSelfName() || '') : '');
+  var pr = devProgress(ds, sid, 'cycle', cfg.sd), all = devResolve(cfg).every(function(g){ return g.units.every(function(x){ return pr.done[x.id]; }); });
+  if (!all) return;
+  if (!pg.devCycle) pg.devCycle = {};
+  pg.devCycle[sid] = { ts:Date.now() + 1, by:me };
+  writeLog('機器の点検が一巡', fmtJ(ds) + ' ' + task);
+  toast('🎉 全台そろいました。次の巡回を始めます', 'ok', 10000, { label:'取り消す', fn:function(){
+    var p2 = D.pages[ds]; if (!p2) return;
+    if (p2.devCycle) delete p2.devCycle[sid];
+    if (p2.devChecks && p2.devChecks[sid]) delete p2.devChecks[sid][devId];
+    saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
+    if (wrapEl.isConnected) renderDevPanel(ds, it, wrapEl); else safeRenderPage();
+  } });
 }
 function devCycleUndo(ds, it, task, wrapEl) {
   var sid = wdSid(it), pg = D.pages[ds]; if (!sid || !pg || !pg.devCycle || !pg.devCycle[sid]) return;
@@ -14809,7 +14916,7 @@ function devCheckChange(ds, it, task, wrapEl, devId, on) {
     pg.devChecks[sid][devId] = { by:me, ts:Date.now() };
     writeLog('機器を消し込み', fmtJ(ds) + ' ' + task + ' ' + uname);
     if (cfg.r === 'cycle') {
-      var pr = devProgress(ds, sid, 'cycle'), all = devResolve(cfg).every(function(g){ return g.units.every(function(x){ return pr.done[x.id]; }); });
+      var pr = devProgress(ds, sid, 'cycle', cfg.sd), all = devResolve(cfg).every(function(g){ return g.units.every(function(x){ return pr.done[x.id]; }); });
       if (all) {
         if (!pg.devCycle) pg.devCycle = {};
         pg.devCycle[sid] = { ts:Date.now() + 1, by:me };
@@ -14825,7 +14932,7 @@ function devCheckChange(ds, it, task, wrapEl, devId, on) {
     }
     saveDPage(ds);
   } else {
-    var owner = (devProgress(ds, sid, cfg.r).done[devId] || {}).ds;
+    var owner = (devProgress(ds, sid, cfg.r, cfg.sd).done[devId] || {}).ds;
     if (owner && D.pages[owner] && D.pages[owner].devChecks && D.pages[owner].devChecks[sid]) {
       delete D.pages[owner].devChecks[sid][devId];
       saveDPage(owner);
@@ -25272,6 +25379,8 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
       devCheckChange(ds, devIt, task, wrap, c2.getAttribute('data-dev'), c2.checked);
     });
     devEl.addEventListener('click', function(e){
+      var sb=e.target.closest('[data-dev-st]');
+      if (sb) { e.stopPropagation(); if (locked) return; openDevStModal(ds, devIt, task, wrap, sb.getAttribute('data-dev-st')); return; }
       var ub=e.target.closest('[data-dev-undo]'); if(!ub) return;
       e.stopPropagation(); if (locked) return;
       devCycleUndo(ds, devIt, task, wrap);

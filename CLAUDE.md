@@ -527,6 +527,7 @@ All class names are abbreviated:
 | `mkCatColor(catId)` | カテゴリIDをハッシュして`MK_PALETTE`（アプリ既存の7色 --ac/--gr/--or/--pu/--rd/--oc/--gd を再利用、新規hexは定義しない）から固定色を返す。並べ替え・改名しても同じカテゴリは常に同じ色。カテゴリチップ・セクション見出し・カード左帯・電話アイコンの4箇所で同じ値を使い回して視覚的に連動させる |
 | `openMakerModal(id)` / `saveMakerFromModal(id)` | 追加・編集モーダル（`id`省略で新規）／保存（備考欄だけ`phiGuardText`を通し`saveD()`） |
 | `mkCopyTel(id, which)` / `mkCopyMail(id)` / `mkFlashCopied(el)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック）。コピー成功時はトーストに加え、押したボタン自体のアイコンを`data-ic`属性の元絵文字から一瞬✓に変える（`mkFlashCopied`）。ボタンDOM idは`mk-tel-{id}-{1|2}` / `mk-mail-{id}`で固定 |
+| `openDevStModal(ds, it, task, wrapEl, devId)` / `devMaybeCycle(...)` / `DEV_ST` | 機器の消し込みで「見送り・点検不可・不在」を記録する小窓（記録は `devChecks[sid][機器id] = {by, ts, st, note}`、`st` が無いものが「済」）／状態で全台そろったときの一巡の区切り／状態の定義。済に数えるかは項目の機器設定 `dev.sd`（`devProgress(ds, sid, mode, sd)` が `done` と、数えない状態の最新 `stat` を返す） |
 | `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
 | `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
 | `supDeptOptions()` / `supItemForDept(it, dept)` | 科の選択肢（術式マスタの科）／その品名をこの科の症例で先頭に出すか（全科を含む） |
