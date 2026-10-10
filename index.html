@@ -1443,6 +1443,9 @@ body.has-psgb{--psgb-h:36px}
 .ops-chk>summary::after{content:'▸';margin-left:4px;color:var(--txt3)}
 .ops-chk[open]>summary::after{content:'▾'}
 .ops-chk-n{margin-left:auto;font-weight:800;color:var(--or)}
+.ops-chk-man{margin-left:auto;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt3);cursor:pointer;font-family:var(--fn)}
+.ops-chk-man.has{border-color:var(--ac);color:var(--ac);background:var(--ac-bg)}
+.ops-chk-man+.ops-chk-n{margin-left:6px}
 .ops-chk-n.all{color:var(--gr)}
 .ops-chk-body{display:flex;flex-direction:column;gap:4px;padding:0 10px 8px}
 .ops-chk .psg-fusen-wrap{flex:none}
@@ -5984,11 +5987,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/09-121';
+var APP_VERSION = 'Ver.2026/10/11-123';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-123', date:'2026-10-11', title:'PSGのマニュアルをカードから開けるようにしました', items:[
+    {t:'new', d:'📖 PSGカードの「装着の確認」「外しの確認」の見出しに「マニュアル」ボタンを付けました。チェックリストの業務マニュアルと同じ画面で、文章と画像・動画を登録・表示できます（登録済みは青く表示）'}
+  ]},
   { ver:'Ver.2026/10/09-121', date:'2026-10-09', title:'配置図の拡大を案内するようにしました', items:[
     {t:'imp', d:'🔍 ロボット配置図の下に「図をタップすると全画面で開き、拡大・縮小できます」と小さく案内を出しました'}
   ]},
@@ -18307,12 +18313,20 @@ function renameOpsChk(kind, i) {
   if (a.some(function(x){ return x.t === v; })) { toast('同じ項目が既にあります', 'warn'); return; }
   var old = c.t; c.t = v; opsChkSave(kind, a); writeLog('確認項目の名前を変更', opsChkKindLabel(kind) + '：' + old + ' → ' + v);
 }
-/* 連絡表に出す折りたたみ。pre は先頭に固定で置く行（PSG装着の付箋）{html, done} */
+/* 連絡表に出す折りたたみ。pre は先頭に固定で置く行（PSG装着の付箋）{html, done}。
+   man を渡すと見出しに「📖 マニュアル」を置き、業務マニュアル（openSP、D.manual[man]）を開く——チェックリストの「···」と同じ画面 */
 var _opsChkOpen = {};
-function opsChkDetailsHTML(key, title, list, ck, locked, pre) {
+function opsManualHas(name) {
+  var e = D.manual && D.manual[name];
+  return !!(e && (typeof e === 'string' ? e.trim() : ((e.text || '').trim() || normArr(e.media).length)));
+}
+function opsChkDetailsHTML(key, title, list, ck, locked, pre, man) {
   var total = list.length + (pre ? 1 : 0);
   var dn = list.filter(function(c){ return ck[c.id]; }).length + (pre && pre.done ? 1 : 0);
-  var h = '<details class="ops-chk" data-chkkey="' + escH(key) + '"' + (_opsChkOpen[key] ? ' open' : '') + '><summary><span class="ops-chk-t">' + title + '</span><span class="ops-chk-n' + (total && dn === total ? ' all' : '') + '">' + dn + ' / ' + total + '</span></summary><div class="ops-chk-body">';
+  var h = '<details class="ops-chk" data-chkkey="' + escH(key) + '"' + (_opsChkOpen[key] ? ' open' : '') + '><summary><span class="ops-chk-t">' + title + '</span>'
+    + (man ? '<button type="button" class="ops-chk-man' + (opsManualHas(man) ? ' has' : '') + '" data-man="' + escH(man) + '" title="' + escH(man) + 'のマニュアル（文章・画像）">📖 マニュアル</button>' : '')
+    + (total ? '<span class="ops-chk-n' + (dn === total ? ' all' : '') + '">' + dn + ' / ' + total + '</span>' : '') + '</summary><div class="ops-chk-body">'
+    + (total ? '' : '<div class="cle" style="font-size:11px">確認項目はマスタの「✅ 6MW・PSGの確認項目」で登録できます</div>');
   if (pre) h += pre.html;
   h += list.map(function(c){
     return '<label class="dc-cb-item' + (ck[c.id] ? ' checked' : '') + '"><input type="checkbox" data-chk="' + escH(c.id) + '"' + (ck[c.id] ? ' checked' : '') + (locked ? ' disabled' : '') + '>' + escH(c.t) + '</label>';
@@ -24258,7 +24272,7 @@ function buildOPS(ds,dat,locked) {
       /* 装着の確認（付箋入力済＋マスタの項目）。普段は閉じて進み具合だけ見せる */
       var fus='<label class="dc-cb-item psg-fusen-wrap'+(fusenChecked?' checked':'')+'"><input type="checkbox" class="psg-fusen-cb" id="ops-psg-fusen'+sfx+'"'+(fusenChecked?' checked':'')+(locked?' disabled':'')+'><span class="psg-fusen-lbl">付箋入力済</span></label>';
       var onW=document.createElement('div');
-      onW.innerHTML=opsChkDetailsHTML('psgOn','✅ 装着の確認',opsChkList('psgOn'),ops.psg_chk_on||{},locked,{html:fus,done:fusenChecked});
+      onW.innerHTML=opsChkDetailsHTML('psgOn','✅ 装着の確認',opsChkList('psgOn'),ops.psg_chk_on||{},locked,{html:fus,done:fusenChecked},'PSG 装着');
       c3.appendChild(onW.firstChild);
     }
     /* 外し行（前日に PSG カードがある日だけ表示。psg_off は当日データに保存）
@@ -24274,16 +24288,20 @@ function buildOPS(ds,dat,locked) {
       var psgOffDefault = ops.psg_off || (prevDatPsg && prevDatPsg.ops && prevDatPsg.ops.psg_on) || '';
       psgOffRow.innerHTML='<span class="ops-lbl">外し<br><span style="font-size:10px;color:var(--txt3);white-space:nowrap">（前日装着分）</span></span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(psgOffDefault)+'</textarea>';
       c3.appendChild(psgOffRow);
-      if (opsChkList('psgOff').length) {
-        var offW=document.createElement('div');
-        offW.innerHTML=opsChkDetailsHTML('psgOff','✅ 外しの確認',opsChkList('psgOff'),ops.psg_chk_off||{},locked,null);
-        c3.appendChild(offW.firstChild);
-      }
+      /* 確認項目が無くてもマニュアルは開けるように、外しの折りたたみは常に出す */
+      var offW=document.createElement('div');
+      offW.innerHTML=opsChkDetailsHTML('psgOff','✅ 外しの確認',opsChkList('psgOff'),ops.psg_chk_off||{},locked,null,'PSG 外し');
+      c3.appendChild(offW.firstChild);
     }
     var psgRestRow=document.createElement('div'); psgRestRow.className='ops-row';
     psgRestRow.innerHTML='<span class="ops-lbl">解析残</span><input type="number" class="ops-num" id="ops-psg-rest'+sfx+'" min="0" value="'+(ops.psg_rest||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span>';
     c3.appendChild(psgRestRow);
     opsChkBindToggle(c3);
+    /* 見出しの「📖 マニュアル」：折りたたみの開閉にはしない */
+    c3.addEventListener('click', function(e){
+      var mb=e.target.closest && e.target.closest('[data-man]'); if(!mb) return;
+      e.preventDefault(); e.stopPropagation(); openSP(mb.getAttribute('data-man'));
+    });
     c3.addEventListener('change', function(e){
       var el=e.target, det=el.closest && el.closest('details.ops-chk'); if(!det) return;
       if (el.getAttribute('data-chk') && !locked) {
