@@ -3313,7 +3313,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},evtRanges:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3564,6 +3564,7 @@ function loadD() {
     D.wdDepts = s.wdDepts || [];
     D.devMaster = s.devMaster || [];
     D.opsChk = (s.opsChk && typeof s.opsChk === 'object') ? s.opsChk : {};
+    D.evtRanges = s.evtRanges || [];
     D.hdTreatments = s.hdTreatments || [];
     D.hdDly = s.hdDly || [];
     D.hdWd = s.hdWd || {};
@@ -3704,7 +3705,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.evtRanges=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={};
         _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
@@ -3907,6 +3908,7 @@ function fbInit() {
             D.wdDepts = d.wdDepts || [];
             D.devMaster = d.devMaster || [];
             D.opsChk = (d.opsChk && typeof d.opsChk === 'object') ? d.opsChk : {};
+            D.evtRanges = d.evtRanges || [];
             D.hdTreatments = d.hdTreatments || [];
             D.hdDly = d.hdDly || [];
             D.hdWd = d.hdWd || {};
@@ -5984,11 +5986,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/09-121';
+var APP_VERSION = 'Ver.2026/10/11-124';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-124', date:'2026-10-11', title:'イベントを期間で登録できるようにしました', items:[
+    {t:'new', notify:true, d:'📅 「＋ イベント追加」で「期間」を選ぶと、終了日までの毎日にイベントを出せるようになりました（点線の枠で表示）。消すときは「その日だけ外す」「その日で終わりにする」「期間ごと消す」から選べます'}
+  ]},
   { ver:'Ver.2026/10/09-121', date:'2026-10-09', title:'配置図の拡大を案内するようにしました', items:[
     {t:'imp', d:'🔍 ロボット配置図の下に「図をタップすると全画面で開き、拡大・縮小できます」と小さく案内を出しました'}
   ]},
@@ -12231,8 +12236,12 @@ function renderCal() {
     var dayEvts = (evtsM[d] || []).slice();
     var pageEvts2 = D.pages[ds] ? (D.pages[ds].events || []) : [];
     for (var ei=0; ei<pageEvts2.length; ei++) { if (dayEvts.indexOf(pageEvts2[ei]) === -1) dayEvts.push(pageEvts2[ei]); }
-    var hasEvt = dayEvts.length > 0;
-    if (hasEvt) evtRows.push({d:d, ds:ds, w:w, evts:dayEvts});
+    /* 期間イベント：カレンダーは期間中の毎日に印を付け、月の一覧には始まりの日（月をまたぐときは1日）にだけ期間付きで出す */
+    var rgsD = evtRangesOn(ds);
+    var hasEvt = dayEvts.length > 0 || rgsD.length > 0;
+    var listEvts = dayEvts.slice();
+    rgsD.forEach(function(r){ if (r.from === ds || d === 1) listEvts.push(r.n + '（' + evtRangeLabel(r) + '）'); });
+    if (listEvts.length) evtRows.push({d:d, ds:ds, w:w, evts:listEvts});
     var cls = 'cd' + (w===0?' sun':w===6?' sat':'') + (ds===today?' tod':'') +
               (D.pages[ds] ? ' hp' : '') +
               (D.pages[ds] && D.pages[ds].autoAssigned ? ' ap' : '') +
@@ -15570,6 +15579,16 @@ function applyStaffAdjustments(ds, res) {
 function evtKindOf(dat, name) {
   return (dat && dat.evtKinds && dat.evtKinds[name] === 'hd') ? 'hd' : 'ce';
 }
+/* ===== 期間イベント（D.evtRanges = [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]） =====
+   1日ずつのイベント（dat.events / D.evts）とは別の一覧に持ち、表示するときだけ合わせる（既存の形を変えない）。
+   期間中は毎日出す。ある日だけ外したときは skip に、その日で終わりにしたときは to を縮める */
+function evtRangesAll() {
+  return normArr(D.evtRanges).filter(function(r){ return r && r.id && r.n && r.from && r.to; });
+}
+function evtRangesOn(ds) {
+  return evtRangesAll().filter(function(r){ return r.from <= ds && ds <= r.to && !(r.skip && r.skip[ds]); });
+}
+function evtRangeLabel(r) { return fmtMD(r.from) + '〜' + fmtMD(r.to); }
 function evtAreaHTML(ds, dat, allEvts) {
   var h = '<div id="evt-area" style="margin-bottom:14px">';
   h += '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">';
@@ -15584,7 +15603,18 @@ function evtAreaHTML(ds, dat, allEvts) {
       h += '<button data-ds="'+ds+'" data-evt="'+escH(nm)+'" data-action="removeEvt" style="background:none;border:none;cursor:pointer;color:'+col+';font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
       h += '</div>';
     }
-  } else {
+  }
+  var rgs = evtRangesOn(ds);
+  rgs.forEach(function(r){
+    var isHd = r.kind === 'hd';
+    var col = isHd ? 'var(--pu)' : 'var(--or)';
+    var bg  = isHd ? 'var(--pu-bg)' : 'var(--or-bg)';
+    h += '<div class="evt-range-chip" style="display:inline-flex;align-items:center;gap:4px;background:'+bg+';border:1.5px dashed '+col+';border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;color:'+col+'" title="期間のイベント（'+evtRangeLabel(r)+'）">';
+    h += (isHd ? '🩸 ' : '📅 ') + escH(r.n) + '<span style="font-weight:400;font-size:11px">（'+evtRangeLabel(r)+'）</span>';
+    h += '<button data-ds="'+ds+'" data-rid="'+escH(r.id)+'" data-action="removeEvtRange" style="background:none;border:none;cursor:pointer;color:'+col+';font-size:14px;padding:0 0 0 4px;line-height:1">×</button>';
+    h += '</div>';
+  });
+  if (!allEvts.length && !rgs.length) {
     h += '<span style="font-size:12px;color:var(--txt3)">イベントなし</span>';
   }
   h += '<button data-ds="'+ds+'" data-action="addEvtPrompt" style="background:none;border:1.5px dashed var(--bdr2);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;color:var(--txt3)">＋ イベント追加</button>';
@@ -15593,23 +15623,100 @@ function evtAreaHTML(ds, dat, allEvts) {
 }
 function addEvtPrompt(ds) {
   if(!can('pg')) return;
-  var v = prompt('イベント名を入力してください');
-  if (!v || !v.trim()) return;
-  /* HD主観だと pg.evtKinds[v] のキーになる。「透析/OPE合同」のような表記は現場に自然に出るが、
-     Firebase RTDB はキーに . # $ [ ] / を使えず、含むと保存が止まる。events 配列側の表記と
-     ズレないよう、ここで一度だけ正規化して以降は同じ文字列を使う。 */
-  v = fbSafeKey(v.trim());
-  if (!v) return;
-  phiGuardText(v, function(){
-    var pg = D.pages[ds]; if (!pg) return;
-    if (!pg.events) pg.events = [];
-    if (pg.events.indexOf(v) === -1) pg.events.push(v);
-    /* 登録した側を記録して色分けに使う。CEは既定なので印を付けない（既存データと同じ扱いになる） */
-    if (_viewMode === 'hd') { pg.evtKinds = pg.evtKinds || {}; pg.evtKinds[v] = 'hd'; }
-    else if (pg.evtKinds) { delete pg.evtKinds[v]; }
-    saveD();
-    renderPage(ds);
-  }, function(){ addEvtPrompt(ds); });
+  var old = document.getElementById('evt-add-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'evt-add-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '380px';
+  md.innerHTML = '<h3>＋ イベント追加</h3>'
+    + '<div class="md-flbl">イベント名</div><input type="text" id="evt-add-name" class="fi" maxlength="40" style="width:100%;box-sizing:border-box" placeholder="例：病棟改修工事">'
+    + '<div class="evt-add-mode" style="display:flex;gap:6px;margin-top:10px">'
+    + '<label class="dc-cb-item checked" id="evt-add-one"><input type="radio" name="evt-add-mode" value="one" checked>この日だけ</label>'
+    + '<label class="dc-cb-item" id="evt-add-rng"><input type="radio" name="evt-add-mode" value="range">期間</label></div>'
+    + '<div id="evt-add-range" style="display:none;margin-top:8px"><div class="md-flbl">' + fmtJ(ds) + ' から</div>'
+    + '<input type="date" id="evt-add-to" class="fi" min="' + ds + '" value="' + getNextDs(ds) + '" style="width:100%;box-sizing:border-box">'
+    + '<div class="pn" style="font-size:11px;margin-top:4px">までの毎日に出します（連絡表がまだ無い日も、作ったときに出ます）</div></div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'evt-add-ov\').remove()">キャンセル</button><button class="btn btn-p" id="evt-add-save">追加</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  var nameEl = document.getElementById('evt-add-name'); nameEl.focus();
+  md.querySelectorAll('input[name="evt-add-mode"]').forEach(function(rb){
+    rb.onchange = function(){
+      var rng = md.querySelector('input[name="evt-add-mode"]:checked').value === 'range';
+      document.getElementById('evt-add-range').style.display = rng ? '' : 'none';
+      document.getElementById('evt-add-one').classList.toggle('checked', !rng);
+      document.getElementById('evt-add-rng').classList.toggle('checked', rng);
+    };
+  });
+  nameEl.onkeydown = function(e){ if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.getElementById('evt-add-save').click(); } };
+  document.getElementById('evt-add-save').onclick = function(){
+    var v = (nameEl.value || '').trim();
+    if (!v) { toast('イベント名を入力してください', 'warn'); nameEl.focus(); return; }
+    /* HD主観だと pg.evtKinds[v] のキーになる。「透析/OPE合同」のような表記は現場に自然に出るが、
+       Firebase RTDB はキーに . # $ [ ] / を使えず、含むと保存が止まる。events 配列側の表記と
+       ズレないよう、ここで一度だけ正規化して以降は同じ文字列を使う（期間イベントも同じ表記にそろえる）。 */
+    v = fbSafeKey(v);
+    if (!v) return;
+    var isRange = md.querySelector('input[name="evt-add-mode"]:checked').value === 'range';
+    var to = document.getElementById('evt-add-to').value;
+    if (isRange && (!to || to < ds)) { toast('終了日は ' + fmtJ(ds) + ' 以降を選んでください', 'warn'); return; }
+    if (isRange && to === ds) isRange = false;
+    phiGuardText(v, function(){
+      if (!can('pg')) return;
+      if (isRange) {
+        var a = evtRangesAll();
+        var r = { id: 'er' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), n: v, from: ds, to: to,
+                  by: (currentUser && currentUser.displayName) || '', ts: Date.now() };
+        if (_viewMode === 'hd') r.kind = 'hd';
+        a.push(r); D.evtRanges = a;
+        writeLog('期間イベント追加', v + '（' + evtRangeLabel(r) + '）');
+      } else {
+        var pg = D.pages[ds]; if (!pg) return;
+        if (!pg.events) pg.events = [];
+        if (pg.events.indexOf(v) === -1) pg.events.push(v);
+        /* 登録した側を記録して色分けに使う。CEは既定なので印を付けない（既存データと同じ扱いになる） */
+        if (_viewMode === 'hd') { pg.evtKinds = pg.evtKinds || {}; pg.evtKinds[v] = 'hd'; }
+        else if (pg.evtKinds) { delete pg.evtKinds[v]; }
+      }
+      ov.remove();
+      saveD();
+      renderPage(ds); renderCal();
+    }, function(){ nameEl.focus(); });
+  };
+}
+/* 期間イベントを消す：期間ごと／この日だけ外す／この日で終わり */
+function openEvtRangeRemove(ds, rid) {
+  if (!can('pg')) return;
+  var r = evtRangesAll().filter(function(x){ return x.id === rid; })[0]; if (!r) return;
+  var old = document.getElementById('evt-rm-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'evt-rm-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '380px';
+  md.innerHTML = '<h3>「' + escH(r.n) + '」を消す</h3><div class="pn" style="font-size:12px;margin-bottom:10px">期間：' + fmtJ(r.from) + ' 〜 ' + fmtJ(r.to) + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px">'
+    + '<button class="btn btn-g" data-er="day">' + fmtMD(ds) + ' だけ外す</button>'
+    + (ds < r.to ? '<button class="btn btn-g" data-er="end">' + fmtMD(ds) + ' で終わりにする（' + fmtMD(getNextDs(ds)) + '以降を消す）</button>' : '')
+    + '<button class="btn btn-d" data-er="all">期間ごと消す</button>'
+    + '<button class="btn btn-g" data-er="cancel">キャンセル</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  md.onclick = function(e){
+    var b = e.target.closest('[data-er]'); if (!b) return;
+    var act = b.getAttribute('data-er'); if (act === 'cancel') { ov.remove(); return; }
+    if (!can('pg')) return;
+    var a = evtRangesAll(), k = -1;
+    for (var i = 0; i < a.length; i++) if (a[i].id === rid) k = i;
+    if (k < 0) { ov.remove(); return; }
+    var x = a[k];
+    if (act === 'all') { a.splice(k, 1); writeLog('期間イベント削除', x.n + '（' + evtRangeLabel(x) + '）'); }
+    else if (act === 'end') { x.to = ds; writeLog('期間イベントを短縮', x.n + '（' + evtRangeLabel(x) + '）'); }
+    else {
+      x.skip = Object.assign({}, x.skip || {}); x.skip[ds] = true;
+      /* 外した結果、出す日が1日も残らなければ期間ごと消す */
+      var any = false; for (var d = x.from; d <= x.to; d = getNextDs(d)) { if (!x.skip[d]) { any = true; break; } }
+      if (!any) a.splice(k, 1);
+      writeLog('期間イベントから外す', x.n + '（' + fmtJ(ds) + '）');
+    }
+    D.evtRanges = a;
+    ov.remove(); saveD(); renderPage(ds); renderCal();
+  };
 }
 function removeEvt(ds, evtName) {
   if(!can('pg')) return;
@@ -19795,6 +19902,8 @@ function renderPage(ds) {
       if(action === 'removeEvt'){
         var evtName = btn.getAttribute('data-evt');
         removeEvt(bds, evtName);
+      } else if(action === 'removeEvtRange'){
+        openEvtRangeRemove(bds, btn.getAttribute('data-rid'));
       } else if(action === 'addEvtPrompt'){
         addEvtPrompt(bds);
       }
@@ -20916,6 +21025,8 @@ function renderPageHD(ds) {
       if (action === 'removeEvt') {
         var evtName = btn.getAttribute('data-evt');
         removeEvt(bds, evtName);
+      } else if (action === 'removeEvtRange') {
+        openEvtRangeRemove(bds, btn.getAttribute('data-rid'));
       } else if (action === 'addEvtPrompt') {
         addEvtPrompt(bds);
       }
@@ -29417,7 +29528,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -29569,7 +29680,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -29626,7 +29737,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */

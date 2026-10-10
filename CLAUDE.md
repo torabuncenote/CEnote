@@ -79,6 +79,7 @@ var D = {
   eduProgress: {},  // 教育到達度 { 氏名: { 項目key: {lv,by,ts,hist[],goalFy?} } }。詳細は下記「実績・教育到達度」節
   eduCfg: { ceEdu:false }, // オペ・カテ症例行に教育者欄を出すか（既定OFF）
   eduItems: { ward:[], device:[], hd:[] }, // 教育到達度6分類のうち病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
+  evtRanges: [],    // 期間イベント [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]。1日ずつの events / D.evts とは別に持ち、表示のときだけ合わせる（evtRangesOn(ds)）
   opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
   _migVer: 6        // data migration version flag (increment when running one-time migrations)
 };
@@ -655,6 +656,8 @@ dat.placement = {
 - `setViewMode` は掲示板のバッジ更新と、開いていればパネルの再描画も行う。
 - **横断検索と自動削除のメディア掃除は両スレッドを走査する** — 検索は「どこかに書いたはず」を探す機能なので主観に関係なくヒットさせ、掃除は片方だけだと添付がStorageに残り続けるため。
 - **マイ担当（`renderMySchedule`）も両方のタイムテーブルを見る**（HD分は`🩸`付き）。自分の予定であることは主観と無関係なので。
+
+**期間イベント（`D.evtRanges`）**：「＋ イベント追加」（`addEvtPrompt`、小窓）で「期間」を選ぶと、開いている日から終了日までの毎日に出る。読み出しは `evtRangesOn(ds)`（`skip` の日は除く）。連絡表では点線の枠、カレンダーは期間中の毎日に印、月の一覧には始まりの日（月をまたぐときは1日）だけ期間付きで出す。消すときは `openEvtRangeRemove(ds, rid)` で「この日だけ外す（`skip`）／この日で終わり（`to` を縮める）／期間ごと消す」。権限は1日のイベントと同じ `can('pg')`。
 
 **イベントはCE/HD共通で見せ、登録した側で色分けする**（`evtAreaHTML(ds,dat,allEvts)`／`evtKindOf(dat,name)`）。同じ日の同じ現場の予定なので両方から見えるべきだが、どちら発かは分かったほうがよい。出所は `dat.evtKinds = { イベント名:'hd' }` の**別マップ**で持つ——イベント本体は文字列の配列（`dat.events` / `D.evts[ym][day]`）で既存データが入っているため、形を変えずに横へ足せる。**印が無いものはCE扱い**（CE発＝橙・📅／HD発＝紫・🩸）。`removeEvt` は削除時に印も片付ける。
 
