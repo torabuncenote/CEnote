@@ -1523,8 +1523,9 @@ body.has-psgb{--psgb-h:36px}
 .dev-kind .dev-cnt{margin-left:auto;font-size:11px;font-weight:400;color:var(--txt3)}
 .dev-kind .dev-cnt.all{color:var(--gr);font-weight:700}
 .dev-kind .dc-cbs{padding:0 8px 8px}
-.dev-u{display:inline-flex;align-items:center;gap:2px;max-width:100%}
-.dev-st-btn{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur);color:var(--txt3);font-size:13px;line-height:1;cursor:pointer;padding:0}
+.dev-u{max-width:100%;cursor:pointer}
+.dev-u input{width:17px;height:17px;flex:0 0 auto;margin:0 2px 0 -3px}
+.dev-name{display:inline-flex;align-items:center;gap:4px;min-width:0}
 .dc-cb-item.st-skip{background:var(--or-bg);border-color:var(--or);color:var(--or)}
 .dc-cb-item.st-ng{background:var(--rd-bg);border-color:var(--rd);color:var(--rd)}
 .dc-cb-item.st-away{background:var(--sur2);border-color:var(--txt3);color:var(--txt2);border-style:dashed}
@@ -1533,6 +1534,7 @@ body.has-psgb{--psgb-h:36px}
 .dev-st-pick{display:flex;flex-direction:column;gap:6px}
 .dev-st-opt{display:flex;align-items:center;gap:10px;text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--bdr);background:var(--sur);color:var(--txt);cursor:pointer;font-family:var(--fn)}
 .dev-st-opt span{font-size:11px;color:var(--txt3)}
+.dev-st-opt.st-done{border-color:var(--ac)}
 .dev-st-opt.st-skip.on{border-color:var(--or);background:var(--or-bg)}
 .dev-st-opt.st-ng.on{border-color:var(--rd);background:var(--rd-bg)}
 .dev-st-opt.st-away.on{border-color:var(--txt3);background:var(--sur2)}
@@ -6003,7 +6005,7 @@ var APP_VERSION = 'Ver.2026/10/11-122';
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
   { ver:'Ver.2026/10/11-122', date:'2026-10-11', title:'機器の点検で「見送り」などを記録できるようにしました', items:[
-    {t:'new', notify:true, d:'🩺 チェックリストの機器の消し込みで、各機器の「⋯」から「見送り（使用中）」「点検不可（故障・修理中）」「不在（貸出・移動中）」を記録できるようになりました。色（橙・赤・灰）と理由のメモで、点検できなかった理由がほかの人にも伝わります'},
+    {t:'new', notify:true, d:'🩺 チェックリストの機器の消し込みで、各機器の名前を押すと「見送り（使用中）」「点検不可（故障・修理中）」「不在（貸出・移動中）」を記録できるようになりました。色（橙・赤・灰）と理由のメモで、点検できなかった理由がほかの人にも伝わります'},
     {t:'new', admin:true, notify:true, d:'🩺 マスタの各業務の「🩺 機器」で、見送りなどを「済」として数えるかを選べます（数えない場合は未了のまま残り、あとで点検できたら普段どおりチェック）'}
   ]},
   { ver:'Ver.2026/10/09-121', date:'2026-10-09', title:'配置図の拡大を案内するようにしました', items:[
@@ -14812,8 +14814,11 @@ function renderDevPanel(ds, it, wrapEl) {
       var d = pr.done[u.id], sx = d ? (d.st ? d : null) : pr.stat[u.id];
       if (d) dn++; if (sx && !d) stN++;
       var tag = sx ? '<span class="dev-st-tag st-' + sx.st + '"' + (sx.note ? ' title="' + escH(sx.note) + '"' : '') + '>' + DEV_ST[sx.st].ic + ' ' + DEV_ST[sx.st].l + (sx.ds !== ds || cfg.r !== 'day' ? ' ' + fmtMD(sx.ds) : '') + (sx.note ? '：' + escH(sx.note) : '') + '</span>' : '';
-      return '<span class="dev-u"><label class="dc-cb-item' + (d ? ' checked' : '') + (sx ? ' st-' + sx.st : '') + '"><input type="checkbox" data-dev="' + escH(u.id) + '"' + (d ? ' checked' : '') + '>' + escH(u.n) + '<span class="dev-sub">' + escH([u.no, u.loc].filter(Boolean).join('・')) + (d && !d.st && cfg.r !== 'day' ? (u.no || u.loc ? ' ' : '') + fmtMD(d.ds) : '') + '</span>' + tag + '</label>'
-        + '<button type="button" class="dev-st-btn" data-dev-st="' + escH(u.id) + '" title="見送り・点検不可・不在を記録" aria-label="' + escH(u.n) + 'の状態を記録">⋯</button></span>';
+      /* チェックボックスを押したら「済」の切り替え（従来どおり）、名前の部分を押したら状態メニュー。
+         別のボタンを足すと1台ぶんの幅が広がるので、1つの枠の中で押す場所で分ける（label にしないのはそのため） */
+      return '<span class="dc-cb-item dev-u' + (d ? ' checked' : '') + (sx ? ' st-' + sx.st : '') + '" data-dev-st="' + escH(u.id) + '" role="button" title="名前を押すと「見送り・点検不可・不在」を記録できます">'
+        + '<input type="checkbox" data-dev="' + escH(u.id) + '"' + (d ? ' checked' : '') + ' aria-label="' + escH(u.n) + 'を点検済にする">'
+        + '<span class="dev-name">' + escH(u.n) + '<span class="dev-sub">' + escH([u.no, u.loc].filter(Boolean).join('・')) + (d && !d.st && cfg.r !== 'day' ? (u.no || u.loc ? ' ' : '') + fmtMD(d.ds) : '') + '</span>' + tag + '</span></span>';
     }).join('');
     total += g.units.length; doneN += dn;
     var key = sid + '|' + g.kind.id, open = (key in _devKindOpen) ? _devKindOpen[key] : dn < g.units.length;
@@ -14843,7 +14848,9 @@ function openDevStModal(ds, it, task, wrapEl, devId) {
   md.innerHTML = '<h3>🩺 ' + escH(u.n) + '</h3>'
     + '<div class="pn" style="font-size:11px;margin-bottom:8px">点検できなかった理由を選びます。' + (cfg.sd ? 'この業務では「済」として数えます。' : 'この業務では「済」に数えず、点検できたら普段どおりチェックします。') + '</div>'
     + (cur && !here ? '<div class="pn" style="font-size:11px;margin-bottom:8px">前回：' + DEV_ST[cur.st].ic + ' ' + DEV_ST[cur.st].l + '（' + fmtMD(cur.ds) + (cur.by ? '・' + escH(cur.by) : '') + '）</div>' : '')
-    + '<div class="dev-st-pick">' + Object.keys(DEV_ST).map(function(k){
+    + '<div class="dev-st-pick">'
+    + (pr.done[devId] && !pr.done[devId].st ? '' : '<button type="button" class="dev-st-opt st-done" data-done="1"><b>✅ 点検済</b><span>点検できた（チェックと同じ）</span></button>')
+    + Object.keys(DEV_ST).map(function(k){
         return '<button type="button" class="dev-st-opt st-' + k + (sel === k ? ' on' : '') + '" data-st="' + k + '"><b>' + DEV_ST[k].ic + ' ' + DEV_ST[k].l + '</b><span>' + DEV_ST[k].hint + '</span></button>';
       }).join('') + '</div>'
     + '<input type="text" id="dev-st-note" class="fi" maxlength="40" placeholder="理由のメモ（任意・患者名は書かない）" style="width:100%;box-sizing:border-box;margin-top:8px" value="' + escH(here ? here.note : '') + '">'
@@ -14852,7 +14859,10 @@ function openDevStModal(ds, it, task, wrapEl, devId) {
     + '<button class="btn btn-g" onclick="document.getElementById(\'dev-st-ov\').remove()">キャンセル</button>'
     + '<button class="btn btn-p" id="dev-st-save">保存</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
-  md.querySelectorAll('.dev-st-opt').forEach(function(b){ b.onclick = function(){ sel = b.getAttribute('data-st'); md.querySelectorAll('.dev-st-opt').forEach(function(x){ x.classList.toggle('on', x === b); }); }; });
+  md.querySelectorAll('.dev-st-opt').forEach(function(b){ b.onclick = function(){
+    if (b.getAttribute('data-done')) { ov.remove(); devCheckChange(ds, it, task, wrapEl, devId, true); return; }
+    sel = b.getAttribute('data-st'); md.querySelectorAll('.dev-st-opt').forEach(function(x){ x.classList.toggle('on', x === b); });
+  }; });
   var clr = document.getElementById('dev-st-clear');
   if (clr) clr.onclick = function(){
     var pg = D.pages[ds];
@@ -25380,7 +25390,7 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
     });
     devEl.addEventListener('click', function(e){
       var sb=e.target.closest('[data-dev-st]');
-      if (sb) { e.stopPropagation(); if (locked) return; openDevStModal(ds, devIt, task, wrap, sb.getAttribute('data-dev-st')); return; }
+      if (sb && e.target.tagName !== 'INPUT') { e.stopPropagation(); if (locked) return; openDevStModal(ds, devIt, task, wrap, sb.getAttribute('data-dev-st')); return; }
       var ub=e.target.closest('[data-dev-undo]'); if(!ub) return;
       e.stopPropagation(); if (locked) return;
       devCycleUndo(ds, devIt, task, wrap);
