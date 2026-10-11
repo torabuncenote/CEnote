@@ -265,6 +265,13 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 @media (hover:hover){#pnav-float .pnav-fl:hover{opacity:1}}
 #pnav-float .pnav-fl:active,#pnav-float .pnav-fl:focus-visible{opacity:1}
 body.pnav-kb #pnav-float{display:none!important}
+/* スマホは本文の左右の余白（14px）に収まる細いつまみにする。丸ボタンのままだと本文の端（選択欄の▼など）に重なり、
+   押したつもりが日付の移動になっていた */
+@media (max-width:768px){
+  #pnav-float .pnav-fl{width:16px;height:56px;font-size:15px;box-shadow:none;opacity:.35}
+  #pnav-float .pnav-fl.l{left:0!important;border-left:none;border-radius:0 10px 10px 0}
+  #pnav-float .pnav-fl.r{right:0!important;border-right:none;border-radius:10px 0 0 10px}
+}
 @media print{#pnav-float{display:none!important}}
 /* ダッシュボード：項目数が可変なので3列グリッドをやめ、内容幅で横に詰める。
    ラベルと値も縦積みではなく横並びにして高さを半分にする */
@@ -709,17 +716,24 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .dc.lc::after{content:'🔒';position:absolute;top:7px;right:9px;font-size:12px}
 .dc.absent{border-color:var(--rd)!important;background:var(--rd-bg)}
 .dl{font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:8px;display:flex;align-items:center;gap:4px}
-.ds2{width:100%;font-size:13px;border:1px solid var(--bdr);border-radius:8px;padding:7px 10px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:7px;font-family:var(--fn)}
-.ds2:hover{border-color:var(--txt3)}
-.ds2:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-bg)}
-.ds2.set{background:var(--sur);color:var(--txt);font-weight:700}
+.ds2{width:100%;font-size:13px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:6px 9px;background:var(--sur2);color:var(--txt);cursor:pointer;outline:none;transition:border-color .15s;margin-bottom:7px;font-family:var(--fn)}
+.ds2:hover,.ds2:focus{border-color:var(--ac);background:var(--ac-bg)}
+.ds2.set{border-color:var(--ac);background:var(--ac-bg);color:var(--ac);font-weight:700}
+/* 担当カードの中だけ、細い灰色の枠（#174）。.ds2/.ps は他の画面でも使うので全体は変えない */
+.dc .ds2{border:1px solid var(--bdr);border-radius:8px;padding:7px 10px;background:var(--sur2);transition:border-color .15s,box-shadow .15s}
+.dc .ds2:hover{border-color:var(--txt3);background:var(--sur2)}
+.dc .ds2:focus{border-color:var(--ac);background:var(--sur2);box-shadow:0 0 0 3px var(--ac-bg)}
+.dc .ds2.set{border-color:var(--bdr);background:var(--sur);color:var(--txt);font-weight:700}
 .hd-name-sel.changed{border-color:var(--or);background:var(--or-bg);color:var(--or);font-weight:700}
 .hd-changed-badge{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;color:var(--or);white-space:nowrap}
 .pl2{font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:3px}
-.ps{width:100%;font-size:12px;border:1px solid var(--bdr);border-radius:8px;padding:6px 10px;background:transparent;color:var(--txt3);cursor:pointer;outline:none;transition:border-color .15s,box-shadow .15s;font-family:var(--mo)}
-.ps:hover{border-color:var(--txt3)}
-.ps:focus{border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-bg)}
-.ps.set{background:var(--sur);color:var(--txt2);font-weight:700}
+.ps{width:100%;font-size:12px;border:1.5px dashed var(--bdr2);border-radius:var(--rs);padding:5px 9px;background:transparent;color:var(--txt2);cursor:pointer;outline:none;transition:all .15s;font-family:var(--mo)}
+.ps:hover,.ps:focus{border-color:var(--pu);background:var(--pu-bg);color:var(--pu)}
+.ps.set{border-style:solid;border-color:var(--pu);background:var(--pu-bg);color:var(--pu);font-weight:700}
+.dc .ps{border:1px solid var(--bdr);border-radius:8px;padding:6px 10px;color:var(--txt3);transition:border-color .15s,box-shadow .15s}
+.dc .ps:hover{border-color:var(--txt3);background:transparent;color:var(--txt3)}
+.dc .ps:focus{border-color:var(--ac);background:transparent;color:var(--txt3);box-shadow:0 0 0 3px var(--ac-bg)}
+.dc .ps.set{border-style:solid;border-color:var(--bdr);background:var(--sur);color:var(--txt2);font-weight:700}
 .oc-card{background:var(--oc-bg);border:1.5px solid var(--oc-bdr);border-radius:var(--r);padding:13px 16px;margin-top:10px}
 .oc-ttl{font-size:11px;font-weight:700;color:var(--oc);margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .oc-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
@@ -836,14 +850,15 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .rz-hint{color:rgba(255,255,255,.7);font-size:11px;text-align:center;padding:6px 0 calc(8px + env(safe-area-inset-bottom,0px))}
 .rz-ov.zoomed .rz-hint{visibility:hidden}
 /* 図の下に説明・一覧・閉じるボタンが続くので、図はその分を引いた高さに抑える（モーダル内をスクロールしないと閉じるが見えなかった） */
-.robo-view .robo-img{max-height:max(180px, calc(100vh / var(--ui-zoom,1) - 300px))}
+.robo-view .robo-img{max-height:max(180px, calc(100vh / var(--ui-zoom,1) - 300px));max-height:max(180px, calc(100dvh / var(--ui-zoom,1) - 300px))}
 .robo-stage{position:relative}
 .robo-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur);color:var(--txt);font-size:20px;font-weight:700;line-height:1;cursor:pointer;opacity:.85;box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;padding:0}
 .robo-nav.l{left:6px}.robo-nav.r{right:6px}
 .robo-meta{display:flex;align-items:center;gap:8px;min-height:18px;font-size:12px}
 .robo-cap{flex:1;min-width:0;font-weight:700;color:var(--txt2)}
 .robo-cnt{color:var(--txt3);font-weight:700}
-.robo-thumbs{display:flex;gap:6px;flex-wrap:wrap}
+.robo-thumbs{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+.robo-thumb{flex:0 0 auto}
 .robo-thumb{width:56px;height:40px;border:2px solid var(--bdr);border-radius:6px;background:#fff center/cover no-repeat;cursor:pointer;padding:0}
 .robo-thumb.on{border-color:var(--ac)}
 .robo-ed-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bdr)}
@@ -886,7 +901,7 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .ops-staff-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;background:var(--sur2);border:1px solid var(--bdr);border-radius:10px;padding:2px 4px 2px 8px}
 .ops-staff-chip-x{background:none;border:none;cursor:pointer;color:var(--txt3);font-size:12px;padding:0 3px;line-height:1}
 .ops-staff-chip-x:hover{color:var(--rd)}
-.ops-staff-add{font-size:11px;border:1px dashed var(--bdr2);border-radius:10px;padding:3px 9px;background:var(--sur);color:var(--txt2);cursor:pointer;transition:all .15s}
+.ops-staff-add{font-size:11px;border:1px dashed var(--bdr2);border-radius:10px;padding:3px 9px;background:var(--sur);color:var(--txt2);cursor:pointer;transition:all .15s;max-width:9.5em}
 .ops-staff-add:hover{border-color:var(--ac);color:var(--ac);background:var(--ac-bg)}
 .ops-end-time{font-size:12px;border:1.5px solid var(--bdr);border-radius:var(--rs);padding:3px 6px;background:var(--sur2);color:var(--txt)}
 .ops-add-btn{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--ac);background:var(--ac-bg);border:1.5px dashed var(--ac);border-radius:var(--rs);padding:5px 10px;cursor:pointer;width:100%;justify-content:center;margin-top:2px}
@@ -3511,10 +3526,11 @@ function init() {
       btn.classList.toggle('show', mainEl.scrollTop > 250);
     });
   })();
-  /* 消し込みバー：入力欄フォーカス中は隠し、外れたら戻す */
+  /* 消し込みバー：入力欄フォーカス中は隠し、外れたら戻す（文字を打つ欄だけ。チェックボックスは対象外——
+     Android の Chrome は押したチェックボックスにフォーカスを残すので、含めるとバー・左右の丸ボタン・スワイプが止まったままになる） */
   document.addEventListener('focusin', function(e){
     var t = e.target;
-    if (!t || (t.tagName!=='INPUT' && t.tagName!=='TEXTAREA')) return;
+    if (!isTextEntry(t)) return;
     _cbarInputFocused = true;
     if (window.innerWidth <= 768) document.body.classList.add('pnav-kb'); /* スマホは入力中（キーボード表示中）だけ左右の丸ボタンも隠す */
     var bar = document.getElementById('cbar');
@@ -3522,10 +3538,10 @@ function init() {
   });
   document.addEventListener('focusout', function(e){
     var t = e.target;
-    if (!t || (t.tagName!=='INPUT' && t.tagName!=='TEXTAREA')) return;
+    if (!isTextEntry(t)) return;
     setTimeout(function(){
       var active = document.activeElement;
-      if (active && (active.tagName==='INPUT' || active.tagName==='TEXTAREA')) return; /* 別の入力欄へ移っただけ */
+      if (isTextEntry(active)) return; /* 別の入力欄へ移っただけ */
       _cbarInputFocused = false;
       document.body.classList.remove('pnav-kb');
       var bar = document.getElementById('cbar');
@@ -6007,11 +6023,22 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/11-125';
+var APP_VERSION = 'Ver.2026/10/11-126';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-126', date:'2026-10-11', title:'見直しで見つかった不具合を直しました', items:[
+    {t:'fix', d:'📱 Androidでチェックを押したあと、左右に払う操作や日付の丸ボタンが効かなくなることがあった問題を直しました'},
+    {t:'fix', d:'📱 スマホで、日付の丸ボタンが本文の端に重なり、押したつもりが日付の移動になることがあった問題を直しました（画面端の細いつまみにしました）'},
+    {t:'fix', d:'🌙 PSG外しだけの日に、「PSG取り外しがあります」の帯が時刻どおりに出たり消えたりしなかった問題を直しました'},
+    {t:'fix', d:'📅 期間イベントの初日を外すと、カレンダーの予定一覧からその期間が消えていた問題を直しました'},
+    {t:'fix', d:'🩺 点検済みの機器にあとから「見送り」などを記録しても表示されなかった問題を直しました'},
+    {t:'fix', d:'🚶 6MWの担当医の欄で、患者IDなどの警告まで出なくなっていた問題を直しました'},
+    {t:'fix', d:'🎨 担当カード以外の選択欄の見た目まで変わっていたのを元に戻しました'},
+    {t:'fix', admin:true, d:'🏭 メーカー連絡先のExcel取込で、担当者が空の行を担当交代として扱っていた問題を直しました'},
+    {t:'fix', d:'🖨 6MW・PSGの確認項目が印刷に出なかった問題などを直しました'}
+  ]},
   { ver:'Ver.2026/10/11-125', date:'2026-10-11', title:'担当者を選ぶとき、前回その業務に入った日が分かるようにしました', items:[
     {t:'new', notify:true, d:'🕘 オペ・カテの症例とHD特殊治療で担当者を選ぶ一覧に、各スタッフが前回その術式・治療に入った日（「前回 9/12・29日前」「未経験」）を出すようにしました。担当者の行の🕘を押すと、その業務に最近入った人の一覧も見られます'}
   ]},
@@ -6041,7 +6068,7 @@ var APP_CHANGELOG = [
     {t:'imp', notify:true, d:'🤖 ロボット配置の🤖チップを押すと、配置図が複数あるときは ‹ › や左右に払う操作で1枚ずつ切り替えて見られます（図の説明も表示）'},
     {t:'imp', admin:true, notify:true, d:'📷 ロボット配置マスタで、1つの配置に配置図を5枚まで登録できるようになりました。図ごとに説明（例：術者側から）を付け、並べ替え・差し替え・削除ができます'}
   ]},
-  { ver:'Ver.2026/10/11-116', date:'2026-10-11', title:'6MWを1件ずつ記録し、6MW・PSGに確認チェックを付けました', items:[
+  { ver:'Ver.2026/10/08-116', date:'2026-10-08', title:'6MWを1件ずつ記録し、6MW・PSGに確認チェックを付けました', items:[
     {t:'new', notify:true, d:'🚶 6MWを1件ずつのブロックで記録できるようになりました（開始時刻・担当医・実施CE・備考）。担当医は以前に入れた名前が候補に出ます'},
     {t:'new', notify:true, d:'✅ 6MWの各ブロックと、PSGの装着・外しに確認チェックリストが付きました。普段は閉じて「2 / 4」のように進み具合だけ出ます。PSGの「付箋入力済」もこの中にあります'},
     {t:'imp', notify:true, d:'🔔 6MW・PSGの確認のやり残しが消し込みバーに出るようになりました（6MWは実施CE、PSGは名前に「PSG」を含む担当枠の人に「自分あて」）'},
@@ -6049,17 +6076,17 @@ var APP_CHANGELOG = [
     {t:'new', admin:true, notify:true, d:'📊 CE集計に「6MWの内訳」（担当医別・実施CE別）を追加しました'},
     {t:'new', admin:true, notify:true, d:'✅ 業務マスタに「6MW・PSGの確認項目」を追加しました（6MW用・PSG装着用・PSG外し用）'}
   ]},
-  { ver:'Ver.2026/10/11-115', date:'2026-10-11', title:'チェックリストの各業務に役割を付けられるようにしました', items:[
+  { ver:'Ver.2026/10/08-115', date:'2026-10-08', title:'チェックリストの各業務に役割を付けられるようにしました', items:[
     {t:'new', notify:true, d:'🏷 チェックリストの各業務に、誰の仕事か（CEは担当枠、HDは M・A3 などの役割）が印で出るようになりました。自分の役割の印は太字になります'},
     {t:'new', notify:true, d:'👤 チェックリストの見出しのボタンで「自分の役割の業務だけ」に絞って表示できます（役割の付いていない業務は常に出ます）'},
     {t:'imp', notify:true, d:'✅ 消し込みバーで、自分の役割のチェックが「自分あて」になり、残りがどの役割の分かも分かるようになりました'},
     {t:'new', admin:true, notify:true, d:'🏷 マスタの共通業務・曜日別業務（CE・HD）の各項目に「🏷 役割」を追加しました。いくつでも選べます'}
   ]},
-  { ver:'Ver.2026/10/11-114', date:'2026-10-11', title:'連絡表で前後の日へすぐ移れるようにしました', items:[
+  { ver:'Ver.2026/10/08-114', date:'2026-10-08', title:'連絡表で前後の日へすぐ移れるようにしました', items:[
     {t:'new', notify:true, d:'‹ › 連絡表の日付の左右のボタンで、前の日・次の日へ移れるようになりました。ページの途中でも、画面の左右の端にある薄い丸ボタンで移れます。スマホでは画面を左右に払っても移れます（入力欄や配置盤の上では反応しません）'},
     {t:'imp', d:'📅 連絡表がまだ無い日へ移ろうとしたときは、作るか聞くようにしました（作る権限が無い人は、次に連絡表がある日を開きます）'}
   ]},
-  { ver:'Ver.2026/10/11-113', date:'2026-10-11', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
+  { ver:'Ver.2026/10/08-113', date:'2026-10-08', title:'メーカー連絡先で前の担当者を見られるようにしました', items:[
     {t:'new', notify:true, d:'👤 メーカー連絡先のカードに「担当交代」ボタンを追加しました。今の担当者・電話・メールを「前任」として残したまま、新しい担当者を入力できます（誤字や番号の修正は今までどおり ✏️ から）'},
     {t:'new', notify:true, d:'🔍 カードの「前任 N名」を開くと、前の担当者の名前・交代日・電話番号が見られます（番号はコピーもできます）。検索で前任の名前を入れても見つかります'},
     {t:'imp', notify:true, d:'📅 メーカー連絡先を編集するとき、更新日に今日の日付が自動で入るようにしました（必要なら変更できます）'},
@@ -12060,7 +12087,7 @@ function myDutyLabels(ds) {
   return out;
 }
 /* ===== 消し込みバー =====
-   数える対象は次の6種類に固定（増やさない）。カウントの唯一の入口が closeItems(ds) で、
+   数える対象は closeItems の cats に並べたものだけ（足すときは両主観の日ページにジャンプ先があるか確かめる）。カウントの唯一の入口が closeItems(ds) で、
    バー本体・内訳・「▶次へ」巡回のすべてがここの結果だけを見る（別々に数え直さない）。
    mine: この1件が自分に関係するか。
      - メンション：抽出できた時点で自分あてなので常にtrue
@@ -12195,7 +12222,7 @@ function updateCloseBar(ds) {
      すると true のまま固まり、リロードするまでバーが二度と出なくなる。
      フラグを信用せず、呼ばれるたびに実際の focus 状態で上書きする。 */
   var _ae = document.activeElement;
-  if (!(_ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA'))) { _cbarInputFocused = false; document.body.classList.remove('pnav-kb'); }
+  if (!isTextEntry(_ae)) { _cbarInputFocused = false; document.body.classList.remove('pnav-kb'); }
   /* バーが出ている間はトーストと自動ログアウト警告を上へ逃がす（画面下端で重なるため） */
   function markBody(on){ document.body.classList[on ? 'add' : 'remove']('has-cbar'); }
   if (!ds || !D.pages[ds]) {
@@ -12323,6 +12350,7 @@ function renderCal() {
   var ym = calY + '-' + pad(calM+1);
   var evtsM = (D.evts && D.evts[ym]) || {};
   var evtRows = []; /* 月のイベント一覧用 */
+  var shownRng = {}; /* 期間イベントを月の一覧に出したか（出ている最初の日だけ） */
   for (var d = 1; d <= days; d++) {
     var ds = calY + '-' + pad(calM+1) + '-' + pad(d);
     var w  = new Date(calY, calM, d).getDay();
@@ -12330,11 +12358,11 @@ function renderCal() {
     var dayEvts = (evtsM[d] || []).slice();
     var pageEvts2 = D.pages[ds] ? (D.pages[ds].events || []) : [];
     for (var ei=0; ei<pageEvts2.length; ei++) { if (dayEvts.indexOf(pageEvts2[ei]) === -1) dayEvts.push(pageEvts2[ei]); }
-    /* 期間イベント：カレンダーは期間中の毎日に印を付け、月の一覧には始まりの日（月をまたぐときは1日）にだけ期間付きで出す */
+    /* 期間イベント：カレンダーは期間中の毎日に印を付け、月の一覧にはその月で出ている最初の日だけ期間付きで出す（初日を外した期間も消えない） */
     var rgsD = evtRangesOn(ds);
     var hasEvt = dayEvts.length > 0 || rgsD.length > 0;
     var listEvts = dayEvts.slice();
-    rgsD.forEach(function(r){ if (r.from === ds || d === 1) listEvts.push(r.n + '（' + evtRangeLabel(r) + '）'); });
+    rgsD.forEach(function(r){ if (!shownRng[r.id]) { shownRng[r.id] = 1; listEvts.push(r.n + '（' + evtRangeLabel(r) + '）'); } });
     if (listEvts.length) evtRows.push({d:d, ds:ds, w:w, evts:listEvts});
     var cls = 'cd' + (w===0?' sun':w===6?' sat':'') + (ds===today?' tod':'') +
               (D.pages[ds] ? ' hp' : '') +
@@ -14585,14 +14613,16 @@ function devProgress(ds, sid, mode, sd) {
       var r = dc[id]; if (!r) return;
       if (last && (r.ts || 0) <= last.ts) return; /* 前の巡回の分 */
       var st = DEV_ST[r.st] ? r.st : '';
-      if (st && !sd) { /* 済に数えない状態は、いちばん新しいものだけ印として持つ */
-        if (!stat[id] || (r.ts || 0) > stat[id].ts) stat[id] = { ds:p, by:r.by || '', ts:r.ts || 0, st:st, note:r.note || '' };
-        return;
+      var rec = { ds:p, by:r.by || '', ts:r.ts || 0, st:st, note:r.note || '' };
+      if (st) { /* 状態は、いちばん新しいものを印として持つ */
+        if (!stat[id] || rec.ts > stat[id].ts) stat[id] = rec;
+        if (!sd) return; /* 済に数えない設定なら、ここまで */
       }
-      if (!done[id] || p < done[id].ds) done[id] = { ds:p, by:r.by || '', ts:r.ts || 0, st:st, note:r.note || '' };
+      if (!done[id] || p < done[id].ds) done[id] = rec;
     });
   });
-  Object.keys(stat).forEach(function(id){ if (done[id]) delete stat[id]; });
+  /* 「済」より後に付けた状態だけ残す（点検できた後の見送りも、ほかの人に伝わるように） */
+  Object.keys(stat).forEach(function(id){ if (done[id] && stat[id].ts <= done[id].ts && !(stat[id] === done[id])) delete stat[id]; });
   return { done:done, stat:stat, last:last };
 }
 
@@ -14895,7 +14925,7 @@ function renderDevPanel(ds, it, wrapEl) {
   var h = groups.map(function(g){
     var dn = 0;
     var units = g.units.map(function(u){
-      var d = pr.done[u.id], sx = d ? (d.st ? d : null) : pr.stat[u.id];
+      var d = pr.done[u.id], sx = pr.stat[u.id] || (d && d.st ? d : null);
       if (d) dn++; if (sx && !d) stN++;
       var tag = sx ? '<span class="dev-st-tag st-' + sx.st + '"' + (sx.note ? ' title="' + escH(sx.note) + '"' : '') + '>' + DEV_ST[sx.st].ic + ' ' + DEV_ST[sx.st].l + (sx.ds !== ds || cfg.r !== 'day' ? ' ' + fmtMD(sx.ds) : '') + (sx.note ? '：' + escH(sx.note) : '') + '</span>' : '';
       /* チェックボックスを押したら「済」の切り替え（従来どおり）、名前の部分を押したら状態メニュー。
@@ -16944,6 +16974,13 @@ function openDefaultPage() {
   else showEmpty();
 }
 
+/* 文字を打つ欄か（キーボードが出る欄）。チェックボックス・ラジオ・ボタン・選択欄は含めない */
+function isTextEntry(el) {
+  if (!el || !el.tagName) return false;
+  if (el.tagName === 'TEXTAREA' || el.isContentEditable) return true;
+  if (el.tagName !== 'INPUT') return false;
+  return /^(text|search|number|email|tel|url|password|date|time|datetime-local|month|week|)$/i.test(el.type || '');
+}
 /* ===== 前後の日へ移る（ボタン・スワイプ） ===== */
 function pageNavTitleHTML(title) {
   return '<span class="pnav">'
@@ -17013,7 +17050,10 @@ function pnavSwipeBlocked(el) {
   for (var n = el; n && n !== document.body; n = n.parentElement) {
     /* 文字サイズ「大」「特大」では #main 自体が横にスクロールする（:root[data-fs] .main{overflow-x:auto}）。
        そのときに払うと横スクロールのつもりが日付の移動になるので、#main が横にはみ出していれば数えない */
-    if (n.id === 'main') return n.scrollWidth > n.clientWidth + 2;
+    if (n.id === 'main') {
+      var mox = getComputedStyle(n).overflowX; /* 標準は hidden（はみ出しは切られて見えない）なので、横に動かせるときだけ */
+      return (mox === 'auto' || mox === 'scroll') && n.scrollWidth > n.clientWidth + 2;
+    }
     var tg = n.tagName;
     if (tg === 'INPUT' || tg === 'TEXTAREA' || tg === 'SELECT' || tg === 'BUTTON' || tg === 'LABEL' || tg === 'A' || n.isContentEditable) return true;
     /* 中でドラッグ・横スワイプを使う部品（配置盤・HD担当表・担当カード・プール） */
@@ -17049,7 +17089,7 @@ function initPageSwipe() {
     if (Math.abs(dx) < PNAV_SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * 2) return;
     var sel = window.getSelection && window.getSelection();
     if (sel && String(sel).length) return;
-    if (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    if (isTextEntry(document.activeElement)) return;
     pageNav(dx > 0 ? -1 : 1); /* 右へ払う＝前の日（紙をめくる向き） */
   }, {passive: true});
   mn.addEventListener('touchcancel', function(){ st = null; }, {passive: true});
@@ -17184,7 +17224,8 @@ function mkPushHist(rec, until, by) {
   rec.hist = h.slice(0, MK_HIST_MAX);
 }
 var _mkHistOpen = {}; /* 前任一覧を開いているカード { id:true }（非永続） */
-function mkToggleHist(id) { _mkHistOpen[id] = !_mkHistOpen[id]; renderMakersList(); }
+/* cur＝いま開いているか（検索で前任に一致して自動で開いたカードも、押せば閉じられるように画面の状態から反転する） */
+function mkToggleHist(id, cur) { _mkHistOpen[id] = !cur; renderMakersList(); }
 function mkCats() { return normMakers(D.makers).cats; }
 function mkList() { return normMakers(D.makers).list; }
 function mkFind(id) { return mkList().filter(function(r){return r.id===id;})[0] || null; }
@@ -17265,7 +17306,7 @@ function mkTelBtnHTML(r, which) {
 function mkHistHTML(r, open) {
   var hist = r.hist || [];
   if (!hist.length) return '';
-  var h = '<button class="mk-hist-tg" onclick="mkToggleHist(\'' + r.id + '\')">前任 ' + hist.length + '名 ' + (open ? '▾' : '▸') + '</button>';
+  var h = '<button class="mk-hist-tg" onclick="mkToggleHist(\'' + r.id + '\',' + (open ? 1 : 0) + ')">前任 ' + hist.length + '名 ' + (open ? '▾' : '▸') + '</button>';
   if (!open) return h;
   h += '<div class="mk-hist">';
   hist.forEach(function(x, i){
@@ -17289,7 +17330,7 @@ function mkHistHTML(r, open) {
 }
 function mkCardHTML(r, histOpen) {
   var acts = can('maker')
-    ? ('<div class="mk-acts"><button class="btn btn-g btn-sm" title="担当交代（今の担当を前任として残す）" onclick="openMakerModal(\'' + r.id + '\',true)">👤</button><button class="btn btn-g btn-sm" title="編集（誤字・番号の修正）" onclick="mkEdit(\'' + r.id + '\')">✏️</button><button class="btn btn-d btn-sm" onclick="mkDel(\'' + r.id + '\')">🗑</button></div>')
+    ? ('<div class="mk-acts"><button class="btn btn-g btn-sm" title="担当交代（今の担当を前任として残す）" onclick="openMakerModal(\'' + r.id + '\',true)">👤 交代</button><button class="btn btn-g btn-sm" title="編集（誤字・番号の修正）" onclick="mkEdit(\'' + r.id + '\')">✏️</button><button class="btn btn-d btn-sm" onclick="mkDel(\'' + r.id + '\')">🗑</button></div>')
     : '';
   var c = mkCatColor(r.cat);
   var h = '<div class="mk-card" style="--mk-c:' + c.fg + ';--mk-c-bg:' + c.bg + '">';
@@ -17305,7 +17346,7 @@ function mkCardHTML(r, histOpen) {
   if (r.mail) h += '<button id="mk-mail-' + r.id + '" class="mk-mail" onclick="mkCopyMail(\'' + r.id + '\')"><span class="mk-tel-ic" data-ic="✉️">✉️</span><span class="mk-mail-txt">' + escH(r.mail) + '</span></button>';
   if (r.note) h += '<div class="mk-note">' + escH(r.note) + '</div>';
   if (r.upd) h += '<div class="mk-upd">更新 ' + escH(r.upd) + '</div>';
-  h += mkHistHTML(r, histOpen || !!_mkHistOpen[r.id]);
+  h += mkHistHTML(r, (r.id in _mkHistOpen) ? !!_mkHistOpen[r.id] : !!histOpen);
   h += '</div>';
   return h;
 }
@@ -17925,7 +17966,7 @@ function doSaveMkImp() {
   var pKey = function(x){ return mkNorm(x.maker) + ' ' + mkNorm(x.person); };
   function mkImpHandoverTarget(list, r) {
     var mk = mkNorm(r.maker);
-    if (!mk || impMakerCnt[mk] !== 1 || oldMakerCnt[mk] !== 1) return null;
+    if (!mk || !mkNorm(r.person) || impMakerCnt[mk] !== 1 || oldMakerCnt[mk] !== 1) return null; /* 担当者が空の行は交代にしない */
     return list.filter(function(x){ return mkNorm(x.maker) === mk && mkNorm(x.person) !== mkNorm(r.person); })[0] || null;
   }
   var handN = 0;
@@ -18632,6 +18673,15 @@ function opsChkRefreshCount(det) {
   cbs.forEach(function(cb){ if (cb.checked) dn++; var lb = cb.closest('label'); if (lb) lb.classList.toggle('checked', cb.checked); });
   var n = det.querySelector('.ops-chk-n'); if (n) { n.textContent = dn + ' / ' + cbs.length; n.classList.toggle('all', !!cbs.length && dn === cbs.length); }
 }
+/* 印刷のときは閉じた折りたたみ（6MW・PSGの確認）を開いて刷り、終わったら戻す（閉じた details の中身は CSS では印刷に出せない） */
+(function(){
+  var opened = [];
+  window.addEventListener('beforeprint', function(){
+    opened = [];
+    document.querySelectorAll('#main details.ops-chk:not([open])').forEach(function(d){ d.open = true; opened.push(d); });
+  });
+  window.addEventListener('afterprint', function(){ opened.forEach(function(d){ d.open = false; }); opened = []; });
+})();
 /* details の開閉は bubbling しないので capture で拾う */
 function opsChkBindToggle(root) {
   if (!root || root._opsChkToggle) return; root._opsChkToggle = true;
@@ -18685,8 +18735,11 @@ function mwDocNames() {
    前の日の保存が取り消されてしまう） */
 var _mwSaveTO = {};
 function mwAfterChange(ds, now) {
+  /* 保存は毎回すぐ行う（症例行と同じ）。保存待ちの列に入ったページは /data の受信で上書きされないので、
+     打っている途中に他の人の保存が届いても最後の文字が消えない。見出し・消し込みバーの更新だけ少し待つ */
+  saveDPage(ds);
   clearTimeout(_mwSaveTO[ds]); delete _mwSaveTO[ds];
-  var run = function(){ delete _mwSaveTO[ds]; saveDPage(ds); if (ds === curDs) { updateOpsHeader(ds); updateCloseBar(ds); } };
+  var run = function(){ delete _mwSaveTO[ds]; if (ds === curDs) { updateOpsHeader(ds); updateCloseBar(ds); } };
   if (now) run(); else _mwSaveTO[ds] = setTimeout(run, 600);
 }
 function renderMwBlocks(ds, box, locked) {
@@ -22109,6 +22162,7 @@ function _uploadFallback(dataOrBlob, callback) {
     var reader = new FileReader();
     /* base64フォールバックはRTDB側の容量なのでsizeは常にnull（Storage使用量の集計に混ぜない） */
     reader.onload = function(e){ callback(null, e.target.result, null); };
+    reader.onerror = function(){ toast('画像を読み込めませんでした', 'warn'); callback(null, null, null); }; /* 返さないと「送信中」のまま止まる */
     reader.readAsDataURL(dataOrBlob);
   } else {
     callback(null, dataOrBlob, null);
@@ -22764,13 +22818,17 @@ function initPHIGuard() {
     var isText = tag==='TEXTAREA' || (tag==='INPUT' && /^(text|search|)$/i.test(el.type));
     if (!isText) return;
     if (el.id === 'memo-new') return;      /* 申し送りは送信時にチェック */
-    if (el.hasAttribute('data-no-phi')) return; /* 職員・医師の名前を入れる欄（6MWの担当医など） */
     if (el.disabled || el.readOnly) return;
     var base = el.getAttribute('data-phi-base');
     if (base !== null && base === (el.value || '')) return; /* 無編集で離脱 → 警告しない */
     var text = (el.value||'').trim();
     if (!text) return;
     var result = detectPHI(text);
+    /* 職員・医師の名前を入れる欄（6MWの担当医など）は、名前を入れるのが目的なので氏名の判定（赤の「氏名」・黄色）では止めない。
+       「田中先生」も赤の氏名として出るため、phiHasBlock をそのまま当てると医師名を入れるたびに止まる。患者IDなど氏名以外の赤だけ出す */
+    if (el.hasAttribute('data-no-phi')) {
+      result = { red: result.red.filter(function(r){ return r.indexOf('氏名') === -1; }), yellow: [] };
+    }
     if (!result.red.length && !result.yellow.length) return;
     showPHIPopup({
       result: result,
@@ -24951,6 +25009,8 @@ function checkTimeNotifs() {
   }
   /* PSG付箋チェック（開いている連絡表ページが対象。時刻を跨いだ瞬間にも通知される） */
   try { runPsgFusenCheck(); } catch(e) {}
+  /* PSG外しの帯：runPsgFusenCheck は装着欄の無い日（外しだけの日）に途中で抜けるので、ここで別に見直す */
+  try { if (curDs && D.pages[curDs]) updatePsgRemovalBanner(curDs); } catch(e) {}
   /* 翌日分に移ったらキャッシュをリセット */
   if (_notifFired._ds && _notifFired._ds !== ds) _notifFired = {};
   _notifFired._ds = ds;
@@ -28281,6 +28341,8 @@ function togSB(){
   }
   sbOpen=!sbOpen;
   if(sb) sb.classList.toggle('hm',!sbOpen);
+  /* #main の左右の位置が変わるので、左右の丸ボタンも置き直す（開閉の動きが終わってから） */
+  setTimeout(function(){ var bar = document.getElementById('cbar'); updatePnavFloat(bar ? (bar.getAttribute('data-ds') || null) : null); }, 320);
 }
 
 /* ===== UTILS ===== */
@@ -29812,7 +29874,7 @@ var PARTIAL_RESTORE_LABELS = {
   dly:'✅ チェックリスト（共通）', wd:'✅ チェックリスト（曜日別）', hdDly:'🩸 HDチェックリスト（共通）', hdWd:'🩸 HDチェックリスト（曜日別）',
   wdDepts:'🏥 設置部署マスタ', hdTreatments:'🩸 HD特殊治療マスタ', tablets:'📱 タブレット台帳', hdTablets:'📱 HDタブレット台帳',
   stf:'👥 スタッフ', stfHidden:'🙈 非表示スタッフ', stfLinks:'🔗 スタッフとアカウントの紐づけ', phs:'☎ PHS番号',
-  shift:'🗓 勤務表', evts:'📌 予定', manual:'📘 業務マニュアル', makers:'🏭 メーカー連絡先', ocFlow:'📞 OC対応フロー',
+  shift:'🗓 勤務表', evts:'📌 予定', evtRanges:'📅 期間イベント', opsChk:'✅ 6MW・PSGの確認項目', manual:'📘 業務マニュアル', makers:'🏭 メーカー連絡先', ocFlow:'📞 OC対応フロー',
   eduProgress:'🎓 教育到達度', eduItems:'🎓 教育項目マスタ', eduCfg:'🎓 教育の設定', stfEdu:'🎓 教育枠',
   lk:'🔒 ロック設定', emailjsCfg:'✉️ メール通知設定', fcmCfg:'🔔 プッシュ通知設定', autoDelCfg:'🗑 自動削除設定'
 };
