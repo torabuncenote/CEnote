@@ -491,6 +491,7 @@ All class names are abbreviated:
 | `renameStaffKeys(oldName, newName)` / `eduRenameKeys(catId, oldParts, newParts)` / `eduMergeRec(a, b)` | 改名で到達度（とスタッフの紐付け・非表示・教育スロット・職員番号・勤務希望）を新しい名前へ移す／移動先の記録と合わせる |
 | `editEduItem(kind, i)` / `editHdTreat(i)` | 教育項目・HD特殊治療の改名モーダル（✏️）。確定は `confirmEditModal` |
 | `renderTreeAll(saveKey)` | オペ/カテ術式マスタ（`opeTree`/`cathTree`）を業務マスタ・教育項目マスタ両方のマウント先（`TREE_MOUNTS`）のうちDOMに存在する方へ再描画する唯一の入口。`renderTree` 内の自己再描画（追加・削除・改名後）もこれを通る |
+| `lastAsgIndex()` / `lastAsgOf(key, name, ds)` / `lastAsgOptHTML(name, key, ds)` / `openLastAsgModal(key, title, ds, cands)` | 「前回この業務に入った日」：全ページを1回走査して 術式（`eduKey`）→人→日付 の索引（5秒・ページ数で使い回す）／開いている日より前の最後の日と回数／担当者を選ぶ一覧の名前に「前回 9/12・29日前／未経験」／行の🕘で最近入った人の一覧。対象はオペ・カテの症例の担当者（中止は除く）とHD特殊治療の実施者。業務カードに常時は出さない |
 | `eduExperiencedKeys(name)` / `eduChildItems(name, kind)` | 全期間の経験済み細目（症例担当者/HD特殊治療実施者ベース）／それに手動目標を足した細目一覧（マスタ全項目は並べない） |
 | `renderPerf()` / `renderPerfPersonHTML(name)` / `renderPerfMapHTML()` | 実績サブタブの入口／個人ビュー／スキルマップ（`_viewMode`で分岐しない） |
 | `openEduLvPicker(name, key)` / `eduItemRowHTML(name, cat, it, o)` | 段階ポップアップ（段階を付ける唯一の画面）／細目の1行（段階チップ） |
