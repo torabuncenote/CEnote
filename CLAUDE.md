@@ -528,6 +528,7 @@ All class names are abbreviated:
 | `mkCatColor(catId)` | カテゴリIDをハッシュして`MK_PALETTE`（アプリ既存の7色 --ac/--gr/--or/--pu/--rd/--oc/--gd を再利用、新規hexは定義しない）から固定色を返す。並べ替え・改名しても同じカテゴリは常に同じ色。カテゴリチップ・セクション見出し・カード左帯・電話アイコンの4箇所で同じ値を使い回して視覚的に連動させる |
 | `openMakerModal(id)` / `saveMakerFromModal(id)` | 追加・編集モーダル（`id`省略で新規）／保存（備考欄だけ`phiGuardText`を通し`saveD()`） |
 | `mkCopyTel(id, which)` / `mkCopyMail(id)` / `mkFlashCopied(el)` | 電話番号(1/2)・メールをクリップボードへコピー（`navigator.clipboard`失敗時は`<textarea>`+`execCommand('copy')`にフォールバック）。コピー成功時はトーストに加え、押したボタン自体のアイコンを`data-ic`属性の元絵文字から一瞬✓に変える（`mkFlashCopied`）。ボタンDOM idは`mk-tel-{id}-{1|2}` / `mk-mail-{id}`で固定 |
+| `openDevStModal(ds, it, task, wrapEl, devId)` / `devMaybeCycle(...)` / `DEV_ST` | 機器の消し込みで「見送り・点検不可・不在」を記録する小窓（記録は `devChecks[sid][機器id] = {by, ts, st, note}`、`st` が無いものが「済」）／状態で全台そろったときの一巡の区切り／状態の定義。済に数えるかは項目の機器設定 `dev.sd`（`devProgress(ds, sid, mode, sd)` が `done` と、数えない状態の最新 `stat` を返す） |
 | `parseMakerBook(wb, fileName)` | Excelワークブック全件をパースしプレビュー用の中間データを返す（`D`へは未反映）。`wb.SheetNames`を全件ループし、シート内の複数見出し行を別カテゴリとして分離 |
 | `doSaveMkImp()` | Excel取り込みの確定保存（管理者限定）。保存直前に`autoSaveSnapshot()`/`saveFirebaseSnapshot()`でバックアップ |
 | `supDeptOptions()` / `supItemForDept(it, dept)` | 科の選択肢（術式マスタの科）／その品名をこの科の症例で先頭に出すか（全科を含む） |
@@ -738,7 +739,7 @@ dat.placement = {
 
 **6MW（`ops.mw_items`）**：1件ずつのブロック `[{_rid, time:'HH:MM', doc, staff:[], note, chk:{確認項目id:true}}]`。描画・編集は `renderMwBlocks(ds, box, locked)`（ブロックの入れ物に1回だけ委譲。書き込みは毎回 `mwFind(ds, rid)` で `D.pages[ds]` から引き直す）。**件数は必ず `mwCount(pg, header)` を通す**——ブロックがある日はブロック数（集計は `mwItemFilled` の行だけ）、無い日は従来の `ops.mw_n`（書き換えない。画面では「N件（旧形式）」と読むだけ）。担当医は自由入力で `data-no-phi`（`initPHIGuard` が飛ばす。医師名で毎回止めないため）、候補は全ページの入力済みの名前（`mwDocNames`）。CE集計の `mwBreakdownHTML()` が担当医別・実施CE別、タイムラインは開始時刻のあるブロックだけ（`kind:'mw'`）。
 
-**6MW・PSGの確認項目（`D.opsChk`）**：`{mw, psgOn, psgOff}` の各配列 `[{id, t}]`。読み出しは `opsChkList(kind)`、保存は `opsChkSave(kind, arr)`、マスタは業務マスタ🔪グループの「✅ 6MW・PSGの確認項目」（`renderOpsChkMaster`、`mst`）。当日の記録は**項目の id で持つ**（6MW＝各ブロックの `chk`、PSG＝`ops.psg_chk_on`／`psg_chk_off`）ので、改名・並べ替えでチェックは外れない。連絡表では `opsChkDetailsHTML(key, title, list, ck, locked, pre)` の折りたたみ（開閉は `_opsChkOpen`、非永続）。PSG装着の「付箋入力済」は従来の `ops.psg_fusen` のまま先頭に固定で置く（`runPsgFusenCheck` の10時のお知らせがこれを見ていて、お知らせのときは折りたたみを開く）。消し込みバーは `mwchk`（実施CEに自分がいれば自分あて）・`psgchk`（名前に「PSG」を含む担当枠の人が自分あて。装着は装着欄に入力がある日、外しは `tlIsPsgRemovalDay` の日）。
+**6MW・PSGの確認項目（`D.opsChk`）**：`{mw, psgOn, psgOff}` の各配列 `[{id, t}]`。読み出しは `opsChkList(kind)`、保存は `opsChkSave(kind, arr)`、マスタは業務マスタ🔪グループの「✅ 6MW・PSGの確認項目」（`renderOpsChkMaster`、`mst`）。当日の記録は**項目の id で持つ**（6MW＝各ブロックの `chk`、PSG＝`ops.psg_chk_on`／`psg_chk_off`）ので、改名・並べ替えでチェックは外れない。連絡表では `opsChkDetailsHTML(key, title, list, ck, locked, pre)` の折りたたみ（開閉は `_opsChkOpen`、非永続）。PSGの装着・外しの折りたたみの見出しには「📖 マニュアル」（`opsChkDetailsHTML` の第7引数 `man`、業務マニュアル `openSP('PSG 装着'|'PSG 外し')` と同じ `D.manual`）を置く。外しの折りたたみは確認項目が0件でもマニュアルのために出す。PSG装着の「付箋入力済」は従来の `ops.psg_fusen` のまま先頭に固定で置く（`runPsgFusenCheck` の10時のお知らせがこれを見ていて、お知らせのときは折りたたみを開く）。消し込みバーは `mwchk`（実施CEに自分がいれば自分あて）・`psgchk`（名前に「PSG」を含む担当枠の人が自分あて。装着は装着欄に入力がある日、外しは `tlIsPsgRemovalDay` の日）。
 
 カテカード固定フィールド（`ops.` に保存）:
 - `cath_briefing_h` / `cath_briefing_m` — ブリーフィング時間（時・分）、8〜16時・5分刻み
