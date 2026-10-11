@@ -1443,6 +1443,9 @@ body.has-psgb{--psgb-h:36px}
 .ops-chk>summary::after{content:'▸';margin-left:4px;color:var(--txt3)}
 .ops-chk[open]>summary::after{content:'▾'}
 .ops-chk-n{margin-left:auto;font-weight:800;color:var(--or)}
+.lastasg-btn{margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;opacity:.45;padding:2px 4px;line-height:1}
+.lastasg-btn:hover,.lastasg-btn:focus-visible{opacity:1}
+.lastasg-ago{color:var(--txt3);font-size:11px}
 .ops-chk-man{margin-left:auto;font-size:11px;font-weight:700;padding:2px 9px;border-radius:12px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt3);cursor:pointer;font-family:var(--fn)}
 .ops-chk-man.has{border-color:var(--ac);color:var(--ac);background:var(--ac-bg)}
 .ops-chk-man+.ops-chk-n{margin-left:6px}
@@ -6004,11 +6007,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/11-124';
+var APP_VERSION = 'Ver.2026/10/11-125';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/11-125', date:'2026-10-11', title:'担当者を選ぶとき、前回その業務に入った日が分かるようにしました', items:[
+    {t:'new', d:'🕘 オペ・カテの症例とHD特殊治療で担当者を選ぶ一覧に、各スタッフが前回その術式・治療に入った日（「前回 9/12・29日前」「未経験」）を出すようにしました。担当者の行の🕘を押すと、その業務に最近入った人の一覧も見られます'}
+  ]},
   { ver:'Ver.2026/10/11-124', date:'2026-10-11', title:'イベントを期間で登録できるようにしました', items:[
     {t:'new', notify:true, d:'📅 「＋ イベント追加」で「期間」を選ぶと、終了日までの毎日にイベントを出せるようになりました（点線の枠で表示）。消すときは「その日だけ外す」「その日で終わりにする」「期間ごと消す」から選べます'}
   ]},
@@ -10693,6 +10699,69 @@ function eduCatItems(catId) {
    返すので、マスタから選んだ症例なら eduCatItems() のキーとそのまま一致する。
    ward/device/hd は経験を自動判定するデータ源が無いため常に空（呼び出し側は
    (exp && exp[catId]) || {} で受ける）。 */
+/* ===== 前回この業務に入った日（オペ・カテの症例の担当者、HD特殊治療の実施者） =====
+   担当者を選ぶ一覧の名前の横に「前回 9/12・29日前／未経験」、行の🕘で「この業務に最近入った人」。
+   業務カードには目立つ表示を足さない（選ぶときにだけ見える）。数える単位は術式（科＋中カテゴリ＋術式）で、キーは eduKey と同じ。
+   中止になった症例は数えない。「前回」は開いている日より前だけ（その日の記録・未来の予定は入れない） */
+var _lastAsg = null;
+function lastAsgKeyOps(kind, it) { var nm = opsItemName(it); return nm ? eduKey(kind, opsItemDept(it), opsItemCat(it), nm) : ''; }
+function lastAsgIndex() {
+  var n = Object.keys(D.pages || {}).length, now = Date.now();
+  if (_lastAsg && _lastAsg.n === n && now - _lastAsg.ts < 5000) return _lastAsg.idx;
+  var idx = {};
+  var add = function(key, name, ds){ if (!key || !name) return; var a = idx[key] || (idx[key] = {}); (a[name] || (a[name] = [])).push(ds); };
+  Object.keys(D.pages || {}).forEach(function(ds){
+    var pg = D.pages[ds]; if (!pg) return;
+    ['ope', 'cath'].forEach(function(kind){
+      opsItemsOf(pg, kind).forEach(function(it){
+        if (!opsItemFilled(it) || it.cancelled) return;
+        var k = lastAsgKeyOps(kind, it); if (!k) return;
+        opsItemStaff(it).forEach(function(nm){ add(k, nm, ds); });
+      });
+    });
+    hdCountSpFilled(pg).forEach(function(sp){
+      if (!sp.n) return;
+      var k = eduKey('hdsp', '', '', sp.n);
+      (sp.staff || []).forEach(function(nm){ add(k, nm, ds); });
+    });
+  });
+  Object.keys(idx).forEach(function(k){ Object.keys(idx[k]).forEach(function(nm){ idx[k][nm].sort(); }); });
+  _lastAsg = { n: n, ts: now, idx: idx };
+  return idx;
+}
+function lastAsgOf(key, name, ds) {
+  var a = (lastAsgIndex()[key] || {})[name]; if (!a) return null;
+  var last = '', cnt = 0;
+  for (var i = 0; i < a.length; i++) if (a[i] < ds) { last = a[i]; cnt++; }
+  return last ? { ds: last, n: cnt } : null;
+}
+function lastAsgDays(from, to) { return Math.round((new Date(to + 'T00:00:00') - new Date(from + 'T00:00:00')) / 86400000); }
+function lastAsgText(key, name, ds) {
+  if (!key) return '';
+  var r = lastAsgOf(key, name, ds);
+  return r ? '前回 ' + fmtMD(r.ds) + '・' + lastAsgDays(r.ds, ds) + '日前' : '未経験';
+}
+function lastAsgOptHTML(name, key, ds) {
+  var t = lastAsgText(key, name, ds);
+  return '<option value="' + escH(name) + '">' + escH(name) + (t ? '（' + t + '）' : '') + '</option>';
+}
+function openLastAsgModal(key, title, ds, cands) {
+  var by = lastAsgIndex()[key] || {};
+  var rows = Object.keys(by).map(function(nm){ var r = lastAsgOf(key, nm, ds); return r ? { nm: nm, ds: r.ds, n: r.n } : null; })
+    .filter(Boolean).sort(function(a, b){ return a.ds < b.ds ? 1 : (a.ds > b.ds ? -1 : 0); });
+  var never = (cands && cands.duty || []).filter(function(nm){ return !rows.some(function(r){ return r.nm === nm; }); });
+  var old = document.getElementById('lastasg-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'lastasg-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var h = '<div class="md" style="max-width:420px;max-height:calc(85vh / var(--ui-zoom,1));overflow-y:auto"><h3>🕘 ' + escH(title) + '</h3>'
+    + '<div class="pn" style="font-size:11px;margin-bottom:8px">' + fmtJ(ds) + 'より前に、この業務に入った人（新しい順）</div>';
+  h += rows.length ? '<table class="data-tbl lastasg-tbl"><tbody>' + rows.map(function(r){
+      return '<tr><td>' + escH(r.nm) + '</td><td style="white-space:nowrap">' + fmtMD(r.ds) + '<span class="lastasg-ago">（' + lastAsgDays(r.ds, ds) + '日前）</span></td><td style="text-align:right;white-space:nowrap">通算' + r.n + '回</td></tr>';
+    }).join('') + '</tbody></table>' : '<div class="sup-pick-empty">まだ記録がありません</div>';
+  if (never.length) h += '<div class="pn" style="font-size:11px;margin-top:10px">本日の勤務で未経験：' + never.map(escH).join('、') + '</div>';
+  h += '<div style="margin-top:12px;text-align:right"><button class="btn btn-g" onclick="document.getElementById(\'lastasg-ov\').remove()">閉じる</button></div></div>';
+  ov.innerHTML = h; document.body.appendChild(ov);
+}
 function eduExperiencedKeys(name) {
   var out = { ope: {}, cath: {}, hdsp: {} };
   Object.keys(D.pages || {}).forEach(function (ds) {
@@ -20976,7 +21045,7 @@ function hdTreatOptsHTML(sel) {
 function hdSpStaffCandidates(ds) {
   var duty = hdShiftWorkers(ds).map(function (h) { return h.name; });
   var all = (D.stf || []).filter(function (n) { return !(D.stfHidden && D.stfHidden[n]); });
-  return { duty: duty, all: all };
+  return { duty: duty, all: all, ds: ds };
 }
 /* 特殊治療1行分のHTML（治療名セレクト＋実施者行＋教育者行）。sp は hdSpNorm 済みのオブジェクト。 */
 function hdSpRowHTML(sp, i, locked, cands) {
@@ -21006,11 +21075,15 @@ function hdSpPeopleRowHTML(list, rowId, role, icon, label, locked, cands, treat)
     var dutyOpts = cands.duty.filter(function (n) { return list.indexOf(n) === -1; });
     var allOpts = cands.all.filter(function (n) { return list.indexOf(n) === -1 && dutyOpts.indexOf(n) === -1; });
     var oh = '<option value="">＋ ' + label + '</option>';
-    if (dutyOpts.length) { oh += '<optgroup label="本日の勤務">'; dutyOpts.forEach(function (n) { oh += '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }); oh += '</optgroup>'; }
-    if (allOpts.length) { oh += '<optgroup label="スタッフ">'; allOpts.forEach(function (n) { oh += '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }); oh += '</optgroup>'; }
+    /* 実施者の一覧だけ、名前の横に「前回この治療に入った日」 */
+    var laKey = (role === 'staff' && treat && cands.ds) ? eduKey('hdsp', '', '', treat) : '';
+    var opt = function (n) { return laKey ? lastAsgOptHTML(n, laKey, cands.ds) : '<option value="' + escH(n) + '">' + escH(n) + '</option>'; };
+    if (dutyOpts.length) { oh += '<optgroup label="本日の勤務">'; dutyOpts.forEach(function (n) { oh += opt(n); }); oh += '</optgroup>'; }
+    if (allOpts.length) { oh += '<optgroup label="スタッフ">'; allOpts.forEach(function (n) { oh += opt(n); }); oh += '</optgroup>'; }
     oh += '<option value="__free__">自由入力...</option>';
     h += '<select class="ops-staff-add" data-hdcnt-sp-add="' + escH(rowId || '') + '" data-role="' + role + '">' + oh + '</select>';
   }
+  if (role === 'staff' && treat) h += '<button type="button" class="lastasg-btn" data-action="hdcnt-sp-hist" data-treat="' + escH(treat) + '" title="この治療に前回入った人">🕘</button>';
   h += '</div>';
   return h;
 }
@@ -21174,6 +21247,7 @@ function renderPageHD(ds) {
       if (!btn) return;
       var action = btn.getAttribute('data-action');
       if (action === 'hdcnt-sp-edu') { openEduLvPicker(btn.getAttribute('data-name'), eduKey('hdsp', '', '', btn.getAttribute('data-treat'))); return; }
+      if (action === 'hdcnt-sp-hist') { var tr = btn.getAttribute('data-treat'); openLastAsgModal(eduKey('hdsp', '', '', tr), tr, ds, hdSpStaffCandidates(ds)); return; }
       var pg = D.pages[ds]; if (!pg) return;
       if (action === 'hdcnt-toggle') {
         if (!can('ops')) return;
@@ -23754,8 +23828,10 @@ function buildOPS(ds,dat,locked) {
       var dutyOpts = cands.duty.filter(function(n){ return staffList.indexOf(n) === -1; });
       var allOpts = cands.all.filter(function(n){ return staffList.indexOf(n) === -1 && dutyOpts.indexOf(n) === -1; });
       var oh = '<option value="">＋ 担当者</option>';
-      if (dutyOpts.length) { oh += '<optgroup label="本日の担当">'; dutyOpts.forEach(function(n){ oh += '<option value="'+escH(n)+'">'+escH(n)+'</option>'; }); oh += '</optgroup>'; }
-      if (allOpts.length)  { oh += '<optgroup label="スタッフ">';   allOpts.forEach(function(n){ oh += '<option value="'+escH(n)+'">'+escH(n)+'</option>'; }); oh += '</optgroup>'; }
+      /* 名前の横に「前回この術式に入った日」（選ぶときだけ見える）。術式が未選択なら付けない */
+      var laKey = lastAsgKeyOps(itemId, item);
+      if (dutyOpts.length) { oh += '<optgroup label="本日の担当">'; dutyOpts.forEach(function(n){ oh += lastAsgOptHTML(n, laKey, ds); }); oh += '</optgroup>'; }
+      if (allOpts.length)  { oh += '<optgroup label="スタッフ">';   allOpts.forEach(function(n){ oh += lastAsgOptHTML(n, laKey, ds); }); oh += '</optgroup>'; }
       oh += '<option value="__free__">自由入力...</option>';
       addSel.innerHTML = oh;
       addSel.onchange = function(){
@@ -23778,6 +23854,13 @@ function buildOPS(ds,dat,locked) {
         items[idx].staff = st2; saveItems(); renderItems();
       };
       staffRow.appendChild(addSel);
+    }
+    /* この術式に最近入った人の一覧（行の右端に薄く。ロック中でも見るだけはできる） */
+    if (lastAsgKeyOps(itemId, item)) {
+      var laBtn = document.createElement('button');
+      laBtn.type = 'button'; laBtn.className = 'lastasg-btn'; laBtn.textContent = '🕘'; laBtn.title = 'この術式に前回入った人';
+      laBtn.onclick = function(){ var it3 = items[idx]; openLastAsgModal(lastAsgKeyOps(itemId, it3), opsItemTitle(it3, itemId) || opsItemName(it3), ds, opsStaffCandidates(ds)); };
+      staffRow.appendChild(laBtn);
     }
     itemWrap.appendChild(staffRow);
 
