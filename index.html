@@ -6023,11 +6023,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/11-126';
+var APP_VERSION = 'Ver.2026/10/12-127';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/12-127', date:'2026-10-12', title:'祝日だけ出るHDチェック項目', items:[
+    {t:'new', d:'🎌 HD共通業務に「祝日のみ」を付けると、祝日マスタの日（振替休日や院内で追加した日を含む）だけチェックリストに出るようになりました（例：休日加算）'}
+  ]},
   { ver:'Ver.2026/10/11-126', date:'2026-10-11', title:'見直しで見つかった不具合を直しました', items:[
     {t:'fix', d:'📱 Androidでチェックを押したあと、左右に払う操作や日付の丸ボタンが効かなくなることがあった問題を直しました'},
     {t:'fix', d:'📱 スマホで、日付の丸ボタンが本文の端に重なり、押したつもりが日付の移動になることがあった問題を直しました（画面端の細いつまみにしました）'},
@@ -11853,6 +11856,8 @@ function _getDlySkip(it,key){
   return false;
 }
 function isDlyShownOnDate(it,ds){
+  /* hol_only：祝日マスタ（jpHolidayName。D.holidayOv の追加・除外を含む）の日だけ出す */
+  if(it&&typeof it==='object'&&it.hol_only&&!jpHolidayName(ds)) return false;
   var dow=new Date(ds).getDay();
   if(dow===0&&_getDlySkip(it,'skip_sun')) return false;
   if(dow===6&&_getDlySkip(it,'skip_sat')) return false;
@@ -13091,7 +13096,13 @@ function renderHdDlyList() {
           s+='<span style="font-size:10px;color:var(--txt3);text-decoration:line-through">'+pair[1]+'</span>';
         }
       });
-      return s?'<span style="display:inline-flex;gap:3px;align-items:center">'+s+'</span>':'';
+      var hol=!!(it&&typeof it==='object'&&it.hol_only);
+      if(ok){
+        s+='<button type="button" onclick="togHdDlyDay('+i+',\'hol_only\')" title="'+(hol?'祝日マスタの日だけ表示中（押すと毎日に戻す）':'押すと祝日マスタの日だけ表示')+'" style="font-size:10px;padding:2px 6px;border-radius:6px;cursor:pointer;border:1px solid;white-space:nowrap;'+(hol?'background:var(--rd-bg);color:var(--rd);border-color:var(--rd);font-weight:700':'background:var(--sur2);color:var(--txt3);border-color:var(--bdr)')+'">🎌祝日のみ</button>';
+      } else if(hol){
+        s+='<span style="font-size:10px;color:var(--rd);font-weight:700">🎌祝日のみ</span>';
+      }
+      return s?'<span style="display:inline-flex;gap:3px;align-items:center;flex-wrap:wrap">'+s+'</span>':'';
     })();
     var btns = ok ? roleCfgBtnHTML('hdDly', i, it) + devCfgBtnHTML('hdDly', i, it) + '<button class="re2" onclick="editHdDly('+i+')">✏️</button><button class="ru" onclick="mvHdDly('+i+',-1)">↑</button><button class="rdw" onclick="mvHdDly('+i+',1)">↓</button><button class="rd2" onclick="rmHdDly('+i+')">×</button>' : '';
     var head = '<div style="display:flex;align-items:center;gap:6px;width:100%"><span class="rn" style="font-size:11px;flex:1">📌 ' + escH(text) + '</span>' + wdOnlyBtn + btns + '</div>';
