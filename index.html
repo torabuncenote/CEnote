@@ -667,7 +667,14 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .hdr-staff-td{white-space:nowrap}
 /* HD担当表の欠勤マーク（CE担当カードの .dc.absent と同じ色づかい） */
 .hdr-absent-lbl{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-size:11px;font-weight:400;color:var(--rd);cursor:pointer;vertical-align:middle}
-.hdr-absent-lbl input{margin:0}
+.hdr-absent-lbl input{margin:0;accent-color:var(--rd)}
+/* HD担当表は項目が少なく、赤い「欠勤」が全員の行に並ぶと目立ちすぎる。付けていない間は
+   業務カードの急患・中止（.ops-tag-btn:not(.on)）と同じく薄く灰色に寄せ、
+   付けた行と、マウスを乗せた・キーボードで選んだときだけ元の赤に戻す。 */
+tr:not(.hdr-absent) .hdr-absent-lbl{opacity:.35;filter:grayscale(1);transition:opacity .15s,filter .15s}
+tr:not(.hdr-absent) .hdr-absent-lbl:focus-within{opacity:1;filter:none}
+@media (hover:hover){tr:not(.hdr-absent) .hdr-absent-lbl:hover{opacity:1;filter:none}}
+@media print{tr:not(.hdr-absent) .hdr-absent-lbl{display:none}}
 tr.hdr-absent td{background:var(--rd-bg)}
 tr.hdr-absent .hdr-staff-n{color:var(--rd);text-decoration:line-through}
 .hd-note-ta{min-width:64px}
