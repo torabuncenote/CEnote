@@ -3308,7 +3308,7 @@ var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
 var _savingTs = 0;     /* saveD()後のリスナー再描画抑制タイムスタンプ */
 var _localSavedAt = 0; /* 自セッションの最終Firebase書き込み確定時刻 */
-var _staleTs = 0;          /* 古いデータ検出による再保存レート制限（10秒） */
+var _staleTs = 0;          /* 古い保存時刻の記録のレート制限（10分に1回） */
 var _sessionId = Math.random().toString(36).slice(2, 9); /* セッション識別子 */
 var _lastCleanupDate = ''; /* cleanOldSnapshots の日次レート制限 */
 var _fbDataLoaded = false; /* Firebase /data リスナーが初回データを受信済み。trueになるまでFirebase書き込みを禁止（ログイン直後の空書き込みを防止） */
@@ -3819,44 +3819,20 @@ function fbInit() {
           fbDB.ref('/data').on('value', function(snap2) {
             var d = snap2.val() || {};
 
-            /* ===== 古いセッションによる上書き検出 =====
-               自分が確定保存済みの時刻より古いデータが届いた場合、
-               別セッションが古い状態でsaveD()したと判断し、自分のDを再保存する。
-               ・_localSavedAt: 自セッションの最終ACK確定時刻
-               ・_savedAt: Firebaseに書かれたデータの時刻
-               ・許容差: 8秒（時計ズレ・遅延を考慮）
-               ・再保存レート制限: 10秒に1回まで（再保存ループ防止） */
+            /* ===== 古い保存時刻の記録（記録だけで、手元の D は受信どおりに更新する） =====
+               以前は「届いた _savedAt が自分の最終保存より8秒以上古い」と、別セッションが古い D 全体で
+               上書きしたとみなし、受信を捨てて自分の D 全体（_syncBase=null）を送り直していた。
+               9/30 の差分保存以降は、古いセッションでも自分が変えた経路しか送れないので全体の上書きは起きず、
+               古いアプリは _staleApp で止まる。一方 _savedAt は各端末の時計なので、時計が10秒ずれた端末が
+               保存しただけで発動し（10/14 に実例）、この受信に入っていた他の人の最新の変更を取り込まないまま、
+               全ページを送り直してその変更を消しかねなかった。**送り直しと受信の破棄に戻さないこと。** */
             var incomingSavedAt = d._savedAt || 0;
             var fromSelf = (d._sessionId === _sessionId);
             var justSaved = (Date.now() - _savingTs) < 2000;
-            if (!fromSelf && !justSaved && _localSavedAt > 0 &&
-                incomingSavedAt < _localSavedAt - 8000) {
-              var now2 = Date.now();
-              if (now2 - _staleTs > 10000) {
-                _staleTs = now2;
-                setSyncLbl('⚠️ 競合検出・修正中...');
-                /* 画面上部に目立つバナーを表示 */
-                (function(){
-                  var bid = 'stale-banner';
-                  var existing = document.getElementById(bid);
-                  if (!existing) {
-                    var b = document.createElement('div');
-                    b.id = bid;
-                    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#e53e3e;color:#fff;font-size:13px;font-weight:700;padding:calc(8px + env(safe-area-inset-top,0px)) 14px 8px;text-align:center;cursor:pointer';
-                    b.innerHTML = '⚠️ 別のセッションが古いデータを書き込もうとしました。自動で修正しています。このバナーをタップして閉じる';
-                    b.onclick = function(){ b.remove(); };
-                    document.body.appendChild(b);
-                    setTimeout(function(){ if(b.parentNode) b.remove(); }, 15000);
-                  }
-                })();
-                writeLog('古いセッション上書き検出',
-                  '受信 ' + new Date(incomingSavedAt).toLocaleTimeString() +
-                  ' / 自 ' + new Date(_localSavedAt).toLocaleTimeString() +
-                  ' / セッション:' + (d._sessionId || '不明'));
-                _syncBase = null; /* 差分ではなく全経路を送り直す */
-                saveD(); /* 自分の最新Dで上書き修正 */
-              }
-              return; /* このリスナー更新でDを書き換えない */
+            if (!fromSelf && !justSaved && _localSavedAt > 0 && incomingSavedAt < _localSavedAt - 8000 && Date.now() - _staleTs > 600000) {
+              _staleTs = Date.now();
+              writeLog('古い保存時刻を受信（記録のみ）',
+                '受信 ' + new Date(incomingSavedAt).toLocaleTimeString() + ' / 自 ' + new Date(_localSavedAt).toLocaleTimeString() + ' / セッション:' + (d._sessionId || '不明'));
             }
 
             /* ===== Firebase受信確認 ＋ 不審なページ数急減の検知 =====
@@ -5016,7 +4992,7 @@ function writeLog(action, detail) {
     view: (_viewMode === 'hd' ? 'hd' : 'ce'), /* 記録した時点で開いていた主観。呼び出し側は意識しなくてよい */
     ts: firebase.database.ServerValue.TIMESTAMP
   };
-  fbDB.ref('/logs').push(entry);
+  fbDB.ref('/logs').push(entry).catch(function(){}); /* 利用停止直後などで拒否されても、操作そのものは止めない */
 }
 
 /* ===== 仕様書 ===== */
@@ -6071,11 +6047,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/18-131';
+var APP_VERSION = 'Ver.2026/10/19-132';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/19-132', date:'2026-10-19', title:'同期の守りを固めました', items:[
+    {t:'fix', d:'🔄 端末の時計が少しずれていると「別のセッションが古いデータを書き込もうとしました」と表示され、ほかの人の直前の変更を巻き戻すことがあった問題を直しました'},
+    {t:'fix', d:'🔄 権限の無い設定が1つ混じると、それ以降の保存がすべて失敗し続けることがあった問題を直しました（権限のある入力は保存され、権限の無い分だけ保存されません）'}
+  ]},
   { ver:'Ver.2026/10/18-131', date:'2026-10-18', title:'画像を見るときだけ読み込むようにしました', items:[
     {t:'imp', d:'🖼 申し送り・タスク・掲示板・マニュアルの画像を、画面に出すときだけ読み込むようにしました。一度見た画像はその端末に覚えるので、アプリを開くのが速くなり、通信量も大きく減ります'},
     {t:'imp', d:'📋 タスクは、タスクの画面を開いたときに読み込むようにしました'}
@@ -10412,6 +10392,36 @@ function regularDataUpdate(data) {
   return out;
 }
 
+/* /data への差分の送信。一般職員は権限の無い項目を先に落とす（regularDataUpdate）。
+   それでも権限で拒否されたら（手元のロック情報が古い・ルールと表のずれなど）、1経路ずつ送り直して
+   送れたものは確定し、拒否されたものだけを捨てる。multi-path update は1つの拒否で全体が失敗するうえ、
+   失敗した差分は syncForget で次回も同じ組み合わせのまま送られるので、原因が続く限り
+   以後の保存がすべて失敗し続ける——それを起こさないための逃げ道。一時的な失敗が混じれば
+   エラーとして返し、いつもの再試行に任せる（そのときも拒否された経路はまた捨てられるだけ）。 */
+var _deniedKeysShown = {};
+function _sendDataUpdate(upd) {
+  var body = isAdmin ? upd : regularDataUpdate(upd);
+  return fbDB.ref('/data').update(body).catch(function(err) {
+    if (isAdmin || !err || err.code !== 'PERMISSION_DENIED' || Object.keys(body).length < 2) throw err;
+    var denied = [], other = null;
+    return Promise.all(Object.keys(body).map(function(p) {
+      var one = {}; one[p] = body[p];
+      return fbDB.ref('/data').update(one).catch(function(e) {
+        if (e && e.code === 'PERMISSION_DENIED') denied.push(p.split('/')[0]); else other = e;
+      });
+    })).then(function() {
+      var fresh = denied.filter(function(k, i){ return denied.indexOf(k) === i && !_deniedKeysShown[k]; });
+      if (fresh.length) {
+        fresh.forEach(function(k){ _deniedKeysShown[k] = true; });
+        console.warn('[saveD] 権限で拒否された項目は送らない:', fresh.join(', '));
+        writeLog('同期：権限の無い項目を送らなかった', fresh.join(', '));
+        toast('一部の設定は権限が無いため保存されませんでした（ほかの入力は保存済みです）', 'warn', 6000);
+      }
+      if (other) throw other;
+    });
+  });
+}
+
 /* リトライ付きFirebase書き込み（最大4回: 2s/4s/8s/16s） */
 function _doFbWrite(data, attempt, callbacks) {
   callbacks = callbacks || [];
@@ -10432,7 +10442,7 @@ function _doFbWrite(data, attempt, callbacks) {
     pages: Object.keys(D.pages || {}).length,
     ts:    _savingTs
   } : null;
-  fbDB.ref('/data').update(isAdmin ? upd : regularDataUpdate(upd))
+  _sendDataUpdate(upd)
     .then(function() {
       _saveWriting = false;
       _savePending = false;
@@ -10642,7 +10652,8 @@ function saveDPaths(paths) {
     _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長（saveDと同様） */
   }).catch(function (err) {
     console.error('saveDPaths失敗:', err && err.code, err && err.message);
-    if (err && err.code === 'PERMISSION_DENIED') { setSyncLbl('同期エラー: セキュリティルール拒否（ローカル保存済）'); return; }
+    /* 拒否でも saveD() に任せる：saveD は権限の無い項目を落とし、拒否された経路だけを捨てて送る（_sendDataUpdate）。
+       ここで止めると「同期エラー」の表示が残り、その項目は二度と送られなかった */
     saveD();
   });
 }
