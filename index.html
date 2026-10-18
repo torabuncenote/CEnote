@@ -668,7 +668,7 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 /* HD担当表の欠勤マーク（CE担当カードの .dc.absent と同じ色づかい） */
 .hdr-absent-lbl{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-size:11px;font-weight:400;color:var(--rd);cursor:pointer;vertical-align:middle}
 .hdr-absent-lbl input{margin:0;accent-color:var(--rd)}
-/* HD担当表は項目が少なく、赤い「欠勤」が全員の行に並ぶと目立ちすぎる。付けていない間は
+/* HD担当表は項目が少なく、赤い「休」が全員の行に並ぶと目立ちすぎる。付けていない間は
    業務カードの急患・中止（.ops-tag-btn:not(.on)）と同じく薄く灰色に寄せ、
    付けた行と、マウスを乗せた・キーボードで選んだときだけ元の赤に戻す。 */
 tr:not(.hdr-absent) .hdr-absent-lbl{opacity:.35;filter:grayscale(1);transition:opacity .15s,filter .15s}
@@ -6040,8 +6040,9 @@ var APP_VERSION = 'Ver.2026/10/16-128';
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/10/16-128', date:'2026-10-16', title:'HD担当表に欠勤マーク', items:[
-    {t:'new', d:'❌ HD担当表の各スタッフに「欠勤」チェックを付けました。チェックすると行が赤くなり、名前に取り消し線が付きます（CEの担当カードの欠勤と同じ見た目の印です）'}
+  { ver:'Ver.2026/10/16-128', date:'2026-10-16', title:'HD担当表に「休」マーク', items:[
+    {t:'new', d:'❌ HD担当表の各スタッフに「休」チェックを付けました。チェックすると行が赤くなり、名前に取り消し線が付きます（CEの担当カードと同じ見た目の印です）'},
+    {t:'imp', d:'❌ CEの担当カードの「欠勤」チェックの表示を「休」に変えました'}
   ]},
   { ver:'Ver.2026/10/12-127', date:'2026-10-12', title:'祝日だけ出るHDチェック項目', items:[
     {t:'new', d:'🎌 HD共通業務に「祝日のみ」を付けると、祝日マスタの日（振替休日や院内で追加した日を含む）だけチェックリストに出るようになりました（例：休日加算）'}
@@ -9948,7 +9949,7 @@ function renderGuide() {
   S += step(1,'今日の連絡表を開く','アプリを開くと今日の連絡表が自動で出ます。別の日は 📅 予定タブのカレンダーから。');
   S += step(2,'いちばん上の「⚠️ 前日以前の未完了申し送り」を確認','押すと元の申し送りへ飛べます。');
   S += step(3,'👥 人員配置で、その日の担当を決める','やり方は次の「人員配置」を見てください。');
-  S += step(4,'担当カードで HDプライミング・PSG取り外しなどのチェック、PHS番号、備考を入れる','休んだ人は右上の「欠勤」にチェック。');
+  S += step(4,'担当カードで HDプライミング・PSG取り外しなどのチェック、PHS番号、備考を入れる','休んだ人は右上の「休」にチェック。');
   S += step(5,'オペ・カテの症例、タブレットの貸出、チェックリストを1日の中で記録していく','');
   S += step(6,'帰る前に下の消し込みバーが「✅ 残り0」になっているか確認','「自分だけ」を押すと、自分に関係するものだけに絞れます。');
   S += p('連絡表のいちばん上の4枚のカード（✅ 進捗・📊 業務・📞 オンコール・📝 申し送り）を押すと、その場所まで自動でスクロールします。');
@@ -20333,7 +20334,7 @@ function hdRosterToggleEdit(ds){
   refreshHdRoster(ds);
 }
 
-/* 欠勤マーク：dat.hdAbsent = { 氏名: true }。CE担当カードの欠勤（dat.dutyAbsent、枠ID単位）と同じく
+/* 休みの印（画面の表記は「休」。データ名・クラス名は absent のまま）：dat.hdAbsent = { 氏名: true }。CE担当カードの欠勤（dat.dutyAbsent、枠ID単位）と同じく
    見た目の印だけで、配置・件数・公平性には影響しない。HDは準夜のように同じ役割を複数人で持つので、
    役割ではなく氏名で持つ（キーになる氏名は hdNotes と同じく入り口で fbSafeKey 済み）。 */
 function hdIsAbsent(dat, name) { return !!(dat && dat.hdAbsent && name && dat.hdAbsent[name]); }
@@ -20343,7 +20344,7 @@ function hdRosterNormalRowHTML(dat, r) {
   var support = !!r.from; /* CEから受け取った応援 */
   var absent = hdIsAbsent(dat, r.name);
   var absentChk = (can('duty') || absent)
-    ? '<label class="hdr-absent-lbl" title="欠勤マーク"><input type="checkbox" class="hdr-absent-cb" data-name="' + escH(r.name) + '"' + (absent ? ' checked' : '') + (can('duty') ? '' : ' disabled') + '>欠勤</label>'
+    ? '<label class="hdr-absent-lbl" title="休みの印"><input type="checkbox" class="hdr-absent-cb" data-name="' + escH(r.name) + '"' + (absent ? ' checked' : '') + (can('duty') ? '' : ' disabled') + '>休</label>'
     : '';
   var staffCell = '<span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '') + absentChk;
   var noteCell = can('duty')
@@ -20467,7 +20468,7 @@ function hdRosterBoxHTML(ds, dat, variant) {
     var h = '<div class="staffz">';
     h += '<div class="staffz-hd">';
     h += '<span class="staffz-ttl">🩸 HD担当表</span>';
-    h += '<span class="staffz-badge">' + hdAll.length + '名' + (noteN ? '・備考' + noteN : '') + (absN ? '・欠勤' + absN : '') + '</span>';
+    h += '<span class="staffz-badge">' + hdAll.length + '名' + (noteN ? '・備考' + noteN : '') + (absN ? '・休' + absN : '') + '</span>';
     h += '<span class="staffz-arrow" id="hd-ref-arrow">' + (_hdRefOpen ? '▲' : '▼') + '</span>';
     h += '</div>';
     h += '<div id="hd-ref-body" style="display:' + (_hdRefOpen ? 'block' : 'none') + ';padding-top:10px">';
@@ -20678,7 +20679,7 @@ function hdRosterBindEvents(box, ds){
     if (cb.checked) pg.hdAbsent[key] = true; else delete pg.hdAbsent[key];
     var tr = cb.closest('tr'); if (tr) tr.classList.toggle('hdr-absent', cb.checked);
     saveDPage(cds);
-    writeLog(cb.checked ? 'HD欠勤マーク' : 'HD欠勤マーク解除', fmtJ(cds) + ' ' + key);
+    writeLog(cb.checked ? 'HD休みの印' : 'HD休みの印を解除', fmtJ(cds) + ' ' + key);
   });
 
   var hdrNoteTimers = {}; /* 備考は氏名ごとに独立してデバウンスする（renderPageHDの旧実装と同じ理由） */
@@ -23359,9 +23360,9 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
     opts += '<option value="'+escH(sv)+'" selected>'+escH(sv)+'（非表示）</option>';
 
   /* ヘッダー（欠勤チェックを右端に配置） */
-  var absentChk = '<label style="margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;flex-shrink:0" title="欠勤マーク">'
+  var absentChk = '<label style="margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;flex-shrink:0" title="休みの印">'
     + '<input type="checkbox" id="absent-cb-'+d.id+'"'+(isAbsent?' checked':'')+(locked?' disabled':'')+'>'
-    + '<span style="color:var(--rd)">欠勤</span></label>';
+    + '<span style="color:var(--rd)">休</span></label>';
   var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+absentChk+'</div>';
 
   /* チェックボックス（マスター定義 + 前日PSG装着があれば PSG取り外しを担当マークとして追加）
