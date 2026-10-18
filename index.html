@@ -2097,7 +2097,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <div id="docs-submenu" style="display:none;flex-shrink:0;background:var(--sur2);border-bottom:1px solid var(--bdr);padding:6px 8px;gap:6px;flex-wrap:wrap">
       <button class="btn btn-g btn-sm" onclick="swTab('spec')">📖 仕様書</button>
       <button class="btn btn-g btn-sm" onclick="swTab('manual')">📘 マニュアル</button>
-      <button class="btn btn-g btn-sm" onclick="swTab('adminm')">🔑 管理者設定</button>
+      <button class="btn btn-g btn-sm" onclick="swTab('adminm')">🔐 セキュリティ管理</button>
       <button class="btn btn-g btn-sm" onclick="swTab('dev')">🔧 引き継ぎ</button>
       <button class="btn btn-g btn-sm" onclick="swTab('regs')">⚖️ 法令・GL</button>
       <button class="btn btn-g btn-sm" onclick="swTab('changelog')">📝 変更履歴</button>
@@ -2642,13 +2642,20 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <!-- 管理者設定パネル -->
     <div id="pane-adminm" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
-        <div class="pt" style="margin-bottom:12px">🔑 管理者設定</div>
+        <div class="pt" style="margin-bottom:12px">🔐 セキュリティ管理</div>
+        <div id="security-summary" class="pn" style="margin-bottom:12px">状態を確認中...</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
+          <button class="btn btn-g btn-sm" onclick="document.getElementById('adminm-users').scrollIntoView({behavior:'smooth'})">👥 職員と利用許可</button>
+          <button class="btn btn-g btn-sm" onclick="swTab('lock')">🔒 編集権限</button>
+          <button class="btn btn-g btn-sm" onclick="document.getElementById('fb-snap-list').scrollIntoView({behavior:'smooth'})">💾 バックアップ</button>
+          <button class="btn btn-g btn-sm" onclick="swTab('logs')">📋 操作履歴</button>
+        </div>
         <div id="adminm-users" style="margin-bottom:18px"></div>
         <div class="pt" style="margin-bottom:12px">💾 バックアップ（3つの安全網）</div>
         <div style="background:var(--ac-bg);border:1px solid var(--ac);border-radius:var(--rs);padding:12px 16px;margin-bottom:12px;font-size:12px;color:var(--txt2);line-height:1.8">
           バックアップは目的別に3層あります。<br>
-          ① <strong>☁️ クラウド（自動）</strong>…毎日Firebaseへ。どの端末からでも復元可（直近7日）<br>
-          ② <strong>🔄 PCローカル（自動）</strong>…この端末に自動保存。Firebase障害時の保険（直近5件）<br>
+          ① <strong>☁️ クラウド（自動）</strong>…Firebaseへ。直近48時間は1時間ごと、それより前は1日1個を30日分。どの端末からでも復元可<br>
+          ② <strong>🔄 PCローカル（自動）</strong>…この端末に自動保存。Firebase障害時の保険（直近2件・画像なし）<br>
           ③ <strong>💾 手動JSON</strong>…PCにファイル保存。<strong>長期保管（1年分など）の正本</strong>はこれ<br>
           <span style="color:var(--txt3)">💡 1年分残したい場合は、毎月1回 手動JSONをダウンロードしてPC/共有ドライブに保管してください。クラウド・PCローカルは直近のみの短期保険です（容量上限のため長期保持はできません）。</span>
         </div>
@@ -2667,7 +2674,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
           </div>
           <div id="backup-status" style="margin-top:8px;font-size:11px;color:var(--txt3)"></div>
         </div>
-        <div class="pt" style="margin-bottom:12px">🔄 PCローカル自動バックアップ（直近5件）</div>
+        <div class="pt" style="margin-bottom:12px">🔄 PCローカル自動バックアップ（直近2件）</div>
         <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
           <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">
             起動時・30分ごと・削除・シフト取込・復元の直前に、この端末へ自動保存されます（短期の保険）。<br>
@@ -2676,10 +2683,10 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
           <div id="auto-backup-list" style="margin-bottom:8px"></div>
           <div id="auto-backup-status" style="font-size:11px;color:var(--txt3)"></div>
         </div>
-        <div class="pt" style="margin-bottom:12px">☁️ Firebaseスナップショット（クラウド・直近7日）</div>
+        <div class="pt" style="margin-bottom:12px">☁️ Firebaseスナップショット（クラウド・30日）</div>
         <div style="background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:14px 16px;margin-bottom:18px">
           <div style="font-size:12px;color:var(--txt2);margin-bottom:10px;line-height:1.7">
-            毎日1回Firebaseへ自動保存。直近7日分を保持します。<br>
+            アプリを開いている人がいれば1時間ごとに自動保存。直近48時間は全部、それより前は1日1個を30日分残します（画像は含みません）。<br>
             端末・ブラウザを問わずどこからでも復元できる、日常の主な安全網です。
           </div>
           <div id="fb-snap-list" style="margin-bottom:8px"></div>
@@ -3210,76 +3217,10 @@ var LOCK_DEFS = [
 var WDL = ['日','月','火','水','木','金','土'];
 var WDF = ['日曜日','月曜日','火曜日','水曜日','木曜日','金曜日','土曜日'];
 var AUTO_BK_KEY = 'ce2_autobk';
-var AUTO_BK_MAX = 5;
+var AUTO_BK_MAX = 2; /* 画像を外しても D 1回分は1MB近い。5世代だとブラウザの保存上限（約5MB）を超えて更新が止まり、巻き添えで通常の端末保存（ce2）まで失敗していた */
 /* 各資料で共有する最新のFirebase Realtime Databaseセキュリティルール（掲示板・バックアップ・ユーザー管理対応） */
-var LATEST_DB_RULES = [
-'{',
-'  "rules": {',
-'    "data":        { ".read": "auth != null", ".write": "auth != null" },',
-'    "board": {',
-'      ".read": "auth != null",',
-'      "$postId": {',
-'        ".write": "auth != null && (!data.exists() || data.child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)",',
-'        "reads": {',
-'          "$uid": { ".write": "auth != null && auth.uid === $uid" }',
-'        },',
-'        "replies": {',
-'          "$replyId": { ".write": "auth != null && (!data.exists() || data.child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)" }',
-'        }',
-'      }',
-'    },',
-'    "tasks": {',
-'      ".read": "auth != null",',
-'      "$taskId": {',
-'        ".write": "auth != null && (newData.exists() || data.child(\'createdBy\').child(\'uid\').val() === auth.uid || root.child(\'admins\').child(auth.uid).val() === true)",',
-'        ".validate": "newData.child(\'createdBy\').child(\'uid\').isString() && (!data.exists() || newData.child(\'createdBy\').child(\'uid\').val() === data.child(\'createdBy\').child(\'uid\').val())",',
-'        "status": { ".validate": "newData.val() === \'todo\' || newData.val() === \'doing\' || newData.val() === \'done\'" }',
-'      }',
-'    },',
-'    "taskMemos": {',
-'      "$uid": {',
-'        ".read": "auth != null && auth.uid === $uid",',
-'        ".write": "auth != null && auth.uid === $uid",',
-'        "$memoId": {',
-'          "status": { ".validate": "newData.val() === \'todo\' || newData.val() === \'doing\' || newData.val() === \'done\'" }',
-'        }',
-'      }',
-'    },',
-'    "robotImg":      { ".read": "auth != null", "$id": { ".write": "auth != null" } },',
-'    "feedback":      { ".read": "auth != null && root.child(\'admins\').child(auth.uid).val() === true", ".indexOn": ["ts"], "$id": { ".write": "auth != null && (!data.exists() || root.child(\'admins\').child(auth.uid).val() === true)", ".validate": "!newData.exists() || (newData.child(\'text\').isString() && newData.child(\'text\').val().length <= 4000 && (!newData.child(\'img\').exists() || (newData.child(\'img\').isString() && newData.child(\'img\').val().beginsWith(\'data:image/\') && newData.child(\'img\').val().length <= 400000)))" } },',
-'    "shiftReqTpl":   { ".read": "auth != null", ".write": "auth != null && root.child(\'admins\').child(auth.uid).val() === true" },',
-'    "backups":       { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
-'    "backup_meta":   { ".read": "auth != null", "$date": { ".write": "auth != null" } },',
-'    "recent_backup": { ".read": "root.child(\'admins\').child(auth.uid).val() === true", ".write": "auth != null" },',
-'    "logs": {',
-'      ".read": "auth != null",',
-'      ".indexOn": ["ts"],',
-'      "$logId": { ".write": "auth != null && (!data.exists() || root.child(\'admins\').child(auth.uid).val() === true)" }',
-'    },',
-'    "admins": { ".read": "auth != null", "$uid": { ".write": "root.child(\'admins\').child(auth.uid).val() === true" } },',
-'    "users": {',
-'      ".read": "auth != null",',
-'      ".indexOn": ["displayName"],',
-'      "$uid": { ".write": "auth.uid === $uid || root.child(\'admins\').child(auth.uid).val() === true" }',
-'    },',
-'    "userPerms": {',
-'      ".read": "root.child(\'admins\').child(auth.uid).val() === true",',
-'      "$uid": { ".read": "auth.uid === $uid", ".write": "root.child(\'admins\').child(auth.uid).val() === true" }',
-'    },',
-'    "notifications": {',
-'      "$uid": {',
-'        ".read": "auth != null && auth.uid === $uid",',
-'        ".indexOn": ["read"],',
-'        "$notifId": { ".write": "auth != null && (!data.exists() || auth.uid === $uid)" }',
-'      }',
-'    },',
-'    "fcmTokens": {',
-'      ".read": "auth != null",',
-'      "$uid": { ".write": "auth != null && auth.uid === $uid" }',
-'    }',
-'  }',
-'}'
-].join('\n');
+var LATEST_STORAGE_RULES = "rules_version = '2';\n\n// 新しい添付はアップロード者のUID配下に置く。StorageルールからRTDBの\n// /access は参照できないため、利用停止時はAuthentication側の無効化も必要。\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /uploads/{uid}/private/{allPaths=**} {\n      allow read: if request.auth != null && request.auth.uid == uid;\n      allow write: if request.auth != null && request.auth.uid == uid\n        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024\n          && request.resource.contentType.matches('image/.*|video/.*')));\n    }\n    match /uploads/{uid}/shared/{allPaths=**} {\n      allow read: if request.auth != null;\n      allow write: if request.auth != null && request.auth.uid == uid\n        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024\n          && request.resource.contentType.matches('image/.*|video/.*')));\n    }\n    // 旧形式の添付は表示を保ち、新規の書き込みは止める。\n    match /taskMemo/{uid}/{allPaths=**} {\n      allow read: if request.auth != null && request.auth.uid == uid;\n    }\n    match /manual/{allPaths=**} { allow read: if request.auth != null; }\n    match /memo/{allPaths=**} { allow read: if request.auth != null; }\n    match /board/{allPaths=**} { allow read: if request.auth != null; }\n    match /task/{allPaths=**} { allow read: if request.auth != null; }\n  }\n}";
+var LATEST_DB_RULES = "{\n  \"rules\": {\n    \"data\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"pages\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"manual\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"shiftReq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_appSeq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_savedAt\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_sessionId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_lastWriter\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"dly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('dm').val() || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"hdDly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('dm').val() || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"wd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('wm').val() || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"hdWd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('wm').val() || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"wdDepts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('wm').val() || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"ope\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cath\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"sup\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opeTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cathTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"roboLayouts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfgMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opsCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"oc\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"schedPresets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgAlertTime\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerStart\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerEnd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"tablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTreatments\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"ocFlow\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"holidayOv\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"makers\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('maker').val() || root.child('userPerms').child(auth.uid).child('maker').val() === true)))\"\n      },\n      \"eduProgress\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"eduItems\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"_migVer\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evtRanges\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"devMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('wm').val() || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"opsChk\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCodes\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"eduCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      }\n    },\n    \"board\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$postId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n        \"reads\": {\n          \"$uid\": {\n            \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\"\n          }\n        },\n        \"replies\": {\n          \"$replyId\": {\n            \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n            \"uid\": {\n              \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n            }\n          }\n        },\n        \"uid\": {\n          \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n        }\n      }\n    },\n    \"tasks\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$taskId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (newData.exists() || data.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"newData.child('createdBy').child('uid').isString() && (data.exists() ? newData.child('createdBy').child('uid').val() === data.child('createdBy').child('uid').val() : (newData.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true))\",\n        \"status\": {\n          \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n        }\n      }\n    },\n    \"taskMemos\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$memoId\": {\n          \"status\": {\n            \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n          }\n        }\n      }\n    },\n    \"robotImg\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (!root.child('data').child('lk').child('mst').val() || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      }\n    },\n    \"feedback\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))\"\n      }\n    },\n    \"shiftReqTpl\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"backups\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists()))\"\n      }\n    },\n    \"backup_meta\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists()))\"\n      }\n    },\n    \"recent_backup\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n    },\n    \"logs\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$logId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.child('uid').val() === auth.uid))\"\n      }\n    },\n    \"admins\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\",\n        \".read\": \"auth != null && auth.uid === $uid\"\n      }\n    },\n    \"users\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".indexOn\": [\n        \"displayName\"\n      ],\n      \"$uid\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n        \"email\": {\n          \".validate\": \"auth.uid !== $uid || newData.val() === auth.token.email\"\n        }\n      }\n    },\n    \"userPerms\": {\n      \".read\": \"root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\"\n      }\n    },\n    \"notifications\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".indexOn\": [\n          \"read\"\n        ],\n        \"$notifId\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || auth.uid === $uid)\"\n        }\n      }\n    },\n    \"fcmTokens\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      }\n    },\n    \"access\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"security\": {\n      \"enforced\": {\n        \".read\": \"auth != null\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    }\n  }\n}";
 /* ===== EVENTS ===== */
 // D.evts = { 'YYYY-MM': { 1:['イベント名',...], ... } }
 // ページ個別イベントは D.pages[ds].events = ['...'] で保持
@@ -3389,7 +3330,8 @@ var _memoRef   = null; /* 上記のリスナー参照（ログアウト時に解
 var _memoDenied = false; /* /taskMemos の読み取りが権限拒否された（＝ルール未適用）か */
 var _taskGraphNames = []; /* 負荷グラフ行の名前（onclickでのindex参照用） */
 var FB_SNAP_KEY = 'ce2_lastfbsnap'; /* 最後にFirebaseスナップショットを取った日付 */
-var FB_SNAP_DAYS = 7; /* 保持日数 */
+var FB_SNAP_DAYS = 30;    /* 保持日数（それより前は消す） */
+var FB_SNAP_HOURLY_H = 48; /* この時間内は1時間ごとに全部残す。それより前は1日1個（その日の最後の分）だけ残す */
 var _fbSnapDone = false; /* 初回ロード時のスナップショット実行済みフラグ */
 var _notifListenerRef = null; /* Firebase /notifications リスナー参照 */
 var _pendingNotifKeys = []; /* 現在ポップアップ表示中の通知キー（確認後に既読化） */
@@ -3502,7 +3444,7 @@ function init() {
   /* 1時間ごとにFirebaseスナップショットも取る（日次だけでは粒度が粗すぎるため） */
   setInterval(function(){
     if (FB_ON && fbDB && currentUser && Object.keys(D.pages||{}).length > 0)
-      saveFirebaseSnapshot('定期（1時間）');
+      saveFirebaseSnapshot('定期（1時間）', true);
   }, 60*60*1000);
   if (!isPreview) fbInit();
   /* タブの出し分けを起動時にも必ず1回通す。Firebase運用ではログイン完了時にも呼ばれるが、
@@ -3689,6 +3631,8 @@ var FB_CFG = {
 var FB_ON = !FB_CFG.apiKey.includes("YOUR_");
 var fbDB  = null;
 var fbST  = null; /* Firebase Storage */
+var _accessRef = null; /* 利用停止をログイン中の端末にも反映 */
+var _securityEnforced = false; /* 移行準備中は旧利用者の業務を止めない */
 
 function fbInit() {
   if (!FB_ON) { setSyncLbl('ローカル保存'); return; }
@@ -3728,13 +3672,16 @@ function fbInit() {
 
     firebase.auth().onAuthStateChanged(function(user) {
       if (!user) {
+        clearSensitiveLocalCache(); /* 認証が切れた端末に業務データを残さない */
         /* 未ログイン → ログイン画面を表示 */
         currentUser = null; isAdmin = false;
         _localSavedAt = 0; /* ログアウト後にスタレーガードが空Dで誤発動しないようリセット */
         _fbDataLoaded = false; /* 次のログインでFirebaseデータ受信まで書き込みをブロック */
+        _securityEnforced = false;
         _fbLastPageCount = -1;
         if (_notifListenerRef) { _notifListenerRef.off(); _notifListenerRef = null; }
         if (_memoRef) { _memoRef.off(); _memoRef = null; } /* 自分専用メモのリスナーも必ず解除する */
+        if (_accessRef) { _accessRef.off(); _accessRef = null; }
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
         _tasksData = {}; _taskView = null; _taskFilter = 'all'; _taskDoneOpen = {}; _taskDoneItemOpen = {};
@@ -3786,7 +3733,9 @@ function fbInit() {
         fbDB.ref('/admins/' + user.uid).once('value'),
         /* /userPerms読み取り失敗（ルール未設定等）でもログイン全体を止めないようフォールバック */
         fbDB.ref('/userPerms/' + user.uid).once('value').catch(function(){ return null; }),
-        fbDB.ref('/users/' + user.uid + '/retired').once('value').catch(function(){ return null; })
+        fbDB.ref('/users/' + user.uid + '/retired').once('value').catch(function(){ return null; }),
+        fbDB.ref('/access/' + user.uid).once('value').catch(function(){ return null; }),
+        fbDB.ref('/security/enforced').once('value').catch(function(){ return null; })
       ]).then(function(snapResults) {
         /* ===== isAdminが確定してからUI全体を更新 ===== */
         var snap = snapResults[0];
@@ -3802,9 +3751,27 @@ function fbInit() {
           });
           return;
         }
+        /* 最終ルールへ切り替えた後（/security/enforced）は、利用許可（/access/{uid}）の無い一般職員を締め出す。
+           ルール側でも拒否されるので、ここは「読めないまま空の画面が出る」のを避けるための案内。 */
+        _securityEnforced = !!(snapResults[4] && snapResults[4].val());
+        if (_securityEnforced && !isAdmin && !(snapResults[3] && snapResults[3].val())) {
+          firebase.auth().signOut().then(function(){
+            var el = document.getElementById('li-err');
+            if (el) el.textContent = 'このアカウントは利用許可されていません。管理者に連絡してください。';
+          });
+          return;
+        }
         var perms = (snapResults[1] && snapResults[1].val && snapResults[1].val()) || {};
         currentUser = { uid: user.uid, email: user.email,
           displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin, perms: perms };
+        if (!isAdmin && _securityEnforced) {
+          _accessRef = fbDB.ref('/access/' + user.uid);
+          _accessRef.on('value', function(accessSnap){
+            if (accessSnap.val() !== true && currentUser && currentUser.uid === user.uid) {
+              firebase.auth().signOut();
+            }
+          });
+        }
 
         /* ユーザー登録（管理者権限管理画面のリスト用） */
         fbDB.ref('/users/' + user.uid).set({
@@ -4035,9 +4002,14 @@ function fbInit() {
               D._migVer = 6;
               saveD();
             }
+            /* 旧Web Pushの送信鍵は共有データに置けない。管理者の初回同期で撤去する。 */
+            if (isAdmin && D.fcmCfg && D.fcmCfg.serverKey) {
+              delete D.fcmCfg.serverKey;
+              saveD();
+            }
             setSyncLbl('同期済');
             if (wasFirstLoad) autoSaveSnapshot('起動時'); /* Firebase最新データ受信後にローカルBKを取る */
-            if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動'); }
+            if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動', true); }
             updateMonthSize();
             checkAutoDelTiming();
             cleanOldLogs(); /* 連絡表の自動削除がオフでもログは掃除したいので、checkAutoDelTiming()とは別に呼ぶ */
@@ -4326,7 +4298,7 @@ function onSPMediaAdd(input) {
       var uploadData = blob || dataUrl; /* blobがあればblobを優先 */
       if (!uploadData) { pending--; if (pending === 0) { saveSPEntry(entry); renderSPMedia(entry.media); } return; }
       var path = 'manual/' + encodeURIComponent(_spTask) + '/' + Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-      uploadToStorage(path, uploadData, function(url, fallback, size) {
+      uploadToStorage(path, uploadData, function(url, fallback, size, storedPath) {
         if (!url && !fallback) {
           /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
           pending--;
@@ -4337,7 +4309,7 @@ function onSPMediaAdd(input) {
           type: isVideo ? 'video' : 'image',
           name: file.name,
           url:  url || fallback,
-          storagePath: url ? path : null,
+          storagePath: url ? storedPath : null,
           size: size || null,
           data: url ? null : fallback
         });
@@ -4504,12 +4476,23 @@ document.addEventListener('click', function(e) {
 });
 
 function doLogout() {
-  if (!confirm('ログアウトしますか？')) return;
+  if (!confirm('ログアウトしますか？ この端末に残る作業中のデータを削除します。未同期の入力は復元できません。')) return;
   clearTimeout(_idleTimer);
   clearTimeout(_idleWarnTimer);
   var warn = document.getElementById('idle-warn');
   if (warn) warn.classList.remove('show');
   firebase.auth().signOut();
+}
+
+function clearSensitiveLocalCache() {
+  try {
+    /* 端末内の自動バックアップ（AUTO_BK_KEY）は消さない——Firebase が使えなくなったときの最後の控え。
+       作業中のデータ（ce2）だけを消す（2026-10-18 本人判断） */
+    ['ce2', 'ce2_srqtpl'].forEach(function(k){ localStorage.removeItem(k); });
+    Object.keys(localStorage).forEach(function(k){
+      if (k.indexOf('ce2_roboimg_') === 0 || k.indexOf('ce2_boardread') === 0) localStorage.removeItem(k);
+    });
+  } catch(e) { console.warn('端末キャッシュ削除に失敗しました', e); }
 }
 
 /* ===== 容量計算 ===== */
@@ -5219,8 +5202,8 @@ function renderSpec() {
   S += '<div class="spec-box">連絡表本体は <code>/data</code>。掲示板は <code>/board</code>、時間別スナップショットは <code>/backups</code>・<code>/backup_meta</code>・<code>/recent_backup</code>、ユーザー情報は <code>/users</code>・<code>/userPerms</code>、管理者は <code>/admins</code>、操作ログは <code>/logs</code> と、用途ごとに別パスに保存されます。</div>';
   S += '<div class="spec-h2">バックアップ（3層構成）</div>';
   S += '<table class="spec-tbl"><tr><th>種別</th><th>保存先</th><th>保持</th><th>用途</th></tr>';
-  S += '<tr><td>☁️ Firebaseスナップショット（1時間ごと自動）</td><td>Firebase <code>/backups/YYYY-MM-DD_HH</code>（時間別）</td><td>直近7日×24時間</td><td>日常の主な安全網。どの端末からでも復元可</td></tr>';
-  S += '<tr><td>⚡ 直近バックアップ（保存ごと自動）</td><td>Firebase <code>/recent_backup</code>（最新1件）</td><td>常に最新1件</td><td>スナップ間のデータ保全。認証ユーザーが書き込むたびに更新</td></tr>';
+  S += '<tr><td>☁️ Firebaseスナップショット（1時間ごと自動）</td><td>Firebase <code>/backups/YYYY-MM-DD_HH</code>（時間別）</td><td>直近48時間は1時間ごと＋30日分は1日1個</td><td>日常の主な安全網。どの端末からでも復元可</td></tr>';
+  S += '<tr><td>⚡ 直近バックアップ（管理者の保存時）</td><td>Firebase <code>/recent_backup</code>（最新1件）</td><td>常に最新1件</td><td>管理者が保存した時点の復元用データ</td></tr>';
   S += '<tr><td>🔄 PCローカル自動</td><td>localStorage <code>ce2_autobk</code></td><td>直近5件</td><td>Firebase障害時の保険。その端末（PC）でのみ復元可</td></tr>';
   S += '<tr><td>💾 手動JSON</td><td>PC等のファイル</td><td>無制限（手動管理）</td><td>長期アーカイブの正本。月1回のダウンロードを推奨</td></tr>';
   S += '</table>';
@@ -5255,7 +5238,7 @@ function renderSpec() {
   S += '<div class="spec-p">掲示板・バックアップ・ユーザー管理を含む最新の推奨ルールです。Firebase Console → Realtime Database → ルール に貼り付けて「公開」してください。</div>';
   S += '<div class="spec-box" style="font-family:monospace;white-space:pre;font-size:10px;overflow-x:auto">' + escH(LATEST_DB_RULES) + '</div>';
   S += '<div class="spec-h2">Firebase Storage セキュリティルール</div>';
-  S += '<div class="spec-box" style="font-family:monospace;white-space:pre">rules_version = &#39;2&#39;;\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /{allPaths=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}</div>';
+  S += '<div class="spec-box" style="font-family:monospace;white-space:pre">' + escH(LATEST_STORAGE_RULES) + '</div>';
 
   // 9. バージョンアップ手順
   S += '<div class="spec-h1">9. バージョンアップ手順</div>';
@@ -5561,20 +5544,22 @@ function renderAdminManual() {
 
   // 第2章: Firebaseのセキュリティルール設定
   S += '<div class="a-h1">2. Firebaseセキュリティルール設定（初回必須）</div>';
+  S += '<div class="a-warn">⚠ 最終ルールを先に適用すると、未許可の職員は利用できなくなります。まず database.rules.prepare.json を適用し、セキュリティ管理で現役職員を利用許可してから最終ルールへ切り替えてください。詳しい順序は FIREBASE_RULES.md を参照してください。</div>';
   S += '<div class="a-h2">Realtime Database のルール</div>';
   S += '<div class="a-step"><div class="a-num">1</div><div>Firebase Console → Realtime Database → 「ルール」タブ</div></div>';
-  S += '<div class="a-step"><div class="a-num">2</div><div>以下（最新版・掲示板/バックアップ/ユーザー管理対応）に書き換えて「公開」をクリック</div></div>';
+  S += '<div class="a-step"><div class="a-num">2</div><div>最初に database.rules.prepare.json を適用し、現役職員の利用許可を設定します。その後、以下の最終ルールを公開してください。詳しい順序は FIREBASE_RULES.md を参照してください。</div></div>';
   S += '<div class="a-code" style="font-size:10px;overflow-x:auto">' + escH(LATEST_DB_RULES) + '</div>';
   S += '<div class="a-warn">⚠ 旧バージョン（<code>".read"/".write"</code> のみのシンプルなルール）のままだと、掲示板・バックアップ・ユーザー管理（管理者設定タブ）で「permission_denied」エラーが出ます。必ず上記の最新ルールに更新してください。</div>';
   S += '<div class="a-h2">Storage のルール</div>';
+  S += '<div class="a-p">Storageを実際に利用している場合だけ、既存の添付が表示できることを確認してから適用します。</div>';
   S += '<div class="a-step"><div class="a-num">1</div><div>Firebase Console → Storage → 「ルール」タブ</div></div>';
   S += '<div class="a-step"><div class="a-num">2</div><div>以下に書き換えて「公開」をクリック</div></div>';
-  S += '<div class="a-code">rules_version = \'2\';\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /{allPaths=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}</div>';
+  S += '<div class="a-code">' + escH(LATEST_STORAGE_RULES) + '</div>';
 
   // 第3章: 管理者アカウント作成
   S += '<div class="a-h1">3. 最初の管理者アカウントを作成する</div>';
   S += '<div class="a-step"><div class="a-num">1</div><div><strong>Firebase Console → Authentication → Users → 「ユーザーを追加」</strong></div></div>';
-  S += '<div class="a-step"><div class="a-num">2</div><div>メールアドレスとパスワードを入力 → 「ユーザーを追加」をクリック<br>パスワードは8文字以上・英数字記号混合を強く推奨（例：CE-Bunkain@2026）</div></div>';
+  S += '<div class="a-step"><div class="a-num">2</div><div>メールアドレスと、推測されにくい一意のパスワードを入力して「ユーザーを追加」をクリックします。パスワードは画面や共有メモに残さないでください。</div></div>';
   S += '<div class="a-step"><div class="a-num">3</div><div>ユーザー一覧に表示された <strong>「UID」列をクリックしてコピー</strong></div></div>';
   S += '<div class="a-step"><div class="a-num">4</div><div>Firebase Console → Realtime Database → データ → 「+」ボタン<br>キー：<strong>admins</strong>　値：（空欄）→「追加」</div></div>';
   S += '<div class="a-step"><div class="a-num">5</div><div>追加された「admins」の「+」をクリック<br>キー：<strong>（コピーしたUID）</strong>　値：<strong>true</strong> →「追加」</div></div>';
@@ -5586,6 +5571,7 @@ function renderAdminManual() {
   S += '<div class="a-step"><div class="a-num">2</div><div>スタッフのメールアドレスと初期パスワードを入力 → 「ユーザーを追加」</div></div>';
   S += '<div class="a-step"><div class="a-num">3</div><div>スタッフに登録したメールアドレスとパスワードを伝え、ログインしてもらいます。<br>ログイン後、画面右上のアカウントバッジ（👤と名前が表示されている部分）をクリックすると<br>表示名変更ダイアログが開くので、氏名を入力して「保存」してもらってください。<br>※申し送りや操作ログにこの名前が記録されます。</div></div>';
   S += '<div class="a-step"><div class="a-num">4</div><div>スタッフに<strong>メールアドレスと初期パスワードを直接伝えてください</strong><br>LINEで送る場合はパスワードのみ別の方法で伝えることを推奨します。</div></div>';
+  S += '<div class="a-step"><div class="a-num">5</div><div>管理資料 → 🔐 セキュリティ管理で本人を確認して「利用許可」にしてください。アプリ内から新規登録した職員は自動で許可されます。</div></div>';
   S += '<div class="a-warn">⚠ 退職・異動したスタッフはAuthentication画面で「無効化」または「削除」してください。</div>';
 
   // 第5章: 管理者権限の付与・取り消し
@@ -5652,7 +5638,7 @@ function renderAdminManual() {
   S += '<div class="a-h1">11. バックアップ運用</div>';
   S += '<div class="a-p">「🔑 管理者設定」タブにバックアップ機能があります。目的別に3層あります。</div>';
   S += '<table class="a-tbl"><tr><th>種別</th><th>保存先 / 保持</th><th>用途</th></tr>';
-  [['☁️ Firebaseスナップショット（自動）','クラウド / 直近7日','日常の主な安全網。どの端末からでも復元可。毎日自動取得'],
+  [['☁️ Firebaseスナップショット（自動）','クラウド / 30日','日常の主な安全網。どの端末からでも復元可。1時間ごとに自動取得'],
    ['🔄 PCローカル自動','その端末 / 直近5件','Firebase障害時の保険。起動・30分毎・破壊的操作前に自動保存（PCのみ）'],
    ['💾 手動JSONダウンロード','PC等のファイル / 手動管理','長期保管の正本。月1回ダウンロードを推奨'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td></tr>';});
@@ -5764,12 +5750,14 @@ function renderAdminUsers() {
   Promise.all([
     fbDB.ref('/users').once('value'),
     fbDB.ref('/admins').once('value'),
-    fbDB.ref('/userPerms').once('value')
+    fbDB.ref('/userPerms').once('value'),
+    fbDB.ref('/access').once('value')
   ]).then(function(results) {
     if (gen !== _adminUsersGen) return; /* より新しいリクエストが来ていれば破棄 */
     var users    = results[0].val() || {};
     var admins   = results[1].val() || {};
     var allPerms = results[2].val() || {};
+    var access   = results[3].val() || {};
     var uids     = Object.keys(users);
 
     /* スタッフ名簿とアカウントの紐付き状況を計算 */
@@ -5792,6 +5780,7 @@ function renderAdminUsers() {
       uids.forEach(function(uid) {
         var u      = users[uid];
         var isAdm  = !!admins[uid];
+        var allowed = isAdm || access[uid] === true;
         var isSelf = currentUser && currentUser.uid === uid;
         var userPerms = allPerms[uid] || {};
         var panelId = 'pp-' + uid.replace(/[^a-zA-Z0-9]/g,'_');
@@ -5804,6 +5793,7 @@ function renderAdminUsers() {
         S += '<div style="display:flex;align-items:center;gap:10px">';
         S += '<div class="adminm-user-info">';
         S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : '👤 ') + escH(u.displayName || u.email) + '</span>';
+        S += '<span style="font-size:10px;color:' + (allowed ? 'var(--gr)' : 'var(--rd)') + '">' + (allowed ? '● 利用可' : '● 利用停止中・未許可') + '</span>';
         if (linkedName) S += '<span style="font-size:10px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:10px;padding:1px 7px;margin-left:4px">🔗 ' + escH(linkedName) + '</span>';
         S += '<span class="adminm-user-email">' + escH(u.email) + '</span>';
         if (u.lastLogin) {
@@ -5818,8 +5808,8 @@ function renderAdminUsers() {
           S += '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">管理者を外す</button>';
         } else {
           S += '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
-          S += '<button class="btn btn-d btn-sm" style="margin-left:4px" onclick="deleteAppUser(\'' + escH(uid) + '\',\'' + escJs(u.displayName || u.email) + '\')">🗑 削除</button>';
         }
+        if (!isAdm) S += '<button class="btn ' + (allowed ? 'btn-d' : 'btn-p') + ' btn-sm" style="margin-left:4px" onclick="setUserAccess(\'' + escH(uid) + '\',' + !allowed + ')">' + (allowed ? '利用停止' : '利用許可') + '</button>';
         S += '</div>';
         /* --- 下段：編集権限（管理者・自分以外のみ） --- */
         if (!isAdm && !isSelf) {
@@ -5881,6 +5871,35 @@ function renderAdminUsers() {
   });
 }
 
+function renderSecurityDashboard() {
+  var el = document.getElementById('security-summary');
+  if (!el || !isAdmin) return;
+  if (!FB_ON || !fbDB) { el.textContent = 'プレビュー中です。利用許可とクラウドバックアップの状態はFirebase接続時に表示されます。'; return; }
+  el.textContent = '利用状態とバックアップを確認中...';
+  Promise.all([
+    fbDB.ref('/access').once('value'),
+    fbDB.ref('/backup_meta').orderByKey().limitToLast(1).once('value'),
+    fbDB.ref('/security/enforced').once('value')
+  ]).then(function(results){
+    if (!isAdmin || !document.getElementById('security-summary')) return;
+    var access = results[0].val() || {};
+    var meta = results[1].val() || {};
+    var keys = Object.keys(meta).sort();
+    var latest = keys.length ? meta[keys[keys.length - 1]] : null;
+    var activeCount = Object.keys(access).filter(function(uid){ return access[uid] === true; }).length;
+    var backupCheck = keys.length ? fbDB.ref('/backups/' + keys[keys.length - 1]).once('value') : Promise.resolve(null);
+    return backupCheck.then(function(backupSnap){
+      var present = !!(latest && latest.ts && backupSnap && backupSnap.exists());
+      var fresh = present && Date.now() - latest.ts < 24 * 60 * 60 * 1000;
+      el.innerHTML = '<strong>一般職員の利用許可 ' + activeCount + '人</strong>　｜　'
+        + (present ? (fresh ? '最終バックアップ: ' : '⚠ 最終バックアップが24時間以上前: ') + escH(fmtTS(latest.ts)) : '⚠ バックアップ本体の成功を確認できません')
+        + '<div style="margin-top:6px;font-size:11px;color:var(--txt3)">利用許可の切替: ' + (results[2].val() === true ? '有効' : '準備中') + '。Firebaseのルールが本番に適用済みかは、この画面だけでは判定できません。管理者がFirebase Consoleで確認してください。</div>';
+    });
+  }).catch(function(){
+    el.textContent = '⚠ 利用状態またはバックアップを確認できません。Firebase接続とルールを確認してください。';
+  });
+}
+
 function togPermPanel(panelId) {
   var el = document.getElementById(panelId);
   if (el) el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
@@ -5910,7 +5929,10 @@ function toggleAdminPriv(uid, currentlyAdmin) {
   if (!confirm(msg)) return;
 
   var ref = fbDB.ref('/admins/' + uid);
-  var p   = currentlyAdmin ? ref.remove() : ref.set(true);
+  /* 管理者を外した直後も通常の利用権を保つ */
+  var p = currentlyAdmin
+    ? fbDB.ref('/access/' + uid).set(true).then(function(){ return ref.remove(); })
+    : ref.set(true);
   p.then(function() {
     writeLog(currentlyAdmin ? '管理者権限を取り消し' : '管理者権限を付与', uid);
     renderAdminUsers();
@@ -5920,16 +5942,19 @@ function toggleAdminPriv(uid, currentlyAdmin) {
   });
 }
 
+function setUserAccess(uid, allow) {
+  if (!isAdmin || !FB_ON || !fbDB || !uid || uid === currentUser.uid) return;
+  if (!confirm(allow
+    ? 'この職員のアプリ利用を許可しますか？ Firebaseのログインアカウントと本人確認を先に確認してください。'
+    : 'この職員のデータ利用を停止しますか？ ログイン中のアプリも終了します。完全な停止にはFirebase Consoleで認証アカウントも無効化してください。')) return;
+  fbDB.ref('/access/' + uid).set(allow).then(function(){
+    writeLog(allow ? 'アプリ利用許可' : 'アプリ利用停止', uid);
+    renderAdminUsers(); renderSecurityDashboard();
+  }).catch(function(err){ toast('利用状態を変更できませんでした: ' + err.message, 'err'); });
+}
+
 function deleteAppUser(uid, name) {
-  if (!isAdmin || !FB_ON || !fbDB) return;
-  if (!confirm('「' + name + '」のアプリデータを削除しますか？\n' +
-    '※ Firebaseログインアカウント自体は残ります。\n' +
-    '　完全削除はFirebase Consoleから行ってください。')) return;
-  fbDB.ref('/users/' + uid).remove();
-  fbDB.ref('/admins/' + uid).remove();
-  fbDB.ref('/userPerms/' + uid).remove();
-  writeLog('ユーザー削除（ソフト）', uid + ' / ' + name);
-  renderAdminUsers();
+  setUserAccess(uid, false);
 }
 
 /* ===== 新規ユーザー登録 ===== */
@@ -6007,7 +6032,7 @@ function doRegister() {
         email: email,
         displayName: name || email.split('@')[0],
         lastLogin: null
-      }).then(function() {
+      }).then(function() { return fbDB.ref('/access/' + uid).set(true); }).then(function() {
         secondApp.auth().signOut();
         try{ secondApp.delete(); }catch(e){}
         if (name) {
@@ -6035,11 +6060,18 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/16-128';
+var APP_VERSION = 'Ver.2026/10/18-129';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/18-129', date:'2026-10-18', title:'セキュリティ管理（利用許可）', items:[
+    {t:'new', d:'🔐 管理者はセキュリティ管理から職員の利用許可・停止、バックアップ状態、編集権限、操作履歴を確認できます', admin:true},
+    {t:'imp', d:'🔒 ログアウトすると、この端末に残っている作業中のデータを削除します'},
+    {t:'fix', d:'🔔 ブラウザに送信鍵を置くWeb Pushを停止し、管理者の初回同期で旧送信鍵を共有データから撤去します。アプリ内通知は継続します', admin:true},
+    {t:'imp', d:'☁️ クラウドのバックアップを「直近48時間は1時間ごと＋それより前は1日1個を30日分」にしました。戻れる期間が7日から30日に延び、保存する数は減ります', admin:true},
+    {t:'fix', d:'💻 端末内の自動バックアップが容量の上限に当たって更新されなくなることがあった問題を直しました（2件・画像なしに）', admin:true}
+  ]},
   { ver:'Ver.2026/10/16-128', date:'2026-10-16', title:'HD担当表に「休」マーク', items:[
     {t:'new', d:'❌ HD担当表の各スタッフに「休」チェックを付けました。チェックすると行が赤くなり、名前に取り消し線が付きます（CEの担当カードと同じ見た目の印です）'},
     {t:'imp', d:'❌ CEの担当カードの「欠勤」チェックの表示を「休」に変えました'}
@@ -7111,7 +7143,7 @@ function renderDev() {
    ['ocSetDone(ds,val)/updateOcDashChip(ds)','OC対応済みフラグの唯一の書き換え口。開始＋退勤が揃うと自動でtrue。保存・チェックボックス同期・翌日ルール通知・ダッシュボード更新・管理者通知をここに集約'],
    ['exportBackup()/importBackup()','手動JSONバックアップ（保存/復元）'],
    ['autoSaveSnapshot()/renderAutoBackups()/restoreAutoBackup()','PCローカル自動BK（ce2_autobk・PCのみ・5件）'],
-   ['saveFirebaseSnapshot()/renderFirebaseSnapshots()/restoreFirebaseSnapshot()/cleanOldSnapshots()','Firebase時間別スナップ（/backups/YYYY-MM-DD_HH・7日×24h保持）。保存ごとに /recent_backup も更新'],
+   ['saveFirebaseSnapshot()/renderFirebaseSnapshots()/restoreFirebaseSnapshot()/cleanOldSnapshots()','Firebase時間別スナップ（/backups/YYYY-MM-DD_HH・48時間は1時間ごと＋30日は1日1個）。保存時に /recent_backup も10分に1回更新'],
    ['renderAdminUsers()/toggleAdminPriv()/saveUserPerm()/doRegister()','アプリ内ユーザー管理（/users・/admins・/userPerms）'],
    ['renderPage(ds)','連絡表ページ全体描画（innerHTML後にbuildDG/OPS/CL）'],
    ['buildDG(ds,dat,locked)','担当グリッド構築＋D&Dリスナー'],
@@ -7144,7 +7176,7 @@ function renderDev() {
   S += '<div class="d-p" style="font-size:11px">掲示板/バックアップ/ユーザー管理に対応。旧版（read/writeのみ）だとpermission_deniedになる。</div>';
   S += '<div class="d-pre" style="font-size:10px">' + escH(LATEST_DB_RULES) + '</div>';
   S += '<div class="d-h2">セキュリティルール（Storage）</div>';
-  S += '<div class="d-pre">rules_version = &#39;2&#39;;\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /{allPaths=**} {\n      allow read, write: if request.auth != null;\n    }\n  }\n}</div>';
+  S += '<div class="d-pre">' + escH(LATEST_STORAGE_RULES) + '</div>';
 
   // バージョンアップ手順
   S += '<div class="d-h1">バージョンアップ手順</div>';
@@ -7367,14 +7399,7 @@ function downloadDevMd() {
     '',
     '## セキュリティルール（Storage）',
     "```",
-    "rules_version = '2';",
-    'service firebase.storage {',
-    '  match /b/{bucket}/o {',
-    '    match /{allPaths=**} {',
-    '      allow read, write: if request.auth != null;',
-    '    }',
-    '  }',
-    '}',
+    LATEST_STORAGE_RULES,
     '```',
     '',
     '---',
@@ -10331,6 +10356,43 @@ function saveD(onComplete) {
   _doFbWrite(changes, 0, onComplete ? [onComplete] : []);
 }
 
+/* /data 直下の項目ごとの書き込み権限。database.rules.json の data 直下と必ず一致させること（validate.mjs が照合する）。
+   'all'＝利用許可された職員全員／'edu'＝教育到達度の権限（perm_edu）／それ以外＝ロックID（can() と同じ判定）。
+   ここに無い項目（スタッフ名簿・ロック・勤務表・通知設定など）は管理者だけが書ける。 */
+var DATA_WRITE_PERM = {
+  pages:'all', manual:'all', evts:'all', evtRanges:'all', shiftReq:'all',
+  _migVer:'all', _appSeq:'all', _savedAt:'all', _sessionId:'all', _lastWriter:'all',
+  dly:'dm', hdDly:'dm',
+  wd:'wm', hdWd:'wm', wdDepts:'wm', devMaster:'wm',
+  ope:'mst', cath:'mst', sup:'mst', opeTree:'mst', cathTree:'mst', supTree:'mst', supMaster:'mst', roboLayouts:'mst',
+  dutyCfgMaster:'mst', dutyCfg:'mst', opsCfg:'mst', opsChk:'mst', oc:'mst', schedPresets:'mst',
+  psgAlertTime:'mst', psgBannerStart:'mst', psgBannerEnd:'mst', tablets:'mst', hdTablets:'mst', hdTreatments:'mst',
+  ocFlow:'mst', holidayOv:'mst', shiftReqCodes:'mst', shiftReqCfg:'mst',
+  makers:'maker',
+  eduProgress:'edu', eduItems:'edu', eduCfg:'edu'
+};
+/* いまのユーザーが /data/{key} を書き換えてよいか（ルールと同じ判定） */
+function dataWritable(key) {
+  if (isAdmin) return true;
+  var p = DATA_WRITE_PERM[key];
+  if (!p) return false;
+  if (p === 'all') return true;
+  if (p === 'edu') return !!(currentUser && currentUser.perms && currentUser.perms.perm_edu);
+  return can(p);
+}
+/* 差分（{経路: 値}）から、いまのユーザーが書けない項目を除く。multi-path update は1つでも拒否されると
+   全体が失敗し、そのあと保存が全部止まるため、送る前に落とす。落とした項目は次の受信でサーバーの値に戻る。 */
+function regularDataUpdate(data) {
+  var out = {}, dropped = [];
+  Object.keys(data).forEach(function(path){
+    var top = path.split('/')[0];
+    if (dataWritable(top)) out[path] = data[path];
+    else if (dropped.indexOf(top) < 0) dropped.push(top);
+  });
+  if (dropped.length) console.warn('[saveD] 権限の無い項目は送らない:', dropped.join(', '));
+  return out;
+}
+
 /* リトライ付きFirebase書き込み（最大4回: 2s/4s/8s/16s） */
 function _doFbWrite(data, attempt, callbacks) {
   callbacks = callbacks || [];
@@ -10351,14 +10413,15 @@ function _doFbWrite(data, attempt, callbacks) {
     pages: Object.keys(D.pages || {}).length,
     ts:    _savingTs
   } : null;
-  fbDB.ref('/data').update(upd)
+  fbDB.ref('/data').update(isAdmin ? upd : regularDataUpdate(upd))
     .then(function() {
       _saveWriting = false;
       _savePending = false;
       setSyncLbl('同期済');
       _localSavedAt = upd._savedAt; /* 確定した書き込み時刻を記録 */
       _savingTs = Date.now(); /* サーバーACK後も2秒間エコー抑制を延長 */
-      /* /recent_backup へ最新の全体を保存（データ消去時の復元用）。毎回だと保存のたびに全体を送るので10分に1回 */
+      /* /recent_backup へ最新の全体を保存（データ消去時の復元用）。毎回だと保存のたびに全体を送るので10分に1回。
+         誰の保存でも作る（読めるのは管理者だけ）。管理者に限ると、管理者が開かない日は更新が止まる */
       if (Object.keys(D.pages || {}).length > 0 && Date.now() - _recentBkTs > RECENT_BK_MS) {
         _recentBkTs = Date.now();
         var bk = JSON.parse(JSON.stringify(D));
@@ -12652,6 +12715,7 @@ function retireStaff(name){
     if (uid && stfAcctReal()) {
       var up = {}; up['/users/' + uid + '/retired'] = true; up['/users/' + uid + '/retiredAt'] = Date.now();
       up['/admins/' + uid] = null; up['/userPerms/' + uid] = null;
+      up['/access/' + uid] = false; /* 最終ルール適用後は、これで DB の読み書きも止まる */
       fbDB.ref().update(up).then(done).catch(function(err){ toast('名簿からは外しましたが、アカウントの利用停止に失敗しました：' + err.message, 'err', 10000); done(); });
     } else done();
   });
@@ -22064,7 +22128,7 @@ function _doPostMemoReply(ds, mkey, text) {
   var pending = buf.length;
   buf.forEach(function(mm, idx) {
     var path = 'memo/' + ds + '/reply_' + ts + '_' + idx + '_' + mm.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, mm.blob || mm.data, function(url, fallback, size) {
+    uploadToStorage(path, mm.blob || mm.data, function(url, fallback, size, storedPath) {
       if (!url && !fallback) { /* Storage未接続かつ大きすぎ → この画像はあきらめる */
         pending--; if (pending === 0) _finishPostMemoReply(ds, mkey, reply, text, sendBtn);
         return;
@@ -22072,7 +22136,7 @@ function _doPostMemoReply(ds, mkey, text) {
       reply.media.push({
         type: 'image', name: mm.name,
         url: url || fallback,
-        storagePath: url ? path : null,
+        storagePath: url ? storedPath : null,
         size: size || null,
         data: url ? null : fallback
       });
@@ -22244,10 +22308,14 @@ function uploadToStorage(path, dataOrBlob, callback) {
     /* エラー時：フォールバック（サイズにより添付自体を諦める場合あり） */
     _uploadFallback(dataOrBlob, callback);
   }
+  if (!currentUser || !currentUser.uid) { _uploadFallback(dataOrBlob, callback); return; }
+  /* 新しい添付は投稿者のUID配下に置く（storage.rules）。自分専用メモの添付だけ private */
+  var privateMedia = path.indexOf('taskMemo/') === 0;
+  var storedPath = 'uploads/' + currentUser.uid + '/' + (privateMedia ? 'private/' : 'shared/') + path;
   var timer = setTimeout(function(){ giveUp(new Error('upload timeout')); }, STORAGE_UPLOAD_TIMEOUT_MS);
   var ref;
   try {
-    ref = fbST.ref(path);
+    ref = fbST.ref(storedPath);
     /* BlobはputBlobで直接アップロード（base64より高速） */
     task = (dataOrBlob instanceof Blob)
       ? ref.put(dataOrBlob)
@@ -22262,7 +22330,7 @@ function uploadToStorage(path, dataOrBlob, callback) {
   }).then(function(url) {
     if (settled) return;
     settled = true; clearTimeout(timer);
-    callback(url, null, uploadedSize);
+    callback(url, null, uploadedSize, storedPath);
   }).catch(giveUp);
 }
 
@@ -23022,7 +23090,7 @@ function _doPostMemo(ds) {
   var pending = buf.length;
   buf.forEach(function(m, idx) {
     var path = 'memo/' + ds + '/' + ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, m.blob || m.data, function(url, fallback, size) {
+    uploadToStorage(path, m.blob || m.data, function(url, fallback, size, storedPath) {
       if (!url && !fallback) {
         /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
         pending--;
@@ -23033,7 +23101,7 @@ function _doPostMemo(ds) {
         type:        m.type,
         name:        m.name,
         url:         url || fallback,     /* StorageURL or base64 */
-        storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
+        storagePath: url ? storedPath : null,   /* Storage使用時のみパスを保持 */
         size:        size || null,
         data:        url ? null : fallback /* base64フォールバック時 */
       });
@@ -25402,37 +25470,11 @@ function saveEmailjsCfg() {
 
 /* ===== FCM Web Push ===== */
 function initFCMMessaging() {
-  var vapidKey = D.fcmCfg && D.fcmCfg.vapidKey;
-  if (!FB_ON || !fbDB || !vapidKey || !vapidKey.trim()) return;
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-  if (typeof firebase.messaging !== 'function') return;
-  try {
-    if (!_messaging) _messaging = firebase.messaging();
-    navigator.serviceWorker.ready.then(function(reg) {
-      _messaging.useServiceWorker(reg);
-      return _messaging.getToken({ vapidKey: vapidKey.trim() });
-    }).then(function(token) {
-      if (token && currentUser) {
-        _fcmToken = token;
-        fbDB.ref('/fcmTokens/' + currentUser.uid).set({ token: token, ts: Date.now() });
-      }
-    }).catch(function(e) { console.warn('[FCM] getToken:', e); });
-  } catch(e) { console.warn('[FCM] init:', e); }
+  /* 無料・静的サイト構成では送信サーバーの秘密鍵を安全に保持できないため停止。 */
 }
 
 function sendFCMPush(targetUid, title, body) {
-  if (!FB_ON || !fbDB) return;
-  var serverKey = D.fcmCfg && D.fcmCfg.serverKey;
-  if (!serverKey || !serverKey.trim()) return;
-  fbDB.ref('/fcmTokens/' + targetUid + '/token').once('value', function(snap) {
-    var token = snap.val();
-    if (!token) return;
-    fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: { 'Authorization': 'key=' + serverKey.trim(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: token, notification: { title: title, body: body }, data: { type: 'duty', ts: String(Date.now()) } })
-    }).catch(function(e) { console.warn('[FCM] send failed:', e); });
-  });
+  /* アプリ内通知は別経路で継続する。Web Pushは安全な送信基盤ができるまで停止。 */
 }
 
 function renderFCMCfg() {
@@ -25440,28 +25482,11 @@ function renderFCMCfg() {
   if (sec) sec.style.display = isAdmin ? '' : 'none';
   var el = document.getElementById('fcm-cfg-form');
   if (!el || !isAdmin || mstHasDraft('fcm-cfg-form')) return;
-  var cfg = D.fcmCfg || {};
-  var ok = true;
-  var dis = '';
-  el.innerHTML = '<div style="display:grid;gap:6px">'
-    + '<div class="mst-form-row"><label style="font-size:12px;min-width:120px">VAPIDキー（公開鍵）</label>'
-    + '<input type="text" id="fcm-vapid" value="' + escH(cfg.vapidKey || '') + '" placeholder="BNxxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
-    + '<div class="mst-form-row"><label style="font-size:12px;min-width:120px">サーバーキー</label>'
-    + '<input type="password" id="fcm-skey" value="' + escH(cfg.serverKey || '') + '" placeholder="AAAAxxxxxxxx"' + dis + ' style="flex:1;font-size:12px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)"></div>'
-    + (ok ? '<div><button class="btn btn-p" onclick="saveFCMCfg()" style="font-size:12px">保存</button></div>' : '')
-    + '</div>';
+  el.innerHTML = '<div class="pn">Web Pushは安全な送信鍵の保管先がないため停止中です。アプリ内通知は引き続き利用できます。旧送信鍵が設定されていた場合は、管理者の初回同期時に共有データから削除します。</div>';
 }
 
 function saveFCMCfg() {
-  if (!isAdmin) return;
-  var vapid = (document.getElementById('fcm-vapid') || {}).value || '';
-  var skey = (document.getElementById('fcm-skey') || {}).value || '';
-  if (!D.fcmCfg) D.fcmCfg = {};
-  D.fcmCfg.vapidKey = vapid.trim();
-  D.fcmCfg.serverKey = skey.trim();
-  mstClearDraft('fcm-cfg-form');
-  saveD();
-  showNotifToast('✅ Web Push設定を保存しました', '');
+  return;
 }
 
 /* ===== 月次自動割り当てモード設定 ===== */
@@ -26752,12 +26777,12 @@ function _uploadTaskMedia(pathPrefix, onDone) {
   var ts = Date.now(), pending = buf.length;
   buf.forEach(function(mm, idx){
     var path = pathPrefix + ts + '_' + idx + '_' + mm.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, mm.blob || mm.data, function(url, fallback, size){
+    uploadToStorage(path, mm.blob || mm.data, function(url, fallback, size, storedPath){
       if (url || fallback) {
         media.push({
           type: 'image', name: mm.name,
           url: url || fallback,
-          storagePath: url ? path : null,
+          storagePath: url ? storedPath : null,
           size: size || null,
           data: url ? null : fallback
         });
@@ -28363,7 +28388,7 @@ function swTab(t) {
   if(t==='feedback') { renderFeedback(); }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
-  if(t==='adminm') { renderAdminManual(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); renderFirebaseSnapshots(); }
+  if(t==='adminm') { renderAdminManual(); renderSecurityDashboard(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); renderFirebaseSnapshots(); }
   if(t==='dev') { renderDev(); }
   if(t==='regs') { renderRegs(); }
   if(t==='changelog') { renderChangelog(); }
@@ -29056,7 +29081,7 @@ function _doPostBoard(text) {
   var pending = buf.length;
   buf.forEach(function(m, idx) {
     var path = 'board/' + post.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, m.blob || m.data, function(url, fallback, size) {
+    uploadToStorage(path, m.blob || m.data, function(url, fallback, size, storedPath) {
       if (!url && !fallback) {
         /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
         pending--;
@@ -29067,7 +29092,7 @@ function _doPostBoard(text) {
         type:        'image',
         name:        m.name,
         url:         url || fallback,     /* StorageURL or base64 */
-        storagePath: url ? path : null,   /* Storage使用時のみパスを保持 */
+        storagePath: url ? storedPath : null,   /* Storage使用時のみパスを保持 */
         size:        size || null,
         data:        null
       });
@@ -29132,7 +29157,7 @@ function _doPostBoardReply(postId, text) {
   var pending = buf.length;
   buf.forEach(function(m, idx) {
     var path = 'board/reply_' + reply.ts + '_' + idx + '_' + m.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    uploadToStorage(path, m.blob || m.data, function(url, fallback, size) {
+    uploadToStorage(path, m.blob || m.data, function(url, fallback, size, storedPath) {
       if (!url && !fallback) {
         /* Storage未接続かつ300KB超でbase64フォールバックも不可 → このメディアはスキップ */
         pending--;
@@ -29143,7 +29168,7 @@ function _doPostBoardReply(postId, text) {
         type:        'image',
         name:        m.name,
         url:         url || fallback,
-        storagePath: url ? path : null,
+        storagePath: url ? storedPath : null,
         size:        size || null,
         data:        null
       });
@@ -29666,7 +29691,7 @@ function showStfEduModal(idx) {
 
 /* ===== 1時間ごとのバックアップから画像を外す =====
    画像は Storage が使えないため base64 で D の中に入っている（実測でDB全体の3割超）。
-   スナップショットは D の丸ごとコピーを7日×24時間ぶん持つので、そのままだと画像1枚が最大168回複製される。
+   スナップショットは D の丸ごとコピーを数十個持つので、そのままだと画像1枚がその数だけ複製される。
    スナップショットでは画像の中身（url/data）だけを外して {bkStripped:true, len} に置き換え、
    復元時に bkRestoreMedia() が「いまの D にある同じ画像」を付け直す。
    /recent_backup（最新1個）・端末内の自動バックアップ・ファイル書き出しは画像を残す（全部消えたときの最後の砦）。 */
@@ -29743,13 +29768,28 @@ function bkRestoreMedia(data, cur) {
   return lost;
 }
 
-function saveFirebaseSnapshot(label) {
-  if (!FB_ON || !fbDB) return;
+/* 作るのは誰でもよい（ルールで一般職員は「新規作成だけ」。読む・上書き・消す・戻すは管理者だけ）。
+   管理者しか作れないと、管理者が数日開かない間バックアップが止まる（9/28 の設計で起きかけた）。
+   定期の分（periodic）はその時刻の分が既にあれば作らない——開いている端末の台数ぶん同じ0.6MBを送り直さないため。
+   一般職員は /backup_meta を読めないので、既にあればルールが新規作成を拒否する＝作らない、で同じ結果になる。
+   削除前などの名前付きの分は、管理者なら同じ時刻の分を上書きして直前の状態を残す。 */
+function saveFirebaseSnapshot(label, periodic) {
+  if (!FB_ON || !fbDB || !currentUser || _staleApp) return;
   var now = new Date();
   var today = toDS(now);
   /* 時刻付きキーで保存（同日内の上書きを防ぎ、1時間粒度でバックアップを残す） */
   var hh = ('0'+now.getHours()).slice(-2);
   var snapKey = today + '_' + hh;
+  if (isAdmin && periodic) {
+    fbDB.ref('/backup_meta/'+snapKey).once('value').then(function(s){
+      if (s.exists()) { localStorage.setItem(FB_SNAP_KEY, today); cleanOldSnapshots(); return; }
+      _writeFirebaseSnapshot(snapKey, today, label);
+    }).catch(function(){});
+    return;
+  }
+  _writeFirebaseSnapshot(snapKey, today, label);
+}
+function _writeFirebaseSnapshot(snapKey, today, label) {
   var copy = JSON.parse(JSON.stringify(D));
   bkStripMedia(copy); /* 画像は入れない（上の説明を参照） */
   /* manual キーのサニタイズ（Firebase不可文字） */
@@ -29773,29 +29813,42 @@ function saveFirebaseSnapshot(label) {
           cleanOldSnapshots();
         })
         .catch(function(){
-          /* 本体が書けなかったらメタも取り消す（復元一覧に中身の無い項目を残さない） */
+          /* 本体が書けなかったらメタも取り消す（復元一覧に中身の無い項目を残さない）。
+             一般職員は消せないので、そのときは次の掃除（管理者）で消える */
           fbDB.ref('/backup_meta/'+snapKey).remove().catch(function(){});
         });
     })
     .catch(function(){});
 }
 
+/* 消すキーを選ぶ（純粋な関数）。keys は 'YYYY-MM-DD_HH' か旧形式 'YYYY-MM-DD' */
+function snapKeysToDrop(keys, cutoff, hourlyFrom) {
+  var lastOfDay = {};
+  keys.forEach(function(k){ var d = k.slice(0, 10); if (!lastOfDay[d] || k > lastOfDay[d]) lastOfDay[d] = k; });
+  return keys.filter(function(k){
+    var d = k.slice(0, 10);
+    if (d < cutoff) return true;          /* 保持日数より前 */
+    if (k >= hourlyFrom) return false;    /* 直近は全部残す */
+    return lastOfDay[d] !== k;            /* それより前は1日1個 */
+  });
+}
 function cleanOldSnapshots() {
-  if (!FB_ON || !fbDB) return;
+  if (!FB_ON || !fbDB || !isAdmin) return;
   /* 1日1回だけ実行（毎時スナップから24回呼ばれるのを防ぐ） */
   var today = toDS(new Date());
   if (_lastCleanupDate === today) return;
   _lastCleanupDate = today;
-  /* カットオフ（today - 保持日数）より古いキーを全て削除。
-     実在キーだけを走査するため、アプリ未起動で複数日分溜まっても確実に消え、
-     存在しないキーへの無駄なremoveも発生しない。新旧キー（_HH有無）両対応。 */
-  var d = new Date(); d.setDate(d.getDate() - FB_SNAP_DAYS);
-  var cutoff = toDS(d);
+  /* 直近 FB_SNAP_HOURLY_H 時間は全部残し、それより前は1日1個（その日のいちばん遅い時刻の分）だけ、
+     FB_SNAP_DAYS 日より前は全部消す。168個（7日×24）より少ない数で、戻れる期間は30日に延びる——
+     9/12 の使用物品マスタ消失のように気づくのが遅れると、7日では壊れた後の状態しか残らなかった。
+     実在キーだけを走査するので、アプリ未起動で何日分溜まっても確実に片付く。新旧キー（_HH有無）両対応。 */
+  var dd = new Date(); dd.setDate(dd.getDate() - FB_SNAP_DAYS);
+  var cutoff = toDS(dd);
+  var hk = new Date(Date.now() - FB_SNAP_HOURLY_H * 3600000);
+  var hourlyFrom = toDS(hk) + '_' + ('0'+hk.getHours()).slice(-2);
   fbDB.ref('/backup_meta').once('value', function(snap){
     var meta = snap.val() || {};
-    var keys = Object.keys(meta).filter(function(key){
-      return key.slice(0, 10) < cutoff; /* "YYYY-MM-DD" 部分で比較 */
-    });
+    var keys = snapKeysToDrop(Object.keys(meta), cutoff, hourlyFrom);
     if (!keys.length) return;
     /* 1件ずつ remove を投げるのではなく、マルチパス更新でまとめて消す。
        通信が1回で済み、失敗も1箇所で拾える（以前は remove ごとの .catch で
@@ -29803,7 +29856,7 @@ function cleanOldSnapshots() {
     var upd = {};
     keys.forEach(function(k){ upd['/backups/'+k] = null; upd['/backup_meta/'+k] = null; });
     fbDB.ref().update(upd).then(function(){
-      writeLog('古いバックアップを削除', FB_SNAP_DAYS + '日より前 ' + keys.length + '件');
+      writeLog('古いバックアップを整理', FB_SNAP_DAYS + '日より前と、' + FB_SNAP_HOURLY_H + '時間より前の1日2個目以降 ' + keys.length + '件');
     }).catch(function(err){
       console.warn('古いバックアップの削除に失敗:', err);
       /* 次の機会に必ず再試行させる。ここを戻さないと、その日はもう走らない */
@@ -29820,7 +29873,7 @@ function renderFirebaseSnapshots() {
     return;
   }
   el.innerHTML = '<div style="font-size:12px;color:var(--txt3)">読み込み中...</div>';
-  fbDB.ref('/backup_meta').orderByKey().limitToLast(7 * 24).once('value', function(snap) {
+  fbDB.ref('/backup_meta').orderByKey().limitToLast(FB_SNAP_HOURLY_H + FB_SNAP_DAYS + 30).once('value', function(snap) {
     var meta = snap.val() || {};
     var dates = Object.keys(meta).sort().reverse();
     if (!dates.length) {
@@ -29884,9 +29937,13 @@ function autoSaveSnapshot(label) {
   if (window.innerWidth <= 768) return; /* スマホはストレージ節約のためスキップ */
   try {
     var snaps = JSON.parse(localStorage.getItem(AUTO_BK_KEY) || '[]');
-    snaps.unshift({ ts: Date.now(), label: label || '自動', data: JSON.stringify(D) });
+    /* 画像は外して入れる（クラウドの1時間ごとと同じ。戻すときに bkRestoreMedia で付け直す） */
+    var copy = JSON.parse(JSON.stringify(D));
+    bkStripMedia(copy);
+    snaps.unshift({ ts: Date.now(), label: label || '自動', data: JSON.stringify(copy) });
     if (snaps.length > AUTO_BK_MAX) snaps = snaps.slice(0, AUTO_BK_MAX);
-    localStorage.setItem(AUTO_BK_KEY, JSON.stringify(snaps));
+    try { localStorage.setItem(AUTO_BK_KEY, JSON.stringify(snaps)); }
+    catch (e1) { localStorage.setItem(AUTO_BK_KEY, JSON.stringify(snaps.slice(0, 1))); } /* 入りきらなければ最新1個だけ */
   } catch(e) {}
 }
 
@@ -30011,6 +30068,7 @@ function restoreAutoBackup(i) {
     var pageCount = Object.keys(data.pages).length;
     if (!confirm('自動バックアップ（'+dt+' / '+s.label+'）から復元しますか？\n\n連絡表 '+pageCount+' ページ\n\n⚠️ 現在のデータが上書きされます。')) return;
     autoSaveSnapshot('自動復元前');
+    var lostMedia = bkRestoreMedia(data, D); /* 画像は外して保存しているので、いまの D の同じ画像を付け直す */
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
@@ -30027,6 +30085,7 @@ function restoreAutoBackup(i) {
     renderAutoBackups();
     var stEl = document.getElementById('auto-backup-status');
     if (stEl) stEl.textContent = '✅ 復元しました（'+dt+'）';
+    if (lostMedia) toast('⚠️ バックアップの後に消えた画像 '+lostMedia+'枚は戻せませんでした（本文は戻しています）', 'warn');
   } catch(e) {
     toast('復元エラー: ' + e.message, 'err');
   }

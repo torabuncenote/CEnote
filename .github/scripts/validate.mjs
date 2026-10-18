@@ -59,6 +59,45 @@ if (existsSync('sw.js')) {
   }
 }
 
+/* ===== セキュリティルールとアプリ内表示の一致 ===== */
+if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('storage.rules')) {
+  const H = readFileSync(htmlPath, 'utf8');
+  const dbText = readFileSync('database.rules.json', 'utf8').trim();
+  const storageText = readFileSync('storage.rules', 'utf8').trim();
+  try {
+    const db = JSON.parse(dbText).rules;
+    const active = db.data?.['.read'] || '';
+    if (!active.includes("root.child('access').child(auth.uid)")) fail('/data の読み取りに利用許可判定がありません');
+    else if (db.data?.['.write'] !== "auth != null && root.child('admins').child(auth.uid).val() === true") fail('/data 全体の上書きが管理者限定ではありません');
+    else if (db.backups?.['.read'] !== db.data['.write'] || !String(db.backups?.$date?.['.write'] || '').includes('!data.exists() && newData.exists()')) fail('バックアップは「読むのは管理者・一般職員は新規作成だけ」になっていません');
+    else ok('DBルールの利用許可・管理者保護OK');
+  } catch (e) { fail('database.rules.json が不正: ' + e.message); }
+  /* 権限表 DATA_WRITE_PERM と /data 直下のルールが両方向で一致しているか。
+     片方だけに足すと、最終ルール適用後に一般職員の変更が黙って他の人に届かなくなる */
+  try {
+    const db = JSON.parse(dbText).rules.data;
+    const m = H.match(/var DATA_WRITE_PERM = (\{[\s\S]*?\});/);
+    if (!m) fail('DATA_WRITE_PERM が見つかりません');
+    else {
+      const table = new Function('return ' + m[1])();
+      const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
+      const want = p => p === 'all' ? `auth != null && (${ADM} || ${ACC})`
+        : p === 'edu' ? `auth != null && (${ADM} || (${ACC} && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))`
+        : `auth != null && (${ADM} || (${ACC} && (!root.child('data').child('lk').child('${p}').val() || root.child('userPerms').child(auth.uid).child('${p}').val() === true)))`;
+      const bad = [];
+      for (const [k, p] of Object.entries(table)) if (db[k]?.['.write'] !== want(p)) bad.push(k);
+      for (const k of Object.keys(db)) if (k[0] !== '.' && !(k in table)) bad.push(k + '（ルールのみ）');
+      if (bad.length) fail('DATA_WRITE_PERM と database.rules.json の data が食い違っています: ' + bad.join(', '));
+      else ok('書き込み権限表とDBルール一致（' + Object.keys(table).length + '項目）');
+    }
+  } catch (e) { fail('DATA_WRITE_PERM の照合に失敗: ' + e.message); }
+  for (const [name, text] of [['DB', dbText], ['Storage', storageText]]) {
+    const m = H.match(new RegExp('var LATEST_' + name.toUpperCase() + '_RULES = ("(?:\\\\.|[^"\\\\])*");'));
+    if (!m || JSON.parse(m[1]) !== text) fail(name + 'ルールのアプリ内表示とファイルが一致しません');
+    else ok(name + 'ルールのアプリ内表示一致');
+  }
+}
+
 /* ===== 4. CLAUDE.md の規約チェック =====
  * 構文エラーは new Function() で捕まるが、規約違反は捕まらない。
  * CLAUDE.md に「〜すること」と書いただけの決まりは、破っても誰も気づかないまま本番に出る

@@ -1,29 +1,28 @@
 rules_version = '2';
-// CEnote Firebase Storage セキュリティルール
-//
-// 現状「認証済みユーザーなら全パス読み書き可」のまま維持しています。
-// 理由: Storageのセキュリティルールはオブジェクト単体のメタデータしか
-// 参照できず、「アップロード者=削除者か」「掲示板の投稿者本人か」といった
-// アプリ内の所有関係（Realtime Database側で管理）と正しく突き合わせるのが
-// 難しく、無理に絞ると承認フロー（memo/board/manual の画像削除・却下）が
-// 壊れる恐れがあるため。パス別の権限分離は Realtime Database
-// （database.rules.json）側で行い、Storage は「ログイン必須」のみを担保する
-// 方針とした。
-//
-// 対象パス（index.html 内の grep 結果）:
-//   manual/{taskName}/{ts}_{filename}        業務マニュアル添付
-//   memo/{ds}/{ts}_{idx}_{filename}          申し送りメモ添付
-//   memo/{ds}/reply_{ts}_{idx}_{filename}    申し送りへの返信の添付（画像のみ）
-//   board/{ts}_{idx}_{filename}              掲示板投稿添付
-//   board/reply_{ts}_{idx}_{filename}        掲示板返信添付
-//   task/{taskId}/{ts}_{idx}_{filename}      タスク添付（画像のみ）
-//   taskMemo/{uid}/{memoId}/{ts}_{idx}_{filename}  自分専用メモ添付（画像のみ）
-//       ※ /taskMemos/{uid} はRealtime Database側で本人しか読めないが、Storageは
-//         認証済みなら誰でも読める。パスにタイトル等を含めず、中身を推測させない。
+
+// 新しい添付はアップロード者のUID配下に置く。StorageルールからRTDBの
+// /access は参照できないため、利用停止時はAuthentication側の無効化も必要。
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+    match /uploads/{uid}/private/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024
+          && request.resource.contentType.matches('image/.*|video/.*')));
     }
+    match /uploads/{uid}/shared/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid
+        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024
+          && request.resource.contentType.matches('image/.*|video/.*')));
+    }
+    // 旧形式の添付は表示を保ち、新規の書き込みは止める。
+    match /taskMemo/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+    }
+    match /manual/{allPaths=**} { allow read: if request.auth != null; }
+    match /memo/{allPaths=**} { allow read: if request.auth != null; }
+    match /board/{allPaths=**} { allow read: if request.auth != null; }
+    match /task/{allPaths=**} { allow read: if request.auth != null; }
   }
 }
