@@ -8,8 +8,11 @@ const storage = readFileSync('storage.rules', 'utf8');
 const admin = "auth != null && root.child('admins').child(auth.uid).val() === true";
 
 assert.equal(finalRules.data['.write'], admin, 'whole D must be admin-only');
-assert.equal(finalRules.backups['.write'], admin, 'backups must be admin-only');
-assert.equal(finalRules.recent_backup['.write'], admin, 'recent backup must be admin-only');
+for (const k of ['backups', 'backup_meta']) {
+  assert.equal(finalRules[k]['.read'], admin, `${k} must be readable by admins only`);
+  assert.ok(finalRules[k].$date['.write'].includes('!data.exists() && newData.exists()'), `${k}: staff may only create new snapshots`);
+}
+assert.equal(finalRules.recent_backup['.read'], admin, 'recent backup must be readable by admins only');
 assert.ok(finalRules.data['.read'].includes("root.child('access').child(auth.uid)"));
 for (const path of ['board', 'tasks', 'robotImg', 'users']) {
   assert.ok(finalRules[path]['.read'].includes("root.child('access').child(auth.uid)"), `${path} must require approval`);

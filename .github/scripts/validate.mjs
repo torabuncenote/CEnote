@@ -69,7 +69,7 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
     const active = db.data?.['.read'] || '';
     if (!active.includes("root.child('access').child(auth.uid)")) fail('/data の読み取りに利用許可判定がありません');
     else if (db.data?.['.write'] !== "auth != null && root.child('admins').child(auth.uid).val() === true") fail('/data 全体の上書きが管理者限定ではありません');
-    else if (db.backups?.['.write'] !== db.data['.write']) fail('バックアップの書き込みが管理者限定ではありません');
+    else if (db.backups?.['.read'] !== db.data['.write'] || !String(db.backups?.$date?.['.write'] || '').includes('!data.exists() && newData.exists()')) fail('バックアップは「読むのは管理者・一般職員は新規作成だけ」になっていません');
     else ok('DBルールの利用許可・管理者保護OK');
   } catch (e) { fail('database.rules.json が不正: ' + e.message); }
   /* 権限表 DATA_WRITE_PERM と /data 直下のルールが両方向で一致しているか。
