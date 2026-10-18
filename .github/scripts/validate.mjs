@@ -69,8 +69,21 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
     const active = db.data?.['.read'] || '';
     if (!active.includes("root.child('access').child(auth.uid)")) fail('/data の読み取りに利用許可判定がありません');
     else if (db.data?.['.write'] !== "auth != null && root.child('admins').child(auth.uid).val() === true") fail('/data 全体の上書きが管理者限定ではありません');
-    else if (db.backups?.['.read'] !== db.data['.write'] || !String(db.backups?.$date?.['.write'] || '').includes('!data.exists() && newData.exists()')) fail('バックアップは「読むのは管理者・一般職員は新規作成だけ」になっていません');
-    else ok('DBルールの利用許可・管理者保護OK');
+    else {
+      /* バックアップ系は全文一致で照合する（部分一致だと、上の階層に書き込み許可を足すなどの緩め方を見逃す） */
+      const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
+      const adm = `auth != null && ${ADM}`, KEY = "$date.matches(/^\\d{4}-\\d{2}-\\d{2}_\\d{2}$/)";
+      const want = {
+        backup_meta: { '.read': adm, $date: { '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists()))`,
+          '.validate': `${KEY} && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (${ADM})` } },
+        backups: { '.read': adm, $date: { '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))`, '.validate': KEY } },
+        recent_backup: { '.read': adm, '.write': adm },
+        recent_backup_staff: { '.read': adm, $uid: { '.write': `auth != null && auth.uid === $uid && ${ACC}`, '.validate': "newData.hasChild('pages')" } },
+      };
+      const bad = Object.keys(want).filter(k => JSON.stringify(db[k]) !== JSON.stringify(want[k]));
+      if (bad.length) fail('バックアップ系のルールが想定と違います: ' + bad.join(', '));
+      else ok('DBルールの利用許可・管理者保護OK（バックアップ系は全文一致）');
+    }
   } catch (e) { fail('database.rules.json が不正: ' + e.message); }
   /* 権限表 DATA_WRITE_PERM と /data 直下のルールが両方向で一致しているか。
      片方だけに足すと、最終ルール適用後に一般職員の変更が黙って他の人に届かなくなる */
@@ -83,7 +96,7 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
       const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
       const want = p => p === 'all' ? `auth != null && (${ADM} || ${ACC})`
         : p === 'edu' ? `auth != null && (${ADM} || (${ACC} && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))`
-        : `auth != null && (${ADM} || (${ACC} && (!root.child('data').child('lk').child('${p}').val() || root.child('userPerms').child(auth.uid).child('${p}').val() === true)))`;
+        : `auth != null && (${ADM} || (${ACC} && (root.child('data').child('lk').child('${p}').val() !== true || root.child('userPerms').child(auth.uid).child('${p}').val() === true)))`;
       const bad = [];
       for (const [k, p] of Object.entries(table)) if (db[k]?.['.write'] !== want(p)) bad.push(k);
       for (const k of Object.keys(db)) if (k[0] !== '.' && !(k in table)) bad.push(k + '（ルールのみ）');

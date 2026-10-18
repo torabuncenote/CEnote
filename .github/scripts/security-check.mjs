@@ -8,11 +8,21 @@ const storage = readFileSync('storage.rules', 'utf8');
 const admin = "auth != null && root.child('admins').child(auth.uid).val() === true";
 
 assert.equal(finalRules.data['.write'], admin, 'whole D must be admin-only');
-for (const k of ['backups', 'backup_meta']) {
-  assert.equal(finalRules[k]['.read'], admin, `${k} must be readable by admins only`);
-  assert.ok(finalRules[k].$date['.write'].includes('!data.exists() && newData.exists()'), `${k}: staff may only create new snapshots`);
-}
-assert.equal(finalRules.recent_backup['.read'], admin, 'recent backup must be readable by admins only');
+const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
+const KEY = "$date.matches(/^\\d{4}-\\d{2}-\\d{2}_\\d{2}$/)";
+assert.deepEqual(finalRules.backup_meta, { '.read': admin, $date: {
+  '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists()))`,
+  '.validate': `${KEY} && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (${ADM})` } });
+assert.deepEqual(finalRules.backups, { '.read': admin, $date: {
+  '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))`,
+  '.validate': KEY } });
+assert.deepEqual(finalRules.recent_backup, { '.read': admin, '.write': admin }, 'shared recent backup must be admin-only');
+assert.deepEqual(finalRules.recent_backup_staff, { '.read': admin, $uid: { '.write': `auth != null && auth.uid === $uid && ${ACC}`, '.validate': "newData.hasChild('pages')" } });
+/* ルート直下に書き込み許可が無いこと（下の階層の制限を全部打ち消すため） */
+assert.equal(finalRules['.write'], undefined, 'no root write grant');
+for (const k of ['backups', 'backup_meta', 'recent_backup_staff']) assert.equal(finalRules[k]['.write'], undefined, `${k}: no write grant above the per-key rule`);
+/* ロック判定は「!val()」ではなく「val() !== true」（! は真偽値にしか使えず、ルール全体が文法エラーになる——9/28版で実際に公開できなかった） */
+assert.ok(!JSON.stringify(finalRules).includes("(!root.child('data').child('lk')"), 'lock checks must use !== true');
 assert.ok(finalRules.data['.read'].includes("root.child('access').child(auth.uid)"));
 for (const path of ['board', 'tasks', 'robotImg', 'users']) {
   assert.ok(finalRules[path]['.read'].includes("root.child('access').child(auth.uid)"), `${path} must require approval`);
