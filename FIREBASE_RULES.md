@@ -11,7 +11,7 @@
 3. 更新した `index.html` を公開する。`/security/enforced` が未設定なら旧利用者のログインは継続する。
 4. 管理者が「🔐 セキュリティ管理」で本人とアカウントを確認し、現役職員を一人ずつ「利用許可」にする。管理者自身は `/admins/{uid}` により利用可能。異動者や不明なアカウントを一括で許可しない。
 5. 一般職員・管理者の画面で通常の保存、再読み込み、申し送り、タスク、バックアップの表示を確認する。
-6. `database.rules.json` を Realtime Database のルールに適用する。ここから未許可アカウントの DB 読み書きが拒否される。
+6. 適用の前に `firebase deploy --only database --dry-run --project torabunce-ce814` で文法を確かめる（本番には適用されない）。`✔ rules syntax ... is valid` を確認してから、`database.rules.json` を Realtime Database のルールに適用する。ここから未許可アカウントの DB 読み書きが拒否される。
 7. 管理者が Firebase Console で `/security/enforced` を `true` にし、一般職員の画面を再読み込みする。
 8. 一般職員が日々の入力を保存・再読み込みでき、未許可アカウントでは拒否されることを再確認する。
 9. Storage を実際に使っている場合のみ、既存添付の確認後に `storage.rules` を Storage のルールへ適用する。Spark で Storage が使えない環境では、この手順は行わない。
