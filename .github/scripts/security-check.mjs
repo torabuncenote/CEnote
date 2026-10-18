@@ -17,6 +17,11 @@ assert.deepEqual(finalRules.backups, { '.read': admin, $date: {
   '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))`,
   '.validate': KEY } });
 assert.deepEqual(finalRules.recent_backup, { '.read': admin, '.write': admin }, 'shared recent backup must be admin-only');
+/* 画像は1枚ずつ：一覧（/media 全体）は誰も読めない、作るのは本人名義で新規だけ、消せるのは本人と管理者 */
+assert.equal(finalRules.media['.read'], undefined, 'no bulk read of /media');
+assert.equal(finalRules.media['.write'], undefined, 'no write grant above /media/$id');
+assert.ok(finalRules.media.$id['.write'].includes("newData.child('by').val() === auth.uid") && finalRules.media.$id['.write'].includes("data.child('by').val() === auth.uid"));
+assert.ok(prepRules.media && !prepRules.media['.read'], 'preparation rules must allow /media per item');
 assert.deepEqual(finalRules.recent_backup_staff, { '.read': admin, $uid: { '.write': `auth != null && auth.uid === $uid && ${ACC}`, '.validate': "newData.hasChild('pages')" } });
 /* ルート直下に書き込み許可が無いこと（下の階層の制限を全部打ち消すため） */
 assert.equal(finalRules['.write'], undefined, 'no root write grant');

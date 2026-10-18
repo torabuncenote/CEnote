@@ -281,7 +281,7 @@ applyMstGroups();   /* 各セクションの display が確定した「後」に
 
 ### Firebase Listener Lifecycle
 
-`/data`, `/board`, and `/tasks` listeners are all set inside a single `if (!dataListenerOn)` block in `fbInit()`. On logout, **all three** must be detached:
+`/data` and `/board` listeners are set inside a single `if (!dataListenerOn)` block in `fbInit()`. **`/tasks` is not subscribed at login** — `ensureTasksListener()` starts it the first time the タスク tab (or the admin storage screen) is opened, guarded by `_tasksListenerOn`. Subscribing at login made every app open download all tasks (2.6MB of embedded images on 2026-10-18 — 60% of each open). Nothing outside the task tab may rely on `_tasksData` being populated. On logout, **all three** must be detached (and `_tasksListenerOn = false`):
 ```js
 fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off();
 dataListenerOn = false;
@@ -296,6 +296,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /tasks/                     — タスク管理 (independent of /data; see Task Management section)
 /feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, memo}（/data の外。読めるのは管理者だけ、作成は全員・変更削除は管理者＝ルールで強制）
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
+/media/{id}                 — 添付画像1枚 {d: dataURL, by: uid, ts}。記録側は url/data に 'media:{id}' を持つ（Media Uploads 節）。/media 全体は誰も読めず1枚ずつ読む
 /shiftReqTpl                — 勤務希望のExcel出力テンプレ {data, ts, by, size}（/data の外。D.shiftReqCfg.tpl に名前・日時。書き込みは管理者のみ）
 /logs/                      — activity log (append-only via push())
 /admins/{uid}               — true for admin users
@@ -557,6 +558,8 @@ All class names are abbreviated:
 | `repaintForTheme()` | テーマ切替時に、JSが色を埋めている箇所（担当枠・集計グラフ）を塗り直す |
 | `darkenPair(c)` / `themePair(c)` | ライト用の「淡い地＋濃い文字」ペアを、色相を軸に暗背景用へ計算変換（`_dutyDarkCache` にメモ化） |
 | `openSubmenu(id)` | `docs-submenu`（🔑 管理資料）と`lib-submenu`（📚 資料）を相互排他で開閉。`id`が`null`なら両方閉じる |
+| `mediaStore(dataUrl, cb)` / `mediaLoad(id)` / `mediaAttr(m, isVideo)` / `mediaApply(el, m)` / `mediaDelete(med)` / `mediaRefId(m)` | 画像の分離：/media へ保存／中身を得る（端末に記憶）／表示用の属性／createElement 用／削除／目印から id を取り出す（Media Uploads 節） |
+| `ensureTasksListener()` | /tasks の受信を始める（タスク画面を初めて開いたとき。何度呼んでもよい） |
 | `maybeShowWhatsNew()` | 更新後に初めて開いたときだけ、変更点を1回ポップアップで知らせる（既読は端末ローカル `ce2_seenseq`）。詳細は Changelog System 節 |
 
 ### Duty/Assignment System
@@ -964,7 +967,7 @@ All image/video uploads (memo, memo reply, board post, board reply, manual, task
 
 **`uploadToStorage` は既定で Storage を使わない（`_storageDown = true`）。** 本番のバケットは存在せず（404）、SDK はそれを最長10分再試行するため「送信中...」のまま止まっていた。Storage を使えるようにしたら `false` に戻す（そのときも12秒の時間切れ `STORAGE_UPLOAD_TIMEOUT_MS` で base64 に切り替わる）。
 
-**本番環境では画像は実質すべて Storage ではなく RTDB（`/data` 等）へ base64 で直接入っている。** 実データで測定したところ Storage 実測は常に0件だった——本プロジェクトは Spark（無料）プランのままで Cloud Storage for Firebase が使えず、`uploadToStorage` が毎回失敗して `_uploadFallback` の base64 経路（`media.url` または `.data` に `'data:image/...'` を直接保存）へ黙って切り替わっているため。この構成は現状のまま運用する判断をしている（無料枠1GBの範囲で足りる）。そのため `renderStorageUsage` は RTDB 側の画像容量が主役——`countEmbeddedMedia()` が `D.pages[*].memos`/`.hdMemos`（本文＋返信）・`D.manual`・`_boardData`（投稿＋返信）・`_tasksData`・`_memosData` を横断し、`url`/`data` が `'data:'` で始まるレコードだけを「DB埋め込み」として数える（`storagePath` を持つ＝実際にStorage経由のレコードは除外）。バイト数は文字列長そのもの（RTDBの実消費量であり、base64デコード後サイズには換算しない）。`measureStorageUsage()` の結果が0件のときは「合計 0B」ではなくこの実態（DB埋め込みの枚数・容量）を表示する。DB全体の容量バーも `/data` 単体ではなく `/data`+`/board`+`/tasks`+`/taskMemos` の合算に対して出す——別パスを合算しないと掲示板・タスクの画像がバーから丸ごと漏れる。
+**画像は記録に埋め込まず `/media/{id}` に1枚ずつ置く（2026-10-18〜）。** 本番は Spark プランで Storage が使えず、以前は `_uploadFallback` が base64 を `media.url`/`.data` に直接入れていた。そのため連絡表・タスク・掲示板を受信するたびに全員が全部の画像を受信し、1回の受信4.4MBのうち3.7MBが画像、10月は月10GBの無料枠（ダウンロード）を超える見込みだった。今は `_uploadFallback` → `mediaStore(dataUrl, cb)` が `/media/{id}` に書き、記録には `'media:{id}'`（`MEDIA_REF`）を渡す——6つの呼び出し側は `url: url || fallback` のままで変更不要。表示は `mediaAttr(m, isVideo)`（HTML文字列）／`mediaApply(el, m)`（createElement）で仮画像＋`data-mid` を付け、`document.body` の MutationObserver が `mediaHydrate` → `mediaLoad(id)`（メモリ → IndexedDB `cenote-media` → Firebase の順）で差し込む。**画像を表示する新しい箇所は `m.url` を直接 `src` に入れず、必ずこの2つを通すこと**（入れると 'media:…' という壊れたURLになる）。消すときは `mediaDelete(med)`（Storage の実体と `/media` の両方。他人の `/media` はルールで消せない）。`/media` に書けないとき（プレビュー・ルール未適用・10秒の時間切れ）は従来どおり base64 を埋め込むので画像は失われない。端末の IndexedDB はログアウトでも消さない（消すとログインのたびに受信し直す）。`/media` は1時間ごとのバックアップに入らない（ロボット配置図と同じ。記録側の目印だけが入る）。既存の埋め込み画像は管理者が一度だけ移し替える（`_isEmbeddedMedia` が残りを数える）。
 
 ### Fairness Check（CE公平性 / HD公平性）
 

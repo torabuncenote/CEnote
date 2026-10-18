@@ -78,6 +78,9 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
           '.validate': `${KEY} && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (${ADM})` } },
         backups: { '.read': adm, $date: { '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))`, '.validate': KEY } },
         recent_backup: { '.read': adm, '.write': adm },
+        media: { $id: { '.read': `auth != null && (${ADM} || ${ACC})`,
+          '.write': `auth != null && (${ADM} || (${ACC} && ((!data.exists() && newData.exists() && newData.child('by').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('by').val() === auth.uid))))`,
+          '.validate': "newData.hasChildren(['d', 'by', 'ts']) && newData.child('d').isString() && newData.child('d').val().length <= 500000 && (newData.child('d').val().beginsWith('data:image/') || newData.child('d').val().beginsWith('data:video/')) && newData.child('ts').val() === now" } },
         recent_backup_staff: { '.read': adm, $uid: { '.write': `auth != null && auth.uid === $uid && ${ACC}`, '.validate': "newData.hasChild('pages')" } },
       };
       const bad = Object.keys(want).filter(k => JSON.stringify(db[k]) !== JSON.stringify(want[k]));
