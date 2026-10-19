@@ -4472,7 +4472,7 @@ function clearSensitiveLocalCache() {
        作業中のデータ（ce2）だけを消す（2026-10-18 本人判断） */
     ['ce2', 'ce2_srqtpl'].forEach(function(k){ localStorage.removeItem(k); });
     Object.keys(localStorage).forEach(function(k){
-      if (k.indexOf('ce2_roboimg_') === 0 || k.indexOf('ce2_boardread') === 0) localStorage.removeItem(k);
+      if (k.indexOf('ce2_roboimg_') === 0) localStorage.removeItem(k); /* 掲示板の既読時刻（ce2_boardread_*）は消さない——消すとログインのたびに全部未読に戻る */
     });
   } catch(e) { console.warn('端末キャッシュ削除に失敗しました', e); }
 }
@@ -6047,11 +6047,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/19-132';
+var APP_VERSION = 'Ver.2026/10/19-133';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/19-133', date:'2026-10-19', title:'掲示板の未読がログインのたびに戻らないようにしました', items:[
+    {t:'fix', d:'📢 ログインするたびに掲示板の投稿がすべて未読に戻って数字が出ていた問題を直しました。既読は人ごとに覚えるので、共用のPCでほかの人が開いても自分の未読は消えません'}
+  ]},
   { ver:'Ver.2026/10/19-132', date:'2026-10-19', title:'同期の守りを固めました', items:[
     {t:'fix', d:'🔄 端末の時計が少しずれていると「別のセッションが古いデータを書き込もうとしました」と表示され、ほかの人の直前の変更を巻き戻すことがあった問題を直しました'},
     {t:'fix', d:'🔄 権限の無い設定が1つ混じると、それ以降の保存がすべて失敗し続けることがあった問題を直しました（権限のある入力は保存され、権限の無い分だけ保存されません）'}
@@ -28773,14 +28776,32 @@ var BOARD_READ_KEY = 'ce2_boardread';
 /* 既読の基準時刻も主観ごとに分ける。1つのキーを共有すると、HDの掲示板を開いただけで
    CEの未読バッジが0になってしまう（未読の集計自体は boardInView で絞れているのに、
    基準時刻が共通だと取りこぼす）。 */
-function boardReadKey() { return _viewMode === 'hd' ? (BOARD_READ_KEY + '_hd') : BOARD_READ_KEY; }
+/* さらに利用者ごとに分ける（末尾に uid）。共用PCで、別の人が掲示板を開いただけで自分の未読が消えないように。
+   この時刻は業務データではないのでログアウトでも消さない（clearSensitiveLocalCache の対象外）——
+   消すとログインのたびに全投稿が未読に戻っていた（2026-10-19 現場の指摘）。 */
+function boardReadKey() {
+  var k = _viewMode === 'hd' ? (BOARD_READ_KEY + '_hd') : BOARD_READ_KEY;
+  return (currentUser && currentUser.uid) ? k + '_' + currentUser.uid : k;
+}
 
 function getBoardReadTs() {
-  return parseInt(localStorage.getItem(boardReadKey()) || '0', 10);
+  var v = null;
+  try { v = localStorage.getItem(boardReadKey()); } catch (e) {}
+  if (v !== null) return parseInt(v, 10) || 0;
+  /* この端末で初めて（機種変更・初めてのPC）：掲示板に残っている自分の既読記録（reads/{uid}、投稿を表示したときに
+     書かれる）から、最後に掲示板を見た時刻を割り出す。0 にすると全投稿が未読に見えてしまう */
+  var uid = currentUser && currentUser.uid, ts = 0;
+  if (uid) Object.keys(_boardData).forEach(function(id) {
+    var p = _boardData[id];
+    if (!p || !boardInView(p)) return;
+    var r = p.reads && p.reads[uid];
+    if (r && (r.ts || 0) > ts) ts = r.ts;
+  });
+  return ts;
 }
 
 function markBoardRead() {
-  localStorage.setItem(boardReadKey(), String(Date.now()));
+  try { localStorage.setItem(boardReadKey(), String(Date.now())); } catch (e) {}
   updateBoardBadge();
 }
 
