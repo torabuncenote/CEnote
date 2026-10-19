@@ -669,7 +669,7 @@ dat.placement = {
 - **`kind`／`hdMemos`／`hdSchedule` が無い既存データは全てCE扱い**になるので、移行処理は不要。
 - **読み取りは `*Of`、要素を足し引きするときは `ensure*` を使う。** `memosOf`/`schedOf` は `normArr` を通すため、Firebaseがオブジェクト形状で返したときには**正規化した別配列**を返す。その戻り値に対して `splice`/`push` しても元データは変わらないので、削除が効かない・移動すると移動元に残って二重になる、という形で壊れる（`delMemo`/`moveMemo` で実際に起きていた）。`ensure*` は `dat[k]` を実配列に置き換えてからその実体を返すので、破壊的操作はこちらを通すこと。
 - **`*Of` / `ensure*` アクセサは必ず `normArr(v)` を通す。** Firebaseは疎な配列をオブジェクトとして返すことがあり（`ensureStaffZone` で実害が出たのと同じ罠）、`Array.isArray` だけで判定して空配列に差し替えると**既存データを破壊する**。`renderSched` は開くたびに `ensureSched` を呼ぶため、その日のスケジュールが消える事故になる。
-- **既読の基準時刻も主観ごとに分ける**（`boardReadKey()` が `ce2_boardread` / `ce2_boardread_hd` を返す）。1つのキーを共有すると、HDの掲示板を開いただけでCEの未読バッジが0になる。
+- **既読の基準時刻は主観ごと・利用者ごとに分ける**（`boardReadKey()` が `ce2_boardread[_hd]_{uid}` を返す）。1つのキーを共有すると、HDの掲示板を開いただけでCEの未読バッジが0になる／共用PCで別の人が開くと自分の未読が消える。**ログアウトで消さないこと**（`clearSensitiveLocalCache` の対象外。消すとログインのたびに全投稿が未読に戻る——10/19 に現場から指摘）。端末で初めてのときは `getBoardReadTs()` が投稿の既読記録 `reads/{uid}` の最新時刻から割り出す。
 - **`schedImportDuties`（🔄 業務割当から取込）はCE専用。** 取り込み元の `dat.duties`/`getDutyCfg` がCEのデータなので、HD主観ではボタンを出さず実行側でも弾く（通すとCEの担当枠が `hdSchedule` に流れ込む）。
 - 掲示板・スケジュールのパネルは同じモーダルが主観で別スレッドを映すので、**見出しに主観を出す**（`📢 掲示板（CE/HD）`／`🩺 CE|🩸 HD …のスケジュール`）。
 - `setViewMode` は掲示板のバッジ更新と、開いていればパネルの再描画も行う。
