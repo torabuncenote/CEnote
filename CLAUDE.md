@@ -379,6 +379,8 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 **前後の日への移動（`pageNav(dir)` / `pageNavTitleHTML(title)` / `initPageSwipe()`）**：連絡表の見出し（CE・HDとも）の左右に ‹ › を置く。連絡表が無い日は、`can('pg')` なら「1日分を追加」（`openNM`、カレンダーの空き日と同じ入口）を開き、無ければその方向で31日以内の一番近い連絡表へ飛ぶ。スワイプは `#main` に1回だけ登録し、横80px以上・縦の2倍以上・600ms以内・1本指だけを数える。入力欄・ボタン・配置盤（`#placement-wrap`）・HD担当表・担当カード（`.dg`）・プール・横スクロールできる箱・画面端24px・ピンチ拡大中・文字選択中は無視する（`pnavSwipeBlocked`）。**中でドラッグや横スワイプを使う部品を `#main` に足したら、`pnavSwipeBlocked` にも足すこと。** ページの途中用に、`#main` の左右の端へ薄い丸ボタン（`#pnav-float`、`updatePnavFloat(ds)`）を置く。出し入れは `updateCloseBar` の先頭から呼ぶ（日ページの表示・非表示・タブ切替がすべてそこを通るため）。普段は `opacity:.2`、マウスを乗せる・押すと濃くなる。スマホ（768px以下）は本文の左右の余白に収まる細いつまみ（幅16px）にする——丸ボタンだと本文の端に重なり、押したつもりが日付の移動になった。サイドバーの開閉（`togSB`）でも置き直す。「入力中」の判定は `isTextEntry(el)`（文字を打つ欄だけ）——Android の Chrome は押したチェックボックスにフォーカスを残すので、INPUT 全部を入力中とみなすとスワイプ・丸ボタン・消し込みバーが止まったままになる。スマホで入力中（キーボード表示中）は `body.pnav-kb` で隠す。z-index は150（スマホのサイドバー200・消し込みバー250より下）。
 
+**紙用の様式（`openPaperSheet(ds)` / `paperSheetHTML(ds)`）**：連絡表ヘッダーの「📄 紙用」。停電・回線断のときにアナログで使うための、担当表・チェックリスト（□の空欄、済んだ項目は☑）・申し送り（未完了のもの＋罫線の記入欄）を1枚にまとめた専用の様式を別ウィンドウで印刷する（開けなければ見えない iframe で）。主観に合わせて CE/HD を出し分ける。画面の印刷（`window.print()`）とは別物で、データは書き換えない。チェック項目は `_paperChecklistRows(ns, ds, dat)` が `CL_CE`/`CL_HD` の記述子で集める（CE/HDの双子を作らない）。
+
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
 連絡表を1日だけ作る入り口は、カレンダーで連絡表の無い日を押したとき（`renderCal` の日セル）だけ。トップバーの「＋ 1日追加」ボタンは使われていなかったので削除した（`openNM` と `#modal-nm` はこの入り口のために残してある）。

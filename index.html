@@ -6049,11 +6049,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/19-135';
+var APP_VERSION = 'Ver.2026/10/19-137';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/19-137', date:'2026-10-19', title:'紙で使える様式を印刷できるようにしました', items:[
+    {t:'new', d:'📄 連絡表の上の「紙用」ボタンで、その日の担当表・チェックリスト（□の空欄つき）・申し送りの記入欄を1枚にまとめて印刷できるようにしました。停電や回線が止まったときに紙で業務を続けるためのものです'}
+  ]},
   { ver:'Ver.2026/10/19-135', date:'2026-10-19', title:'「休」を押すと休み枠に移るようにしました', items:[
     {t:'new', d:'🏖️ HD担当表とCE担当カードの「休」を押すと、その人が人員配置管理の「休み」枠へ自動で移るようにしました。外すと元の役割・担当枠へ戻ります（元の枠に別の人が入っていれば、CEは未割当・HDは控えへ戻ります）'}
   ]},
@@ -20108,6 +20111,7 @@ function renderPage(ds) {
      連絡表ヘッダーから直接開けるようにする（サイドバー側のスケジュールタブは廃止） */
   h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">🕒<span class="hd-btn-text"> タイムライン</span></button>';
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
+  h+='<button class="btn btn-g btn-sm print-btn" onclick="openPaperSheet(curDs)" title="停電・回線断のときに紙で使う様式を印刷">📄<span class="hd-btn-text"> 紙用</span></button>';
   h+='</div>';
   h+='<div id="prior-memo-alert" style="display:none">'+priorMemoAlertContents(ds)+'</div>';
   /* イベント表示エリア */
@@ -20449,6 +20453,108 @@ function hdRosterToggleEdit(ds){
    見た目の印だけで、配置・件数・公平性には影響しない。HDは準夜のように同じ役割を複数人で持つので、
    役割ではなく氏名で持つ（キーになる氏名は hdNotes と同じく入り口で fbSafeKey 済み）。 */
 function hdIsAbsent(dat, name) { return !!(dat && dat.hdAbsent && name && dat.hdAbsent[name]); }
+
+/* ===== 紙用の様式（停電・回線断のときにアナログで使う） =====
+   画面の印刷（window.print）は画面の見た目をそのまま紙にするので、紙に書き込むのには向かない。
+   ここでは担当表・チェックリスト（□の空欄）・申し送りの記入欄（罫線）を1枚にまとめた専用の様式を
+   別ウィンドウに作って印刷する。主観（CE/HD）に合わせて、その主観の担当表・チェックリスト・申し送りを出す。
+   済んでいる項目は ☑ で刷る（刷った時点の状態から紙で続けられるように）。データは書き換えない。 */
+function _paperChecklistRows(ns, ds, dat) {
+  var rows = [], chk = dat[ns.checks] || {};
+  D[ns.dly].forEach(function(it, i) {
+    if (!isDlyShownOnDate(it, ds)) return;
+    rows.push({ t: dlyText(it), done: !!chk[i], roles: itemRoles(it) });
+  });
+  _clWdEntries(ns, ds).forEach(function(ent, j) {
+    var subs = wdSubs(ent.it), sid = wdSid(ent.it), prog = (subs && sid) ? wdSubProgress(ds, sid) : {};
+    rows.push({ t: ent.t, done: !!(chk[D[ns.dly].length + j] || _clWdOnceDoneOn(ns, ds, ent)), roles: itemRoles(ent.it),
+      subs: subs ? subs.map(function(s){ return { n: s, done: !!prog[s] }; }) : null });
+  });
+  return rows;
+}
+function paperSheetHTML(ds) {
+  var dat = D.pages[ds] || {}, hd = (_viewMode === 'hd');
+  var box = function(on){ return '<span class="pbx">' + (on ? '✓' : '') + '</span>'; };
+  var wd = '日月火水木金土'.charAt(new Date(ds + 'T00:00:00').getDay());
+  var h = '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>' + escH(fmtJ(ds)) + (hd ? ' HD' : ' CE') + ' 紙用</title><style>'
+    + '@page{size:A4;margin:10mm}body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;font-size:10.5pt;color:#000;margin:0}'
+    + 'h1{font-size:15pt;margin:0 0 2px}h2{font-size:12pt;margin:12px 0 4px;border-bottom:2px solid #000;padding-bottom:2px}'
+    + '.sub{font-size:9pt;color:#333;margin-bottom:6px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:3px 5px;vertical-align:top}'
+    + 'th{background:#eee;font-size:9.5pt;text-align:left}.pbx{display:inline-block;width:12px;height:12px;border:1.5px solid #000;margin-right:5px;vertical-align:-2px;text-align:center;line-height:11px;font-size:10px}'
+    + '.subs{margin:2px 0 0 18px;font-size:9pt}.subs span.it{display:inline-block;margin:0 10px 2px 0}.w-ck{width:70px}.w-sign{width:90px}'
+    + '.memo td{height:22px}.done-txt{color:#555}.foot{margin-top:10px;font-size:8.5pt;color:#333}.two{display:flex;gap:10px}.two>div{flex:1}'
+    + '</style></head><body>';
+  h += '<h1>' + escH(fmtJ(ds)) + '（' + wd + '）' + (hd ? '　🩸 HD' : '　🩺 CE') + '　紙用</h1>';
+  h += '<div class="sub">印刷 ' + escH(new Date().toLocaleString('ja-JP')) + '　／　☑は印刷した時点で済んでいた項目。復旧したら、記入した内容をアプリに入力してください。</div>';
+
+  /* 担当表 */
+  if (!hd) {
+    h += '<h2>担当表（CE）</h2><table><tr><th style="width:30%">担当枠</th><th>担当者</th><th class="w-ck">済</th><th style="width:30%">メモ</th></tr>';
+    getDutyCfg(dat).forEach(function(s) {
+      var nm = (dat.duties || {})[s.id] || '', ab = dat.dutyAbsent && dat.dutyAbsent[s.id];
+      var absTxt = (ab && typeof ab === 'string' && !nm) ? '（休：' + escH(ab) + '）' : (ab ? '（休）' : '');
+      h += '<tr><td>' + escH(s.label || s.id) + '</td><td>' + escH(nm) + absTxt + '</td><td>' + box(false) + '</td><td></td></tr>';
+    });
+    (dat.extra_free || []).forEach(function(f){ if (f && f.name) h += '<tr><td>フリー</td><td>' + escH(f.name) + '</td><td>' + box(false) + '</td><td>' + escH(f.note || '') + '</td></tr>'; });
+    for (var e = 0; e < 2; e++) h += '<tr><td>&nbsp;</td><td></td><td>' + box(false) + '</td><td></td></tr>';
+    h += '</table>';
+  } else {
+    h += '<h2>HD担当表</h2><table><tr><th style="width:15%">役割</th><th style="width:30%">スタッフ</th><th class="w-ck">休</th><th>備考</th></tr>';
+    var notes = dat.hdNotes || {};
+    buildHdRoster(ds).forEach(function(r) {
+      h += '<tr><td>' + escH(r.role || '—') + '</td><td>' + escH(r.name || '') + '</td><td>' + box(hdIsAbsent(dat, r.name)) + '</td><td>' + escH(notes[r.name] || '') + '</td></tr>';
+    });
+    hdAbsentOffRows(ds, dat).forEach(function(r) {
+      h += '<tr><td>' + escH(r.role || '—') + '</td><td>' + escH(r.name) + '（休み）</td><td>' + box(true) + '</td><td>' + escH(notes[r.name] || '') + '</td></tr>';
+    });
+    for (var e2 = 0; e2 < 2; e2++) h += '<tr><td>&nbsp;</td><td></td><td>' + box(false) + '</td><td></td></tr>';
+    h += '</table>';
+  }
+
+  /* チェックリスト */
+  var rows = _paperChecklistRows(hd ? CL_HD : CL_CE, ds, dat);
+  h += '<h2>' + (hd ? 'HD' : 'CE') + 'チェックリスト（' + rows.length + '項目）</h2><table><tr><th class="w-ck">済</th><th>項目</th><th class="w-sign">実施者</th><th class="w-sign">時刻</th></tr>';
+  rows.forEach(function(r) {
+    h += '<tr><td>' + box(r.done) + '</td><td' + (r.done ? ' class="done-txt"' : '') + '>' + escH(r.t)
+      + (r.roles && r.roles.length ? ' <span style="font-size:8.5pt">［' + escH(r.roles.join('・')) + '］</span>' : '');
+    if (r.subs) h += '<div class="subs">' + r.subs.map(function(s){ return '<span class="it">' + box(s.done) + escH(s.n) + '</span>'; }).join('') + '</div>';
+    h += '</td><td></td><td></td></tr>';
+  });
+  if (!rows.length) h += '<tr><td colspan="4">この日のチェック項目はありません</td></tr>';
+  h += '</table>';
+
+  /* 申し送り：未完了のもの＋記入欄 */
+  var memos = memosOf(dat).filter(function(m){ return m && !m.done; });
+  h += '<h2>申し送り</h2>';
+  if (memos.length) {
+    h += '<table><tr><th class="w-ck">済</th><th class="w-sign">記入者</th><th>内容（印刷時点で未完了のもの）</th></tr>';
+    memos.forEach(function(m){ h += '<tr><td>' + box(false) + '</td><td>' + escH(m.name || '') + '</td><td>' + escH(m.text || '').replace(/\n/g, '<br>') + '</td></tr>'; });
+    h += '</table><div style="height:6px"></div>';
+  }
+  h += '<table class="memo"><tr><th class="w-sign">時刻</th><th class="w-sign">記入者</th><th>内容（新しく書くもの）</th><th class="w-ck">済</th></tr>';
+  for (var k = 0; k < 12; k++) h += '<tr><td></td><td></td><td></td><td>' + box(false) + '</td></tr>';
+  h += '</table>';
+  h += '<div class="foot">※ 患者さんを特定できる情報（氏名・ID など）は書かないでください。</div>';
+  h += '</body></html>';
+  return h;
+}
+function openPaperSheet(ds) {
+  if (!ds || !D.pages[ds]) { toast('連絡表を開いてから押してください', 'warn'); return; }
+  var html = paperSheetHTML(ds);
+  var w = null;
+  try { w = window.open('', '_blank'); } catch (e) {}
+  if (w && w.document) {
+    w.document.open(); w.document.write(html); w.document.close();
+    setTimeout(function(){ try { w.focus(); w.print(); } catch (e) {} }, 300);
+    return;
+  }
+  /* 別ウィンドウが開けない環境（ポップアップを止めている等）は、見えない枠の中で印刷する */
+  var fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(fr);
+  var d = fr.contentWindow.document; d.open(); d.write(html); d.close();
+  setTimeout(function(){ try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) {} setTimeout(function(){ fr.remove(); }, 2000); }, 300);
+}
 
 /* ===== 「休」と人員配置の休み枠の連動 =====
    「休」を押すとその人を休み枠（PL_ZONES の 'off'）へ移し、元の持ち場を dat.offFrom[氏名]
@@ -21443,6 +21549,7 @@ function renderPageHD(ds) {
   h += '<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"' + (_brdN ? '' : ' style="display:none"') + '>' + (_brdN > 99 ? '99+' : _brdN) + '</span></button>';
   h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">🕒<span class="hd-btn-text"> タイムライン</span></button>';
   h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
+  h += '<button class="btn btn-g btn-sm print-btn" onclick="openPaperSheet(curDs)" title="停電・回線断のときに紙で使う様式を印刷">📄<span class="hd-btn-text"> 紙用</span></button>';
   h += '</div>';
   h += '<div id="prior-memo-alert" style="display:none">' + priorMemoAlertContents(ds) + '</div>';
 
