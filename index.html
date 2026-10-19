@@ -6049,11 +6049,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/19-135';
+var APP_VERSION = 'Ver.2026/10/19-136';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/19-136', date:'2026-10-19', title:'スコープ依頼に依頼Dr.を入れるようにしました', items:[
+    {t:'new', d:'🔭 オペのスコープ依頼に「依頼Dr.」を入れる欄を付けました。依頼Dr.を入れたものだけがスコープ依頼として表示・集計され、入れていないものは「⚠ スコープの依頼Dr.未入力」と出ます'}
+  ]},
   { ver:'Ver.2026/10/19-135', date:'2026-10-19', title:'「休」を押すと休み枠に移るようにしました', items:[
     {t:'new', d:'🏖️ HD担当表とCE担当カードの「休」を押すと、その人が人員配置管理の「休み」枠へ自動で移るようにしました。外すと元の役割・担当枠へ戻ります（元の枠に別の人が入っていれば、CEは未割当・HDは控えへ戻ります）'}
   ]},
@@ -9073,7 +9076,7 @@ function opsDetailRows() {
           ds: ds, kind: kind, dept: dept, cat: opsItemCat(it), name: name,
           startMin: startMin, endMin: endMin, dur: dur,
           staff: opsItemStaff(it), sup: opsItemSup(it), robo: (opsItemRobo(it) || {}).n || '', done: !!it.done,
-          emergency: !!it.emergency, scope: !!it.scope, cancelled: !!it.cancelled
+          emergency: !!it.emergency, scope: opsItemScopeReq(it), scopeDr: opsItemScopeDr(it), cancelled: !!it.cancelled
         });
       });
     });
@@ -9148,7 +9151,7 @@ function opsDurLabel(min) { return min == null ? '—' : (min >= 60 ? Math.floor
 function opsTagLabel(r) {
   var t = '';
   if (r.emergency) t += '<span class="ops-tag-badge" style="background:var(--rd-bg);color:var(--rd)">🚑急患</span>';
-  if (r.scope)     t += '<span class="ops-tag-badge" style="background:var(--pu-bg);color:var(--pu)">🔭スコープ</span>';
+  if (r.scope)     t += '<span class="ops-tag-badge" style="background:var(--pu-bg);color:var(--pu)">🔭スコープ（' + escH(r.scopeDr) + '）</span>';
   if (r.cancelled) t += '<span class="ops-tag-badge" style="background:var(--rd-bg);color:var(--rd)">⛔中止</span>';
   return t || '<span class="muted">—</span>';
 }
@@ -10993,7 +10996,7 @@ function eduStats(dsList) {
           if (!e.byTree[dept][mid]) e.byTree[dept][mid] = {};
           e.byTree[dept][mid][nm] = (e.byTree[dept][mid][nm] || 0) + 1;
           if (it.emergency) e.em++;
-          if (it.scope) e.sc++;
+          if (opsItemScopeReq(it)) e.sc++;
           if (dur != null) { e.durSum += dur; e.durN++; }
         });
         opsItemEdu(it).forEach(function (teacherName) {
@@ -18687,6 +18690,10 @@ function opsItemIsRobot(it) { return opsIsRobotText(opsItemCat(it)) || opsIsRobo
 /* 腹腔鏡下か。スコープは腹腔鏡下のオペで依頼されるので、そのときだけポップアップにスコープ欄を出す */
 function opsIsLapText(s) { return /腹腔鏡/.test(s || ''); }
 function opsItemIsLap(it) { return opsIsLapText(opsItemCat(it)) || opsIsLapText(opsItemName(it)); }
+/* スコープ依頼の依頼Dr.（自由記述）。依頼Dr.が入っているときだけ「スコープ依頼」として表示・集計する
+   （印だけ押して依頼元が分からないものは数えない。2026-10-19 現場の要望）。読み出しは必ずこの2つを通す */
+function opsItemScopeDr(it) { return (it && typeof it.scopeDr === 'string') ? it.scopeDr.trim() : ''; }
+function opsItemScopeReq(it) { return !!(it && it.scope && opsItemScopeDr(it)); }
 /* 実際の入室時間が入っていないか（空欄・OC）。OC は予定を大づかみに入れる値で所要時間の計算に
    使えないので、終了後に実際の時刻を入れてもらう（終了時の openOpsTimeFixModal と消し込みバーの optime）。
    自由入力に何か書いてあれば入力済みとみなす。 */
@@ -19517,7 +19524,7 @@ function openOpsPickerModal(opts) {
     free: free, freeOpen: free, freeDept: free ? curDept : '', freeName: free ? opsItemName(it) : '',
     procChanged: false,
     tFree: it.time === '__free__', tH: tp.h, tM: tp.m, tTxt: it.timeTxt || '',    roboList: roboLayouts(), robo: rb ? { id: rb.id, n: rb.n } : null,
-    origDept: curDept, scope: !!it.scope, origScope: !!it.scope, freeTouched: false,
+    origDept: curDept, scope: !!it.scope, origScope: !!it.scope, scopeDr: opsItemScopeDr(it), freeTouched: false,
     /* 使用物品（ツリー版のオペだけ）。開いた時点の使用物品マスタを複製して持つ（添字を安定させるため） */
     withSup: !!opts.withSup, sup: opsItemSup(it).slice(), supOpen: !!opts.openSup,
     supMaster: opts.withSup ? supMasterOf() : [], supKindOpen: {},
@@ -19577,7 +19584,7 @@ function opsPickCurHTML(c) {
   return (title ? escH(title) : '<span class="muted">まだ選ばれていません</span>')
     + (tml ? '<span class="ops-pick-time">⏱ ' + escH(tml) + '</span>' : '')
     + (robot && c.robo ? '<span class="ops-robo-chip">🤖 ' + escH(c.robo.n) + '</span>' : '')
-    + (opsPickShowScope(c) && c.scope ? '<span class="ops-scope-chip">🔭 スコープ</span>' : '')
+    + (opsPickShowScope(c) && c.scope && (c.scopeDr || '').trim() ? '<span class="ops-scope-chip">🔭 スコープ（' + escH(c.scopeDr.trim()) + '）</span>' : '')
     + (c.withSup && c.sup.length ? '<span class="ops-pick-time">🧰 ' + c.sup.length + '件</span>' : '');
 }
 function renderOpsPickBody() {
@@ -19670,6 +19677,11 @@ function renderOpsPickBody() {
     h += '<div class="md-flbl" style="margin-top:14px">🔭 スコープ</div>'
       + '<div class="dc-cbs"><button type="button" class="dc-cb-item opk-chip' + (c.scope ? ' checked' : '') + '" onclick="opsPickScope()">'
       + (c.scope ? '🔭 スコープを依頼された' : '🔭 スコープを依頼された（押すと付く）') + '</button></div>';
+    if (c.scope) {
+      /* 入力のたびに全体を描き直さない（入力中の端末のキーボードが閉じるため）。注意書きだけ出し入れする */
+      h += '<input type="text" id="opk-scope-dr" class="ds2" data-phi-skip="1" maxlength="40" placeholder="依頼Dr.（必須・自由記述）" value="' + escH(c.scopeDr || '') + '" oninput="opsPickScopeDr(this.value)" style="margin-top:6px">'
+        + '<div id="opk-scope-dr-hint" class="muted" style="font-size:11px;margin-top:3px;color:var(--rd);display:' + ((c.scopeDr || '').trim() ? 'none' : 'block') + '">依頼Dr.を入れるまで、スコープ依頼として表示・集計されません</div>';
+    }
   }
 
   /* 使用物品：一番下の折りたたみ。術式だけ入れるときの手数を増やさないよう既定は閉じる */
@@ -19770,6 +19782,11 @@ function opsPickRobo(i) {
   renderOpsPickBody();
 }
 function opsPickScope() { var c = _opsPickCtx; if (!c) return; c.scope = !c.scope; renderOpsPickBody(); }
+function opsPickScopeDr(v) {
+  var c = _opsPickCtx; if (!c) return;
+  c.scopeDr = v;
+  var hint = document.getElementById('opk-scope-dr-hint'); if (hint) hint.style.display = v.trim() ? 'none' : 'block';
+}
 function opsPickToggleSup() { var c = _opsPickCtx; if (!c) return; c.supOpen = !c.supOpen; renderOpsPickBody(); }
 function opsPickSupKind(ki) { var c = _opsPickCtx; if (!c) return; c.supKindOpen[ki] = !opsPickSupKindOpen(ki); renderOpsPickBody(); }
 function opsPickSupItem(ki, ii) {
@@ -19820,7 +19837,7 @@ function opsPickApply() {
   }
   patch.robo = (opsPickIsRobot(c) && c.robo) ? { id: c.robo.id, n: c.robo.n } : null;
   /* スコープは腹腔鏡下のときだけ書く。腹腔鏡でない術式に選び直しても、以前の記録は消さない */
-  if (opsPickShowScope(c)) patch.scope = c.scope ? true : null;
+  if (opsPickShowScope(c)) { patch.scope = c.scope ? true : null; patch.scopeDr = (c.scope && (c.scopeDr || '').trim()) ? c.scopeDr.trim() : null; }
   if (c.withSup) patch.sup = c.sup.slice();
   var fn = c.onApply;
   /* 先に閉じてから書き戻す（onApply が renderItems() を呼ぶので、開いたままだと描画と競合する） */
@@ -23164,6 +23181,7 @@ function initPHIGuard() {
     var isText = tag==='TEXTAREA' || (tag==='INPUT' && /^(text|search|)$/i.test(el.type));
     if (!isText) return;
     if (el.id === 'memo-new') return;      /* 申し送りは送信時にチェック */
+    if (el.hasAttribute('data-phi-skip')) return; /* 職員名を書く欄（スコープの依頼Dr.など）。氏名の警告を毎回出すと警告疲れになる */
     if (el.disabled || el.readOnly) return;
     var base = el.getAttribute('data-phi-base');
     if (base !== null && base === (el.value || '')) return; /* 無編集で離脱 → 警告しない */
@@ -24194,8 +24212,16 @@ function buildOPS(ds,dat,locked) {
         b.className = 'ops-done-btn ops-tag-btn ' + t[1] + (item[t[0]] ? ' on' : '');
         b.textContent = t[2];
         b.disabled = !!locked;
-        if (!locked) b.onclick = function(){ items[idx][t[0]] = !items[idx][t[0]]; saveItems(); renderItems(); };
+        if (!locked) b.onclick = function(){ items[idx][t[0]] = !items[idx][t[0]]; if (t[0] === 'scope' && !items[idx].scope) delete items[idx].scopeDr; saveItems(); renderItems(); };
         tagRow2.appendChild(b);
+        if (t[0] === 'scope' && item.scope) {
+          var drIn = document.createElement('input'); drIn.type = 'text'; drIn.className = 'ds2'; drIn.maxLength = 40;
+          drIn.setAttribute('data-phi-skip', '1'); /* 職員（医師）の名前を書く欄なので氏名の警告を出さない */
+          drIn.placeholder = '依頼Dr.（必須）'; drIn.value = item.scopeDr || ''; drIn.disabled = !!locked;
+          drIn.style.cssText = 'width:9em;margin:0 0 0 4px;padding:2px 6px;font-size:12px' + (opsItemScopeDr(item) ? '' : ';border-color:var(--rd)');
+          drIn.onchange = function(){ var v = this.value.trim(); if (v) items[idx].scopeDr = v; else delete items[idx].scopeDr; saveItems(); renderItems(); };
+          tagRow2.appendChild(drIn);
+        }
       });
       if (picker) tagRow2.appendChild(cxBtn);
       itemWrap.appendChild(tagRow2);
@@ -24508,8 +24534,10 @@ function buildOPS(ds,dat,locked) {
           }
           /* スコープは腹腔鏡以外でも、以前に付けた記録があれば出す（データを消さない） */
           if(item.scope){
-            var sChip=document.createElement('button'); sChip.type='button'; sChip.className='ops-scope-chip';
-            sChip.textContent='🔭 スコープ'; sChip.disabled=!!locked; sChip.title='ポップアップで変更';
+            /* 依頼Dr.が無いものはスコープ依頼として出さず、入力を促す印にする（押すとポップアップ） */
+            var sReq=opsItemScopeReq(item);
+            var sChip=document.createElement('button'); sChip.type='button'; sChip.className=sReq?'ops-scope-chip':'ops-time-warn';
+            sChip.textContent=sReq?('🔭 スコープ（'+opsItemScopeDr(item)+'）'):'⚠ スコープの依頼Dr.未入力'; sChip.disabled=!!locked; sChip.title='ポップアップで変更';
             if(!locked) sChip.onclick=openPick;
             roboRow.appendChild(sChip);
           }
@@ -27195,13 +27223,13 @@ function exportOpsDetailCsv() {
   var rng = sumRange();
   var all = opsDetailRows(), rows = opsDetailFiltered(all);
   if (!rows.length) { toast(rng.label+'に条件に一致する記録がありません', 'warn'); return; }
-  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','配置','急患','スコープ','中止','終了']];
+  var out = [['日付','曜日','種別','科','中カテゴリ','術式','入室時間','終了時間','所要(分)','担当者','使用物品','配置','急患','スコープ','依頼Dr.','中止','終了']];
   rows.forEach(function(r){
     var pt = r.ds.split('-');
     out.push([
       pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(r.ds).getDay()], r.kind, r.dept, r.cat, r.name,
       r.startMin!=null?schedMinToHM(r.startMin):'', r.endMin!=null?schedMinToHM(r.endMin):'', r.dur!=null?r.dur:'',
-      r.staff.join('/'), r.sup.join('/'), r.robo, r.emergency?'✔':'', r.scope?'✔':'', r.cancelled?'✔':'', r.done?'済':''
+      r.staff.join('/'), r.sup.join('/'), r.robo, r.emergency?'✔':'', r.scope?'✔':'', r.scope?r.scopeDr:'', r.cancelled?'✔':'', r.done?'済':''
     ]);
   });
   downloadCsv('分院CE_CE明細_'+sumFileLabel()+'.csv', out);
@@ -29599,7 +29627,7 @@ function _doSearch(q) {
           if (item.toLowerCase().indexOf(q) !== -1) snippets.push('術式: ' + item.slice(0, 50));
           return;
         }
-        [['術式', opsItemName(item)], ['科', opsItemDept(item)], ['中カテゴリ', opsItemCat(item)], ['配置', (opsItemRobo(item) || {}).n || ''], ['症例の備考', item.note || '']]
+        [['術式', opsItemName(item)], ['科', opsItemDept(item)], ['中カテゴリ', opsItemCat(item)], ['配置', (opsItemRobo(item) || {}).n || ''], ['スコープの依頼Dr.', opsItemScopeDr(item)], ['症例の備考', item.note || '']]
           .forEach(function(pair) {
             var v = pair[1];
             if (v && String(v).toLowerCase().indexOf(q) !== -1) snippets.push(pair[0] + ': ' + String(v).slice(0, 50));
