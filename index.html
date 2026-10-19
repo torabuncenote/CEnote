@@ -3324,16 +3324,18 @@ var _fbLastPageCount = -1; /* 最後にFirebaseから受信したページ数（
 var _boardData = {}; /* Firebase /board のキャッシュ */
 var _tasksData = {};   /* Firebase /tasks のキャッシュ */
 var _tasksListenerOn = false; /* /tasks の受信を始めたか（タスク画面を初めて開いたときに始める） */
+var _tasksLoaded = false;     /* 最初の受信が届いたか。届く前に「タスクはありません」と出すと、無いと誤解される */
 /* /tasks の受信を始める（何度呼んでもよい）。ログアウトで解除し、次のログイン後にまた開いたときに始める */
 function ensureTasksListener() {
   if (_tasksListenerOn || !FB_ON || !fbDB || !currentUser) return;
   _tasksListenerOn = true;
   fbDB.ref('/tasks').on('value', function(tsnap) {
     _tasksData = tsnap.val() || {};
+    _tasksLoaded = true;
     sweepDoneTaskMedia(); /* 完了から7日たった画像を消す */
     var tp = document.getElementById('pane-task');
     if (tp && tp.style.display !== 'none') renderTasks();
-  }, function(){ _tasksListenerOn = false; });
+  }, function(){ _tasksListenerOn = false; _tasksLoaded = true; var tp = document.getElementById('pane-task'); if (tp && tp.style.display !== 'none') renderTasks(); });
 }
 var _taskView = null;  /* null=俯瞰ビュー / スタッフ名=個人詳細ビュー */
 var _taskFilter = 'all'; /* 俯瞰リストのフィルタ: all|todo|doing|done */
@@ -3696,7 +3698,7 @@ function fbInit() {
         if (_accessRef) { _accessRef.off(); _accessRef = null; }
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
-        _tasksData = {}; _tasksListenerOn = false; _taskView = null; _taskFilter = 'all'; _taskDoneOpen = {}; _taskDoneItemOpen = {};
+        _tasksData = {}; _tasksListenerOn = false; _tasksLoaded = false; _taskView = null; _taskFilter = 'all'; _taskDoneOpen = {}; _taskDoneItemOpen = {};
         _mySchedName = null; _mySchedPick = false; /* 次に別の人がログインしたとき、前の人の担当が出たままにならないように */
         /* 実績サブタブも同じ理由でリセットする。_perfName が残ると次の人に前ユーザーの
            実績・教育到達度が表示され続ける（宣言側コメントの「ログアウトで破棄する」を実装する） */
@@ -6047,11 +6049,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/19-133';
+var APP_VERSION = 'Ver.2026/10/19-134';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/19-134', date:'2026-10-19', title:'タスクの読み込み中表示と、手動バックアップの画像', items:[
+    {t:'imp', d:'📋 タスク画面を開いた直後、読み込みが終わるまでは「読み込み中…」と出すようにしました（一瞬「タスクはありません」と出ていました）'},
+    {t:'imp', d:'💾 手動バックアップ（JSONのダウンロード）に、申し送りとマニュアルの画像も中身ごと入れるようにしました', admin:true}
+  ]},
   { ver:'Ver.2026/10/19-133', date:'2026-10-19', title:'掲示板の未読がログインのたびに戻らないようにしました', items:[
     {t:'fix', d:'📢 ログインするたびに掲示板の投稿がすべて未読に戻って数字が出ていた問題を直しました。既読は人ごとに覚えるので、共用のPCでほかの人が開いても自分の未読は消えません'}
   ]},
@@ -26629,6 +26635,7 @@ function taskDoneSectionHTML(sec, pairs, isMemo, today, forceOpen) {
 function renderTasks() {
   var el = document.getElementById('task-body');
   if (!el) return;
+  if (FB_ON && currentUser && !_tasksLoaded) { el.innerHTML = '<div class="pool-empty" style="padding:20px 0">読み込み中…</div>'; return; }
   if (_taskView) { renderTaskPerson(el, _taskView); return; }
 
   var ids = Object.keys(_tasksData);
@@ -30266,10 +30273,44 @@ function restoreAutoBackup(i) {
   }
 }
 
+/* D の中の添付（申し送り・その返信・マニュアル）を1つずつ fn に渡す。配列の正規化はせず実体を渡す（書き換えが効くように） */
+function _eachDMedia(data, fn) {
+  var arr = function(v){ return Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.keys(v).map(function(k){ return v[k]; }) : []); };
+  Object.keys(data.pages || {}).forEach(function(ds) {
+    var pg = data.pages[ds] || {};
+    ['memos', 'hdMemos'].forEach(function(k) {
+      arr(pg[k]).forEach(function(m) {
+        if (!m) return;
+        arr(m.media).forEach(function(x){ if (x) fn(x); });
+        arr(m.replies).forEach(function(r){ if (r) arr(r.media).forEach(function(x){ if (x) fn(x); }); });
+      });
+    });
+  });
+  Object.keys(data.manual || {}).forEach(function(k) {
+    var e = data.manual[k];
+    if (e && typeof e === 'object') arr(e.media).forEach(function(x){ if (x) fn(x); });
+  });
+}
+/* 手動バックアップ（JSON）は「全部消えたときの最後の砦」なので、/media に分けた画像も取り寄せて中身ごと入れる。
+   目印（'media:{id}'）のままだと、/media が失われたときに画像を戻せない */
 function exportBackup() {
+  var copy = JSON.parse(JSON.stringify(D));
+  var refs = [];
+  _eachDMedia(copy, function(m){ if (mediaRefId(m)) refs.push(m); });
+  var el0 = document.getElementById('backup-status');
+  if (refs.length && el0) el0.textContent = '画像を取り寄せています…（' + refs.length + '枚）';
+  var miss = 0;
+  Promise.all(refs.map(function(m) {
+    return mediaLoad(mediaRefId(m)).then(function(d) {
+      if (!d) { miss++; return; }
+      m.url = d; if (m.data) m.data = d;
+    });
+  })).then(function(){ _downloadBackup(copy, miss); });
+}
+function _downloadBackup(data, miss) {
   var now = new Date();
   var ts = now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes());
-  var json = JSON.stringify(D, null, 2);
+  var json = JSON.stringify(data, null, 2);
   var blob = new Blob([json], {type:'application/json;charset=utf-8'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -30278,7 +30319,7 @@ function exportBackup() {
   document.body.removeChild(a); URL.revokeObjectURL(url);
   if(FB_ON) writeLog('バックアップエクスポート', a.download);
   var el=document.getElementById('backup-status');
-  if(el) el.textContent='✅ ダウンロードしました: '+a.download;
+  if(el) el.textContent='✅ ダウンロードしました: '+a.download + (miss ? '（画像' + miss + '枚は取り寄せられず、目印のまま入っています）' : '');
 }
 
 function importBackup(file) {
