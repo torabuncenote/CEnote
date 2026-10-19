@@ -6049,11 +6049,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/19-134';
+var APP_VERSION = 'Ver.2026/10/19-135';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/19-135', date:'2026-10-19', title:'「休」を押すと休み枠に移るようにしました', items:[
+    {t:'new', d:'🏖️ HD担当表とCE担当カードの「休」を押すと、その人が人員配置管理の「休み」枠へ自動で移るようにしました。外すと元の役割・担当枠へ戻ります（元の枠に別の人が入っていれば、CEは未割当・HDは控えへ戻ります）'}
+  ]},
   { ver:'Ver.2026/10/19-134', date:'2026-10-19', title:'タスクの読み込み中表示と、手動バックアップの画像', items:[
     {t:'imp', d:'📋 タスク画面を開いた直後、読み込みが終わるまでは「読み込み中…」と出すようにしました（一瞬「タスクはありません」と出ていました）'},
     {t:'imp', d:'💾 手動バックアップ（JSONのダウンロード）に、申し送りとマニュアルの画像も中身ごと入れるようにしました', admin:true}
@@ -7751,6 +7754,10 @@ function plMove(ds, name, spec){
   }
   /* 自分の側へ戻ったら「応援で来た」印は落とす */
   if (pp.base && ((pp.base === 'hd' && pp.side === 'hd') || (pp.base !== 'hd' && pp.side === 'ce'))) pp.from = '';
+  /* 休み枠から別の場所へ動いたら「休」の印も外す（印だけ残って表示が食い違わないように） */
+  if (!(spec.kind === 'zone' && spec.zone === 'off')) absentClearMarks(dat, name);
+  /* 担当枠に別の人を入れたら、その枠に残っていた前の人の「休」表示は外す（その人は休み枠に居たまま） */
+  if (spec.kind === 'duty' && dat.dutyAbsent && typeof dat.dutyAbsent[spec.slot] === 'string' && dat.dutyAbsent[spec.slot] !== name) delete dat.dutyAbsent[spec.slot];
 
   saveD();
   renderPlacementBoard(ds, D.pages[ds], !can('duty'));
@@ -20442,6 +20449,57 @@ function hdRosterToggleEdit(ds){
    見た目の印だけで、配置・件数・公平性には影響しない。HDは準夜のように同じ役割を複数人で持つので、
    役割ではなく氏名で持つ（キーになる氏名は hdNotes と同じく入り口で fbSafeKey 済み）。 */
 function hdIsAbsent(dat, name) { return !!(dat && dat.hdAbsent && name && dat.hdAbsent[name]); }
+
+/* ===== 「休」と人員配置の休み枠の連動 =====
+   「休」を押すとその人を休み枠（PL_ZONES の 'off'）へ移し、元の持ち場を dat.offFrom[氏名]
+   （{kind:'duty', slot} か {kind:'hdrole', role}）に覚える。外したとき、まだ休み枠に居れば元の持ち場へ戻す。
+   元の枠に別の人が入っていれば CE は未割当・HD は控えへ戻して知らせる。人を動かすのは必ず plMove。
+   配置盤で休み枠から手で動かしたときは plMove が印（offFrom・hdAbsent・dutyAbsent の氏名）を片付ける。
+   休みの人は HD担当表の「🏖️ 休み」の行と CE担当カードの「（休：氏名）」に残るので、そこから外せる。 */
+function absentOffFrom(dat, name) { return (dat && dat.offFrom && name && dat.offFrom[name]) || null; }
+function absentClearMarks(dat, name) {
+  if (!dat || !name) return;
+  if (dat.offFrom) delete dat.offFrom[name];
+  if (dat.hdAbsent) delete dat.hdAbsent[name];
+  if (dat.dutyAbsent) Object.keys(dat.dutyAbsent).forEach(function(s){ if (dat.dutyAbsent[s] === name) delete dat.dutyAbsent[s]; });
+}
+/* 休みにする：印を付けてから休み枠へ動かす（plMove の保存1回で印も一緒に送られる） */
+function absentSet(ds, name, from, markFn) {
+  var dat = D.pages[ds]; if (!dat || !name || !can('duty')) return false;
+  dat.offFrom = dat.offFrom || {};
+  dat.offFrom[name] = from;
+  markFn(dat);
+  return plMove(ds, name, {kind:'zone', zone:'off', side: from.side || 'ce'});
+}
+/* 休みを外す：まだ休み枠に居るときだけ元の持ち場へ戻す（手で別の場所へ動かした後なら動かさない） */
+function absentRestore(ds, name) {
+  var dat = D.pages[ds]; if (!dat || !name) return;
+  var from = absentOffFrom(dat, name), sp = plSpot(ds, name);
+  absentClearMarks(dat, name);
+  if (!from || sp.kind !== 'zone' || sp.zone !== 'off') { saveD(); safeRenderPage(); refreshHdRoster(ds); return; }
+  var spec, note = '';
+  if (from.kind === 'duty') {
+    var cur = (dat.duties || {})[from.slot];
+    if (cur && cur !== name) { spec = {kind:'pool'}; note = '（元の枠には ' + cur + ' さんが入っているため未割当へ）'; }
+    else spec = {kind:'duty', slot: from.slot};
+  } else if (from.kind === 'hdrole') {
+    var occ = hdRoleOccupant(ds, from.role, name);
+    if (occ) { spec = {kind:'surplus', side:'hd'}; note = '（' + from.role + ' には ' + occ + ' さんが入っているため控えへ）'; }
+    else spec = {kind:'hdrole', role: from.role || ''};
+  } else spec = {kind:'pool'};
+  plMove(ds, name, spec);
+  if (note) toast(name + ' さんを戻しました' + note, 'warn', 6000);
+}
+/* HD担当表に残す休みの人（HDの役割から休み枠へ移した人で、いまも休み枠に居る人） */
+function hdAbsentOffRows(ds, dat) {
+  var rows = [], ppl = plPeople(ds), of = (dat && dat.offFrom) || {};
+  Object.keys(of).forEach(function(n) {
+    var f = of[n]; if (!f || f.kind !== 'hdrole') return;
+    var sp = plSpot(ds, n, ppl); if (sp.kind !== 'zone' || sp.zone !== 'off') return;
+    rows.push({ role: f.role || '', name: n, night: f.role === '準', from: (ppl[n] || {}).from || '' });
+  });
+  return rows;
+}
 /* 通常表示の1行（役割／スタッフ文字／備考）。役割なしは「—」。 */
 function hdRosterNormalRowHTML(dat, r) {
   var note = (dat.hdNotes && dat.hdNotes[r.name]) ? dat.hdNotes[r.name] : '';
@@ -20458,14 +20516,16 @@ function hdRosterNormalRowHTML(dat, r) {
 }
 function hdRosterNormalTableHTML(ds, dat) {
   var rows = buildHdRoster(ds);
+  var offRows = hdAbsentOffRows(ds, dat);
   var btn = hdRosterEditBtnHTML(false); /* 最初の区切り行にだけ置く。空表示なら文言の横に置く */
-  if (!rows.length) return '<div class="pool-empty" style="display:flex;align-items:center;gap:8px;padding:14px 0"><span>勤務表データがありません</span>' + btn + '</div>';
+  if (!rows.length && !offRows.length) return '<div class="pool-empty" style="display:flex;align-items:center;gap:8px;padding:14px 0"><span>勤務表データがありません</span>' + btn + '</div>';
   var dayRows = rows.filter(function (r) { return !r.night; });
   var nightRows = rows.filter(function (r) { return r.night; });
   var h = '<div class="data-wrap"><table class="data-tbl">';
   h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th style="width:100%">備考</th></tr></thead><tbody>';
   if (dayRows.length)   { h += hdRosterGroupRowHTML('🔵 日勤', btn); btn = ''; dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
   if (nightRows.length) { h += hdRosterGroupRowHTML('🌙 準夜', btn); btn = ''; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
+  if (offRows.length)   { h += hdRosterGroupRowHTML('🏖️ 休み', btn); btn = ''; offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
   h += '</tbody></table></div>';
   return h;
 }
@@ -20539,6 +20599,8 @@ function hdRosterEditTableHTML(ds, dat) {
   h += hdRosterGroupRowHTML('🌙 準夜', '');
   data.night.forEach(function (p) { h += hdRosterEditRowHTML(dat, '準', p, picking); });
   h += '<tr class="hdr-row hdr-add" data-hdr-role="準"><td style="font-weight:700">準夜</td><td><span class="hdr-empty">＋ 準夜に追加（ここへ）</span></td><td></td></tr>';
+  var offRows = hdAbsentOffRows(ds, dat);
+  if (offRows.length) { h += hdRosterGroupRowHTML('🏖️ 休み', ''); offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
   h += '</tbody></table></div>';
   h += hdRosterTrayHTML(data.tray, picking);
   return h;
@@ -20565,10 +20627,11 @@ function hdRosterBoxHTML(ds, dat, variant) {
   var editing = (_hdRosterEdit === ds);
   var hdAll = hdShiftWorkers(ds);
   if (variant === 'ce') {
-    if (!hdAll.length && !editing) return '';
+    var offN = hdAbsentOffRows(ds, dat).length;
+    if (!hdAll.length && !offN && !editing) return '';
     var notes = dat.hdNotes || {};
     var noteN = hdAll.filter(function (h) { return !!notes[h.name]; }).length;
-    var absN = hdAll.filter(function (h) { return hdIsAbsent(dat, h.name); }).length;
+    var absN = hdAll.filter(function (h) { return hdIsAbsent(dat, h.name); }).length + offN;
     var h = '<div class="staffz">';
     h += '<div class="staffz-hd">';
     h += '<span class="staffz-ttl">🩸 HD担当表</span>';
@@ -20779,11 +20842,16 @@ function hdRosterBindEvents(box, ds){
     var cds = box.getAttribute('data-ds') || ds;
     var pg = D.pages[cds]; if (!pg) return;
     var key = cb.getAttribute('data-name');
+    writeLog(cb.checked ? 'HD休みの印' : 'HD休みの印を解除', fmtJ(cds) + ' ' + key);
+    /* 役割を持っている人は人員配置の休み枠へ移す／休み枠から戻す（表は plMove → refreshHdRoster で描き直る） */
+    if (cb.checked) {
+      var spA = plSpot(cds, key);
+      if (spA.kind === 'hdrole') { absentSet(cds, key, {kind:'hdrole', role: spA.role || '', side:'hd'}, function(d){ d.hdAbsent = d.hdAbsent || {}; d.hdAbsent[key] = true; }); return; }
+    } else if (absentOffFrom(pg, key)) { absentRestore(cds, key); return; }
     pg.hdAbsent = pg.hdAbsent || {};
     if (cb.checked) pg.hdAbsent[key] = true; else delete pg.hdAbsent[key];
     var tr = cb.closest('tr'); if (tr) tr.classList.toggle('hdr-absent', cb.checked);
     saveDPage(cds);
-    writeLog(cb.checked ? 'HD休みの印' : 'HD休みの印を解除', fmtJ(cds) + ' ' + key);
   });
 
   var hdrNoteTimers = {}; /* 備考は氏名ごとに独立してデバウンスする（renderPageHDの旧実装と同じ理由） */
@@ -23581,7 +23649,9 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   var absentChk = '<label style="margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;flex-shrink:0" title="休みの印">'
     + '<input type="checkbox" id="absent-cb-'+d.id+'"'+(isAbsent?' checked':'')+(locked?' disabled':'')+'>'
     + '<span style="color:var(--rd)">休</span></label>';
-  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+absentChk+'</div>';
+  /* 休み枠へ移した人は枠から外れるので、誰が休みかをカードに残す（ここで外すと元の枠へ戻る） */
+  var absentWho = (isAbsent && typeof dat.dutyAbsent[d.id] === 'string' && !sv) ? '<span style="font-size:11px;color:var(--rd);font-weight:400">（休：' + escH(dat.dutyAbsent[d.id]) + '）</span>' : '';
+  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+absentWho+absentChk+'</div>';
 
   /* チェックボックス（マスター定義 + 前日PSG装着があれば PSG取り外しを担当マークとして追加）
      slot_ward の静的 checks にも 'PSG取り外し' が含まれているため、
@@ -23694,8 +23764,17 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
     (function(did, cardEl){
       var abEl = document.getElementById('absent-cb-'+did);
       if (abEl) abEl.onchange = function(){
-        if(!D.pages[ds].dutyAbsent) D.pages[ds].dutyAbsent={};
-        D.pages[ds].dutyAbsent[did]=this.checked;
+        var pg = D.pages[ds];
+        if(!pg.dutyAbsent) pg.dutyAbsent={};
+        var stored = pg.dutyAbsent[did];
+        if (this.checked) {
+          /* 枠に人が入っていれば、その人を人員配置の休み枠へ移す（カードは plMove → safeRenderPage で描き直る） */
+          var who = (pg.duties || {})[did];
+          if (who && can('duty')) { absentSet(ds, who, {kind:'duty', slot:did, side:'ce'}, function(d){ d.dutyAbsent[did] = who; }); return; }
+          pg.dutyAbsent[did] = true;
+        } else if (typeof stored === 'string' && absentOffFrom(pg, stored)) {
+          absentRestore(ds, stored); return; /* 休み枠に居れば元の枠へ戻す */
+        } else delete pg.dutyAbsent[did];
         cardEl.classList.toggle('absent',this.checked);
         saveD();
       };
