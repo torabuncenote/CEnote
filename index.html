@@ -20573,7 +20573,11 @@ function saveDisasterPinFromUi() {
 }
 function setDisasterOn(on) {
   if (!isAdmin) return;
-  D.disasterCfg = on ? { on: true, by: (currentUser && currentUser.displayName) || '', ts: Date.now() } : {};
+  /* オン・オフの3つだけを書き換える（PIN の鍵 k/salt/wk を消さない） */
+  var c = Object.assign({}, D.disasterCfg || {});
+  if (on) { c.on = true; c.by = (currentUser && currentUser.displayName) || ''; c.ts = Date.now(); }
+  else { delete c.on; delete c.by; delete c.ts; }
+  D.disasterCfg = c;
   saveD(); applyDisasterUi(); renderDisasterCfg();
   writeLog(on ? '災害対応中をオン' : '災害対応中をオフ', '');
   toast(on ? '災害対応中にしました。全員の画面に「📄 紙用」が出ます' : '平常に戻しました', on ? 'warn' : 'ok', 5000);
