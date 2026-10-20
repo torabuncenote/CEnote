@@ -1,11 +1,24 @@
 /* Service Worker — CEnote PWA */
-var CACHE = 'cenote-v5';
+var CACHE = 'cenote-v6';
 var SHELL = [
   './index.html',
   './manifest.json',
   './icon-192.svg',
   './icon-512.svg'
 ];
+/* 起動に必要な外部の部品（版番号つきのURLなので中身は変わらない）。災害時にネットが無くても
+   アプリを開けるよう、入れたときに端末へ保存しておく（2026-10-21 災害モード段2） */
+var CDN_SHELL = [
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js'
+];
+/* 外部の部品（ライブラリ・フォント）。保存してあればそれを使い、無ければ取りに行って保存する */
+var CDN_RE = /^https:\/\/(www\.gstatic\.com\/firebasejs\/|cdnjs\.cloudflare\.com\/|cdn\.jsdelivr\.net\/|fonts\.googleapis\.com\/|fonts\.gstatic\.com\/)/;
 
 /* Firebase Messaging バックグラウンド通知 */
 try {
@@ -53,7 +66,13 @@ self.addEventListener('notificationclick', function(event) {
 
 self.addEventListener('install', function(e) {
   e.waitUntil(
-    caches.open(CACHE).then(function(c) { return c.addAll(SHELL); })
+    caches.open(CACHE).then(function(c) {
+      /* 外部の部品は1つ取れなくても入れ直しを止めない（scriptタグと同じ no-cors で取って保存） */
+      var cdn = CDN_SHELL.map(function(u){
+        return fetch(u, { mode: 'no-cors' }).then(function(res){ return c.put(u, res); }).catch(function(){});
+      });
+      return Promise.all([c.addAll(SHELL)].concat(cdn));
+    })
   );
   self.skipWaiting();
 });
@@ -71,6 +90,17 @@ self.addEventListener('activate', function(e) {
 self.addEventListener('fetch', function(e) {
   /* Firebase / CDN リクエストはキャッシュしない（認証トークンが絡むため） */
   var url = e.request.url;
+  if (e.request.method === 'GET' && CDN_RE.test(url)) {
+    e.respondWith(
+      caches.match(e.request).then(function(hit) {
+        return hit || fetch(e.request).then(function(res) {
+          if (res && (res.ok || res.type === 'opaque')) { var cl = res.clone(); caches.open(CACHE).then(function(c){ c.put(e.request, cl); }); }
+          return res;
+        });
+      })
+    );
+    return;
+  }
   if (url.indexOf('firebaseio.com') !== -1 ||
       url.indexOf('firebase') !== -1 ||
       url.indexOf('googleapis.com') !== -1 ||
@@ -86,7 +116,13 @@ self.addEventListener('fetch', function(e) {
       }
       return res;
     }).catch(function() {
-      return caches.match(e.request);
+      /* オフライン：保存してある分を返す。?preview=1 などの付いたURLや、ルート（/CEnote/）を開いたときも
+         index.html を返せるよう、検索部分を無視し、画面の読み込みなら index.html にする */
+      return caches.match(e.request, { ignoreSearch: true }).then(function(hit) {
+        if (hit) return hit;
+        if (e.request.mode === 'navigate') return caches.match('./index.html');
+        return undefined;
+      });
     })
   );
 });

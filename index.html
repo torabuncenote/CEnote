@@ -668,6 +668,8 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 /* 紙用（災害用の紙）ボタン：平常時は出さず、災害時（body.disaster-on）だけ出す。applyDisasterUi 参照 */
 .paper-btn{display:none!important}
 @media screen{body.disaster-on .paper-btn{display:inline-flex!important}}
+#offline-mode-bar{position:fixed;left:0;right:0;bottom:0;z-index:300;background:var(--rd);color:var(--on-ac);font-size:12px;font-weight:700;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px));text-align:center}
+body.offline-mode .cbar{display:none!important}
 /* HD担当表の欠勤マーク（CE担当カードの .dc.absent と同じ色づかい） */
 .hdr-absent-lbl{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-size:11px;font-weight:400;color:var(--rd);cursor:pointer;vertical-align:middle}
 .hdr-absent-lbl input{margin:0;accent-color:var(--rd)}
@@ -2055,6 +2057,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <button type="button" class="login-link" onclick="doForgotPassword()">パスワードを忘れた方はこちら</button>
     <div class="login-err" id="li-err"></div>
     <button class="btn btn-p" style="width:100%;margin-bottom:0" onclick="doLogin()">ログイン</button>
+    <button type="button" class="btn btn-g" id="offline-open-btn" style="width:100%;margin:10px 0 0;display:none;flex-direction:column;align-items:center;gap:2px" onclick="openOfflineUnlock()">📴 オフラインで開く（災害時）<span id="offline-open-sub" style="display:block;font-size:10px;font-weight:400;color:var(--txt3)"></span></button>
   </div>
 </div>
 <!-- 自動ログアウト警告バナー -->
@@ -3461,6 +3464,8 @@ function init() {
   document.getElementById('nm-date').value = toDS(now);
   loadD();
   applyDisasterUi(); /* 管理者が「災害対応中」をオンにしていれば、起動時から紙用ボタンを出す */
+  setInterval(function(){ offlineSaveCopy(false); }, 60 * 1000); /* 災害用の控え：10分に1回まで（関数側で間引く） */
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') offlineSaveCopy(Date.now() - _offlineSavedAt > 60000); });
   setInterval(function(){ autoSaveSnapshot('定期（30分）'); }, 30*60*1000);
   setInterval(checkTimeNotifs, 60*1000); /* 1分毎に通知チェック */
   /* 1時間ごとにFirebaseスナップショットも取る（日次だけでは粒度が粗すぎるため） */
@@ -3730,6 +3735,7 @@ function fbInit() {
         clearTimeout(_toastTimer);
         showEmpty();
         document.getElementById('login-ov').classList.remove('hd');
+        refreshOfflineOpenBtn(); /* この端末に災害用の控えがあれば「オフラインで開く」を出す */
         document.getElementById('li-email').value = '';
         document.getElementById('li-pass').value = '';
         document.getElementById('li-err').textContent = '';
@@ -4010,6 +4016,7 @@ function fbInit() {
             }
             setSyncLbl('同期済');
             if (wasFirstLoad) autoSaveSnapshot('起動時'); /* Firebase最新データ受信後にローカルBKを取る */
+            if (wasFirstLoad) setTimeout(function(){ offlineSaveCopy(true); }, 4000); /* 災害用の控え（暗号化）を端末に */
             if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動', true); }
             updateMonthSize();
             checkAutoDelTiming();
@@ -4177,6 +4184,7 @@ function resetIdleTimer() {
   _idleTimer = setTimeout(function() {
     var warn2 = document.getElementById('idle-warn');
     if (warn2) warn2.classList.remove('show');
+    if (_offlineMode) { location.reload(); return; } /* 災害モードは再読み込みで閉じる（控えの中身を画面に残さない） */
     writeLog('自動ログアウト', '5分間の無操作により自動ログアウト');
     firebase.auth().signOut();
   }, IDLE_TIMEOUT);
@@ -4997,7 +5005,7 @@ function updateOfflineBanner(){
 
 /* ===== 操作ログ ===== */
 function writeLog(action, detail) {
-  if (!FB_ON || !fbDB || !currentUser) return;
+  if (!FB_ON || !fbDB || !currentUser || _offlineMode) return;
   var entry = {
     uid:  currentUser.uid,
     name: currentUser.displayName,
@@ -6062,11 +6070,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/19-137';
+var APP_VERSION = 'Ver.2026/10/21-138';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/21-138', date:'2026-10-21', title:'ネットが止まっても見られるようにしました（災害モード）', items:[
+    {t:'new', d:'📴 ネットが全部止まったときでも、ログイン画面の「オフラインで開く（災害時）」から、部署のPINと自分の名前でその端末に残した控えを見られるようにしました（見るだけ。記録は紙用で）'},
+    {t:'new', admin:true, d:'🔑 セキュリティ管理で災害モードのPIN（数字4〜6桁）を決められます。決めると、ログインした端末が10分ごとに控えを暗号化して残します'}
+  ]},
   { ver:'Ver.2026/10/19-137', date:'2026-10-19', title:'災害用の紙のセットを印刷できるようにしました', items:[
     {t:'new', d:'📄 通信が10秒以上切れたとき（確認で「使う」を選ぶ）や、管理者が「災害対応中」にしたときだけ、連絡表の上に「紙用」が出るようにしました。停電や回線が止まったときに紙で記録するための「災害用セット」（3日分＋日付なしの白紙）を、確認してから印刷できます。担当表・チェックリスト・申し送り・オペカテ症例・OC・タブレット貸出の欄と、復旧後に書き写した印を付ける「入力済」欄があります'}
   ]},
@@ -10347,6 +10359,7 @@ var _savePageQueue   = {};    /* saveDPage() 書き込み中に追加された d
 var _savePageCallbacks = {};  /* dsごとの保存完了通知 */
 
 function saveD(onComplete) {
+  if (_offlineMode) { if (onComplete) onComplete(false, '災害モード（見るだけ）'); return; } /* 控えの中身を端末に平文で書かない */
   if(_mstEntries.length && curTab==='master') applyMstGroups();
   /* D.manualのキーにFirebase禁止文字があると全体が失敗するため事前に修正 */
   sanitizeManualKeys();
@@ -10553,6 +10566,7 @@ function _doFbWrite(data, attempt, callbacks) {
    には一切手を入れず、専用の状態変数（_savePageWriting/_savePageQueue）で
    直列化する。 */
 function saveDPage(ds, onComplete) {
+  if (_offlineMode) { if (onComplete) onComplete(false, '災害モード（見るだけ）'); return; }
   /* localStorageへの全体書き込みはsaveDと同じ（オフライン/フォールバック対応） */
   sanitizeManualKeys();
   sanitizeEduProgressKeys();
@@ -10669,6 +10683,7 @@ function _doFbPageWrite(ds, attempt, callbacks) {
    全体保存が進行中・予約中なら saveD() に任せる（古い全体スナップショットが後から着いて、この変更を
    巻き戻すのを防ぐ）。送信に失敗したら saveD() で全体を送り直す。 */
 function saveDPaths(paths) {
+  if (_offlineMode) return;
   sanitizeManualKeys();
   sanitizeEduProgressKeys();
   try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
@@ -10701,6 +10716,7 @@ window.addEventListener('beforeunload', function(e) {
 /* ===== LOCK ===== */
 function lk(id) { return !!(D.lk && D.lk[id]); }
 function can(id) {
+  if (_offlineMode) return false; /* 災害モード（オフライン）は見るだけ */
   if (isAdmin) return true;
   if (!lk(id)) return true;
   return !!(currentUser && currentUser.perms && currentUser.perms[id]);
@@ -20196,7 +20212,7 @@ function renderPage(ds) {
   h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
   if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="margin-left:auto;font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">🎲 自動割り当て</button>';
   h+='</div>';
-  if(dlk)h+='<div class="ln">🔒 担当割り当ては管理者によってロックされています</div>';
+  if(dlk)h+='<div class="ln">'+(_offlineMode?'📴 災害モード（見るだけ）のため変更できません':'🔒 担当割り当ては管理者によってロックされています')+'</div>';
   h+='<div class="dg" id="dg"></div>';
 
   /* OC担当（担当ロックに連動） */
@@ -20240,7 +20256,7 @@ function renderPage(ds) {
 
   /* 業務内容 */
   h+='<div class="st">🏥 当日業務内容'+(olk?'<span class="slb lk">🔒</span>':'')+'</div>';
-  if(olk)h+='<div class="ln">🔒 業務内容は管理者によってロックされています</div>';
+  if(olk)h+='<div class="ln">'+(_offlineMode?'📴 災害モード（見るだけ）のため変更できません':'🔒 業務内容は管理者によってロックされています')+'</div>';
   /* 業務カードコントローラー（ロック時以外は全ユーザーに表示） */
   if(!olk){
     var activeCards2 = dat.ops_cards;
@@ -20539,7 +20555,21 @@ function renderDisasterCfg() {
     + '<span class="lkb ' + (on ? 'lk' : 'ul') + '">' + (on ? 'オン' : 'オフ') + '</span>'
     + '<button type="button" class="btn btn-sm ' + (on ? 'btn-g' : 'btn-d') + '" onclick="setDisasterOn(' + (!on) + ')" style="margin-left:auto">' + (on ? 'オフにする（平常に戻す）' : 'オンにする') + '</button></div>'
     + '<div style="font-size:11px;color:var(--txt2);margin-top:6px;line-height:1.6">オンにすると全員の画面に「📄 紙用」（災害用の紙の印刷）が出ます。停電に備えて、まだ通信と電源が生きているうちに刷ってもらうためのものです。'
-    + (on && c.by ? '<br>' + escH(c.by) + ' が ' + escH(new Date(c.ts || 0).toLocaleString('ja-JP')) + ' にオン' : '') + '</div>';
+    + (on && c.by ? '<br>' + escH(c.by) + ' が ' + escH(new Date(c.ts || 0).toLocaleString('ja-JP')) + ' にオン' : '') + '</div>'
+    + '<div style="border-top:1px solid var(--bdr);margin-top:10px;padding-top:10px">'
+    + '<b style="font-size:13px">🔑 災害モードのPIN</b> <span class="lkb ' + (c.wk ? 'ul' : 'lk') + '">' + (c.wk ? '設定済み' : '未設定') + '</span>'
+    + '<div style="font-size:11px;color:var(--txt2);margin:4px 0 6px;line-height:1.6">ネットが全部止まったとき、各端末に残した控えを「📴 オフラインで開く」で見るための、部署共通の数字4〜6桁です。設定すると、ログインした端末が10分ごとに控えを暗号化して残します。'
+    + (c.pinAt ? '<br>' + escH(c.pinBy || '') + ' が ' + escH(new Date(c.pinAt).toLocaleString('ja-JP')) + ' に設定' : '') + '</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap"><input type="password" id="dpin-1" inputmode="numeric" maxlength="6" autocomplete="new-password" class="fi" placeholder="新しいPIN" style="width:9em;margin:0">'
+    + '<input type="password" id="dpin-2" inputmode="numeric" maxlength="6" autocomplete="new-password" class="fi" placeholder="もう一度" style="width:9em;margin:0">'
+    + '<button type="button" class="btn btn-p btn-sm" onclick="saveDisasterPinFromUi()">' + (c.wk ? 'PINを変える' : 'PINを決める') + '</button></div>'
+    + '<div style="font-size:11px;color:var(--txt3);margin-top:4px">この端末の控え：<span id="dpin-copy">確認中…</span></div></div>';
+  _ofGet().then(function(rec){ var s = document.getElementById('dpin-copy'); if (s) s.textContent = rec ? (new Date(rec.savedAt).toLocaleString('ja-JP') + ' 時点') : 'まだありません'; });
+}
+function saveDisasterPinFromUi() {
+  var a = (document.getElementById('dpin-1') || {}).value || '', b = (document.getElementById('dpin-2') || {}).value || '';
+  if (a !== b) { toast('2回入れたPINが違います', 'warn'); return; }
+  setDisasterPin(a).then(function(ok){ if (ok) { toast('PINを決めました。職員に口頭で伝えてください（アプリには表示しません）', 'ok', 7000); renderDisasterCfg(); } });
 }
 function setDisasterOn(on) {
   if (!isAdmin) return;
@@ -20547,6 +20577,177 @@ function setDisasterOn(on) {
   saveD(); applyDisasterUi(); renderDisasterCfg();
   writeLog(on ? '災害対応中をオン' : '災害対応中をオフ', '');
   toast(on ? '災害対応中にしました。全員の画面に「📄 紙用」が出ます' : '平常に戻しました', on ? 'warn' : 'ok', 5000);
+}
+
+/* ===== 災害モード：端末の控え（暗号化）とPIN（段2：オフラインで開いて見る） =====
+   ネットが全部止まると Firebase にログインできず、データも受け取れない。そこで、ログイン中の端末は
+   データ（D）の控えを10分ごとに暗号化して端末（IndexedDB 'cenote-offline'）に残しておき、
+   ネットが無いときはログイン画面の「📴 オフラインで開く」→ 部署共通のPIN → 自分の名前を選ぶ、で
+   その控えを開く。段2では見るだけ（記録は段3の操作ログで）。2026-10-21 合意、正本は Obsidian
+   60_アプリ開発/2026-10-21_CENOTE災害モード設計.md。
+   鍵の作り：データ用の鍵 K（ランダム）で控えを暗号化する。K は D.disasterCfg.k にあり（/data を読める
+   職員なら見られる＝D そのものと同じ扱い）、控えには入れない。控えには K を PIN から作った鍵で包んだもの
+   （wk）だけを入れるので、PIN を知らない人は端末から控えを読めない。PINは管理者がセキュリティ管理で決める。
+   PINが4〜6桁と短いので、端末を持ち出して総当たりされれば破られうる（何もしないよりは格段に安全、という位置づけ）。 */
+var OFFLINE_DB = 'cenote-offline', OFFLINE_SAVE_MS = 10 * 60 * 1000, OFFLINE_PBKDF2_N = 200000;
+var _offlineMode = false, _offlineUser = '', _offlineSavedAt = 0, _offlineSaving = false, _offlineFail = 0;
+function _ofEnc(s) { return new TextEncoder().encode(s); }
+function _ofB64(buf) { var b = new Uint8Array(buf), s = ''; for (var i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); }
+function _ofUnb64(s) { var bin = atob(s), b = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i); return b; }
+function _ofRand(n) { var b = new Uint8Array(n); crypto.getRandomValues(b); return b; }
+function offlineSupported() { return !!(window.crypto && crypto.subtle && window.indexedDB); }
+function _ofPinKey(pin, saltB64) {
+  return crypto.subtle.importKey('raw', _ofEnc(String(pin)), 'PBKDF2', false, ['deriveKey']).then(function(base){
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: _ofUnb64(saltB64), iterations: OFFLINE_PBKDF2_N, hash: 'SHA-256' },
+      base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  });
+}
+function _ofDataKey(kB64) { return crypto.subtle.importKey('raw', _ofUnb64(kB64), 'AES-GCM', false, ['encrypt', 'decrypt']); }
+function _ofDb() {
+  return new Promise(function(res, rej){
+    try {
+      var rq = indexedDB.open(OFFLINE_DB, 1);
+      rq.onupgradeneeded = function(){ rq.result.createObjectStore('c'); };
+      rq.onsuccess = function(){ res(rq.result); };
+      rq.onerror = function(){ rej(rq.error); };
+    } catch (e) { rej(e); }
+  });
+}
+function _ofGet() {
+  return _ofDb().then(function(db){ return new Promise(function(res){
+    try { var r = db.transaction('c').objectStore('c').get('copy'); r.onsuccess = function(){ res(r.result || null); }; r.onerror = function(){ res(null); }; }
+    catch (e) { res(null); }
+  }); }).catch(function(){ return null; });
+}
+function _ofPut(rec) {
+  return _ofDb().then(function(db){ return new Promise(function(res, rej){
+    var tx = db.transaction('c', 'readwrite'); tx.objectStore('c').put(rec, 'copy');
+    tx.oncomplete = function(){ res(); }; tx.onerror = function(){ rej(tx.error); };
+  }); });
+}
+/* 管理者がPINを決める。データ用の鍵 K は一度作ったら変えない（PINを変えたら包み直すだけ） */
+function setDisasterPin(pin) {
+  if (!isAdmin) return Promise.resolve(false);
+  if (!/^\d{4,6}$/.test(pin || '')) { toast('PINは数字4〜6桁にしてください', 'warn'); return Promise.resolve(false); }
+  if (!offlineSupported()) { toast('この端末のブラウザでは設定できません', 'warn'); return Promise.resolve(false); }
+  var cfg = Object.assign({}, D.disasterCfg || {});
+  var kB64 = cfg.k || _ofB64(_ofRand(32)), salt = _ofB64(_ofRand(16)), iv = _ofRand(12);
+  return _ofPinKey(pin, salt).then(function(pk){
+    return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, pk, _ofUnb64(kB64));
+  }).then(function(ct){
+    cfg.k = kB64; cfg.salt = salt; cfg.wk = _ofB64(iv) + '.' + _ofB64(ct);
+    cfg.pinAt = Date.now(); cfg.pinBy = (currentUser && currentUser.displayName) || '';
+    D.disasterCfg = cfg; saveD();
+    writeLog('災害モードのPINを設定', '');
+    _offlineSavedAt = 0; offlineSaveCopy(true);
+    return true;
+  });
+}
+/* 控えを暗号化して端末に残す。ログイン中・初回受信後だけ。force でなければ10分に1回まで */
+function offlineSaveCopy(force) {
+  if (_offlineMode || _offlineSaving || !offlineSupported()) return Promise.resolve(false);
+  var pv = !!(currentUser && currentUser.uid === 'preview'); /* プレビューは Firebase を受信しないので、初回受信を待たずに控えを作る */
+  if (FB_ON && !pv && (!currentUser || !_fbDataLoaded)) return Promise.resolve(false);
+  var cfg = D.disasterCfg || {};
+  if (!cfg.k || !cfg.salt || !cfg.wk) return Promise.resolve(false);   /* PIN未設定 */
+  if (!force && Date.now() - _offlineSavedAt < OFFLINE_SAVE_MS) return Promise.resolve(false);
+  _offlineSaving = true;
+  var copy = JSON.parse(JSON.stringify(D));
+  if (copy.disasterCfg) delete copy.disasterCfg.k;   /* データ用の鍵は控えに入れない */
+  var iv = _ofRand(12), savedAt = Date.now();
+  return _ofDataKey(cfg.k).then(function(k){
+    return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, k, _ofEnc(JSON.stringify(copy)));
+  }).then(function(ct){
+    return _ofPut({ v: 1, salt: cfg.salt, wk: cfg.wk, iv: _ofB64(iv), ct: _ofB64(ct), savedAt: savedAt,
+      by: (currentUser && currentUser.displayName) || '', pages: Object.keys(D.pages || {}).length });
+  }).then(function(){ _offlineSavedAt = savedAt; _offlineSaving = false; return true; })
+    .catch(function(e){ _offlineSaving = false; console.warn('[offline] 控えを残せなかった:', e && e.message); return false; });
+}
+/* PINで控えを開く。PINが違えば reject（AES-GCM の検証で失敗する） */
+function offlineUnlock(pin) {
+  return _ofGet().then(function(rec){
+    if (!rec) throw new Error('この端末には控えがありません');
+    var p = rec.wk.split('.');
+    return _ofPinKey(pin, rec.salt).then(function(pk){
+      return crypto.subtle.decrypt({ name: 'AES-GCM', iv: _ofUnb64(p[0]) }, pk, _ofUnb64(p[1]));
+    }).then(function(kRaw){
+      return crypto.subtle.importKey('raw', kRaw, 'AES-GCM', false, ['decrypt']);
+    }, function(){ throw new Error('PINが違います'); }).then(function(k){
+      return crypto.subtle.decrypt({ name: 'AES-GCM', iv: _ofUnb64(rec.iv) }, k, _ofUnb64(rec.ct));
+    }).then(function(plain){ return { data: JSON.parse(new TextDecoder().decode(plain)), rec: rec }; });
+  });
+}
+/* ログイン画面の「📴 オフラインで開く」：この端末に控えがあるときだけ出す */
+function refreshOfflineOpenBtn() {
+  var b = document.getElementById('offline-open-btn'); if (!b) return;
+  if (!offlineSupported()) { b.style.display = 'none'; return; }
+  _ofGet().then(function(rec){
+    b.style.display = rec ? 'flex' : 'none';
+    var s = document.getElementById('offline-open-sub');
+    if (s) s.textContent = rec ? (new Date(rec.savedAt).toLocaleString('ja-JP') + ' 時点の控え') : '';
+  });
+}
+function openOfflineUnlock() {
+  var old = document.getElementById('offline-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'offline-ov'; ov.className = 'ov'; ov.style.zIndex = '10001';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '360px';
+  md.innerHTML = '<h3 style="margin:0 0 6px">📴 オフラインで開く（災害時）</h3>'
+    + '<div style="font-size:12px;line-height:1.7;color:var(--txt2);margin-bottom:10px">ネットが使えないときに、この端末に残した控えを<b>見るだけ</b>で開きます。部署で決めたPIN（数字4〜6桁）を入れてください。</div>'
+    + '<input type="password" id="offline-pin" inputmode="numeric" autocomplete="off" maxlength="6" class="fi" placeholder="PIN" style="width:100%;box-sizing:border-box;font-size:18px;letter-spacing:6px;text-align:center">'
+    + '<div id="offline-err" style="color:var(--rd);font-size:12px;min-height:18px;margin-top:6px"></div>'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px"><button type="button" class="btn btn-g" id="offline-cancel">やめる</button><button type="button" class="btn btn-p" id="offline-ok">開く</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  var inp = document.getElementById('offline-pin'), err = document.getElementById('offline-err'), ok = document.getElementById('offline-ok');
+  inp.focus();
+  document.getElementById('offline-cancel').onclick = function(){ ov.remove(); };
+  var go = function(){
+    if (_offlineFail >= 5 && Date.now() < (openOfflineUnlock._waitUntil || 0)) { err.textContent = '何度も違ったため、少し待ってから入れてください'; return; }
+    ok.disabled = true; err.textContent = '確認中…';
+    offlineUnlock(inp.value).then(function(r){
+      _offlineFail = 0; ov.remove(); offlinePickName(r);
+    }).catch(function(e){
+      ok.disabled = false; inp.value = ''; inp.focus();
+      _offlineFail++; if (_offlineFail >= 5) openOfflineUnlock._waitUntil = Date.now() + 30000;
+      err.textContent = (e && e.message) || '開けませんでした';
+    });
+  };
+  ok.onclick = go;
+  inp.onkeydown = function(e){ if (e.key === 'Enter') go(); };
+}
+/* 開いた人の名前を選ぶ（段3でオフライン中の記録に「誰が」を残すため。今は画面の表示だけ） */
+function offlinePickName(r) {
+  var names = (r.data.stf || []).filter(function(n){ return !(r.data.stfHidden && r.data.stfHidden[n]); });
+  var ov = document.createElement('div'); ov.id = 'offline-name-ov'; ov.className = 'ov'; ov.style.zIndex = '10001';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '360px';
+  md.innerHTML = '<h3 style="margin:0 0 6px">👤 あなたの名前を選んでください</h3>'
+    + '<select id="offline-name" class="fi" style="width:100%;box-sizing:border-box"><option value="">— 選ぶ —</option>'
+    + names.map(function(n){ return '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }).join('') + '</select>'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button type="button" class="btn btn-p" id="offline-name-ok">開く</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('offline-name-ok').onclick = function(){
+    var v = document.getElementById('offline-name').value;
+    if (!v) { toast('名前を選んでください', 'warn'); return; }
+    ov.remove(); enterOfflineMode(r, v);
+  };
+}
+/* 見るだけで開く。保存・Firebase への書き込み・操作ログはすべて止め（saveD 等と writeLog が _offlineMode を見る）、
+   can() は常に false（ボタンが押せない）。終わるときは再読み込みする（手元に控えの中身を残さない） */
+function enterOfflineMode(r, name) {
+  Object.keys(r.data).forEach(function(k){ D[k] = r.data[k]; });
+  _offlineMode = true; _offlineUser = name;
+  isAdmin = false;
+  currentUser = { uid: 'offline', email: '', displayName: name, isAdmin: false, perms: {} };
+  document.getElementById('login-ov').classList.add('hd');
+  document.body.classList.add('offline-mode');
+  _disasterLocal = true; applyDisasterUi();
+  var bar = document.createElement('div'); bar.id = 'offline-mode-bar'; bar.setAttribute('role', 'status');
+  bar.innerHTML = '📴 災害モード（見るだけ）：' + escH(name) + '／' + escH(new Date(r.rec.savedAt).toLocaleString('ja-JP')) + ' 時点の控え'
+    + ' <button type="button" class="btn btn-g btn-sm" onclick="location.reload()" style="margin-left:8px;padding:1px 8px">終わる</button>';
+  document.body.appendChild(bar);
+  try { updateTabVisibility(); } catch (e) {}
+  renderCal(); openDefaultPage();
+  resetIdleTimer();
+  toast('見るだけで開きました。記録は「📄 紙用」で刷った紙にしてください', 'warn', 7000);
 }
 
 /* ===== 紙用の様式（災害用セット） =====
