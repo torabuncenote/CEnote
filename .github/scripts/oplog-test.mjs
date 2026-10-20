@@ -106,4 +106,10 @@ const l9 = { pages: { '2026-10-21': { placement: { fixed: true, people: { '佐�
 ok(ofApply(l9, ops9[0]) === 'applied', '空欄が無いだけの受信側にも食い違わずに入る');
 ok(ofDiffPages({ x: { duties: { a: '1', b: '2' } } }, { x: { duties: { b: '2', a: '1' } } }).length === 0, 'キーの順だけの違いは操作にならない');
 
+// --- 10. 記録する欄の外・おかしな経路は当てはめない（食い違いの記録はページに置かれ、職員なら書けるため） ---
+const R = { pages: {}, lk: {} };
+ok(ofApply(R, { kind: 'set', path: ['lk', 'duty'], before: null, after: true }, true) === 'conflict' && !R.lk.duty, 'ページの外は書かない');
+ok(ofApply(R, { kind: 'set', path: ['pages', '2026-10-21', 'note'], before: null, after: 'x' }, true) === 'conflict', '記録しない欄は書かない');
+ok(ofApply(R, { kind: 'set', path: ['pages', '2026-10-21', 'duties', '__proto__', 'x'], before: null, after: 1 }, true) === 'conflict' && ({}).x === undefined, '__proto__ は通さない');
+
 console.log('すべて通過：' + pass + '件');

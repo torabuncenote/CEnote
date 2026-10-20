@@ -20586,6 +20586,8 @@ function renderDisasterCfg() {
     + '<div style="font-size:11px;color:var(--txt3);margin-top:4px">この端末の控え：<span id="dpin-copy">確認中…</span></div>'
     + '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--txt2)"><button type="button" class="btn btn-g btn-sm" onclick="startDisasterDrill()">🧪 練習する</button>年1回5分。本番と同じ手順（PIN→名前→記録）を試せます。記録は残りません。</div></div>'
     + disasterConflictsHTML();
+  /* 食い違いのボタンは onclick 文字列に値を埋め込まず、data 属性から読む（ページの中身は職員なら書けるため） */
+  el.querySelectorAll('.dc-res').forEach(function(b){ b.onclick = function(){ disasterConflictResolve(b.getAttribute('data-ds'), b.getAttribute('data-id'), b.getAttribute('data-adopt') === '1'); }; });
   _ofGet().then(function(rec){ var s = document.getElementById('dpin-copy'); if (s) s.textContent = rec ? (new Date(rec.savedAt).toLocaleString('ja-JP') + ' 時点') : 'まだありません'; });
 }
 function saveDisasterPinFromUi() {
@@ -20945,7 +20947,19 @@ function _ofSet(root, path, val) {
   return true;
 }
 /* 1件を当てはめる。force なら今の値にかかわらず上書き（食い違いで「災害時の記録を採用」したとき・手元で読み直すとき） */
+/* 当てはめてよい経路か：日ページの記録する欄の中だけ（食い違いの記録は職員なら書けるページの中にあるので、
+   管理者が「採用」したときに別の場所——権限やマスタ——を書き換えさせない） */
+function _ofPathOk(op) {
+  var p = op && op.path;
+  if (!Array.isArray(p) || p.length < 3 || p[0] !== 'pages' || !/^\d{4}-\d{2}-\d{2}$/.test(String(p[1])) || !OF_REC_FIELDS[p[2]]) return false;
+  for (var i = 1; i < p.length; i++) {
+    var seg = p[i], k = (seg && typeof seg === 'object') ? seg.k : seg;
+    if (typeof k !== 'string' || k === '__proto__' || k === 'constructor' || k === 'prototype') return false;
+  }
+  return true;
+}
 function ofApply(root, op, force) {
+  if (!_ofPathOk(op)) return 'conflict';
   var cur = ofGet(root, op.path);
   if (op.kind === 'set') {
     if (_ofSame(cur, op.after)) return 'same';
@@ -21095,7 +21109,8 @@ function disasterConflictList() {
   var out = [];
   Object.keys(D.pages || {}).forEach(function(ds){
     var dc = (D.pages[ds] || {}).disasterConflicts; if (!dc) return;
-    Object.keys(dc).forEach(function(id){ if (dc[id] && dc[id].op) out.push({ ds: ds, id: id, c: dc[id] }); });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+    Object.keys(dc).forEach(function(id){ if (/^op[0-9a-z]+$/.test(id) && dc[id] && dc[id].op && Array.isArray(dc[id].op.path)) out.push({ ds: ds, id: id, c: dc[id] }); });
   });
   return out.sort(function(a, b){ return a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : 0; });
 }
@@ -21111,8 +21126,8 @@ function disasterConflictsHTML() {
       + '<div>🆘 災害時：' + escH(_ofSummary(op.kind === 'remove' ? null : op.after)) + '<span style="color:var(--txt3)">（' + escH(op.by || '') + '・' + escH(new Date(op.ts || 0).toLocaleString('ja-JP')) + '）</span></div>'
       + '<div>🌐 今：' + escH(_ofSummary(ofGet(D, op.path))) + '</div>'
       + '<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">'
-      + '<button type="button" class="btn btn-g btn-sm" onclick="disasterConflictResolve(\'' + escH(x.ds) + '\',\'' + escH(x.id) + '\',false)">今のまま</button>'
-      + '<button type="button" class="btn btn-p btn-sm" onclick="disasterConflictResolve(\'' + escH(x.ds) + '\',\'' + escH(x.id) + '\',true)">災害時の記録にする</button></div></div>';
+      + '<button type="button" class="btn btn-g btn-sm dc-res" data-ds="' + escH(x.ds) + '" data-id="' + escH(x.id) + '" data-adopt="0">今のまま</button>'
+      + '<button type="button" class="btn btn-p btn-sm dc-res" data-ds="' + escH(x.ds) + '" data-id="' + escH(x.id) + '" data-adopt="1">災害時の記録にする</button></div></div>';
   });
   return h + '</div>';
 }
@@ -21126,6 +21141,7 @@ function disasterConflictResolve(ds, id, adopt) {
   if (!isAdmin) return;
   var pg = D.pages[ds], dc = pg && pg.disasterConflicts, x = dc && dc[id];
   if (!x) { renderDisasterCfg(); return; }
+  if (adopt && !(x.op && x.op.path && x.op.path[1] === ds && _ofPathOk(x.op))) { toast('この記録は当てはめられません（形が正しくありません）', 'err'); return; }
   if (adopt) ofApply(D, x.op, true);
   delete dc[id];
   if (!Object.keys(dc).length) delete pg.disasterConflicts;
