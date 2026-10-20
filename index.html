@@ -665,6 +665,9 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 .hdr-chip .hdr-grip{color:var(--txt3);font-size:12px}
 .hdr-chip-n{white-space:nowrap}
 .hdr-staff-td{white-space:nowrap}
+/* 紙用（災害用の紙）ボタン：平常時は出さず、災害時（body.disaster-on）だけ出す。applyDisasterUi 参照 */
+.paper-btn{display:none!important}
+@media screen{body.disaster-on .paper-btn{display:inline-flex!important}}
 /* HD担当表の欠勤マーク（CE担当カードの .dc.absent と同じ色づかい） */
 .hdr-absent-lbl{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-size:11px;font-weight:400;color:var(--rd);cursor:pointer;vertical-align:middle}
 .hdr-absent-lbl input{margin:0;accent-color:var(--rd)}
@@ -2646,6 +2649,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <div id="pane-adminm" style="display:none;flex-direction:column;flex:1;overflow:hidden">
       <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px">🔐 セキュリティ管理</div>
+        <div id="disaster-cfg" class="pn" style="margin-bottom:12px"></div>
         <div id="security-summary" class="pn" style="margin-bottom:12px">状態を確認中...</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
           <button class="btn btn-g btn-sm" onclick="document.getElementById('adminm-users').scrollIntoView({behavior:'smooth'})">👥 職員と利用許可</button>
@@ -3305,7 +3309,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},evtRanges:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},evtRanges:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{},disasterCfg:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3456,6 +3460,7 @@ function init() {
   document.getElementById('gm-month').value = toMS(now);
   document.getElementById('nm-date').value = toDS(now);
   loadD();
+  applyDisasterUi(); /* 管理者が「災害対応中」をオンにしていれば、起動時から紙用ボタンを出す */
   setInterval(function(){ autoSaveSnapshot('定期（30分）'); }, 30*60*1000);
   setInterval(checkTimeNotifs, 60*1000); /* 1分毎に通知チェック */
   /* 1時間ごとにFirebaseスナップショットも取る（日次だけでは粒度が粗すぎるため） */
@@ -3586,6 +3591,7 @@ function loadD() {
     D.shiftReqCfg = s.shiftReqCfg || {};
     D.holidayOv = s.holidayOv || {};
     D.stfNo = s.stfNo || {};
+    D.disasterCfg = s.disasterCfg || {};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
     if (!D._migVer || D._migVer < 1) {
       D.dutyCfgMaster.forEach(function(m){ if(m.id==='slot_cathsub') m.freeRole=false; });
@@ -3718,7 +3724,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.evtRanges=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.evtRanges=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={}; D.disasterCfg={};
         _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
@@ -3931,6 +3937,8 @@ function fbInit() {
             D.shiftReqCfg = d.shiftReqCfg || {};
             D.holidayOv = d.holidayOv || {};
             D.stfNo = d.stfNo || {};
+            D.disasterCfg = d.disasterCfg || {};
+            applyDisasterUi(); /* 管理者が「災害対応中」を切り替えたら全員の画面に反映 */
             /* このバージョンが知らない項目（新しいバージョンが足したもの）も消さずに持ち回る。
                保存は D 全体の上書きなので、ここで拾わないと1つ前のアプリが保存した瞬間にその項目が消える */
             Object.keys(d).forEach(function(k){
@@ -4975,6 +4983,7 @@ function syncOverlayFail(msg){
 function updateOfflineBanner(){
   /* 初回同期前のオフラインは覆いの側で伝える（ここで帯を重ねない） */
   var show = !!(currentUser && _fbDataLoaded && _fbEverConn && !_fbConnected);
+  disasterWatchOffline(show);
   var bar = document.getElementById('offline-bar');
   document.body.classList.toggle('is-offline', show); /* 帯の高さぶん画面全体を下げる（CSSの --off-h） */
   if (show && !bar) {
@@ -5864,6 +5873,7 @@ function renderAdminUsers() {
 }
 
 function renderSecurityDashboard() {
+  renderDisasterCfg();
   var el = document.getElementById('security-summary');
   if (!el || !isAdmin) return;
   if (!FB_ON || !fbDB) { el.textContent = 'プレビュー中です。利用許可とクラウドバックアップの状態はFirebase接続時に表示されます。'; return; }
@@ -6058,7 +6068,7 @@ var APP_VERSION = 'Ver.2026/10/19-137';
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
   { ver:'Ver.2026/10/19-137', date:'2026-10-19', title:'災害用の紙のセットを印刷できるようにしました', items:[
-    {t:'new', d:'📄 連絡表の上の「紙用」から、停電や回線が止まったときに紙で記録するための「災害用セット」（3日分＋日付なしの白紙）を印刷できるようにしました。担当表・チェックリスト・申し送り・オペカテ症例・OC・タブレット貸出の欄と、復旧後に書き写した印を付ける「入力済」欄があります'}
+    {t:'new', d:'📄 通信が10秒以上切れたとき（確認で「使う」を選ぶ）や、管理者が「災害対応中」にしたときだけ、連絡表の上に「紙用」が出るようにしました。停電や回線が止まったときに紙で記録するための「災害用セット」（3日分＋日付なしの白紙）を、確認してから印刷できます。担当表・チェックリスト・申し送り・オペカテ症例・OC・タブレット貸出の欄と、復旧後に書き写した印を付ける「入力済」欄があります'}
   ]},
   { ver:'Ver.2026/10/19-136', date:'2026-10-19', title:'スコープ依頼に依頼Dr.を入れるようにしました', items:[
     {t:'new', notify:true, d:'🔭 オペのスコープ依頼に「依頼Dr.」を入れる欄を付けました。依頼Dr.を入れたものだけがスコープ依頼として表示・集計され、入れていないものは「⚠ スコープの依頼Dr.未入力」と出ます'}
@@ -20474,6 +20484,71 @@ function hdRosterToggleEdit(ds){
    役割ではなく氏名で持つ（キーになる氏名は hdNotes と同じく入り口で fbSafeKey 済み）。 */
 function hdIsAbsent(dat, name) { return !!(dat && dat.hdAbsent && name && dat.hdAbsent[name]); }
 
+/* ===== 災害時の表示（紙用ボタンなど） =====
+   平常時は災害用の機能（いまは「📄 紙用」）を出さない。出すのは次のどちらか（2026-10-21 本人決定）：
+   ①通信が切れて10秒たっても戻らないとき、確認を出して「使う」を選んだ端末（_disasterLocal。この画面を開いている間だけ）
+   ②管理者が「🆘 災害対応中」をオンにしたとき（D.disasterCfg.on。全員に届く。まだ通信が生きている災害直後に刷るため）
+   「使わない」を選んだら、その通信断の間はもう聞かない（いったん戻ってまた切れたら聞き直す）。
+   この確認は段2以降の「オフラインで記録する災害モード」の入口にもなる。 */
+var DISASTER_ASK_MS = 10000;
+var _disasterLocal = false, _disasterAskTimer = null, _disasterAsked = false;
+function disasterUiOn() { return !!(_disasterLocal || (D.disasterCfg && D.disasterCfg.on)); }
+function applyDisasterUi() {
+  if (!document.body) return;
+  document.body.classList.toggle('disaster-on', disasterUiOn());
+}
+/* updateOfflineBanner から呼ぶ。offline＝帯が出ている状態（初回同期後に接続が切れた） */
+function disasterWatchOffline(offline) {
+  if (!offline) {
+    clearTimeout(_disasterAskTimer); _disasterAskTimer = null; _disasterAsked = false;
+    var dlg = document.getElementById('disaster-ask-ov'); if (dlg) dlg.remove();
+    return;
+  }
+  if (_disasterAskTimer || _disasterAsked || disasterUiOn()) return;
+  _disasterAskTimer = setTimeout(function(){
+    _disasterAskTimer = null;
+    if (!document.body.classList.contains('is-offline') || _disasterAsked || disasterUiOn()) return;
+    _disasterAsked = true;
+    disasterAskDialog();
+  }, DISASTER_ASK_MS);
+}
+function disasterAskDialog() {
+  var old = document.getElementById('disaster-ask-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'disaster-ask-ov'; ov.className = 'ov';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '380px';
+  md.innerHTML = '<h3 style="margin:0 0 6px">📴 通信が切れています</h3>'
+    + '<div style="font-size:12px;line-height:1.8;color:var(--txt2)">10秒たっても通信が戻りません。災害などで長く使えない場合は、<b>災害時用の機能</b>（紙で記録するための「📄 紙用」の印刷）を使えるようにします。<br>入力はこのまま続けられ、通信が戻れば自動で送られます（アプリは閉じないでください）。</div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + '<button type="button" class="btn btn-g" id="disaster-ask-no">使わない</button>'
+    + '<button type="button" class="btn btn-p" id="disaster-ask-yes">災害時用の機能を使う</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('disaster-ask-no').onclick = function(){ ov.remove(); };
+  document.getElementById('disaster-ask-yes').onclick = function(){
+    ov.remove(); _disasterLocal = true; applyDisasterUi();
+    toast('災害時用の機能を出しました。連絡表の上の「📄 紙用」から印刷できます', 'warn', 6000);
+  };
+}
+/* 管理者の「🆘 災害対応中」（セキュリティ管理の一番上） */
+function renderDisasterCfg() {
+  var el = document.getElementById('disaster-cfg'); if (!el) return;
+  if (!isAdmin) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  var c = D.disasterCfg || {}, on = !!c.on;
+  el.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    + '<b style="font-size:13px">🆘 災害対応中</b>'
+    + '<span class="lkb ' + (on ? 'lk' : 'ul') + '">' + (on ? 'オン' : 'オフ') + '</span>'
+    + '<button type="button" class="btn btn-sm ' + (on ? 'btn-g' : 'btn-d') + '" onclick="setDisasterOn(' + (!on) + ')" style="margin-left:auto">' + (on ? 'オフにする（平常に戻す）' : 'オンにする') + '</button></div>'
+    + '<div style="font-size:11px;color:var(--txt2);margin-top:6px;line-height:1.6">オンにすると全員の画面に「📄 紙用」（災害用の紙の印刷）が出ます。停電に備えて、まだ通信と電源が生きているうちに刷ってもらうためのものです。'
+    + (on && c.by ? '<br>' + escH(c.by) + ' が ' + escH(new Date(c.ts || 0).toLocaleString('ja-JP')) + ' にオン' : '') + '</div>';
+}
+function setDisasterOn(on) {
+  if (!isAdmin) return;
+  D.disasterCfg = on ? { on: true, by: (currentUser && currentUser.displayName) || '', ts: Date.now() } : {};
+  saveD(); applyDisasterUi(); renderDisasterCfg();
+  writeLog(on ? '災害対応中をオン' : '災害対応中をオフ', '');
+  toast(on ? '災害対応中にしました。全員の画面に「📄 紙用」が出ます' : '平常に戻しました', on ? 'warn' : 'ok', 5000);
+}
+
 /* ===== 紙用の様式（災害用セット） =====
    停電・回線断のときにアナログで業務を続けるための紙。災害当日、まだ院内ネットと電源が生きているうちに
    「今日・明日・明後日（日付入り）＋白紙（日付なし）」を1回でまとめて刷る（2026-10-21 合意。
@@ -30414,7 +30489,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo','disasterCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -30572,7 +30647,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo','disasterCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -30664,7 +30739,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo','disasterCfg'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
