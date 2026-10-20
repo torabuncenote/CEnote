@@ -20499,7 +20499,11 @@ var PAPER_CSS = '@page{size:A4;margin:9mm}body{font-family:"Hiragino Sans","Yu G
   + '.pbx{display:inline-block;width:11px;height:11px;border:1.4px solid #000;margin-right:4px;vertical-align:-2px;text-align:center;line-height:10px;font-size:9px}'
   + '.subs{margin:2px 0 0 16px;font-size:8.5pt}.subs span.it{display:inline-block;margin:0 9px 1px 0}'
   + '.c-ck{width:30px;text-align:center}.c-in{width:44px;text-align:center}th.c-in,th.c-ck{white-space:nowrap}.c-nm{width:80px}.c-tm{width:52px}.done-txt{color:#555}'
-  + '.foot{margin-top:8px;font-size:8pt;color:#333}@media screen{body{padding:12px}.sheet{border-bottom:2px dashed #999;margin-bottom:18px;padding-bottom:12px}}';
+  + '.foot{margin-top:8px;font-size:8pt;color:#333}'
+  + '@media screen{html{background:#8a8a8a}body{width:794px;margin:0 auto;padding:12px 0}.sheet{background:#fff;padding:28px 30px;margin:0 0 14px;box-shadow:0 1px 4px rgba(0,0,0,.35)}}'
+  + '@media print{body{zoom:1!important;width:auto}}';
+/* 狭い画面（スマホ）では紙1枚の幅（794px）を画面幅に収まるよう縮める。印刷には効かない */
+var PAPER_FIT_JS = 'function f(){var w=document.documentElement.clientWidth;document.body.style.zoom=w<820?(w/820):1}addEventListener("resize",f);f();';
 var PAPER_BLANK = '&nbsp;';
 function _paperBox(on) { return '<span class="pbx">' + (on ? '✓' : '') + '</span>'; }
 /* 1日分のページ。ds が null なら日付なしの白紙版 */
@@ -20598,7 +20602,7 @@ function paperDocHTML(dsList, blank, hd) {
   var h = '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>' + (hd ? 'HD' : 'CE') + ' 災害用の紙</title><style>' + PAPER_CSS + '</style></head><body>';
   dsList.forEach(function(ds){ h += paperDaySheetHTML(ds, hd); });
   if (blank) h += paperDaySheetHTML(null, hd);
-  return h + '</body></html>';
+  return h + '<script>' + PAPER_FIT_JS + '<\/script></body></html>';
 }
 /* 互換：1日分の文書（以前の呼び出し口） */
 function paperSheetHTML(ds) { return paperDocHTML([ds], false, _viewMode === 'hd'); }
@@ -20617,6 +20621,31 @@ function _paperPrint(html) {
   var d = fr.contentWindow.document; d.open(); d.write(html); d.close();
   setTimeout(function(){ try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) {} setTimeout(function(){ fr.remove(); }, 2000); }, 300);
 }
+/* 印刷前の確認画面。紙の見た目をそのまま枠の中に出し、スクロールで全ページを確かめてから「印刷」を押す。
+   枠の中だけを印刷する（iframe の print）。端末によって枠の中だけを刷れないときのために「別のタブで開く」も置く */
+function openPaperPreview(html, label) {
+  var old = document.getElementById('paper-prev-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'paper-prev-ov'; ov.className = 'ov';
+  var md = document.createElement('div'); md.className = 'md';
+  /* .md には文字サイズの zoom が掛かるので、vh は --ui-zoom で割り戻す（CLAUDE.md 文字サイズ節） */
+  md.style.cssText = 'width:min(900px,96vw);max-width:none;height:calc(92vh / var(--ui-zoom,1));display:flex;flex-direction:column;padding:10px';
+  md.innerHTML = '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">'
+    + '<b style="font-size:14px;margin-right:auto">📄 ' + escH(label) + '</b>'
+    + '<button type="button" class="btn btn-p btn-sm" id="paper-prev-print">🖨 印刷</button>'
+    + '<button type="button" class="btn btn-g btn-sm" id="paper-prev-tab">別のタブで開く</button>'
+    + '<button type="button" class="btn btn-g btn-sm" id="paper-prev-close">閉じる</button></div>'
+    + '<div style="font-size:11px;color:var(--txt2);margin-bottom:6px">印刷される内容です。下へスクロールすると全ページを確認できます。</div>';
+  var fr = document.createElement('iframe');
+  fr.id = 'paper-prev-frame'; fr.title = '印刷される内容';
+  fr.style.cssText = 'flex:1;width:100%;border:1px solid var(--bdr);border-radius:6px;background:#8a8a8a';
+  md.appendChild(fr); ov.appendChild(md); document.body.appendChild(ov);
+  fr.srcdoc = html;
+  document.getElementById('paper-prev-print').onclick = function(){
+    try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { _paperPrint(html); }
+  };
+  document.getElementById('paper-prev-tab').onclick = function(){ _paperPrint(html); };
+  document.getElementById('paper-prev-close').onclick = function(){ ov.remove(); };
+}
 /* 「📄 紙用」：災害用セット（開いている日から3日分＋白紙）か、この日だけかを選んで刷る */
 function openPaperSheet(ds) {
   if (!ds) { toast('連絡表を開いてから押してください', 'warn'); return; }
@@ -20633,7 +20662,12 @@ function openPaperSheet(ds) {
     + '<button type="button" class="btn btn-g" id="paper-blank" style="width:100%;margin-bottom:12px">白紙（日付なし）だけ</button>'
     + '<div style="text-align:right"><button type="button" class="btn btn-g btn-sm" id="paper-cancel">閉じる</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
-  var go = function(list, blank){ ov.remove(); _paperPrint(paperDocHTML(list, blank, hd)); writeLog('紙用を印刷', (hd ? 'HD ' : 'CE ') + (list.length ? list.map(fmtMD).join('・') : '') + (blank ? '＋白紙' : '')); };
+  var go = function(list, blank){
+    ov.remove();
+    var label = (hd ? 'HD' : 'CE') + ' 災害用の紙（' + (list.length ? list.map(fmtMD).join('・') : '') + (blank ? (list.length ? '＋' : '') + '白紙' : '') + '）';
+    openPaperPreview(paperDocHTML(list, blank, hd), label);
+    writeLog('紙用を表示', label);
+  };
   document.getElementById('paper-set').onclick = function(){ go([ds, d2, d3], true); };
   document.getElementById('paper-one').onclick = function(){ go([ds], false); };
   document.getElementById('paper-blank').onclick = function(){ go([], true); };
