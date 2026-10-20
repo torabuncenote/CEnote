@@ -6054,8 +6054,8 @@ var APP_VERSION = 'Ver.2026/10/19-137';
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
-  { ver:'Ver.2026/10/19-137', date:'2026-10-19', title:'紙で使える様式を印刷できるようにしました', items:[
-    {t:'new', d:'📄 連絡表の上の「紙用」ボタンで、その日の担当表・チェックリスト（□の空欄つき）・申し送りの記入欄を1枚にまとめて印刷できるようにしました。停電や回線が止まったときに紙で業務を続けるためのものです'}
+  { ver:'Ver.2026/10/19-137', date:'2026-10-19', title:'災害用の紙のセットを印刷できるようにしました', items:[
+    {t:'new', d:'📄 連絡表の上の「紙用」から、停電や回線が止まったときに紙で記録するための「災害用セット」（3日分＋日付なしの白紙）を印刷できるようにしました。担当表・チェックリスト・申し送り・オペカテ症例・OC・タブレット貸出の欄と、復旧後に書き写した印を付ける「入力済」欄があります'}
   ]},
   { ver:'Ver.2026/10/19-136', date:'2026-10-19', title:'スコープ依頼に依頼Dr.を入れるようにしました', items:[
     {t:'new', notify:true, d:'🔭 オペのスコープ依頼に「依頼Dr.」を入れる欄を付けました。依頼Dr.を入れたものだけがスコープ依頼として表示・集計され、入れていないものは「⚠ スコープの依頼Dr.未入力」と出ます'}
@@ -20471,11 +20471,13 @@ function hdRosterToggleEdit(ds){
    役割ではなく氏名で持つ（キーになる氏名は hdNotes と同じく入り口で fbSafeKey 済み）。 */
 function hdIsAbsent(dat, name) { return !!(dat && dat.hdAbsent && name && dat.hdAbsent[name]); }
 
-/* ===== 紙用の様式（停電・回線断のときにアナログで使う） =====
-   画面の印刷（window.print）は画面の見た目をそのまま紙にするので、紙に書き込むのには向かない。
-   ここでは担当表・チェックリスト（□の空欄）・申し送りの記入欄（罫線）を1枚にまとめた専用の様式を
-   別ウィンドウに作って印刷する。主観（CE/HD）に合わせて、その主観の担当表・チェックリスト・申し送りを出す。
-   済んでいる項目は ☑ で刷る（刷った時点の状態から紙で続けられるように）。データは書き換えない。 */
+/* ===== 紙用の様式（災害用セット） =====
+   停電・回線断のときにアナログで業務を続けるための紙。災害当日、まだ院内ネットと電源が生きているうちに
+   「今日・明日・明後日（日付入り）＋白紙（日付なし）」を1回でまとめて刷る（2026-10-21 合意。
+   正本は Obsidian 60_アプリ開発/2026-10-21_CENOTE災害モード設計.md）。この日だけ刷ることもできる。
+   各ページには災害モードで記録する操作と同じ欄（担当表と休・チェックリスト・申し送り・オペカテ症例・OC・
+   タブレット貸出）を並べ、行ごとに「入力済」の□を付ける（復旧後にアプリへ書き写した印）。
+   主観（CE/HD）に合わせて出し分ける。済んでいる項目は ☑ で刷る。データは書き換えない。 */
 function _paperChecklistRows(ns, ds, dat) {
   var rows = [], chk = dat[ns.checks] || {};
   D[ns.dly].forEach(function(it, i) {
@@ -20489,75 +20491,118 @@ function _paperChecklistRows(ns, ds, dat) {
   });
   return rows;
 }
-function paperSheetHTML(ds) {
-  var dat = D.pages[ds] || {}, hd = (_viewMode === 'hd');
-  var box = function(on){ return '<span class="pbx">' + (on ? '✓' : '') + '</span>'; };
-  var wd = '日月火水木金土'.charAt(new Date(ds + 'T00:00:00').getDay());
-  var h = '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>' + escH(fmtJ(ds)) + (hd ? ' HD' : ' CE') + ' 紙用</title><style>'
-    + '@page{size:A4;margin:10mm}body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;font-size:10.5pt;color:#000;margin:0}'
-    + 'h1{font-size:15pt;margin:0 0 2px}h2{font-size:12pt;margin:12px 0 4px;border-bottom:2px solid #000;padding-bottom:2px}'
-    + '.sub{font-size:9pt;color:#333;margin-bottom:6px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:3px 5px;vertical-align:top}'
-    + 'th{background:#eee;font-size:9.5pt;text-align:left}.pbx{display:inline-block;width:12px;height:12px;border:1.5px solid #000;margin-right:5px;vertical-align:-2px;text-align:center;line-height:11px;font-size:10px}'
-    + '.subs{margin:2px 0 0 18px;font-size:9pt}.subs span.it{display:inline-block;margin:0 10px 2px 0}.w-ck{width:70px}.w-sign{width:90px}'
-    + '.memo td{height:22px}.done-txt{color:#555}.foot{margin-top:10px;font-size:8.5pt;color:#333}.two{display:flex;gap:10px}.two>div{flex:1}'
-    + '</style></head><body>';
-  h += '<h1>' + escH(fmtJ(ds)) + '（' + wd + '）' + (hd ? '　🩸 HD' : '　🩺 CE') + '　紙用</h1>';
-  h += '<div class="sub">印刷 ' + escH(new Date().toLocaleString('ja-JP')) + '　／　☑は印刷した時点で済んでいた項目。復旧したら、記入した内容をアプリに入力してください。</div>';
+var PAPER_CSS = '@page{size:A4;margin:9mm}body{font-family:"Hiragino Sans","Yu Gothic","Meiryo",sans-serif;font-size:10pt;color:#000;margin:0}'
+  + '.sheet{page-break-after:always}.sheet:last-child{page-break-after:auto}'
+  + 'h1{font-size:14pt;margin:0 0 2px}h2{font-size:11pt;margin:10px 0 3px;border-bottom:2px solid #000;padding-bottom:1px}'
+  + '.sub{font-size:8.5pt;color:#333;margin-bottom:4px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:2px 4px;vertical-align:top}'
+  + 'th{background:#eee;font-size:9pt;text-align:left;font-weight:700}td{height:17px}'
+  + '.pbx{display:inline-block;width:11px;height:11px;border:1.4px solid #000;margin-right:4px;vertical-align:-2px;text-align:center;line-height:10px;font-size:9px}'
+  + '.subs{margin:2px 0 0 16px;font-size:8.5pt}.subs span.it{display:inline-block;margin:0 9px 1px 0}'
+  + '.c-ck{width:30px;text-align:center}.c-in{width:44px;text-align:center}th.c-in,th.c-ck{white-space:nowrap}.c-nm{width:80px}.c-tm{width:52px}.done-txt{color:#555}'
+  + '.foot{margin-top:8px;font-size:8pt;color:#333}@media screen{body{padding:12px}.sheet{border-bottom:2px dashed #999;margin-bottom:18px;padding-bottom:12px}}';
+var PAPER_BLANK = '&nbsp;';
+function _paperBox(on) { return '<span class="pbx">' + (on ? '✓' : '') + '</span>'; }
+/* 1日分のページ。ds が null なら日付なしの白紙版 */
+function paperDaySheetHTML(ds, hd) {
+  var dat = (ds && D.pages[ds]) || {}, blank = !ds, box = _paperBox, IN = '<td class="c-in">' + box(false) + '</td>';
+  var wd = ds ? '日月火水木金土'.charAt(new Date(ds + 'T00:00:00').getDay()) : '';
+  var title = blank ? '＿＿＿年＿＿月＿＿日（＿＿）' : (fmtJ(ds) + '（' + wd + '）');
+  var h = '<div class="sheet"><h1>' + title + (hd ? '　🩸 HD' : '　🩺 CE') + '　災害用' + (blank ? '（白紙）' : '') + '</h1>';
+  h += '<div class="sub">印刷 ' + escH(new Date().toLocaleString('ja-JP')) + '　／　☑＝印刷した時点で済み。「入力済」は復旧後にアプリへ書き写したら付ける。</div>';
 
   /* 担当表 */
   if (!hd) {
-    h += '<h2>担当表（CE）</h2><table><tr><th style="width:30%">担当枠</th><th>担当者</th><th class="w-ck">済</th><th style="width:30%">メモ</th></tr>';
+    h += '<h2>担当表</h2><table><tr><th style="width:26%">担当枠</th><th>担当者</th><th class="c-ck">休</th><th>メモ</th><th class="c-in">入力済</th></tr>';
     getDutyCfg(dat).forEach(function(s) {
-      var nm = (dat.duties || {})[s.id] || '', ab = dat.dutyAbsent && dat.dutyAbsent[s.id];
-      var absTxt = (ab && typeof ab === 'string' && !nm) ? '（休：' + escH(ab) + '）' : (ab ? '（休）' : '');
-      h += '<tr><td>' + escH(s.label || s.id) + '</td><td>' + escH(nm) + absTxt + '</td><td>' + box(false) + '</td><td></td></tr>';
+      var nm = blank ? '' : ((dat.duties || {})[s.id] || ''), ab = !blank && dat.dutyAbsent && dat.dutyAbsent[s.id];
+      var who = (ab && typeof ab === 'string' && !nm) ? ab : nm;
+      h += '<tr><td>' + escH(s.label || s.id) + '</td><td>' + escH(who) + '</td><td class="c-ck">' + box(!!ab) + '</td><td></td>' + IN + '</tr>';
     });
-    (dat.extra_free || []).forEach(function(f){ if (f && f.name) h += '<tr><td>フリー</td><td>' + escH(f.name) + '</td><td>' + box(false) + '</td><td>' + escH(f.note || '') + '</td></tr>'; });
-    for (var e = 0; e < 2; e++) h += '<tr><td>&nbsp;</td><td></td><td>' + box(false) + '</td><td></td></tr>';
+    if (!blank) (dat.extra_free || []).forEach(function(f){ if (f && f.name) h += '<tr><td>フリー</td><td>' + escH(f.name) + '</td><td class="c-ck">' + box(false) + '</td><td>' + escH(f.note || '') + '</td>' + IN + '</tr>'; });
+    for (var e = 0; e < 2; e++) h += '<tr><td>' + PAPER_BLANK + '</td><td></td><td class="c-ck">' + box(false) + '</td><td></td>' + IN + '</tr>';
     h += '</table>';
   } else {
-    h += '<h2>HD担当表</h2><table><tr><th style="width:15%">役割</th><th style="width:30%">スタッフ</th><th class="w-ck">休</th><th>備考</th></tr>';
+    h += '<h2>HD担当表</h2><table><tr><th style="width:13%">役割</th><th style="width:28%">スタッフ</th><th class="c-ck">休</th><th>備考</th><th class="c-in">入力済</th></tr>';
     var notes = dat.hdNotes || {};
-    buildHdRoster(ds).forEach(function(r) {
-      h += '<tr><td>' + escH(r.role || '—') + '</td><td>' + escH(r.name || '') + '</td><td>' + box(hdIsAbsent(dat, r.name)) + '</td><td>' + escH(notes[r.name] || '') + '</td></tr>';
-    });
-    hdAbsentOffRows(ds, dat).forEach(function(r) {
-      h += '<tr><td>' + escH(r.role || '—') + '</td><td>' + escH(r.name) + '（休み）</td><td>' + box(true) + '</td><td>' + escH(notes[r.name] || '') + '</td></tr>';
-    });
-    for (var e2 = 0; e2 < 2; e2++) h += '<tr><td>&nbsp;</td><td></td><td>' + box(false) + '</td><td></td></tr>';
+    if (!blank) {
+      buildHdRoster(ds).forEach(function(r) {
+        h += '<tr><td>' + escH(r.role || '—') + '</td><td>' + escH(r.name || '') + '</td><td class="c-ck">' + box(hdIsAbsent(dat, r.name)) + '</td><td>' + escH(notes[r.name] || '') + '</td>' + IN + '</tr>';
+      });
+      hdAbsentOffRows(ds, dat).forEach(function(r) {
+        h += '<tr><td>' + escH(r.role || '—') + '</td><td>' + escH(r.name) + '</td><td class="c-ck">' + box(true) + '</td><td>' + escH(notes[r.name] || '') + '</td>' + IN + '</tr>';
+      });
+    } else {
+      HD_DAY_CODES.forEach(function(c){ h += '<tr><td>' + escH(c) + '</td><td></td><td class="c-ck">' + box(false) + '</td><td></td>' + IN + '</tr>'; });
+      h += '<tr><td>準夜</td><td></td><td class="c-ck">' + box(false) + '</td><td></td>' + IN + '</tr>';
+    }
+    for (var e2 = 0; e2 < 2; e2++) h += '<tr><td>' + PAPER_BLANK + '</td><td></td><td class="c-ck">' + box(false) + '</td><td></td>' + IN + '</tr>';
     h += '</table>';
   }
 
-  /* チェックリスト */
-  var rows = _paperChecklistRows(hd ? CL_HD : CL_CE, ds, dat);
-  h += '<h2>' + (hd ? 'HD' : 'CE') + 'チェックリスト（' + rows.length + '項目）</h2><table><tr><th class="w-ck">済</th><th>項目</th><th class="w-sign">実施者</th><th class="w-sign">時刻</th></tr>';
+  /* チェックリスト（白紙版は毎日の項目だけ＋曜日別を書く空行） */
+  var ns = hd ? CL_HD : CL_CE, rows;
+  if (blank) rows = D[ns.dly].map(function(it){ return { t: dlyText(it), done: false, roles: itemRoles(it) }; });
+  else rows = _paperChecklistRows(ns, ds, dat);
+  h += '<h2>' + (hd ? 'HD' : 'CE') + 'チェックリスト</h2><table><tr><th class="c-ck">済</th><th>項目</th><th class="c-nm">実施者</th><th class="c-tm">時刻</th><th class="c-in">入力済</th></tr>';
   rows.forEach(function(r) {
-    h += '<tr><td>' + box(r.done) + '</td><td' + (r.done ? ' class="done-txt"' : '') + '>' + escH(r.t)
-      + (r.roles && r.roles.length ? ' <span style="font-size:8.5pt">［' + escH(r.roles.join('・')) + '］</span>' : '');
+    h += '<tr><td class="c-ck">' + box(r.done) + '</td><td' + (r.done ? ' class="done-txt"' : '') + '>' + escH(r.t)
+      + (r.roles && r.roles.length ? ' <span style="font-size:8pt">［' + escH(r.roles.join('・')) + '］</span>' : '');
     if (r.subs) h += '<div class="subs">' + r.subs.map(function(s){ return '<span class="it">' + box(s.done) + escH(s.n) + '</span>'; }).join('') + '</div>';
-    h += '</td><td></td><td></td></tr>';
+    h += '</td><td></td><td></td>' + IN + '</tr>';
   });
-  if (!rows.length) h += '<tr><td colspan="4">この日のチェック項目はありません</td></tr>';
+  for (var b = 0; b < (blank ? 6 : 2); b++) h += '<tr><td class="c-ck">' + box(false) + '</td><td>' + (blank && b === 0 ? '<span style="font-size:8pt;color:#555">（曜日ごとの項目はここに書く）</span>' : PAPER_BLANK) + '</td><td></td><td></td>' + IN + '</tr>';
   h += '</table>';
 
-  /* 申し送り：未完了のもの＋記入欄 */
-  var memos = memosOf(dat).filter(function(m){ return m && !m.done; });
-  h += '<h2>申し送り</h2>';
-  if (memos.length) {
-    h += '<table><tr><th class="w-ck">済</th><th class="w-sign">記入者</th><th>内容（印刷時点で未完了のもの）</th></tr>';
-    memos.forEach(function(m){ h += '<tr><td>' + box(false) + '</td><td>' + escH(m.name || '') + '</td><td>' + escH(m.text || '').replace(/\n/g, '<br>') + '</td></tr>'; });
-    h += '</table><div style="height:6px"></div>';
+  /* オペ・カテ症例（CEのみ） */
+  if (!hd) {
+    h += '<h2>オペ・カテ症例</h2><table><tr><th style="width:40px">種別</th><th style="width:16%">科</th><th>術式・種別</th><th class="c-tm">入室</th><th class="c-tm">終了</th><th class="c-nm">担当者</th><th class="c-in">入力済</th></tr>';
+    var cases = 0;
+    if (!blank) [['ope','オペ'],['cath','カテ']].forEach(function(k){
+      opsItemsOf(dat, k[0]).filter(opsItemFilled).forEach(function(it){
+        cases++;
+        h += '<tr><td>' + k[1] + '</td><td>' + escH(opsItemDept(it) || '') + '</td><td>' + escH([opsItemCat(it), opsItemName(it)].filter(Boolean).join(' / ')) + (it.cancelled ? '（中止）' : '')
+          + '</td><td>' + escH(opsItemTimeLabel(it)) + '</td><td>' + (it.endTime != null ? escH(schedMinToHM(it.endTime)) : '') + '</td><td>' + escH(opsItemStaff(it).join('・')) + '</td>' + IN + '</tr>';
+      });
+    });
+    for (var c = 0; c < Math.max(4, 8 - cases); c++) h += '<tr><td>' + PAPER_BLANK + '</td><td></td><td></td><td></td><td></td><td></td>' + IN + '</tr>';
+    h += '</table>';
+    /* OC対応 */
+    var od = (!blank && dat.ocData) || {};
+    h += '<h2>オンコール（OC）対応</h2><table><tr><th class="c-nm">担当</th><th style="width:120px">種別</th><th class="c-tm">開始</th><th class="c-tm">退勤</th><th>内容</th><th class="c-in">入力済</th></tr>';
+    h += '<tr><td>' + escH(od.staff || '') + '</td><td>' + box(od.done && ocKind(od) === 'dispatch') + '出動 ' + box(od.done && ocKind(od) === 'leftover') + '残り</td><td>' + escH(od.startTime || '') + '</td><td>' + escH(od.endTime || '') + '</td><td>' + escH(od.note || '') + '</td>' + IN + '</tr>';
+    h += '<tr><td>' + PAPER_BLANK + '</td><td>' + box(false) + '出動 ' + box(false) + '残り</td><td></td><td></td><td></td>' + IN + '</tr></table>';
   }
-  h += '<table class="memo"><tr><th class="w-sign">時刻</th><th class="w-sign">記入者</th><th>内容（新しく書くもの）</th><th class="w-ck">済</th></tr>';
-  for (var k = 0; k < 12; k++) h += '<tr><td></td><td></td><td></td><td>' + box(false) + '</td></tr>';
+
+  /* タブレット貸出（主観ごとの台帳） */
+  var mode = hd ? 'hd' : 'ce';
+  h += '<h2>タブレット貸出・返却</h2><table><tr><th style="width:18%">タブレット</th><th class="c-nm">借りた人</th><th class="c-tm">貸出</th><th class="c-tm">返却</th><th class="c-nm">返却者</th><th class="c-in">入力済</th></tr>';
+  var tl = 0;
+  if (!blank) {
+    tabletCarryOver(ds, mode).forEach(function(o){ tl++; h += '<tr><td>' + escH(o.log.tablet || '') + '</td><td>' + escH(o.log.borrower || '') + '</td><td>' + escH(fmtMD(o.ds) + ' ' + schedMinToHM(o.log.lentAt || 0)) + '</td><td></td><td></td>' + IN + '</tr>'; });
+    tabletLogsOf(dat, mode).forEach(function(l){ tl++; var r = tabletIsReturned(l); h += '<tr><td>' + escH(l.tablet || '') + '</td><td>' + escH(l.borrower || '') + '</td><td>' + escH(schedMinToHM(l.lentAt || 0)) + '</td><td>' + (r ? escH(schedMinToHM(l.returnedAt || 0)) : '') + '</td><td>' + escH(r ? (l.returnedBy || '') : '') + '</td>' + IN + '</tr>'; });
+  }
+  for (var t2 = 0; t2 < Math.max(3, 5 - tl); t2++) h += '<tr><td>' + PAPER_BLANK + '</td><td></td><td></td><td></td><td></td>' + IN + '</tr>';
   h += '</table>';
-  h += '<div class="foot">※ 患者さんを特定できる情報（氏名・ID など）は書かないでください。</div>';
-  h += '</body></html>';
+
+  /* 申し送り：未完了のもの（その日のページにあるもの）＋記入欄 */
+  h += '<h2>申し送り</h2><table><tr><th class="c-tm">時刻</th><th class="c-nm">記入者</th><th>内容</th><th class="c-ck">済</th><th class="c-in">入力済</th></tr>';
+  var memos = blank ? [] : memosOf(dat).filter(function(m){ return m && !m.done; });
+  memos.forEach(function(m){ h += '<tr><td></td><td>' + escH(m.name || '') + '</td><td>' + escH(m.text || '').replace(/\n/g, '<br>') + '</td><td class="c-ck">' + box(false) + '</td><td class="c-in">（既）</td></tr>'; });
+  for (var k = 0; k < (blank ? 10 : 8); k++) h += '<tr><td></td><td></td><td>' + PAPER_BLANK + '</td><td class="c-ck">' + box(false) + '</td>' + IN + '</tr>';
+  h += '</table>';
+  h += '<div class="foot">※ 患者さんを特定できる情報（氏名・ID など）は書かないでください。</div></div>';
   return h;
 }
-function openPaperSheet(ds) {
-  if (!ds || !D.pages[ds]) { toast('連絡表を開いてから押してください', 'warn'); return; }
-  var html = paperSheetHTML(ds);
+/* 刷る文書全体。dsList の各日＋（blank なら）白紙1部 */
+function paperDocHTML(dsList, blank, hd) {
+  var h = '<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>' + (hd ? 'HD' : 'CE') + ' 災害用の紙</title><style>' + PAPER_CSS + '</style></head><body>';
+  dsList.forEach(function(ds){ h += paperDaySheetHTML(ds, hd); });
+  if (blank) h += paperDaySheetHTML(null, hd);
+  return h + '</body></html>';
+}
+/* 互換：1日分の文書（以前の呼び出し口） */
+function paperSheetHTML(ds) { return paperDocHTML([ds], false, _viewMode === 'hd'); }
+function _paperPrint(html) {
   var w = null;
   try { w = window.open('', '_blank'); } catch (e) {}
   if (w && w.document) {
@@ -20571,6 +20616,28 @@ function openPaperSheet(ds) {
   document.body.appendChild(fr);
   var d = fr.contentWindow.document; d.open(); d.write(html); d.close();
   setTimeout(function(){ try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) {} setTimeout(function(){ fr.remove(); }, 2000); }, 300);
+}
+/* 「📄 紙用」：災害用セット（開いている日から3日分＋白紙）か、この日だけかを選んで刷る */
+function openPaperSheet(ds) {
+  if (!ds) { toast('連絡表を開いてから押してください', 'warn'); return; }
+  var hd = (_viewMode === 'hd');
+  var d2 = getNextDs(ds), d3 = getNextDs(d2);
+  var old = document.getElementById('paper-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'paper-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '400px';
+  md.innerHTML = '<h3 style="margin:0 0 6px">📄 紙用（' + (hd ? '🩸 HD' : '🩺 CE') + '）</h3>'
+    + '<div style="font-size:12px;color:var(--txt2);line-height:1.6;margin-bottom:12px">停電・回線断のときに紙で記録するための様式です。災害のときは、電源と院内ネットが生きているうちに<b>災害用セット</b>をまとめて刷ってください。</div>'
+    + '<button type="button" class="btn btn-p" id="paper-set" style="width:100%;margin-bottom:8px">🆘 災害用セット（' + fmtMD(ds) + '〜' + fmtMD(d3) + 'の3日分＋白紙）</button>'
+    + '<button type="button" class="btn btn-g" id="paper-one" style="width:100%;margin-bottom:8px">' + fmtMD(ds) + ' の1日分だけ</button>'
+    + '<button type="button" class="btn btn-g" id="paper-blank" style="width:100%;margin-bottom:12px">白紙（日付なし）だけ</button>'
+    + '<div style="text-align:right"><button type="button" class="btn btn-g btn-sm" id="paper-cancel">閉じる</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  var go = function(list, blank){ ov.remove(); _paperPrint(paperDocHTML(list, blank, hd)); writeLog('紙用を印刷', (hd ? 'HD ' : 'CE ') + (list.length ? list.map(fmtMD).join('・') : '') + (blank ? '＋白紙' : '')); };
+  document.getElementById('paper-set').onclick = function(){ go([ds, d2, d3], true); };
+  document.getElementById('paper-one').onclick = function(){ go([ds], false); };
+  document.getElementById('paper-blank').onclick = function(){ go([], true); };
+  document.getElementById('paper-cancel').onclick = function(){ ov.remove(); };
 }
 
 /* ===== 「休」と人員配置の休み枠の連動 =====
