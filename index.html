@@ -671,6 +671,8 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
 @media screen{body.disaster-on .paper-btn{display:inline-flex!important}}
 #offline-mode-bar{position:fixed;left:0;right:0;bottom:0;z-index:300;background:var(--rd);color:var(--on-ac);font-size:12px;font-weight:700;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px));text-align:center}
 body.offline-mode .cbar{display:none!important}
+body.offline-trial #offline-mode-bar{background:var(--pu)}
+body.offline-mode{--cbar-h:56px} /* 消し込みバーの代わりに下の帯が出るので、ページの末尾と下端のボタンをその分だけ上げる */
 /* HD担当表の欠勤マーク（CE担当カードの .dc.absent と同じ色づかい） */
 .hdr-absent-lbl{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-size:11px;font-weight:400;color:var(--rd);cursor:pointer;vertical-align:middle}
 .hdr-absent-lbl input{margin:0;accent-color:var(--rd)}
@@ -2606,6 +2608,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
       <div class="sp" style="padding-bottom:calc(40px + var(--cbar-h, 0px))">
         <div class="pt" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
           <span>📘 使い方ガイド</span>
+          <button class="btn btn-g btn-sm" onclick="startDisasterDrill()" title="災害でネットが止まったときの手順を練習します（記録は残りません）">🧪 災害モードの練習</button>
           <button class="btn btn-g btn-sm" onclick="openChangelogPublic()">📝 変更履歴</button>
         </div>
         <div id="guide-body"></div>
@@ -3466,7 +3469,7 @@ function init() {
   loadD();
   applyDisasterUi(); /* 管理者が「災害対応中」をオンにしていれば、起動時から紙用ボタンを出す */
   setInterval(function(){ offlineSaveCopy(false); }, 60 * 1000); /* 災害用の控え：10分に1回まで（関数側で間引く） */
-  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') offlineSaveCopy(Date.now() - _offlineSavedAt > 60000); });
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') { if (_offlineMode) offlineRecordNow(); else offlineSaveCopy(Date.now() - _offlineSavedAt > 60000); } });
   setInterval(function(){ autoSaveSnapshot('定期（30分）'); }, 30*60*1000);
   setInterval(checkTimeNotifs, 60*1000); /* 1分毎に通知チェック */
   /* 1時間ごとにFirebaseスナップショットも取る（日次だけでは粒度が粗すぎるため） */
@@ -3474,7 +3477,9 @@ function init() {
     if (FB_ON && fbDB && currentUser && Object.keys(D.pages||{}).length > 0)
       saveFirebaseSnapshot('定期（1時間）', true);
   }, 60*60*1000);
-  if (!isPreview) fbInit();
+  var drill = false; try { drill = sessionStorage.getItem('ce2_drill') === '1'; } catch (e) {}
+  if (drill) setTimeout(function(){ openOfflineUnlock(true); }, 300); /* 練習：Firebase につながずに災害モードの手順だけを通す */
+  else if (!isPreview) fbInit();
   /* タブの出し分けを起動時にも必ず1回通す。Firebase運用ではログイン完了時にも呼ばれるが、
      _viewMode（CE/HD主観）は localStorage から init 冒頭で復元されるため、ここで評価しないと
      HDモードのまま再読み込みしたときに担当表が残りHD集計が出ない状態になる。 */
@@ -4017,7 +4022,7 @@ function fbInit() {
             }
             setSyncLbl('同期済');
             if (wasFirstLoad) autoSaveSnapshot('起動時'); /* Firebase最新データ受信後にローカルBKを取る */
-            if (wasFirstLoad) setTimeout(function(){ offlineSaveCopy(true); }, 4000); /* 災害用の控え（暗号化）を端末に */
+            if (wasFirstLoad) setTimeout(function(){ offlineApplyPending().then(function(){ disasterConflictNotify(); offlineSaveCopy(true); }); }, 4000); /* 災害モード中の記録があれば反映してから、災害用の控え（暗号化）を端末に */
             if (!_fbSnapDone && shouldTakeDailySnapshot()) { _fbSnapDone=true; saveFirebaseSnapshot('日次自動', true); }
             updateMonthSize();
             checkAutoDelTiming();
@@ -4185,7 +4190,7 @@ function resetIdleTimer() {
   _idleTimer = setTimeout(function() {
     var warn2 = document.getElementById('idle-warn');
     if (warn2) warn2.classList.remove('show');
-    if (_offlineMode) { location.reload(); return; } /* 災害モードは再読み込みで閉じる（控えの中身を画面に残さない） */
+    if (_offlineMode) { offlineRecordNow().then(function(){ location.reload(); }); return; } /* 災害モードは記録を書き終えてから再読み込みで閉じる（控えの中身を画面に残さない） */
     writeLog('自動ログアウト', '5分間の無操作により自動ログアウト');
     firebase.auth().signOut();
   }, IDLE_TIMEOUT);
@@ -4975,6 +4980,13 @@ function showSyncOverlay(){
     _syncCard('⏳ 時間がかかっています',
       _fbConnected ? '通信が混み合っているようです。このまま待つか、再読み込みしてください'
                    : '電波が届いていないようです。電波の良い場所で待つか、再読み込みしてください', true);
+    /* ログインしたままネットが全部止まった端末（災害時）：ログイン画面を通らないので、ここからも控えを開けるようにする */
+    if (!_fbConnected && offlineSupported()) _ofGet().then(function(rec){
+      var card = document.querySelector('#sync-ov .sync-card'); if (!rec || !card || document.getElementById('sync-offline-btn')) return;
+      var b = document.createElement('button'); b.id = 'sync-offline-btn'; b.type = 'button'; b.className = 'btn btn-g btn-sm'; b.style.marginTop = '6px';
+      b.textContent = '📴 オフラインで開く（災害時）'; b.onclick = function(){ openOfflineUnlock(); };
+      card.appendChild(b);
+    });
   }, SYNC_SLOW_MS);
 }
 function hideSyncOverlay(done){
@@ -6071,13 +6083,20 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/21-138';
+var APP_VERSION = 'Ver.2026/10/21-139';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/21-139', date:'2026-10-21', title:'災害モードで記録できるようにしました', items:[
+    {t:'new', notify:true, d:'📴 災害モードで、チェックリスト・申し送り・担当表（休を含む）・オペ・カテ症例・オンコール・タブレット貸出を記録できるようになりました。記録は端末に暗号化して残り、ネットが戻って普通にログインすると自動で送られます'},
+    {t:'new', notify:true, d:'📴 ログインしたままネットが止まった端末でも、「同期中…」の画面から「オフラインで開く（災害時）」を選べます'},
+    {t:'new', notify:true, d:'🧪 使い方タブの「災害モードの練習」で、本番と同じ手順（PIN→名前→記録）を試せます。練習中の記録は残りません'},
+    {t:'new', notify:true, admin:true, d:'⚠ 災害モード中の記録と、その間にほかで入った記録が同じ所で違ったときは、セキュリティ管理に「食い違い」として並びます。1件ずつ「今のまま」か「災害時の記録にする」を選べます'},
+    {t:'fix', admin:true, d:'「災害対応中」をオフにすると、災害モードのPINの設定まで消えていたのを直しました'}
+  ]},
   { ver:'Ver.2026/10/21-138', date:'2026-10-21', title:'ネットが止まっても見られるようにしました（災害モード）', items:[
-    {t:'new', notify:true, d:'📴 ネットが全部止まったときでも、ログイン画面の「オフラインで開く（災害時）」から、部署のPINと自分の名前でその端末に残した控えを見られるようにしました（見るだけ。記録は紙用で）'},
+    {t:'new', notify:true, d:'📴 ネットが全部止まったときでも、ログイン画面の「オフラインで開く（災害時）」から、部署のPINと自分の名前でその端末に残した控えを開けるようにしました'},
     {t:'new', notify:true, admin:true, d:'🔑 セキュリティ管理で災害モードのPIN（数字4〜6桁）を決められます。決めると、ログインした端末が10分ごとに控えを暗号化して残します'}
   ]},
   { ver:'Ver.2026/10/19-137', date:'2026-10-19', title:'災害用の紙のセットを印刷できるようにしました', items:[
@@ -10360,7 +10379,7 @@ var _savePageQueue   = {};    /* saveDPage() 書き込み中に追加された d
 var _savePageCallbacks = {};  /* dsごとの保存完了通知 */
 
 function saveD(onComplete) {
-  if (_offlineMode) { if (onComplete) onComplete(false, '災害モード（見るだけ）'); return; } /* 控えの中身を端末に平文で書かない */
+  if (_offlineMode) { offlineRecordSoon(); if (onComplete) onComplete(true); return; } /* 災害モードは操作ログ（暗号化）にだけ残す。控えの中身を端末に平文で書かない */
   if(_mstEntries.length && curTab==='master') applyMstGroups();
   /* D.manualのキーにFirebase禁止文字があると全体が失敗するため事前に修正 */
   sanitizeManualKeys();
@@ -10567,7 +10586,7 @@ function _doFbWrite(data, attempt, callbacks) {
    には一切手を入れず、専用の状態変数（_savePageWriting/_savePageQueue）で
    直列化する。 */
 function saveDPage(ds, onComplete) {
-  if (_offlineMode) { if (onComplete) onComplete(false, '災害モード（見るだけ）'); return; }
+  if (_offlineMode) { offlineRecordSoon(); if (onComplete) onComplete(true); return; }
   /* localStorageへの全体書き込みはsaveDと同じ（オフライン/フォールバック対応） */
   sanitizeManualKeys();
   sanitizeEduProgressKeys();
@@ -10684,7 +10703,7 @@ function _doFbPageWrite(ds, attempt, callbacks) {
    全体保存が進行中・予約中なら saveD() に任せる（古い全体スナップショットが後から着いて、この変更を
    巻き戻すのを防ぐ）。送信に失敗したら saveD() で全体を送り直す。 */
 function saveDPaths(paths) {
-  if (_offlineMode) return;
+  if (_offlineMode) { offlineRecordSoon(); return; }
   sanitizeManualKeys();
   sanitizeEduProgressKeys();
   try { localStorage.setItem('ce2', JSON.stringify(D)); } catch(e) {}
@@ -10717,7 +10736,7 @@ window.addEventListener('beforeunload', function(e) {
 /* ===== LOCK ===== */
 function lk(id) { return !!(D.lk && D.lk[id]); }
 function can(id) {
-  if (_offlineMode) return false; /* 災害モード（オフライン）は見るだけ */
+  if (_offlineMode) return OFFLINE_REC_LOCKS.indexOf(id) >= 0; /* 災害モードは決めた操作だけ記録できる（ほかは見るだけ） */
   if (isAdmin) return true;
   if (!lk(id)) return true;
   return !!(currentUser && currentUser.perms && currentUser.perms[id]);
@@ -16709,7 +16728,7 @@ function openGM() {
   }
 }
 function closeGM() { document.getElementById('modal-gm').classList.add('hd'); }
-function openNM() { if(!can('pg')){toast('🔒 管理者のみ可能です', 'warn');return;} document.getElementById('modal-nm').classList.remove('hd'); }
+function openNM() { if(!can('pg')&&!_offlineMode){toast('🔒 管理者のみ可能です', 'warn');return;} document.getElementById('modal-nm').classList.remove('hd'); }
 function closeNM() { document.getElementById('modal-nm').classList.add('hd'); }
 
 /* Pool Staff Modal */
@@ -16920,6 +16939,7 @@ function doGenM() {
   closeGM(); toast('✅ '+y+'年'+m+'月分 '+cnt+'枚の連絡表を生成しました！', 'ok');
 }
 function doAddPage() {
+  if(!can('pg')&&!_offlineMode){toast('🔒 管理者のみ可能です', 'warn');return;} /* 災害モードは作るだけ許す（削除・一括生成は不可） */
   var ds=document.getElementById('nm-date').value; if(!ds)return;
   if(!D.pages[ds]) D.pages[ds]={duties:{},phsNums:{},checks:{},memo:'',ops:{},ocData:{}};
   _autoSetOcForDay(ds);
@@ -17169,7 +17189,7 @@ function pageNav(dir) {
   if (!curDs) return;
   var target = dir < 0 ? getPrevDs(curDs) : getNextDs(curDs);
   if (D.pages[target]) { pageNavGo(target, dir); return; }
-  if (can('pg')) {
+  if (can('pg') || _offlineMode) {
     var nm = document.getElementById('nm-date'); if (nm) nm.value = target;
     openNM();
     return;
@@ -20213,7 +20233,7 @@ function renderPage(ds) {
   h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
   if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="margin-left:auto;font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">🎲 自動割り当て</button>';
   h+='</div>';
-  if(dlk)h+='<div class="ln">'+(_offlineMode?'📴 災害モード（見るだけ）のため変更できません':'🔒 担当割り当ては管理者によってロックされています')+'</div>';
+  if(dlk)h+='<div class="ln">'+(_offlineMode?'📴 災害モードでは変更できません':'🔒 担当割り当ては管理者によってロックされています')+'</div>';
   h+='<div class="dg" id="dg"></div>';
 
   /* OC担当（担当ロックに連動） */
@@ -20257,7 +20277,7 @@ function renderPage(ds) {
 
   /* 業務内容 */
   h+='<div class="st">🏥 当日業務内容'+(olk?'<span class="slb lk">🔒</span>':'')+'</div>';
-  if(olk)h+='<div class="ln">'+(_offlineMode?'📴 災害モード（見るだけ）のため変更できません':'🔒 業務内容は管理者によってロックされています')+'</div>';
+  if(olk)h+='<div class="ln">'+(_offlineMode?'📴 災害モードでは変更できません':'🔒 業務内容は管理者によってロックされています')+'</div>';
   /* 業務カードコントローラー（ロック時以外は全ユーザーに表示） */
   if(!olk){
     var activeCards2 = dat.ops_cards;
@@ -20564,7 +20584,11 @@ function renderDisasterCfg() {
     + '<div style="display:flex;gap:6px;flex-wrap:wrap"><input type="password" id="dpin-1" inputmode="numeric" maxlength="6" autocomplete="new-password" class="fi" placeholder="新しいPIN" style="width:9em;margin:0">'
     + '<input type="password" id="dpin-2" inputmode="numeric" maxlength="6" autocomplete="new-password" class="fi" placeholder="もう一度" style="width:9em;margin:0">'
     + '<button type="button" class="btn btn-p btn-sm" onclick="saveDisasterPinFromUi()">' + (c.wk ? 'PINを変える' : 'PINを決める') + '</button></div>'
-    + '<div style="font-size:11px;color:var(--txt3);margin-top:4px">この端末の控え：<span id="dpin-copy">確認中…</span></div></div>';
+    + '<div style="font-size:11px;color:var(--txt3);margin-top:4px">この端末の控え：<span id="dpin-copy">確認中…</span></div>'
+    + '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--txt2)"><button type="button" class="btn btn-g btn-sm" onclick="startDisasterDrill()">🧪 練習する</button>年1回5分。本番と同じ手順（PIN→名前→記録）を試せます。記録は残りません。</div></div>'
+    + disasterConflictsHTML();
+  /* 食い違いのボタンは onclick 文字列に値を埋め込まず、data 属性から読む（ページの中身は職員なら書けるため） */
+  el.querySelectorAll('.dc-res').forEach(function(b){ b.onclick = function(){ disasterConflictResolve(b.getAttribute('data-ds'), b.getAttribute('data-id'), b.getAttribute('data-adopt') === '1'); }; });
   _ofGet().then(function(rec){ var s = document.getElementById('dpin-copy'); if (s) s.textContent = rec ? (new Date(rec.savedAt).toLocaleString('ja-JP') + ' 時点') : 'まだありません'; });
 }
 function saveDisasterPinFromUi() {
@@ -20588,7 +20612,7 @@ function setDisasterOn(on) {
    ネットが全部止まると Firebase にログインできず、データも受け取れない。そこで、ログイン中の端末は
    データ（D）の控えを10分ごとに暗号化して端末（IndexedDB 'cenote-offline'）に残しておき、
    ネットが無いときはログイン画面の「📴 オフラインで開く」→ 部署共通のPIN → 自分の名前を選ぶ、で
-   その控えを開く。段2では見るだけ（記録は段3の操作ログで）。2026-10-21 合意、正本は Obsidian
+   その控えを開く。記録は下の操作ログ（段3）で残し、復旧後のログインで自動で送る（段4）。2026-10-21 合意、正本は Obsidian
    60_アプリ開発/2026-10-21_CENOTE災害モード設計.md。
    鍵の作り：データ用の鍵 K（ランダム）で控えを暗号化する。K は D.disasterCfg.k にあり（/data を読める
    職員なら見られる＝D そのものと同じ扱い）、控えには入れない。控えには K を PIN から作った鍵で包んだもの
@@ -20676,10 +20700,12 @@ function offlineUnlock(pin) {
     return _ofPinKey(pin, rec.salt).then(function(pk){
       return crypto.subtle.decrypt({ name: 'AES-GCM', iv: _ofUnb64(p[0]) }, pk, _ofUnb64(p[1]));
     }).then(function(kRaw){
-      return crypto.subtle.importKey('raw', kRaw, 'AES-GCM', false, ['decrypt']);
+      return crypto.subtle.importKey('raw', kRaw, 'AES-GCM', false, ['encrypt', 'decrypt']);
     }, function(){ throw new Error('PINが違います'); }).then(function(k){
-      return crypto.subtle.decrypt({ name: 'AES-GCM', iv: _ofUnb64(rec.iv) }, k, _ofUnb64(rec.ct));
-    }).then(function(plain){ return { data: JSON.parse(new TextDecoder().decode(plain)), rec: rec }; });
+      return crypto.subtle.decrypt({ name: 'AES-GCM', iv: _ofUnb64(rec.iv) }, k, _ofUnb64(rec.ct)).then(function(plain){
+        return { data: JSON.parse(new TextDecoder().decode(plain)), rec: rec, key: k };   /* key は操作ログの暗号化に使う（メモリだけ） */
+      });
+    });
   });
 }
 /* ログイン画面の「📴 オフラインで開く」：この端末に控えがあるときだけ出す */
@@ -20692,24 +20718,26 @@ function refreshOfflineOpenBtn() {
     if (s) s.textContent = rec ? (new Date(rec.savedAt).toLocaleString('ja-JP') + ' 時点の控え') : '';
   });
 }
-function openOfflineUnlock() {
+function openOfflineUnlock(trial) {
   var old = document.getElementById('offline-ov'); if (old) old.remove();
   var ov = document.createElement('div'); ov.id = 'offline-ov'; ov.className = 'ov'; ov.style.zIndex = '10001';
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '360px';
-  md.innerHTML = '<h3 style="margin:0 0 6px">📴 オフラインで開く（災害時）</h3>'
-    + '<div style="font-size:12px;line-height:1.7;color:var(--txt2);margin-bottom:10px">ネットが使えないときに、この端末に残した控えを<b>見るだけ</b>で開きます。部署で決めたPIN（数字4〜6桁）を入れてください。</div>'
+  md.innerHTML = (trial ? '<h3 style="margin:0 0 6px">🧪 災害モードの練習</h3>'
+      + '<div style="font-size:12px;line-height:1.7;color:var(--txt2);margin-bottom:10px">本番と同じ手順で開きます。<b>練習中に入れた記録はどこにも残りません</b>（閉じると消えます）。部署で決めたPIN（数字4〜6桁）を入れてください。</div>'
+    : '<h3 style="margin:0 0 6px">📴 オフラインで開く（災害時）</h3>'
+      + '<div style="font-size:12px;line-height:1.7;color:var(--txt2);margin-bottom:10px">ネットが使えないときに、この端末に残した控えを開きます。チェック・申し送り・担当・オペカテ・OC・タブレットは記録でき、ネットが戻って普通にログインすると自動で送られます。部署で決めたPIN（数字4〜6桁）を入れてください。</div>')
     + '<input type="password" id="offline-pin" inputmode="numeric" autocomplete="off" maxlength="6" class="fi" placeholder="PIN" style="width:100%;box-sizing:border-box;font-size:18px;letter-spacing:6px;text-align:center">'
     + '<div id="offline-err" style="color:var(--rd);font-size:12px;min-height:18px;margin-top:6px"></div>'
     + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px"><button type="button" class="btn btn-g" id="offline-cancel">やめる</button><button type="button" class="btn btn-p" id="offline-ok">開く</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
   var inp = document.getElementById('offline-pin'), err = document.getElementById('offline-err'), ok = document.getElementById('offline-ok');
   inp.focus();
-  document.getElementById('offline-cancel').onclick = function(){ ov.remove(); };
+  document.getElementById('offline-cancel').onclick = function(){ ov.remove(); if (trial) endDisasterDrill(); };
   var go = function(){
     if (_offlineFail >= 5 && Date.now() < (openOfflineUnlock._waitUntil || 0)) { err.textContent = '何度も違ったため、少し待ってから入れてください'; return; }
     ok.disabled = true; err.textContent = '確認中…';
     offlineUnlock(inp.value).then(function(r){
-      _offlineFail = 0; ov.remove(); offlinePickName(r);
+      _offlineFail = 0; ov.remove(); r.trial = !!trial; offlinePickName(r);
     }).catch(function(e){
       ok.disabled = false; inp.value = ''; inp.focus();
       _offlineFail++; if (_offlineFail >= 5) openOfflineUnlock._waitUntil = Date.now() + 30000;
@@ -20719,7 +20747,7 @@ function openOfflineUnlock() {
   ok.onclick = go;
   inp.onkeydown = function(e){ if (e.key === 'Enter') go(); };
 }
-/* 開いた人の名前を選ぶ（段3でオフライン中の記録に「誰が」を残すため。今は画面の表示だけ） */
+/* 開いた人の名前を選ぶ（災害モード中の記録に「誰が」を残すため） */
 function offlinePickName(r) {
   var names = (r.data.stf || []).filter(function(n){ return !(r.data.stfHidden && r.data.stfHidden[n]); });
   var ov = document.createElement('div'); ov.id = 'offline-name-ov'; ov.className = 'ov'; ov.style.zIndex = '10001';
@@ -20735,24 +20763,406 @@ function offlinePickName(r) {
     ov.remove(); enterOfflineMode(r, v);
   };
 }
-/* 見るだけで開く。保存・Firebase への書き込み・操作ログはすべて止め（saveD 等と writeLog が _offlineMode を見る）、
-   can() は常に false（ボタンが押せない）。終わるときは再読み込みする（手元に控えの中身を残さない） */
+/* 災害モードで開く。Firebase への書き込みと /logs はすべて止め（saveD 等と writeLog が _offlineMode を見る）、
+   can() は OFFLINE_REC_LOCKS だけ許す。前回この端末で記録した操作ログがあれば、控えに当てはめ直してから開く
+   （端末を閉じても続きから記録できる）。終わるときは再読み込みする（手元に控えの中身を残さない） */
 function enterOfflineMode(r, name) {
+  /* ログインしたまま開いた場合も、Firebase とのやり取りを止める（あとで回線が戻って受信が届くと、
+     控えと記録の比べ直しに他の人の変更が混ざるため。終わる＝再読み込みで元に戻る） */
+  try { if (fbDB) fbDB.goOffline(); } catch (e) {}
+  hideSyncOverlay(false);
   Object.keys(r.data).forEach(function(k){ D[k] = r.data[k]; });
-  _offlineMode = true; _offlineUser = name;
+  _offlineMode = true; _offlineUser = name; _offlineTrial = !!r.trial; _offlineKey = r.key || null; _offlineOps = [];
   isAdmin = false;
-  currentUser = { uid: 'offline', email: '', displayName: name, isAdmin: false, perms: {} };
-  document.getElementById('login-ov').classList.add('hd');
-  document.body.classList.add('offline-mode');
-  _disasterLocal = true; applyDisasterUi();
-  var bar = document.createElement('div'); bar.id = 'offline-mode-bar'; bar.setAttribute('role', 'status');
-  bar.innerHTML = '📴 災害モード（見るだけ）：' + escH(name) + '／' + escH(new Date(r.rec.savedAt).toLocaleString('ja-JP')) + ' 時点の控え'
-    + ' <button type="button" class="btn btn-g btn-sm" onclick="location.reload()" style="margin-left:8px;padding:1px 8px">終わる</button>';
-  document.body.appendChild(bar);
-  try { updateTabVisibility(); } catch (e) {}
-  renderCal(); openDefaultPage();
-  resetIdleTimer();
-  toast('見るだけで開きました。記録は「📄 紙用」で刷った紙にしてください', 'warn', 7000);
+  currentUser = { uid: (D.stfLinks && D.stfLinks[name]) || ('offline_' + _ofDevId()), email: '', displayName: name, isAdmin: false, perms: {} };
+  var ready = (_offlineTrial || !_offlineKey) ? Promise.resolve(null) : _ofGetKey('ops').then(function(rec){
+    return rec && rec.n ? _ofDecJson(_offlineKey, rec).catch(function(){ return null; }) : null;
+  });
+  return ready.then(function(prev){
+    if (prev && prev.ops && prev.ops.length) {
+      _offlineOps = prev.ops;
+      _offlineOps.forEach(function(op){ ofApply(D, op, true); });
+    }
+    _offlineBase = JSON.parse(JSON.stringify(D.pages || {}));
+    document.getElementById('login-ov').classList.add('hd');
+    document.body.classList.add('offline-mode');
+    if (_offlineTrial) document.body.classList.add('offline-trial');
+    _disasterLocal = true; applyDisasterUi();
+    var bar = document.createElement('div'); bar.id = 'offline-mode-bar'; bar.setAttribute('role', 'status');
+    bar.innerHTML = (_offlineTrial ? '🧪 練習中（記録は残りません）：' : '📴 災害モード：') + escH(name) + '／' + escH(new Date(r.rec.savedAt).toLocaleString('ja-JP')) + ' 時点の控え'
+      + '／この端末の記録 <b id="offline-bar-n">' + _offlineOps.length + '</b>件'
+      + ' <button type="button" class="btn btn-g btn-sm" onclick="offlineEnd()" style="margin-left:8px;padding:1px 8px">終わる</button>';
+    document.body.appendChild(bar);
+    try { updateTabVisibility(); } catch (e) {}
+    renderCal(); openDefaultPage();
+    resetIdleTimer();
+    toast(_offlineTrial ? '練習モードで開きました。チェックや申し送りを試してみてください（残りません）'
+      : (_offlineOps.length ? '前回の記録 ' + _offlineOps.length + '件を当てはめて開きました。' : '災害モードで開きました。') + 'チェック・申し送り・担当・オペカテ・OC・タブレットを記録できます', 'warn', 8000);
+  });
+}
+/* 終わる：記録を書き終えてから再読み込み（練習なら確認なしで捨てる） */
+function offlineEnd() {
+  var n = _offlineOps.length;
+  if (_offlineTrial) { endDisasterDrill(); return; }
+  offlineRecordNow().then(function(){
+    if (!confirm('災害モードを終わります。' + (n || _offlineOps.length ? '\nこの端末の記録 ' + _offlineOps.length + '件は端末に残り、ネットが戻ってログインすると自動で送られます。' : ''))) return;
+    location.reload();
+  });
+}
+
+/* ===== 災害モード段3・4：操作ログ（比べる・当てはめる） =====
+   災害モード中は、各機能が保存を呼んだ瞬間に「直前の状態」と比べて変わった所だけを操作として残す（ofDiff）。
+   機能ごとに作り直さず、ここ1か所で日ページの決まった欄（OF_REC_FIELDS）だけを拾う。
+   復旧後は1件ずつ今の記録に当てはめる（ofApply）：その間に誰も同じ所を変えていなければ反映、
+   すでに同じ値なら何もしない、別の値に変わっていれば「食い違い」として管理者に回す。
+   経路の1段は文字（オブジェクトのキー）か {k:'…'}（配列の中の1件。申し送り・タブレット貸出・症例行を
+   中身で特定する——位置で特定すると、ほかの人の追加や削除で別の件を指してしまう）。 */
+var OF_REC_FIELDS = { checks:1, hdChecks:1, subChecks:1, devChecks:1, memos:1, hdMemos:1,
+  duties:1, dutyAbsent:1, hdAbsent:1, offFrom:1, placement:1, extra_free:1, dutyNotes:1, hdNotes:1,
+  ops:1, ops_cards:1, ocData:1, tabletLogs:1, hdTabletLogs:1 };
+/* チェック欄は「項目の位置」がそのまま意味を持つので、位置ごとに比べる（全体を1つの値にすると別の項目のチェックと食い違う） */
+var OF_POSITIONAL = { checks:1, hdChecks:1 };
+function _ofIsObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+/* 比べるときの形をそろえる：無い・空文字・false・空のオブジェクト/配列は「無い」と同じ、キーの順は並べ替える
+   （Firebase は空を保存せずキーを名前順で返すので、端末の値と受信した値で見た目の形が違う） */
+function _ofCanon(v) {
+  if (v === undefined || v === null || v === '' || v === false) return null;
+  if (Array.isArray(v)) { var a = v.map(_ofCanon); while (a.length && a[a.length - 1] === null) a.pop(); return a.length ? a : null; }
+  if (typeof v === 'object') {
+    var o = {}, any = false;
+    Object.keys(v).sort().forEach(function(k){ var c = _ofCanon(v[k]); if (c !== null) { o[k] = c; any = true; } });
+    return any ? o : null;
+  }
+  return v;
+}
+function _ofNorm(v) { return _ofCanon(v) === null ? null : v; }
+function _ofSame(a, b) { return JSON.stringify(_ofCanon(a)) === JSON.stringify(_ofCanon(b)); }
+/* ここから先は1つの値として扱う（中の欄ごとに分けない）：人員配置の1人分。名簿を固定すると全員の全欄が一度に書かれ、
+   欄ごとにすると1人10件の操作になって食い違いの確認が読めなくなるため */
+function _ofAtom(path) { return path.length === 6 && path[2] === 'placement' && path[3] === 'people'; }
+function _ofKeyOf(el) {
+  if (!_ofIsObj(el)) return null;
+  if (el.id) return 'id:' + el.id;
+  if (el._rid) return 'r:' + el._rid;
+  if (el.ts && el.uid) return 'm:' + el.ts + '_' + el.uid;
+  return null;
+}
+function _ofList(v) { return Array.isArray(v) ? v : (_ofIsObj(v) ? Object.keys(v).sort(function(a, b){ return a - b; }).map(function(k){ return v[k]; }) : []); }
+function _ofPosMap(v) { var m = {}; if (Array.isArray(v)) v.forEach(function(x, i){ if (x != null) m[String(i)] = x; }); else if (_ofIsObj(v)) Object.keys(v).forEach(function(k){ if (v[k] != null) m[k] = v[k]; }); return m; }
+/* 中身で特定できる配列か（null 以外の全件に印があり、重複が無い） */
+function _ofKeyed(arr) {
+  var seen = {}, any = false;
+  for (var i = 0; i < arr.length; i++) {
+    if (arr[i] == null) continue;
+    var k = _ofKeyOf(arr[i]); if (!k || seen[k]) return false;
+    seen[k] = 1; any = true;
+  }
+  return any;
+}
+/* a（前）と b（後）の違いを out に積む。path は ['pages', ds, 欄, ...] */
+function ofDiff(a, b, path, out) {
+  if (_ofSame(a, b)) return;
+  if (_ofAtom(path)) { out.push({ kind: 'set', path: path, before: _ofNorm(a), after: _ofNorm(b) }); return; }
+  if (path.length === 3 && OF_POSITIONAL[path[2]]) { _ofDiffObj(_ofPosMap(a), _ofPosMap(b), path, out); return; }
+  /* Firebase は配列を数字キーのオブジェクトで返すことがあるので、片方が配列ならもう片方もそう読む */
+  var isArr = Array.isArray(a) || Array.isArray(b) || (_ofIsObj(a) && _ofLooksArray(a) && (b == null || Array.isArray(b))) || (_ofIsObj(b) && _ofLooksArray(b) && (a == null || Array.isArray(a)));
+  if (isArr) {
+    var A = _ofList(a), B = _ofList(b);
+    var okA = !A.filter(function(x){ return x != null; }).length || _ofKeyed(A), okB = !B.filter(function(x){ return x != null; }).length || _ofKeyed(B);
+    if ((A.length || B.length) && okA && okB) {
+      var am = {}, bm = {};
+      A.forEach(function(x){ if (x != null) am[_ofKeyOf(x)] = x; });
+      B.forEach(function(x){ if (x != null) bm[_ofKeyOf(x)] = x; });
+      Object.keys(bm).forEach(function(k){
+        if (!(k in am)) out.push({ kind: 'add', path: path.concat([{ k: k }]), after: bm[k] });
+        else ofDiff(am[k], bm[k], path.concat([{ k: k }]), out);
+      });
+      Object.keys(am).forEach(function(k){ if (!(k in bm)) out.push({ kind: 'remove', path: path.concat([{ k: k }]), before: am[k] }); });
+      return;
+    }
+    out.push({ kind: 'set', path: path, before: _ofNorm(a), after: _ofNorm(b) });
+    return;
+  }
+  /* 片方が無くてもオブジェクトなら中まで降りる（新しく作った日ページ・初めて入れた欄も、項目ごとの操作にする） */
+  if ((_ofIsObj(a) || a == null) && (_ofIsObj(b) || b == null)) { _ofDiffObj(a || {}, b || {}, path, out); return; }
+  out.push({ kind: 'set', path: path, before: _ofNorm(a), after: _ofNorm(b) });
+}
+function _ofLooksArray(o) { var ks = Object.keys(o); return ks.length > 0 && ks.every(function(k){ return /^\d+$/.test(k); }); }
+function _ofDiffObj(a, b, path, out) {
+  var keys = {};
+  Object.keys(a || {}).forEach(function(k){ keys[k] = 1; });
+  Object.keys(b || {}).forEach(function(k){ keys[k] = 1; });
+  Object.keys(keys).forEach(function(k){
+    if (k.charAt(0) === '_' && path.length === 2) return; /* 日ページ直下の _ で始まる内部用の値は記録しない */
+    ofDiff((a || {})[k], (b || {})[k], path.concat([k]), out);
+  });
+}
+/* 日ページ（D.pages）全体を比べ、記録する欄の違いだけを返す */
+function ofDiffPages(before, after) {
+  var out = [], days = {};
+  Object.keys(before || {}).forEach(function(d){ days[d] = 1; });
+  Object.keys(after || {}).forEach(function(d){ days[d] = 1; });
+  Object.keys(days).forEach(function(ds){
+    var a = (before || {})[ds] || {}, b = (after || {})[ds] || {};
+    if (a === b || JSON.stringify(a) === JSON.stringify(b)) return; /* 触っていない日は中まで比べない（控えは同じ値の写しなので文字列が一致する） */
+    Object.keys(OF_REC_FIELDS).forEach(function(f){ ofDiff(a[f], b[f], ['pages', ds, f], out); });
+  });
+  return out;
+}
+/* 経路の値を読む（無ければ undefined） */
+function _ofStep(cur, seg) {
+  if (cur == null) return undefined;
+  if (typeof seg === 'object') {
+    var list = _ofList(cur);
+    for (var i = 0; i < list.length; i++) if (list[i] != null && _ofKeyOf(list[i]) === seg.k) return list[i];
+    return undefined;
+  }
+  return cur[seg];
+}
+function ofGet(root, path) { var cur = root; for (var i = 0; i < path.length; i++) { cur = _ofStep(cur, path[i]); if (cur === undefined) return undefined; } return cur; }
+/* 親をたどる（無ければ作る）。中身で特定する段の手前は配列にそろえる（Firebase がオブジェクトにした配列も直す） */
+function _ofParent(root, path) {
+  var cur = root;
+  for (var i = 0; i < path.length - 1; i++) {
+    var seg = path[i], nextSeg = path[i + 1], nx = _ofStep(cur, seg);
+    if (nx == null) {
+      nx = (typeof nextSeg === 'object') ? [] : {};
+      if (typeof seg === 'object') return null; /* 中身で特定する件そのものが無い：親を作れない */
+      cur[seg] = nx;
+    } else if (typeof nextSeg === 'object' && !Array.isArray(nx) && typeof seg !== 'object') {
+      nx = _ofList(nx); cur[seg] = nx;
+    }
+    cur = nx;
+  }
+  return cur;
+}
+function _ofSet(root, path, val) {
+  var par = _ofParent(root, path); if (!par) return false;
+  var last = path[path.length - 1];
+  if (typeof last === 'object') {
+    var idx = -1; for (var i = 0; i < par.length; i++) if (par[i] != null && _ofKeyOf(par[i]) === last.k) { idx = i; break; }
+    if (val == null) { if (idx >= 0) par.splice(idx, 1); }
+    else if (idx >= 0) par[idx] = val; else par.push(val);
+  } else if (val == null) { if (Array.isArray(par)) par[last] = null; else delete par[last]; }
+  else par[last] = val;
+  return true;
+}
+/* 1件を当てはめる。force なら今の値にかかわらず上書き（食い違いで「災害時の記録を採用」したとき・手元で読み直すとき） */
+/* 当てはめてよい経路か：日ページの記録する欄の中だけ（食い違いの記録は職員なら書けるページの中にあるので、
+   管理者が「採用」したときに別の場所——権限やマスタ——を書き換えさせない） */
+function _ofPathOk(op) {
+  var p = op && op.path;
+  if (!Array.isArray(p) || p.length < 3 || p[0] !== 'pages' || !/^\d{4}-\d{2}-\d{2}$/.test(String(p[1])) || !OF_REC_FIELDS[p[2]]) return false;
+  for (var i = 1; i < p.length; i++) {
+    var seg = p[i], k = (seg && typeof seg === 'object') ? seg.k : seg;
+    if (typeof k !== 'string' || k === '__proto__' || k === 'constructor' || k === 'prototype') return false;
+  }
+  return true;
+}
+function ofApply(root, op, force) {
+  if (!_ofPathOk(op)) return 'conflict';
+  var cur = ofGet(root, op.path);
+  if (op.kind === 'set') {
+    if (_ofSame(cur, op.after)) return 'same';
+    if (!force && !_ofSame(cur, op.before)) return 'conflict';
+    return _ofSet(root, op.path, op.after) ? 'applied' : 'conflict';
+  }
+  if (op.kind === 'add') {
+    if (cur !== undefined) { if (_ofSame(cur, op.after)) return 'same'; if (!force) return 'conflict'; }
+    return _ofSet(root, op.path, op.after) ? 'applied' : 'conflict';
+  }
+  if (op.kind === 'remove') {
+    if (cur === undefined) return 'same';
+    if (!force && !_ofSame(cur, op.before)) return 'conflict';
+    return _ofSet(root, op.path, null) ? 'applied' : 'conflict';
+  }
+  return 'conflict';
+}
+
+/* ===== 災害モード段3：記録（操作ログを端末に残す） =====
+   災害モードで記録できるのは、チェックリスト・申し送り・担当表（割り当て・休）・オペ・カテ症例・OC・
+   タブレット貸出（2026-10-21 合意）。can() は OFFLINE_REC_LOCKS のロックIDだけ true を返し、ほかは見るだけ。
+   保存（saveD/saveDPage/saveDPaths）が呼ばれたら、直前の状態（_offlineBase）と比べた違いを操作ログにし、
+   データ用の鍵 K で暗号化して IndexedDB に残す（'ops'）。端末を閉じて開き直したら、控えに操作ログを
+   当てはめ直して続きから記録できる。試し（_offlineTrial）のときはメモリだけで、端末には残さない。 */
+var OFFLINE_REC_LOCKS = ['cl', 'memo', 'duty', 'ops', 'tablet'];
+var _offlineTrial = false, _offlineKey = null, _offlineBase = null, _offlineOps = [], _offlineRecTimer = null;
+function _ofDevId() {
+  var v = null;
+  try { v = localStorage.getItem('ce2_devid'); if (!v) { v = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); localStorage.setItem('ce2_devid', v); } }
+  catch (e) { v = v || ('d' + Date.now().toString(36)); }
+  return v;
+}
+function _ofOpId() { return 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function _ofEncJson(key, obj) {
+  var iv = _ofRand(12);
+  return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, _ofEnc(JSON.stringify(obj))).then(function(ct){ return { iv: _ofB64(iv), ct: _ofB64(ct) }; });
+}
+function _ofDecJson(key, rec) {
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv: _ofUnb64(rec.iv) }, key, _ofUnb64(rec.ct)).then(function(p){ return JSON.parse(new TextDecoder().decode(p)); });
+}
+function _ofGetKey(k) {
+  return _ofDb().then(function(db){ return new Promise(function(res){
+    try { var r = db.transaction('c').objectStore('c').get(k); r.onsuccess = function(){ res(r.result || null); }; r.onerror = function(){ res(null); }; }
+    catch (e) { res(null); }
+  }); }).catch(function(){ return null; });
+}
+function _ofPutKey(k, rec) {
+  return _ofDb().then(function(db){ return new Promise(function(res, rej){
+    var tx = db.transaction('c', 'readwrite'); if (rec == null) tx.objectStore('c').delete(k); else tx.objectStore('c').put(rec, k);
+    tx.oncomplete = function(){ res(); }; tx.onerror = function(){ rej(tx.error); };
+  }); });
+}
+function offlineRecordSoon() {
+  if (!_offlineMode) return;
+  clearTimeout(_offlineRecTimer);
+  _offlineRecTimer = setTimeout(offlineRecordNow, 300);
+}
+function offlineRecordNow() {
+  clearTimeout(_offlineRecTimer); _offlineRecTimer = null;
+  if (!_offlineMode || !_offlineBase) return Promise.resolve();
+  var ops = ofDiffPages(_offlineBase, D.pages);
+  if (!ops.length) return Promise.resolve();
+  var dev = _ofDevId(), now = Date.now();
+  ops.forEach(function(o){ o.id = _ofOpId(); o.ts = now; o.by = _offlineUser; o.dev = dev; });
+  _offlineOps = _offlineOps.concat(ops);
+  _offlineBase = JSON.parse(JSON.stringify(D.pages));
+  updateOfflineBar();
+  if (_offlineTrial || !_offlineKey) return Promise.resolve();
+  return _ofEncJson(_offlineKey, { dev: dev, ops: _offlineOps }).then(function(enc){
+    return _ofPutKey('ops', { v: 1, iv: enc.iv, ct: enc.ct, n: _offlineOps.length, updatedAt: now });
+  }).catch(function(e){ toast('記録を端末に残せませんでした：' + ((e && e.message) || ''), 'err', 8000); });
+}
+function updateOfflineBar() {
+  var c = document.getElementById('offline-bar-n'); if (c) c.textContent = _offlineOps.length;
+}
+
+/* ===== 災害モード段4：復旧後に取り込む（自動）・食い違いを管理者が選ぶ ===== */
+/* 普通にログインして最初の受信が済んだら、この端末に残っている操作ログを今の記録に当てはめる。
+   食い違いの無いものは反映、すでに同じなら何もしない、食い違いはその日のページの disasterConflicts に残す。
+   保存（saveD）が済んでから端末のログを片付ける（失敗したら残して次のログインで再試行）。 */
+var _offlineApplying = false;
+function offlineApplyPending() {
+  if (_offlineMode || _offlineApplying || !currentUser || (FB_ON && !_fbDataLoaded && currentUser.uid !== 'preview')) return Promise.resolve(null);
+  var cfg = D.disasterCfg || {};
+  if (!cfg.k || !offlineSupported()) return Promise.resolve(null);
+  _offlineApplying = true;
+  return _ofGetKey('ops').then(function(rec){
+    if (!rec || !rec.n) { _offlineApplying = false; return null; }
+    return _ofDataKey(cfg.k).then(function(k){ return _ofDecJson(k, rec); }).then(function(data){
+      var ops = (data && data.ops) || [];
+      if (!ops.length) { _offlineApplying = false; return _ofPutKey('ops', null).then(function(){ return null; }); }
+      autoSaveSnapshot('災害時の記録の反映前');
+      var tally = { applied: 0, same: 0, conflict: 0 };
+      ops.forEach(function(op){
+        var r = ofApply(D, op);
+        tally[r] = (tally[r] || 0) + 1;
+        if (r === 'conflict') {
+          var ds = op.path[1], pg = D.pages[ds] = D.pages[ds] || {};
+          pg.disasterConflicts = pg.disasterConflicts || {};
+          var cur = ofGet(D, op.path);
+          pg.disasterConflicts[op.id] = { op: op, cur: cur === undefined ? null : JSON.parse(JSON.stringify(cur)), at: Date.now() };
+        }
+      });
+      return new Promise(function(res){
+        saveD(function(ok){
+          if (!ok) { _offlineApplying = false; toast('災害時の記録を送れませんでした。次のログインでもう一度送ります', 'err', 8000); res(null); return; }
+          _ofPutKey('opsDone', { v: 1, iv: rec.iv, ct: rec.ct, n: rec.n, doneAt: Date.now() })
+            .then(function(){ return _ofPutKey('ops', null); })
+            .then(function(){
+              _offlineApplying = false;
+              writeLog('災害時の記録を反映', '反映' + tally.applied + '件・同じ' + tally.same + '件・食い違い' + tally.conflict + '件（' + (ops[0] && ops[0].by || '') + ' ほか）');
+              toast('災害モード中の記録を反映しました（' + tally.applied + '件）' + (tally.conflict ? '。食い違い ' + tally.conflict + '件は管理者が確認します' : ''), tally.conflict ? 'warn' : 'ok', 8000);
+              if (curDs) safeRenderPage(); renderCal();
+              res(tally);
+            });
+        });
+      });
+    });
+  }).catch(function(e){
+    _offlineApplying = false;
+    console.warn('[offline] 取り込みに失敗:', e && e.message);
+    toast('災害時の記録を読めませんでした（PINの鍵が変わった可能性）。管理者に連絡してください', 'err', 10000);
+    return null;
+  });
+}
+var OF_FIELD_LABEL = { checks:'CEチェック', hdChecks:'HDチェック', subChecks:'設置部署の消し込み', devChecks:'機器の消し込み',
+  memos:'申し送り', hdMemos:'HD申し送り', duties:'担当表', dutyAbsent:'担当の休', hdAbsent:'HDの休', offFrom:'休の元の持ち場',
+  placement:'人員配置', extra_free:'フリー枠', dutyNotes:'担当の備考', hdNotes:'HD担当表の備考', ops:'オペ・カテ', ops_cards:'業務カード',
+  ocData:'オンコール', tabletLogs:'タブレット貸出', hdTabletLogs:'HDタブレット貸出' };
+function _ofLabel(op) {
+  var f = op.path[2], s = OF_FIELD_LABEL[f] || f, rest = op.path.slice(3);
+  if (f === 'duties' && rest[0]) {
+    var cfg = getDutyCfg(D.pages[op.path[1]] || {}).concat(D.dutyCfgMaster || [], DEF_DUTY_MASTER).find(function(x){ return x && x.id === rest[0]; });
+    s += '：' + (cfg ? cfg.label : rest[0]);
+  } else if (f === 'placement' && rest[1]) s += '：' + rest[1];
+  return s;
+}
+function _ofSummary(v) {
+  if (v == null) return '（なし）';
+  if (typeof v !== 'object') return String(v === true ? '✓' : v === false ? '－' : v);
+  if (v.text) return v.text;
+  if (v.tablet) return v.tablet + '／' + (v.borrower || '');
+  if (v.sel || v.name) return v.sel || v.name;
+  var s = JSON.stringify(v); return s.length > 60 ? s.slice(0, 60) + '…' : s;
+}
+function disasterConflictList() {
+  var out = [];
+  Object.keys(D.pages || {}).forEach(function(ds){
+    var dc = (D.pages[ds] || {}).disasterConflicts; if (!dc) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+    Object.keys(dc).forEach(function(id){ if (/^op[0-9a-z]+$/.test(id) && dc[id] && dc[id].op && Array.isArray(dc[id].op.path)) out.push({ ds: ds, id: id, c: dc[id] }); });
+  });
+  return out.sort(function(a, b){ return a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : 0; });
+}
+function disasterConflictsHTML() {
+  var list = disasterConflictList();
+  if (!list.length) return '';
+  var h = '<div style="border-top:1px solid var(--bdr);margin-top:10px;padding-top:10px"><b style="font-size:13px;color:var(--rd)">⚠ 災害時の記録の食い違い ' + list.length + '件</b>'
+    + '<div style="font-size:11px;color:var(--txt2);margin:4px 0 6px">災害モード中の記録と、その間にほかで入った記録が同じ所で違っています。どちらを残すか選んでください。</div>';
+  list.forEach(function(x){
+    var op = x.c.op;
+    h += '<div style="border:1px solid var(--bdr);border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:12px">'
+      + '<div style="font-weight:700">' + escH(fmtMD(x.ds)) + '　' + escH(_ofLabel(op)) + '</div>'
+      + '<div>🆘 災害時：' + escH(_ofSummary(op.kind === 'remove' ? null : op.after)) + '<span style="color:var(--txt3)">（' + escH(op.by || '') + '・' + escH(new Date(op.ts || 0).toLocaleString('ja-JP')) + '）</span></div>'
+      + '<div>🌐 今：' + escH(_ofSummary(ofGet(D, op.path))) + '</div>'
+      + '<div style="display:flex;gap:6px;justify-content:flex-end;margin-top:4px">'
+      + '<button type="button" class="btn btn-g btn-sm dc-res" data-ds="' + escH(x.ds) + '" data-id="' + escH(x.id) + '" data-adopt="0">今のまま</button>'
+      + '<button type="button" class="btn btn-p btn-sm dc-res" data-ds="' + escH(x.ds) + '" data-id="' + escH(x.id) + '" data-adopt="1">災害時の記録にする</button></div></div>';
+  });
+  return h + '</div>';
+}
+/* 管理者がログインしたとき、未解決の食い違いがあれば知らせる（反映した端末とは別の端末で見ることが多いため） */
+function disasterConflictNotify() {
+  if (!isAdmin) return;
+  var n = disasterConflictList().length; if (!n) return;
+  toast('⚠ 災害時の記録の食い違いが ' + n + '件あります', 'warn', 12000, { label: '確認する', fn: function(){ swTab('adminm'); } });
+}
+function disasterConflictResolve(ds, id, adopt) {
+  if (!isAdmin) return;
+  var pg = D.pages[ds], dc = pg && pg.disasterConflicts, x = dc && dc[id];
+  if (!x) { renderDisasterCfg(); return; }
+  if (adopt && !(x.op && x.op.path && x.op.path[1] === ds && _ofPathOk(x.op))) { toast('この記録は当てはめられません（形が正しくありません）', 'err'); return; }
+  if (adopt) ofApply(D, x.op, true);
+  delete dc[id];
+  if (!Object.keys(dc).length) delete pg.disasterConflicts;
+  saveD();
+  writeLog('災害時の食い違いを解決', fmtMD(ds) + ' ' + _ofLabel(x.op) + '：' + (adopt ? '災害時の記録にした' : '今のまま'));
+  renderDisasterCfg(); if (curDs === ds) safeRenderPage();
+}
+/* 訓練：記録が残らない練習モードで開く（年1回5分）。再読み込みして Firebase につながずにログイン画面から入る */
+function startDisasterDrill() {
+  if (!offlineSupported()) { toast('この端末のブラウザでは使えません', 'warn'); return; }
+  _ofGet().then(function(rec){
+    if (!rec) { toast('この端末にはまだ控えがありません（管理者がPINを決めると、ログイン中に自動で作られます）', 'warn', 7000); return; }
+    if (!confirm('災害モードの練習を始めます。\nいったんログイン前の画面に戻り、PIN→名前の順で開きます。練習中の記録は残りません。')) return;
+    try { sessionStorage.setItem('ce2_drill', '1'); } catch (e) { toast('この端末では試せません', 'warn'); return; }
+    location.reload();
+  });
+}
+function endDisasterDrill() {
+  try { sessionStorage.removeItem('ce2_drill'); } catch (e) {}
+  location.reload();
 }
 
 /* ===== 紙用の様式（災害用セット） =====
@@ -22936,7 +23346,7 @@ function mediaApply(el, m) {
 }
 /* 画像を /media に置く。置けたら cb('media:{id}')、置けなければ cb('') */
 function mediaStore(dataUrl, cb) {
-  if (!FB_ON || !fbDB || !currentUser || _staleApp) { cb(''); return; }
+  if (!FB_ON || !fbDB || !currentUser || _staleApp || _offlineMode) { cb(''); return; } /* 災害モードは本文に埋め込む（記録と一緒に操作ログへ入る） */
   var id = fbDB.ref('/media').push().key, settled = false;
   var finish = function(ref){ if (settled) return; settled = true; clearTimeout(timer); cb(ref); };
   /* 電波が弱いと SDK は送れるまで待ち続け「送信中」のまま止まるので、時間切れで埋め込みに戻す */
@@ -22950,7 +23360,7 @@ function mediaDelete(med) {
   if (!med) return;
   if (med.storagePath && fbST) fbST.ref(med.storagePath).delete().catch(function(){});
   var id = mediaRefId(med);
-  if (id && FB_ON && fbDB && currentUser) fbDB.ref('/media/' + id).remove().catch(function(){});
+  if (id && FB_ON && fbDB && currentUser && !_offlineMode) fbDB.ref('/media/' + id).remove().catch(function(){});
 }
 var _mediaMem = {}, _mediaWait = {}, _mediaDbP = null;
 function _mediaDb() {
@@ -25932,6 +26342,7 @@ function getUidByName(name, cb) {
   });
 }
 function sendNotificationToUid(uid, dispName, title, body, type) {
+  if (_offlineMode) return; /* 災害モードは通知を送らない（Firebase とつながっていない） */
   if (!FB_ON || !fbDB || !uid) return;
   fbDB.ref('/notifications/' + uid).push({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false });
   sendFCMPush(uid, title, body);
@@ -27076,6 +27487,7 @@ function taskPersist(id, t) {
   });
 }
 function taskDelete(id) {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
   var t = _tasksData[id]; if (!t || !taskCanDelete(t)) return;
   if (!confirm('タスク「'+(t.title||'')+'」を削除しますか？')) return;
   taskMediaCleanup(taskMediaArr(t));
@@ -27088,6 +27500,7 @@ function taskDelete(id) {
 }
 /* ステータスをクリックでサイクル: 未着手→進行中→完了→未着手（Notion風） */
 function taskCycleStatus(id) {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
   var cur = _tasksData[id]; if (!cur || !taskCanStatus(cur)) return;
   /* キャッシュ内のオブジェクトを直接書き換えると taskPersist のロールバック用スナップも
      一緒に書き換わり、保存失敗時に画面が元に戻らない。必ずコピーしてから変更する。 */
@@ -27127,6 +27540,7 @@ function memoPersist(id, m) {
   }
 }
 function memoDelete(id) {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
   var m = _memosData[id]; if (!m) return;
   if (!confirm('メモ「' + (m.title||'') + '」を削除しますか？')) return;
   taskMediaCleanup(taskMediaArr(m));
@@ -27139,6 +27553,7 @@ function memoDelete(id) {
   }
 }
 function memoCycleStatus(id) {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
   var cur = _memosData[id]; if (!cur) return;
   var m = Object.assign({}, cur); /* キャッシュを直接書き換えるとロールバックが効かない */
   var next = TASK_ST[(TASK_ST.indexOf(m.status||'todo') + 1) % 3];
@@ -27484,6 +27899,7 @@ function onTaskMediaAdd(input) {
 }
 
 function saveTaskFromModal(id, isMemo) {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
   if (!currentUser) { toast('ログインが必要です', 'warn'); return; }
   var title = document.getElementById('task-md-title').value.trim();
   var desc  = document.getElementById('task-md-desc').value.trim();
@@ -29885,6 +30301,7 @@ function _finishPostBoard(post, text, btn) {
 }
 
 function postBoard() {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
   var inp = document.getElementById('board-input');
   if (!inp) return;
   var text = inp.value.trim();
@@ -29958,6 +30375,7 @@ function _finishPostBoardReply(postId, reply, btn) {
   if(FB_ON) writeLog('掲示板返信', (reply.text || '[画像]').substring(0,30));
 }
 function postBoardReply(postId) {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
   var inp = document.getElementById('brd-ri-' + postId);
   if (!inp) return;
   var text = inp.value.trim();
