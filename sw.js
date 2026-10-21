@@ -14,8 +14,8 @@ var CDN_SHELL = [
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js',
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
-  'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js'
+  'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+  'https://cdn.jsdelivr.net/npm/@emailjs/browser@4.4.1/dist/email.min.js'
 ];
 /* 外部の部品（ライブラリ・フォント）。保存してあればそれを使い、無ければ取りに行って保存する */
 var CDN_RE = /^https:\/\/(www\.gstatic\.com\/firebasejs\/|cdnjs\.cloudflare\.com\/|cdn\.jsdelivr\.net\/|fonts\.googleapis\.com\/|fonts\.gstatic\.com\/)/;
