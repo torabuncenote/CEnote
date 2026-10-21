@@ -916,6 +916,8 @@ Fixed bar at the bottom of the screen, shown only while a day page is open — `
 
 ### Shift Import
 
+**Excelの読み込みは SheetJS 0.20.3 を公式CDN（`cdn.sheetjs.com`）から読む。** 0.18.5 で npm/cdnjs への公開が止まり、修正版（CVE-2023-30533 細工したファイルでの prototype 汚染・CVE-2024-22363 ReDoS）は公式CDNにしか無い。**cdnjs の 0.18.5 に戻さないこと。** 版を上げるときは、勤務表とメーカー連絡先の取り込み結果が旧版と一致するかを架空のExcelで比べる。EmailJS も `@4.4.1` のように版を固定する（`@4` のままだと配布元の更新がそのまま全員の画面に入る）。
+
 `parseShiftSheet(wb, fileName)` parses Excel → `D.shift[ym][name][day] = { shift, hd, oc }`. `doSaveSIM()` protects days with existing duty assignments from being overwritten. Shift codes: `'CE'` (clinical engineer on duty), `'OC'` (on-call flag), HD day codes `['M','A1','A2',...]`, HD night codes `['準','準夜']`.
 
 ### 勤務希望（`D.shiftReq`）
