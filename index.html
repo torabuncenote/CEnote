@@ -350,6 +350,12 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .hdash-sp-lbl{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.06em}
 .hdash-sp-tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--pu-bg);color:var(--pu);border:1px solid var(--pu)}
 .hdash-sp-tag .x{opacity:.65;margin-left:3px;font-family:var(--mo)}
+.hdash-sp{align-items:flex-start}
+.hdash-sp-lbl{margin-top:4px}
+.hdash-sp-list{display:flex;flex-direction:column;gap:5px;flex:1;min-width:0}
+.hdash-sp-item{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px}
+.hdash-sp-ppl{color:var(--txt);font-weight:500}
+.hdash-sp-none{color:var(--txt3)}
 .hdash-total{margin-top:10px;text-align:right;font-size:11px;font-weight:700;color:var(--txt3)}
 /* 相互参照テーブル内の担当枠ピル。色は dutyColorFor からインラインで入れるので形だけ定義する */
 .ref-pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;border:1px solid}
@@ -6083,11 +6089,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/21-139';
+var APP_VERSION = 'Ver.2026/10/22-140';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/22-140', date:'2026-10-22', title:'タブレット貸出とHD特殊治療を使いやすくしました', items:[
+    {t:'imp', notify:true, d:'📱 タブレット貸出の「借りた人」が、はじめから自分になります（返却と同じ。ほかの人なら選び直せます）'},
+    {t:'imp', notify:true, d:'🩸 HDの血液浄化で、特殊治療ごとの実施者と教育者が「編集」を押さなくても見えるようになりました'}
+  ]},
   { ver:'Ver.2026/10/21-139', date:'2026-10-21', title:'災害モードで記録できるようにしました', items:[
     {t:'new', notify:true, d:'📴 災害モードで、チェックリスト・申し送り・担当表（休を含む）・オペ・カテ症例・オンコール・タブレット貸出を記録できるようになりました。記録は端末に暗号化して残り、ネットが戻って普通にログインすると自動で送られます'},
     {t:'new', notify:true, d:'📴 ログインしたままネットが止まった端末でも、「同期中…」の画面から「オフラインで開く（災害時）」を選べます'},
@@ -22187,22 +22197,19 @@ function hdCountPanelInnerHTML(ds, dat) {
       h += '<div class="hdash-tile'+(t[0]?'':' zero')+'"><div class="n">'+t[0]+'</div><div class="l">'+t[1]+'</div></div>';
     });
     h += '</div>';
-    /* 特殊治療は件数だけでなく中身（治療名）を出す。同じ治療が複数あれば ×n に集約する。
-       未選択の空行は hdCountSpFilled が除いているので、タグの数と特殊タイルの数字は必ず一致する。
-       同名治療のいずれかに教育者が付いていれば 🎓 を添える（教育者あり＝まだ独り立ちしていない、の目印）。 */
-    var spCount = {}, spOrder = [], spEduAny = {};
-    spFilled.forEach(function(sp){
-      var nm = sp.n;
-      if (spCount[nm] === undefined) { spCount[nm] = 0; spOrder.push(nm); spEduAny[nm] = false; }
-      spCount[nm]++;
-      if (sp.edu && sp.edu.length) spEduAny[nm] = true;
-    });
-    if (spOrder.length) {
-      h += '<div class="hdash-sp"><span class="hdash-sp-lbl">特殊治療</span>';
-      spOrder.forEach(function(nm){
-        h += '<span class="hdash-sp-tag">'+escH(nm)+(spEduAny[nm]?' 🎓':'')+(spCount[nm]>1?'<span class="x">×'+spCount[nm]+'</span>':'')+'</span>';
+    /* 特殊治療は件数だけでなく中身（治療名）と、誰が実施し誰が教育に付いたかまで出す
+       （編集を開かなくても分かるように）。1行＝1件なので、行の数と特殊タイルの数字は必ず一致する
+       （未選択の空行は hdCountSpFilled が除いている）。教育者が付いていれば 🎓（まだ独り立ちしていない、の目印）。 */
+    if (spFilled.length) {
+      h += '<div class="hdash-sp"><span class="hdash-sp-lbl">特殊治療</span><div class="hdash-sp-list">';
+      spFilled.forEach(function(sp){
+        var st = sp.staff || [], ed = sp.edu || [];
+        h += '<div class="hdash-sp-item"><span class="hdash-sp-tag">'+escH(sp.n)+'</span>'
+          + (st.length ? '<span class="hdash-sp-ppl">👤 '+st.map(escH).join('、')+'</span>' : '<span class="hdash-sp-none">👤 実施者未入力</span>')
+          + (ed.length ? '<span class="hdash-sp-ppl">🎓 '+ed.map(escH).join('、')+'</span>' : '')
+          + '</div>';
       });
-      h += '</div>';
+      h += '</div></div>';
     }
     h += '<div class="hdash-total">合計 <b>'+total+'</b> 件</div>';
   } else {
@@ -29071,6 +29078,7 @@ function openTabletLendModal(ds, mode){
   if(!allTablets.length){ toast('先に業務タブで'+(mode==='hd'?'HD':'')+'タブレットを登録してください', 'warn'); return; }
   var tablets=allTablets.filter(function(t){return !tabletHasOpenFor(t,mode);});
   if(!tablets.length){ toast('登録済みのタブレットはすべて貸出中です', 'warn'); return; }
+  /* 借りた人の初期値は自分（返却画面と同じ。スタッフ名に紐づいていなければ未選択のまま） */
   var tblOpts=tablets.map(function(t){ return '<option value="'+escH(t)+'">'+escH(t)+'</option>'; }).join('');
   var ov=document.createElement('div'); ov.id='tablet-md-ov'; ov.className='ov'; ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
   var md=document.createElement('div'); md.className='md'; md.style.maxWidth='400px';
@@ -29078,7 +29086,7 @@ function openTabletLendModal(ds, mode){
     +'<div style="font-size:12px;font-weight:700;margin-bottom:4px">タブレット<span style="color:var(--rd)">*</span></div>'
     +'<select id="tablet-md-name" class="ds2" style="width:100%">'+tblOpts+'</select>'
     +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">借りた人<span style="color:var(--rd)">*</span></div>'
-    +'<select id="tablet-md-borrower-sel" class="ds2" style="width:100%" onchange="tabletToggleOther(\'tablet-md-borrower-sel\',\'tablet-md-borrower\')">'+tabletStfOptions(null)+'</select>'
+    +'<select id="tablet-md-borrower-sel" class="ds2" style="width:100%" onchange="tabletToggleOther(\'tablet-md-borrower-sel\',\'tablet-md-borrower\')">'+tabletStfOptions(taskSelfName())+'</select>'
     +'<input id="tablet-md-borrower" class="fi" style="width:100%;box-sizing:border-box;margin-top:6px;margin-bottom:0;display:none" placeholder="名前を入力" autocomplete="off">'
     +'<div style="font-size:12px;font-weight:700;margin:10px 0 4px">貸出時刻</div>'
     +'<div style="display:flex;gap:8px;align-items:center"><input type="time" id="tablet-md-time" class="fi" style="width:auto;margin:0" value="'+tabletNowHM()+'"><button class="btn btn-g btn-sm" onclick="document.getElementById(\'tablet-md-time\').value=tabletNowHM()">今</button></div>'
