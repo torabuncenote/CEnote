@@ -38,6 +38,8 @@ python3 -m http.server 8080
 - `?preview=1` — admin mode (all tabs unlocked, local storage only)
 - `?preview=2` — regular user mode (restricted tabs, local storage only)
 
+**On localhost the app does not connect to Firebase unless the URL has `?live=1`** (`localNeedsLiveFlag()` / `showLocalGuard()`, hosts matched by `LOCAL_HOST_RE`). Without a flag it shows a card with links to `?preview=1` / `?preview=2`. Reason: on 2026-10-28 a plain `localhost:8080` tab still had an admin login, so an unreleased branch (Ver-142) saved to production and raised `/data/_appSeq`; every device on the published Ver-140 was locked out by `checkStaleApp` until `_appSeq` was set back by hand. Only use `?live=1` when the local code has the same `APP_SEQ` as the published app. Do not remove this guard.
+
 ## Architecture
 
 ### Global State Object `D`

@@ -1340,6 +1340,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
 .sync-card{background:var(--sur);color:var(--txt);border-radius:14px;box-shadow:var(--shl);padding:22px 24px;max-width:320px;width:100%;text-align:center}
 .sync-card-ttl{font-size:17px;font-weight:700;margin-bottom:8px}
 .sync-card-msg{font-size:13px;color:var(--txt2);line-height:1.6}
+.local-guard-links a{text-decoration:none;padding:9px}
 .sync-card .btn{margin-top:14px}
 .sync-spin{display:inline-block;animation:syncSpin 1.2s linear infinite}
 @keyframes syncSpin{to{transform:rotate(360deg)}}
@@ -3485,7 +3486,7 @@ function init() {
   }, 60*60*1000);
   var drill = false; try { drill = sessionStorage.getItem('ce2_drill') === '1'; } catch (e) {}
   if (drill) setTimeout(function(){ openOfflineUnlock(true); }, 300); /* 練習：Firebase につながずに災害モードの手順だけを通す */
-  else if (!isPreview) fbInit();
+  else if (!isPreview) { if (localNeedsLiveFlag()) showLocalGuard(); else fbInit(); }
   /* タブの出し分けを起動時にも必ず1回通す。Firebase運用ではログイン完了時にも呼ばれるが、
      _viewMode（CE/HD主観）は localStorage から init 冒頭で復元されるため、ここで評価しないと
      HDモードのまま再読み込みしたときに担当表が残りHD集計が出ない状態になる。 */
@@ -3674,6 +3675,29 @@ var fbST  = null; /* Firebase Storage */
 var _accessRef = null; /* 利用停止をログイン中の端末にも反映 */
 var _securityEnforced = false; /* 移行準備中は旧利用者の業務を止めない */
 
+/* localhost（開発用の手元サーバー）で開いたときは、?live=1 を付けない限り本番の Firebase につながない。
+   2026-10-28、?preview なしで開いた localhost に管理者のログインが残っていて、未公開の版（Ver-142）が本番に保存し
+   /data/_appSeq を上げた。公開中の版の全端末が checkStaleApp で締め出され、全員の保存が止まった。
+   手元での確認は ?preview=1（管理者）/ ?preview=2（一般）で行い、本番のデータで試すときだけ ?live=1 を付ける。 */
+var LOCAL_HOST_RE = /^(localhost|127\.0\.0\.1|\[::1\])$|\.localhost$/;
+function localNeedsLiveFlag() {
+  var q = new URLSearchParams(location.search);
+  return LOCAL_HOST_RE.test(location.hostname) && q.get('live') !== '1';
+}
+function showLocalGuard() {
+  var lo = document.getElementById('login-ov'); if (lo) lo.classList.add('hd');
+  var ov = document.getElementById('sync-ov');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'sync-ov'; document.body.appendChild(ov); }
+  var base = location.pathname;
+  ov.innerHTML = '<div class="sync-card"><div class="sync-card-ttl">🧪 手元のサーバーで開いています</div>'
+    + '<div class="sync-card-msg" style="font-size:13px;line-height:1.7;text-align:left">未公開の版が本番のデータに保存すると、公開中のアプリを使う全員の保存が止まります。そのため、ここでは本番につないでいません。</div>'
+    + '<div class="local-guard-links" style="display:flex;flex-direction:column;gap:8px;margin-top:14px">'
+    + '<a class="btn btn-p" href="' + base + '?preview=1">👁 管理者プレビューで開く</a>'
+    + '<a class="btn btn-g" href="' + base + '?preview=2">👁 一般ユーザープレビューで開く</a>'
+    + '<a class="btn btn-g" style="font-size:11px;color:var(--rd)" href="' + base + '?live=1" onclick="return confirm(\'本番のデータにつなぎます。公開中の版と同じ番号のコードであることを確かめましたか？\')">⚠️ 本番につなぐ（?live=1）</a>'
+    + '</div></div>';
+  setSyncLbl('本番に未接続（手元のサーバー）');
+}
 function fbInit() {
   if (!FB_ON) { setSyncLbl('ローカル保存'); return; }
   try {
