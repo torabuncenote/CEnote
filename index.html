@@ -1648,6 +1648,26 @@ body.has-psgb{--psgb-h:36px}
 .fb-cm-tx{white-space:pre-wrap;word-break:break-word}
 .fb-cm-in{display:flex;gap:6px;align-items:flex-end}
 .fb-card .fb-cm-in textarea{flex:1;min-width:0;font-size:13px;padding:6px 8px;border:1px solid var(--bdr);border-radius:8px;resize:vertical;font-family:var(--fn);box-sizing:border-box}
+.dreq-box{border:1px solid var(--bdr);border-left:4px solid var(--or);border-radius:10px;padding:8px 10px;margin:0 0 8px;background:var(--sur)}
+.dreq-box.mine{border-left-color:var(--ac)}
+.dreq-box-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:4px}
+.dreq-row{border-top:1px dashed var(--bdr);padding:6px 0}
+.dreq-box .dreq-row:first-of-type{border-top:none}
+.dreq-row-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px}
+.dreq-tag{font-size:11px;padding:1px 8px;border-radius:10px;border:1px solid var(--bdr);background:var(--sur2)}
+.dreq-tag.must{border-color:var(--or);color:var(--or);font-weight:700}
+.dreq-slot{font-size:12px;font-weight:700}
+.dreq-st{font-size:10px;font-weight:700;padding:1px 8px;border-radius:10px}
+.dreq-st.open{background:var(--ac-bg);color:var(--ac)}
+.dreq-st.done{background:var(--gr);color:var(--on-ac)}
+.dreq-st.skip{background:var(--sur2);color:var(--txt3);border:1px solid var(--bdr)}
+.dreq-st.past{background:var(--sur2);color:var(--txt3)}
+.dreq-note{font-size:12px;white-space:pre-wrap;word-break:break-word;margin-top:3px;color:var(--txt2)}
+.dreq-reply{font-size:12px;margin-top:3px;padding:3px 8px;border-radius:8px;background:var(--ac-bg)}
+.dreq-act{margin-top:4px;display:flex;gap:6px;justify-content:flex-end}
+.dreq-sec{font-size:12px;font-weight:700;margin:10px 0 2px;color:var(--txt2)}
+.dreq-f-h{font-size:12px;font-weight:700;margin:12px 0 6px}
+@media print{.dreq-box{display:none!important}}
 .dc-cb-item.subdone{font-size:10px}
 /* 担当カード内チェックボックス */
 .dc-cbs{display:flex;gap:8px;margin-bottom:7px;flex-wrap:wrap}
@@ -2160,6 +2180,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         <span>🟢 自動割り当て済み（未変更）</span>
         <span>🟡 予定あり</span>
       </div>
+      <div style="padding:0 10px 6px"><button class="btn btn-g btn-sm btn-fw" onclick="openDutyReqModal(null)">🙋 担当の希望<span id="dreq-badge" class="fb-badge" style="display:none"></span></button></div>
       <div id="cal-evts-list" style="overflow-y:auto;max-height:200px;font-size:12px"></div>
       <div style="flex:1"></div>
       <div class="sbf">
@@ -3257,7 +3278,7 @@ var AUTO_BK_KEY = 'ce2_autobk';
 var AUTO_BK_MAX = 2; /* 画像を外しても D 1回分は1MB近い。5世代だとブラウザの保存上限（約5MB）を超えて更新が止まり、巻き添えで通常の端末保存（ce2）まで失敗していた */
 /* 各資料で共有する最新のFirebase Realtime Databaseセキュリティルール（掲示板・バックアップ・ユーザー管理対応） */
 var LATEST_STORAGE_RULES = "rules_version = '2';\n\n// 新しい添付はアップロード者のUID配下に置く。StorageルールからRTDBの\n// /access は参照できないため、利用停止時はAuthentication側の無効化も必要。\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /uploads/{uid}/private/{allPaths=**} {\n      allow read: if request.auth != null && request.auth.uid == uid;\n      allow write: if request.auth != null && request.auth.uid == uid\n        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024\n          && request.resource.contentType.matches('image/.*|video/.*')));\n    }\n    match /uploads/{uid}/shared/{allPaths=**} {\n      allow read: if request.auth != null;\n      allow write: if request.auth != null && request.auth.uid == uid\n        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024\n          && request.resource.contentType.matches('image/.*|video/.*')));\n    }\n    // 旧形式の添付は表示を保ち、新規の書き込みは止める。\n    match /taskMemo/{uid}/{allPaths=**} {\n      allow read: if request.auth != null && request.auth.uid == uid;\n    }\n    match /manual/{allPaths=**} { allow read: if request.auth != null; }\n    match /memo/{allPaths=**} { allow read: if request.auth != null; }\n    match /board/{allPaths=**} { allow read: if request.auth != null; }\n    match /task/{allPaths=**} { allow read: if request.auth != null; }\n  }\n}";
-var LATEST_DB_RULES = "{\n  \"rules\": {\n    \"data\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"pages\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"manual\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"shiftReq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_appSeq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_savedAt\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_sessionId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_lastWriter\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"dly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"hdDly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"wd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"hdWd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"wdDepts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"ope\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cath\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"sup\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opeTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cathTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"roboLayouts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfgMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opsCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"oc\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"schedPresets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgAlertTime\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerStart\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerEnd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"tablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTreatments\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"ocFlow\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"holidayOv\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"makers\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('maker').val() !== true || root.child('userPerms').child(auth.uid).child('maker').val() === true)))\"\n      },\n      \"eduProgress\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"eduItems\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"_migVer\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evtRanges\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"devMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"opsChk\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCodes\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"eduCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      }\n    },\n    \"board\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$postId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n        \"reads\": {\n          \"$uid\": {\n            \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\"\n          }\n        },\n        \"replies\": {\n          \"$replyId\": {\n            \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n            \"uid\": {\n              \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n            }\n          }\n        },\n        \"uid\": {\n          \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n        }\n      }\n    },\n    \"tasks\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$taskId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (newData.exists() || data.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"newData.child('createdBy').child('uid').isString() && (data.exists() ? newData.child('createdBy').child('uid').val() === data.child('createdBy').child('uid').val() : (newData.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true))\",\n        \"status\": {\n          \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n        }\n      }\n    },\n    \"taskMemos\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$memoId\": {\n          \"status\": {\n            \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n          }\n        }\n      }\n    },\n    \"robotImg\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      }\n    },\n    \"media\": {\n      \"$id\": {\n        \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && ((!data.exists() && newData.exists() && newData.child('by').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('by').val() === auth.uid))))\",\n        \".validate\": \"newData.hasChildren(['d', 'by', 'ts']) && newData.child('d').isString() && newData.child('d').val().length <= 500000 && (newData.child('d').val().beginsWith('data:image/') || newData.child('d').val().beginsWith('data:video/')) && newData.child('ts').val() === now\"\n      }\n    },\n    \"feedback\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && query.orderByChild === 'uid' && query.equalTo === auth.uid))\",\n      \".indexOn\": [\n        \"ts\",\n        \"uid\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))\",\n        \"comments\": {\n          \"$cid\": {\n            \".write\": \"auth != null && root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid\",\n            \".validate\": \"newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))\"\n          }\n        }\n      }\n    },\n    \"feedbackMemo\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"shiftReqTpl\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"backups\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/)\"\n      }\n    },\n    \"backup_meta\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists()))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/) && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (root.child('admins').child(auth.uid).val() === true)\"\n      }\n    },\n    \"recent_backup\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"recent_backup_staff\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\",\n        \".validate\": \"newData.hasChild('pages')\"\n      }\n    },\n    \"logs\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$logId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.child('uid').val() === auth.uid))\"\n      }\n    },\n    \"admins\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\",\n        \".read\": \"auth != null && auth.uid === $uid\"\n      }\n    },\n    \"users\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".indexOn\": [\n        \"displayName\"\n      ],\n      \"$uid\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n        \"email\": {\n          \".validate\": \"auth.uid !== $uid || newData.val() === auth.token.email\"\n        }\n      }\n    },\n    \"userPerms\": {\n      \".read\": \"root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\"\n      }\n    },\n    \"notifications\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".indexOn\": [\n          \"read\"\n        ],\n        \"$notifId\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || auth.uid === $uid)\"\n        }\n      }\n    },\n    \"fcmTokens\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      }\n    },\n    \"access\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"security\": {\n      \"enforced\": {\n        \".read\": \"auth != null\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    }\n  }\n}";
+var LATEST_DB_RULES = "{\n  \"rules\": {\n    \"data\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"pages\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"manual\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"shiftReq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_appSeq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_savedAt\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_sessionId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_lastWriter\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"dly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"hdDly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"wd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"hdWd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"wdDepts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"ope\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cath\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"sup\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opeTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cathTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"roboLayouts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfgMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opsCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"oc\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"schedPresets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgAlertTime\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerStart\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerEnd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"tablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTreatments\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"ocFlow\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"holidayOv\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"makers\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('maker').val() !== true || root.child('userPerms').child(auth.uid).child('maker').val() === true)))\"\n      },\n      \"eduProgress\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"eduItems\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"_migVer\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evtRanges\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"devMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"opsChk\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCodes\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"eduCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      }\n    },\n    \"board\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$postId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n        \"reads\": {\n          \"$uid\": {\n            \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\"\n          }\n        },\n        \"replies\": {\n          \"$replyId\": {\n            \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n            \"uid\": {\n              \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n            }\n          }\n        },\n        \"uid\": {\n          \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n        }\n      }\n    },\n    \"tasks\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$taskId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (newData.exists() || data.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"newData.child('createdBy').child('uid').isString() && (data.exists() ? newData.child('createdBy').child('uid').val() === data.child('createdBy').child('uid').val() : (newData.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true))\",\n        \"status\": {\n          \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n        }\n      }\n    },\n    \"taskMemos\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$memoId\": {\n          \"status\": {\n            \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n          }\n        }\n      }\n    },\n    \"robotImg\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      }\n    },\n    \"media\": {\n      \"$id\": {\n        \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && ((!data.exists() && newData.exists() && newData.child('by').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('by').val() === auth.uid))))\",\n        \".validate\": \"newData.hasChildren(['d', 'by', 'ts']) && newData.child('d').isString() && newData.child('d').val().length <= 500000 && (newData.child('d').val().beginsWith('data:image/') || newData.child('d').val().beginsWith('data:video/')) && newData.child('ts').val() === now\"\n      }\n    },\n    \"feedback\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && query.orderByChild === 'uid' && query.equalTo === auth.uid))\",\n      \".indexOn\": [\n        \"ts\",\n        \"uid\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))\",\n        \"comments\": {\n          \"$cid\": {\n            \".write\": \"auth != null && root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid\",\n            \".validate\": \"newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))\"\n          }\n        }\n      }\n    },\n    \"feedbackMemo\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"dutyReq\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$id\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n          \".validate\": \"!newData.exists() || (newData.hasChildren(['name', 'kind', 'ts']) && newData.child('kind').isString() && newData.child('kind').val().matches(/^(day|range|open)$/) && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 300)) && (root.child('admins').child(auth.uid).val() === true || (newData.child('status').val() === data.child('status').val() && newData.child('reply').val() === data.child('reply').val())))\"\n        }\n      }\n    },\n    \"shiftReqTpl\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"backups\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/)\"\n      }\n    },\n    \"backup_meta\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists()))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/) && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (root.child('admins').child(auth.uid).val() === true)\"\n      }\n    },\n    \"recent_backup\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"recent_backup_staff\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\",\n        \".validate\": \"newData.hasChild('pages')\"\n      }\n    },\n    \"logs\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$logId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.child('uid').val() === auth.uid))\"\n      }\n    },\n    \"admins\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\",\n        \".read\": \"auth != null && auth.uid === $uid\"\n      }\n    },\n    \"users\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".indexOn\": [\n        \"displayName\"\n      ],\n      \"$uid\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n        \"email\": {\n          \".validate\": \"auth.uid !== $uid || newData.val() === auth.token.email\"\n        }\n      }\n    },\n    \"userPerms\": {\n      \".read\": \"root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\"\n      }\n    },\n    \"notifications\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".indexOn\": [\n          \"read\"\n        ],\n        \"$notifId\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || auth.uid === $uid)\"\n        }\n      }\n    },\n    \"fcmTokens\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      }\n    },\n    \"access\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"security\": {\n      \"enforced\": {\n        \".read\": \"auth != null\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    }\n  }\n}";
 /* ===== EVENTS ===== */
 // D.evts = { 'YYYY-MM': { 1:['イベント名',...], ... } }
 // ページ個別イベントは D.pages[ds].events = ['...'] で保持
@@ -3566,7 +3587,7 @@ function init() {
   document.addEventListener('compositionend', function(){ _imeComposing = false; _lastInputTs = Date.now(); }, true);
   document.addEventListener('pointerup', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
   document.addEventListener('pointercancel', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
-  if (isPreview) { carryOverMemos(); openDefaultPage(); maybeShowWhatsNew(); }
+  if (isPreview) { dreqLoadLocal(); dreqRefreshBadge(); carryOverMemos(); openDefaultPage(); maybeShowWhatsNew(); }
 }
 
 /* ローカルフォールバック用 */
@@ -3761,6 +3782,7 @@ function fbInit() {
         _fbLastPageCount = -1;
         if (_notifListenerRef) { _notifListenerRef.off(); _notifListenerRef = null; }
         if (_memoRef) { _memoRef.off(); _memoRef = null; } /* 自分専用メモのリスナーも必ず解除する */
+        dreqStop(); var _dqo = document.getElementById('dreq-ov'); if (_dqo) _dqo.remove(); dreqRefreshBadge(); /* 担当の希望も前の人の分を残さない */
         if (_accessRef) { _accessRef.off(); _accessRef = null; }
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
@@ -4115,6 +4137,7 @@ function fbInit() {
              （開かない人まで毎回全部のタスクを受信していた。2026-10-18 時点で1回2.6MB＝受信量の6割） */
           /* 自分専用メモ（本人のUID配下のみ。セキュリティルールで他人は読めない） */
           if (_memoRef) { _memoRef.off(); }
+          dreqStartListener(user); /* 担当の希望：管理者は全員分、一般職員は自分の分だけ（ルールで強制） */
           _memoRef = fbDB.ref('/taskMemos/' + user.uid);
           _memoRef.on('value', function(msnap) {
             _memosData = msnap.val() || {};
@@ -6129,11 +6152,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/28-141';
+var APP_VERSION = 'Ver.2026/10/28-142';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/28-142', date:'2026-10-28', title:'担当の希望を前もって出せるようになりました', items:[
+    {t:'new', notify:true, d:'🙋 「この日はこの担当枠にしてほしい」「できればご一考を」という担当の希望を、前もって管理者に出せるようになりました。連絡表の担当カードの上か、予定タブの「🙋 担当の希望」から出せます'},
+    {t:'new', notify:true, d:'🗓 日付を指定するほか、「期間のどこかで1回」「期間なし（取り下げるまで）」でも出せます。希望はあなたと管理者にしか見えません'},
+    {t:'new', d:'✅ 希望した担当枠に入ると自動で「叶いました」になります。見送りになったときは管理者のひとことと一緒に知らせが出ます'},
+    {t:'new', notify:true, admin:true, d:'🙋 届いた担当の希望は、その日の連絡表の担当カードの上と、予定タブの「🙋 担当の希望」（受付中の件数つき）で見られます。入れられないときは「見送り…」でひとこと返せます。使うには database.rules.json の dutyReq の反映が必要です'}
+  ]},
   { ver:'Ver.2026/10/28-141', date:'2026-10-28', title:'改善要望の進み具合と返信が見られるようになりました', items:[
     {t:'new', notify:true, d:'💡 名前を出して送った改善要望は「📋 自分の要望」で、未確認・対応予定・対応済みなどの進み具合を見られるようになりました'},
     {t:'new', notify:true, d:'💬 改善要望に管理者から返信が届き、コメントで何度でもやり取りできます。返信や進み具合の変化があると「📚 資料」と「💡 改善要望」に赤い数字が出ます'},
@@ -12458,6 +12487,7 @@ function closeItems(ds) {
    ds が未指定・該当ページ無しのときはバーごと非表示にする（日ページを開いているときだけ表示） */
 function updateCloseBar(ds) {
   updatePnavFloat(ds);
+  refreshDutyReqBox(ds); /* 担当の割り当て経路はすべてここを通るので、希望の「叶った」もここで追随させる */
   var bar = document.getElementById('cbar'); if (!bar) return;
   /* _cbarInputFocused の自己修復：入力欄にフォーカス中に renderPage() が #main を
      丸ごと差し替えると、フォーカス中の要素がDOMごと消えて focusout が発火しない。
@@ -20290,6 +20320,8 @@ function renderPage(ds) {
   if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="margin-left:auto;font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">🎲 自動割り当て</button>';
   h+='</div>';
   if(dlk)h+='<div class="ln">'+(_offlineMode?'📴 災害モードでは変更できません':'🔒 担当割り当ては管理者によってロックされています')+'</div>';
+  /* 担当の希望（本人と管理者だけ。中身は dutyReqBoxHTML、担当を動かすたび updateCloseBar 経由で refreshDutyReqBox が描き直す） */
+  h+='<div id="dreq-box" data-ds="'+ds+'">'+dutyReqBoxHTML(ds)+'</div>';
   h+='<div class="dg" id="dg"></div>';
 
   /* OC担当（担当ロックに連動） */
@@ -29730,6 +29762,292 @@ function fbDelete(id) {
     if (_fbMemo[id]) fbSaveMemo(id, '');
   }
   renderFeedback(); fbRefreshBadge();
+}
+
+/* ===== 担当の希望（🙋、/dutyReq/{uid}/{id}） =====
+   /dutyReq/{uid}/{id} = { name, kind:'day'|'range'|'open', ds?, from?, to?, slot?(担当枠の名前), strength:'must'|'pref',
+                            note?, ts, status?:'skip', reply?, replyTs? }
+   ・見られるのは本人と管理者だけ（/data の外に置き、ルールで強制。他の職員の端末にはデータ自体が届かない）。
+     一般職員は自分の uid 配下だけを受信し、管理者は /dutyReq 全体を受信する。
+   ・担当枠は id ではなく名前（label）で持つ。id は「追加」のたびに振り直されるため（myDutyLabels と同じ理由）。
+   ・「叶った」は保存せず、その日の dat.duties を見て毎回判定する（dreqDoneDs）。担当を入れ替えれば自然に戻る。
+     日付指定はその日、期間はその期間のどこか1日で希望の枠に入れば叶った。期間なし・枠を選ばない希望は判定しない。
+   ・入れられないときは管理者が「見送り」＋ひとこと（status:'skip', reply）。本人の一覧と 🙋 の赤い数字に出る。
+   ・月次自動割り当てには反映しない。「避けたい」希望・HDの役割は受け付けない（2026-10-28 合意）。
+   ・プレビューは端末内（localStorage ce2_dutyreq_pv）に保存する。 */
+var DREQ_PV_KEY = 'ce2_dutyreq_pv', DREQ_NOTE_MAX = 300, DREQ_RANGE_MAX = 92;
+var DREQ_KINDS = [ { id:'day', label:'📅 日付を指定' }, { id:'range', label:'🗓 期間のどこかで' }, { id:'open', label:'♾ 期間なし' } ];
+var DREQ_STR = { must:'🙏 この枠にしてほしい', pref:'💭 できれば（ご一考ください）' };
+var _dreqAll = {}, _dreqRef = null, _dreqDenied = false, _dreqDraft = null, _dreqTab = 'new';
+function dreqIsLocal() { return fbIsLocal(); }
+function dreqLoadLocal() { try { _dreqAll = JSON.parse(localStorage.getItem(DREQ_PV_KEY) || '{}') || {}; } catch (e) { _dreqAll = {}; } }
+function dreqSaveLocal() { try { localStorage.setItem(DREQ_PV_KEY, JSON.stringify(_dreqAll)); } catch (e) {} }
+function dreqStartListener(user) {
+  dreqStop();
+  if (!fbDB || !user) return;
+  _dreqRef = fbDB.ref(isAdmin ? '/dutyReq' : '/dutyReq/' + user.uid);
+  _dreqRef.on('value', function(s){
+    var v = s.val() || {};
+    if (isAdmin) _dreqAll = v; else { _dreqAll = {}; _dreqAll[user.uid] = v; }
+    _dreqDenied = false; dreqRefreshUI();
+  }, function(err){
+    /* ルール未反映だと読み取りが拒否される。無言で空にすると「希望が消えた」と誤解されるので理由を記録して画面に出す */
+    _dreqDenied = String((err && (err.code || err.message)) || '').indexOf('PERMISSION_DENIED') !== -1;
+    _dreqAll = {}; dreqRefreshUI();
+  });
+}
+function dreqStop() { if (_dreqRef) { _dreqRef.off(); _dreqRef = null; } _dreqAll = {}; _dreqDenied = false; }
+function dreqList() {
+  var out = [];
+  Object.keys(_dreqAll || {}).forEach(function(uid){
+    var m = _dreqAll[uid] || {};
+    Object.keys(m).forEach(function(id){ var r = m[id]; if (r && typeof r === 'object') out.push(Object.assign({}, r, { _uid:uid, _id:id })); });
+  });
+  return out.sort(function(a, b){ return (a.ts || 0) - (b.ts || 0); });
+}
+function dreqMine() { var uid = currentUser && currentUser.uid; return dreqList().filter(function(r){ return r._uid === uid; }); }
+function dreqSlotLabels(ds) {
+  var out = [];
+  var add = function(s){ var l = s && (s.label || ''); if (l && out.indexOf(l) === -1) out.push(l); };
+  getDutyMaster().forEach(add);
+  if (ds && D.pages[ds]) getDutyCfg(D.pages[ds]).forEach(add);
+  return out;
+}
+function dreqHitOn(r, ds) {
+  var dat = D.pages[ds]; if (!dat || !r.slot || !r.name || !dat.duties) return false;
+  return getDutyCfg(dat).some(function(s){ return (s.label || '') === r.slot && dat.duties[s.id] === r.name; });
+}
+function dreqDoneDs(r) {
+  if (!r.slot) return '';
+  if (r.kind === 'day') return r.ds && dreqHitOn(r, r.ds) ? r.ds : '';
+  if (r.kind === 'range' && r.from && r.to) {
+    var d = new Date(r.from + 'T00:00:00');
+    for (var i = 0; i < DREQ_RANGE_MAX; i++) { var ds = toDS(d); if (ds > r.to) break; if (dreqHitOn(r, ds)) return ds; d.setDate(d.getDate() + 1); }
+  }
+  return '';
+}
+function dreqState(r) {
+  if (r.status === 'skip') return 'skip';
+  if (dreqDoneDs(r)) return 'done';
+  var today = toDS(new Date());
+  if ((r.kind === 'day' && r.ds < today) || (r.kind === 'range' && r.to < today)) return 'past';
+  return 'open';
+}
+function dreqStateHTML(r) {
+  var st = dreqState(r), dd = st === 'done' ? dreqDoneDs(r) : '';
+  if (st === 'done') return '<span class="dreq-st done">✅ 叶いました' + (r.kind === 'range' ? '（' + fmtMD(dd) + '）' : '') + '</span>';
+  if (st === 'skip') return '<span class="dreq-st skip">見送り</span>';
+  if (st === 'past') return '<span class="dreq-st past">期間終了</span>';
+  return '<span class="dreq-st open">' + (r.slot ? '受付中' : '届いています') + '</span>';
+}
+function dreqWhenLabel(r) {
+  if (r.kind === 'day') return r.ds ? fmtMD(r.ds) + '（' + '日月火水木金土'[new Date(r.ds + 'T00:00:00').getDay()] + '）' : '';
+  if (r.kind === 'range') return (r.from ? fmtMD(r.from) : '?') + '〜' + (r.to ? fmtMD(r.to) : '?') + 'のどこかで';
+  return '期間なし（取り下げるまで）';
+}
+/* その日の連絡表に出す希望。日付指定はその日、期間はその期間内（別の日に叶ったものは出さない）、期間なしは出した日以降 */
+function dreqForDay(ds) {
+  return dreqList().filter(function(r){
+    var st = dreqState(r);
+    if (r.kind === 'day') return r.ds === ds;
+    if (r.kind === 'range') {
+      if (!(r.from <= ds && ds <= r.to) || st === 'skip') return false;
+      var dd = dreqDoneDs(r); return !dd || dd === ds;
+    }
+    return st !== 'skip' && ds >= toDS(new Date(r.ts || 0));
+  });
+}
+function dreqRowHTML(r, admin) {
+  var h = '<div class="dreq-row" data-uid="' + escH(r._uid) + '" data-id="' + escH(r._id) + '">'
+    + '<div class="dreq-row-h">' + (admin ? '<b>' + escH(r.name || '') + '</b>' : '') + dreqStateHTML(r)
+    + '<span class="dreq-tag ' + (r.strength === 'must' ? 'must' : 'pref') + '">' + (DREQ_STR[r.strength] || DREQ_STR.pref) + '</span>'
+    + '<span class="dreq-slot">' + (r.slot ? '🎯 ' + escH(r.slot) : '担当枠の指定なし') + '</span>'
+    + '<span class="fb-opt">' + escH(dreqWhenLabel(r)) + '</span></div>';
+  if (r.note) h += '<div class="dreq-note">' + escH(r.note) + '</div>';
+  if (r.status === 'skip' && r.reply) h += '<div class="dreq-reply">🛠 管理者：' + escH(r.reply) + '</div>';
+  var act = '';
+  if (admin) {
+    if (r.status === 'skip') act += '<button class="btn btn-g btn-sm" onclick="dreqSkip(this,false)">見送りを取り消す</button>';
+    else if (dreqState(r) === 'open') act += '<button class="btn btn-g btn-sm" onclick="dreqSkip(this,true)">見送り…</button>';
+  } else act += '<button class="btn btn-g btn-sm" onclick="dreqWithdraw(this)">取り下げる</button>';
+  if (act) h += '<div class="dreq-act">' + act + '</div>';
+  return h + '</div>';
+}
+function dreqRowKey(el) { var c = el && el.closest('.dreq-row'); return c ? { uid:c.getAttribute('data-uid'), id:c.getAttribute('data-id') } : null; }
+function dreqFind(k) { var m = k && _dreqAll[k.uid]; return m && m[k.id] ? m[k.id] : null; }
+
+/* ---- 連絡表の担当カードの上 ---- */
+function dutyReqBoxHTML(ds) {
+  if (!currentUser || _offlineMode) return '';
+  var list = dreqForDay(ds);
+  if (isAdmin) {
+    if (!list.length) return '';
+    var act = list.filter(function(r){ return dreqState(r) === 'open'; }).length;
+    var h = '<div class="dreq-box"><div class="dreq-box-h">🙋 担当の希望（' + list.length + '件' + (act ? '・受付中' + act : '') + '）<span class="fb-opt">本人と管理者だけに見えます</span></div>';
+    list.forEach(function(r){ h += dreqRowHTML(r, true); });
+    return h + '</div>';
+  }
+  var self = taskSelfName(), uid = currentUser.uid;
+  var mine = list.filter(function(r){ return r._uid === uid; });
+  var h2 = '<div class="dreq-box mine"><div class="dreq-box-h">🙋 担当の希望'
+    + '<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openDutyReqModal(\'' + ds + '\')"' + (self ? '' : ' disabled title="アカウントが職員名と紐付いていません"') + '>＋ この日の希望を出す</button></div>';
+  if (_dreqDenied) h2 += '<div class="fb-opt" style="color:var(--rd)">サーバー側の準備がまだのため、希望を読み込めません</div>';
+  mine.forEach(function(r){ h2 += dreqRowHTML(r, false); });
+  if (!mine.length && !_dreqDenied) h2 += '<div class="fb-opt">「この業務をする必要があるのでこの枠にしてほしい」「できればご一考を」など、管理者が担当を決めるときの参考に届けられます（ほかの職員には見えません）</div>';
+  return h2 + '</div>';
+}
+function refreshDutyReqBox(ds) {
+  var el = document.getElementById('dreq-box'); if (!el) return;
+  ds = ds || el.getAttribute('data-ds'); if (el.getAttribute('data-ds') !== ds) return;
+  el.innerHTML = dutyReqBoxHTML(ds);
+}
+function dreqRefreshUI() {
+  refreshDutyReqBox();
+  if (document.getElementById('dreq-ov')) renderDutyReqModalBody();
+  dreqRefreshBadge();
+}
+function dreqSeenKey() { return 'ce2_dreq_seen_' + (currentUser ? currentUser.uid : ''); }
+function dreqBadgeN() {
+  if (!currentUser) return 0;
+  if (isAdmin) return dreqList().filter(function(r){ return dreqState(r) === 'open'; }).length;
+  var seen = 0; try { seen = +localStorage.getItem(dreqSeenKey()) || 0; } catch (e) {}
+  return dreqMine().filter(function(r){ return r.status === 'skip' && (+r.replyTs || 0) > seen; }).length;
+}
+function dreqRefreshBadge() {
+  var b = document.getElementById('dreq-badge'); if (!b) return;
+  var n = dreqBadgeN(); b.style.display = n ? '' : 'none'; b.textContent = n;
+}
+
+/* ---- 希望を出す・一覧（モーダル） ---- */
+function dreqNewDraft(ds) {
+  var t = new Date(); t.setDate(t.getDate() + 1);
+  var d0 = ds || toDS(t);
+  return { kind:'day', ds:d0, from:d0, to:d0, slot:'', strength:'pref', note:'' };
+}
+function openDutyReqModal(ds) {
+  if (!currentUser) return;
+  if (_offlineMode) { toast('災害モードでは担当の希望は出せません', 'warn'); return; }
+  var old = document.getElementById('dreq-ov'); if (old) old.remove();
+  _dreqDraft = dreqNewDraft(ds); _dreqTab = isAdmin ? 'all' : 'new';
+  var ov = document.createElement('div'); ov.id = 'dreq-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '460px'; md.id = 'dreq-md';
+  ov.appendChild(md); document.body.appendChild(ov);
+  renderDutyReqModalBody();
+}
+function dreqSyncDraft() {
+  var d = _dreqDraft; if (!d) return;
+  ['ds', 'from', 'to', 'slot', 'note'].forEach(function(k){ var el = document.getElementById('dreq-' + k); if (el) d[k] = el.value; });
+}
+function dreqSetDraft(k, v) { dreqSyncDraft(); _dreqDraft[k] = v; renderDutyReqModalBody(); }
+function dreqSetTab(t) { dreqSyncDraft(); _dreqTab = t; renderDutyReqModalBody(); }
+function renderDutyReqModalBody() {
+  var md = document.getElementById('dreq-md'); if (!md) return;
+  var h = '<h3>🙋 担当の希望</h3>';
+  if (_dreqDenied) h += '<div class="fb-opt" style="color:var(--rd);margin-bottom:6px">サーバー側の準備がまだのため、希望を読み込めません（管理者がルールを反映すると使えます）</div>';
+  if (isAdmin) {
+    var act = dreqList().filter(function(r){ return dreqState(r) !== 'past' || r.kind === 'open'; });
+    h += '<div class="fb-opt" style="margin-bottom:8px">職員から届いた希望です（本人と管理者だけに見えます）。日付つきの希望はその日の連絡表の担当カードの上にも出ます。</div>';
+    if (!act.length) h += '<div class="pool-empty">届いている希望はありません</div>';
+    DREQ_KINDS.forEach(function(k){
+      var rows = act.filter(function(r){ return r.kind === k.id; });
+      if (k.id === 'day') rows.sort(function(a, b){ return a.ds < b.ds ? -1 : a.ds > b.ds ? 1 : 0; });
+      if (!rows.length) return;
+      h += '<div class="dreq-sec">' + k.label + '（' + rows.length + '）</div>';
+      rows.forEach(function(r){ h += dreqRowHTML(r, true); });
+    });
+    h += '<div style="margin-top:12px;text-align:right"><button class="btn btn-g" onclick="document.getElementById(\'dreq-ov\').remove()">閉じる</button></div>';
+    md.innerHTML = h; return;
+  }
+  var mine = dreqMine(), unseen = dreqBadgeN();
+  h += '<div class="fb-chips" style="margin-bottom:10px"><button class="fb-chip' + (_dreqTab === 'new' ? ' on' : '') + '" onclick="dreqSetTab(\'new\')">＋ 新しく出す</button>'
+    + '<button class="fb-chip' + (_dreqTab === 'list' ? ' on' : '') + '" onclick="dreqSetTab(\'list\')">📋 出した希望（' + mine.length + '）' + (unseen ? '<span class="fb-badge">' + unseen + '</span>' : '') + '</button></div>';
+  if (_dreqTab === 'list') {
+    if (!mine.length) h += '<div class="pool-empty">出した希望はまだありません</div>';
+    mine.slice().reverse().forEach(function(r){ h += dreqRowHTML(r, false); });
+    h += '<div style="margin-top:12px;text-align:right"><button class="btn btn-g" onclick="document.getElementById(\'dreq-ov\').remove()">閉じる</button></div>';
+    md.innerHTML = h;
+    try { localStorage.setItem(dreqSeenKey(), String(Date.now())); } catch (e) {}
+    dreqRefreshBadge();
+    return;
+  }
+  var d = _dreqDraft;
+  if (!taskSelfName()) { md.innerHTML = h + '<div class="pn">アカウントが職員名と紐付いていないため、希望を出せません。管理者に紐付けを依頼してください。</div><div style="margin-top:12px;text-align:right"><button class="btn btn-g" onclick="document.getElementById(\'dreq-ov\').remove()">閉じる</button></div>'; return; }
+  h += '<div class="dreq-f-h">いつ？</div><div class="fb-chips">';
+  DREQ_KINDS.forEach(function(k){ h += '<button type="button" class="fb-chip' + (d.kind === k.id ? ' on' : '') + '" onclick="dreqSetDraft(\'kind\',\'' + k.id + '\')">' + k.label + '</button>'; });
+  h += '</div>';
+  if (d.kind === 'day') h += '<input type="date" id="dreq-ds" class="fi" style="width:100%;box-sizing:border-box;margin-top:6px" value="' + escH(d.ds) + '">';
+  else if (d.kind === 'range') h += '<div style="display:flex;gap:6px;align-items:center;margin-top:6px"><input type="date" id="dreq-from" class="fi" style="flex:1;min-width:0" value="' + escH(d.from) + '">〜<input type="date" id="dreq-to" class="fi" style="flex:1;min-width:0" value="' + escH(d.to) + '"></div><div class="fb-opt" style="margin-top:4px">この期間のどこか1日で希望の担当枠に入れば「叶いました」になります</div>';
+  else h += '<div class="fb-opt" style="margin-top:6px">取り下げるまで、毎日の連絡表で管理者に見えます（例：しばらく機器管理に多めに入りたい）</div>';
+  h += '<div class="dreq-f-h">どの担当枠？ <span class="fb-opt">（選ばなくても出せます）</span></div><select id="dreq-slot" class="fi" style="width:100%;box-sizing:border-box"><option value="">指定しない</option>';
+  dreqSlotLabels(d.kind === 'day' ? d.ds : null).forEach(function(l){ h += '<option value="' + escH(l) + '"' + (d.slot === l ? ' selected' : '') + '>' + escH(l) + '</option>'; });
+  h += '</select>';
+  h += '<div class="dreq-f-h">どのくらい？</div><div class="fb-chips">';
+  ['must', 'pref'].forEach(function(s){ h += '<button type="button" class="fb-chip' + (d.strength === s ? ' on' : '') + '" onclick="dreqSetDraft(\'strength\',\'' + s + '\')">' + DREQ_STR[s] + '</button>'; });
+  h += '</div>';
+  h += '<div class="dreq-f-h">理由・ひとこと <span class="fb-opt">（任意）</span></div><textarea id="dreq-note" class="fb-ta" style="min-height:70px" maxlength="' + DREQ_NOTE_MAX + '" placeholder="例：点検が溜まっているので、この日は機器管理に入りたいです">' + escH(d.note) + '</textarea>';
+  h += '<div class="fb-opt" style="margin-top:4px">⚠️ 患者さんが特定できる情報は書かないでください。見られるのは管理者とあなただけです。</div>';
+  h += '<div style="margin-top:12px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'dreq-ov\').remove()">キャンセル</button><button class="btn btn-p" onclick="dreqSubmit()">🙋 希望を出す</button></div>';
+  md.innerHTML = h;
+}
+function dreqSubmit() {
+  dreqSyncDraft();
+  var d = _dreqDraft, name = taskSelfName(), today = toDS(new Date());
+  if (!name || !currentUser) return;
+  var rec = { name:name, kind:d.kind, slot:d.slot || '', strength:d.strength === 'must' ? 'must' : 'pref', note:String(d.note || '').trim().slice(0, DREQ_NOTE_MAX), ts:Date.now() };
+  if (d.kind === 'day') {
+    if (!d.ds) { toast('日付を選んでください', 'warn'); return; }
+    if (d.ds < today) { toast('過ぎた日には希望を出せません', 'warn'); return; }
+    rec.ds = d.ds;
+  } else if (d.kind === 'range') {
+    if (!d.from || !d.to) { toast('期間の始まりと終わりを選んでください', 'warn'); return; }
+    if (d.to < d.from) { toast('終わりの日が始まりより前になっています', 'warn'); return; }
+    if (d.to < today) { toast('過ぎた期間には希望を出せません', 'warn'); return; }
+    var days = Math.round((new Date(d.to + 'T00:00:00') - new Date(d.from + 'T00:00:00')) / 86400000) + 1;
+    if (days > DREQ_RANGE_MAX) { toast('期間は' + DREQ_RANGE_MAX + '日以内にしてください', 'warn'); return; }
+    rec.from = d.from; rec.to = d.to;
+  }
+  if (!rec.slot && !rec.note) { toast('担当枠を選ぶか、ひとことを書いてください', 'warn'); return; }
+  var go = function(){ dreqWrite(currentUser.uid, 'r' + rec.ts + '_' + Math.random().toString(36).slice(2, 6), rec, function(){
+    toast('🙋 希望を出しました（管理者に届きます）', 'ok');
+    _dreqDraft = dreqNewDraft(rec.ds || null); _dreqTab = 'list'; dreqRefreshUI();
+  }); };
+  var phi = detectPHI(rec.note);
+  if (rec.note && phi.red.length) { showPHIPopup({ result:phi, mode:'memo', onProceed: phiHasBlock(phi) ? null : go }); return; }
+  go();
+}
+/* 書き込みの唯一の口。rec が null なら削除。手元の写しを先に変えて画面に出し、失敗したら戻す */
+function dreqWrite(uid, id, rec, ok) {
+  _dreqAll[uid] = _dreqAll[uid] || {};
+  var prev = _dreqAll[uid][id];
+  if (rec) _dreqAll[uid][id] = rec; else delete _dreqAll[uid][id];
+  if (dreqIsLocal()) { dreqSaveLocal(); if (ok) ok(); dreqRefreshUI(); return; }
+  fbDB.ref('/dutyReq/' + uid + '/' + id).set(rec || null).then(function(){ if (ok) ok(); dreqRefreshUI(); }).catch(function(e){
+    if (prev) _dreqAll[uid][id] = prev; else delete _dreqAll[uid][id];
+    dreqRefreshUI();
+    toast('保存できませんでした（' + (e && (e.code || e.message) || '') + '）。サーバー側の準備がまだの可能性があります', 'err', 8000);
+  });
+}
+function dreqWithdraw(el) {
+  var k = dreqRowKey(el), r = dreqFind(k); if (!r || !currentUser || k.uid !== currentUser.uid) return;
+  if (!confirm('この希望を取り下げますか？')) return;
+  dreqWrite(k.uid, k.id, null, function(){ toast('希望を取り下げました', 'ok'); });
+}
+function dreqSkip(el, on) {
+  if (!isAdmin) return;
+  var k = dreqRowKey(el), r = dreqFind(k); if (!r) return;
+  var next = Object.assign({}, r);
+  if (!on) { delete next.status; delete next.reply; delete next.replyTs; dreqWrite(k.uid, k.id, next); return; }
+  var msg = prompt((r.name || '') + ' さんの希望を見送ります。本人へのひとこと（任意）', '');
+  if (msg === null) return;
+  msg = String(msg).trim().slice(0, DREQ_NOTE_MAX);
+  var go = function(){
+    next.status = 'skip'; next.replyTs = Date.now(); if (msg) next.reply = msg; else delete next.reply;
+    dreqWrite(k.uid, k.id, next, function(){ toast('見送りにしました（本人の一覧に出ます）', 'ok'); });
+  };
+  var phi = detectPHI(msg);
+  if (msg && phi.red.length) { showPHIPopup({ result:phi, mode:'memo', onProceed: phiHasBlock(phi) ? null : go }); return; }
+  go();
 }
 
 /* ===== TABS / SIDEBAR ===== */
