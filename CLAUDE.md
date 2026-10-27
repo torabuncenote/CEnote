@@ -298,7 +298,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /data/                      — full D object (saveD())
 /board/                     — 掲示板 posts (independent of /data)
 /tasks/                     — タスク管理 (independent of /data; see Task Management section)
-/feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, memo}（/data の外。読めるのは管理者だけ、作成は全員・変更削除は管理者＝ルールで強制）
+/feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, stTs?, comments?, adminSeen?}（/data の外。全件は管理者、本人は uid で絞った自分の分だけ読める。作成は全員・変更削除は管理者、comments は本人も追加可＝ルールで強制）
+/feedbackMemo/{id}          — 改善要望の管理者メモ（文字列。管理者だけ。本人が要望を読めるので本体から分けた）
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
 /media/{id}                 — 添付画像1枚 {d: dataURL, by: uid, ts}。記録側は url/data に 'media:{id}' を持つ（Media Uploads 節）。/media 全体は誰も読めず1枚ずつ読む
 /shiftReqTpl                — 勤務希望のExcel出力テンプレ {data, ts, by, size}（/data の外。D.shiftReqCfg.tpl に名前・日時。書き込みは管理者のみ）
@@ -1177,12 +1178,15 @@ The day page does **not** show an inline tablet section (it would occupy too muc
 
 `pane-feedback`（`renderFeedback()`）。一般職員は「種類 → 画面 → くわしく（種類ごとの書き出しヒント）→ 困り具合 → 写真1枚（任意）→ 匿名」を選んで送り、送信後はお礼画面（「続けて書く」／「終わる＝来た画面へ戻る」）に移る。管理者は同じタブで「📥 届いた要望」（未完了／未確認／支障あり／すべて、状態・管理者メモ・削除）と「✏️ 自分も書く」を切り替える。未確認数は資料サブメニューの `#fb-badge`（管理者のログイン後に1回だけ読む、常時の受信はしない）。
 
-- **読めるのは管理者だけ（`/feedback` のルールで強制）。** 一般職員は自分の送った分も読めない（この端末から送った件数だけ `localStorage ce2_fb_sent` に残す）。
+- **全件を読めるのは管理者だけ。本人は `orderByChild('uid').equalTo(自分)` の読み取りだけ許される（ルールの `query` 条件で強制）。** 名前を出して送った要望は「📋 自分の要望」（`fbLoadMine`/`fbMineHTML`）で状態を見て、管理者と往復コメント（`comments/{cid} = {by:'admin'|'user', name, text, ts}`、`fbPostComment`）できる。匿名は対象外。
+- **管理者メモは `/feedbackMemo/{id}`（`fbSaveMemo`）。本体に `memo` を置かないこと**——本人が本体を読めるので覚え書きが漏れる。以前の本体の `memo` は管理者が一覧を読み込んだときに `fbMigrateMemos` が移して消す。
+- 未読の目印：本人側は端末内 `ce2_fb_seen_{uid}` の既読時刻と管理者の動き（`stTs`＝状態変更・管理者のコメント、`fbAdminActTs`）を比べる。管理者側は本人の最後のコメントと `adminSeen` を比べる（`fbUserNew`、表示した分だけ `fbMarkAdminSeen` が既読にする）。知らせはアプリ内（`#fb-badge`・📚資料タブの `#lib-badge`）だけでメールは送らない。管理者が返信すると未確認は自動で確認済みになる。
+- コメント欄は描き直しで消えないよう `renderFeedback` が書きかけを拾って戻す。
 - **匿名（`anon`）のときは uid も名前も保存せず、`writeLog` も呼ばない**（writeLog は操作者名を自動で記録するため）。
 - 本文は `#main` の外なので `detectPHI` を明示的に通すが、**止めるのは赤（患者ID・患者の姓名など）だけ**。黄色（氏名らしい文字列）は、要望がアプリの言葉（「どの操作が」「担当表」）だらけで毎回当たるため止めない（使用物品・メーカー担当者名と同じ判断）。
 - 画像は `compressImage` → dataURL で本体に入れる（Storage は使えない）。ルールで1枚40万文字までに制限。
 - 場所の初期値は「どの画面から来たか」（`swTab` が `_fbFrom` に記録）から推測する。プレビューは `localStorage ce2_feedback_pv` に保存して管理者画面まで試せる。
-- **本番で使うには `database.rules.json` の `feedback` の反映が必要**（未反映だと送信・読み込み時にトーストで知らせる）。
+- **本番で使うには `database.rules.json` の `feedback`・`feedbackMemo` の反映が必要**（未反映だと送信・読み込み時にトーストで知らせる。自分の要望は読み込めない旨を表示する）。
 
 ### メーカー担当者連絡先 (`D.makers`)
 

@@ -193,14 +193,25 @@
       }
     },
     "feedback": {
-      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && query.orderByChild === 'uid' && query.equalTo === auth.uid))",
       ".indexOn": [
-        "ts"
+        "ts",
+        "uid"
       ],
       "$id": {
         ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || root.child('admins').child(auth.uid).val() === true)",
-        ".validate": "!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))"
+        ".validate": "!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))",
+        "comments": {
+          "$cid": {
+            ".write": "auth != null && root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))"
+          }
+        }
       }
+    },
+    "feedbackMemo": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".write": "auth != null && root.child('admins').child(auth.uid).val() === true"
     },
     "shiftReqTpl": {
       ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)",
