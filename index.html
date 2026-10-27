@@ -1648,11 +1648,11 @@ body.has-psgb{--psgb-h:36px}
 .fb-cm-tx{white-space:pre-wrap;word-break:break-word}
 .fb-cm-in{display:flex;gap:6px;align-items:flex-end}
 .fb-card .fb-cm-in textarea{flex:1;min-width:0;font-size:13px;padding:6px 8px;border:1px solid var(--bdr);border-radius:8px;resize:vertical;font-family:var(--fn);box-sizing:border-box}
-.dreq-box{border:1px solid var(--bdr);border-left:4px solid var(--or);border-radius:10px;padding:8px 10px;margin:0 0 8px;background:var(--sur)}
-.dreq-box.mine{border-left-color:var(--ac)}
-.dreq-box-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;font-weight:700;margin-bottom:4px}
+.dreq-chip{font-size:11px;white-space:nowrap}
+.dreq-chip.act{border-color:var(--or);color:var(--or);font-weight:700}
+.dreq-chip.mine{border-color:var(--ac);color:var(--ac)}
 .dreq-row{border-top:1px dashed var(--bdr);padding:6px 0}
-.dreq-box .dreq-row:first-of-type{border-top:none}
+.dreq-row:first-of-type{border-top:none}
 .dreq-row-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px}
 .dreq-tag{font-size:11px;padding:1px 8px;border-radius:10px;border:1px solid var(--bdr);background:var(--sur2)}
 .dreq-tag.must{border-color:var(--or);color:var(--or);font-weight:700}
@@ -1667,7 +1667,7 @@ body.has-psgb{--psgb-h:36px}
 .dreq-act{margin-top:4px;display:flex;gap:6px;justify-content:flex-end}
 .dreq-sec{font-size:12px;font-weight:700;margin:10px 0 2px;color:var(--txt2)}
 .dreq-f-h{font-size:12px;font-weight:700;margin:12px 0 6px}
-@media print{.dreq-box{display:none!important}}
+@media print{#dreq-box{display:none!important}}
 .dc-cb-item.subdone{font-size:10px}
 /* 担当カード内チェックボックス */
 .dc-cbs{display:flex;gap:8px;margin-bottom:7px;flex-wrap:wrap}
@@ -6152,11 +6152,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/28-142';
+var APP_VERSION = 'Ver.2026/10/28-143';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/28-143', date:'2026-10-28', title:'担当の希望の表示を小さくしました', items:[
+    {t:'imp', d:'🙋 担当割り当ての上にあった「担当の希望」の欄を、見出しの右の小さなボタンにしました。押すとその日の希望が開きます'}
+  ]},
   { ver:'Ver.2026/10/28-142', date:'2026-10-28', title:'担当の希望を前もって出せるようになりました', items:[
     {t:'new', notify:true, d:'🙋 「この日はこの担当枠にしてほしい」「できればご一考を」という担当の希望を、前もって管理者に出せるようになりました。連絡表の担当カードの上か、予定タブの「🙋 担当の希望」から出せます'},
     {t:'new', notify:true, d:'🗓 日付を指定するほか、「期間のどこかで1回」「期間なし（取り下げるまで）」でも出せます。希望はあなたと管理者にしか見えません'},
@@ -20317,11 +20320,12 @@ function renderPage(ds) {
 
   /* 担当割り当て */
   h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
-  if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="margin-left:auto;font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">🎲 自動割り当て</button>';
-  h+='</div>';
+  /* 担当の希望は見出しの小ボタンだけ（本人と管理者だけ。押すとその日の希望を小窓で開く）。欄として並べると担当カードを押し下げて邪魔なため。
+     中身は dutyReqBoxHTML、担当を動かすたび updateCloseBar 経由で refreshDutyReqBox が描き直す */
+  h+='<span style="margin-left:auto;display:flex;align-items:center;gap:6px"><span id="dreq-box" data-ds="'+ds+'">'+dutyReqBoxHTML(ds)+'</span>';
+  if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">🎲 自動割り当て</button>';
+  h+='</span></div>';
   if(dlk)h+='<div class="ln">'+(_offlineMode?'📴 災害モードでは変更できません':'🔒 担当割り当ては管理者によってロックされています')+'</div>';
-  /* 担当の希望（本人と管理者だけ。中身は dutyReqBoxHTML、担当を動かすたび updateCloseBar 経由で refreshDutyReqBox が描き直す） */
-  h+='<div id="dreq-box" data-ds="'+ds+'">'+dutyReqBoxHTML(ds)+'</div>';
   h+='<div class="dg" id="dg"></div>';
 
   /* OC担当（担当ロックに連動） */
@@ -29778,7 +29782,7 @@ function fbDelete(id) {
 var DREQ_PV_KEY = 'ce2_dutyreq_pv', DREQ_NOTE_MAX = 300, DREQ_RANGE_MAX = 92;
 var DREQ_KINDS = [ { id:'day', label:'📅 日付を指定' }, { id:'range', label:'🗓 期間のどこかで' }, { id:'open', label:'♾ 期間なし' } ];
 var DREQ_STR = { must:'🙏 この枠にしてほしい', pref:'💭 できれば（ご一考ください）' };
-var _dreqAll = {}, _dreqRef = null, _dreqDenied = false, _dreqDraft = null, _dreqTab = 'new';
+var _dreqAll = {}, _dreqRef = null, _dreqDenied = false, _dreqDraft = null, _dreqTab = 'new', _dreqDayDs = null;
 function dreqIsLocal() { return fbIsLocal(); }
 function dreqLoadLocal() { try { _dreqAll = JSON.parse(localStorage.getItem(DREQ_PV_KEY) || '{}') || {}; } catch (e) { _dreqAll = {}; } }
 function dreqSaveLocal() { try { localStorage.setItem(DREQ_PV_KEY, JSON.stringify(_dreqAll)); } catch (e) {} }
@@ -29876,25 +29880,20 @@ function dreqRowHTML(r, admin) {
 function dreqRowKey(el) { var c = el && el.closest('.dreq-row'); return c ? { uid:c.getAttribute('data-uid'), id:c.getAttribute('data-id') } : null; }
 function dreqFind(k) { var m = k && _dreqAll[k.uid]; return m && m[k.id] ? m[k.id] : null; }
 
-/* ---- 連絡表の担当カードの上 ---- */
+/* ---- 連絡表の「🎯 担当割り当て」見出しの小ボタン ----
+   管理者：その日に関係する希望があるときだけ「🙋 希望 N」（受付中があれば橙）。0件の日は何も出さない。
+   一般職員：自分の希望があれば「🙋 希望 N」、無ければ「🙋 希望を出す」。押すとその日の希望を小窓（openDutyReqModal(ds, true)）で開く。 */
 function dutyReqBoxHTML(ds) {
   if (!currentUser || _offlineMode) return '';
   var list = dreqForDay(ds);
   if (isAdmin) {
     if (!list.length) return '';
     var act = list.filter(function(r){ return dreqState(r) === 'open'; }).length;
-    var h = '<div class="dreq-box"><div class="dreq-box-h">🙋 担当の希望（' + list.length + '件' + (act ? '・受付中' + act : '') + '）<span class="fb-opt">本人と管理者だけに見えます</span></div>';
-    list.forEach(function(r){ h += dreqRowHTML(r, true); });
-    return h + '</div>';
+    return '<button class="btn btn-g btn-sm dreq-chip' + (act ? ' act' : '') + '" onclick="openDutyReqModal(\'' + ds + '\',true)" title="この日の担当の希望（本人と管理者だけに見えます）">🙋 希望 ' + list.length + '</button>';
   }
-  var self = taskSelfName(), uid = currentUser.uid;
-  var mine = list.filter(function(r){ return r._uid === uid; });
-  var h2 = '<div class="dreq-box mine"><div class="dreq-box-h">🙋 担当の希望'
-    + '<button class="btn btn-g btn-sm" style="margin-left:auto" onclick="openDutyReqModal(\'' + ds + '\')"' + (self ? '' : ' disabled title="アカウントが職員名と紐付いていません"') + '>＋ この日の希望を出す</button></div>';
-  if (_dreqDenied) h2 += '<div class="fb-opt" style="color:var(--rd)">サーバー側の準備がまだのため、希望を読み込めません</div>';
-  mine.forEach(function(r){ h2 += dreqRowHTML(r, false); });
-  if (!mine.length && !_dreqDenied) h2 += '<div class="fb-opt">「この業務をする必要があるのでこの枠にしてほしい」「できればご一考を」など、管理者が担当を決めるときの参考に届けられます（ほかの職員には見えません）</div>';
-  return h2 + '</div>';
+  if (!taskSelfName()) return '';
+  var uid = currentUser.uid, n = list.filter(function(r){ return r._uid === uid; }).length;
+  return '<button class="btn btn-g btn-sm dreq-chip' + (n ? ' mine' : '') + '" onclick="openDutyReqModal(\'' + ds + '\',' + (n ? 'true' : 'false') + ')" title="管理者が担当を決めるときの参考に届けられます（ほかの職員には見えません）">🙋 ' + (n ? '希望 ' + n : '希望を出す') + '</button>';
 }
 function refreshDutyReqBox(ds) {
   var el = document.getElementById('dreq-box'); if (!el) return;
@@ -29924,11 +29923,11 @@ function dreqNewDraft(ds) {
   var d0 = ds || toDS(t);
   return { kind:'day', ds:d0, from:d0, to:d0, slot:'', strength:'pref', note:'' };
 }
-function openDutyReqModal(ds) {
+function openDutyReqModal(ds, dayView) {
   if (!currentUser) return;
   if (_offlineMode) { toast('災害モードでは担当の希望は出せません', 'warn'); return; }
   var old = document.getElementById('dreq-ov'); if (old) old.remove();
-  _dreqDraft = dreqNewDraft(ds); _dreqTab = isAdmin ? 'all' : 'new';
+  _dreqDraft = dreqNewDraft(ds); _dreqTab = isAdmin ? 'all' : 'new'; _dreqDayDs = dayView ? ds : null;
   var ov = document.createElement('div'); ov.id = 'dreq-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '460px'; md.id = 'dreq-md';
@@ -29940,9 +29939,25 @@ function dreqSyncDraft() {
   ['ds', 'from', 'to', 'slot', 'note'].forEach(function(k){ var el = document.getElementById('dreq-' + k); if (el) d[k] = el.value; });
 }
 function dreqSetDraft(k, v) { dreqSyncDraft(); _dreqDraft[k] = v; renderDutyReqModalBody(); }
-function dreqSetTab(t) { dreqSyncDraft(); _dreqTab = t; renderDutyReqModalBody(); }
+function dreqSetTab(t) { dreqSyncDraft(); _dreqTab = t; _dreqDayDs = null; renderDutyReqModalBody(); }
+/* 見出しの小ボタンから開いたとき：その日の希望だけ（管理者は全員分、一般職員は自分の分） */
+function dreqDayHTML(ds) {
+  var uid = currentUser && currentUser.uid;
+  var rows = dreqForDay(ds).filter(function(r){ return isAdmin || r._uid === uid; });
+  var h = '<h3>🙋 担当の希望（' + escH(fmtMD(ds)) + '）</h3>';
+  if (_dreqDenied) h += '<div class="fb-opt" style="color:var(--rd);margin-bottom:6px">サーバー側の準備がまだのため、希望を読み込めません</div>';
+  if (isAdmin) h += '<div class="fb-opt" style="margin-bottom:6px">この日に関係する希望です（本人と管理者だけに見えます）</div>';
+  if (!rows.length) h += '<div class="pool-empty">この日の希望はありません</div>';
+  rows.forEach(function(r){ h += dreqRowHTML(r, isAdmin); });
+  h += '<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end">'
+    + '<button class="btn btn-g" onclick="dreqSetTab(\'' + (isAdmin ? 'all' : 'list') + '\')">すべての希望を見る</button>'
+    + (isAdmin ? '' : '<button class="btn btn-p" onclick="dreqSetTab(\'new\')">＋ この日の希望を出す</button>')
+    + '<button class="btn btn-g" onclick="document.getElementById(\'dreq-ov\').remove()">閉じる</button></div>';
+  return h;
+}
 function renderDutyReqModalBody() {
   var md = document.getElementById('dreq-md'); if (!md) return;
+  if (_dreqDayDs) { md.innerHTML = dreqDayHTML(_dreqDayDs); return; }
   var h = '<h3>🙋 担当の希望</h3>';
   if (_dreqDenied) h += '<div class="fb-opt" style="color:var(--rd);margin-bottom:6px">サーバー側の準備がまだのため、希望を読み込めません（管理者がルールを反映すると使えます）</div>';
   if (isAdmin) {
