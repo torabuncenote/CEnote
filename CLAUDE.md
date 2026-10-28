@@ -299,7 +299,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /board/                     — 掲示板 posts (independent of /data)
 /tasks/                     — タスク管理 (independent of /data; see Task Management section)
 /feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, stTs?, comments?, adminSeen?}（/data の外。全件は管理者、本人は uid で絞った自分の分だけ読める。作成は全員・変更削除は管理者、comments は本人も追加可＝ルールで強制）
-/dutyReq/{uid}/{id}         — 担当の希望 {name, kind:'day'|'range'|'open', ds?, from?, to?, slot?, strength, note?, ts, status?, reply?, replyTs?}（/data の外。本人は自分の uid 配下、管理者は全体を読む。status/reply は管理者だけが変えられる＝ルールで強制）
+/dutyReq/{uid}/{id}         — 担当の希望 {name, kind:'day'|'range'|'open', ds?, from?, to?, slots?[], strength, note?, ts, status?:'consider'|'plan'|'skip', reply?, replyTs?}（/data の外。本人は自分の uid 配下、管理者は全体を読む。status/reply は管理者だけが変えられる＝ルールで強制）
 /feedbackMemo/{id}          — 改善要望の管理者メモ（文字列。管理者だけ。本人が要望を読めるので本体から分けた）
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
 /media/{id}                 — 添付画像1枚 {d: dataURL, by: uid, ts}。記録側は url/data に 'media:{id}' を持つ（Media Uploads 節）。/media 全体は誰も読めず1枚ずつ読む
@@ -1194,8 +1194,8 @@ The day page does **not** show an inline tablet section (it would occupy too muc
 職員が「この日はこの担当枠にしてほしい／できればご一考を」を前もって管理者に出す（2026-10-28 合意。正本は Obsidian `60_アプリ開発/2026-10-28_CENOTE担当希望と要望返信.md`）。
 
 - **置き場所は `/data` の外の `/dutyReq/{uid}/{id}`**。見られるのは本人と管理者だけなので、`D` に入れると全員の端末に届いてしまう。一般職員は自分の uid 配下だけ、管理者は全体を `dreqStartListener` で受信する（ログアウトで `dreqStop`）。プレビューは `ce2_dutyreq_pv`。
-- 形は日付指定（`ds`）／期間のどこかで（`from`〜`to`、最長92日）／期間なし（取り下げるまで）。担当枠は **id ではなく label で持つ**（id は追加のたびに振り直されるため）。枠を選ばない「ひとことだけ」の希望もある。
-- **「叶った」は保存しない。** `dreqDoneDs(r)` がその日（期間なら期間内の各日）の `dat.duties` を見て毎回判定する。期間なし・枠なしの希望は判定しない。入れられないときは管理者が `dreqSkip` で見送り＋ひとこと（`status:'skip'`・`reply`・`replyTs`）。本人の未読は端末内 `ce2_dreq_seen_{uid}` と `replyTs` を比べる。
+- 形は日付指定（`ds`）／期間のどこかで（`from`〜`to`、最長92日）／期間なし（取り下げるまで）。担当枠は **id ではなく label で持ち、複数選べる**（`slots` 配列。id は追加のたびに振り直されるため）。読み出しは必ず `dreqSlots(r)`（配列のオブジェクト化と、以前の1枠の形 `slot:'名前'` を吸収する）。枠を選ばない「ひとことだけ」の希望もある。
+- **「叶った」は保存しない。** `dreqDoneDs(r)` がその日（期間なら期間内の各日）の `dat.duties` を見て毎回判定し、選んだ枠の**どれか1つ**に入れば叶った。期間なし・枠なしの希望は判定しない。管理者は状態（`DREQ_ST`：受付中＝status無し／検討中 `consider`／対応予定 `plan`／見送り `skip`、`dreqSetStatus`）とひとこと（`reply`、`dreqEditReply`）を付け、そのたびに `replyTs` を更新する。表示の状態は `dreqState(r)`（見送り→叶った→期間終了→検討中／対応予定→受付中の順）。管理者の一覧は `DREQ_FILTERS`（進行中＝受付中・検討中・対応予定／各状態／すべて、`_dreqFilter`）で絞り込む。本人の未読は端末内 `ce2_dreq_seen_{uid}` と `replyTs` を比べる。
 - 連絡表（CE）の「🎯 担当割り当て」見出しの右に小ボタン `#dreq-box`（`dutyReqBoxHTML` / `refreshDutyReqBox`）だけを置き、押すとその日に関係する希望（`dreqForDay`）を小窓（`openDutyReqModal(ds, true)` → `dreqDayHTML`）で開く。管理者は希望がある日だけ「🙋 希望 N」（受付中があれば橙）、一般職員は「🙋 希望を出す／希望 N」。**欄として担当カードの上に並べないこと**（2026-10-28、担当カードを押し下げて邪魔だと言われて小ボタンにした）。**担当の割り当て経路はすべて `updateCloseBar` を通るので、そこから `refreshDutyReqBox` を呼んで「叶った」を追随させている。** 予定タブの「🙋 担当の希望」（`openDutyReqModal(null)`、`#dreq-badge`＝管理者は受付中の件数、本人は見送りの未読）からは日付を問わず出せる・一覧できる。書き込みは `dreqWrite(uid, id, rec)` だけを通す。
 - 月次自動割り当てには反映しない。「避けたい」希望・HDの役割は対象外。印刷では隠す。
 - **本番で使うには `database.rules.json` の `dutyReq` の反映が必要**（未反映だと「サーバー側の準備がまだ」と表示し、保存は戻す）。
