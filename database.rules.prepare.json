@@ -114,6 +114,16 @@
         ".write": "auth != null && (!data.exists() || root.child('admins').child(auth.uid).val() === true)"
       }
     },
+    "errLogs": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))",
+      ".indexOn": [
+        "ts"
+      ],
+      "$id": {
+        ".write": "auth != null && ((!data.exists() && newData.exists()) || ((root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true)) && !newData.exists()))",
+        ".validate": "!newData.exists() || (newData.hasChildren(['ts', 'msg', 'ver']) && newData.child('ts').val() === now && newData.child('msg').isString() && newData.child('msg').val().length <= 400 && (!newData.child('stack').exists() || (newData.child('stack').isString() && newData.child('stack').val().length <= 1200)))"
+      }
+    },
     "admins": {
       ".read": "auth != null",
       "$uid": {
