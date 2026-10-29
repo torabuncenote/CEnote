@@ -37,6 +37,7 @@ python3 -m http.server 8080
 **Preview mode (no Firebase login required):**
 - `?preview=1` — admin mode (all tabs unlocked, local storage only)
 - `?preview=2` — regular user mode (restricted tabs, local storage only)
+- `?preview=3` — developer mode (see デベロッパ below, local storage only)
 
 **On localhost the app does not connect to Firebase unless the URL has `?live=1`** (`localNeedsLiveFlag()` / `showLocalGuard()`, hosts matched by `LOCAL_HOST_RE`). Without a flag it shows a card with links to `?preview=1` / `?preview=2`. Reason: on 2026-10-28 a plain `localhost:8080` tab still had an admin login, so an unreleased branch (Ver-142) saved to production and raised `/data/_appSeq`; every device on the published Ver-140 was locked out by `checkStaleApp` until `_appSeq` was set back by hand. Only use `?live=1` when the local code has the same `APP_SEQ` as the published app. Do not remove this guard.
 
@@ -190,6 +191,16 @@ function can(id) {
 ```
 
 **Always use `can(id)` for permission checks — not `lk(id)&&!isAdmin`.** The latter ignores per-user grants.
+
+**デベロッパ（`/devs/{uid}: true`、`isDev` / `devOn()` / `adminLike()`、2026-10-29）**：管理者とは別の権限。海斗の開発用アカウント向け。
+- **読むのは管理者と同じ全部、変えられるのは業務とマスタ全部、「人と安全」は変えられない。** 人と安全＝職員名簿・紐付け・非表示・職員番号・教育枠（`stf`/`stfLinks`/`stfHidden`/`stfNo`/`stfEdu`）、ロック設定（`lk`）、自動削除、災害PIN・災害対応中、通知設定（`emailjsCfg`/`fcmCfg`）、ユーザー管理・権限・利用許可・`/devs` の付け外し、バックアップの作成以外（復元・削除・間引き）、改善要望と担当の希望の状態・返信・メモ。**この線はルール（`DEV` の条件）とアプリの両方で引いている。**
+- アプリ側：`adminLike()`（管理者かデベロッパ）は「管理者の画面を見る・業務とマスタを変える」判定、`isAdmin` は「人と安全」の判定のまま。**新しく管理者限定の処理を足すときは、どちらに当たるかを決めてから書くこと**（迷ったら `isAdmin`）。`can(id)`・`canEdu()`・`dataWritable(key)` はデベロッパに真を返す。`DATA_WRITE_PERM` の `'dev'` は「管理者とデベロッパだけ」（`phs`・`shift`）。人と安全の `D` の項目は表に載せない（＝管理者だけ）。
+- ルール側：`/data` の各項目に `DEV` を足し（validate.mjs が `DATA_WRITE_PERM` と照合）、管理者だけが読める場所（`/logs`・`/backups`・`/backup_meta`・`/recent_backup*`・`/feedback`・`/feedbackMemo`・`/dutyReq`・`/userPerms`・`/access`・`/fcmTokens`）の読み取りに `DEV` を足した。他人の掲示板投稿・タスク・ロボット配置図・勤務希望テンプレの書き込みも `DEV` 可。`/devs` の書き込みは管理者だけ。
+- 付け外しは管理者のユーザー管理の「🛠 デベロッパにする／外す」（`toggleDevPriv`）。退職処理（`retireStaff`）は `/devs` も消す。管理者には付けない。
+- **他の人の画面にデベロッパだと分かる印は出さない**（申し送り・掲示板の「管理者」バッジは `isAdmin` のまま）。🛠 は本人のトップバーと、管理者のユーザー管理・ログ画面にだけ出る。
+- 本人のトップバーの「🛠 開発」（`toggleDevView`）で「一般の見え方」に切り替えられる（`_devAsGeneral`、その画面を開いている間だけ）。切り替え中は `devOn()` が偽になり、画面とアプリ側の書き込み判定が一般職員と同じになる（ルール上の権限は変わらない）。
+- `writeLog` はデベロッパの操作に `dev:true` を付け（切り替え中も）、ログ画面の「🛠 開発」で絞り込める。
+- ロックタブ（ロック設定・ユーザー管理・自動削除）はデベロッパに出さない。改善要望の受信箱と担当の希望の一覧は読むだけ（状態・返信・メモ・見送りのボタンを出さない）。勤務表の取り込みで職員番号（`stfNo`）は送られない（人の項目なので `regularDataUpdate` が落とす）。
 
 **職員とアカウント（👥 スタッフタブ、`renderStfList`）**：名簿（`D.stf`）とログイン用アカウント（`/users`・`/admins`・`/userPerms`）を1人1行にまとめた画面。アカウント情報は `loadStfAcct()` が開いたときに読んで `_stfAcct` に持つ（60秒で読み直し）。プレビューでは Firebase に触れず `stfAcctDemo()` の見本で描く（`stfAcctReal()` が偽）。
 - 追加は `openStfAddModal()` → `doRegister()`：氏名だけなら名簿へ、メールもあれば別アプリ枠（secondApp）でアカウントを作り `D.stfLinks[氏名]=uid` まで一度に行う。既存の職員にアカウントを足すときは `openRegModal(氏名)`（氏名欄は読み取り専用）

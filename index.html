@@ -1598,6 +1598,8 @@ body.has-psgb{--psgb-h:36px}
 .dev-seg button{font-size:12px;padding:5px 10px;border-radius:14px;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);cursor:pointer;font-family:var(--fn)}
 .dev-seg button.on{background:var(--ac);border-color:var(--ac);color:var(--on-ac);font-weight:700}
 /* ===== 改善要望（pane-feedback） ===== */
+.dev-view-btn{font-size:11px;padding:3px 8px;white-space:nowrap}
+.dev-view-btn.on{background:var(--or-bg);border-color:var(--or);color:var(--or);font-weight:700}
 .fb-badge{display:inline-block;margin-left:4px;background:var(--rd);color:var(--on-ac);border-radius:9px;font-size:10px;font-weight:700;padding:0 6px;line-height:16px}
 .fb-wrap{max-width:640px;margin:0 auto}
 .fb-hero{background:linear-gradient(135deg,var(--ac-bg),var(--sur));border:1px solid var(--bdr);border-radius:14px;padding:14px 16px;margin-bottom:12px}
@@ -2130,6 +2132,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <div class="sd" id="sync-dot"></div>
   <span class="sl" id="sl">ローカル保存</span>
   <span class="sl" id="month-size" style="display:none;margin-left:6px;color:var(--txt3);font-size:10px"></span>
+  <button id="dev-view-btn" class="btn btn-g btn-sm dev-view-btn" style="display:none" onclick="toggleDevView()"></button>
   <div id="uc-label" class="uc-name" style="display:none" onclick="openNameModal()" title="クリックして表示名・パスワードを変更"></div>
   <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()" title="ログアウト">⏻<span class="lo-text"> ログアウト</span></button>
 </div>
@@ -3282,14 +3285,14 @@ var AUTO_BK_KEY = 'ce2_autobk';
 var AUTO_BK_MAX = 2; /* 画像を外しても D 1回分は1MB近い。5世代だとブラウザの保存上限（約5MB）を超えて更新が止まり、巻き添えで通常の端末保存（ce2）まで失敗していた */
 /* 各資料で共有する最新のFirebase Realtime Databaseセキュリティルール（掲示板・バックアップ・ユーザー管理対応） */
 var LATEST_STORAGE_RULES = "rules_version = '2';\n\n// 新しい添付はアップロード者のUID配下に置く。StorageルールからRTDBの\n// /access は参照できないため、利用停止時はAuthentication側の無効化も必要。\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /uploads/{uid}/private/{allPaths=**} {\n      allow read: if request.auth != null && request.auth.uid == uid;\n      allow write: if request.auth != null && request.auth.uid == uid\n        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024\n          && request.resource.contentType.matches('image/.*|video/.*')));\n    }\n    match /uploads/{uid}/shared/{allPaths=**} {\n      allow read: if request.auth != null;\n      allow write: if request.auth != null && request.auth.uid == uid\n        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024\n          && request.resource.contentType.matches('image/.*|video/.*')));\n    }\n    // 旧形式の添付は表示を保ち、新規の書き込みは止める。\n    match /taskMemo/{uid}/{allPaths=**} {\n      allow read: if request.auth != null && request.auth.uid == uid;\n    }\n    match /manual/{allPaths=**} { allow read: if request.auth != null; }\n    match /memo/{allPaths=**} { allow read: if request.auth != null; }\n    match /board/{allPaths=**} { allow read: if request.auth != null; }\n    match /task/{allPaths=**} { allow read: if request.auth != null; }\n  }\n}";
-var LATEST_DB_RULES = "{\n  \"rules\": {\n    \"data\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"pages\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"manual\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"shiftReq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_appSeq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_savedAt\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_sessionId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_lastWriter\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"dly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"hdDly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"wd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"hdWd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"wdDepts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"ope\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cath\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"sup\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opeTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cathTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"roboLayouts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfgMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opsCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"oc\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"schedPresets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgAlertTime\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerStart\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerEnd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"tablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTreatments\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"ocFlow\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"holidayOv\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"makers\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('maker').val() !== true || root.child('userPerms').child(auth.uid).child('maker').val() === true)))\"\n      },\n      \"eduProgress\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"eduItems\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"_migVer\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evtRanges\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"devMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"opsChk\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCodes\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"eduCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      }\n    },\n    \"board\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$postId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n        \"reads\": {\n          \"$uid\": {\n            \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\"\n          }\n        },\n        \"replies\": {\n          \"$replyId\": {\n            \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n            \"uid\": {\n              \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n            }\n          }\n        },\n        \"uid\": {\n          \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n        }\n      }\n    },\n    \"tasks\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$taskId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (newData.exists() || data.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"newData.child('createdBy').child('uid').isString() && (data.exists() ? newData.child('createdBy').child('uid').val() === data.child('createdBy').child('uid').val() : (newData.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true))\",\n        \"status\": {\n          \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n        }\n      }\n    },\n    \"taskMemos\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$memoId\": {\n          \"status\": {\n            \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n          }\n        }\n      }\n    },\n    \"robotImg\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      }\n    },\n    \"media\": {\n      \"$id\": {\n        \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && ((!data.exists() && newData.exists() && newData.child('by').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('by').val() === auth.uid))))\",\n        \".validate\": \"newData.hasChildren(['d', 'by', 'ts']) && newData.child('d').isString() && newData.child('d').val().length <= 500000 && (newData.child('d').val().beginsWith('data:image/') || newData.child('d').val().beginsWith('data:video/')) && newData.child('ts').val() === now\"\n      }\n    },\n    \"feedback\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && query.orderByChild === 'uid' && query.equalTo === auth.uid))\",\n      \".indexOn\": [\n        \"ts\",\n        \"uid\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))\",\n        \"comments\": {\n          \"$cid\": {\n            \".write\": \"auth != null && root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid\",\n            \".validate\": \"newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))\"\n          }\n        }\n      }\n    },\n    \"feedbackMemo\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"dutyReq\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$id\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n          \".validate\": \"!newData.exists() || (newData.hasChildren(['name', 'kind', 'ts']) && newData.child('kind').isString() && newData.child('kind').val().matches(/^(day|range|open)$/) && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 300)) && (root.child('admins').child(auth.uid).val() === true || (newData.child('status').val() === data.child('status').val() && newData.child('reply').val() === data.child('reply').val())))\"\n        }\n      }\n    },\n    \"shiftReqTpl\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"backups\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/)\"\n      }\n    },\n    \"backup_meta\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists()))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/) && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (root.child('admins').child(auth.uid).val() === true)\"\n      }\n    },\n    \"recent_backup\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"recent_backup_staff\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\",\n        \".validate\": \"newData.hasChild('pages')\"\n      }\n    },\n    \"logs\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$logId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.child('uid').val() === auth.uid))\"\n      }\n    },\n    \"admins\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\",\n        \".read\": \"auth != null && auth.uid === $uid\"\n      }\n    },\n    \"users\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".indexOn\": [\n        \"displayName\"\n      ],\n      \"$uid\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n        \"email\": {\n          \".validate\": \"auth.uid !== $uid || newData.val() === auth.token.email\"\n        }\n      }\n    },\n    \"userPerms\": {\n      \".read\": \"root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\"\n      }\n    },\n    \"notifications\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".indexOn\": [\n          \"read\"\n        ],\n        \"$notifId\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || auth.uid === $uid)\"\n        }\n      }\n    },\n    \"fcmTokens\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      }\n    },\n    \"access\": {\n      \".read\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"security\": {\n      \"enforced\": {\n        \".read\": \"auth != null\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    }\n  }\n}";
+var LATEST_DB_RULES = "{\n  \"rules\": {\n    \"data\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"pages\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"manual\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"shiftReq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_appSeq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_savedAt\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_sessionId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_lastWriter\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"dly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"hdDly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"wd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"hdWd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"wdDepts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"ope\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cath\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"sup\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opeTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cathTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"roboLayouts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfgMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opsCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"oc\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"schedPresets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgAlertTime\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerStart\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerEnd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"tablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTreatments\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"ocFlow\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"holidayOv\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"makers\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('maker').val() !== true || root.child('userPerms').child(auth.uid).child('maker').val() === true)))\"\n      },\n      \"eduProgress\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"eduItems\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"_migVer\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evtRanges\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"devMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"opsChk\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCodes\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"eduCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"phs\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\"\n      },\n      \"shift\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\"\n      }\n    },\n    \"board\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$postId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n        \"reads\": {\n          \"$uid\": {\n            \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\"\n          }\n        },\n        \"replies\": {\n          \"$replyId\": {\n            \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n            \"uid\": {\n              \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n            }\n          }\n        },\n        \"uid\": {\n          \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n        }\n      }\n    },\n    \"tasks\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$taskId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (newData.exists() || data.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n        \".validate\": \"newData.child('createdBy').child('uid').isString() && (data.exists() ? newData.child('createdBy').child('uid').val() === data.child('createdBy').child('uid').val() : (newData.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true))\",\n        \"status\": {\n          \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n        }\n      }\n    },\n    \"taskMemos\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$memoId\": {\n          \"status\": {\n            \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n          }\n        }\n      }\n    },\n    \"robotImg\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      }\n    },\n    \"media\": {\n      \"$id\": {\n        \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && ((!data.exists() && newData.exists() && newData.child('by').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('by').val() === auth.uid))))\",\n        \".validate\": \"newData.hasChildren(['d', 'by', 'ts']) && newData.child('d').isString() && newData.child('d').val().length <= 500000 && (newData.child('d').val().beginsWith('data:image/') || newData.child('d').val().beginsWith('data:video/')) && newData.child('ts').val() === now\"\n      }\n    },\n    \"feedback\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && query.orderByChild === 'uid' && query.equalTo === auth.uid))\",\n      \".indexOn\": [\n        \"ts\",\n        \"uid\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))\",\n        \"comments\": {\n          \"$cid\": {\n            \".write\": \"auth != null && root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid\",\n            \".validate\": \"newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))\"\n          }\n        }\n      }\n    },\n    \"feedbackMemo\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"dutyReq\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$id\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n          \".validate\": \"!newData.exists() || (newData.hasChildren(['name', 'kind', 'ts']) && newData.child('kind').isString() && newData.child('kind').val().matches(/^(day|range|open)$/) && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 300)) && (root.child('admins').child(auth.uid).val() === true || (newData.child('status').val() === data.child('status').val() && newData.child('reply').val() === data.child('reply').val())))\"\n        }\n      }\n    },\n    \"shiftReqTpl\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\"\n    },\n    \"backups\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/)\"\n      }\n    },\n    \"backup_meta\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists()))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/) && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (root.child('admins').child(auth.uid).val() === true)\"\n      }\n    },\n    \"recent_backup\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"recent_backup_staff\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\",\n        \".validate\": \"newData.hasChild('pages')\"\n      }\n    },\n    \"logs\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$logId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.child('uid').val() === auth.uid))\"\n      }\n    },\n    \"admins\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\",\n        \".read\": \"auth != null && auth.uid === $uid\"\n      }\n    },\n    \"devs\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"users\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".indexOn\": [\n        \"displayName\"\n      ],\n      \"$uid\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n        \"email\": {\n          \".validate\": \"auth.uid !== $uid || newData.val() === auth.token.email\"\n        }\n      }\n    },\n    \"userPerms\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\"\n      }\n    },\n    \"notifications\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".indexOn\": [\n          \"read\"\n        ],\n        \"$notifId\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || auth.uid === $uid)\"\n        }\n      }\n    },\n    \"fcmTokens\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      }\n    },\n    \"access\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('devs').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"security\": {\n      \"enforced\": {\n        \".read\": \"auth != null\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    }\n  }\n}";
 /* ===== EVENTS ===== */
 // D.evts = { 'YYYY-MM': { 1:['イベント名',...], ... } }
 // ページ個別イベントは D.pages[ds].events = ['...'] で保持
 
 /* 既定の名簿・内線は空にする（公開コードに実名・内線を載せないため）。本番の名簿は Firebase の /data/stf から来る。
    プレビューモード（?preview=1/2、Firebase を使わない）だけ架空の名前を入れて画面を確認できるようにする。 */
-var _IS_PREVIEW_URL = /[?&]preview=[12]\b/.test(location.search);
+var _IS_PREVIEW_URL = /[?&]preview=[123]\b/.test(location.search);
 var DEF_STF = _IS_PREVIEW_URL ? ['佐藤 太郎','鈴木 花子','高橋 一郎','田中 美咲','伊藤 健'] : [];
 var DEF_PHS = _IS_PREVIEW_URL ? ['1001','1002','1003'] : [];
 var DEF_DLY = ['タブレット確認（8:00 / 16:45）','AED点検','呼吸器点検','手術記録入力 / 翌日セットアップ','OPEミーティング（15:30〜）','週間オペ予定確認','翌日業務記載・PC再起動'];
@@ -3487,27 +3490,29 @@ function init() {
   /* ?preview=1 → 管理者モード / ?preview=2 → 一般ユーザーモードでローカル動作確認 */
   var params = new URLSearchParams(window.location.search);
   var previewVal = params.get('preview');
-  var isPreview = previewVal === '1' || previewVal === '2';
+  var isPreview = previewVal === '1' || previewVal === '2' || previewVal === '3'; /* 3＝デベロッパ */
   if (isPreview) {
     var previewAsAdmin = previewVal === '1';
     document.getElementById('login-ov').classList.add('hd');
     isAdmin = previewAsAdmin;
+    isDev = previewVal === '3';
     currentUser = {
       uid: 'preview',
       email: 'preview@demo',
-      displayName: previewAsAdmin ? 'プレビュー(管理者)' : 'プレビュー(一般)',
-      isAdmin: previewAsAdmin,
+      displayName: previewAsAdmin ? 'プレビュー(管理者)' : isDev ? 'プレビュー(開発)' : 'プレビュー(一般)',
+      isAdmin: previewAsAdmin, isDev: isDev,
       perms: {}
     };
     var uc = document.getElementById('uc-label');
-    uc.textContent = previewAsAdmin ? '👁 管理者プレビュー' : '👁 一般ユーザープレビュー';
+    uc.textContent = previewAsAdmin ? '👁 管理者プレビュー' : isDev ? '👁 デベロッパプレビュー' : '👁 一般ユーザープレビュー';
+    devViewBtnRefresh();
     uc.className = 'uc-name' + (previewAsAdmin ? ' admin' : '');
     uc.style.display = '';
     document.getElementById('btn-logout').style.display = '';
     /* 管理者タブ・公平性サブタブの出し分けは下の updateTabVisibility() に任せる
        （以前はここで手動に display='' していたが、主観モードによる出し分け＝担当表/HD集計を
        見ないため、HDモードで再読み込みするとタブ構成が古いまま残る問題があった） */
-    setSyncLbl('ローカル保存 ('+(previewAsAdmin?'管理者':'一般')+')');
+    setSyncLbl('ローカル保存 ('+(previewAsAdmin?'管理者':isDev?'開発':'一般')+')');
   }
   var now = new Date();
   calY = now.getFullYear(); calM = now.getMonth();
@@ -3779,7 +3784,7 @@ function fbInit() {
       if (!user) {
         clearSensitiveLocalCache(); /* 認証が切れた端末に業務データを残さない */
         /* 未ログイン → ログイン画面を表示 */
-        currentUser = null; isAdmin = false;
+        currentUser = null; isAdmin = false; isDev = false; _devAsGeneral = false; devViewBtnRefresh();
         _localSavedAt = 0; /* ログアウト後にスタレーガードが空Dで誤発動しないようリセット */
         _fbDataLoaded = false; /* 次のログインでFirebaseデータ受信まで書き込みをブロック */
         _securityEnforced = false;
@@ -3842,11 +3847,13 @@ function fbInit() {
         fbDB.ref('/userPerms/' + user.uid).once('value').catch(function(){ return null; }),
         fbDB.ref('/users/' + user.uid + '/retired').once('value').catch(function(){ return null; }),
         fbDB.ref('/access/' + user.uid).once('value').catch(function(){ return null; }),
-        fbDB.ref('/security/enforced').once('value').catch(function(){ return null; })
+        fbDB.ref('/security/enforced').once('value').catch(function(){ return null; }),
+        fbDB.ref('/devs/' + user.uid).once('value').catch(function(){ return null; })
       ]).then(function(snapResults) {
         /* ===== isAdminが確定してからUI全体を更新 ===== */
         var snap = snapResults[0];
         isAdmin = !!snap.val();
+        isDev = !isAdmin && !!(snapResults[5] && snapResults[5].val && snapResults[5].val() === true); _devAsGeneral = false;
         /* 退職処理（retireStaff）で利用停止にしたアカウントはここで締め出す。/data のルールは
            「認証済みなら読み書き可」なので鍵ではなくガードレール——確実に止めるには
            Firebase Console でアカウントを無効化する（退職処理の確認画面でも案内している）。
@@ -3870,7 +3877,7 @@ function fbInit() {
         }
         var perms = (snapResults[1] && snapResults[1].val && snapResults[1].val()) || {};
         currentUser = { uid: user.uid, email: user.email,
-          displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin, perms: perms };
+          displayName: user.displayName || user.email.split('@')[0], isAdmin: isAdmin, isDev: isDev, perms: perms };
         if (!isAdmin && _securityEnforced) {
           _accessRef = fbDB.ref('/access/' + user.uid);
           _accessRef.on('value', function(accessSnap){
@@ -3889,8 +3896,9 @@ function fbInit() {
 
         /* ヘッダー更新 */
         var uc = document.getElementById('uc-label');
-        uc.textContent = (isAdmin ? '👑 ' : '👤 ') + currentUser.displayName;
+        uc.textContent = (isAdmin ? '👑 ' : isDev ? '🛠 ' : '👤 ') + currentUser.displayName; /* 🛠 は本人の画面にだけ出る */
         uc.className = 'uc-name' + (isAdmin ? ' admin' : '');
+        devViewBtnRefresh();
         uc.style.display = '';
         document.getElementById('btn-logout').style.display = '';
 
@@ -3938,7 +3946,7 @@ function fbInit() {
             var incomingPages = Object.keys(d.pages || {}).length;
             var wasFirstLoad = !_fbDataLoaded;
             _fbDataLoaded = true;
-            if (wasFirstLoad) { hideSyncOverlay(true); setTimeout(maybeShowWhatsNew, 800); setTimeout(function(){ if (isAdmin) fbLoadList(fbRefreshBadge); else fbLoadMine(fbRefreshBadge); }, 3000); /* 改善要望の未確認数（管理者）／自分の要望への返信・状態の変化（一般職員） */ } /* 「✅ 同期しました」と重ならないよう少し遅らせる */
+            if (wasFirstLoad) { hideSyncOverlay(true); setTimeout(maybeShowWhatsNew, 800); setTimeout(function(){ if (adminLike()) fbLoadList(fbRefreshBadge); else fbLoadMine(fbRefreshBadge); }, 3000); /* 改善要望の未確認数（管理者）／自分の要望への返信・状態の変化（一般職員） */ } /* 「✅ 同期しました」と重ならないよう少し遅らせる */
             checkStaleApp(d); /* 自分より新しいアプリが保存していたら、以降の保存を止める */
             if (incomingPages > 0) _fbLastPageCount = incomingPages;
             if (_fbLastPageCount > 5 && incomingPages === 0 && !fromSelf) {
@@ -4543,7 +4551,7 @@ function saveDisplayName() {
 function updateUcLabel() {
   var uc = document.getElementById('uc-label');
   if (!uc || !currentUser) return;
-  uc.textContent = (currentUser.isAdmin ? '👑 ' : '👤 ') + currentUser.displayName;
+  uc.textContent = (currentUser.isAdmin ? '👑 ' : currentUser.isDev ? '🛠 ' : '👤 ') + currentUser.displayName;
 }
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeNameModal();
@@ -4596,7 +4604,7 @@ function fmtBytes(b) {
 }
 function updateMonthSize() {
   var el = document.getElementById('month-size');
-  if (!el || !isAdmin) { if(el) el.style.display='none'; return; }
+  if (!el || !adminLike()) { if(el) el.style.display='none'; return; }
   /* 現在表示中のカレンダー月（calY/calM）のページデータ合計 */
   var ym = calY + '-' + pad(calM+1);
   var total = 0;
@@ -4710,7 +4718,7 @@ function _updateStorageGrandTotal() {
 function renderStorageUsage() {
   ensureTasksListener(); /* タスクの容量も出すため（受信が始まれば描き直される） */
   var el = document.getElementById('storage-usage');
-  if (!el || !isAdmin) return;
+  if (!el || !adminLike()) return;
 
   /* /data 合計と内訳（D のトップレベルキー別） */
   var dataBytes = calcBytes(D);
@@ -4928,7 +4936,7 @@ function summarizeStorageFiles(files) {
 }
 
 function measureStorageUsage() {
-  if (!isAdmin) return;
+  if (!adminLike()) return;
   var box = document.getElementById('storage-fb-result');
   if (!fbST) {
     if (box) box.innerHTML = '<div style="color:var(--rd);font-size:12px">測定できませんでした（Storage未接続）</div>';
@@ -5100,6 +5108,7 @@ function writeLog(action, detail) {
     view: (_viewMode === 'hd' ? 'hd' : 'ce'), /* 記録した時点で開いていた主観。呼び出し側は意識しなくてよい */
     ts: firebase.database.ServerValue.TIMESTAMP
   };
+  if (isDev) entry.dev = true; /* デベロッパの操作（ログ画面の「🛠 開発」で絞り込む。一般の見え方に切り替え中も付ける） */
   fbDB.ref('/logs').push(entry).catch(function(){}); /* 利用停止直後などで拒否されても、操作そのものは止めない */
 }
 
@@ -5846,13 +5855,15 @@ function renderAdminUsers() {
     fbDB.ref('/users').once('value'),
     fbDB.ref('/admins').once('value'),
     fbDB.ref('/userPerms').once('value'),
-    fbDB.ref('/access').once('value')
+    fbDB.ref('/access').once('value'),
+    fbDB.ref('/devs').once('value').catch(function(){ return null; }) /* ルール未反映でも一覧は出す */
   ]).then(function(results) {
     if (gen !== _adminUsersGen) return; /* より新しいリクエストが来ていれば破棄 */
     var users    = results[0].val() || {};
     var admins   = results[1].val() || {};
     var allPerms = results[2].val() || {};
     var access   = results[3].val() || {};
+    var devs     = (results[4] && results[4].val && results[4].val()) || {};
     var uids     = Object.keys(users);
 
     /* スタッフ名簿とアカウントの紐付き状況を計算 */
@@ -5887,7 +5898,8 @@ function renderAdminUsers() {
         /* --- 上段：名前・メール・管理者ボタン --- */
         S += '<div style="display:flex;align-items:center;gap:10px">';
         S += '<div class="adminm-user-info">';
-        S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : '👤 ') + escH(u.displayName || u.email) + '</span>';
+        var isDv = !isAdm && devs[uid] === true;
+        S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : isDv ? '🛠 ' : '👤 ') + escH(u.displayName || u.email) + (isDv ? '<span style="font-size:10px;color:var(--txt3);margin-left:4px">デベロッパ</span>' : '') + '</span>';
         S += '<span style="font-size:10px;color:' + (allowed ? 'var(--gr)' : 'var(--rd)') + '">' + (allowed ? '● 利用可' : '● 利用停止中・未許可') + '</span>';
         if (linkedName) S += '<span style="font-size:10px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:10px;padding:1px 7px;margin-left:4px">🔗 ' + escH(linkedName) + '</span>';
         S += '<span class="adminm-user-email">' + escH(u.email) + '</span>';
@@ -5904,6 +5916,7 @@ function renderAdminUsers() {
         } else {
           S += '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
         }
+        if (!isAdm && !isSelf) S += '<button class="btn btn-g btn-sm" style="margin-left:4px" title="業務とマスタは全部変えられ、管理者が読めるものは全部読めます。人と安全（名簿・権限・バックアップの復元など）は変えられません" onclick="toggleDevPriv(\'' + escH(uid) + '\',' + isDv + ')">' + (isDv ? '🛠 デベロッパを外す' : '🛠 デベロッパにする') + '</button>';
         if (!isAdm) S += '<button class="btn ' + (allowed ? 'btn-d' : 'btn-p') + ' btn-sm" style="margin-left:4px" onclick="setUserAccess(\'' + escH(uid) + '\',' + !allowed + ')">' + (allowed ? '利用停止' : '利用許可') + '</button>';
         S += '</div>';
         /* --- 下段：編集権限（管理者・自分以外のみ） --- */
@@ -5969,7 +5982,7 @@ function renderAdminUsers() {
 function renderSecurityDashboard() {
   renderDisasterCfg();
   var el = document.getElementById('security-summary');
-  if (!el || !isAdmin) return;
+  if (!el || !adminLike()) return;
   if (!FB_ON || !fbDB) { el.textContent = 'プレビュー中です。利用許可とクラウドバックアップの状態はFirebase接続時に表示されます。'; return; }
   el.textContent = '利用状態とバックアップを確認中...';
   Promise.all([
@@ -5977,7 +5990,7 @@ function renderSecurityDashboard() {
     fbDB.ref('/backup_meta').orderByKey().limitToLast(1).once('value'),
     fbDB.ref('/security/enforced').once('value')
   ]).then(function(results){
-    if (!isAdmin || !document.getElementById('security-summary')) return;
+    if (!adminLike() || !document.getElementById('security-summary')) return;
     var access = results[0].val() || {};
     var meta = results[1].val() || {};
     var keys = Object.keys(meta).sort();
@@ -6049,6 +6062,19 @@ function setUserAccess(uid, allow) {
   }).catch(function(err){ toast('利用状態を変更できませんでした: ' + err.message, 'err'); });
 }
 
+/* デベロッパの付け外し（/devs/{uid}、管理者だけ＝ルールで強制）。管理者には付けない（管理者のほうが強いので意味がない） */
+function toggleDevPriv(uid, currently) {
+  if (!isAdmin || !FB_ON || !fbDB || !uid || uid === currentUser.uid) return;
+  if (!confirm(currently
+    ? 'デベロッパを外しますか？\n次回ログイン時から一般ユーザーになります。'
+    : 'デベロッパにしますか？\n管理者が読めるものは全部読め、業務とマスタは全部変えられます。\n名簿・権限・ロック設定・バックアップの復元・自動削除・災害PIN・通知設定は変えられません。\n次回ログイン時から有効です。')) return;
+  var up = {}; up['/devs/' + uid] = currently ? null : true;
+  if (!currently) up['/access/' + uid] = true; /* デベロッパも利用許可は要る */
+  fbDB.ref().update(up).then(function(){
+    writeLog(currently ? 'デベロッパを外す' : 'デベロッパにする', uid);
+    renderAdminUsers();
+  }).catch(function(err){ toast('変更できませんでした（Firebaseのルールに devs が反映されているか確認してください）: ' + err.message, 'err', 8000); });
+}
 function deleteAppUser(uid, name) {
   setUserAccess(uid, false);
 }
@@ -6156,11 +6182,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/28-144';
+var APP_VERSION = 'Ver.2026/10/29-145';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/10/29-145', date:'2026-10-29', title:'デベロッパの権限を追加しました', items:[
+    {t:'new', admin:true, d:'🛠 管理者とは別の「デベロッパ」の権限を追加しました。ユーザー管理の「🛠 デベロッパにする」で付けられます。管理者が読めるものは全部読め、業務とマスタは全部変えられますが、名簿・権限・ロック設定・バックアップの復元・自動削除・災害PIN・通知設定は変えられません'},
+    {t:'new', admin:true, d:'🛠 デベロッパは画面右上の「🛠 開発」で、一般職員と同じ見え方に切り替えられます。操作ログの「🛠 開発」でデベロッパの操作だけを絞り込めます'}
+  ]},
   { ver:'Ver.2026/10/28-144', date:'2026-10-28', title:'担当の希望で枠を複数選べるようになりました', items:[
     {t:'imp', d:'🙋 担当の希望で、担当枠をいくつでも選べるようになりました。選んだ枠のどれか1つに入れば「叶いました」になります'},
     {t:'new', d:'🙋 出した担当の希望に、管理者から「検討中」「対応予定」などの状態とひとことが届くようになりました。変わると「🙋 担当の希望」に赤い数字が出ます'},
@@ -7022,7 +7052,7 @@ function whatsNewReleases(seenSeq) {
     return !!m && parseInt(m[1], 10) > seenSeq;
   });
   var base;
-  if (isAdmin) {
+  if (adminLike()) {
     base = [];
     newer.forEach(function(rel) {
       var items = (rel.items || []).filter(function(it) { return it.t !== 'fix'; });
@@ -10286,7 +10316,8 @@ function renderLogViewChips() {
   var defs = [
     { id:'all', label:'すべて' },
     { id:'ce',  label:'🩺 CE' },
-    { id:'hd',  label:'🩸 HD' }
+    { id:'hd',  label:'🩸 HD' },
+    { id:'dev', label:'🛠 開発' } /* デベロッパの操作（writeLog が dev:true を付ける） */
   ];
   el.innerHTML = defs.map(function(f) {
     return '<button class="btn ' + (_logView === f.id ? 'btn-p' : 'btn-g') + ' btn-sm" onclick="setLogView(\'' + f.id + '\')">' + f.label + '</button>';
@@ -10318,7 +10349,7 @@ function renderLogList() {
   }
 
   /* 主観フィルタ（テキスト絞り込みより先に効かせる） */
-  var rows = _logsData.filter(function(l) { return _logView === 'all' || logViewOf(l) === _logView; });
+  var rows = _logsData.filter(function(l) { return _logView === 'all' || (_logView === 'dev' ? !!l.dev : logViewOf(l) === _logView); });
 
   /* 絞り込み */
   var fEl = document.getElementById('log-filter');
@@ -10373,7 +10404,7 @@ function renderLogList() {
     h += '<div class="log-item">';
     h += '<span style="flex-shrink:0">'+vIc+'</span>';
     h += '<span class="li-time">'+ts+'</span>';
-    h += '<span class="li-user">'+escH(l.name||'')+'</span>';
+    h += '<span class="li-user">'+(l.dev?'🛠 ':'')+escH(l.name||'')+'</span>'; /* 🛠＝デベロッパの操作（ログを読めるのは管理者とデベロッパだけ） */
     h += '<span class="li-msg">'+escH(l.action);
     if (l.detail) h += '：<span style="color:var(--txt3)">'+escH(l.detail)+'</span>';
     h += '</span></div>';
@@ -10532,6 +10563,7 @@ var DATA_WRITE_PERM = {
   dutyCfgMaster:'mst', dutyCfg:'mst', opsCfg:'mst', opsChk:'mst', oc:'mst', schedPresets:'mst',
   psgAlertTime:'mst', psgBannerStart:'mst', psgBannerEnd:'mst', tablets:'mst', hdTablets:'mst', hdTreatments:'mst',
   ocFlow:'mst', holidayOv:'mst', shiftReqCodes:'mst', shiftReqCfg:'mst',
+  phs:'dev', shift:'dev', /* 管理者とデベロッパだけ（PHS番号・勤務表の取り込み。一般職員の画面には無い） */
   makers:'maker',
   eduProgress:'edu', eduItems:'edu', eduCfg:'edu'
 };
@@ -10541,6 +10573,7 @@ function dataWritable(key) {
   var p = DATA_WRITE_PERM[key];
   if (!p) return false;
   if (p === 'all') return true;
+  if (p === 'dev' || devOn()) return devOn(); /* 'dev'＝管理者とデベロッパだけ。デベロッパは表にある項目すべて */
   if (p === 'edu') return !!(currentUser && currentUser.perms && currentUser.perms.perm_edu);
   return can(p);
 }
@@ -10832,15 +10865,25 @@ window.addEventListener('beforeunload', function(e) {
 
 /* ===== LOCK ===== */
 function lk(id) { return !!(D.lk && D.lk[id]); }
+/* ===== デベロッパ（/devs/{uid}: true、2026-10-29） =====
+   管理者とは別の権限。管理者が読めるものは全部読め、業務とマスタは全部変えられるが、
+   「人と安全」（職員名簿・紐付け・ロック設定・ユーザー管理・利用許可・バックアップの復元と削除・自動削除・
+   災害PIN・通知設定・改善要望と担当の希望の状態）は変えられない。ルールでも同じ線を引いている（DEV の条件）。
+   付け外しは管理者だけ（ユーザー管理の「🛠」）。他の人の画面にデベロッパだと分かる印は出さない。
+   devOn() は「一般の見え方」に切り替えている間は偽になる（画面と、アプリ側の書き込み判定が一般職員と同じになる）。 */
+var isDev = false, _devAsGeneral = false;
+function devOn() { return isDev && !_devAsGeneral; }
+/* 管理者の画面を見られる・業務とマスタを変えられる人（管理者かデベロッパ）。人と安全は isAdmin のまま判定する */
+function adminLike() { return isAdmin || devOn(); }
 function can(id) {
   if (_offlineMode) return OFFLINE_REC_LOCKS.indexOf(id) >= 0; /* 災害モードは決めた操作だけ記録できる（ほかは見るだけ） */
-  if (isAdmin) return true;
+  if (isAdmin || devOn()) return true;
   if (!lk(id)) return true;
   return !!(currentUser && currentUser.perms && currentUser.perms[id]);
 }
 /* 教育到達度の閲覧・判定。ロックではなく tab_master と同じ明示付与にする —
    D.lk の既定は全解放（D.lk={}）なので、ロックにすると既定で全員が押せてしまう。 */
-function canEdu() { return isAdmin || !!(currentUser && currentUser.perms && currentUser.perms.perm_edu); }
+function canEdu() { return isAdmin || devOn() || !!(currentUser && currentUser.perms && currentUser.perms.perm_edu); }
 
 /* ===== 実績・教育到達度 =====
    「誰がどの仕事・症例・治療にどれだけ携わったか」を個人単位で見える化し、その上に
@@ -12914,7 +12957,7 @@ function retireStaff(name){
     if (uid && _stfAcct && _stfAcct.demo) { _stfAcct.users[uid] && (_stfAcct.users[uid].retired = true); delete _stfAcct.demoLinks[name]; done(); return; }
     if (uid && stfAcctReal()) {
       var up = {}; up['/users/' + uid + '/retired'] = true; up['/users/' + uid + '/retiredAt'] = Date.now();
-      up['/admins/' + uid] = null; up['/userPerms/' + uid] = null;
+      up['/admins/' + uid] = null; up['/userPerms/' + uid] = null; up['/devs/' + uid] = null;
       up['/access/' + uid] = false; /* 最終ルール適用後は、これで DB の読み書きも止まる */
       fbDB.ref().update(up).then(done).catch(function(err){ toast('名簿からは外しましたが、アカウントの利用停止に失敗しました：' + err.message, 'err', 10000); done(); });
     } else done();
@@ -14014,7 +14057,7 @@ function srqCodeColor(code) {
 
 /* ===== 種類を選ぶポップアップ ===== */
 function openShiftReqPicker(ym, name, day) {
-  if (!isAdmin && srqPastDeadline(ym)) { toast('締切を過ぎています。管理者に連絡してください', 'warn'); return; }
+  if (!adminLike() && srqPastDeadline(ym)) { toast('締切を過ぎています。管理者に連絡してください', 'warn'); return; }
   var old = document.getElementById('srq-pick-ov'); if (old) old.remove();
   var ov = document.createElement('div'); ov.className = 'ov'; ov.id = 'srq-pick-ov';
   ov.onclick = function (e) { if (e.target === ov) ov.remove(); };
@@ -14058,7 +14101,7 @@ function renderShiftReq() {
   var names = D.stf.filter(function (n) { return !(D.stfHidden && D.stfHidden[n]); });
   var selfName = taskSelfName();
   var switchWrap = document.getElementById('srq-admin-switch');
-  if (isAdmin) {
+  if (adminLike()) {
     if (_srqAdminName === null || names.indexOf(_srqAdminName) === -1) _srqAdminName = (selfName && names.indexOf(selfName) !== -1) ? selfName : (names[0] || null);
     var opts = names.map(function (n) { return '<option value="' + escH(n) + '"' + (n === _srqAdminName ? ' selected' : '') + '>' + escH(n) + '</option>'; }).join('');
     switchWrap.style.display = '';
@@ -14067,13 +14110,13 @@ function renderShiftReq() {
       + (_srqAdminName && _srqAdminName !== selfName ? '<span class="srq-proxy">👤 代理で入力中</span>' : '') + '</div>';
   } else if (switchWrap) { switchWrap.style.display = 'none'; }
 
-  var targetName = isAdmin ? _srqAdminName : selfName;
+  var targetName = adminLike() ? _srqAdminName : selfName;
   var calWrap = document.getElementById('srq-cal-wrap');
   var noLinkWrap = document.getElementById('srq-nolink');
   if (!targetName) {
     calWrap.style.display = 'none';
     noLinkWrap.style.display = '';
-    noLinkWrap.innerHTML = '<div class="pool-empty">' + (isAdmin
+    noLinkWrap.innerHTML = '<div class="pool-empty">' + (adminLike()
       ? 'スタッフが登録されていません。まず👥スタッフでスタッフを登録してください'
       : 'アカウントとスタッフ名が紐づいていないため入力できません。管理者に連絡してください') + '</div>';
   } else {
@@ -14085,8 +14128,8 @@ function renderShiftReq() {
 
   var adminBlock = document.getElementById('srq-admin-block');
   if (adminBlock) {
-    adminBlock.style.display = isAdmin ? '' : 'none';
-    if (isAdmin) { renderShiftReqSettings(ym); renderShiftReqExcel(ym); renderShiftReqMatrix(ym); }
+    adminBlock.style.display = adminLike() ? '' : 'none';
+    if (adminLike()) { renderShiftReqSettings(ym); renderShiftReqExcel(ym); renderShiftReqMatrix(ym); }
   }
 }
 
@@ -14131,7 +14174,7 @@ function renderShiftReqCal(ym, name) {
     if (holName) el.title = holName;
     var html = ds === today ? '<span class="dn">' + d + '</span>' : '<span class="dnp">' + d + '</span>';
     if (code) { var col = srqCodeColor(code); html += '<span class="srq-lbl" style="background:' + col.bg + ';color:' + col.fg + '">' + escH(code) + '</span>'; }
-    if (!isAdmin && vis !== 'self') html += srqCellExtraHTML(ym, d, name, vis);
+    if (!adminLike() && vis !== 'self') html += srqCellExtraHTML(ym, d, name, vis);
     el.innerHTML = html;
     (function (dd) { el.onclick = function () { openShiftReqPicker(ym, name, dd); }; })(d);
     g.appendChild(el);
@@ -14193,7 +14236,7 @@ function srqVisPick(btn) {
   Array.prototype.forEach.call(seg.children, function (b) { b.classList.toggle('on', b === btn); });
 }
 function saveShiftReqCfg() {
-  if (!isAdmin) return;
+  if (!adminLike()) return;
   var ym = _srqY + '-' + pad(_srqM + 1);
   var dlInput = document.getElementById('srq-deadline-input');
   var visInput = document.getElementById('srq-visibility-input');
@@ -14346,7 +14389,7 @@ function srqTplGet() {
   return fbDB.ref('/shiftReqTpl/data').once('value').then(function (s) { return s.val() || null; });
 }
 function srqTplUpload(inp) {
-  if (!isAdmin) return;
+  if (!adminLike()) return;
   var f = inp.files && inp.files[0]; inp.value = '';
   if (!f) return;
   if (!/\.xlsx$/i.test(f.name)) { toast('.xlsx のファイルを選んでください', 'warn'); return; }
@@ -14382,7 +14425,7 @@ function srqTplSave(b64, meta) {
   });
 }
 function srqTplDelete() {
-  if (!isAdmin || !srqTplMeta() || !confirm('登録したテンプレを削除しますか？')) return;
+  if (!adminLike() || !srqTplMeta() || !confirm('登録したテンプレを削除しますか？')) return;
   var done = function () { delete D.shiftReqCfg.tpl; saveD(); writeLog('勤務希望テンプレ削除', ''); renderShiftReq(); };
   if (roboIsLocal()) { try { localStorage.removeItem('ce2_srqtpl'); } catch (e) {} done(); return; }
   fbDB.ref('/shiftReqTpl').remove().then(done).catch(function () { toast('削除できませんでした', 'err'); });
@@ -14455,7 +14498,7 @@ function srqBuildWorkbook(X, buf, ym, issues) {
 }
 var _srqExcelIssues = null; /* 直近の出力で書けなかったもの（表示用・非永続） */
 function srqExportExcel() {
-  if (!isAdmin) return;
+  if (!adminLike()) return;
   var ym = _srqY + '-' + pad(_srqM + 1);
   if (!srqTplMeta()) { toast('先にテンプレを登録してください', 'warn'); return; }
   var btn = document.getElementById('srq-xl-btn'); if (btn) { btn.disabled = true; btn.textContent = '作成中…'; }
@@ -14647,12 +14690,12 @@ function toggleMstGroup(id) {
    権限や主観で中身が全部消えたグループの見出しだけが残る。 */
 /* 一覧には編集DOMを複製せずメタ情報だけを作る。教育だけ既存親の中の各分類を項目にする。 */
 var _mstEntries = [], _mstSelected = null, _mstListScroll = 0, _mstDraftOwner = null;
-function mstPreview() { return /^[12]$/.test(new URLSearchParams(location.search).get('preview') || ''); }
+function mstPreview() { return /^[123]$/.test(new URLSearchParams(location.search).get('preview') || ''); }
 function mstHasDraft(id) { var el=document.getElementById(id); return !!(el && el.dataset.mstDirty==='1'); }
 function mstClearDraft(id) { var el=document.getElementById(id); if(el) delete el.dataset.mstDirty; }
 function mstEntryAllowed(entry) {
   var el=entry.el;
-  if (!(isAdmin || (currentUser && currentUser.perms && currentUser.perms.tab_master))) return false;
+  if (!(adminLike() || (currentUser && currentUser.perms && currentUser.perms.tab_master))) return false;
   if (el.closest('#edu-items-section') && !eduItemMasterOk()) return false;
   if ((el.id==='edu-ope-block'||el.id==='edu-cath-block') && _viewMode!=='ce') return false;
   for(var node=el;node && node.id!=='pane-master';node=node.parentElement){
@@ -15902,11 +15945,11 @@ function updateTabVisibility() {
      集計タブも両主観で出す（集計は「どちらの目で見るか」に依らない事実のため）。 */
   var isHd = _viewMode === 'hd';
   var show = {
-    'staff':  isAdmin, /* スタッフ一覧・PHS番号・勤務表インポートはまとめて管理者限定 */
-    'master': isAdmin || hasPerm('tab_master'),
-    'lock':   isAdmin,
-    'logs':   isAdmin,
-    'docs':   isAdmin,
+    'staff':  adminLike(), /* スタッフ一覧・PHS番号・勤務表インポート。デベロッパは名簿を変えられず（renderStfList は管理者だけ描く）、PHS番号と勤務表の取り込みだけ */
+    'master': adminLike() || hasPerm('tab_master'),
+    'lock':   isAdmin,       /* ロック設定・ユーザー管理・自動削除は「人と安全」なのでデベロッパにも出さない */
+    'logs':   adminLike(),
+    'docs':   adminLike(),
   };
   Object.keys(show).forEach(function(id) {
     var el = document.getElementById('tab-' + id);
@@ -15918,11 +15961,31 @@ function updateTabVisibility() {
   var fairBtn = document.getElementById('subtab-fair');
   var hdfBtn  = document.getElementById('subtab-hdfair');
   if (atBtn)   atBtn.style.display   = isHd ? 'none' : '';
-  if (fairBtn) fairBtn.style.display = (isAdmin && !isHd) ? '' : 'none';
-  if (hdfBtn)  hdfBtn.style.display  = (isAdmin &&  isHd) ? '' : 'none';
+  if (fairBtn) fairBtn.style.display = (adminLike() && !isHd) ? '' : 'none';
+  if (hdfBtn)  hdfBtn.style.display  = (adminLike() &&  isHd) ? '' : 'none';
   if ( isHd && (_curSubTab === 'at' || _curSubTab === 'fair')) swSubTab('my');
   if (!isHd &&  _curSubTab === 'hdfair') swSubTab('my');
   if(_mstEntries.length) applyMstGroups();
+}
+/* デベロッパの「一般の見え方」切り替え（トップバーの #dev-view-btn、デベロッパ本人にだけ出る）。
+   ログインしたまま画面とアプリ側の判定だけを一般職員と同じにする（Firebaseのルール上の権限は変わらない）。端末内・その画面を開いている間だけ */
+function devViewBtnRefresh() {
+  var b = document.getElementById('dev-view-btn'); if (!b) return;
+  b.style.display = isDev ? '' : 'none';
+  b.textContent = _devAsGeneral ? '👤 一般の見え方中' : '🛠 開発';
+  b.classList.toggle('on', !!_devAsGeneral);
+  b.title = _devAsGeneral ? '押すとデベロッパの見え方に戻ります' : '押すと一般職員と同じ見え方に切り替えます';
+}
+function toggleDevView() {
+  if (!isDev) return;
+  _devAsGeneral = !_devAsGeneral;
+  devViewBtnRefresh();
+  updateTabVisibility();
+  var hidden = ['staff','master','lock','logs','docs','spec','manual','adminm','dev','regs','changelog'];
+  if (_devAsGeneral && hidden.indexOf(curTab) !== -1) swTab('cal'); else swTab(curTab || 'cal');
+  if (curDs && D.pages[curDs]) renderPage(curDs);
+  dreqRefreshUI(); fbRefreshBadge();
+  toast(_devAsGeneral ? '👤 一般職員と同じ見え方にしました' : '🛠 デベロッパの見え方に戻しました', 'ok');
 }
 function renderLockList() {
   var w = document.getElementById('lock-list'); w.innerHTML = '';
@@ -17563,7 +17626,7 @@ function renderMakers() {
   var hdBtns = document.getElementById('mk-hd-btns');
   if (hdBtns) hdBtns.style.display = can('maker') ? 'inline-flex' : 'none';
   var impBtn = document.getElementById('mk-imp-btn');
-  if (impBtn) impBtn.style.display = isAdmin ? '' : 'none'; /* Excel取込は一括置換で影響範囲が大きいため管理者限定（can('maker')ではない） */
+  if (impBtn) impBtn.style.display = adminLike() ? '' : 'none'; /* Excel取込は一括置換で影響範囲が大きいため管理者限定（can('maker')ではない） */
   var nav = document.getElementById('mk-catnav');
   if (nav) {
     var cats = mkCats();
@@ -18119,7 +18182,7 @@ function parseMakerBook(wb, fileName) {
 var _mkImpParsed = null; /* parseMakerBook()の結果。保存ボタンを押すまでDには一切触れない */
 
 function openMkImpModal() {
-  if (!isAdmin) return;
+  if (!adminLike()) return;
   var oldOv = document.getElementById('mk-imp-ov'); if (oldOv) oldOv.remove();
   _mkImpParsed = null;
   var defaultMode = mkList().length === 0 ? 'replace' : 'append';
@@ -18227,7 +18290,7 @@ function mkImpRenderPreview() {
   if (saveBtn) saveBtn.style.display = '';
 }
 function doSaveMkImp() {
-  if (!isAdmin) return;
+  if (!adminLike()) return;
   var parsed = _mkImpParsed;
   if (!parsed || !parsed.groups.length) { toast('先にExcelファイルを読み込んでください', 'warn'); return; }
   var mode = mkImpGetMode();
@@ -20305,7 +20368,7 @@ function renderPage(ds) {
   var _memoUndone = memosOf(dat).filter(function(m){return !m.done;}).length;
   h+='<div class="pr dash-chip" onclick="dashJump(\'#memo-list\')" title="申し送りへジャンプ"><span class="pl">📝 申し送り</span><span class="pv'+(_memoUndone?'':' dash-muted')+'">'+_memoUndone+'件</span></div>';
   h+='</div>';
-  if(isAdmin&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日'+escH(ocKindLabel(al.kind))+'：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
+  if(adminLike()&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日'+escH(ocKindLabel(al.kind))+'：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
   /* 人員配置管理：CE/HDを1枚にまとめた配置盤（renderPlacementBoard が中身を描く）。
      当日勤務者一覧・余剰人員・HD勤務者パネルはすべてこの中に統合済み。 */
@@ -20394,9 +20457,9 @@ function renderPage(ds) {
       {id:'psg', icon:'🌙', label:'PSG'},
     ];
     /* 現在のカードタグ＋×削除ボタン（全ユーザー）＋テンプレ操作（管理者のみ） */
-    if(displayCards2.length>0 || isAdmin){
+    if(displayCards2.length>0 || adminLike()){
       h+='<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:6px 10px;background:var(--sur2);border-radius:var(--rs);border:1px solid var(--bdr);margin-bottom:6px">';
-      if(isAdmin) h+='<span style="font-size:10px;color:var(--txt3);white-space:nowrap">'+(isCustomOps?'個別':'テンプレ')+'</span>';
+      if(adminLike()) h+='<span style="font-size:10px;color:var(--txt3);white-space:nowrap">'+(isCustomOps?'個別':'テンプレ')+'</span>';
       displayCards2.forEach(function(cid){
         var def2=null;
         for(var di=0;di<opsCardDefs.length;di++){if(opsCardDefs[di].id===cid){def2=opsCardDefs[di];break;}}
@@ -20405,7 +20468,7 @@ function renderPage(ds) {
         h+=lbl2+'<button type="button" onclick="removeOpsCard(\''+ds+'\',\''+cid+'\')" style="background:none;border:none;cursor:pointer;color:var(--rd);font-size:11px;padding:0 0 0 2px;line-height:1">×</button></span>';
       });
       h+='<span style="flex:1"></span>';
-      if(isAdmin){
+      if(adminLike()){
         h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:var(--on-ac);border:none;border-radius:6px;cursor:pointer;white-space:nowrap">💾 テンプレ保存</button>';
         if(isCustomOps) h+='<button type="button" onclick="resetOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap">↩ 戻す</button>';
         if(displayCards2.length>0) h+='<button type="button" onclick="clearOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap" title="全カードを削除">🗑</button>';
@@ -22093,7 +22156,7 @@ function hdTreatMailStatusText(ev) {
 }
 /* 送信記録は管理者だけに出す（送れなかったときの原因調べ用。他の職員には見せる必要が無い） */
 function hdTreatMailStatusHTML(dat) {
-  if (!isAdmin) return '';
+  if (!adminLike()) return '';
   var log = hdTreatMailLogOf(dat).slice(-3).reverse();
   if (!log.length) return '';
   var h = '<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--bdr)"><div style="font-size:10px;font-weight:700;color:var(--txt3);margin-bottom:4px">特殊治療メール通知の記録</div>';
@@ -22112,7 +22175,7 @@ function hdTreatMailStatusHTML(dat) {
 var _hdTreatMailInFlight = {};
 function hdTreatMailPreviewMode() {
   var p = new URLSearchParams(window.location.search).get('preview');
-  return p === '1' || p === '2';
+  return p === '1' || p === '2' || p === '3';
 }
 function hdTreatMailUpdate(ds, eventId, update, done) {
   var pg = D.pages && D.pages[ds];
@@ -22975,7 +23038,7 @@ function renderMemos(ds, dat, locked) {
   for (var i = memos.length - 1; i >= 0; i--) {
     var m = memos[i];
     var mkey = memoKeyOf(m);
-    var canDel = !locked && (isAdmin || (currentUser && currentUser.uid === m.uid));
+    var canDel = !locked && (adminLike() || (currentUser && currentUser.uid === m.uid));
     /* 編集は削除と同じ範囲（本人か管理者）に限る。移動と違い本文そのものを書き換えるため、
        memo権限だけで他人の文章に手を入れられるようにはしない。 */
     var canEdit = canDel;
@@ -23044,7 +23107,7 @@ function renderMemos(ds, dat, locked) {
     if (reps.length) {
       h += '<div class="mp-replies">';
       reps.forEach(function(r) {
-        var canDelR = !locked && (isAdmin || (currentUser && currentUser.uid === r.uid));
+        var canDelR = !locked && (adminLike() || (currentUser && currentUser.uid === r.uid));
         h += '<div class="mp-reply">';
         h += '<div class="mp-rmeta"><span class="mp-rname">' + escH(r.name || '不明') + '</span><span>' + (r.ts ? fmtTS(r.ts) : '') + '</span>';
         if (r.isAdmin) h += '<span style="font-size:9px;background:var(--gd-bg);color:var(--gd);border-radius:4px;padding:1px 5px;border:1px solid var(--gd-bdr)">管理者</span>';
@@ -23306,7 +23369,7 @@ function delMemoReply(ds, mkey, rid) {
   var hit = findMemoByKey(ds, mkey);
   if (!hit || !hit.m.replies || !hit.m.replies[rid]) return;
   var r = hit.m.replies[rid];
-  if (!(isAdmin || (currentUser && currentUser.uid === r.uid))) return;
+  if (!(adminLike() || (currentUser && currentUser.uid === r.uid))) return;
   if (!confirm('この返信を削除しますか？')) return;
   memoReplyMediaArr(r).forEach(function(med) {
     mediaDelete(med);
@@ -24255,7 +24318,7 @@ function _doSaveMemoEdit(ds, mkey, text) {
   var found = findMemoByKey(ds, mkey);
   if (!found) { toast('この申し送りは既に削除されています', 'warn'); renderMemos(ds, D.pages[ds], !can('memo')); return; }
   var m = found.m;
-  if (!(isAdmin || (currentUser && currentUser.uid === m.uid))) { toast('この申し送りは編集できません', 'warn'); return; }
+  if (!(adminLike() || (currentUser && currentUser.uid === m.uid))) { toast('この申し送りは編集できません', 'warn'); return; }
   var before = m.text || '';
   if (before === text) { cancelMemoEdit(mkey); return; }
   m.text = text;
@@ -24387,7 +24450,7 @@ function delMemo(ds, idx) {
   if (!m) return;
   /* 投稿者本人か管理者だけが消せる（delMemoReply と同じ条件）。UIでボタンを隠すだけでなく
      関数側でも判定する——申し送りは患者ケアの引き継ぎ記録なので、誤った経路から消えないようにする */
-  if (!(isAdmin || (currentUser && currentUser.uid === m.uid))) return;
+  if (!(adminLike() || (currentUser && currentUser.uid === m.uid))) return;
   if (!confirm('この申し送りを削除しますか？')) return;
   /* Storageファイルも削除 */
   memoMediaArr(m).forEach(mediaDelete);
@@ -24855,11 +24918,11 @@ function buildDG(ds, dat, locked) {
     editorWrap.style.cssText = 'grid-column:1/-1;margin-bottom:6px;padding:6px 8px;background:var(--sur2);border-radius:var(--rs);border:1px solid var(--bdr)';
 
     /* 1行目：現在の枠タグ＋×削除（全ユーザー）＋テンプレ操作（管理者のみ） */
-    if (duties.length > 0 || isAdmin) {
+    if (duties.length > 0 || adminLike()) {
       var tagRow = document.createElement('div');
       tagRow.style.cssText = 'display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:5px';
 
-      if (isAdmin) {
+      if (adminLike()) {
         var stLbl = document.createElement('span');
         stLbl.style.cssText = 'font-size:10px;color:var(--txt3);white-space:nowrap';
         stLbl.textContent = isCustom ? '個別' : 'テンプレ';
@@ -24890,7 +24953,7 @@ function buildDG(ds, dat, locked) {
 
       var sp2=document.createElement('span'); sp2.style.cssText='flex:1'; tagRow.appendChild(sp2);
 
-      if (isAdmin) {
+      if (adminLike()) {
         var tplBtn2=document.createElement('button');
         tplBtn2.className='btn btn-p btn-sm'; tplBtn2.type='button';
         tplBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
@@ -27316,7 +27379,7 @@ function renderMySchedule(overrideName) {
 
   /* 他人の担当を開けるのは管理者と、アカウントが未リンクで自分を特定できない人だけ
      （元の条件のまま。押しても何も起きなかった不具合だけを直す） */
-  var changeBtn = (isAdmin || D.stf.indexOf(currentUser && currentUser.displayName) === -1)
+  var changeBtn = (adminLike() || D.stf.indexOf(currentUser && currentUser.displayName) === -1)
     ? '<button class="btn btn-g btn-sm" style="font-size:11px;margin-left:8px;white-space:nowrap" onclick="_mySchedPick=true;renderMySchedule()">変更</button>' : '';
 
   var html = '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:10px;padding:0 4px">'
@@ -27556,7 +27619,7 @@ function taskSelfName() {
 }
 /* 権限判定（アプリ側制御） */
 function taskCanDelete(t) {
-  return isAdmin || !!(currentUser && t.createdBy && t.createdBy.uid === currentUser.uid);
+  return adminLike() || !!(currentUser && t.createdBy && t.createdBy.uid === currentUser.uid);
 }
 /* 内容の編集は担当者にも開く。自分に振られた仕事の進捗・期限・中身を直せないと、
    担当者は受け取るだけで何も進められない（カードのタグを押せばステータスは変えられるが、
@@ -29383,7 +29446,7 @@ function renderFeedback() {
 function _renderFeedbackBody(root) {
   if (!_fbDraft) _fbDraft = fbNewDraft();
   var h = '<div class="fb-wrap">';
-  if (isAdmin) {
+  if (adminLike()) {
     h += '<div class="fb-chips" style="margin-bottom:10px"><button class="fb-chip' + (_fbAdminTab === 'inbox' ? ' on' : '') + '" onclick="fbSetAdminTab(\'inbox\')">📥 届いた要望' + (fbUnreadN() ? '（未確認 ' + fbUnreadN() + '）' : '') + '</button><button class="fb-chip' + (_fbAdminTab === 'form' ? ' on' : '') + '" onclick="fbSetAdminTab(\'form\')">✏️ 自分も書く</button></div>';
     if (_fbAdminTab === 'inbox') {
       root.innerHTML = h + fbInboxHTML() + '</div>';
@@ -29547,9 +29610,10 @@ function fbStatusHTML(r) {
 function fbThreadHTML(r, role) {
   var h = '<div class="fb-thread">';
   fbComments(r).forEach(function(c){
-    var who = c.by === 'admin' ? '🛠 管理者' : (role === 'admin' ? '👤 ' + escH(c.name || r.name || '本人') : '🙋 あなた');
+    var who = c.by === 'admin' ? '🛠 管理者' : (role !== 'user' ? '👤 ' + escH(c.name || r.name || '本人') : '🙋 あなた');
     h += '<div class="fb-cm ' + c.by + '"><div class="fb-cm-h">' + who + '・' + fbFmtTs(c.ts) + '</div><div class="fb-cm-tx">' + escH(c.text) + '</div></div>';
   });
+  if (role === 'view') return h + '</div>'; /* デベロッパ：やり取りを読むだけ */
   if (r.anon) return h + (role === 'admin' ? '<div class="fb-opt">匿名の要望のため、返信は届けられません</div>' : '') + '</div>';
   h += '<div class="fb-cm-in"><textarea id="fb-cm-' + escH(r._id) + '" maxlength="' + FB_CM_MAX + '" rows="2" placeholder="' + (role === 'admin' ? '本人へ返信（聞き返し・対応の連絡など）' : '管理者へ返信・補足') + '"></textarea>'
     + '<button class="btn btn-p btn-sm" onclick="fbPostComment(fbCardId(this),\'' + (role === 'admin' ? 'admin' : 'user') + '\')">送信</button></div>';
@@ -29657,6 +29721,7 @@ function fbMarkAdminSeen() {
 /* 管理者の覚え書きは /feedbackMemo へ。以前の本体の memo は、読み込んだときに移してから本体から消す
    （本人が自分の要望を読めるようになったので、本体に残すと覚え書きが本人に見える） */
 function fbMigrateMemos() {
+  if (!isAdmin) return; /* 書き換えは管理者だけ（デベロッパは読むだけ） */
   (_fbList || []).forEach(function(r){
     if (typeof r.memo !== 'string') return;
     var id = r._id, v = r.memo;
@@ -29674,7 +29739,7 @@ function fbMigrateMemos() {
   });
 }
 function fbLoadList(cb) {
-  if (!isAdmin) return;
+  if (!adminLike()) return;
   var fin = function(){ fbMigrateMemos(); if (cb) cb(); else { if (curTab === 'feedback') renderFeedback(); fbRefreshBadge(); } };
   if (fbIsLocal()) {
     var a = {}; try { a = JSON.parse(localStorage.getItem(FB_PV_KEY) || '{}'); } catch (e) {}
@@ -29729,10 +29794,10 @@ function fbInboxHTML() {
       + '<div class="tx">' + escH(r.text || '') + '</div>'
       + (fbSafeImg(r.img) ? '<img src="' + escH(fbSafeImg(r.img)) + '" onclick="fbZoomImg(this.src)">' : '')
       + '<div class="fb-opt" style="margin-top:4px">' + escH((r.ver || '') + (r.dev ? '・' + r.dev : '')) + '</div>'
-      + fbThreadHTML(r, 'admin')
-      + '<div class="ft"><select onchange="fbUpdate(fbCardId(this),{status:this.value})">' + FB_STATUS.map(function(s){ return '<option value="' + s.id + '"' + ((r.status || 'new') === s.id ? ' selected' : '') + '>' + s.label + '</option>'; }).join('') + '</select>'
+      + fbThreadHTML(r, isAdmin ? 'admin' : 'view')
+      + (isAdmin ? '<div class="ft"><select onchange="fbUpdate(fbCardId(this),{status:this.value})">' + FB_STATUS.map(function(s){ return '<option value="' + s.id + '"' + ((r.status || 'new') === s.id ? ' selected' : '') + '>' + s.label + '</option>'; }).join('') + '</select>'
       + '<input type="text" placeholder="管理者メモ（本人には見えません）" value="' + escH(memo) + '" style="flex:1;min-width:120px" onchange="fbUpdate(fbCardId(this),{memo:this.value})">'
-      + '<button class="btn btn-g btn-sm" onclick="fbDelete(fbCardId(this))">🗑</button></div></div>';
+      + '<button class="btn btn-g btn-sm" onclick="fbDelete(fbCardId(this))">🗑</button></div>' : '<div class="fb-opt" style="margin-top:6px">状態：' + escH(((FB_STATUS.filter(function(s){ return s.id === (r.status || 'new'); })[0]) || FB_STATUS[0]).label) + (memo ? '・管理者メモ：' + escH(memo) : '') + '（デベロッパは読むだけ）</div>') + '</div>';
   });
   return h;
 }
@@ -29804,10 +29869,10 @@ function dreqSaveLocal() { try { localStorage.setItem(DREQ_PV_KEY, JSON.stringif
 function dreqStartListener(user) {
   dreqStop();
   if (!fbDB || !user) return;
-  _dreqRef = fbDB.ref(isAdmin ? '/dutyReq' : '/dutyReq/' + user.uid);
+  _dreqRef = fbDB.ref(adminLike() ? '/dutyReq' : '/dutyReq/' + user.uid);
   _dreqRef.on('value', function(s){
     var v = s.val() || {};
-    if (isAdmin) _dreqAll = v; else { _dreqAll = {}; _dreqAll[user.uid] = v; }
+    if (adminLike()) _dreqAll = v; else { _dreqAll = {}; _dreqAll[user.uid] = v; }
     _dreqDenied = false; dreqRefreshUI();
   }, function(err){
     /* ルール未反映だと読み取りが拒否される。無言で空にすると「希望が消えた」と誤解されるので理由を記録して画面に出す */
@@ -29894,12 +29959,12 @@ function dreqRowHTML(r, admin) {
   if (r.note) h += '<div class="dreq-note">' + escH(r.note) + '</div>';
   if (r.reply) h += '<div class="dreq-reply">🛠 管理者：' + escH(r.reply) + '</div>';
   var act = '';
-  if (admin) {
+  if (admin && isAdmin) {
     /* 状態は叶った・期間終了でも付け替えられる（記録の整理用）。選ぶと replyTs が更新され本人に赤い数字が出る */
     var cur = (r.status === 'consider' || r.status === 'plan' || r.status === 'skip') ? r.status : 'open';
     act += '<div class="dreq-stsel">' + DREQ_ST.map(function(x){ return '<button type="button" class="fb-chip' + (cur === x.id ? ' on' : '') + '" onclick="dreqSetStatus(this,\'' + x.id + '\')">' + x.label + '</button>'; }).join('') + '</div>'
       + '<button class="btn btn-g btn-sm" onclick="dreqEditReply(this)">💬 ' + (r.reply ? 'ひとことを直す' : 'ひとこと') + '</button>';
-  } else act += '<button class="btn btn-g btn-sm" onclick="dreqWithdraw(this)">取り下げる</button>';
+  } else if (!admin) act += '<button class="btn btn-g btn-sm" onclick="dreqWithdraw(this)">取り下げる</button>';
   if (act) h += '<div class="dreq-act">' + act + '</div>';
   return h + '</div>';
 }
@@ -29912,7 +29977,7 @@ function dreqFind(k) { var m = k && _dreqAll[k.uid]; return m && m[k.id] ? m[k.i
 function dutyReqBoxHTML(ds) {
   if (!currentUser || _offlineMode) return '';
   var list = dreqForDay(ds);
-  if (isAdmin) {
+  if (adminLike()) {
     if (!list.length) return '';
     var act = list.filter(function(r){ return dreqState(r) === 'open'; }).length; /* 受付中＝まだ管理者が手を付けていない */
     return '<button class="btn btn-g btn-sm dreq-chip' + (act ? ' act' : '') + '" onclick="openDutyReqModal(\'' + ds + '\',true)" title="この日の担当の希望（本人と管理者だけに見えます）">🙋 希望 ' + list.length + '</button>';
@@ -29934,7 +29999,7 @@ function dreqRefreshUI() {
 function dreqSeenKey() { return 'ce2_dreq_seen_' + (currentUser ? currentUser.uid : ''); }
 function dreqBadgeN() {
   if (!currentUser) return 0;
-  if (isAdmin) return dreqList().filter(function(r){ return dreqState(r) === 'open'; }).length;
+  if (adminLike()) return dreqList().filter(function(r){ return dreqState(r) === 'open'; }).length;
   var seen = 0; try { seen = +localStorage.getItem(dreqSeenKey()) || 0; } catch (e) {}
   return dreqMine().filter(function(r){ return (+r.replyTs || 0) > seen; }).length; /* 状態の変更・管理者のひとこと */
 }
@@ -29953,7 +30018,7 @@ function openDutyReqModal(ds, dayView) {
   if (!currentUser) return;
   if (_offlineMode) { toast('災害モードでは担当の希望は出せません', 'warn'); return; }
   var old = document.getElementById('dreq-ov'); if (old) old.remove();
-  _dreqDraft = dreqNewDraft(ds); _dreqTab = isAdmin ? 'all' : 'new'; _dreqDayDs = dayView ? ds : null;
+  _dreqDraft = dreqNewDraft(ds); _dreqTab = adminLike() ? 'all' : 'new'; _dreqDayDs = dayView ? ds : null;
   var ov = document.createElement('div'); ov.id = 'dreq-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '460px'; md.id = 'dreq-md';
@@ -29984,15 +30049,15 @@ function dreqSetTab(t) { dreqSyncDraft(); _dreqTab = t; _dreqDayDs = null; rende
 /* 見出しの小ボタンから開いたとき：その日の希望だけ（管理者は全員分、一般職員は自分の分） */
 function dreqDayHTML(ds) {
   var uid = currentUser && currentUser.uid;
-  var rows = dreqForDay(ds).filter(function(r){ return isAdmin || r._uid === uid; });
+  var rows = dreqForDay(ds).filter(function(r){ return adminLike() || r._uid === uid; });
   var h = '<h3>🙋 担当の希望（' + escH(fmtMD(ds)) + '）</h3>';
   if (_dreqDenied) h += '<div class="fb-opt" style="color:var(--rd);margin-bottom:6px">サーバー側の準備がまだのため、希望を読み込めません</div>';
-  if (isAdmin) h += '<div class="fb-opt" style="margin-bottom:6px">この日に関係する希望です（本人と管理者だけに見えます）</div>';
+  if (adminLike()) h += '<div class="fb-opt" style="margin-bottom:6px">この日に関係する希望です（本人と管理者だけに見えます）</div>';
   if (!rows.length) h += '<div class="pool-empty">この日の希望はありません</div>';
-  rows.forEach(function(r){ h += dreqRowHTML(r, isAdmin); });
+  rows.forEach(function(r){ h += dreqRowHTML(r, adminLike()); });
   h += '<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end">'
-    + '<button class="btn btn-g" onclick="dreqSetTab(\'' + (isAdmin ? 'all' : 'list') + '\')">すべての希望を見る</button>'
-    + (isAdmin ? '' : '<button class="btn btn-p" onclick="dreqSetTab(\'new\')">＋ この日の希望を出す</button>')
+    + '<button class="btn btn-g" onclick="dreqSetTab(\'' + (adminLike() ? 'all' : 'list') + '\')">すべての希望を見る</button>'
+    + (adminLike() ? '' : '<button class="btn btn-p" onclick="dreqSetTab(\'new\')">＋ この日の希望を出す</button>')
     + '<button class="btn btn-g" onclick="document.getElementById(\'dreq-ov\').remove()">閉じる</button></div>';
   return h;
 }
@@ -30001,7 +30066,7 @@ function renderDutyReqModalBody() {
   if (_dreqDayDs) { md.innerHTML = dreqDayHTML(_dreqDayDs); return; }
   var h = '<h3>🙋 担当の希望</h3>';
   if (_dreqDenied) h += '<div class="fb-opt" style="color:var(--rd);margin-bottom:6px">サーバー側の準備がまだのため、希望を読み込めません（管理者がルールを反映すると使えます）</div>';
-  if (isAdmin) {
+  if (adminLike()) {
     var all = dreqList();
     h += '<div class="fb-opt" style="margin-bottom:8px">職員から届いた希望です（本人と管理者だけに見えます）。日付つきの希望はその日の連絡表の「🎯 担当割り当て」の「🙋 希望」からも開けます。</div>';
     h += '<div class="fb-chips" style="margin-bottom:8px">' + DREQ_FILTERS.map(function(f){
@@ -30210,7 +30275,7 @@ function swTab(t) {
   if(t==='lock') { renderLockList(); loadAutoDelSettings(); }
   if(t==='guide') { renderGuide(); }
   if(t==='makers') { renderMakers(); }
-  if(t==='feedback') { if (!isAdmin && fbMineUnreadN() && _fbView !== 'thanks') _fbView = 'mine'; /* 返信・状態の変化があれば自分の要望を先に開く */ renderFeedback(); }
+  if(t==='feedback') { if (!adminLike() && fbMineUnreadN() && _fbView !== 'thanks') _fbView = 'mine'; /* 返信・状態の変化があれば自分の要望を先に開く */ renderFeedback(); }
   if(t==='spec') { renderSpec(); }
   if(t==='manual') { renderManual(); }
   if(t==='adminm') { renderAdminManual(); renderSecurityDashboard(); renderAdminUsers(); renderStorageUsage(); renderAutoBackups(); renderFirebaseSnapshots(); }
@@ -30687,10 +30752,10 @@ function renderBoard() {
   posts.forEach(function(p) {
     var isNew = (p.ts || 0) > readTs;
     var isMine = currentUser && p.uid === currentUser.uid;
-    var canDel = isAdmin || isMine;
-    var canPin = isAdmin;
+    var canDel = adminLike() || isMine;
+    var canPin = adminLike();
     var dt = p.ts ? fmtDT(p.ts) : '';
-    var canResolve = p.tag === 'req' && (isAdmin || isMine);
+    var canResolve = p.tag === 'req' && (adminLike() || isMine);
     var pinActive = boardPinActive(p);
     html += '<div class="brd-post' + (pinActive ? ' pin' : '') + (p.resolved ? ' resolved' : '') + '" id="bpost-' + p._id + '">';
     html += '<div class="brd-meta">';
@@ -30757,7 +30822,7 @@ function renderBoard() {
         var rMine = currentUser && r.uid === currentUser.uid;
         html += '<div class="brd-reply">';
         html += '<div class="brd-meta" style="margin-bottom:3px"><span style="font-weight:600;color:var(--txt1)">' + escH(r.author||'匿名') + '</span><span>' + fmtDT(r.ts) + '</span>';
-        if (isAdmin || rMine) html += '<button class="btn btn-d btn-sm" style="font-size:10px;padding:1px 6px;margin-left:auto" onclick="deleteReply(\'' + p._id + '\',\'' + r._rid + '\')">削除</button>';
+        if (adminLike() || rMine) html += '<button class="btn btn-d btn-sm" style="font-size:10px;padding:1px 6px;margin-left:auto" onclick="deleteReply(\'' + p._id + '\',\'' + r._rid + '\')">削除</button>';
         html += '</div>';
         if (r.text) html += '<div class="brd-rtext">' + escH(r.text) + '</div>';
         /* 返信への添付画像 */
@@ -31114,7 +31179,7 @@ function pinBoard(id, pin) {
 function toggleBoardResolved(id, val) {
   var p = _boardData[id]; if (!p) return;
   var isMine = currentUser && p.uid === currentUser.uid;
-  if (!isAdmin && !isMine) return;
+  if (!adminLike() && !isMine) return;
   var upd = {
     resolved:   val,
     resolvedBy: val ? (currentUser.displayName || currentUser.email) : null,
