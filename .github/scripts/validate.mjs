@@ -72,7 +72,7 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
     else {
       /* バックアップ系は全文一致で照合する（部分一致だと、上の階層に書き込み許可を足すなどの緩め方を見逃す） */
       const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
-      const DEV = "root.child('devs').child(auth.uid).val() === true"; /* デベロッパ：読むのは管理者と同じ、バックアップの作成・上書き・削除は不可 */
+      const DEV = "(root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true)"; /* デベロッパ：読むのは管理者と同じ、バックアップの作成・上書き・削除は不可 */
       const adm = `auth != null && ${ADM}`, admDev = `auth != null && (${ADM} || ${DEV})`, KEY = "$date.matches(/^\\d{4}-\\d{2}-\\d{2}_\\d{2}$/)";
       const want = {
         backup_meta: { '.read': admDev, $date: { '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists()))`,
@@ -98,7 +98,7 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
     else {
       const table = new Function('return ' + m[1])();
       const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
-      const DEV = "root.child('devs').child(auth.uid).val() === true";
+      const DEV = "(root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true)";
       /* 'dev'＝管理者とデベロッパだけ。デベロッパは 'all' 以外のすべての項目も書ける（人と安全の項目は表に載せない＝管理者だけ） */
       const want = p => p === 'all' ? `auth != null && (${ADM} || ${ACC})`
         : p === 'dev' ? `auth != null && (${ADM} || ${DEV})`
