@@ -1715,6 +1715,8 @@ body.has-psgb{--psgb-h:36px}
 .adminm-user-name{font-size:13px;font-weight:700;color:var(--txt)}
 .adminm-user-email{font-size:11px;color:var(--txt3);font-family:var(--mo);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .adminm-user-date{font-size:10px;color:var(--txt3)}
+.adminm-user-acts{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:7px}
+.adminm-user-acts .acts-end{margin-left:auto}
 .adminm-self-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);white-space:nowrap;flex-shrink:0}
 
 /* ===== スケジュール（タイムテーブル） ===== */
@@ -5906,13 +5908,13 @@ function renderAdminUsers() {
         var linkedName = linkedUidSet[uid] || null;
 
         S += '<div class="adminm-user-row" style="flex-direction:column;align-items:stretch' + (neverLoggedIn ? ';border-left:3px solid var(--or)' : '') + '">';
-        /* --- 上段：名前・メール・管理者ボタン --- */
+        /* --- 上段：名前・メール --- */
         S += '<div style="display:flex;align-items:center;gap:10px">';
         S += '<div class="adminm-user-info">';
         var isDv = !isAdm && devs[uid] === true;
         S += '<span class="adminm-user-name">' + (isAdm ? '👑 ' : isDv ? '🛠 ' : '👤 ') + escH(u.displayName || u.email) + (isDv ? '<span style="font-size:10px;color:var(--txt3);margin-left:4px">デベロッパ</span>' : '') + '</span>';
         S += '<span style="font-size:10px;color:' + (allowed ? 'var(--gr)' : 'var(--rd)') + '">' + (allowed ? '● 利用可' : '● 利用停止中・未許可') + '</span>';
-        if (linkedName) S += '<span style="font-size:10px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:10px;padding:1px 7px;margin-left:4px">🔗 ' + escH(linkedName) + '</span>';
+        if (linkedName) S += '<span style="font-size:10px;background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:10px;padding:1px 7px;align-self:flex-start">🔗 ' + escH(linkedName) + '</span>';
         S += '<span class="adminm-user-email">' + escH(u.email) + '</span>';
         if (u.lastLogin) {
           S += '<span class="adminm-user-date">最終ログイン: ' + fmtTS(u.lastLogin) + '</span>';
@@ -5920,27 +5922,30 @@ function renderAdminUsers() {
           S += '<span class="adminm-user-date" style="color:var(--or);font-weight:600">⚠ 未ログイン（登録済み・ログイン待ち）</span>';
         }
         S += '</div>';
-        if (isSelf) {
-          S += '<span class="adminm-self-badge">自分</span>';
-        } else if (isAdm) {
-          S += '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">管理者を外す</button>';
-        } else {
-          S += '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
-        }
-        if (!isAdm && !isSelf) S += '<button class="btn btn-g btn-sm" style="margin-left:4px" title="業務とマスタは全部変えられ、管理者が読めるものは全部読めます。人と安全（名簿・権限・バックアップの復元など）は変えられません" onclick="toggleDevPriv(\'' + escH(uid) + '\',' + isDv + ')">' + (isDv ? '🛠 デベロッパを外す' : '🛠 デベロッパにする') + '</button>';
-        if (!isAdm) S += '<button class="btn ' + (allowed ? 'btn-d' : 'btn-p') + ' btn-sm" style="margin-left:4px" onclick="setUserAccess(\'' + escH(uid) + '\',' + !allowed + ')">' + (allowed ? '利用停止' : '利用許可') + '</button>';
+        if (isSelf) S += '<span class="adminm-self-badge">自分</span>';
         S += '</div>';
-        /* --- 下段：編集権限（管理者・自分以外のみ） --- */
+        /* --- 下段：操作ボタン（幅が足りなければ折り返す）。止める操作だけ右端へ離す --- */
+        var acts = '';
         if (!isAdm && !isSelf) {
           var grantCount = Object.keys(userPerms).filter(function(k){ return userPerms[k] && k.indexOf('tab_')!==0; }).length;
           var tabCount  = Object.keys(userPerms).filter(function(k){ return userPerms[k] && k.indexOf('tab_')===0; }).length;
-          S += '<div style="margin-top:5px">';
-          S += '<button class="btn btn-g btn-sm" style="font-size:11px" onclick="togPermPanel(\'' + panelId + '\')">';
-          S += '🔑 権限設定' + ((grantCount||tabCount) ? ' (' + (grantCount?'編集'+grantCount:'') + (grantCount&&tabCount?'・':'') + (tabCount?'タブ'+tabCount:'') + '件付与中)' : '') + ' ▾</button>';
+          acts += '<button class="btn btn-g btn-sm" onclick="togPermPanel(\'' + panelId + '\')">';
+          acts += '🔑 権限設定' + ((grantCount||tabCount) ? ' (' + (grantCount?'編集'+grantCount:'') + (grantCount&&tabCount?'・':'') + (tabCount?'タブ'+tabCount:'') + '件付与中)' : '') + ' ▾</button>';
+        }
+        if (!isSelf) {
+          acts += isAdm
+            ? '<button class="btn btn-d btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',true)">管理者を外す</button>'
+            : '<button class="btn btn-p btn-sm" onclick="toggleAdminPriv(\'' + escH(uid) + '\',false)">管理者にする</button>';
+        }
+        if (!isAdm && !isSelf) acts += '<button class="btn btn-g btn-sm" title="業務とマスタは全部変えられ、管理者が読めるものは全部読めます。人と安全（名簿・権限・バックアップの復元など）は変えられません" onclick="toggleDevPriv(\'' + escH(uid) + '\',' + isDv + ')">' + (isDv ? '🛠 デベロッパを外す' : '🛠 デベロッパにする') + '</button>';
+        if (!isAdm) acts += '<button class="btn ' + (allowed ? 'btn-d' : 'btn-p') + ' btn-sm acts-end" onclick="setUserAccess(\'' + escH(uid) + '\',' + !allowed + ')">' + (allowed ? '利用停止' : '利用許可') + '</button>';
+        if (acts) S += '<div class="adminm-user-acts">' + acts + '</div>';
+        /* --- 権限の中身（管理者・自分以外のみ） --- */
+        if (!isAdm && !isSelf) {
           S += '<div id="' + panelId + '" style="display:none;margin-top:6px;padding:8px 10px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs)">';
           S += '<div style="font-size:11px;color:var(--txt3);margin-bottom:6px">🔒 がロックされている機能でも、権限を付与したユーザーは編集できます。</div>';
           S += acctPermsHTML(uid, userPerms);
-          S += '</div></div>';
+          S += '</div>';
         }
         S += '</div>';
       });
@@ -6195,11 +6200,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/10/29-146';
+var APP_VERSION = 'Ver.2026/11/01-147';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/01-147', date:'2026-11-01', title:'ユーザー管理のカードを整えました', items:[
+    {t:'fix', admin:true, d:'👑 ユーザー管理のカードで、ボタンが増えて名前やメールの欄が細く潰れていたのを直しました。ボタンは名前の下に並び、幅が足りなければ折り返します'}
+  ]},
   { ver:'Ver.2026/10/29-146', date:'2026-10-29', title:'開発パネルとエラーの記録を追加しました', items:[
     {t:'new', admin:true, d:'🛠 デベロッパの「🛠 開発」から開発パネルを開けます。版番号と本番の版番号の食い違い、同期の状態、データの大きさ、画面で起きたエラーを確かめられ、一般職員と同じ見え方への切り替えもここから行います'},
     {t:'new', admin:true, d:'🛠 職員の端末で予期しないエラーが起きると、その内容を自動で記録するようにしました（名前は記録しません。30日で消えます）。開発パネルの「全員のエラー」で見られます'}
