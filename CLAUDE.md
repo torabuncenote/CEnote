@@ -200,6 +200,9 @@ function can(id) {
 - **他の人の画面にデベロッパだと分かる印は出さない**（申し送り・掲示板の「管理者」バッジは `isAdmin` のまま）。🛠 は本人のトップバーと、管理者のユーザー管理・ログ画面にだけ出る。
 - 本人のトップバーの「🛠 開発」（`toggleDevView`）で「一般の見え方」に切り替えられる（`_devAsGeneral`、その画面を開いている間だけ）。切り替え中は `devOn()` が偽になり、画面とアプリ側の書き込み判定が一般職員と同じになる（ルール上の権限は変わらない）。
 - `writeLog` はデベロッパの操作に `dev:true` を付け（切り替え中も）、ログ画面の「🛠 開発」で絞り込める。
+- **開発の道具**：トップバーの「🛠 開発」は開発パネル（`openDevPanel` / `renderDevPanel`）を開く。版番号と本番の `_appSeq`（`checkStaleApp` が受信のたびに `_srvAppSeq` に控える。食い違いを色で出す）、同期の状態、`D` の大きさ、この画面のエラー（`_errRing`）、全員のエラー（`devLoadErrLogs`、`/errLogs` の最新30件）、一般の見え方の切り替え。
+- **エラーの自動記録（`errCapture`）**：`window` の `error`／`unhandledrejection` を `/errLogs/{id} = {ts, ver, msg, src, line, col, stack?, where, mode, dev}` に残す。**職員名・uid は入れない**。患者情報の赤が出る文字列は伏せる。同じエラーは1画面1回、1画面 `ERR_SEND_MAX`（10）件まで、プレビュー・初回受信前・災害モード・古い画面では送らない。作成は承認済みの職員なら誰でも、読む・消すは管理者とデベロッパ（ルール）。`ERR_KEEP_DAYS`（30日）より古いものは管理者かデベロッパのログイン時に `cleanOldErrLogs` が消す。
+- **Claude 用の確認コマンド `tools/peek.mjs`**（`node tools/peek.mjs feedback [--all]` / `errors`）：Firebase CLI で本番の改善要望（管理者メモ付き）とエラー記録を読むだけ。名前は出さず記名／匿名だけ、写真は「写真あり」だけ。
 - ロックタブ（ロック設定・ユーザー管理・自動削除）はデベロッパに出さない。改善要望の受信箱と担当の希望の一覧は読むだけ（状態・返信・メモ・見送りのボタンを出さない）。勤務表の取り込みで職員番号（`stfNo`）は送られない（人の項目なので `regularDataUpdate` が落とす）。
 
 **職員とアカウント（👥 スタッフタブ、`renderStfList`）**：名簿（`D.stf`）とログイン用アカウント（`/users`・`/admins`・`/userPerms`）を1人1行にまとめた画面。アカウント情報は `loadStfAcct()` が開いたときに読んで `_stfAcct` に持つ（60秒で読み直し）。プレビューでは Firebase に触れず `stfAcctDemo()` の見本で描く（`stfAcctReal()` が偽）。
@@ -311,6 +314,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /tasks/                     — タスク管理 (independent of /data; see Task Management section)
 /feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, stTs?, comments?, adminSeen?}（/data の外。全件は管理者、本人は uid で絞った自分の分だけ読める。作成は全員・変更削除は管理者、comments は本人も追加可＝ルールで強制）
 /dutyReq/{uid}/{id}         — 担当の希望 {name, kind:'day'|'range'|'open', ds?, from?, to?, slots?[], strength, note?, ts, status?:'consider'|'plan'|'skip', reply?, replyTs?}（/data の外。本人は自分の uid 配下、管理者は全体を読む。status/reply は管理者だけが変えられる＝ルールで強制）
+/errLogs/{id}               — 画面で起きたエラー {ts, ver, msg, src, line, col, stack?, where, mode, dev}（名前・uidなし。作成は承認済みの職員、読む・消すは管理者とデベロッパ。30日で消す）
+/devs/{uid}                 — デベロッパの印（true。付け外しは管理者だけ）
 /feedbackMemo/{id}          — 改善要望の管理者メモ（文字列。管理者だけ。本人が要望を読めるので本体から分けた）
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
 /media/{id}                 — 添付画像1枚 {d: dataURL, by: uid, ts}。記録側は url/data に 'media:{id}' を持つ（Media Uploads 節）。/media 全体は誰も読めず1枚ずつ読む
