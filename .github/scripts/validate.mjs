@@ -72,16 +72,17 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
     else {
       /* バックアップ系は全文一致で照合する（部分一致だと、上の階層に書き込み許可を足すなどの緩め方を見逃す） */
       const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
-      const adm = `auth != null && ${ADM}`, KEY = "$date.matches(/^\\d{4}-\\d{2}-\\d{2}_\\d{2}$/)";
+      const DEV = "(root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true)"; /* デベロッパ：読むのは管理者と同じ、バックアップの作成・上書き・削除は不可 */
+      const adm = `auth != null && ${ADM}`, admDev = `auth != null && (${ADM} || ${DEV})`, KEY = "$date.matches(/^\\d{4}-\\d{2}-\\d{2}_\\d{2}$/)";
       const want = {
-        backup_meta: { '.read': adm, $date: { '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists()))`,
+        backup_meta: { '.read': admDev, $date: { '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists()))`,
           '.validate': `${KEY} && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (${ADM})` } },
-        backups: { '.read': adm, $date: { '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))`, '.validate': KEY } },
-        recent_backup: { '.read': adm, '.write': adm },
+        backups: { '.read': admDev, $date: { '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))`, '.validate': KEY } },
+        recent_backup: { '.read': admDev, '.write': adm },
         media: { $id: { '.read': `auth != null && (${ADM} || ${ACC})`,
           '.write': `auth != null && (${ADM} || (${ACC} && ((!data.exists() && newData.exists() && newData.child('by').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('by').val() === auth.uid))))`,
           '.validate': "newData.hasChildren(['d', 'by', 'ts']) && newData.child('d').isString() && newData.child('d').val().length <= 500000 && (newData.child('d').val().beginsWith('data:image/') || newData.child('d').val().beginsWith('data:video/')) && newData.child('ts').val() === now" } },
-        recent_backup_staff: { '.read': adm, $uid: { '.write': `auth != null && auth.uid === $uid && ${ACC}`, '.validate': "newData.hasChild('pages')" } },
+        recent_backup_staff: { '.read': admDev, $uid: { '.write': `auth != null && auth.uid === $uid && ${ACC}`, '.validate': "newData.hasChild('pages')" } },
       };
       const bad = Object.keys(want).filter(k => JSON.stringify(db[k]) !== JSON.stringify(want[k]));
       if (bad.length) fail('バックアップ系のルールが想定と違います: ' + bad.join(', '));
@@ -97,9 +98,12 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
     else {
       const table = new Function('return ' + m[1])();
       const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
+      const DEV = "(root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true)";
+      /* 'dev'＝管理者とデベロッパだけ。デベロッパは 'all' 以外のすべての項目も書ける（人と安全の項目は表に載せない＝管理者だけ） */
       const want = p => p === 'all' ? `auth != null && (${ADM} || ${ACC})`
-        : p === 'edu' ? `auth != null && (${ADM} || (${ACC} && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))`
-        : `auth != null && (${ADM} || (${ACC} && (root.child('data').child('lk').child('${p}').val() !== true || root.child('userPerms').child(auth.uid).child('${p}').val() === true)))`;
+        : p === 'dev' ? `auth != null && (${ADM} || ${DEV})`
+        : p === 'edu' ? `auth != null && (${ADM} || ${DEV} || (${ACC} && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))`
+        : `auth != null && (${ADM} || ${DEV} || (${ACC} && (root.child('data').child('lk').child('${p}').val() !== true || root.child('userPerms').child(auth.uid).child('${p}').val() === true)))`;
       const bad = [];
       for (const [k, p] of Object.entries(table)) if (db[k]?.['.write'] !== want(p)) bad.push(k);
       for (const k of Object.keys(db)) if (k[0] !== '.' && !(k in table)) bad.push(k + '（ルールのみ）');
