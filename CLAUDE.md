@@ -320,6 +320,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /feedbackMemo/{id}          — 改善要望の管理者メモ（文字列。管理者だけ。本人が要望を読めるので本体から分けた）
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
 /media/{id}                 — 添付画像1枚 {d: dataURL, by: uid, ts}。記録側は url/data に 'media:{id}' を持つ（Media Uploads 節）。/media 全体は誰も読めず1枚ずつ読む
+/honin/{YYYY-MM}            — 本院の勤務 {ts, by, secs:[{t:部署名, rows:[{n:氏名, a:上段(タブ区切り), b:下段(タブ区切り)}]}]}（/data の外。読むのは承認済みの職員、書くのは管理者とデベロッパ）
 /shiftReqTpl                — 勤務希望のExcel出力テンプレ {data, ts, by, size}（/data の外。D.shiftReqCfg.tpl に名前・日時。書き込みは管理者のみ）
 /logs/                      — activity log (append-only via push())
 /admins/{uid}               — true for admin users
@@ -1027,6 +1028,12 @@ All image/video uploads (memo, memo reply, board post, board reply, manual, task
 - HD側が `buildHdRoster` ではなく **`hdShiftWorkers(ds)` を直接使う**のは、並べ替えや行の組み立てが要らないため。どちらも同じ関数（＝台帳）を通るので、日ページのHD担当表で役割を変えた分は自動で反映される。
 - 準夜は `getShiftForDay` が `shift:'準', night:true` に正規化して返すので、`h.night` を見て `'準夜'` の1列に寄せる。`'準'` と `'準夜'` の表記ゆれを列として分けないこと。
 - 警告列のヘッダーは地を `--warn-fg` で塗るので、文字色に `--sur` を当てて反転させている（これが無いとライトは暗地に暗字、ダークは明地に明字で読めない）。
+
+### 本院の勤務（担当表タブの🏥本院サブタブ）
+
+全部署の年間勤務表（`hnParseBook` → `hnParseSheet`）から、本院スタッフだけを（部署は集計行 `HN_SEC_ENDS` で区切り、`OR勤務者数` より下の分院は読まない。A列の部署名は多くの月で空なので使わない） `/honin/{YYYY-MM}` に置き、`renderHonin()` が開いている月の分だけ読む。人数が多いので `/data` には入れない。月はシート名から取る（シート内の日付には誤りがある）。読み取れなかった月は取り込まず、確認画面に月を出す（`hnParseBook` の `skipped`）。氏名は「数字だけの行のすぐ下」の行のC列。休暇の種類は勤務表のまま出す（2026-11-02 本人判断）。本院スタッフは分院の名簿・担当枠・配置・公平性に混ぜない。
+
+分院の勤務表の `本CE`・`本HD`・`本遅` など（`HN_CODE_RE`）と上段の `本院` は `D.shift[ym][氏名][日].hn` に入れ、マイ担当にだけ出す。
 
 ### 実績・教育到達度（担当表タブの🎓実績サブタブ）
 
