@@ -2247,8 +2247,8 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         </div>
         <div>
           <div class="pt">📅 勤務表インポート</div>
-          <p style="font-size:11px;color:var(--txt3);margin-bottom:7px;line-height:1.5">月ごとのCE勤務・OC情報を入力します。各日の連絡表に自動反映されます。</p>
-          <button class="btn btn-g btn-fw btn-sm" onclick="openSIM()">📋 勤務表を入力する</button>
+          <p style="font-size:11px;color:var(--txt3);margin-bottom:7px;line-height:1.5">分院の勤務表（CE勤務・OC。各日の連絡表に自動反映）と、本院の勤務表を取り込みます。</p>
+          <button class="btn btn-g btn-fw btn-sm" onclick="openSIM()">📋 勤務表を取り込む</button>
         </div>
         <div class="pn">変更は全連絡表のドロップダウンに即時反映されます。</div>
       </div>
@@ -3076,7 +3076,11 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 <div class="ov hd" id="modal-sim">
   <div class="md" style="max-width:520px">
     <h3>📋 Excelから勤務表を読み込む</h3>
-    <p>毎月使っているExcelファイル（.xlsm / .xlsx）をアップロードしてください。<br>「勤務表」シートから <strong>CE勤務</strong> と <strong>OC（オンコール）</strong> を自動で抽出します。</p>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button type="button" class="btn btn-sm" id="sim-kind-bun" onclick="setSimKind('bun')">分院の勤務表</button>
+      <button type="button" class="btn btn-sm" id="sim-kind-honin" onclick="setSimKind('honin')">本院の勤務表</button>
+    </div>
+    <p id="sim-kind-note"></p>
     <div id="sim-upload-area" style="border:2px dashed var(--ac);border-radius:8px;padding:28px;text-align:center;cursor:pointer;background:var(--ac-bg);margin-bottom:14px" onclick="document.getElementById('sim-file-in').click()">
       <div style="font-size:28px;margin-bottom:8px">📂</div>
       <div style="font-size:13px;font-weight:700;color:var(--ac)">クリックしてファイルを選択</div>
@@ -6242,7 +6246,7 @@ var APP_CHANGELOG = [
   { ver:'Ver.2026/11/02-149', date:'2026-11-02', title:'本院の勤務を確認できるようになりました', items:[
     {t:'new', d:'🏥 担当表タブの「本院」で、本院スタッフの勤務を月の表で確認できます。今日の列に色が付きます'},
     {t:'new', d:'🏥 本院で勤務する日（本CE・本HDなど）が、マイ担当にも出るようになりました。勤務表を取り込み直した月から反映されます'},
-    {t:'new', admin:true, d:'📥 本院の勤務表は「本院」の画面から取り込みます。分院の部署は取り込みません'}
+    {t:'new', admin:true, d:'📥 本院の勤務表は、スタッフタブの「勤務表インポート」で「本院の勤務表」を選んで取り込みます。分院の部署は取り込みません'}
   ]},
   { ver:'Ver.2026/11/02-148', date:'2026-11-02', title:'HDに遅出1・遅出2を追加しました', items:[
     {t:'new', d:'🩸 HDの役割に遅1（11:00〜19:45）と遅2（13:00〜21:30）を追加しました。勤務表の「分遅1」「分遅2」を取り込むと、HD担当表・配置ボード・マイ担当・HD公平性に出ます'},
@@ -16204,6 +16208,7 @@ function hnSaveMonths(months){
     Object.keys(upd).forEach(function(ym){ _hnData[ym] = upd[ym]; delete _hnErr[ym]; });
     writeLog('本院の勤務表を取り込み', Object.keys(upd).length + 'か月分');
     toast('✅ 本院の勤務表を取り込みました', 'ok');
+    closeSIM();
     renderHonin();
   }
   if (roboIsLocal()) {
@@ -16262,9 +16267,6 @@ function renderHonin(){
   var el = document.getElementById('honin-body');
   if (!el) return;
   var ym = hnYm();
-  var imp = adminLike()
-    ? '<label class="btn btn-g btn-sm" style="cursor:pointer">📥 本院の勤務表を取り込む<input type="file" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="hnImportFile(this)"></label>'
-    : '';
   if (!Object.prototype.hasOwnProperty.call(_hnData, ym) && !_hnErr[ym]) {
     el.innerHTML = '<div class="pool-empty" style="padding:20px 0">読み込み中…</div>';
     hnLoad(ym, function(){ if (hnYm() === ym) renderHonin(); });
@@ -16273,17 +16275,18 @@ function renderHonin(){
   if (_hnErr[ym]) {
     var msg = _hnErr[ym] === 'PERMISSION_DENIED' ? 'サーバー側の準備がまだのため読み込めません' : '読み込めませんでした';
     delete _hnErr[ym];
-    el.innerHTML = '<div class="hn-tools">' + imp + '</div><div class="pool-empty" style="padding:20px 0">' + msg + '</div>';
+    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">' + msg + '</div>';
     return;
   }
   var dat = _hnData[ym];
   if (!dat) {
-    el.innerHTML = '<div class="hn-tools">' + imp + '</div><div class="pool-empty" style="padding:20px 0">' + asY + '年' + (asM + 1) + '月の本院の勤務はまだ取り込まれていません</div>';
+    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">' + asY + '年' + (asM + 1) + '月の本院の勤務はまだ取り込まれていません'
+      + (adminLike() ? '<br>👥 スタッフタブの「勤務表インポート」から取り込めます' : '') + '</div>';
     return;
   }
   var when = dat.ts ? new Date(dat.ts) : null;
   el.innerHTML = '<div class="hn-tools"><input type="search" class="ds2" style="margin:0;max-width:160px;font-size:12px" placeholder="氏名で絞り込み" value="' + escH(_hnFilter) + '" oninput="hnSetFilter(this.value)">'
-    + imp + (when ? '<span>取り込み ' + (when.getMonth() + 1) + '/' + when.getDate() + '</span>' : '') + '</div>'
+    + (when ? '<span>取り込み ' + (when.getMonth() + 1) + '/' + when.getDate() + '</span>' : '') + '</div>'
     + '<div class="hn-wrap" id="hn-table"></div>';
   hnFillTable();
 }
@@ -16628,11 +16631,21 @@ function removeEvt(ds, evtName) {
 /* ===== SHIFT EXCEL IMPORT ===== */
 var parsedShiftData = null; // { ym:'YYYY-MM', data:{...} }
 
-function openSIM() {
+var _simKind = 'bun'; /* 'bun'＝分院 / 'honin'＝本院。取り込みの入口はこの画面だけ */
+function setSimKind(k) {
+  _simKind = k === 'honin' ? 'honin' : 'bun';
   parsedShiftData = null;
   document.getElementById('sim-result').innerHTML = '';
   document.getElementById('sim-save-btn').style.display = 'none';
   document.getElementById('sim-file-in').value = '';
+  document.getElementById('sim-kind-bun').className = 'btn btn-sm ' + (_simKind === 'bun' ? 'btn-p' : 'btn-g');
+  document.getElementById('sim-kind-honin').className = 'btn btn-sm ' + (_simKind === 'honin' ? 'btn-p' : 'btn-g');
+  document.getElementById('sim-kind-note').innerHTML = _simKind === 'honin'
+    ? '全部署の年間勤務表（.xlsm / .xlsx）を選んでください。<br>本院スタッフの勤務だけを読み、担当表タブの「🏥 本院」に表示します。'
+    : '毎月使っているExcelファイル（.xlsm / .xlsx）をアップロードしてください。<br>「勤務表」シートから <strong>CE勤務</strong> と <strong>OC（オンコール）</strong> を自動で抽出します。';
+}
+function openSIM() {
+  setSimKind('bun');
   document.getElementById('modal-sim').classList.remove('hd');
 }
 function closeSIM() {
@@ -16642,6 +16655,7 @@ function closeSIM() {
 /* Excelファイル選択 → 自動解析 */
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('sim-file-in').addEventListener('change', function(e) {
+    if (_simKind === 'honin') { hnImportFile(e.target); return; }
     var file = e.target.files[0];
     if (!file) return;
     var reader = new FileReader();
