@@ -82,6 +82,7 @@ var D = {
   eduProgress: {},  // 教育到達度 { 氏名: { 項目key: {lv,by,ts,hist[],goalFy?} } }。詳細は下記「実績・教育到達度」節
   eduCfg: { ceEdu:false }, // オペ・カテ症例行に教育者欄を出すか（既定OFF）
   eduItems: { ward:[], device:[], hd:[] }, // 教育到達度6分類のうち病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
+  hdShiftTimes: {}, // HD遅出の勤務時間 { '遅1':{s:'11:00',e:'19:45'}, … }。読み出しは hdShiftTime(code)（無ければ HD_SHIFT_TIME_DEF）
   evtRanges: [],    // 期間イベント [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]。1日ずつの events / D.evts とは別に持ち、表示のときだけ合わせる（evtRangesOn(ds)）
   opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
   _migVer: 6        // data migration version flag (increment when running one-time migrations)
@@ -319,6 +320,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /feedbackMemo/{id}          — 改善要望の管理者メモ（文字列。管理者だけ。本人が要望を読めるので本体から分けた）
 /robotImg/{id}              — ロボット配置図 {data, ts, by, size}（/data の外。D.roboLayouts[i].img が登録時刻）
 /media/{id}                 — 添付画像1枚 {d: dataURL, by: uid, ts}。記録側は url/data に 'media:{id}' を持つ（Media Uploads 節）。/media 全体は誰も読めず1枚ずつ読む
+/honin/{YYYY-MM}            — 本院の勤務 {ts, by, secs:[{t:部署名, rows:[{n:氏名, a:上段(タブ区切り), b:下段(タブ区切り)}]}]}（/data の外。読むのは承認済みの職員、書くのは管理者とデベロッパ）
 /shiftReqTpl                — 勤務希望のExcel出力テンプレ {data, ts, by, size}（/data の外。D.shiftReqCfg.tpl に名前・日時。書き込みは管理者のみ）
 /logs/                      — activity log (append-only via push())
 /admins/{uid}               — true for admin users
@@ -663,6 +665,8 @@ dat.placement = {
 `renderPageHD(ds)` はCE版と別の日ページビルダー。並び順は **ヘッダー・通知 → イベント → 血液浄化 → 人員配置管理 → HD担当表 → CE担当表（読み取り専用） → 進捗バー → HDチェックリスト → 申し送り**。人員配置管理を上部へ移し、HD担当表と血液浄化の表示順も保つ。HD担当表は空の入れ物 `<div id="hd-roster-box" data-ds data-variant="hd">` を置くだけで、中身は `refreshHdRoster(ds)` が描く（`renderPlacementBoard` を呼ぶたびに自動で最新化される）。人員配置管理は `renderPlacementBoard` をCEとそのまま共有し、申し送りは `dat.hdMemos` に保存してCEの `dat.memos` と分ける。**`#dg`/`#pool-chips`/`#ops-grid` は絶対に作らない**（`buildDG`はnullチェックが無くこれらのidが無い状態で呼ぶと例外になるため、呼ばない。`buildOPS`はnullガード付きなので将来的にHD側で使うこと自体は可能）。CE専用の`#dcl`/`#wcl`（`buildCL`が対象、nullガード無し）とは別に、HD版の`#hdcl`/`#hdwcl`は`buildHdCL`が冒頭で`if(!el) return;`する独自実装なので作ってよい。
 
 `dat.hdDuty = { overrides: {...} }` は**旧フィールド**（`plDerive()` が読み出し時にだけ吸収する。上記「人員配置管理（配置盤）」節）——現在のHD担当表の編集はすべて台帳（`dat.placement`）を `hdRosterMove`/`plMove` 経由で直接動かすので、新規には書き込まれない。`dat.hdNotes = { 実効氏名: 'テキスト' }` — 担当表の備考欄。`saveDPage(ds)`（行ごとに独立してデバウンス）。`dat.hdAbsent = { 実効氏名: true }` — 通常表示の行の「休」チェック（画面の表記は「休」。「欠勤」は語気が強いので2026-10に改めた。CE担当カードの `dat.dutyAbsent` も同じ表記。データ名・クラス名の `absent` はそのまま。`hdIsAbsent(dat, name)`、`can('duty')`、`saveDPage(ds)`）。CE担当カードの `dat.dutyAbsent`（枠ID単位）と同じく**見た目の印だけ**で、配置・件数・公平性には影響させない。準夜のように同じ役割を複数人で持つので、役割ではなく氏名で持つ。行の見た目だけ切り替え、表は作り直さない（隣の備考欄の入力を巻き込まないため）。付けていない間のチェックは業務カードの急患・中止（`.ops-tag-btn:not(.on)`）と同じく薄く灰色にし、付けた行・マウスを乗せたときだけ赤く出す（HD担当表は項目が少なく、全員の行に赤い「休」が並ぶと目立ちすぎるため。印刷では付けた行だけに出す）。`buildHdRoster(ds)`は`hdShiftWorkers(ds)`（台帳から作る実効HD勤務者一覧。HD担当表と余剰人員パネルの両方がこの1関数を共通の入口にする）を`HD_DAY_CODES`順にソートして返す。
+
+**遅出（`遅1`・`遅2`）**：`HD_DAY_CODES` の末尾にある役割。勤務表の表記 `分遅1`・`分遅2` は `hdCodeNorm()`（`HD_SHIFT_ALIAS`）で変換する。本院の遅出 `本遅` は別物。毎日は置かないので `HD_OPTIONAL_CODES` に入れ、配置ボードの「空き」に数えない。勤務時間は `hdShiftTimeLabel(code)` が唯一の入口で、担当表の役割欄（`hdRoleCellHTML`）とマイ担当に出す。編集はマスタの `renderHdShiftTimes()`（`mst`、HD主観）。
 
 **HD担当表の役割編集（`#hd-roster-box` / `refreshHdRoster`）**：HD日ページの「🩸 HD担当表」とCE日ページの相互参照は、同じ入れ物・同じ関数群で描く1つの共通部品——CE/HDの双子関数を増やさない方針の延長で、以前あった読み取り専用の `hdRosterRefHTML`（CE日ページ用）は廃止し、**CE日ページからも編集できる**ようにした（同じ日の同じ現場なので、どちらの主観からでも動かせてよい、という判断）。
 - 安定要素 `<div id="hd-roster-box" data-ds data-variant="hd"|"ce">` の中身は `refreshHdRoster(ds)` が作る（`hdRosterBoxHTML`→`hdRosterTableHTML`→通常表示 `hdRosterNormalTableHTML` / 編集表示 `hdRosterEditTableHTML`）。**`renderPlacementBoard(ds,...)` が早期returnより前で必ず `refreshHdRoster(ds)` を呼ぶ** ので、`plMove`/`plOffer`/`plCancelOffer`/`plAccept`/`plEditMemo`/名簿の増減/`plResync` のどの経路を通っても、同じ画面のHD担当表が自動で揃う——個々の呼び出し側が更新を意識する必要はない。`renderPageHD`/`renderPage` は入れ物を置いた直後にも1回 `refreshHdRoster(ds)` を呼ぶ（`renderPlacementBoard` までの間に空のまま描画される瞬間を作らないため。二重に呼んでも軽い）。
@@ -1024,6 +1028,12 @@ All image/video uploads (memo, memo reply, board post, board reply, manual, task
 - HD側が `buildHdRoster` ではなく **`hdShiftWorkers(ds)` を直接使う**のは、並べ替えや行の組み立てが要らないため。どちらも同じ関数（＝台帳）を通るので、日ページのHD担当表で役割を変えた分は自動で反映される。
 - 準夜は `getShiftForDay` が `shift:'準', night:true` に正規化して返すので、`h.night` を見て `'準夜'` の1列に寄せる。`'準'` と `'準夜'` の表記ゆれを列として分けないこと。
 - 警告列のヘッダーは地を `--warn-fg` で塗るので、文字色に `--sur` を当てて反転させている（これが無いとライトは暗地に暗字、ダークは明地に明字で読めない）。
+
+### 本院の勤務（担当表タブの🏥本院サブタブ）
+
+取り込みの入口は👥スタッフタブの勤務表インポート（`openSIM()`→`setSimKind('honin')`）の1か所だけ。全部署の年間勤務表（`hnParseBook` → `hnParseSheet`）から、本院スタッフだけを（部署は集計行 `HN_SEC_ENDS` で区切り、`OR勤務者数` より下の分院は読まない。A列の部署名は多くの月で空なので使わない） `/honin/{YYYY-MM}` に置き、`renderHonin()` が開いている月の分だけ読む。人数が多いので `/data` には入れない。月はシート名から取る（シート内の日付には誤りがある）。読み取れなかった月は取り込まず、確認画面に月を出す（`hnParseBook` の `skipped`）。全部署の勤務表を「分院」で選ぶと `hnIsAllDeptBook` が止める（読み進めると本院スタッフが分院の配置に混ざる）。開くたびと月を移すたびに読み直す（`renderHonin(true)`）。氏名は「数字だけの行のすぐ下」の行のC列。休暇の種類は勤務表のまま出す（2026-11-02 本人判断）。本院スタッフは分院の名簿・担当枠・配置・公平性に混ぜない。
+
+分院の勤務表の `本CE`・`本HD`・`本遅` など（`HN_CODE_RE`）と上段の `本院` は `D.shift[ym][氏名][日].hn` に入れ、マイ担当にだけ出す。配置に関わらないので、担当を割り当て済みの保護日（`doSaveSIM`）でも `hn` だけは新しい勤務表の内容にする。
 
 ### 実績・教育到達度（担当表タブの🎓実績サブタブ）
 

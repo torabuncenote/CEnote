@@ -659,6 +659,24 @@ button.edu-map-cell{border:none;cursor:pointer;font-family:inherit;font-size:inh
    見込んで詰め、ボタン無しの隣の区切り行（準夜）と高さがほぼ揃うようにしている。 */
 .btn.hdr-edit-btn{padding:1px 10px;font-size:11px;line-height:1.2;min-height:0}
 .hdr-edit-tbl tbody td{height:44px}
+.hn-tools{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;font-size:11px;color:var(--txt3)}
+.hn-wrap{overflow:auto;max-height:calc(100vh - 210px);border:1px solid var(--bdr);border-radius:8px;background:var(--sur)}
+.hn-tbl{border-collapse:separate;border-spacing:0;font-size:11px}
+.hn-tbl th,.hn-tbl td{border-right:1px solid var(--bdr);border-bottom:1px solid var(--bdr);text-align:center;padding:2px 3px;min-width:34px;height:30px;white-space:nowrap}
+.hn-tbl thead th{position:sticky;top:0;z-index:2;background:var(--sur2);font-weight:700}
+.hn-tbl .hn-name{position:sticky;left:0;z-index:1;background:var(--sur);text-align:left;font-weight:700;padding:2px 8px;min-width:88px}
+.hn-tbl thead .hn-name{z-index:3;background:var(--sur2)}
+.hn-tbl .hn-sec span{position:sticky;left:8px}
+.hn-tbl .hn-sec td{background:var(--ac-bg);color:var(--ac);font-weight:700;text-align:left;padding:3px 8px;height:auto}
+.hn-tbl .hn-sun{color:var(--rd)}
+.hn-tbl .hn-sat{color:var(--ac)}
+.hn-tbl .hn-today{background:var(--ac-bg)}
+.hn-tbl thead .hn-today{background:var(--ac);color:var(--on-ac)}
+.hn-tbl .hn-off{color:var(--txt3)}
+.hn-tbl .hn-night{color:var(--pu);font-weight:700}
+.hn-top{display:block;font-size:9px;line-height:1.2;color:var(--txt3)}
+.hn-top.hn-night{color:var(--pu)}
+.hd-role-time{display:block;font-size:10px;font-weight:400;color:var(--txt3);white-space:nowrap}
 .hdr-empty{font-size:11px;color:var(--txt3);border:1px dashed var(--bdr2);border-radius:6px;padding:5px 10px;display:inline-block}
 .hdr-row[data-hdr-role]{cursor:pointer}
 .hdr-edit-tbl.picking .hdr-row{background:var(--ac-bg)}
@@ -1208,6 +1226,9 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
   body[data-print-sub="my"] #subpane-my{display:block!important}
   body[data-print-sub="fair"] #subpane-fair{display:block!important}
   body[data-print-sub="hdfair"] #subpane-hdfair{display:block!important}
+  body[data-print-sub="honin"] #subpane-honin{display:block!important}
+  .hn-tools{display:none!important}
+  .hn-wrap{max-height:none!important;overflow:visible!important}
   body[data-print-sub="perf"] #subpane-perf{display:block!important}
   body[data-print-sub="ops"] #subpane-ops{display:block!important}
   body[data-print-sub="oc"] #subpane-oc{display:block!important}
@@ -2226,8 +2247,8 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         </div>
         <div>
           <div class="pt">📅 勤務表インポート</div>
-          <p style="font-size:11px;color:var(--txt3);margin-bottom:7px;line-height:1.5">月ごとのCE勤務・OC情報を入力します。各日の連絡表に自動反映されます。</p>
-          <button class="btn btn-g btn-fw btn-sm" onclick="openSIM()">📋 勤務表を入力する</button>
+          <p style="font-size:11px;color:var(--txt3);margin-bottom:7px;line-height:1.5">分院の勤務表（CE勤務・OC。各日の連絡表に自動反映）と、本院の勤務表を取り込みます。</p>
+          <button class="btn btn-g btn-fw btn-sm" onclick="openSIM()">📋 勤務表を取り込む</button>
         </div>
         <div class="pn">変更は全連絡表のドロップダウンに即時反映されます。</div>
       </div>
@@ -2419,6 +2440,11 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
                 <input type="text" id="in-srq-code" placeholder="種類を入力…" maxlength="20">
                 <button onclick="addShiftReqCode()">追加</button>
               </div>
+            </div>
+            <div data-perm="mst" data-mode="hd">
+              <div class="pt">🕒 遅出の勤務時間</div>
+              <div class="pn" style="margin-bottom:8px">HD担当表とマイ担当に表示する時間です。</div>
+              <div id="hd-shift-times"></div>
             </div>
             <!-- 祝日（D.holidayOv）。計算はjpHolidayName()が唯一の入口——ここは一覧表示と
                  上書き（名前変更・除外・追加）のみ。現状は📝勤務希望のカレンダーだけが参照する。 -->
@@ -2862,6 +2888,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
         <button id="subtab-fair" class="btn btn-g btn-sm" onclick="swSubTab('fair')" style="border-radius:6px 6px 0 0;display:none">⚖️ CE公平性</button>
         <button id="subtab-hdfair" class="btn btn-g btn-sm" onclick="swSubTab('hdfair')" style="border-radius:6px 6px 0 0;display:none">⚖️ HD公平性</button>
         <button id="subtab-perf" class="btn btn-g btn-sm" onclick="swSubTab('perf')" style="border-radius:6px 6px 0 0">🎓 実績</button>
+        <button id="subtab-honin" class="btn btn-g btn-sm" onclick="swSubTab('honin')" style="border-radius:6px 6px 0 0">🏥 本院</button>
       </div>
       <!-- 担当表 -->
       <div id="subpane-at">
@@ -2883,6 +2910,10 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
       </div>
       <div id="subpane-hdfair" style="display:none">
         <div id="hdfair-body"></div>
+      </div>
+      <!-- 本院の勤務（両主観・全員に表示。取り込みは管理者とデベロッパ。/honin から月ごとに読む） -->
+      <div id="subpane-honin" style="display:none">
+        <div id="honin-body"></div>
       </div>
       <!-- 実績・教育到達度（CE/HD両主観・全員に表示。中身は本人か canEdu() で出し分け） -->
       <div id="subpane-perf" style="display:none">
@@ -3045,7 +3076,11 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
 <div class="ov hd" id="modal-sim">
   <div class="md" style="max-width:520px">
     <h3>📋 Excelから勤務表を読み込む</h3>
-    <p>毎月使っているExcelファイル（.xlsm / .xlsx）をアップロードしてください。<br>「勤務表」シートから <strong>CE勤務</strong> と <strong>OC（オンコール）</strong> を自動で抽出します。</p>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <button type="button" class="btn btn-sm" id="sim-kind-bun" onclick="setSimKind('bun')">分院の勤務表</button>
+      <button type="button" class="btn btn-sm" id="sim-kind-honin" onclick="setSimKind('honin')">本院の勤務表</button>
+    </div>
+    <p id="sim-kind-note"></p>
     <div id="sim-upload-area" style="border:2px dashed var(--ac);border-radius:8px;padding:28px;text-align:center;cursor:pointer;background:var(--ac-bg);margin-bottom:14px" onclick="document.getElementById('sim-file-in').click()">
       <div style="font-size:28px;margin-bottom:8px">📂</div>
       <div style="font-size:13px;font-weight:700;color:var(--ac)">クリックしてファイルを選択</div>
@@ -3296,7 +3331,7 @@ var AUTO_BK_KEY = 'ce2_autobk';
 var AUTO_BK_MAX = 2; /* 画像を外しても D 1回分は1MB近い。5世代だとブラウザの保存上限（約5MB）を超えて更新が止まり、巻き添えで通常の端末保存（ce2）まで失敗していた */
 /* 各資料で共有する最新のFirebase Realtime Databaseセキュリティルール（掲示板・バックアップ・ユーザー管理対応） */
 var LATEST_STORAGE_RULES = "rules_version = '2';\n\n// 新しい添付はアップロード者のUID配下に置く。StorageルールからRTDBの\n// /access は参照できないため、利用停止時はAuthentication側の無効化も必要。\nservice firebase.storage {\n  match /b/{bucket}/o {\n    match /uploads/{uid}/private/{allPaths=**} {\n      allow read: if request.auth != null && request.auth.uid == uid;\n      allow write: if request.auth != null && request.auth.uid == uid\n        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024\n          && request.resource.contentType.matches('image/.*|video/.*')));\n    }\n    match /uploads/{uid}/shared/{allPaths=**} {\n      allow read: if request.auth != null;\n      allow write: if request.auth != null && request.auth.uid == uid\n        && (request.resource == null || (request.resource.size < 50 * 1024 * 1024\n          && request.resource.contentType.matches('image/.*|video/.*')));\n    }\n    // 旧形式の添付は表示を保ち、新規の書き込みは止める。\n    match /taskMemo/{uid}/{allPaths=**} {\n      allow read: if request.auth != null && request.auth.uid == uid;\n    }\n    match /manual/{allPaths=**} { allow read: if request.auth != null; }\n    match /memo/{allPaths=**} { allow read: if request.auth != null; }\n    match /board/{allPaths=**} { allow read: if request.auth != null; }\n    match /task/{allPaths=**} { allow read: if request.auth != null; }\n  }\n}";
-var LATEST_DB_RULES = "{\n  \"rules\": {\n    \"data\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"pages\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"manual\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"shiftReq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_appSeq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_savedAt\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_sessionId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_lastWriter\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"dly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"hdDly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"wd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"hdWd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"wdDepts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"ope\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cath\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"sup\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opeTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cathTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"roboLayouts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfgMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opsCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"oc\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"schedPresets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgAlertTime\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerStart\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerEnd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"tablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTreatments\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"ocFlow\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"holidayOv\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"makers\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('maker').val() !== true || root.child('userPerms').child(auth.uid).child('maker').val() === true)))\"\n      },\n      \"eduProgress\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"eduItems\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"_migVer\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evtRanges\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"devMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"opsChk\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCodes\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"eduCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"phs\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\"\n      },\n      \"shift\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\"\n      }\n    },\n    \"board\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$postId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n        \"reads\": {\n          \"$uid\": {\n            \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\"\n          }\n        },\n        \"replies\": {\n          \"$replyId\": {\n            \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n            \"uid\": {\n              \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n            }\n          }\n        },\n        \"uid\": {\n          \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n        }\n      }\n    },\n    \"tasks\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$taskId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (newData.exists() || data.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n        \".validate\": \"newData.child('createdBy').child('uid').isString() && (data.exists() ? newData.child('createdBy').child('uid').val() === data.child('createdBy').child('uid').val() : (newData.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true))\",\n        \"status\": {\n          \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n        }\n      }\n    },\n    \"taskMemos\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$memoId\": {\n          \"status\": {\n            \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n          }\n        }\n      }\n    },\n    \"robotImg\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      }\n    },\n    \"media\": {\n      \"$id\": {\n        \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && ((!data.exists() && newData.exists() && newData.child('by').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('by').val() === auth.uid))))\",\n        \".validate\": \"newData.hasChildren(['d', 'by', 'ts']) && newData.child('d').isString() && newData.child('d').val().length <= 500000 && (newData.child('d').val().beginsWith('data:image/') || newData.child('d').val().beginsWith('data:video/')) && newData.child('ts').val() === now\"\n      }\n    },\n    \"feedback\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && query.orderByChild === 'uid' && query.equalTo === auth.uid))\",\n      \".indexOn\": [\n        \"ts\",\n        \"uid\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))\",\n        \"comments\": {\n          \"$cid\": {\n            \".write\": \"auth != null && root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid\",\n            \".validate\": \"newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))\"\n          }\n        }\n      }\n    },\n    \"feedbackMemo\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"dutyReq\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$id\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n          \".validate\": \"!newData.exists() || (newData.hasChildren(['name', 'kind', 'ts']) && newData.child('kind').isString() && newData.child('kind').val().matches(/^(day|range|open)$/) && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 300)) && (root.child('admins').child(auth.uid).val() === true || (newData.child('status').val() === data.child('status').val() && newData.child('reply').val() === data.child('reply').val())))\"\n        }\n      }\n    },\n    \"shiftReqTpl\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\"\n    },\n    \"backups\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/)\"\n      }\n    },\n    \"backup_meta\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists()))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/) && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (root.child('admins').child(auth.uid).val() === true)\"\n      }\n    },\n    \"recent_backup\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"recent_backup_staff\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\",\n        \".validate\": \"newData.hasChild('pages')\"\n      }\n    },\n    \"logs\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$logId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.child('uid').val() === auth.uid))\"\n      }\n    },\n    \"errLogs\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (((root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && !data.exists() && newData.exists()) || ((root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true)) && !newData.exists()))\",\n        \".validate\": \"!newData.exists() || (newData.hasChildren(['ts', 'msg', 'ver']) && newData.child('ts').val() === now && newData.child('msg').isString() && newData.child('msg').val().length <= 400 && (!newData.child('stack').exists() || (newData.child('stack').isString() && newData.child('stack').val().length <= 1200)))\"\n      }\n    },\n    \"admins\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\",\n        \".read\": \"auth != null && auth.uid === $uid\"\n      }\n    },\n    \"devs\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"users\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".indexOn\": [\n        \"displayName\"\n      ],\n      \"$uid\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n        \"email\": {\n          \".validate\": \"auth.uid !== $uid || newData.val() === auth.token.email\"\n        }\n      }\n    },\n    \"userPerms\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\"\n      }\n    },\n    \"notifications\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".indexOn\": [\n          \"read\"\n        ],\n        \"$notifId\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || auth.uid === $uid)\"\n        }\n      }\n    },\n    \"fcmTokens\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      }\n    },\n    \"access\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"security\": {\n      \"enforced\": {\n        \".read\": \"auth != null\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    }\n  }\n}";
+var LATEST_DB_RULES = "{\n  \"rules\": {\n    \"data\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n      \"pages\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"manual\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"shiftReq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_appSeq\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_savedAt\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_sessionId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"_lastWriter\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"dly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"hdDly\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('dm').val() !== true || root.child('userPerms').child(auth.uid).child('dm').val() === true)))\"\n      },\n      \"wd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"hdWd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"wdDepts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"ope\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cath\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"sup\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opeTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"cathTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supTree\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"supMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"roboLayouts\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfgMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"dutyCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"opsCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"oc\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"schedPresets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgAlertTime\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerStart\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"psgBannerEnd\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"tablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTablets\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdTreatments\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"ocFlow\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"holidayOv\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"hdShiftTimes\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"makers\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('maker').val() !== true || root.child('userPerms').child(auth.uid).child('maker').val() === true)))\"\n      },\n      \"eduProgress\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"eduItems\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"_migVer\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"evtRanges\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      },\n      \"devMaster\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('wm').val() !== true || root.child('userPerms').child(auth.uid).child('wm').val() === true)))\"\n      },\n      \"opsChk\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCodes\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"shiftReqCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      },\n      \"eduCfg\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))\"\n      },\n      \"phs\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\"\n      },\n      \"shift\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\"\n      }\n    },\n    \"board\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$postId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n        \"reads\": {\n          \"$uid\": {\n            \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\"\n          }\n        },\n        \"replies\": {\n          \"$replyId\": {\n            \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || data.child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n            \"uid\": {\n              \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n            }\n          }\n        },\n        \"uid\": {\n          \".validate\": \"newData.val() === data.val() || newData.val() === auth.uid || root.child('admins').child(auth.uid).val() === true\"\n        }\n      }\n    },\n    \"tasks\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$taskId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (newData.exists() || data.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n        \".validate\": \"newData.child('createdBy').child('uid').isString() && (data.exists() ? newData.child('createdBy').child('uid').val() === data.child('createdBy').child('uid').val() : (newData.child('createdBy').child('uid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true))\",\n        \"status\": {\n          \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n        }\n      }\n    },\n    \"taskMemos\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$memoId\": {\n          \"status\": {\n            \".validate\": \"newData.val() === 'todo' || newData.val() === 'doing' || newData.val() === 'done'\"\n          }\n        }\n      }\n    },\n    \"robotImg\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && (root.child('data').child('lk').child('mst').val() !== true || root.child('userPerms').child(auth.uid).child('mst').val() === true)))\"\n      }\n    },\n    \"media\": {\n      \"$id\": {\n        \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && ((!data.exists() && newData.exists() && newData.child('by').val() === auth.uid) || (data.exists() && !newData.exists() && data.child('by').val() === auth.uid))))\",\n        \".validate\": \"newData.hasChildren(['d', 'by', 'ts']) && newData.child('d').isString() && newData.child('d').val().length <= 500000 && (newData.child('d').val().beginsWith('data:image/') || newData.child('d').val().beginsWith('data:video/')) && newData.child('ts').val() === now\"\n      }\n    },\n    \"feedback\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || (root.child('access').child(auth.uid).val() === true && query.orderByChild === 'uid' && query.equalTo === auth.uid))\",\n      \".indexOn\": [\n        \"ts\",\n        \"uid\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || root.child('admins').child(auth.uid).val() === true)\",\n        \".validate\": \"!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))\",\n        \"comments\": {\n          \"$cid\": {\n            \".write\": \"auth != null && root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid\",\n            \".validate\": \"newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))\"\n          }\n        }\n      }\n    },\n    \"feedbackMemo\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"dutyReq\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \"$id\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n          \".validate\": \"!newData.exists() || (newData.hasChildren(['name', 'kind', 'ts']) && newData.child('kind').isString() && newData.child('kind').val().matches(/^(day|range|open)$/) && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 300)) && (root.child('admins').child(auth.uid).val() === true || (newData.child('status').val() === data.child('status').val() && newData.child('reply').val() === data.child('reply').val())))\"\n        }\n      }\n    },\n    \"shiftReqTpl\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\"\n    },\n    \"honin\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\"\n    },\n    \"backups\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/)\"\n      }\n    },\n    \"backup_meta\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$date\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists()))\",\n        \".validate\": \"$date.matches(/^\\\\d{4}-\\\\d{2}-\\\\d{2}_\\\\d{2}$/) && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (root.child('admins').child(auth.uid).val() === true)\"\n      }\n    },\n    \"recent_backup\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\"\n    },\n    \"recent_backup_staff\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && root.child('access').child(auth.uid).val() === true\",\n        \".validate\": \"newData.hasChild('pages')\"\n      }\n    },\n    \"logs\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$logId\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('access').child(auth.uid).val() === true && !data.exists() && newData.child('uid').val() === auth.uid))\"\n      }\n    },\n    \"errLogs\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \".indexOn\": [\n        \"ts\"\n      ],\n      \"$id\": {\n        \".write\": \"auth != null && (((root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && !data.exists() && newData.exists()) || ((root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true)) && !newData.exists()))\",\n        \".validate\": \"!newData.exists() || (newData.hasChildren(['ts', 'msg', 'ver']) && newData.child('ts').val() === now && newData.child('msg').isString() && newData.child('msg').val().length <= 400 && (!newData.child('stack').exists() || (newData.child('stack').isString() && newData.child('stack').val().length <= 1200)))\"\n      }\n    },\n    \"admins\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \"$uid\": {\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\",\n        \".read\": \"auth != null && auth.uid === $uid\"\n      }\n    },\n    \"devs\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"users\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n      \".indexOn\": [\n        \"displayName\"\n      ],\n      \"$uid\": {\n        \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))\",\n        \"email\": {\n          \".validate\": \"auth.uid !== $uid || newData.val() === auth.token.email\"\n        }\n      }\n    },\n    \"userPerms\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".write\": \"root.child('admins').child(auth.uid).val() === true\"\n      }\n    },\n    \"notifications\": {\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\",\n        \".indexOn\": [\n          \"read\"\n        ],\n        \"$notifId\": {\n          \".write\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true) && (!data.exists() || auth.uid === $uid)\"\n        }\n      }\n    },\n    \"fcmTokens\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".write\": \"auth != null && auth.uid === $uid && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)\"\n      }\n    },\n    \"access\": {\n      \".read\": \"auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))\",\n      \"$uid\": {\n        \".read\": \"auth != null && auth.uid === $uid\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    },\n    \"security\": {\n      \"enforced\": {\n        \".read\": \"auth != null\",\n        \".write\": \"auth != null && root.child('admins').child(auth.uid).val() === true\",\n        \".validate\": \"newData.isBoolean()\"\n      }\n    }\n  }\n}";
 /* ===== EVENTS ===== */
 // D.evts = { 'YYYY-MM': { 1:['イベント名',...], ... } }
 // ページ個別イベントは D.pages[ds].events = ['...'] で保持
@@ -3378,7 +3413,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},evtRanges:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},holidayOv:{},stfNo:{},disasterCfg:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},evtRanges:[],hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},hdShiftTimes:{},holidayOv:{},stfNo:{},disasterCfg:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3665,6 +3700,7 @@ function loadD() {
     D.shiftReqCodes = (s.shiftReqCodes && s.shiftReqCodes.length) ? s.shiftReqCodes : DEF_SHIFT_REQ_CODES.slice();
     D.shiftReqCfg = s.shiftReqCfg || {};
     D.holidayOv = s.holidayOv || {};
+    D.hdShiftTimes = s.hdShiftTimes || {};
     D.stfNo = s.stfNo || {};
     D.disasterCfg = s.disasterCfg || {};
     /* slot_cathsub の freeRole を false に統一（旧データ移行・未完了分のみ） */
@@ -3806,6 +3842,7 @@ function fbInit() {
         if (_accessRef) { _accessRef.off(); _accessRef = null; }
         if (fbDB) { fbDB.ref('/data').off(); fbDB.ref('/board').off(); fbDB.ref('/tasks').off(); } /* リスナーを解除して再ログイン時に再設定できるようにする */
         dataListenerOn = false;
+        _hnData = {}; _hnErr = {};
         _tasksData = {}; _tasksListenerOn = false; _tasksLoaded = false; _taskView = null; _taskFilter = 'all'; _taskDoneOpen = {}; _taskDoneItemOpen = {};
         _mySchedName = null; _mySchedPick = false; /* 次に別の人がログインしたとき、前の人の担当が出たままにならないように */
         /* 実績サブタブも同じ理由でリセットする。_perfName が残ると次の人に前ユーザーの
@@ -3823,7 +3860,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.evtRanges=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.stfNo={}; D.disasterCfg={};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.evtRanges=[]; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.hdShiftTimes={}; D.stfNo={}; D.disasterCfg={};
         _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
@@ -4040,6 +4077,7 @@ function fbInit() {
             D.shiftReqCodes = (d.shiftReqCodes && d.shiftReqCodes.length) ? d.shiftReqCodes : DEF_SHIFT_REQ_CODES.slice();
             D.shiftReqCfg = d.shiftReqCfg || {};
             D.holidayOv = d.holidayOv || {};
+            D.hdShiftTimes = d.hdShiftTimes || {};
             D.stfNo = d.stfNo || {};
             D.disasterCfg = d.disasterCfg || {};
             applyDisasterUi(); /* 管理者が「災害対応中」を切り替えたら全員の画面に反映 */
@@ -6200,11 +6238,20 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/01-147';
+var APP_VERSION = 'Ver.2026/11/02-149';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/02-149', date:'2026-11-02', title:'本院の勤務を確認できるようになりました', items:[
+    {t:'new', notify:true, d:'🏥 担当表タブの「本院」で、本院スタッフの勤務を月の表で確認できます。今日の列に色が付きます'},
+    {t:'new', notify:true, d:'🏥 本院で勤務する日（本CE・本HDなど）が、マイ担当にも出るようになりました。勤務表を取り込み直した月から反映されます'},
+    {t:'new', notify:true, admin:true, d:'📥 本院の勤務表は、スタッフタブの「勤務表インポート」で「本院の勤務表」を選んで取り込みます。分院の部署は取り込みません'}
+  ]},
+  { ver:'Ver.2026/11/02-148', date:'2026-11-02', title:'HDに遅出1・遅出2を追加しました', items:[
+    {t:'new', notify:true, d:'🩸 HDの役割に遅1（11:00〜19:45）と遅2（13:00〜21:30）を追加しました。勤務表の「分遅1」「分遅2」を取り込むと、HD担当表・配置ボード・マイ担当・HD公平性に出ます'},
+    {t:'new', notify:true, admin:true, d:'🕒 遅1・遅2の勤務時間は、マスタの「担当・スケジュール」から変更できます（HD主観）'}
+  ]},
   { ver:'Ver.2026/11/01-147', date:'2026-11-01', title:'ユーザー管理のカードを整えました', items:[
     {t:'fix', admin:true, d:'👑 ユーザー管理のカードで、ボタンが増えて名前やメールの欄が細く潰れていたのを直しました。ボタンは名前の下に並び、幅が足りなければ折り返します'}
   ]},
@@ -8716,7 +8763,7 @@ function renderPlacementBoardV2(ds, dat){
     return '<div class="pl2-row' + (n ? '' : ' emp') + (sel ? ' pl2-sel' : '') + '"' + attrs
       + (n ? ' data-name="' + escH(n) + '"' + (dlk ? '' : ' draggable="true"') : '')
       + (color ? ' style="--c:' + color + '"' : '') + '>'
-      + '<span class="pl2-l">' + escH(label) + '</span>'
+      + '<span class="pl2-l"' + (hdShiftTimeLabel(label) ? ' title="' + escH(hdShiftTimeLabel(label)) + '"' : '') + '>' + escH(label) + '</span>'
       + '<span class="pl2-n">' + (n ? escH(n) : '＋空き') + '</span>'
       + (n ? marks(n) + more(n) : '') + '</div>';
   }
@@ -8741,7 +8788,7 @@ function renderPlacementBoardV2(ds, dat){
   var hdH = '';
   HD_DAY_CODES.forEach(function(c){
     var list = byRole[c] || [];
-    if (!list.length) { emptyN++; hdH += row(' data-t="role" data-role="' + c + '"', c, '', 'var(--rd)'); }
+    if (!list.length) { if (HD_OPTIONAL_CODES.indexOf(c) === -1) emptyN++; hdH += row(' data-t="role" data-role="' + c + '"', c, '', 'var(--rd)'); }
     else list.forEach(function(n){ hdH += row(' data-t="role" data-role="' + c + '"', c, n, 'var(--rd)'); });
   });
   hdH += '<div class="pl2-grp">🌙 準夜 <span class="pl2-add" data-t="night">＋追加</span></div>';
@@ -9081,7 +9128,7 @@ var _perfMapCol = null;     /* null=総括（6分類） / 'ope'|'cath'|'ward'|'d
 /* 担当表タブ（pane-assign）のサブタブ。集計は別タブ（swSumTab）に分離済み。 */
 function swSubTab(id) {
   _curSubTab = id;
-  var ids = ['at','my','fair','hdfair','perf'];
+  var ids = ['at','my','fair','hdfair','perf','honin'];
   ids.forEach(function(sid){
     var pane = document.getElementById('subpane-'+sid);
     if (pane) pane.style.display = sid===id ? '' : 'none';
@@ -9101,6 +9148,7 @@ function swSubTab(id) {
   if (id==='fair')   renderFairness();
   if (id==='hdfair') renderHdFairness();
   if (id==='perf') renderPerf();
+  if (id==='honin') renderHonin(true);
 }
 
 /* 集計タブ（pane-sum）のサブタブ。業務集計・OC集計・HD集計をここにまとめている。
@@ -10587,7 +10635,7 @@ var DATA_WRITE_PERM = {
   ope:'mst', cath:'mst', sup:'mst', opeTree:'mst', cathTree:'mst', supTree:'mst', supMaster:'mst', roboLayouts:'mst',
   dutyCfgMaster:'mst', dutyCfg:'mst', opsCfg:'mst', opsChk:'mst', oc:'mst', schedPresets:'mst',
   psgAlertTime:'mst', psgBannerStart:'mst', psgBannerEnd:'mst', tablets:'mst', hdTablets:'mst', hdTreatments:'mst',
-  ocFlow:'mst', holidayOv:'mst', shiftReqCodes:'mst', shiftReqCfg:'mst',
+  ocFlow:'mst', holidayOv:'mst', hdShiftTimes:'mst', shiftReqCodes:'mst', shiftReqCfg:'mst',
   phs:'dev', shift:'dev', /* 管理者とデベロッパだけ（PHS番号・勤務表の取り込み。一般職員の画面には無い） */
   makers:'maker',
   eduProgress:'edu', eduItems:'edu', eduCfg:'edu'
@@ -13322,6 +13370,7 @@ function renderDlyList() {
   if(_mstEntries.length) applyMstGroups();
   var l = document.getElementById('dly-list'); l.innerHTML = '';
   var ok = can('dm');
+  renderHdShiftTimes();
   var _psgEl = document.getElementById('psg-alert-time');
   if (_psgEl) { _psgEl.value = D.psgAlertTime || '10:00'; _psgEl.disabled = !ok; }
   var _bsEl = document.getElementById('psg-banner-start'), _beEl = document.getElementById('psg-banner-end');
@@ -14755,6 +14804,7 @@ function mstEntryState(entry) {
   if(el.querySelector('#edu-ce-toggle')) return (D.eduCfg||{}).ceEdu?'有効':'無効';
   if(el.querySelector('#oc-flow-text')) return D.ocFlow?'登録済み':'未登録';
   if(el.querySelector('#holiday-list')) return '自動計算＋個別設定';
+  if(el.querySelector('#hd-shift-times')) return '遅1 '+hdShiftTimeLabel('遅1')+'／遅2 '+hdShiftTimeLabel('遅2');
   if(el.querySelector('#psg-alert-time')) return '通知 '+(D.psgAlertTime||'10:00');
   if(el.id==='auto-assign-mode-cfg') return D.autoAssignMode==='weekday'?'曜日に合わせて割り当て':'設定済み';
   return '設定を確認';
@@ -16047,9 +16097,223 @@ function togLk(id, v) {
   var sov=document.getElementById('sched-panel-ov'); if(sov&&!sov.classList.contains('hd')) renderSched();
 }
 
+/* ===== 本院の勤務（/honin/{YYYY-MM}）=====
+   全部署の勤務表を取り込み、分院の部署を除いた本院スタッフだけを月表で見せる。人数が多く
+   全員に常時配る必要も無いので /data の外に置き、月表を開いたときだけ1か月分を読む。
+   分院の名簿・担当枠・配置・公平性には混ぜない。
+   { ts, by, secs:[{t:部署名, rows:[{n:氏名, a:上段(タブ区切り), b:下段(タブ区切り)}]}] } */
+var HN_CODE_RE = /^本(?!院$)/;
+var HN_SEC_ENDS = ['CE勤務者数','HD勤務者数','OR勤務者数'];
+var HN_SEC_NAMES = ['CE管理科','本院血液浄化','手術室'];
+var HN_LOCAL_KEY = 'ce2_honin_pv'; /* プレビューは端末内に置く（判定は roboIsLocal） */
+var HN_OFF_RE = /^(休|年|夏|産休|育休|特休|病欠|忌引|忌引き|職免|介休|看休|欠勤)$/;
+var HN_NIGHT_RE = /宿直|^準|夜/;
+var _hnData = {}; /* ym → 取り込み済みの1か月（無ければ null） */
+var _hnErr = {};
+var _hnFilter = '';
+function hnYm(){ return asY + '-' + pad(asM + 1); }
+function hnLocalAll(){ try { return JSON.parse(localStorage.getItem(HN_LOCAL_KEY) || '{}') || {}; } catch(e) { return {}; } }
+function hnLoad(ym, cb){
+  if (Object.prototype.hasOwnProperty.call(_hnData, ym)) { cb(); return; }
+  if (roboIsLocal()) { _hnData[ym] = hnLocalAll()[ym] || null; cb(); return; }
+  fbDB.ref('/honin/' + ym).once('value').then(function(sn){
+    _hnData[ym] = sn.val(); delete _hnErr[ym]; cb();
+  }).catch(function(err){
+    _hnErr[ym] = (err && err.code) || 'error'; cb();
+  });
+}
+function hnCellText(ws, r, c){
+  var cell = ws[XLSX.utils.encode_cell({r:r, c:c})];
+  if (!cell || cell.v == null) return '';
+  /* 日付のセルは値が通し番号（46131）なので、Excelの表示どおり（4/19）に読む */
+  var v = (cell.t === 'n' && cell.v >= 40000 && cell.v < 60000 && cell.w) ? cell.w : cell.v;
+  return v.toString().replace(/[\u3000\s]+/g, ' ').trim();
+}
+/* 1シートを読む。氏名は「数字だけの行のすぐ下」の行のC列。
+   部署は各部署の下にある集計行で分ける。A列の部署名は入っていない月が多く当てにできない
+   （実物は12か月中3か月だけ）。OR勤務者数より下は分院なので読まない。この行が無い月は、
+   分院の人が混ざるので取り込まない。
+   月はシート名から取る（シート内の日付は誤りが混じる：実物の11月シートは2027年になっていた） */
+function hnParseSheet(ws){
+  if (!ws || !ws['!ref']) return null;
+  var range = XLSX.utils.decode_range(ws['!ref']);
+  var dayCols = {}; /* 列 → 日 */
+  for (var c = 3; c <= range.e.c; c += 2) {
+    var dv = hnCellText(ws, 2, c);
+    if (/^\d{1,2}$/.test(dv)) { var dn = parseInt(dv, 10); if (dn >= 1 && dn <= 31) dayCols[c] = dn; }
+  }
+  var cols = Object.keys(dayCols).map(Number);
+  if (cols.length < 20) return null;
+  var days = cols.reduce(function(m, col){ return Math.max(m, dayCols[col]); }, 0);
+  var secs = [], cur = null, secIdx = 0, people = 0, endFound = false;
+  for (var r = 6; r <= range.e.r; r++) {
+    var name = hnCellText(ws, r, 2), no = hnCellText(ws, r - 1, 2);
+    var mark = HN_SEC_ENDS.indexOf(name);
+    if (mark !== -1) {
+      secIdx = mark + 1;
+      if (secIdx === HN_SEC_ENDS.length) { endFound = true; break; }
+      continue;
+    }
+    if (!name || /^[\d ]+$/.test(name) || !/^[\d ]+$/.test(no)) continue;
+    if (name.length < 2 || name.length > 20 || name === '#N/A') continue;
+    var top = [], bot = [];
+    for (var d = 0; d < days; d++) { top[d] = ''; bot[d] = ''; }
+    cols.forEach(function(col){
+      var i = dayCols[col] - 1;
+      top[i] = [hnCellText(ws, r - 1, col), hnCellText(ws, r - 1, col + 1)].filter(Boolean).join(' ');
+      bot[i] = hnCellText(ws, r, col) + hnCellText(ws, r, col + 1);
+    });
+    if (!cur || cur.t !== HN_SEC_NAMES[secIdx]) { cur = {t:HN_SEC_NAMES[secIdx], rows:[]}; secs.push(cur); }
+    cur.rows.push({n:name, a:top.join('\t'), b:bot.join('\t')});
+    people++;
+  }
+  return (people && endFound) ? {secs:secs, people:people} : null;
+}
+function hnParseBook(wb){
+  var months = {}, count = 0, people = 0, skipped = [];
+  wb.SheetNames.forEach(function(sn){
+    var m = /(\d{4})(\d{2})/.exec(sn);
+    if (!m) return;
+    var month = parseInt(m[2], 10);
+    if (month < 1 || month > 12) return;
+    var res = hnParseSheet(wb.Sheets[sn]);
+    if (!res) { skipped.push(m[1] + '-' + m[2]); return; }
+    months[m[1] + '-' + m[2]] = res.secs;
+    count++; people = Math.max(people, res.people);
+  });
+  return {months:months, count:count, people:people, skipped:skipped};
+}
+/* 全部署の勤務表か（分院の勤務表には OR勤務者数 の行が無い） */
+function hnIsAllDeptBook(wb){
+  return wb.SheetNames.some(function(sn){
+    var ws = wb.Sheets[sn];
+    if (!ws || !ws['!ref']) return false;
+    var e = XLSX.utils.decode_range(ws['!ref']).e.r;
+    for (var r = 0; r <= e; r++) { if (hnCellText(ws, r, 2) === HN_SEC_ENDS[HN_SEC_ENDS.length - 1]) return true; }
+    return false;
+  });
+}
+function hnImportFile(inp){
+  if (!adminLike()) return;
+  var file = inp.files && inp.files[0];
+  inp.value = '';
+  if (!file) return;
+  var rd = new FileReader();
+  rd.onerror = function(){ toast('ファイルを読めませんでした', 'warn'); };
+  rd.onload = function(ev){
+    var book = null;
+    try { book = hnParseBook(XLSX.read(ev.target.result, {type:'array', cellDates:false})); }
+    catch(e) { toast('勤務表を読めませんでした', 'warn'); return; }
+    if (!book.count) { toast(book.skipped.length ? '勤務表の形が読み取れず、取り込めませんでした（' + book.skipped.join('、') + '）' : '本院の勤務が見つかりませんでした（シート名に年月が必要です）', 'warn'); return; }
+    var yms = Object.keys(book.months).sort();
+    var skipNote = book.skipped.length ? '\n\n⚠ 次の月は勤務表の形が読み取れないため取り込みません（これまでの内容のままです）：\n' + book.skipped.join('、') : '';
+    if (!confirm(yms[0] + '〜' + yms[yms.length - 1] + ' の ' + book.count + 'か月分（最大 ' + book.people + '人）を取り込みます。\n同じ月のこれまでの内容は置き換わります。' + skipNote)) return;
+    hnSaveMonths(book.months);
+  };
+  rd.readAsArrayBuffer(file);
+}
+function hnSaveMonths(months){
+  var by = (currentUser && currentUser.displayName) || '', ts = Date.now();
+  var upd = {};
+  Object.keys(months).forEach(function(ym){ upd[ym] = {ts:ts, by:by, secs:months[ym]}; });
+  function done(){
+    Object.keys(upd).forEach(function(ym){ _hnData[ym] = upd[ym]; delete _hnErr[ym]; });
+    writeLog('本院の勤務表を取り込み', Object.keys(upd).length + 'か月分');
+    toast('✅ 本院の勤務表を取り込みました', 'ok');
+    closeSIM();
+    renderHonin();
+  }
+  if (roboIsLocal()) {
+    var all = hnLocalAll();
+    Object.keys(upd).forEach(function(ym){ all[ym] = upd[ym]; });
+    try { localStorage.setItem(HN_LOCAL_KEY, JSON.stringify(all)); } catch(e) { toast('端末に保存できませんでした', 'warn'); return; }
+    done(); return;
+  }
+  fbDB.ref('/honin').update(upd).then(done).catch(function(err){
+    toast(err && err.code === 'PERMISSION_DENIED' ? '保存できません：サーバー側の準備がまだです' : '保存に失敗しました', 'warn');
+  });
+}
+function hnSetFilter(v){ _hnFilter = v; hnFillTable(); }
+function hnCellHTML(top, bot){
+  var cls = HN_NIGHT_RE.test(bot) ? 'hn-night' : (HN_OFF_RE.test(bot) ? 'hn-off' : '');
+  return (top ? '<span class="hn-top' + (HN_NIGHT_RE.test(top) ? ' hn-night' : '') + '">' + escH(top) + '</span>' : '')
+    + (bot ? '<span' + (cls ? ' class="' + cls + '"' : '') + '>' + escH(bot) + '</span>' : '');
+}
+function hnFillTable(){
+  var box = document.getElementById('hn-table');
+  if (!box) return;
+  var ym = hnYm(), dat = _hnData[ym];
+  if (!dat) return;
+  var today = toDS(new Date()), WD = ['日','月','火','水','木','金','土'];
+  var days = new Date(asY, asM + 1, 0).getDate();
+  var q = _hnFilter.replace(/[\u3000\s]+/g, '');
+  var dcls = [], h = '<table class="hn-tbl"><thead><tr><th class="hn-name">氏名</th>';
+  for (var d = 1; d <= days; d++) {
+    var ds = ym + '-' + pad(d), w = new Date(asY, asM, d).getDay();
+    var c = (w === 0 || jpHolidayName(ds)) ? 'hn-sun' : (w === 6 ? 'hn-sat' : '');
+    if (ds === today) c += ' hn-today';
+    dcls[d] = ds === today ? 'hn-today' : '';
+    h += '<th class="' + c + '"' + (ds === today ? ' id="hn-today-th"' : '') + '>' + d + '<br>' + WD[w] + '</th>';
+  }
+  h += '</tr></thead><tbody>';
+  var shown = 0;
+  normArr(dat.secs).forEach(function(sec){
+    var rows = normArr(sec.rows).filter(function(r){ return !q || (r.n || '').replace(/ /g, '').indexOf(q) !== -1; });
+    if (!rows.length) return;
+    if (sec.t) h += '<tr class="hn-sec"><td colspan="' + (days + 1) + '"><span>' + escH(sec.t) + '</span></td></tr>';
+    rows.forEach(function(r){
+      var a = (r.a || '').split('\t'), b = (r.b || '').split('\t');
+      h += '<tr><td class="hn-name">' + escH(r.n || '') + '</td>';
+      for (var i = 1; i <= days; i++) h += '<td class="' + dcls[i] + '">' + hnCellHTML(a[i - 1] || '', b[i - 1] || '') + '</td>';
+      h += '</tr>';
+      shown++;
+    });
+  });
+  h += '</tbody></table>';
+  box.innerHTML = shown ? h : '<div class="pool-empty" style="padding:20px 0">該当する人がいません</div>';
+  var th = document.getElementById('hn-today-th'), wrap = box.closest('.hn-wrap') || box;
+  var nameTh = box.querySelector('thead .hn-name');
+  if (th && nameTh) wrap.scrollLeft = Math.max(0, th.offsetLeft - nameTh.offsetWidth - th.offsetWidth);
+}
+/* fresh＝開いたとき・月を移したとき。他の端末の取り込みが届くよう読み直す */
+function renderHonin(fresh){
+  var el = document.getElementById('honin-body');
+  if (!el) return;
+  var ym = hnYm();
+  if (fresh) delete _hnData[ym];
+  if (!Object.prototype.hasOwnProperty.call(_hnData, ym) && !_hnErr[ym]) {
+    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">読み込み中…</div>';
+    hnLoad(ym, function(){ if (hnYm() === ym) renderHonin(); });
+    return;
+  }
+  if (_hnErr[ym]) {
+    var msg = _hnErr[ym] === 'PERMISSION_DENIED' ? 'サーバー側の準備がまだのため読み込めません' : '読み込めませんでした';
+    delete _hnErr[ym];
+    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">' + msg + '</div>';
+    return;
+  }
+  var dat = _hnData[ym];
+  if (!dat) {
+    el.innerHTML = '<div class="pool-empty" style="padding:20px 0">' + asY + '年' + (asM + 1) + '月の本院の勤務はまだ取り込まれていません'
+      + (adminLike() ? '<br>👥 スタッフタブの「勤務表インポート」から取り込めます' : '') + '</div>';
+    return;
+  }
+  var when = dat.ts ? new Date(dat.ts) : null;
+  el.innerHTML = '<div class="hn-tools"><input type="search" class="ds2" style="margin:0;max-width:160px;font-size:12px" placeholder="氏名で絞り込み" value="' + escH(_hnFilter) + '" oninput="hnSetFilter(this.value)">'
+    + (when ? '<span>取り込み ' + (when.getMonth() + 1) + '/' + when.getDate() + '</span>' : '') + '</div>'
+    + '<div class="hn-wrap" id="hn-table"></div>';
+  hnFillTable();
+}
+
 /* ===== SHIFT DATA ===== */
 /* HD（透析）勤務コード */
-var HD_DAY_CODES  = ['M','A1','A2','A3','S','B1','B2','B']; /* 日勤 */
+var HD_DAY_CODES  = ['M','A1','A2','A3','S','B1','B2','B','遅1','遅2']; /* 日勤 */
+/* 遅出は毎日は置かない役割。空いていても配置ボードの「空き」に数えない */
+var HD_OPTIONAL_CODES = ['遅1','遅2'];
+/* 勤務表の表記（分遅1）→ アプリの役割コード。本遅（本院の遅出）は別物なのでここに入れない */
+var HD_SHIFT_ALIAS = {'分遅1':'遅1','分遅2':'遅2'};
+/* 勤務時間。D.hdShiftTimes に無ければこの値を読む（勤務表の2行目の記載） */
+var HD_SHIFT_TIME_DEF = {'遅1':{s:'11:00',e:'19:45'},'遅2':{s:'13:00',e:'21:30'}};
 var HD_NIGHT_VALS = ['準','準夜'];                          /* 準夜 */
 var NIGHT_DUTY_VALS = ['宿直'];                             /* 宿直（CE以外の出勤扱い） */
 /* シフトコード正規化（全角英数字→半角 + 大文字化）。準/準夜は漢字なので大文字化の影響なし */
@@ -16060,6 +16324,43 @@ function normShiftCode(raw){
   var s = raw.toString().trim()
     .replace(/[！-～]/g,function(ch){return String.fromCharCode(ch.charCodeAt(0)-0xFEE0);});
   return s.toUpperCase();
+}
+function hdCodeNorm(raw){ var c = normShiftCode(raw); return HD_SHIFT_ALIAS[c] || c; }
+function hdShiftTime(code){
+  var def = HD_SHIFT_TIME_DEF[code];
+  if (!def) return null;
+  var t = (D.hdShiftTimes && D.hdShiftTimes[code]) || {};
+  return {s:t.s || def.s, e:t.e || def.e};
+}
+function hdShiftTimeLabel(code){ var t = hdShiftTime(code); return t ? t.s + '〜' + t.e : ''; }
+function hdRoleCellHTML(role){
+  var tl = hdShiftTimeLabel(role);
+  return escH(role === '準' ? '準夜' : role) + (tl ? '<span class="hd-role-time">' + escH(tl) + '</span>' : '');
+}
+function renderHdShiftTimes(){
+  var box = document.getElementById('hd-shift-times');
+  if (!box) return;
+  var ok = can('mst');
+  box.innerHTML = HD_OPTIONAL_CODES.map(function(c){
+    var t = hdShiftTime(c);
+    return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><label style="font-size:13px;font-weight:600;min-width:32px">' + escH(c) + '</label>'
+      + '<input type="time" id="hd-time-s-' + c + '" value="' + escH(t.s) + '" onchange="saveHdShiftTime(\'' + c + '\')"' + (ok ? '' : ' disabled') + ' style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">'
+      + '<span style="font-size:13px">〜</span>'
+      + '<input type="time" id="hd-time-e-' + c + '" value="' + escH(t.e) + '" onchange="saveHdShiftTime(\'' + c + '\')"' + (ok ? '' : ' disabled') + ' style="font-size:13px;padding:4px 8px;border:1.5px solid var(--bdr);border-radius:var(--rs);background:var(--sur)">'
+      + '</div>';
+  }).join('');
+}
+function saveHdShiftTime(code){
+  if (!can('mst') || !HD_SHIFT_TIME_DEF[code]) return;
+  var se = document.getElementById('hd-time-s-' + code), ee = document.getElementById('hd-time-e-' + code);
+  if (!se || !ee) return;
+  var def = HD_SHIFT_TIME_DEF[code];
+  if (!D.hdShiftTimes) D.hdShiftTimes = {};
+  D.hdShiftTimes[code] = {s:se.value || def.s, e:ee.value || def.e};
+  se.value = D.hdShiftTimes[code].s; ee.value = D.hdShiftTimes[code].e; /* 空入力時は既定値を画面にも反映 */
+  saveD();
+  writeLog('HD勤務時間を変更', code + ' ' + hdShiftTimeLabel(code));
+  if (curDs && D.pages[curDs]) safeRenderPage();
 }
 function getShiftForDay(ds) {
   var pt = ds.split('-'); var ym = pt[0]+'-'+pt[1]; var day = parseInt(pt[2]);
@@ -16344,11 +16645,21 @@ function removeEvt(ds, evtName) {
 /* ===== SHIFT EXCEL IMPORT ===== */
 var parsedShiftData = null; // { ym:'YYYY-MM', data:{...} }
 
-function openSIM() {
+var _simKind = 'bun'; /* 'bun'＝分院 / 'honin'＝本院。取り込みの入口はこの画面だけ */
+function setSimKind(k) {
+  _simKind = k === 'honin' ? 'honin' : 'bun';
   parsedShiftData = null;
   document.getElementById('sim-result').innerHTML = '';
   document.getElementById('sim-save-btn').style.display = 'none';
   document.getElementById('sim-file-in').value = '';
+  document.getElementById('sim-kind-bun').className = 'btn btn-sm ' + (_simKind === 'bun' ? 'btn-p' : 'btn-g');
+  document.getElementById('sim-kind-honin').className = 'btn btn-sm ' + (_simKind === 'honin' ? 'btn-p' : 'btn-g');
+  document.getElementById('sim-kind-note').innerHTML = _simKind === 'honin'
+    ? '全部署の年間勤務表（.xlsm / .xlsx）を選んでください。<br>本院スタッフの勤務だけを読み、担当表タブの「🏥 本院」に表示します。'
+    : '毎月使っているExcelファイル（.xlsm / .xlsx）をアップロードしてください。<br>「勤務表」シートから <strong>CE勤務</strong> と <strong>OC（オンコール）</strong> を自動で抽出します。';
+}
+function openSIM() {
+  setSimKind('bun');
   document.getElementById('modal-sim').classList.remove('hd');
 }
 function closeSIM() {
@@ -16358,12 +16669,19 @@ function closeSIM() {
 /* Excelファイル選択 → 自動解析 */
 document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('sim-file-in').addEventListener('change', function(e) {
+    if (_simKind === 'honin') { hnImportFile(e.target); return; }
     var file = e.target.files[0];
     if (!file) return;
     var reader = new FileReader();
     reader.onload = function(ev) {
       try {
         var wb = XLSX.read(ev.target.result, {type:'array', bookVBA:true, cellDates:false});
+        if (hnIsAllDeptBook(wb)) {
+          /* 読み進めると本院スタッフが分院の配置・公平性に混ざるので止める */
+          document.getElementById('sim-result').innerHTML =
+            '<div style="color:var(--rd);font-size:12px;padding:10px">⚠️ これは本院を含む全部署の勤務表です。分院の勤務表としては取り込めません。上の「本院の勤務表」を選んでから、もう一度ファイルを選んでください。</div>';
+          return;
+        }
         parseShiftSheet(wb, file.name);
       } catch(err) {
         document.getElementById('sim-result').innerHTML =
@@ -16594,7 +16912,7 @@ function parseShiftSheet(wb, fileName) {
         var sDay = colToDay[sci], scIdx = parseInt(sci);
         var sRaw = grid[ri][scIdx];
         if (sRaw == null) continue;
-        var hRole = plHdRole(normShiftCode(roleRow[scIdx])); /* HD_DAY_CODES と 準 だけ通す（「休」等は役割にしない） */
+        var hRole = plHdRole(hdCodeNorm(roleRow[scIdx])); /* HD_DAY_CODES と 準 だけ通す（「休」等は役割にしない） */
         String(sRaw).split(/[、・,，\/／\n\r]+/).forEach(function(hn){
           hn = fbSafeKey(hn.toString().trim().replace(/[\u3000\s]+/g, ' ').trim()); /* D.shift のキーになるので正規化 */
           if (!hn || hn.length > 20) return;
@@ -16624,7 +16942,7 @@ function parseShiftSheet(wb, fileName) {
       var ciInt  = parseInt(ci);
 
       /* 氏名行: シフト値を確認 */
-      var shiftVal = normShiftCode(grid[ri][ciInt]);
+      var shiftVal = hdCodeNorm(grid[ri][ciInt]);
       /* CE完全一致を最優先。次にHD（透析）日勤コード / 準夜を取り込む */
       if (shiftVal === 'CE') {
         if (!result[name][dayNum]) result[name][dayNum] = {};
@@ -16643,8 +16961,18 @@ function parseShiftSheet(wb, fileName) {
         result[name][dayNum].nd = true;
       }
 
+      /* 本院での勤務（本CE・本HD・本遅など）。マイ担当に出すだけで、分院の配置には入れない */
+      if (HN_CODE_RE.test(shiftVal)) {
+        if (!result[name][dayNum]) result[name][dayNum] = {};
+        result[name][dayNum].hn = shiftVal;
+      }
+
       /* 職員番号行: OC完全一致（OC×は除外） */
       var ocVal = (numRow[ciInt] || '').toString().trim().toUpperCase();
+      if (ocVal === '本院' && !(result[name][dayNum] && result[name][dayNum].hn)) {
+        if (!result[name][dayNum]) result[name][dayNum] = {};
+        result[name][dayNum].hn = '本院';
+      }
       if (ocVal === 'OC') {
         if (!result[name][dayNum]) result[name][dayNum] = {};
         result[name][dayNum].oc = true;
@@ -16828,7 +17156,7 @@ function doSaveSIM() {
   if (protectedDays.length) {
     var msg = '⚠️ 次の日はすでに担当が割り当てられています：\n'
             + protectedDays.map(function(d){return d+'日';}).join('、') + '\n\n'
-            + '【OK】これらの日の勤務者データを保護（変更せず）して、その他の日だけ取り込みます。\n'
+            + '【OK】これらの日の勤務者データを保護（変更せず）して、その他の日だけ取り込みます。遅1・遅2などの変更もこれらの日には入りません（人員配置で直せます）。本院の勤務（本CEなど）は全部の日に入ります。\n'
             + '【キャンセル】取り込みを中止します。';
     if (!confirm(msg)) { return; }
     /* 保護日の勤務者列を旧データで維持（D.shift は 名前→{日→info} 構造のため日列を旧値で上書き） */
@@ -16839,8 +17167,13 @@ function doSaveSIM() {
       Object.keys(oldData).forEach(function(n){ names[n]=1; });
       Object.keys(names).forEach(function(n){
         if (!data[n]) data[n] = {};
-        if (oldData[n] && oldData[n][d]) data[n][d] = oldData[n][d];
-        else if (data[n][d]) delete data[n][d];
+        /* 本院の勤務は配置に関わらないので、保護日でも新しい勤務表の内容にする */
+        var newHn = data[n][d] && data[n][d].hn;
+        var kept = (oldData[n] && oldData[n][d]) ? JSON.parse(JSON.stringify(oldData[n][d])) : null;
+        if (kept) delete kept.hn;
+        if (newHn) { kept = kept || {}; kept.hn = newHn; }
+        if (kept && Object.keys(kept).length) data[n][d] = kept;
+        else delete data[n][d];
       });
     });
   }
@@ -21619,7 +21952,7 @@ function hdRosterNormalRowHTML(dat, r) {
   var noteCell = can('duty')
     ? '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>'
     : (note ? escH(note) : '<span class="muted">—</span>');
-  return '<tr' + (absent ? ' class="hdr-absent"' : '') + '><td style="font-weight:700">' + (r.role ? escH(r.role) : '<span class="muted">—</span>') + '</td><td class="hdr-staff-td">' + staffCell + '</td><td>' + noteCell + '</td></tr>';
+  return '<tr' + (absent ? ' class="hdr-absent"' : '') + '><td style="font-weight:700">' + (r.role ? hdRoleCellHTML(r.role) : '<span class="muted">—</span>') + '</td><td class="hdr-staff-td">' + staffCell + '</td><td>' + noteCell + '</td></tr>';
 }
 function hdRosterNormalTableHTML(ds, dat) {
   var rows = buildHdRoster(ds);
@@ -21668,15 +22001,14 @@ function hdrChipHTML(name, from, picked) {
   return h;
 }
 function hdRosterEditRowHTML(dat, role, person, picking) {
-  var roleLabel = (role === '準') ? '準夜' : role;
   if (!person) {
-    return '<tr class="hdr-row hdr-empty-row" data-hdr-role="' + escH(role) + '"><td style="font-weight:700">' + escH(roleLabel) + '</td>'
+    return '<tr class="hdr-row hdr-empty-row" data-hdr-role="' + escH(role) + '"><td style="font-weight:700">' + hdRoleCellHTML(role) + '</td>'
       + '<td><span class="hdr-empty">空き（ここへ）</span></td><td></td></tr>';
   }
   var cell = hdrChipHTML(person.name, person.from, picking === person.name);
   var note = (dat.hdNotes && dat.hdNotes[person.name]) || '';
   var noteCell = '<textarea class="ds2 hd-note-ta" data-name="' + escH(person.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>';
-  return '<tr class="hdr-row' + (hdIsAbsent(dat, person.name) ? ' hdr-absent' : '') + '" data-hdr-role="' + escH(role) + '" data-hdr-with="' + escH(person.name) + '"><td style="font-weight:700">' + escH(roleLabel) + '</td><td>' + cell + '</td><td>' + noteCell + '</td></tr>';
+  return '<tr class="hdr-row' + (hdIsAbsent(dat, person.name) ? ' hdr-absent' : '') + '" data-hdr-role="' + escH(role) + '" data-hdr-with="' + escH(person.name) + '"><td style="font-weight:700">' + hdRoleCellHTML(role) + '</td><td>' + cell + '</td><td>' + noteCell + '</td></tr>';
 }
 /* 控え：HD側で役割なしの人＋HD余剰の人。枠自体も落とし先（→HD余剰）。 */
 function hdRosterTrayHTML(tray, picking) {
@@ -27300,6 +27632,7 @@ function asPrevM(){asM--;if(asM<0){asM=11;asY--;}
   var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
   var hf=document.getElementById('subpane-hdfair'); if(hf&&hf.style.display!=='none') renderHdFairness();
   var pp=document.getElementById('subpane-perf'); if(pp&&pp.style.display!=='none') renderPerf();
+  var hnp=document.getElementById('subpane-honin'); if(hnp&&hnp.style.display!=='none') renderHonin(true);
 }
 function asNextM(){asM++;if(asM>11){asM=0;asY++;}
   if(_viewMode!=='hd') renderAT();
@@ -27314,6 +27647,7 @@ function asNextM(){asM++;if(asM>11){asM=0;asY++;}
   var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
   var hf=document.getElementById('subpane-hdfair'); if(hf&&hf.style.display!=='none') renderHdFairness();
   var pp=document.getElementById('subpane-perf'); if(pp&&pp.style.display!=='none') renderPerf();
+  var hnp=document.getElementById('subpane-honin'); if(hnp&&hnp.style.display!=='none') renderHonin(true);
 }
 
 var _mySchedName = null; /* マイ担当でスタッフが選択されたときのキャッシュ */
@@ -27366,6 +27700,10 @@ function renderMySchedule(overrideName) {
   for (var mi = 1; mi <= mDays; mi++) {
     var ds = asY + '-' + pad(asM + 1) + '-' + pad(mi);
     var dat = D.pages[ds];
+    /* 本院での勤務は連絡表が無い日でも出す */
+    var hnInfo = ((D.shift[asY + '-' + pad(asM + 1)] || {})[selfName] || {})[mi];
+    var hnCode = hnInfo && hnInfo.hn ? hnInfo.hn : '';
+    if (!dat && hnCode) cards.push({ds: ds, slots: [{t:'🏥 ' + hnCode, st:false}]});
     if (dat) {
       var slots = []; /* {t:表示テキスト, st:true なら状態表示（控えめなチップ）} */
       /* 担当枠 */
@@ -27391,13 +27729,14 @@ function renderMySchedule(overrideName) {
          _viewMode で分岐させない — その人がその日HD勤務かどうかは主観と無関係な事実で、
          HD勤務が無い人には getShiftForDay(ds).hd に載らず何も出ない。 */
       buildHdRoster(ds).forEach(function(r){
-        if (r.name === selfName && r.role) slots.push({t:'🩸 ' + r.role, st:false});
+        if (r.name === selfName && r.role) slots.push({t:'🩸 ' + r.role + (hdShiftTimeLabel(r.role) ? '（' + hdShiftTimeLabel(r.role) + '）' : ''), st:false});
       });
       /* 担当枠・HD役割が無い日も「CE（未振り分け）」「HD（未振り分け）」として出す
          （plPlaceLabel は担当枠・フリー・役割ありのHDには null/空を返すので二重にはならない） */
       var ppl = plPeople(ds);
       var myLab = plPlaceLabel(ds, selfName, ppl);
       if (myLab && myLab.long) slots.push({t: myLab.long, st:true});
+      if (hnCode) slots.push({t:'🏥 ' + hnCode, st:false});
       if (slots.length) cards.push({ds: ds, slots: slots});
     }
   }
@@ -27428,7 +27767,7 @@ function renderMySchedule(overrideName) {
     var isFuture = c.ds > today;
     var border = isToday ? '2px solid var(--ac)' : '1px solid var(--bdr)';
     var bg = isToday ? 'var(--ac-bg,#eef4ff)' : isFuture ? 'var(--sur)' : 'var(--sur2)';
-    html += '<div style="background:'+bg+';border:'+border+';border-radius:8px;padding:8px 12px;cursor:pointer" onclick="openPage(\''+c.ds+'\')">';
+    html += '<div style="background:'+bg+';border:'+border+';border-radius:8px;padding:8px 12px'+(D.pages[c.ds] ? ';cursor:pointer" onclick="openPage(\''+c.ds+'\')' : '')+'">';
     html += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px">';
     if (isToday) html += '<span style="font-size:10px;font-weight:700;background:var(--ac);color:var(--on-ac);border-radius:4px;padding:1px 5px">今日</span>';
     html += '<span style="font-size:13px;font-weight:700;color:var(--txt1)">' + fmtJ(c.ds) + '</span>';
@@ -31990,7 +32329,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo','disasterCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -32148,7 +32487,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo','disasterCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -32240,7 +32579,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','stfNo','disasterCfg'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
