@@ -9148,7 +9148,7 @@ function swSubTab(id) {
   if (id==='fair')   renderFairness();
   if (id==='hdfair') renderHdFairness();
   if (id==='perf') renderPerf();
-  if (id==='honin') renderHonin();
+  if (id==='honin') renderHonin(true);
 }
 
 /* 集計タブ（pane-sum）のサブタブ。業務集計・OC集計・HD集計をここにまとめている。
@@ -16125,7 +16125,9 @@ function hnLoad(ym, cb){
 function hnCellText(ws, r, c){
   var cell = ws[XLSX.utils.encode_cell({r:r, c:c})];
   if (!cell || cell.v == null) return '';
-  return cell.v.toString().replace(/[\u3000\s]+/g, ' ').trim();
+  /* 日付のセルは値が通し番号（46131）なので、Excelの表示どおり（4/19）に読む */
+  var v = (cell.t === 'n' && cell.v >= 40000 && cell.v < 60000 && cell.w) ? cell.w : cell.v;
+  return v.toString().replace(/[\u3000\s]+/g, ' ').trim();
 }
 /* 1シートを読む。氏名は「数字だけの行のすぐ下」の行のC列。
    部署は各部署の下にある集計行で分ける。A列の部署名は入っていない月が多く当てにできない
@@ -16158,7 +16160,7 @@ function hnParseSheet(ws){
     for (var d = 0; d < days; d++) { top[d] = ''; bot[d] = ''; }
     cols.forEach(function(col){
       var i = dayCols[col] - 1;
-      top[i] = hnCellText(ws, r - 1, col);
+      top[i] = [hnCellText(ws, r - 1, col), hnCellText(ws, r - 1, col + 1)].filter(Boolean).join(' ');
       bot[i] = hnCellText(ws, r, col) + hnCellText(ws, r, col + 1);
     });
     if (!cur || cur.t !== HN_SEC_NAMES[secIdx]) { cur = {t:HN_SEC_NAMES[secIdx], rows:[]}; secs.push(cur); }
@@ -16180,6 +16182,16 @@ function hnParseBook(wb){
     count++; people = Math.max(people, res.people);
   });
   return {months:months, count:count, people:people, skipped:skipped};
+}
+/* 全部署の勤務表か（分院の勤務表には OR勤務者数 の行が無い） */
+function hnIsAllDeptBook(wb){
+  return wb.SheetNames.some(function(sn){
+    var ws = wb.Sheets[sn];
+    if (!ws || !ws['!ref']) return false;
+    var e = XLSX.utils.decode_range(ws['!ref']).e.r;
+    for (var r = 0; r <= e; r++) { if (hnCellText(ws, r, 2) === HN_SEC_ENDS[HN_SEC_ENDS.length - 1]) return true; }
+    return false;
+  });
 }
 function hnImportFile(inp){
   if (!adminLike()) return;
@@ -16263,10 +16275,12 @@ function hnFillTable(){
   var nameTh = box.querySelector('thead .hn-name');
   if (th && nameTh) wrap.scrollLeft = Math.max(0, th.offsetLeft - nameTh.offsetWidth - th.offsetWidth);
 }
-function renderHonin(){
+/* fresh＝開いたとき・月を移したとき。他の端末の取り込みが届くよう読み直す */
+function renderHonin(fresh){
   var el = document.getElementById('honin-body');
   if (!el) return;
   var ym = hnYm();
+  if (fresh) delete _hnData[ym];
   if (!Object.prototype.hasOwnProperty.call(_hnData, ym) && !_hnErr[ym]) {
     el.innerHTML = '<div class="pool-empty" style="padding:20px 0">読み込み中…</div>';
     hnLoad(ym, function(){ if (hnYm() === ym) renderHonin(); });
@@ -16662,6 +16676,12 @@ document.addEventListener('DOMContentLoaded', function() {
     reader.onload = function(ev) {
       try {
         var wb = XLSX.read(ev.target.result, {type:'array', bookVBA:true, cellDates:false});
+        if (hnIsAllDeptBook(wb)) {
+          /* 読み進めると本院スタッフが分院の配置・公平性に混ざるので止める */
+          document.getElementById('sim-result').innerHTML =
+            '<div style="color:var(--rd);font-size:12px;padding:10px">⚠️ これは本院を含む全部署の勤務表です。分院の勤務表としては取り込めません。上の「本院の勤務表」を選んでから、もう一度ファイルを選んでください。</div>';
+          return;
+        }
         parseShiftSheet(wb, file.name);
       } catch(err) {
         document.getElementById('sim-result').innerHTML =
@@ -17136,7 +17156,7 @@ function doSaveSIM() {
   if (protectedDays.length) {
     var msg = '⚠️ 次の日はすでに担当が割り当てられています：\n'
             + protectedDays.map(function(d){return d+'日';}).join('、') + '\n\n'
-            + '【OK】これらの日の勤務者データを保護（変更せず）して、その他の日だけ取り込みます。\n'
+            + '【OK】これらの日の勤務者データを保護（変更せず）して、その他の日だけ取り込みます。遅1・遅2などの変更もこれらの日には入りません（人員配置で直せます）。本院の勤務（本CEなど）は全部の日に入ります。\n'
             + '【キャンセル】取り込みを中止します。';
     if (!confirm(msg)) { return; }
     /* 保護日の勤務者列を旧データで維持（D.shift は 名前→{日→info} 構造のため日列を旧値で上書き） */
@@ -17147,8 +17167,13 @@ function doSaveSIM() {
       Object.keys(oldData).forEach(function(n){ names[n]=1; });
       Object.keys(names).forEach(function(n){
         if (!data[n]) data[n] = {};
-        if (oldData[n] && oldData[n][d]) data[n][d] = oldData[n][d];
-        else if (data[n][d]) delete data[n][d];
+        /* 本院の勤務は配置に関わらないので、保護日でも新しい勤務表の内容にする */
+        var newHn = data[n][d] && data[n][d].hn;
+        var kept = (oldData[n] && oldData[n][d]) ? JSON.parse(JSON.stringify(oldData[n][d])) : null;
+        if (kept) delete kept.hn;
+        if (newHn) { kept = kept || {}; kept.hn = newHn; }
+        if (kept && Object.keys(kept).length) data[n][d] = kept;
+        else delete data[n][d];
       });
     });
   }
@@ -27607,7 +27632,7 @@ function asPrevM(){asM--;if(asM<0){asM=11;asY--;}
   var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
   var hf=document.getElementById('subpane-hdfair'); if(hf&&hf.style.display!=='none') renderHdFairness();
   var pp=document.getElementById('subpane-perf'); if(pp&&pp.style.display!=='none') renderPerf();
-  var hnp=document.getElementById('subpane-honin'); if(hnp&&hnp.style.display!=='none') renderHonin();
+  var hnp=document.getElementById('subpane-honin'); if(hnp&&hnp.style.display!=='none') renderHonin(true);
 }
 function asNextM(){asM++;if(asM>11){asM=0;asY++;}
   if(_viewMode!=='hd') renderAT();
@@ -27622,7 +27647,7 @@ function asNextM(){asM++;if(asM>11){asM=0;asY++;}
   var fp=document.getElementById('subpane-fair'); if(fp&&fp.style.display!=='none') renderFairness();
   var hf=document.getElementById('subpane-hdfair'); if(hf&&hf.style.display!=='none') renderHdFairness();
   var pp=document.getElementById('subpane-perf'); if(pp&&pp.style.display!=='none') renderPerf();
-  var hnp=document.getElementById('subpane-honin'); if(hnp&&hnp.style.display!=='none') renderHonin();
+  var hnp=document.getElementById('subpane-honin'); if(hnp&&hnp.style.display!=='none') renderHonin(true);
 }
 
 var _mySchedName = null; /* マイ担当でスタッフが選択されたときのキャッシュ */
@@ -27742,7 +27767,7 @@ function renderMySchedule(overrideName) {
     var isFuture = c.ds > today;
     var border = isToday ? '2px solid var(--ac)' : '1px solid var(--bdr)';
     var bg = isToday ? 'var(--ac-bg,#eef4ff)' : isFuture ? 'var(--sur)' : 'var(--sur2)';
-    html += '<div style="background:'+bg+';border:'+border+';border-radius:8px;padding:8px 12px;cursor:pointer" onclick="openPage(\''+c.ds+'\')">';
+    html += '<div style="background:'+bg+';border:'+border+';border-radius:8px;padding:8px 12px'+(D.pages[c.ds] ? ';cursor:pointer" onclick="openPage(\''+c.ds+'\')' : '')+'">';
     html += '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px">';
     if (isToday) html += '<span style="font-size:10px;font-weight:700;background:var(--ac);color:var(--on-ac);border-radius:4px;padding:1px 5px">今日</span>';
     html += '<span style="font-size:13px;font-weight:700;color:var(--txt1)">' + fmtJ(c.ds) + '</span>';
