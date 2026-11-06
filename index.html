@@ -6238,11 +6238,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/02-149';
+var APP_VERSION = 'Ver.2026/11/06-150';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/06-150', date:'2026-11-06', title:'機器の消し込み欄を直しました', items:[
+    {t:'fix', d:'🩺 機器を割り当てたチェック項目（カプラ洗浄など）で、🩺ボタンが空のまま潰れ、押しても機器の一覧が出なかったのを直しました。10/29の更新で、開発用の画面と同じ名前の処理が重なっていたのが原因です'}
+  ]},
   { ver:'Ver.2026/11/02-149', date:'2026-11-02', title:'本院の勤務を確認できるようになりました', items:[
     {t:'new', notify:true, d:'🏥 担当表タブの「本院」で、本院スタッフの勤務を月の表で確認できます。今日の列に色が付きます'},
     {t:'new', notify:true, d:'🏥 本院で勤務する日（本CE・本HDなど）が、マイ担当にも出るようになりました。勤務表を取り込み直した月から反映されます'},
@@ -15327,7 +15330,7 @@ function saveDevCfg() {
 
 /* ---- 当日のチェックリストの消し込み欄 ---- */
 var _devOpen = {}, _devKindOpen = {};
-function renderDevPanel(ds, it, wrapEl) {
+function renderDevChkPanel(ds, it, wrapEl) {
   var chip = wrapEl.querySelector('.cli-devbtn'), box = wrapEl.querySelector('.cli-devs');
   var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid) return;
   var groups = devResolve(cfg), pr = devProgress(ds, sid, cfg.r, cfg.sd), total = 0, doneN = 0, stN = 0;
@@ -15393,7 +15396,7 @@ function openDevStModal(ds, it, task, wrapEl, devId) {
       delete pg.devChecks[sid][devId];
       saveDPage(ds); writeLog('機器の状態を解除', fmtJ(ds) + ' ' + task + ' ' + u.n);
     }
-    ov.remove(); renderDevPanel(ds, it, wrapEl);
+    ov.remove(); renderDevChkPanel(ds, it, wrapEl);
   };
   document.getElementById('dev-st-save').onclick = function(){
     if (!sel) { toast('状態を選んでください', 'warn'); return; }
@@ -15408,7 +15411,7 @@ function openDevStModal(ds, it, task, wrapEl, devId) {
       writeLog('機器を' + DEV_ST[sel].l, fmtJ(ds) + ' ' + task + ' ' + u.n + (note ? '（' + note + '）' : ''));
       if (cfg.sd && cfg.r === 'cycle') devMaybeCycle(ds, it, task, wrapEl, devId, cfg);
       saveDPage(ds);
-      ov.remove(); renderDevPanel(ds, it, wrapEl);
+      ov.remove(); renderDevChkPanel(ds, it, wrapEl);
     };
     /* モーダルは #main の外なので、患者情報の確認をここでかける（メモに患者名を書かせない） */
     if (note) phiGuardText(note, save, function(){ var e = document.getElementById('dev-st-note'); if (e) e.focus(); }); else save();
@@ -15428,7 +15431,7 @@ function devMaybeCycle(ds, it, task, wrapEl, devId, cfg) {
     if (p2.devCycle) delete p2.devCycle[sid];
     if (p2.devChecks && p2.devChecks[sid]) delete p2.devChecks[sid][devId];
     saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
-    if (wrapEl.isConnected) renderDevPanel(ds, it, wrapEl); else safeRenderPage();
+    if (wrapEl.isConnected) renderDevChkPanel(ds, it, wrapEl); else safeRenderPage();
   } });
 }
 function devCycleUndo(ds, it, task, wrapEl) {
@@ -15436,7 +15439,7 @@ function devCycleUndo(ds, it, task, wrapEl) {
   if (!confirm('この日の「一巡」を取り消しますか？\n直前の巡回の消し込みが元に戻ります。')) return;
   delete pg.devCycle[sid];
   saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
-  renderDevPanel(ds, it, wrapEl);
+  renderDevChkPanel(ds, it, wrapEl);
 }
 function devCheckChange(ds, it, task, wrapEl, devId, on) {
   var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid || !D.pages[ds]) return;
@@ -15459,7 +15462,7 @@ function devCheckChange(ds, it, task, wrapEl, devId, on) {
           if (p2.devCycle) delete p2.devCycle[sid];
           if (p2.devChecks && p2.devChecks[sid]) delete p2.devChecks[sid][devId]; /* 押し間違えた最後の1台も外す */
           saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
-          if (wrapEl.isConnected) renderDevPanel(ds, it, wrapEl); else safeRenderPage();
+          if (wrapEl.isConnected) renderDevChkPanel(ds, it, wrapEl); else safeRenderPage();
         } });
       }
     }
@@ -15472,7 +15475,7 @@ function devCheckChange(ds, it, task, wrapEl, devId, on) {
       writeLog('機器の消し込みを解除', fmtJ(owner) + ' ' + task + ' ' + uname);
     }
   }
-  renderDevPanel(ds, it, wrapEl);
+  renderDevChkPanel(ds, it, wrapEl);
 }
 
 /* ===== HD曜日別業務：設置部署の選択モーダル =====
@@ -27408,7 +27411,7 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
   if (devCfg) {
     var devEl=document.createElement('div'); devEl.className='cli-devs';
     wrap.appendChild(devEl);
-    renderDevPanel(ds, devIt, wrap);
+    renderDevChkPanel(ds, devIt, wrap);
     devBtn.onclick=function(e){ e.stopPropagation(); wrap.classList.toggle('dev-open'); _devOpen[wdSid(devIt)]=wrap.classList.contains('dev-open'); };
     devEl.addEventListener('change', function(e){
       var c2=e.target; if(c2.tagName!=='INPUT'||!c2.getAttribute('data-dev')) return;
