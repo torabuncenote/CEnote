@@ -796,7 +796,8 @@ tr.hdr-absent .hdr-staff-n{color:var(--rd);text-decoration:line-through}
 /* flex:0 0 auto。縮めてよいのは「文字サイズ」だけで、枠を縮めさせると文字が切れてしまう */
 .oc-done-lbl{display:flex;align-items:center;gap:clamp(3px,1vw,6px);cursor:pointer;font-weight:700;color:var(--oc);white-space:nowrap;flex:0 0 auto;font-size:clamp(11px,3.05vw,13px)}
 .oc-done-lbl input[type=checkbox]{width:clamp(13px,3.6vw,16px)!important;height:clamp(13px,3.6vw,16px)!important;flex-shrink:0}
-.oc-flow-btn{flex:0 0 auto;white-space:nowrap;margin-left:auto;font-size:clamp(10px,2.7vw,12px);padding:clamp(3px,1vw,6px) clamp(6px,2vw,12px)}
+/* .btn と2クラスにする。単一クラスだと後方の .btn（Modal Dialog 節）と .btn-sm に負けて、狭い画面で縮まなかった */
+.btn.oc-flow-btn{flex:0 0 auto;white-space:nowrap;margin-left:auto;font-size:clamp(10px,2.7vw,12px);padding:clamp(3px,1vw,6px) clamp(6px,2vw,12px)}
 /* 360px未満（SEなど）は比率だけでは収まらないので、ボタンの文字だけ畳んで📄を残す
    （アプリ内の .btn-at-text / .hd-btn-text と同じ扱い。tooltip で意味は残る） */
 @media(max-width:360px){.oc-flow-text{display:none}}
@@ -1110,8 +1111,6 @@ tr.hdr-absent .hdr-staff-n{color:var(--rd);text-decoration:line-through}
 .btn{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:7px 14px;border-radius:var(--rs);border:none;cursor:pointer;transition:all .15s;font-family:var(--fn)}
 .btn-p{background:var(--ac);color:var(--on-ac)}.btn-p:hover{background:#1744b8}
 .btn-g{background:var(--sur);color:var(--txt);border:1px solid var(--bdr2)}.btn-g:hover{background:var(--bg)}
-.btn-d{background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd-bdr)}
-.btn-sm{padding:5px 11px;font-size:11px}
 .btn-fw{width:100%;justify-content:center}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px}
 #modal-phi{z-index:900}
@@ -1156,6 +1155,11 @@ tr.hdr-absent .hdr-staff-n{color:var(--rd);text-decoration:line-through}
 .btn-p:hover{background:#1a4fc1}
 .btn-g{background:var(--sur2);color:var(--txt2);border:1px solid var(--bdr)}
 .btn-g:hover{background:var(--bdr)}
+/* .btn-d と .btn-sm は、すぐ上の .btn（2つ目の定義）より後ろに置くこと。
+   どれも詳細度が同じ(0,1,0)なので出現順で決まる。以前は .btn の定義より前にあり、
+   小さいボタン（249か所）が小さくならず、赤いボタンの枠線も消えていた（2026-11-06 修正）。 */
+.btn-d{background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd-bdr)}
+.btn-sm{padding:5px 11px;font-size:11px}
 .atw{padding:20px 28px 60px;overflow-y:auto;flex:1;background:var(--bg)}
 .atnav{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
 .atnav .atml{font-size:16px;font-weight:900}
@@ -1596,7 +1600,8 @@ body.has-psgb{--psgb-h:36px}
 .dev-kind .dev-cnt.all{color:var(--gr);font-weight:700}
 .dev-kind .dc-cbs{padding:0 8px 8px}
 .dev-u{max-width:100%;cursor:pointer}
-.dev-u input{width:17px;height:17px;flex:0 0 auto;margin:0 2px 0 -3px}
+/* .dc-cb-item input（13px、後方で同じ詳細度）に負けないよう2クラスにする */
+.dc-cb-item.dev-u input{width:17px;height:17px;flex:0 0 auto;margin:0 2px 0 -3px}
 .dev-name{display:inline-flex;align-items:center;gap:4px;min-width:0}
 .dc-cb-item.st-skip{background:var(--or-bg);border-color:var(--or);color:var(--or)}
 .dc-cb-item.st-ng{background:var(--rd-bg);border-color:var(--rd);color:var(--rd)}
@@ -6238,11 +6243,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/02-149';
+var APP_VERSION = 'Ver.2026/11/06-150';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/06-150', date:'2026-11-06', title:'機器の消し込み欄を直しました', items:[
+    {t:'fix', d:'🩺 機器を割り当てたチェック項目（カプラ洗浄など）で、🩺ボタンが空のまま潰れ、押しても機器の一覧が出なかったのを直しました。10/29の更新で、開発用の画面と同じ名前の処理が重なっていたのが原因です'},
+    {t:'fix', d:'🩺 機器の消し込み欄のチェックボックスを、押しやすい大きさ（17px）に直しました。別の指定に負けて小さいままでした'},
+    {t:'fix', d:'📄 OC欄の「対応フロー」ボタンが、狭い画面で小さくならなかったのを直しました'},
+    {t:'imp', d:'🔘 小さいボタンを本来の大きさにそろえ、削除・退職などの赤いボタンに枠線を付けました。画面のすき間が少し広がります'}
+  ]},
   { ver:'Ver.2026/11/02-149', date:'2026-11-02', title:'本院の勤務を確認できるようになりました', items:[
     {t:'new', notify:true, d:'🏥 担当表タブの「本院」で、本院スタッフの勤務を月の表で確認できます。今日の列に色が付きます'},
     {t:'new', notify:true, d:'🏥 本院で勤務する日（本CE・本HDなど）が、マイ担当にも出るようになりました。勤務表を取り込み直した月から反映されます'},
@@ -15327,7 +15338,7 @@ function saveDevCfg() {
 
 /* ---- 当日のチェックリストの消し込み欄 ---- */
 var _devOpen = {}, _devKindOpen = {};
-function renderDevPanel(ds, it, wrapEl) {
+function renderDevChkPanel(ds, it, wrapEl) {
   var chip = wrapEl.querySelector('.cli-devbtn'), box = wrapEl.querySelector('.cli-devs');
   var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid) return;
   var groups = devResolve(cfg), pr = devProgress(ds, sid, cfg.r, cfg.sd), total = 0, doneN = 0, stN = 0;
@@ -15393,7 +15404,7 @@ function openDevStModal(ds, it, task, wrapEl, devId) {
       delete pg.devChecks[sid][devId];
       saveDPage(ds); writeLog('機器の状態を解除', fmtJ(ds) + ' ' + task + ' ' + u.n);
     }
-    ov.remove(); renderDevPanel(ds, it, wrapEl);
+    ov.remove(); renderDevChkPanel(ds, it, wrapEl);
   };
   document.getElementById('dev-st-save').onclick = function(){
     if (!sel) { toast('状態を選んでください', 'warn'); return; }
@@ -15408,7 +15419,7 @@ function openDevStModal(ds, it, task, wrapEl, devId) {
       writeLog('機器を' + DEV_ST[sel].l, fmtJ(ds) + ' ' + task + ' ' + u.n + (note ? '（' + note + '）' : ''));
       if (cfg.sd && cfg.r === 'cycle') devMaybeCycle(ds, it, task, wrapEl, devId, cfg);
       saveDPage(ds);
-      ov.remove(); renderDevPanel(ds, it, wrapEl);
+      ov.remove(); renderDevChkPanel(ds, it, wrapEl);
     };
     /* モーダルは #main の外なので、患者情報の確認をここでかける（メモに患者名を書かせない） */
     if (note) phiGuardText(note, save, function(){ var e = document.getElementById('dev-st-note'); if (e) e.focus(); }); else save();
@@ -15428,7 +15439,7 @@ function devMaybeCycle(ds, it, task, wrapEl, devId, cfg) {
     if (p2.devCycle) delete p2.devCycle[sid];
     if (p2.devChecks && p2.devChecks[sid]) delete p2.devChecks[sid][devId];
     saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
-    if (wrapEl.isConnected) renderDevPanel(ds, it, wrapEl); else safeRenderPage();
+    if (wrapEl.isConnected) renderDevChkPanel(ds, it, wrapEl); else safeRenderPage();
   } });
 }
 function devCycleUndo(ds, it, task, wrapEl) {
@@ -15436,7 +15447,7 @@ function devCycleUndo(ds, it, task, wrapEl) {
   if (!confirm('この日の「一巡」を取り消しますか？\n直前の巡回の消し込みが元に戻ります。')) return;
   delete pg.devCycle[sid];
   saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
-  renderDevPanel(ds, it, wrapEl);
+  renderDevChkPanel(ds, it, wrapEl);
 }
 function devCheckChange(ds, it, task, wrapEl, devId, on) {
   var cfg = itemDev(it), sid = wdSid(it); if (!cfg || !sid || !D.pages[ds]) return;
@@ -15459,7 +15470,7 @@ function devCheckChange(ds, it, task, wrapEl, devId, on) {
           if (p2.devCycle) delete p2.devCycle[sid];
           if (p2.devChecks && p2.devChecks[sid]) delete p2.devChecks[sid][devId]; /* 押し間違えた最後の1台も外す */
           saveDPage(ds); writeLog('機器の一巡を取り消し', fmtJ(ds) + ' ' + task);
-          if (wrapEl.isConnected) renderDevPanel(ds, it, wrapEl); else safeRenderPage();
+          if (wrapEl.isConnected) renderDevChkPanel(ds, it, wrapEl); else safeRenderPage();
         } });
       }
     }
@@ -15472,7 +15483,7 @@ function devCheckChange(ds, it, task, wrapEl, devId, on) {
       writeLog('機器の消し込みを解除', fmtJ(owner) + ' ' + task + ' ' + uname);
     }
   }
-  renderDevPanel(ds, it, wrapEl);
+  renderDevChkPanel(ds, it, wrapEl);
 }
 
 /* ===== HD曜日別業務：設置部署の選択モーダル =====
@@ -27408,7 +27419,7 @@ function _clMkCk(ns, ds,idx,task,dat,locked,it,dlyIt) {
   if (devCfg) {
     var devEl=document.createElement('div'); devEl.className='cli-devs';
     wrap.appendChild(devEl);
-    renderDevPanel(ds, devIt, wrap);
+    renderDevChkPanel(ds, devIt, wrap);
     devBtn.onclick=function(e){ e.stopPropagation(); wrap.classList.toggle('dev-open'); _devOpen[wdSid(devIt)]=wrap.classList.contains('dev-open'); };
     devEl.addEventListener('change', function(e){
       var c2=e.target; if(c2.tagName!=='INPUT'||!c2.getAttribute('data-dev')) return;
