@@ -338,7 +338,7 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .hdash-hd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .hdash-ttl{font-size:12px;font-weight:700;color:var(--txt2);letter-spacing:.04em}
 .hdash-hd .btn{margin-left:auto}
-.hdash-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.hdash-tiles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 .hdash-tile{text-align:center;padding:8px 4px;border-radius:var(--rs);background:var(--pu-bg);border:1px solid var(--pu)}
 .hdash-tile .n{font-family:var(--mo);font-size:26px;font-weight:700;line-height:1.1;color:var(--pu)}
 .hdash-tile .l{font-size:10px;font-weight:700;color:var(--pu);opacity:.75;margin-top:3px;white-space:normal;line-height:1.25;overflow:visible;overflow-wrap:anywhere}
@@ -346,6 +346,15 @@ hr{border:none;border-top:1px solid var(--bdr);margin:20px 0}
 .hdash-tile.zero{background:var(--sur2);border-color:var(--bdr)}
 .hdash-tile.zero .n{color:var(--txt3);font-weight:500}
 .hdash-tile.zero .l{color:var(--txt3);opacity:1}
+/* 緊急透析（時間外）は他の区分と見分けられるよう赤系。0件のときは他と同じく .zero で落とす */
+.hdash-tile.em:not(.zero){background:var(--rd-bg);border-color:var(--rd)}
+.hdash-tile.em:not(.zero) .n,.hdash-tile.em:not(.zero) .l{color:var(--rd)}
+.hdash-sp-tag.em{background:var(--rd-bg);color:var(--rd);border-color:var(--rd)}
+.hdem-row{padding:6px 0;border-bottom:1px dashed var(--bdr)}
+.hdem-line{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.hdem-line input[type=time]{width:96px;font-size:13px;padding:4px 6px}
+.hdem-line select{width:auto;margin-bottom:0}
+.hdem-line .hdem-note{flex:1;min-width:120px;font-size:13px;padding:4px 6px}
 .hdash-sp{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:11px;padding-top:11px;border-top:1px dashed var(--bdr)}
 .hdash-sp-lbl{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:.06em}
 .hdash-sp-tag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--pu-bg);color:var(--pu);border:1px solid var(--pu)}
@@ -1311,7 +1320,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=color]),textarea,select{b
      ボタンの高さ(28px)を保ったまま行の高さは準夜の行に揃える。左右は指定しない
      （インラインのmargin-left:autoによる右寄せを壊さないため） */
   tr.group-hd .btn.hdr-edit-btn{min-height:28px;padding:4px 12px;margin-top:-6px;margin-bottom:-6px}
-  /* 5列のままだと1タイル60px弱まで潰れて2桁の数字が窮屈になるため3列で折り返す */
+  /* 6列のままだと1タイル50px前後まで潰れて2桁の数字が窮屈になるため3列×2段で折り返す */
   .hdash-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
   .hdash-tile .n{font-size:23px}
 }
@@ -6243,11 +6252,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/09-151';
+var APP_VERSION = 'Ver.2026/11/09-152';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/09-152', date:'2026-11-09', title:'HDの緊急透析を記録できるようになりました', items:[
+    {t:'new', notify:true, d:'🚑 HD連絡表の「血液浄化」に「緊急」を追加しました。時間外に緊急で透析したときに、場所・開始と終了の時刻・担当者・ひとことを1件ずつ記録できます（「✏️ 編集」から）'},
+    {t:'new', notify:true, d:'🚑 緊急透析は血液浄化の合計に足して数えます。準夜・病棟などには二重に入れないでください'},
+    {t:'imp', notify:true, d:'📈 HD集計に「緊急」の列と、場所ごとの件数・対応時間の合計がわかる欄を追加しました。CSVにも出ます'},
+    {t:'fix', d:'📈 HD集計の「特殊治療の内訳」で、治療名ではなく「[object Object]」と出ていたのを直しました'}
+  ]},
   { ver:'Ver.2026/11/09-151', date:'2026-11-09', title:'本院へヘルプに行く人が人員配置管理で分かるようになりました', items:[
     {t:'new', notify:true, d:'🏥 本院へヘルプに行く日は、人員配置管理の控えに「🏥 本院へ」として出ます。分院の勤務表に「本院」「宿直」「本CE」などと書いてある日に自動で入り（休みの日は除く）、当日の人数や未割当には数えません'},
     {t:'imp', notify:true, d:'🏥 急に本院へ行くことになったときは、名前を「🏥 本院へ」へ移せます。担当表にも「🏥本院」と出ます'},
@@ -9733,9 +9748,10 @@ function renderHdSummary() {
     if (!pg || !pg.hdCount) return;
     var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdCountN(pg.hdCount.ward);
     var sp = hdCountSpFilled(pg);
-    var total = day + night + bw + ward + sp.length;
+    var em = hdEmArr(pg).filter(hdEmFilled);
+    var total = day + night + bw + ward + sp.length + em.length;
     if (!total) return; /* 全区分0件の日は一覧に出さない（OC集計が担当者未設定日をスキップするのと同じ考え方） */
-    rows.push({ ds: ds, day: day, night: night, bw: bw, ward: ward, sp: sp, total: total });
+    rows.push({ ds: ds, day: day, night: night, bw: bw, ward: ward, sp: sp, em: em, total: total });
   });
   var h = sumCtlHTML('hd');
   /* 月送り。OC集計・業務集計は担当表タブ上部の月ナビ（asPrevM/asNextM）を共有しているが、
@@ -9753,13 +9769,19 @@ function renderHdSummary() {
     return;
   }
   /* 集計 */
-  var sums = {day:0, night:0, bw:0, ward:0, sp:0};
+  var sums = {day:0, night:0, bw:0, ward:0, sp:0, em:0};
   var spAgg = {}; /* 治療名 → 件数（特殊治療の内訳） */
+  var emPlace = {}, emMin = 0, emTimed = 0; /* 緊急透析：場所ごとの件数・時間の合計（開始と終了が揃った分） */
   rows.forEach(function(r){
-    sums.day += r.day; sums.night += r.night; sums.bw += r.bw; sums.ward += r.ward; sums.sp += r.sp.length;
-    r.sp.forEach(function(name){ if (name) spAgg[name] = (spAgg[name]||0) + 1; });
+    sums.day += r.day; sums.night += r.night; sums.bw += r.bw; sums.ward += r.ward; sums.sp += r.sp.length; sums.em += r.em.length;
+    /* 要素は {n:治療名,…} のオブジェクト（hdSpNorm）。以前は要素をそのままキーにしていて「[object Object]」と出ていた */
+    r.sp.forEach(function(sp){ if (sp && sp.n) spAgg[sp.n] = (spAgg[sp.n]||0) + 1; });
+    r.em.forEach(function(it){
+      var pl = hdEmPlaceLabel(it.place) || '場所未入力'; emPlace[pl] = (emPlace[pl]||0) + 1;
+      var mn = hdEmMin(it); if (mn != null) { emMin += mn; emTimed++; }
+    });
   });
-  var grandTotal = sums.day + sums.night + sums.bw + sums.ward + sums.sp;
+  var grandTotal = sums.day + sums.night + sums.bw + sums.ward + sums.sp + sums.em;
   h += '<div class="sum-toolbar" style="margin-bottom:6px"><span class="sum-period-label">'+escH(rng.label)+'　HD集計</span></div>';
   h += '<div class="sum-badges">';
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>合計 <b style="color:var(--pu)">'+grandTotal+'</b>件</span>';
@@ -9768,41 +9790,58 @@ function renderHdSummary() {
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>BW <b>'+sums.bw+'</b>件</span>';
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>病棟 <b>'+sums.ward+'</b>件</span>';
   h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--pu)"></span>特殊 <b>'+sums.sp+'</b>件</span>';
+  h += '<span class="sum-badge"><span class="sum-badge-dot" style="background:var(--rd)"></span>🚑 緊急 <b style="color:var(--rd)">'+sums.em+'</b>件</span>';
   h += '</div>';
   /* 複数月にまたがるときは月別の内訳を先に出す（年間集計で日別だけだと読み取れないため） */
   if (rng.multi) {
     var mk = sumMonthKeys(rows.map(function(r){ return r.ds; }));
     var per = {};
-    mk.forEach(function(k){ per[k] = {day:0, night:0, bw:0, ward:0, sp:0}; });
+    mk.forEach(function(k){ per[k] = {day:0, night:0, bw:0, ward:0, sp:0, em:0}; });
     rows.forEach(function(r){
       var k = r.ds.slice(0,7), p = per[k];
-      p.day += r.day; p.night += r.night; p.bw += r.bw; p.ward += r.ward; p.sp += r.sp.length;
+      p.day += r.day; p.night += r.night; p.bw += r.bw; p.ward += r.ward; p.sp += r.sp.length; p.em += r.em.length;
     });
     h += '<div class="data-wrap" style="margin-bottom:14px"><table class="data-tbl" style="min-width:420px">';
-    h += '<thead><tr><th style="width:90px">月</th><th>日中透析室</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>計</th></tr></thead><tbody>';
+    h += '<thead><tr><th style="width:90px">月</th><th>日中透析室</th><th>準夜</th><th>BW</th><th>病棟</th><th>特殊</th><th>緊急</th><th>計</th></tr></thead><tbody>';
     mk.forEach(function(k){
-      var p = per[k], t = p.day + p.night + p.bw + p.ward + p.sp;
+      var p = per[k], t = p.day + p.night + p.bw + p.ward + p.sp + p.em;
       h += '<tr><td style="white-space:nowrap"><strong>'+sumMonthLabel(k)+'</strong></td>'
         + '<td class="num">'+(p.day||'<span class="muted">—</span>')+'</td>'
         + '<td class="num">'+(p.night||'<span class="muted">—</span>')+'</td>'
         + '<td class="num">'+(p.bw||'<span class="muted">—</span>')+'</td>'
         + '<td class="num">'+(p.ward||'<span class="muted">—</span>')+'</td>'
         + '<td class="num">'+(p.sp||'<span class="muted">—</span>')+'</td>'
+        + '<td class="num">'+(p.em||'<span class="muted">—</span>')+'</td>'
         + '<td class="num" style="font-weight:700;color:var(--pu)">'+t+'</td></tr>';
     });
     h += '<tr class="total"><td>合計</td><td class="num">'+sums.day+'</td><td class="num">'+sums.night+'</td>'
-      + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td>'
+      + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td><td class="num">'+sums.em+'</td>'
       + '<td class="num" style="color:var(--pu)">'+grandTotal+'</td></tr>';
     h += '</tbody></table></div>';
   }
   /* 特殊治療の内訳 */
   var spNames = Object.keys(spAgg).sort(function(a,b){ return spAgg[b]-spAgg[a]; });
-  if (spNames.length) {
-    h += '<div class="sum-card-grid"><div class="sum-card"><div class="sum-card-ttl">🩸 特殊治療の内訳</div>';
-    spNames.forEach(function(n){
-      h += '<div class="sum-card-row"><span class="lbl">'+escH(n)+'</span><span class="n">'+spAgg[n]+'件</span></div>';
-    });
-    h += '</div></div>';
+  var emPlaces = Object.keys(emPlace).sort(function(a,b){ return emPlace[b]-emPlace[a]; });
+  if (spNames.length || emPlaces.length) {
+    h += '<div class="sum-card-grid">';
+    if (spNames.length) {
+      h += '<div class="sum-card"><div class="sum-card-ttl">🩸 特殊治療の内訳</div>';
+      spNames.forEach(function(n){
+        h += '<div class="sum-card-row"><span class="lbl">'+escH(n)+'</span><span class="n">'+spAgg[n]+'件</span></div>';
+      });
+      h += '</div>';
+    }
+    if (emPlaces.length) {
+      h += '<div class="sum-card"><div class="sum-card-ttl">🚑 緊急透析（時間外）</div>';
+      emPlaces.forEach(function(n){
+        h += '<div class="sum-card-row"><span class="lbl">'+escH(n)+'</span><span class="n">'+emPlace[n]+'件</span></div>';
+      });
+      if (emTimed) h += '<div class="sum-card-row"><span class="lbl">対応時間の合計</span><span class="n">'+hdEmDurLabel(emMin)+'</span></div>'
+        + '<div class="sum-card-row"><span class="lbl">1件あたり（平均）</span><span class="n">'+hdEmDurLabel(Math.round(emMin / emTimed))+'</span></div>';
+      if (emTimed < sums.em) h += '<div class="sum-card-row"><span class="lbl muted">時間未入力</span><span class="n muted">'+(sums.em - emTimed)+'件</span></div>';
+      h += '</div>';
+    }
+    h += '</div>';
   }
   /* 日別テーブル */
   var hdSorted = sumSortRows('hd', rows, {
@@ -9812,6 +9851,7 @@ function renderHdSummary() {
     bw:    function(r){ return r.bw || null; },
     ward:  function(r){ return r.ward || null; },
     sp:    function(r){ return r.sp.length || null; },
+    em:    function(r){ return r.em.length || null; },
     total: function(r){ return r.total; }
   });
   h += '<div class="data-wrap"><table class="data-tbl" style="min-width:520px">';
@@ -9819,7 +9859,7 @@ function renderHdSummary() {
     + sumSortTh('hd','ds','日付','width:'+(rng.multi?100:70)+'px')
     + sumSortTh('hd','day','日中透析室') + sumSortTh('hd','night','準夜')
     + sumSortTh('hd','bw','BW') + sumSortTh('hd','ward','病棟')
-    + sumSortTh('hd','sp','特殊') + sumSortTh('hd','total','計')
+    + sumSortTh('hd','sp','特殊') + sumSortTh('hd','em','緊急') + sumSortTh('hd','total','計')
     + '</tr></thead><tbody>';
   hdSorted.forEach(function(r) {
     var w = new Date(r.ds).getDay();
@@ -9833,11 +9873,12 @@ function renderHdSummary() {
     h += '<td class="num">'+(r.bw||'<span class="muted">—</span>')+'</td>';
     h += '<td class="num">'+(r.ward||'<span class="muted">—</span>')+'</td>';
     h += '<td class="num">'+(r.sp.length||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num"'+(r.em.length?' style="color:var(--rd);font-weight:700"':'')+'>'+(r.em.length||'<span class="muted">—</span>')+'</td>';
     h += '<td class="num" style="font-weight:700;color:var(--pu)">'+r.total+'</td>';
     h += '</tr>';
   });
   h += '<tr class="total"><td>合計</td><td class="num">'+sums.day+'</td><td class="num">'+sums.night+'</td>'
-    + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td>'
+    + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td><td class="num">'+sums.em+'</td>'
     + '<td class="num" style="color:var(--pu)">'+grandTotal+'</td></tr>';
   h += '</tbody></table></div>';
   el.innerHTML = h;
@@ -22552,6 +22593,79 @@ function hdCountSpArr(dat) {
 /* 件数として数える特殊治療。治療を選ぶ前の空行は「＋追加」で行だけ先に増えている途中の状態なので、
    件数からは除く（hdCountSpArr は編集フォームの行数をそのまま返すので、行の描画にはそちらを使う）。 */
 function hdCountSpFilled(dat) { return hdCountSpArr(dat).filter(function(x){ return !!x.n; }); }
+
+/* ===== 緊急透析（時間外。dat.hdCount.em） =====
+   1件 = {id, place:'room'|'ward'|'icu'|'other', start:'HH:MM', end:'HH:MM', staff:[氏名], note}。
+   血液浄化の合計に足す（準夜・病棟などには入れない＝二重に数えない、2026-11-09 本人）。
+   日付をまたぐ対応（22:30〜01:10）は始まった日の連絡表に1件として記録し、長さは24時間足して求める。
+   患者情報は書かない（ひとことは #main の中なので initPHIGuard が見張る）。 */
+var HD_EM_PLACES = [{k:'room', l:'透析室'}, {k:'ward', l:'病棟'}, {k:'icu', l:'ICU'}, {k:'other', l:'その他'}];
+function hdEmPlaceLabel(k){ for (var i = 0; i < HD_EM_PLACES.length; i++) if (HD_EM_PLACES[i].k === k) return HD_EM_PLACES[i].l; return ''; }
+function hdEmNorm(v){
+  v = (v && typeof v === 'object') ? v : {};
+  return { id: v.id || '', place: v.place || '', start: v.start || '', end: v.end || '', staff: normArr(v.staff).filter(Boolean), note: v.note || '' };
+}
+/* 読み出しは必ずこれ（Firebaseの配列→オブジェクト化対策。行の描画には空行も含めて使う） */
+function hdEmArr(dat){
+  var e = dat && dat.hdCount && dat.hdCount.em;
+  return normArr(e).filter(function(x){ return x != null; }).map(hdEmNorm);
+}
+/* 件数に数える行か。「＋追加」で行だけ増やした途中の空行は数えない */
+function hdEmFilled(it){ return !!(it.place || it.start || it.end || it.staff.length || it.note); }
+function hdEmCount(dat){ return hdEmArr(dat).filter(hdEmFilled).length; }
+/* 書き込み用：実配列に直してIDを付けて書き戻す（行の追加・削除・編集の直前だけ呼ぶ） */
+function hdEmEnsureArr(dat){
+  dat.hdCount = dat.hdCount || {};
+  dat.hdCount.em = hdEmArr(dat);
+  dat.hdCount.em.forEach(function(it){ if (!it.id) it.id = 'hdem_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); });
+  return dat.hdCount.em;
+}
+/* 対応の長さ（分）。開始・終了の両方があるときだけ。終了が開始より前なら日付をまたいだとみなす */
+function hdEmMin(it){
+  if (!/^\d{1,2}:\d{2}$/.test(it.start || '') || !/^\d{1,2}:\d{2}$/.test(it.end || '')) return null;
+  var a = tabletHMToMin(it.start), b = tabletHMToMin(it.end);
+  return b < a ? b + 1440 - a : b - a;
+}
+function hdEmDurLabel(min){ if (min == null) return ''; var h = Math.floor(min / 60), m = min % 60; return (h ? h + '時間' : '') + (m || !h ? m + '分' : ''); }
+function hdEmTimeLabel(it){
+  if (!it.start && !it.end) return '';
+  var mn = hdEmMin(it);
+  return (it.start || '--:--') + '〜' + (it.end || '--:--') + (mn != null ? '（' + hdEmDurLabel(mn) + '）' : '');
+}
+/* 編集フォームの1件分 */
+function hdEmRowHTML(it, locked, cands){
+  var dis = locked ? ' disabled' : '', rid = escH(it.id || '');
+  var h = '<div class="hdem-row"><div class="hdem-line">';
+  h += '<select class="ds2" data-hdem-field="place" data-row-id="' + rid + '"' + dis + '><option value="">場所</option>';
+  HD_EM_PLACES.forEach(function(p){ h += '<option value="' + p.k + '"' + (it.place === p.k ? ' selected' : '') + '>' + p.l + '</option>'; });
+  h += '</select>';
+  h += '<input type="time" data-hdem-field="start" data-row-id="' + rid + '" value="' + escH(it.start) + '" title="開始"' + dis + '>';
+  h += '<span style="font-size:12px;color:var(--txt3)">〜</span>';
+  h += '<input type="time" data-hdem-field="end" data-row-id="' + rid + '" value="' + escH(it.end) + '" title="終了（日付をまたいでもよい）"' + dis + '>';
+  h += '<span class="hdem-dur" style="font-size:11px;color:var(--txt3)">' + hdEmDurLabel(hdEmMin(it)) + '</span>';
+  if (!locked) h += '<button class="pool-chip-x" data-action="hdem-del" data-row-id="' + rid + '" style="position:static;font-size:16px;margin-left:auto" title="この1件を消す">×</button>';
+  h += '</div>';
+  /* 担当者：特殊治療の実施者と同じ見た目（チップ＋追加の選択欄） */
+  h += '<div class="ops-staff-row" style="margin:4px 0 2px 2px"><span class="ops-meta-lbl">👤</span>';
+  it.staff.forEach(function(nm){
+    h += '<span class="ops-staff-chip">' + escH(nm)
+      + (locked ? '' : '<button type="button" class="ops-staff-chip-x" data-action="hdem-ppl-rm" data-row-id="' + rid + '" data-name="' + escH(nm) + '" title="外す">×</button>')
+      + '</span>';
+  });
+  if (!locked) {
+    var duty = cands.duty.filter(function(n){ return it.staff.indexOf(n) === -1; });
+    var all = cands.all.filter(function(n){ return it.staff.indexOf(n) === -1 && duty.indexOf(n) === -1; });
+    var oh = '<option value="">＋ 担当者</option>';
+    if (duty.length) { oh += '<optgroup label="本日の勤務">'; duty.forEach(function(n){ oh += '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }); oh += '</optgroup>'; }
+    if (all.length) { oh += '<optgroup label="スタッフ">'; all.forEach(function(n){ oh += '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }); oh += '</optgroup>'; }
+    oh += '<option value="__free__">自由入力...</option>';
+    h += '<select class="ops-staff-add" data-hdem-add="' + rid + '">' + oh + '</select>';
+  }
+  h += '</div>';
+  h += '<div class="hdem-line"><input type="text" class="hdem-note" data-hdem-field="note" data-row-id="' + rid + '" value="' + escH(it.note) + '" placeholder="ひとこと（患者が特定できることは書かない）"' + dis + '></div>';
+  h += '</div>';
+  return h;
+}
 /* 書き込み用：dat.hdCount.sp を実配列に正規化し、各要素もオブジェクト化して書き戻す
    （以後そのまま arr[idx].n = ... / arr[idx].staff.push(...) できる）。
    表示専用の hdCountSpArr と違い dat を書き換えるので、行の追加・削除・担当者操作の直前だけ呼ぶ。 */
@@ -22743,7 +22857,7 @@ function hdTreatMailSendNext(ds, eventId, targets, index, preview) {
 }
 function hdCountTotal(dat) {
   var c = dat.hdCount || {};
-  return hdCountN(c.day) + hdCountN(c.night) + hdCountN(c.bw) + hdCountN(c.ward) + hdCountSpFilled(dat).length;
+  return hdCountN(c.day) + hdCountN(c.night) + hdCountN(c.bw) + hdCountN(c.ward) + hdCountSpFilled(dat).length + hdEmCount(dat);
 }
 /* #hd-count-panel の中身（チップ表示 or 編集フォーム）。renderPageHD の初回描画と
    refreshHdCountPanel の両方から呼ばれる —  #hd-count-panel 自体は常に存在する安定要素にして、
@@ -22753,7 +22867,8 @@ function hdCountPanelInnerHTML(ds, dat) {
   var day = hdCountN(c.day), night = hdCountN(c.night), bw = hdCountN(c.bw), ward = hdCountN(c.ward);
   var spArr = hdCountSpArr(dat);        /* 編集フォームの行（空行を含む） */
   var spFilled = hdCountSpFilled(dat);  /* 件数として数える分（空行を除く） */
-  var total = day + night + bw + ward + spFilled.length;
+  var emArr = hdEmArr(dat), emFilled = emArr.filter(hdEmFilled);
+  var total = day + night + bw + ward + spFilled.length + emFilled.length;
   var locked = !can('ops'); /* 新規ロックIDは作らず、CE側の業務内容ロック(ops)をそのまま流用 */
   if (_hdCountOpen && !locked && spArr.some(function(sp){ return !sp.id; })) {
     /* 編集操作は添字ではなく安定IDで対象行を引き直せるよう、旧行へIDを付ける（ローカルのDのみ）。
@@ -22772,8 +22887,8 @@ function hdCountPanelInnerHTML(ds, dat) {
     h += '</div>';
     /* 数字タイル。0件の区分は .zero で彩度を落とし、実施した区分だけが浮くようにする */
     h += '<div class="hdash-tiles">';
-    [[day,'日中透析室'],[night,'準夜'],[bw,'BW'],[ward,'病棟'],[spFilled.length,'特殊']].forEach(function(t){
-      h += '<div class="hdash-tile'+(t[0]?'':' zero')+'"><div class="n">'+t[0]+'</div><div class="l">'+t[1]+'</div></div>';
+    [[day,'日中透析室'],[night,'準夜'],[bw,'BW'],[ward,'病棟'],[spFilled.length,'特殊'],[emFilled.length,'🚑 緊急','em']].forEach(function(t){
+      h += '<div class="hdash-tile'+(t[2]?' '+t[2]:'')+(t[0]?'':' zero')+'"><div class="n">'+t[0]+'</div><div class="l">'+t[1]+'</div></div>';
     });
     h += '</div>';
     /* 特殊治療は件数だけでなく中身（治療名）と、誰が実施し誰が教育に付いたかまで出す
@@ -22786,6 +22901,18 @@ function hdCountPanelInnerHTML(ds, dat) {
         h += '<div class="hdash-sp-item"><span class="hdash-sp-tag">'+escH(sp.n)+'</span>'
           + (st.length ? '<span class="hdash-sp-ppl">👤 '+st.map(escH).join('、')+'</span>' : '<span class="hdash-sp-none">👤 実施者未入力</span>')
           + (ed.length ? '<span class="hdash-sp-ppl">🎓 '+ed.map(escH).join('、')+'</span>' : '')
+          + '</div>';
+      });
+      h += '</div></div>';
+    }
+    /* 緊急透析（時間外）は1件ずつ、場所・時間・担当者・ひとことを出す */
+    if (emFilled.length) {
+      h += '<div class="hdash-sp"><span class="hdash-sp-lbl">緊急透析</span><div class="hdash-sp-list">';
+      emFilled.forEach(function(it){
+        h += '<div class="hdash-sp-item"><span class="hdash-sp-tag em">🚑 '+escH(hdEmPlaceLabel(it.place) || '場所未入力')+'</span>'
+          + (hdEmTimeLabel(it) ? '<span class="hdash-sp-ppl">'+escH(hdEmTimeLabel(it))+'</span>' : '<span class="hdash-sp-none">時間未入力</span>')
+          + (it.staff.length ? '<span class="hdash-sp-ppl">👤 '+it.staff.map(escH).join('、')+'</span>' : '<span class="hdash-sp-none">👤 担当者未入力</span>')
+          + (it.note ? '<span class="hdash-sp-none">'+escH(it.note)+'</span>' : '')
           + '</div>';
       });
       h += '</div></div>';
@@ -22806,6 +22933,12 @@ function hdCountPanelInnerHTML(ds, dat) {
     });
     if (!spArr.length) h += '<span style="font-size:12px;color:var(--txt3)">なし</span>';
     if (!locked) h += '<button class="btn btn-g btn-sm" style="align-self:flex-start;margin-top:2px" data-action="hdcnt-sp-add">＋ 追加</button>';
+    h += '</div></div>';
+    /* 緊急透析（時間外）。1件ずつ足す */
+    h += '<div class="ops-row" style="align-items:flex-start"><span class="ops-lbl" style="margin-top:6px;color:var(--rd)">🚑 緊急</span><div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">';
+    emArr.forEach(function (it) { h += hdEmRowHTML(it, locked, spCands); });
+    if (!emArr.length) h += '<span style="font-size:12px;color:var(--txt3)">なし（時間外に緊急で透析したときに足す）</span>';
+    if (!locked) h += '<button class="btn btn-g btn-sm" style="align-self:flex-start;margin-top:2px" data-action="hdem-add">＋ 緊急透析を追加</button>';
     h += '</div></div>';
     h += '</div>';
   }
@@ -23024,6 +23157,78 @@ function renderPageHD(ds) {
      たびに登録し直す必要はない（#memo-list と同じ設計）。 */
   var hdCountPanel = document.getElementById('hd-count-panel');
   if (hdCountPanel) {
+    /* 緊急透析（時間外）の操作。行は安定ID（data-row-id）で引き直す——添字だと他の人の追加・削除でずれる */
+    var hdEmRow = function (pg, rid) { return hdEmEnsureArr(pg).find(function (it) { return it.id === rid; }) || null; };
+    var hdEmTotalOnly = function () { var el = hdCountPanel.querySelector('.hdash-total b'), pg = D.pages[ds]; if (el && pg) el.textContent = hdCountTotal(pg); };
+    hdCountPanel.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-action^="hdem-"]');
+      if (!btn || !can('ops')) return;
+      var pg = D.pages[ds]; if (!pg) return;
+      var act = btn.getAttribute('data-action'), rid = btn.getAttribute('data-row-id') || '';
+      if (act === 'hdem-add') {
+        hdEmEnsureArr(pg).push({ id: 'hdem_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8), place: '', start: '', end: '', staff: [], note: '' });
+      } else if (act === 'hdem-del') {
+        var arr = hdEmEnsureArr(pg), i = arr.findIndex(function (it) { return it.id === rid; });
+        if (i < 0) return;
+        if (hdEmFilled(arr[i]) && !confirm('この緊急透析の記録を消しますか？')) return;
+        arr.splice(i, 1);
+        writeLog('緊急透析を削除', fmtJ(ds));
+      } else if (act === 'hdem-ppl-rm') {
+        var row = hdEmRow(pg, rid); if (!row) return;
+        var nm = btn.getAttribute('data-name');
+        row.staff = row.staff.filter(function (n) { return n !== nm; });
+      } else return;
+      saveDPage(ds);
+      refreshHdCountPanel(ds);
+    });
+    hdCountPanel.addEventListener('change', function (e) {
+      var pg = D.pages[ds]; if (!pg || !can('ops')) return;
+      var f = e.target.closest('[data-hdem-field]');
+      if (f && f.getAttribute('data-hdem-field') !== 'note') {
+        var row = hdEmRow(pg, f.getAttribute('data-row-id') || ''); if (!row) return;
+        row[f.getAttribute('data-hdem-field')] = f.value;
+        saveDPage(ds);
+        /* 描き直さない：PCの時刻欄は打ち込みの途中でも change が来るので、描き直すとカーソルが外れる。
+           その行の長さと合計だけを書き換える */
+        var durEl = f.closest('.hdem-row') && f.closest('.hdem-row').querySelector('.hdem-dur');
+        if (durEl) durEl.textContent = hdEmDurLabel(hdEmMin(row));
+        hdEmTotalOnly();
+        return;
+      }
+      var add = e.target.closest('select[data-hdem-add]');
+      if (!add) return;
+      var v = add.value, rid = add.getAttribute('data-hdem-add') || ''; add.value = '';
+      if (!v) return;
+      var put = function (name) {
+        var pg2 = D.pages[ds]; if (!pg2) return;
+        var row2 = hdEmRow(pg2, rid); if (!row2) return;
+        if (row2.staff.indexOf(name) === -1) row2.staff.push(name);
+        saveDPage(ds);
+        refreshHdCountPanel(ds);
+      };
+      if (v === '__free__') {
+        var nameInput = prompt('担当者名を入力してください');
+        if (!nameInput || !nameInput.trim()) return;
+        nameInput = nameInput.trim();
+        phiGuardText(nameInput, function () { put(nameInput); }); /* prompt の値は initPHIGuard の見張りの外 */
+        return;
+      }
+      put(v);
+    });
+    var hdEmNoteTimers = {};
+    hdCountPanel.addEventListener('input', function (e) {
+      var f = e.target.closest('input[data-hdem-field="note"]');
+      if (!f || !can('ops')) return;
+      var rid = f.getAttribute('data-row-id') || '', v = f.value;
+      if (hdEmNoteTimers[rid]) clearTimeout(hdEmNoteTimers[rid]);
+      hdEmNoteTimers[rid] = setTimeout(function () {
+        var pg = D.pages[ds]; if (!pg) return;
+        var row = hdEmRow(pg, rid); if (!row) return;
+        row.note = v;
+        saveDPage(ds);
+        hdEmTotalOnly(); /* 入力中は描き直さない（フォーカスを保つ） */
+      }, 600);
+    });
     hdCountPanel.addEventListener('click', function (e) {
       var btn = e.target.closest('button[data-action]');
       if (!btn) return;
@@ -28667,16 +28872,18 @@ function exportOcCsv() {
   downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
 }
 function exportHdCsv() {
-  var rng = sumRange(), rows = [['日付','曜日','日中透析室','準夜','BW','病棟','特殊','計']];
+  var rng = sumRange(), rows = [['日付','曜日','日中透析室','準夜','BW','病棟','特殊','緊急','緊急の時間（分）','計']];
   sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
     if (!pg || !pg.hdCount) return;
     var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdCountN(pg.hdCount.ward);
     var spLen = hdCountSpFilled(pg).length;
-    var total = day + night + bw + ward + spLen;
+    var em = hdEmArr(pg).filter(hdEmFilled);
+    var emMin = em.reduce(function(a, it){ var m = hdEmMin(it); return m == null ? a : a + m; }, 0);
+    var total = day + night + bw + ward + spLen + em.length;
     if (!total) return;
     var pt = ds.split('-');
-    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], day||'', night||'', bw||'', ward||'', spLen||'', total]);
+    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], day||'', night||'', bw||'', ward||'', spLen||'', em.length||'', emMin||'', total]);
   });
   if (rows.length===1){toast(rng.label+'に血液浄化の記録がありません', 'warn');return;}
   downloadCsv('分院CE_HD集計_'+sumFileLabel()+'.csv', rows);
