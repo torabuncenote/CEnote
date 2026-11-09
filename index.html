@@ -6249,7 +6249,7 @@ var APP_VERSION = 'Ver.2026/11/09-151';
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
   { ver:'Ver.2026/11/09-151', date:'2026-11-09', title:'本院へヘルプに行く人が人員配置管理で分かるようになりました', items:[
-    {t:'new', notify:true, d:'🏥 本院へヘルプに行く日は、人員配置管理の控えに「🏥 本院へ」として出ます。勤務表の本CE・本HDなどから自動で入り、当日の人数や未割当には数えません'},
+    {t:'new', notify:true, d:'🏥 本院へヘルプに行く日は、人員配置管理の控えに「🏥 本院へ」として出ます。分院の勤務表に「本院」「宿直」「本CE」などと書いてある日に自動で入り（休みの日は除く）、当日の人数や未割当には数えません'},
     {t:'imp', notify:true, d:'🏥 急に本院へ行くことになったときは、名前を「🏥 本院へ」へ移せます。担当表にも「🏥本院」と出ます'},
     {t:'imp', notify:true, admin:true, d:'🔄 すでに配置を動かした日は、人員配置管理の「取り込み直す」で本院への勤務を反映できます'}
   ]},
@@ -16144,7 +16144,22 @@ function togLk(id, v) {
    全員に常時配る必要も無いので /data の外に置き、月表を開いたときだけ1か月分を読む。
    分院の名簿・担当枠・配置・公平性には混ぜない。
    { ts, by, secs:[{t:部署名, rows:[{n:氏名, a:上段(タブ区切り), b:下段(タブ区切り)}]}] } */
-var HN_CODE_RE = /^本(?!院$)/;
+/* 分院の勤務表の1日分（上段＝職員番号行・下段＝氏名行）から、本院へのヘルプかを決める。
+   決まり（2026-11-09 本人）：上段か下段に「本院」か「宿直」と書いてあれば本院へのヘルプ。下段が本CE・本遅など「本」で始まるものも同じ。
+   ただし下段が休み（休・年・夏など）の日は入れない——実物の「宿直明け／休」「前宿直／休」は休みの日のため。
+   戻り値は画面に出す勤務の文字（例：「本CE・CE宿直」「ICU・CE宿直」「OR」）。ヘルプでなければ ''。 */
+function shiftHnCode(up, lo){
+  up = (up || '').trim(); lo = (lo || '').trim();
+  if (lo && HN_OFF_RE.test(lo)) return '';
+  var upHit = /本院|宿直/.test(up), loHit = /^本/.test(lo) || /本院|宿直/.test(lo);
+  if (!upHit && !loHit) return '';
+  if (!lo) return up;
+  return lo + (upHit && up !== '本院' ? '・' + up : '');
+}
+/* 1日分は2列ある（勤務表は日付ごとに2列結合）。2列をつないだ文字を返す */
+function shiftCellPair(row, c, sep){
+  return [row[c], row[c + 1]].map(function(v){ return v == null ? '' : v.toString().replace(/[\u3000\s]+/g, ' ').trim(); }).filter(Boolean).join(sep);
+}
 var HN_SEC_ENDS = ['CE勤務者数','HD勤務者数','OR勤務者数'];
 var HN_SEC_NAMES = ['CE管理科','本院血液浄化','手術室'];
 var HN_LOCAL_KEY = 'ce2_honin_pv'; /* プレビューは端末内に置く（判定は roboIsLocal） */
@@ -17005,18 +17020,15 @@ function parseShiftSheet(wb, fileName) {
         result[name][dayNum].nd = true;
       }
 
-      /* 本院での勤務（本CE・本HD・本遅など）。マイ担当に出すだけで、分院の配置には入れない */
-      if (HN_CODE_RE.test(shiftVal)) {
+      /* 本院へのヘルプ。判断は分院の勤務表だけで行う（shiftHnCode）。配置盤では「🏥本院へ」に入る */
+      var hnCode = shiftHnCode(shiftCellPair(numRow, ciInt, ' '), shiftCellPair(grid[ri], ciInt, ''));
+      if (hnCode) {
         if (!result[name][dayNum]) result[name][dayNum] = {};
-        result[name][dayNum].hn = shiftVal;
+        result[name][dayNum].hn = hnCode;
       }
 
       /* 職員番号行: OC完全一致（OC×は除外） */
       var ocVal = (numRow[ciInt] || '').toString().trim().toUpperCase();
-      if (ocVal === '本院' && !(result[name][dayNum] && result[name][dayNum].hn)) {
-        if (!result[name][dayNum]) result[name][dayNum] = {};
-        result[name][dayNum].hn = '本院';
-      }
       if (ocVal === 'OC') {
         if (!result[name][dayNum]) result[name][dayNum] = {};
         result[name][dayNum].oc = true;
