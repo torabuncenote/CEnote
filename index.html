@@ -1948,7 +1948,7 @@ body.has-psgb{--psgb-h:36px}
 @media (hover:hover) and (pointer:fine){.mk-card:hover{transform:translateY(-1px);box-shadow:var(--shl)}}
 .mk-card-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px}
 .mk-card-hd-txt{min-width:0}
-.mk-maker{font-weight:800;font-size:15px;color:var(--txt);line-height:1.3;overflow-wrap:anywhere}
+.mk-maker{font-weight:800;font-size:14px;color:var(--txt);line-height:1.3;overflow-wrap:anywhere}
 .mk-person{font-size:12px;color:var(--txt2);margin-top:2px}
 .mk-acts{display:flex;gap:4px;flex-shrink:0}
 .mk-tel-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
@@ -1976,6 +1976,45 @@ body.has-psgb{--psgb-h:36px}
 .mk-hist .mk-tel,.mk-hist .mk-mail{opacity:.85}
 .mk-hand-prev{font-size:11.5px;color:var(--txt2);background:var(--sur2);border-radius:8px;padding:6px 8px;margin-bottom:8px;line-height:1.6}
 .mk-empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px;line-height:1.8}
+/* 会社ごとのまとめ（カテゴリ → 会社 → 担当者） */
+.mk-colist{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr));align-items:start;gap:8px;margin-bottom:14px}
+/* 担当者が2人以上の会社を開いたときは横いっぱいに広げ、中の担当者を横に並べる */
+.mk-co.multi.open{grid-column:1/-1}
+.mk-co{background:var(--sur);border:1px solid var(--bdr);border-left:4px solid var(--mk-c,var(--bdr2));border-radius:var(--r);padding:8px 10px;min-width:0}
+.mk-co-hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.mk-co-tg{display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:4px 2px;font-family:inherit;cursor:pointer;color:var(--txt);text-align:left;min-width:0;flex:1 1 160px}
+.mk-co-tg:disabled{cursor:default}
+.mk-co-name{font-weight:800;font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+.mk-co-n{font-size:10.5px;font-weight:700;color:var(--txt3);background:var(--sur2);border-radius:10px;padding:1px 7px;flex:none}
+.mk-co-arrow{color:var(--txt3);font-size:12px;flex:none}
+.mk-co-tel{padding:5px 10px;font-size:13.5px;flex:none;width:auto}
+.mk-co-edit{padding:3px 7px}
+.mk-co-sum{font-size:11.5px;color:var(--txt3);margin:2px 2px 0;overflow-wrap:anywhere}
+.mk-co-body{margin:8px 0 2px}
+.mk-co .mk-card{box-shadow:none;border-left-width:1px}
+/* 1人だけの会社は枠を1つにする（会社の枠の中にカードの枠を重ねない） */
+.mk-co.solo .mk-co-body{display:block;margin:0}
+.mk-co.solo .mk-card{border:none;background:none;padding:2px 2px 0}
+.mk-co.solo .mk-card-hd{margin-bottom:6px}
+.mk-stale{color:var(--or);font-weight:700;margin-left:4px}
+.mk-rep-cat{font-size:11px;font-weight:800;color:var(--txt3);margin:10px 0 4px;letter-spacing:.04em}
+.mk-fields{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
+.mk-md-tags{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px}
+.mk-md-tags label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.mk-field{font-size:10px;font-weight:700;padding:0 6px;border-radius:8px;color:var(--mk-c);background:var(--mk-c-bg);border:1px solid var(--mk-c)}
+.mk-tree-bar{font-size:12px;line-height:1.7;color:var(--txt2);background:var(--warn-bg);border:1px solid var(--warn-bdr);border-radius:8px;padding:6px 10px;margin:4px 0 8px}
+.mk-tree-bar.on{background:var(--gr-bg);border-color:var(--gr)}
+.mk-tree-bar .btn{margin-left:4px}
+.mk-tidy-sec{font-size:12px;font-weight:800;color:var(--txt);margin:12px 0 6px;padding-bottom:3px;border-bottom:2px solid var(--bdr)}
+.mk-tidy-sec span{font-size:11px;color:var(--txt3);font-weight:700}
+.mk-tidy-grp{padding:8px 0;border-bottom:1px dashed var(--bdr)}
+.mk-tidy-opt{display:block;font-size:12.5px;padding:3px 0;cursor:pointer;overflow-wrap:anywhere}
+.mk-tidy-opt span{font-size:11px;color:var(--txt3)}
+.mk-tidy-grp .btn{margin-top:4px}
+.mk-rep-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:6px 10px;padding:6px 0;border-bottom:1px dashed var(--bdr)}
+.mk-rep-co{flex:1 1 160px;min-width:0;font-size:13px;overflow-wrap:anywhere}
+.mk-rep-co span{font-size:11px;color:var(--txt3)}
+.mk-rep-pick{flex:1 1 200px;min-width:0}
 .mk-empty-ic{font-size:26px;display:block;margin-bottom:8px;opacity:.55}
 /* ===== 勤務希望（D.shiftReq） =====
    カレンダーの日ごとに種類（D.shiftReqCodes）を選ぶだけなので、既存の .cg/.cd を流用し、
@@ -2751,18 +2790,20 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
           <span id="mk-hd-btns" style="display:none;gap:6px">
             <button class="btn btn-p btn-sm" onclick="openMakerModal()">＋ 追加</button>
             <button class="btn btn-g btn-sm" onclick="openMakerCatModal()">⚙️ カテゴリ</button>
+            <button class="btn btn-g btn-sm" onclick="openMkRepListModal()" title="会社ごとの代表番号を確かめる・選び直す">🏢 代表番号</button>
             <button class="btn btn-g btn-sm" id="mk-imp-btn" onclick="openMkImpModal()" style="display:none">📥 Excel取込</button>
           </span>
         </div>
         <div class="mk-toolbar">
           <div class="mk-search-wrap">
             <span class="mk-search-ic">🔍</span>
-            <input type="text" id="mk-q" class="mk-search" placeholder="メーカー・担当者・番号・備考で検索">
+            <input type="text" id="mk-q" class="mk-search" placeholder="会社・担当者・番号・備考で検索">
             <button class="mk-search-clear" id="mk-q-clear" onclick="mkClearSearch()" style="display:none">✕</button>
           </div>
           <span id="mk-count" class="mk-count"></span>
         </div>
         <div id="mk-catnav" class="mk-catnav"></div>
+        <div id="mk-tree-bar"></div>
         <div id="mk-list"></div>
       </div>
     </div>
@@ -6279,11 +6320,18 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/09-153';
+var APP_VERSION = 'Ver.2026/11/09-154';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/09-154', date:'2026-11-09', title:'メーカー連絡先を会社ごとにまとめる準備をしました', items:[
+    {t:'new', notify:true, admin:true, d:'🏭 メーカー連絡先を「会社 → 担当者」にまとめた新しい表示を作りました。まず管理者だけに出ます。「🧹 整理」で似た会社名やまったく同じ記録をまとめ、済んだら「全員に公開する」を押すと一般職員にも出ます'},
+    {t:'new', notify:true, admin:true, d:'🏢 代表番号は、2人以上が共通で持つ固定電話を自動で選びます。「🏢 代表番号」の一覧と各会社の「✏️ 会社」から、確かめて選び直したり、会社名をまとめて変えたりできます'},
+    {t:'imp', d:'🏭 （公開後）メーカー連絡先が会社ごとにまとまります。担当者が2人以上の会社は押すと開き、検索で当たった会社は開いた状態で出ます。カテゴリのボタンで分野ごとに絞れます'},
+    {t:'imp', d:'🏢 （公開後）会社の見出しに代表番号を出し、担当者の欄には同じ番号を出さないようにします（押すとコピーできます）'},
+    {t:'new', d:'⚠ （公開後）更新から1年以上たった連絡先に「1年以上前」の印が付きます'}
+  ]},
   { ver:'Ver.2026/11/09-153', date:'2026-11-09', title:'本院からのヘルプに分院の決まりをどこまで説明したか残せるようになりました', items:[
     {t:'new', notify:true, d:'📘 本院からヘルプに来た人の名札に「📘 未説明3」のような印が出ます。押すと分院の決まりのチェック表が開き、説明した項目に✓を付けると、説明した日と人が残ります（職員なら誰でも付けられます）'},
     {t:'new', notify:true, d:'📘 担当表タブの「🏥 本院」に、ヘルプで来たことのある人の一覧と、それぞれの説明の進み具合が出ます'},
@@ -18250,11 +18298,27 @@ function normMakers(x) {
       upd: r.upd || '',
       ts: r.ts || 0,
       by: r.by || '',
-      hist: mkHistNorm(r.hist)
+      hist: mkHistNorm(r.hist),
+      /* ほかの分野（カテゴリ id）。会社をカテゴリをまたいで1つにしたので、1人が複数の分野を受け持てる */
+      tags: (Array.isArray(r.tags) ? r.tags : (r.tags ? Object.keys(r.tags).map(function(k){ return r.tags[k]; }) : []))
+        .filter(function(t, i, a){ return t && catIds[t] && t !== r.cat && a.indexOf(t) === i; })
     };
   });
-  return { cats: cats, list: list };
+  /* 代表番号を手で選んだ会社 [{cat, name, tel}]（tel が空＝「代表番号なし」を選んだ）。会社は cat＋会社名で特定する */
+  var reps = (x && x.reps) || [];
+  reps = Array.isArray(reps) ? reps : Object.keys(reps).map(function(k){ return reps[k]; });
+  reps = reps.filter(function(o){ return o && o.name; }).map(function(o){
+    return { cat: (o.cat && catIds[o.cat]) ? o.cat : '', name: o.name, tel: o.tel || '' };
+  });
+  return { cats: cats, list: list, reps: reps, tree: !!(x && x.tree) };
 }
+/* D.makers を書き戻す唯一の入口（代表番号の選び直し reps を落とさないため。以前の { cats, list } 直書きは reps を消す） */
+function mkPut(cats, list, reps) { D.makers = { cats: cats, list: list, reps: reps || mkReps(), tree: !!(D.makers && D.makers.tree) }; }
+/* 新しい表示（会社ごと）を出すか。全員に公開する前は管理者・デベロッパだけ（整理のため） */
+function mkTreeOn() { return !!(D.makers && D.makers.tree) || adminLike(); }
+/* その人の分野（主のカテゴリ＋ほかの分野） */
+function mkRecCats(r) { return (r.cat ? [r.cat] : []).concat(r.tags || []); }
+function mkReps() { return normMakers(D.makers).reps; }
 /* 担当交代の履歴（前任）。新しい順、MK_HIST_MAX 件まで。Firebase の配列→オブジェクト化対策込み。
    カードの中に持たせるのは、前任を別カードにすると一覧に同じメーカーが何枚も並び、
    急いで電話したいときに今の担当を探しにくくなるため。 */
@@ -18329,7 +18393,11 @@ function renderMakers() {
     var cats = mkCats();
     var cnt = {};
     var all = mkList();
-    all.forEach(function(r){ var k = r.cat || '__none'; cnt[k] = (cnt[k] || 0) + 1; });
+    var tree = mkTreeOn();
+    all.forEach(function(r){
+      if (tree) { var cs = mkRecCats(r); if (!cs.length) cnt.__none = (cnt.__none || 0) + 1; cs.forEach(function(k){ cnt[k] = (cnt[k] || 0) + 1; }); }
+      else { var k = r.cat || '__none'; cnt[k] = (cnt[k] || 0) + 1; }
+    });
     var h = mkCatChipHTML('', 'すべて', all.length, null);
     cats.forEach(function(c){ h += mkCatChipHTML(c.id, c.name, cnt[c.id] || 0, mkCatColor(c.id)); });
     if (cnt.__none) h += mkCatChipHTML('__none', '未分類', cnt.__none, null);
@@ -18380,7 +18448,278 @@ function mkHistHTML(r, open) {
   });
   return h + '</div>';
 }
-function mkCardHTML(r, histOpen) {
+function mkCardHTML(r, histOpen, rep) {
+  var repD = mkTelDigits(rep);
+  var showTel = function(t){ return t && (!repD || mkTelDigits(t) !== repD); }; /* 代表番号と同じ番号は会社の見出しに出しているので出さない */
+  var acts = can('maker')
+    ? ('<div class="mk-acts"><button class="btn btn-g btn-sm" title="担当交代（今の担当を前任として残す）" onclick="openMakerModal(\'' + r.id + '\',true)">👤 交代</button><button class="btn btn-g btn-sm" title="編集（誤字・番号の修正）" onclick="mkEdit(\'' + r.id + '\')">✏️</button><button class="btn btn-d btn-sm" onclick="mkDel(\'' + r.id + '\')">🗑</button></div>')
+    : '';
+  var c = mkCatColor(r.cat);
+  var h = '<div class="mk-card" style="--mk-c:' + c.fg + ';--mk-c-bg:' + c.bg + '">';
+  /* 会社名は会社の見出しに出すので、カードの見出しは担当者名にする */
+  h += '<div class="mk-card-hd"><div class="mk-card-hd-txt"><div class="mk-maker">' + escH(r.person || '（担当者名なし）') + '</div>';
+  /* 分野の印（主のカテゴリ＋ほかの分野） */
+  var cs = mkRecCats(r);
+  if (cs.length) h += '<div class="mk-fields">' + cs.map(function(id){ var cc = mkCatColor(id); return '<span class="mk-field" style="--mk-c:' + cc.fg + ';--mk-c-bg:' + cc.bg + '">' + escH(mkCatName(id)) + '</span>'; }).join('') + '</div>';
+  h += '</div>' + acts + '</div>';
+  if (showTel(r.tel1) || showTel(r.tel2)) {
+    h += '<div class="mk-tel-row">';
+    if (showTel(r.tel1)) h += mkTelBtnHTML(r, 1);
+    if (showTel(r.tel2)) h += mkTelBtnHTML(r, 2);
+    h += '</div>';
+  }
+  if (r.mail) h += '<button id="mk-mail-' + r.id + '" class="mk-mail" onclick="mkCopyMail(\'' + r.id + '\')"><span class="mk-tel-ic" data-ic="✉️">✉️</span><span class="mk-mail-txt">' + escH(r.mail) + '</span></button>';
+  if (r.note) h += '<div class="mk-note">' + escH(r.note) + '</div>';
+  if (r.upd) h += '<div class="mk-upd">更新 ' + escH(r.upd) + (mkIsStale(r.upd) ? ' <span class="mk-stale" title="1年以上更新されていません。番号や担当が変わっていないか確かめてください">⚠ 1年以上前</span>' : '') + '</div>';
+  h += mkHistHTML(r, (r.id in _mkHistOpen) ? !!_mkHistOpen[r.id] : !!histOpen);
+  h += '</div>';
+  return h;
+}
+/* ===== 会社ごとのまとめ（2026-11-09）=====
+   記録は今までどおり1件＝1人。表示のときに「カテゴリ＋会社名」でまとめる（記録は書き換えない＝移行で欠ける心配がない）。
+   代表番号は mkCoRep：手で選んだもの（reps）があればそれ、無ければ「2人以上が共通で持つ固定電話」（携帯は除く）を自動で。
+   担当者の欄には代表番号と同じ番号を出さない（同じ番号が一覧に何度も並ばないように）。 */
+var MK_STALE_DAYS = 365;
+function mkTelDigits(t) { return String(t || '').replace(/[^\d]/g, ''); }
+function mkIsMobile(t) { return /^0[789]0/.test(mkTelDigits(t)); }
+/* 会社は会社名だけで決める（カテゴリをまたいで1つ。2026-11-09 本人判断）。会社名が空の記録は1件で1社 */
+function mkCoKey(r) { return mkNorm(r.maker) ? mkNorm(r.maker) : '#' + r.id; }
+/* cat は互換のために受け取るだけで見ない（以前はカテゴリごとの会社だった） */
+function mkRepOverride(cat, name) {
+  var k = mkNorm(name); if (!k) return null;
+  return mkReps().filter(function(o){ return mkNorm(o.name) === k; })[0] || null;
+}
+/* 似た会社名を見つけるための芯（株式会社・括弧書き・営業／技術などの部署名を外す） */
+function mkCoreName(n) {
+  return mkNorm(String(n || '').replace(/株式会社|（株）|\(株\)|㈱|有限会社|（有）|\(有\)/g, '').replace(/[（(][^）)]*[）)]?/g, '')
+    .replace(/カスタマーセンター|サービスセンター|コールセンター|営業所|支店|営業部?|技術部?|サービス部?|本社/g, ''));
+}
+/* 会社の並び：株式会社などを外した名前の順 */
+function mkCoSortKey(n) { return String(n || '').replace(/株式会社|（株）|\(株\)|㈱|有限会社|（有）|\(有\)/g, '').trim(); }
+/* 自動の候補：2人以上が共通で持つ固定電話のうち一番多いもの（同数なら一覧の先に出てくる方） */
+function mkRepAuto(members) {
+  if (members.length < 2) return '';
+  var cnt = {}, first = {}, order = 0;
+  members.forEach(function(r){
+    var seen = {};
+    [r.tel1, r.tel2].forEach(function(t){
+      var d = mkTelDigits(t); if (!d || mkIsMobile(t) || seen[d]) return;
+      seen[d] = true; cnt[d] = (cnt[d] || 0) + 1; if (!(d in first)) first[d] = { o: order++, t: t };
+    });
+  });
+  var best = '';
+  Object.keys(cnt).forEach(function(d){ if (cnt[d] >= 2 && (!best || cnt[d] > cnt[best] || (cnt[d] === cnt[best] && first[d].o < first[best].o))) best = d; });
+  return best ? first[best].t : '';
+}
+function mkCoRep(cat, name, members) {
+  var o = mkRepOverride(cat, name);
+  return o ? o.tel : mkRepAuto(members);
+}
+/* rows（絞り込み前でも後でも）を会社にまとめる。順番は一覧に最初に出てくる順 */
+function mkGroupCos(rows) {
+  var map = {}, out = [];
+  rows.forEach(function(r){
+    var k = mkCoKey(r);
+    if (!map[k]) { map[k] = { key: k, cat: r.cat || '', name: r.maker || '', members: [] }; out.push(map[k]); }
+    map[k].members.push(r);
+  });
+  /* 会社の色は、いちばん多い分野の色 */
+  out.forEach(function(co){
+    var c = {}; co.members.forEach(function(r){ if (r.cat) c[r.cat] = (c[r.cat] || 0) + 1; });
+    var best = ''; Object.keys(c).forEach(function(k){ if (!best || c[k] > c[best]) best = k; });
+    co.cat = best;
+  });
+  return out;
+}
+/* 会社の全員（絞り込みに関係なく）。代表番号の自動の候補は全員から決める */
+function mkCoAll(key) { return mkGroupCos(mkList()).filter(function(c){ return c.key === key; })[0] || null; }
+function mkIsStale(upd) {
+  if (!upd) return false;
+  var d = new Date(upd + 'T00:00:00'); if (isNaN(d)) return false;
+  return (Date.now() - d.getTime()) > MK_STALE_DAYS * 86400000;
+}
+var _mkCoOpen = {}; /* 会社の開閉 { key:true/false }（非永続）。無ければ：1人の会社と検索中は開く */
+function mkToggleCo(el) {
+  var k = el.getAttribute('data-key'), box = el.closest('.mk-co');
+  _mkCoOpen[k] = !(box && box.classList.contains('open'));
+  renderMakersList();
+}
+function mkCopyCoTel(el) { var t = el.getAttribute('data-tel'); if (t) mkCopyText(t, '代表番号をコピーしました', el); }
+function mkCoHTML(co, rep, open, histHit) {
+  var c = mkCatColor(co.cat), multi = co.members.length > 1;
+  var h = '<div class="mk-co' + (multi ? ' multi' : ' solo') + (open ? ' open' : '') + '" style="--mk-c:' + c.fg + ';--mk-c-bg:' + c.bg + '">';
+  h += '<div class="mk-co-hd">';
+  h += '<button type="button" class="mk-co-tg" data-key="' + escH(co.key) + '" onclick="mkToggleCo(this)"' + (multi ? '' : ' disabled') + '>'
+    + '<span class="mk-co-name">' + escH(co.name || '（メーカー名未設定）') + '</span>'
+    + (multi ? '<span class="mk-co-n">' + co.members.length + '名</span><span class="mk-co-arrow">' + (open ? '▾' : '▸') + '</span>' : '')
+    + '</button>';
+  if (rep) h += '<button type="button" class="mk-tel mk-co-tel" data-tel="' + escH(rep) + '" onclick="mkCopyCoTel(this)" title="代表番号（押すとコピー）"><span class="mk-tel-ic" data-ic="🏢">🏢</span><span class="mk-tel-num">' + escH(rep) + '</span></button>';
+  if (can('maker') && co.name) h += '<button type="button" class="btn btn-g btn-sm mk-co-edit" data-key="' + escH(co.key) + '" onclick="openMkCoModal(this.getAttribute(\'data-key\'))" title="会社名・代表番号を直す">✏️ 会社</button>';
+  h += '</div>';
+  if (open) {
+    h += '<div class="mk-grid mk-co-body">' + co.members.map(function(r){ return mkCardHTML(r, !!histHit[r.id], rep); }).join('') + '</div>';
+  } else {
+    h += '<div class="mk-co-sum">' + co.members.map(function(r){ return escH(r.person || '（担当者名なし）'); }).join('・') + '</div>';
+  }
+  return h + '</div>';
+}
+/* 代表番号の選択肢。'__auto'＝自動（2人以上の共通の固定電話）、'__none'＝なし、'__manual'＝手入力、ほかは番号そのもの */
+function mkRepChoice(co) {
+  var o = mkRepOverride(co.cat, co.name);
+  if (!o) return { v: '__auto', manual: '' };
+  if (!o.tel) return { v: '__none', manual: '' };
+  var hit = mkRepTels(co).filter(function(t){ return mkTelDigits(t) === mkTelDigits(o.tel); })[0];
+  return hit ? { v: hit, manual: '' } : { v: '__manual', manual: o.tel };
+}
+function mkRepTels(co) {
+  var seen = {}, out = [];
+  co.members.forEach(function(r){ [r.tel1, r.tel2].forEach(function(t){ var d = mkTelDigits(t); if (d && !seen[d]) { seen[d] = true; out.push(t); } }); });
+  return out.sort(function(a, b){ return (mkIsMobile(a) ? 1 : 0) - (mkIsMobile(b) ? 1 : 0); }); /* 固定電話を先に */
+}
+function mkRepSelectHTML(co, attrs) {
+  var ch = mkRepChoice(co), auto = mkRepAuto(co.members);
+  var o = '<option value="__auto"' + (ch.v === '__auto' ? ' selected' : '') + '>自動（' + escH(auto || '候補なし') + '）</option>';
+  mkRepTels(co).forEach(function(t){ o += '<option value="' + escH(t) + '"' + (ch.v === t ? ' selected' : '') + '>' + escH(t) + (mkIsMobile(t) ? '（携帯）' : '') + '</option>'; });
+  o += '<option value="__none"' + (ch.v === '__none' ? ' selected' : '') + '>代表番号なし</option>';
+  o += '<option value="__manual"' + (ch.v === '__manual' ? ' selected' : '') + '>手入力…</option>';
+  return '<select class="ds2 mk-rep-sel" style="margin:0;max-width:100%"' + (attrs || '') + ' onchange="var m=this.parentNode.querySelector(\'.mk-rep-man\');if(m)m.style.display=this.value===\'__manual\'?\'\':\'none\'">' + o + '</select>'
+    + '<input type="text" class="fi mk-rep-man" placeholder="代表番号" value="' + escH(ch.manual) + '" style="margin-top:4px;width:100%;box-sizing:border-box' + (ch.v === '__manual' ? '' : ';display:none') + '">';
+}
+/* 選択欄の値から {tel} を作る。null＝自動（選び直しを持たない） */
+function mkRepFromSel(wrap) {
+  var sel = wrap.querySelector('.mk-rep-sel'); if (!sel) return null;
+  var v = sel.value;
+  if (v === '__auto') return null;
+  if (v === '__none') return { tel: '' };
+  if (v === '__manual') { var m = wrap.querySelector('.mk-rep-man'); var t = m ? m.value.trim() : ''; return t ? { tel: t } : null; }
+  return { tel: v };
+}
+/* 会社1社の会社名・代表番号（会社の見出しの 🏢✏️） */
+function openMkCoModal(key) {
+  if (!can('maker')) return;
+  var co = mkCoAll(key); if (!co || !co.name) return;
+  var oldOv = document.getElementById('mk-co-ov'); if (oldOv) oldOv.remove();
+  var ov = document.createElement('div'); ov.id = 'mk-co-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px';
+  md.innerHTML = '<h3>🏢 会社名・代表番号</h3>'
+    + '<div style="font-size:11.5px;color:var(--txt3);margin-bottom:8px">担当者 ' + co.members.length + '名</div>'
+    + '<div class="md-flbl">会社名（担当者 ' + co.members.length + '名の会社名をまとめて変えます）</div>'
+    + '<input type="text" id="mk-co-name" class="fi" style="width:100%;box-sizing:border-box" value="' + escH(co.name) + '">'
+    + '<div class="md-flbl" style="margin-top:10px">代表番号</div><div id="mk-co-rep">' + mkRepSelectHTML(co) + '</div>'
+    + '<div style="font-size:11px;color:var(--txt3);margin-top:6px;line-height:1.6">自動は、2人以上が共通で持つ固定電話を代表番号にします（携帯は除く）。代表番号と同じ番号は担当者の欄に出しません。</div>'
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'mk-co-ov\').remove()">キャンセル</button><button class="btn btn-p" id="mk-co-save">保存</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('mk-co-save').onclick = function(){
+    var newName = document.getElementById('mk-co-name').value.trim();
+    if (!newName) { toast('会社名を入力してください', 'warn'); return; }
+    var choice = mkRepFromSel(document.getElementById('mk-co-rep'));
+    var cur = mkCoAll(key); if (!cur) { toast('会社が見つかりません（他の人が変えた可能性があります）', 'warn'); return; }
+    var renamed = mkNorm(newName) !== mkNorm(cur.name);
+    if (renamed && mkGroupCos(mkList()).some(function(c){ return mkNorm(c.name) === mkNorm(newName); })
+      && !confirm('「' + newName + '」はすでにあります。1つの会社にまとまりますが、よろしいですか？')) return;
+    var ids = {}; cur.members.forEach(function(r){ ids[r.id] = true; });
+    var list = mkList();
+    list.forEach(function(r){ if (ids[r.id]) r.maker = newName; });
+    var reps = mkReps().filter(function(o){ return !(mkNorm(o.name) === mkNorm(cur.name) || mkNorm(o.name) === mkNorm(newName)); });
+    if (choice) reps.push({ cat: '', name: newName, tel: choice.tel });
+    mkPut(mkCats(), list, reps);
+    saveD();
+    writeLog('メーカー連絡先を編集', '会社 ' + (renamed ? cur.name + ' → ' : '') + newName + '（代表番号 ' + (choice ? (choice.tel || 'なし') : '自動') + '）');
+    ov.remove(); renderMakers(); toast('保存しました', 'ok');
+  };
+}
+/* 代表番号の確認一覧（ヘッダーの 🏢 代表番号）。担当者が2人以上の会社と、手で選んだ会社を並べ、まとめて保存する */
+function openMkRepListModal() {
+  if (!can('maker')) return;
+  var cos = mkGroupCos(mkList()).filter(function(c){ return c.name && (c.members.length > 1 || mkRepOverride(c.cat, c.name)); });
+  var oldOv = document.getElementById('mk-rep-ov'); if (oldOv) oldOv.remove();
+  var ov = document.createElement('div'); ov.id = 'mk-rep-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '560px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
+  var rows = '';
+  cos.sort(function(a, b){ return mkCoSortKey(a.name).localeCompare(mkCoSortKey(b.name), 'ja'); }).forEach(function(co){
+    rows += '<div class="mk-rep-row" data-key="' + escH(co.key) + '"><div class="mk-rep-co"><b>' + escH(co.name) + '</b> <span>' + co.members.length + '名</span></div><div class="mk-rep-pick">' + mkRepSelectHTML(co) + '</div></div>';
+  });
+  md.innerHTML = '<h3>🏢 代表番号の確認</h3>'
+    + '<div style="font-size:11.5px;color:var(--txt2);line-height:1.7;margin-bottom:8px">担当者が2人以上の会社の代表番号です。「自動」は、2人以上が共通で持つ固定電話（携帯は除く）です。違っていれば選び直してください。代表番号と同じ番号は担当者の欄に出なくなります。</div>'
+    + (rows || '<div class="pool-empty" style="padding:14px 0">担当者が2人以上の会社はありません</div>')
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--sur);padding-top:8px"><button class="btn btn-g" onclick="document.getElementById(\'mk-rep-ov\').remove()">キャンセル</button><button class="btn btn-p" id="mk-rep-save">保存</button></div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('mk-rep-save').onclick = function(){
+    var all = mkGroupCos(mkList()), reps = mkReps(), changed = 0;
+    md.querySelectorAll('.mk-rep-row').forEach(function(row){
+      var co = all.filter(function(c){ return c.key === row.getAttribute('data-key'); })[0]; if (!co) return;
+      var before = mkRepOverride(co.cat, co.name), choice = mkRepFromSel(row);
+      reps = reps.filter(function(o){ return mkNorm(o.name) !== mkNorm(co.name); });
+      if (choice) reps.push({ cat: '', name: co.name, tel: choice.tel });
+      if (JSON.stringify(before ? before.tel : null) !== JSON.stringify(choice ? choice.tel : null)) changed++;
+    });
+    mkPut(mkCats(), mkList(), reps);
+    saveD();
+    writeLog('メーカー連絡先を編集', '代表番号の確認（変更 ' + changed + '社）');
+    ov.remove(); renderMakers(); toast('代表番号を保存しました' + (changed ? '（' + changed + '社を変更）' : ''), 'ok');
+  };
+}
+function renderMakersList() { if (mkTreeOn()) renderMakersListTree(); else renderMakersListFlat(); mkTreeBanner(); }
+function renderMakersListTree() {
+  var box = document.getElementById('mk-list');
+  if (!box) return;
+  var all = mkList();
+  var q = mkNorm(_mkFilter.q);
+  var histHit = {}; /* 前任だけに一致したカードは、前任一覧を開いた状態で出す */
+  /* 分野（カテゴリ）で絞るときは、主のカテゴリかほかの分野にその分野がある担当者だけ */
+  var inCat = function(r){
+    if (!_mkFilter.cat) return true;
+    if (_mkFilter.cat === '__none') return !mkRecCats(r).length;
+    return mkRecCats(r).indexOf(_mkFilter.cat) !== -1;
+  };
+  var memberHit = function(r){
+    var hay = mkNorm(r.maker) + ' ' + mkNorm(r.person) + ' ' + mkNorm(r.note) + ' ' + mkNorm(r.tel1) + ' ' + mkNorm(r.tel2) + ' ' + mkNorm(r.mail);
+    if (hay.indexOf(q) !== -1) return true;
+    var hh = (r.hist || []).map(function(x){ return mkNorm(x.person) + ' ' + mkNorm(x.tel1) + ' ' + mkNorm(x.tel2); }).join(' ');
+    if (hh.indexOf(q) !== -1) { histHit[r.id] = true; return true; }
+    return false;
+  };
+  /* 会社ごとにまとめてから絞る：会社名か代表番号に当たれば全員、そうでなければ当たった人だけ */
+  var cos = [], shownN = 0;
+  mkGroupCos(all.filter(inCat)).forEach(function(co){
+    var rep = mkCoRep(co.cat, co.name, co.members);
+    var members = co.members;
+    if (q) {
+      var coHit = mkNorm(co.name).indexOf(q) !== -1 || (rep && mkNorm(rep).indexOf(q) !== -1);
+      if (!coHit) members = members.filter(memberHit);
+    }
+    if (!members.length) return;
+    shownN += members.length;
+    cos.push({ co: { key: co.key, cat: co.cat, name: co.name, members: members }, rep: rep });
+  });
+
+  var cntEl = document.getElementById('mk-count');
+  if (cntEl) cntEl.textContent = all.length + '件中 ' + shownN + '件を表示（' + cos.length + '社）';
+  var qClearBtn = document.getElementById('mk-q-clear');
+  if (qClearBtn) qClearBtn.style.display = _mkFilter.q ? '' : 'none';
+
+  if (!cos.length) {
+    box.innerHTML = !all.length
+      ? '<div class="mk-empty"><span class="mk-empty-ic">📇</span>まだ連絡先が登録されていません<br><span style="font-size:11.5px">「＋ 追加」で入力するか、「📥 Excel取込」で一括登録できます</span></div>'
+      : '<div class="mk-empty"><span class="mk-empty-ic">🔍</span>条件に一致する連絡先がありません<br><button class="btn btn-g btn-sm" style="margin-top:10px" onclick="mkResetAll()">条件をクリア</button></div>';
+    return;
+  }
+
+  /* 会社の名前順に並べる（カテゴリの見出しは出さない。分野は担当者の印とチップで見る） */
+  cos.sort(function(a, b){ return mkCoSortKey(a.co.name).localeCompare(mkCoSortKey(b.co.name), 'ja'); });
+  var h = '<div class="mk-colist">' + cos.map(function(x){
+    var k = x.co.key;
+    var open = x.co.members.length === 1 || (k in _mkCoOpen ? !!_mkCoOpen[k] : !!q);
+    return mkCoHTML(x.co, x.rep, open, histHit);
+  }).join('') + '</div>';
+  box.innerHTML = h;
+}
+/* ===== 今までの一覧（会社にまとめない）=====
+   新しい表示を全員に公開する（D.makers.tree）までは、一般職員にはこちらを出す（2026-11-09 本人判断）。
+   中身は作り替える前のまま。公開して落ち着いたら消してよい。 */
+function mkCardHTMLFlat(r, histOpen) {
   var acts = can('maker')
     ? ('<div class="mk-acts"><button class="btn btn-g btn-sm" title="担当交代（今の担当を前任として残す）" onclick="openMakerModal(\'' + r.id + '\',true)">👤 交代</button><button class="btn btn-g btn-sm" title="編集（誤字・番号の修正）" onclick="mkEdit(\'' + r.id + '\')">✏️</button><button class="btn btn-d btn-sm" onclick="mkDel(\'' + r.id + '\')">🗑</button></div>')
     : '';
@@ -18402,7 +18741,7 @@ function mkCardHTML(r, histOpen) {
   h += '</div>';
   return h;
 }
-function renderMakersList() {
+function renderMakersListFlat() {
   var box = document.getElementById('mk-list');
   if (!box) return;
   var all = mkList();
@@ -18444,7 +18783,7 @@ function renderMakersList() {
     else noneGroup.push(r);
   });
 
-  var card = function(r){ return mkCardHTML(r, !!histHit[r.id]); };
+  var card = function(r){ return mkCardHTMLFlat(r, !!histHit[r.id]); };
   var h = '';
   cats.forEach(function(c){
     var list = groups[c.id];
@@ -18458,6 +18797,133 @@ function renderMakersList() {
     h += '<div class="mk-grid">' + noneGroup.map(card).join('') + '</div>';
   }
   box.innerHTML = h;
+}
+
+/* 新しい表示の公開状態。全員に公開する前は、管理者にだけ「管理者だけに出ています」と公開ボタンを出す */
+function mkTreeBanner() {
+  var el = document.getElementById('mk-tree-bar'); if (!el) return;
+  if (!adminLike()) { el.innerHTML = ''; return; }
+  var on = !!(D.makers && D.makers.tree);
+  el.innerHTML = on
+    ? '<div class="mk-tree-bar on">🏢 会社ごとの表示を全員に公開しています <button class="btn btn-g btn-sm" onclick="mkSetTree(false)">管理者だけに戻す</button></div>'
+    : '<div class="mk-tree-bar">🧪 会社ごとの表示は<b>管理者だけ</b>に出ています（一般職員は今までの一覧）。「🧹 整理」で似た会社名や同じ記録をまとめ、済んだら公開してください。'
+      + ' <button class="btn btn-g btn-sm" onclick="openMkTidyModal()">🧹 整理</button> <button class="btn btn-p btn-sm" onclick="mkSetTree(true)">全員に公開する</button></div>';
+}
+function mkSetTree(on) {
+  if (!adminLike()) return;
+  if (on && !confirm('会社ごとの表示を全員に公開します。よろしいですか？\n（あとから「管理者だけに戻す」で戻せます）')) return;
+  D.makers = normMakers(D.makers); D.makers.tree = !!on;
+  saveD(); renderMakers();
+  writeLog('メーカー連絡先', on ? '会社ごとの表示を全員に公開' : '会社ごとの表示を管理者だけに戻す');
+  toast(on ? '全員に公開しました' : '管理者だけに戻しました', 'ok');
+}
+/* ===== 整理の道具（管理者）：似た会社名をまとめる・まったく同じ記録を1つにする ===== */
+function mkTidyGroups() {
+  var cos = mkGroupCos(mkList()).filter(function(c){ return c.name; });
+  var byCore = {};
+  cos.forEach(function(c){ var k = mkCoreName(c.name); if (k) (byCore[k] = byCore[k] || []).push(c); });
+  var similar = Object.keys(byCore).filter(function(k){ return byCore[k].length > 1; }).map(function(k){
+    return byCore[k].sort(function(a, b){ return b.members.length - a.members.length || a.name.length - b.name.length; });
+  });
+  var byRec = {};
+  mkList().forEach(function(r){
+    var k = mkNorm(r.maker) + '|' + mkNorm(r.person) + '|' + [mkTelDigits(r.tel1), mkTelDigits(r.tel2)].filter(Boolean).sort().join(',');
+    if (!mkNorm(r.person) && !mkTelDigits(r.tel1) && !mkTelDigits(r.tel2)) return;
+    (byRec[k] = byRec[k] || []).push(r);
+  });
+  var dups = Object.keys(byRec).filter(function(k){ return byRec[k].length > 1; }).map(function(k){ return byRec[k]; });
+  return { similar: similar, dups: dups };
+}
+var _mkTidySnap = false; /* 整理の小窓で最初に何かするとき、1回だけ端末内の控えを取る */
+function mkTidySnapOnce() { if (!_mkTidySnap) { _mkTidySnap = true; autoSaveSnapshot('メーカー連絡先の整理前'); } }
+function openMkTidyModal() {
+  if (!adminLike()) return;
+  _mkTidySnap = false;
+  var old = document.getElementById('mk-tidy-ov'); if (old) old.remove();
+  var ov = document.createElement('div'); ov.id = 'mk-tidy-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  ov.innerHTML = '<div class="md" style="max-width:600px;max-height:calc(85vh / var(--ui-zoom,1));overflow-y:auto"><div id="mk-tidy-md"></div></div>';
+  document.body.appendChild(ov);
+  renderMkTidy();
+}
+function renderMkTidy() {
+  var box = document.getElementById('mk-tidy-md'); if (!box) return;
+  var g = mkTidyGroups();
+  var h = '<h3>🧹 メーカー連絡先の整理</h3>';
+  h += '<div class="mk-tidy-sec">似た会社名 <span>' + g.similar.length + '組</span></div>';
+  if (!g.similar.length) h += '<div class="pool-empty" style="padding:8px 0">ありません</div>';
+  else h += '<div style="font-size:11.5px;color:var(--txt2);line-height:1.6;margin-bottom:6px">残す会社名を選んで「まとめる」を押すと1社になります。「営業」「技術」などの部署名は、その担当者の備考の頭に【営業】のように残します。</div>';
+  g.similar.forEach(function(grp, gi){
+    h += '<div class="mk-tidy-grp" data-gi="' + gi + '">';
+    grp.forEach(function(c, i){
+      h += '<label class="mk-tidy-opt"><input type="radio" name="mk-tidy-' + gi + '" value="' + escH(c.key) + '"' + (i === 0 ? ' checked' : '') + '> <b>' + escH(c.name) + '</b> <span>' + c.members.length + '名：' + c.members.map(function(r){ return escH(r.person || '（担当者名なし）'); }).join('・') + '</span></label>';
+    });
+    h += '<button class="btn btn-p btn-sm" onclick="mkTidyMerge(' + gi + ')">選んだ名前にまとめる</button></div>';
+  });
+  h += '<div class="mk-tidy-sec">まったく同じ記録 <span>' + g.dups.length + '組</span></div>';
+  if (!g.dups.length) h += '<div class="pool-empty" style="padding:8px 0">ありません</div>';
+  else h += '<div style="font-size:11.5px;color:var(--txt2);line-height:1.6;margin-bottom:6px">会社・担当者・電話が同じ記録です。「1つにする」を押すと、更新日の新しい方を残し、分野は両方を受け持つ形にします（備考・メール・前任も引き継ぎます）。</div>';
+  g.dups.forEach(function(grp, di){
+    h += '<div class="mk-tidy-grp"><div style="font-size:13px"><b>' + escH(grp[0].maker || '（会社名なし）') + '</b> ' + escH(grp[0].person || '（担当者名なし）') + '　' + escH([grp[0].tel1, grp[0].tel2].filter(Boolean).join(' / ')) + '</div>'
+      + '<div style="font-size:11px;color:var(--txt3);margin:2px 0 6px">' + grp.map(function(r){ return escH(mkCatName(r.cat)) + (r.upd ? '（更新 ' + escH(r.upd) + '）' : ''); }).join('・') + '</div>'
+      + '<button class="btn btn-p btn-sm" data-ids="' + escH(grp.map(function(r){ return r.id; }).join(',')) + '" onclick="mkTidyDedup(this.getAttribute(\'data-ids\'))">1つにする</button></div>';
+  });
+  h += '<div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="btn btn-g" onclick="document.getElementById(\'mk-tidy-ov\').remove()">閉じる</button></div>';
+  box.innerHTML = h;
+}
+function mkTidyMerge(gi) {
+  if (!adminLike()) return;
+  var grpEl = document.querySelector('#mk-tidy-md .mk-tidy-grp[data-gi="' + gi + '"]'); if (!grpEl) return;
+  var keep = (grpEl.querySelector('input[type=radio]:checked') || {}).value; if (!keep) return;
+  var grp = mkTidyGroups().similar[gi]; if (!grp) return;
+  var target = grp.filter(function(c){ return c.key === keep; })[0]; if (!target) return;
+  var others = grp.filter(function(c){ return c.key !== keep; });
+  if (!confirm(others.map(function(c){ return '「' + c.name + '」'; }).join('、') + ' を「' + target.name + '」にまとめます。よろしいですか？')) return;
+  mkTidySnapOnce();
+  var list = mkList(), moved = 0;
+  others.forEach(function(c){
+    /* 部署名など、残す名前との違いを備考の頭に残す（「日本光電（営業）」→【営業】） */
+    var label = c.name.indexOf(target.name) === 0 ? c.name.slice(target.name.length) : c.name;
+    label = label.replace(/^[\s　]+|[\s　]+$/g, '').replace(/^[（(]|[）)]$/g, '').trim();
+    var ids = {}; c.members.forEach(function(r){ ids[r.id] = true; });
+    list.forEach(function(r){
+      if (!ids[r.id]) return;
+      r.maker = target.name; moved++;
+      if (label && (r.note || '').indexOf('【' + label + '】') === -1) r.note = '【' + label + '】' + (r.note ? ' ' + r.note : '');
+    });
+  });
+  var reps = mkReps().filter(function(o){ return !others.some(function(c){ return mkNorm(o.name) === mkNorm(c.name); }); });
+  mkPut(mkCats(), list, reps);
+  saveD();
+  writeLog('メーカー連絡先の整理', others.map(function(c){ return c.name; }).join('・') + ' → ' + target.name + '（' + moved + '名）');
+  renderMakers(); renderMkTidy();
+  toast(moved + '名を「' + target.name + '」にまとめました', 'ok');
+}
+function mkTidyDedup(idsStr) {
+  if (!adminLike()) return;
+  var ids = String(idsStr || '').split(',');
+  var list = mkList();
+  var grp = list.filter(function(r){ return ids.indexOf(r.id) !== -1; });
+  if (grp.length < 2) return;
+  if (!confirm('同じ記録 ' + grp.length + '件を1つにします。よろしいですか？')) return;
+  mkTidySnapOnce();
+  /* 更新日（無ければ保存時刻）の新しい方を残す */
+  grp.sort(function(a, b){ return (b.upd || '').localeCompare(a.upd || '') || (b.ts || 0) - (a.ts || 0); });
+  var keep = grp[0];
+  grp.slice(1).forEach(function(r){
+    mkRecCats(r).forEach(function(c){ if (c !== keep.cat && keep.tags.indexOf(c) === -1) keep.tags.push(c); });
+    if (!keep.cat && r.cat) { keep.cat = r.cat; keep.tags = keep.tags.filter(function(t){ return t !== r.cat; }); }
+    if (!keep.mail && r.mail) keep.mail = r.mail;
+    if (r.note && (keep.note || '').indexOf(r.note) === -1) keep.note = keep.note ? keep.note + '\n' + r.note : r.note;
+    keep.hist = mkHistNorm((keep.hist || []).concat(r.hist || []));
+  });
+  var drop = {}; grp.slice(1).forEach(function(r){ drop[r.id] = true; });
+  list = list.filter(function(r){ return !drop[r.id]; });
+  mkPut(mkCats(), list);
+  saveD();
+  writeLog('メーカー連絡先の整理', '同じ記録を1つに：' + (keep.maker || '') + ' ' + (keep.person || '') + '（' + grp.length + '件→1件）');
+  renderMakers(); renderMkTidy();
+  toast('1つにまとめました（分野：' + mkRecCats(keep).map(mkCatName).join('・') + '）', 'ok');
 }
 function mkClearSearch() {
   _mkFilter.q = '';
@@ -18479,7 +18945,7 @@ function mkDel(id) {
   var idx = list.map(function(x){return x.id;}).indexOf(id);
   if (idx === -1) return;
   list.splice(idx, 1);
-  D.makers = { cats: mkCats(), list: list };
+  mkPut(mkCats(), list);
   renderMakersList();
   saveD();
   writeLog('メーカー連絡先を削除', r.maker || '（メーカー名未設定）');
@@ -18492,7 +18958,7 @@ function mkDelHist(id, i) {
   if (!rec || !rec.hist[i]) return;
   if (!confirm('前任「' + (rec.hist[i].person || '（担当者名なし）') + '」の履歴を消しますか？')) return;
   rec.hist.splice(i, 1);
-  D.makers = { cats: mkCats(), list: list };
+  mkPut(mkCats(), list);
   renderMakersList();
   saveD();
   writeLog('メーカー担当者の履歴を削除', rec.maker || '（メーカー名未設定）');
@@ -18522,10 +18988,16 @@ function openMakerModal(id, handover) {
   }
   md.innerHTML = '<h3>' + (handover ? '👤 担当交代' : (r ? '✎ メーカー連絡先を編集' : '＋ メーカー連絡先を追加')) + '</h3>'
     + prev
-    + '<div class="md-flbl">カテゴリ</div>'
+    + '<div class="md-flbl">カテゴリ（主な分野）</div>'
     + '<select id="mk-md-cat" class="ds2" style="width:100%;box-sizing:border-box">' + catOpts + '</select>'
+    /* ほかの分野（会社ごとの表示で、その分野のチップで絞ったときにも出る）。会社ごとの表示を使う人にだけ出す */
+    + (mkTreeOn() && mkCats().length > 1 ? '<div class="md-flbl" style="margin-top:8px">ほかの分野（この担当者が受け持つ分野）</div><div id="mk-md-tags" class="mk-md-tags">'
+        + mkCats().map(function(c){ return '<label><input type="checkbox" value="' + escH(c.id) + '"' + (r && (r.tags || []).indexOf(c.id) !== -1 ? ' checked' : '') + '> ' + escH(c.name) + '</label>'; }).join('') + '</div>' : '')
     + '<div class="md-frow">'
-    + '<div class="md-fcol"><div class="md-flbl">メーカー</div><input type="text" id="mk-md-maker" class="fi" style="width:100%;box-sizing:border-box" value="' + v('maker') + '"></div>'
+    + '<div class="md-fcol"><div class="md-flbl">会社</div><input type="text" id="mk-md-maker" class="fi" list="mk-md-colist" style="width:100%;box-sizing:border-box" value="' + v('maker') + '">'
+    /* 既存の会社名を候補に出す。同じ会社名で入れると同じ会社にまとまる（打ち間違えると別の会社になる） */
+    + '<datalist id="mk-md-colist">' + mkGroupCos(mkList()).filter(function(c){ return c.name; }).map(function(c){ return c.name; })
+        .filter(function(n, i, a){ return a.indexOf(n) === i; }).map(function(n){ return '<option value="' + escH(n) + '">'; }).join('') + '</datalist></div>'
     + '<div class="md-fcol"><div class="md-flbl">担当者</div><input type="text" id="mk-md-person" class="fi" style="width:100%;box-sizing:border-box" value="' + v('person') + '"></div>'
     + '</div>'
     + '<div class="md-frow">'
@@ -18556,6 +19028,8 @@ function saveMakerFromModal(id, handover) {
   var person = document.getElementById('mk-md-person').value.trim();
   if (!maker && !person) { toast('メーカー名か担当者名のどちらかを入力してください', 'warn'); return; }
   var cat  = document.getElementById('mk-md-cat').value || '';
+  var tagBox = document.getElementById('mk-md-tags');
+  var tags = tagBox ? [].map.call(tagBox.querySelectorAll('input:checked'), function(x){ return x.value; }).filter(function(t){ return t !== cat; }) : null; /* null＝小窓に出していない＝今のまま */
   var tel1 = document.getElementById('mk-md-tel1').value.trim();
   var tel2 = document.getElementById('mk-md-tel2').value.trim();
   var mail = document.getElementById('mk-md-mail').value.trim();
@@ -18574,10 +19048,11 @@ function saveMakerFromModal(id, handover) {
       list.push(rec);
     }
     rec.cat = cat; rec.maker = maker; rec.person = person;
+    if (tags) rec.tags = tags; else if (rec.tags) rec.tags = rec.tags.filter(function(t){ return t !== cat; });
     rec.tel1 = tel1; rec.tel2 = tel2; rec.mail = mail; rec.note = note; rec.upd = upd;
     rec.ts = Date.now();
     rec.by = by;
-    D.makers = { cats: mkCats(), list: list };
+    mkPut(mkCats(), list);
     renderMakersList();
     saveD();
     writeLog(handover ? 'メーカー担当者を交代' : 'メーカー連絡先を編集', (maker || '（メーカー名未設定）') + '（' + mkCatName(cat) + '）');
@@ -18596,7 +19071,7 @@ function saveMakerFromModal(id, handover) {
 function openMakerCatModal() {
   if (!can('maker')) return;
   var oldOv = document.getElementById('mk-cat-md-ov'); if (oldOv) oldOv.remove();
-  D.makers = { cats: mkCats(), list: mkList() }; /* 疎配列/欠損フィールドを正規化した実体をD側に確定させる */
+  mkPut(mkCats(), mkList()); /* 疎配列/欠損フィールドを正規化した実体をD側に確定させる */
   var ov = document.createElement('div'); ov.id = 'mk-cat-md-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) mkCatModalClose(); };
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
@@ -18650,6 +19125,8 @@ function mkCatDel(i) {
   if (n > 0 && !confirm('このカテゴリには' + n + '件登録されています。削除すると' + n + '件は「未分類」に移動します。よろしいですか？')) return;
   if (n > 0) {
     D.makers.list.forEach(function(r){ if (r.cat === c.id) r.cat = ''; });
+    (D.makers.reps || []).forEach(function(o){ if (o.cat === c.id) o.cat = ''; }); /* 代表番号の選び直しも一緒に未分類へ */
+    D.makers.list.forEach(function(r){ if (Array.isArray(r.tags)) r.tags = r.tags.filter(function(t){ return t !== c.id; }); }); /* ほかの分野からも外す */
   }
   cats.splice(i, 1);
   mkCatRowsRender();
@@ -19033,7 +19510,11 @@ function doSaveMkImp() {
         var rec = buildRecord(catId, r);
         /* 全入れ替えでも、前任の履歴は引き継ぐ（同じ担当なら履歴をそのまま、交代なら前の担当を前任に） */
         var same = oldList.filter(function(x){ return pKey(x) === pKey(r); })[0];
-        if (same) rec.hist = same.hist;
+        if (same) {
+          rec.hist = same.hist;
+          /* ほかの分野もカテゴリ名で付け替えて引き継ぐ（カテゴリの id は作り直されるため）。付け替えは全部の行を作った後（mkImpRemapTags） */
+          if (same.tags && same.tags.length) rec._oldTags = same.tags.slice();
+        }
         else {
           var prev = mkImpHandoverTarget(oldList, r);
           if (prev) {
@@ -19079,7 +19560,21 @@ function doSaveMkImp() {
     });
   }
 
-  D.makers = { cats: newCats, list: newList };
+  /* 代表番号の選び直しは「カテゴリ＋会社名」で持つ。全入れ替えはカテゴリの id が作り直されるので、カテゴリ名で付け替える */
+  var oldCatName = {}; mkCats().forEach(function(c){ oldCatName[c.id] = c.name; });
+  newList.forEach(function(rec){
+    if (!rec._oldTags) return;
+    rec.tags = rec._oldTags.map(function(t){ var nc = newCats.filter(function(c){ return c.name === oldCatName[t]; })[0]; return nc ? nc.id : ''; })
+      .filter(function(t, i, a){ return t && t !== rec.cat && a.indexOf(t) === i; });
+    delete rec._oldTags;
+  });
+  var newReps = mkReps().map(function(o){
+    if (!o.cat) return o;
+    if (newCats.some(function(c){ return c.id === o.cat; })) return o;
+    var nc = newCats.filter(function(c){ return c.name === oldCatName[o.cat]; })[0];
+    return nc ? { cat: nc.id, name: o.name, tel: o.tel } : null;
+  }).filter(Boolean);
+  mkPut(newCats, newList, newReps);
   saveD();
   var modeLabel = { replace:'全入れ替え', append:'追記', update:'更新' }[mode] || mode;
   writeLog('メーカー連絡先を取り込み', modeLabel + ' ' + totalRows + '件 / ' + parsed.groups.length + 'カテゴリ' + (handN ? '（担当交代 ' + handN + '件）' : ''));
