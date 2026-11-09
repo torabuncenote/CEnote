@@ -84,6 +84,8 @@ var D = {
   eduItems: { ward:[], device:[], hd:[] }, // 教育到達度6分類のうち病棟外回り/機器管理/透析の細目マスタ（新設・空スタート）
   hdShiftTimes: {}, // HD遅出の勤務時間 { '遅1':{s:'11:00',e:'19:45'}, … }。読み出しは hdShiftTime(code)（無ければ HD_SHIFT_TIME_DEF）
   evtRanges: [],    // 期間イベント [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]。1日ずつの events / D.evts とは別に持ち、表示のときだけ合わせる（evtRangesOn(ds)）
+  hnEduItems: [],   // 本院ヘルプへの分院ルールの説明項目 [{id:'he_…', t:'項目'}]（教育担当・管理者が編集）
+  hnEdu: {},        // その記録 { ヘルプの氏名: { 項目id: {by, ts} } }。キーがある＝説明済み。詳細は「本院ヘルプへの分院ルールの説明」節
   opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
   _migVer: 6        // data migration version flag (increment when running one-time migrations)
 };
@@ -136,6 +138,7 @@ Firebase RTDB はキーに `. # $ [ ] /` を使えず、含まれると `set()` 
 | `addEvtPrompt()` | イベント名 | `dat.evtKinds`（HD主観のみキーになる） |
 | `addWdDept()` / `addHdTreat()` / `addEduItem()` と改名（`confirmEditModal` の `type:'eduItem'`/`'hdTreat'`） | 部署名・治療名・教育項目 | `dat.subChecks[sid]` ほか |
 | `eduKey(catId, dept, cat, name)` | 到達度の項目キー | `D.eduProgress[氏名]` |
+| `hnEduSet(name, id, on)`（ヘルプの氏名は入口の `addHelpStaffFromModal`・`parseShiftSheet` で正規化済み） | ヘルプの氏名 | `D.hnEdu[氏名]` |
 
 **`D` に入る値が新しくオブジェクトのキーになるときは、必ずこの表に足して入り口で正規化すること。** 保存前のサニタイズ（`sanitizeManualKeys` / `sanitizeEduProgressKeys`）は既存データの後始末であって、キーと値の対応が崩れる（`D.stf` の氏名は元のまま、`D.stfLinks` のキーだけ変わる等）ので、新規の防御には使わない。
 
@@ -1086,6 +1089,15 @@ D.eduItems = { ward:[], device:[], hd:[] } // 病棟外回り/機器管理/透�
 - **スキルマップ（`renderPerfMapHTML`）は分類チップを常設**（総括／OPE／カテ／病棟外回り／機器管理／透析／特殊治療、`_perfMapCol`：`null`=総括、それ以外は分類id）。**列見出しクリックという隠し導線は廃止した**。総括は6分類の**習熟率（％）**で、マスを押すとその分類の細目マップへ移る。細目マップはマスタ全件を列にし、セルは「段階名の頭文字＋経験件数」（例`単 3`）——経験があるのに未評価の項目を見分けられるようにするため。**細目のマスを押すと段階ポップアップ**（`openEduLvPicker`、`canEdu()` のみ）で、その場で付けられる。経験件数は`eduMapCountSrc(catId)`が全期間`eduStats`の**`byKey`**から引く（OPE/カテ/特殊治療のみ算出でき、ward/device/hdは常に頭文字のみ）。**`byName`から引いてはいけない**——`byName`は術式名だけの集計なので、腹腔鏡下とロボット支援下の「低位前方切除術」に同じ合算値が出てしまう。`byName`は実績ブロックの「トップN内訳」用に別途残してある（あちらは読みやすさ優先で同名を合算してよい）。
 - CE/HDの双子関数を増やさない方針を踏襲し、`renderPerf`/`eduStats` 等は**1つだけ**（`_viewMode` で分岐しない）——実績は「どちらの目で見るか」に依らない事実のため、CE公平性/HD公平性のような分割はしない。
 - サブタブ `perf` を担当表タブに追加した際、印刷CSS（`body[data-print-sub="perf"] #subpane-perf{display:block!important}`）と `printSubTab()`/`exportSubCsv()`/`asPrevM`/`asNextM` への配線を通常どおり全て行った。**サブタブの行（`.asub`）は3ボタンまでは290px幅のサイドバーに収まっていたが、4つ目（🎓実績）を足すと `.sb{overflow:hidden}` で見切れることが実際に発覚した**——`.asub{flex-wrap:wrap}` を追加して2行に折り返すようにした。新しいサブタブ・ボタンをこの行に足すときは、290px幅で見切れないか必ず確認すること。
+
+### 本院ヘルプへの分院ルールの説明（`D.hnEduItems` / `D.hnEdu`）
+
+本院から分院へヘルプに来た人（配置盤の `base:'help'`）に、分院の決まりをどこまで説明したかを残す（2026-11-09 本人合意：対象はヘルプで来た人だけ・「説明した／まだ」の2段・付けるのは職員なら誰でも・名札から開く・項目は空スタート）。
+- 項目は `hnEduItems()`（`[{id, t}]`）。編集は教育項目マスタの1区画（`#hn-edu-block`、`renderHnEduItemList`／`addHnEduItem`／`rmHnEduItem`／`mvHnEduItem`／`editHnEduItem`→`confirmEditModal` の `type:'hnEduItem'`）で、権限は `eduItemMasterOk()`。**記録は項目の id で持つ**ので、文言を変えても・並べ替えても記録は残る。項目を外しても記録は消さない（出なくなるだけ）。文言は `hnEduTextOk`（`phiHasBlock` だけ止める＝使用物品と同じ判断）。
+- 記録は `D.hnEdu[氏名][項目id] = {by, ts}`。読み出しは `hnEduRec(name)`／`hnEduStatus(name)`、書き込みは **`hnEduSet(name, id, on)` だけ**（`saveDPaths([['hnEdu', 氏名, id]])` で1件だけ送る。災害モードでは記録しない）。書いたら `hnEduRefreshViews()` が配置盤の印・本院タブの一覧・開いているチェック表を揃える。他の人の✓は `/data` 受信で同じく描き直す。
+- 入口：配置盤（新旧どちらも）のヘルプの名札の `hnEduMarkHTML`（`data-pl-act="hnedu"` → `bindPlacementDnD` → `openHnEduModal(name)`）。項目が1つも無いうちは印を出さない。担当のロック（`duty`）とは無関係に押せる。
+- 一覧：担当表タブ🏥本院の上（`#hnedu-body`、`renderHnEduList`。`renderHonin` の冒頭で呼ぶので本院のデータの有無に関係なく出る）。対象は `hnEduPeople()`＝勤務表のサポート行（`D.shift[ym][氏名][日].help`）・固定した名簿のヘルプ・記録のある人、最後に来た日の新しい順。
+- 書き込み権限：`hnEdu` は `'all'`、`hnEduItems` は `'edu'`（`DATA_WRITE_PERM` と `database.rules.json`）。**本番で一般職員が✓を付けるには `database.rules.json` の反映が必要**（未反映だと管理者以外の✓はサーバーに届かず、次の受信で消える）。
 
 ### Task Management (`/tasks`)
 
