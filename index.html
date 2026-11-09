@@ -6243,11 +6243,16 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/06-150';
+var APP_VERSION = 'Ver.2026/11/09-151';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/09-151', date:'2026-11-09', title:'本院へヘルプに行く人が人員配置管理で分かるようになりました', items:[
+    {t:'new', notify:true, d:'🏥 本院へヘルプに行く日は、人員配置管理の控えに「🏥 本院へ」として出ます。分院の勤務表に「本院」「宿直」「本CE」などと書いてある日に自動で入り（休みの日は除く）、当日の人数や未割当には数えません'},
+    {t:'imp', notify:true, d:'🏥 急に本院へ行くことになったときは、名前を「🏥 本院へ」へ移せます。担当表にも「🏥本院」と出ます'},
+    {t:'imp', notify:true, admin:true, d:'🔄 すでに配置を動かした日は、人員配置管理の「取り込み直す」で本院への勤務を反映できます'}
+  ]},
   { ver:'Ver.2026/11/06-150', date:'2026-11-06', title:'機器の消し込み欄を直しました', items:[
     {t:'fix', d:'🩺 機器を割り当てたチェック項目（カプラ洗浄など）で、🩺ボタンが空のまま潰れ、押しても機器の一覧が出なかったのを直しました。10/29の更新で、開発用の画面と同じ名前の処理が重なっていたのが原因です'},
     {t:'fix', d:'🩺 機器の消し込み欄のチェックボックスを、押しやすい大きさ（17px）に直しました。別の指定に負けて小さいままでした'},
@@ -7774,13 +7779,18 @@ function markDutyEdited(ds) {
 var PL_ZONES = [
   {key:'maint', icon:'🔧', label:'メンテ',  color:'var(--or)',   bg:'var(--or-bg)',        border:'var(--or)'},
   {key:'off',   icon:'🏖️', label:'休み',    color:'var(--gr)',   bg:'var(--gr-bg,#f0fff4)',border:'var(--gr)'},
-  {key:'other', icon:'📝', label:'その他',  color:'var(--txt2)', bg:'var(--sur2)',         border:'var(--bdr2)'}
+  {key:'other', icon:'📝', label:'その他',  color:'var(--txt2)', bg:'var(--sur2)',         border:'var(--bdr2)'},
+  /* 本院へヘルプに出ている人。勤務表の本CE・本HD等（D.shift の hn）から自動で入る。
+     分院には居ないので、人数（plCounts・配置ボードの CE/HD 名）にも余剰にも数えない（plAway） */
+  {key:'honin', icon:'🏥', label:'本院へ',  color:'var(--oc)',   bg:'var(--oc-bg)',         border:'var(--oc-bdr)'}
 ];
 /* HDの役割として妥当なコードだけを通す。勤務表で shift='CE' + hd='day' のように
    HDコード以外が入っている行は「役割なし」でHD側に置く——素通しすると 'CE' や
    内部値がそのまま役割名として画面に出る。 */
 function plHdRole(code){ return (code === '準' || HD_DAY_CODES.indexOf(code) !== -1) ? code : ''; }
 function plZone(key){ for(var i=0;i<PL_ZONES.length;i++) if(PL_ZONES[i].key===key) return PL_ZONES[i]; return null; }
+/* その日、分院の外（本院）に居るか。人数・余剰の数え方から外すための唯一の判定 */
+function plAway(sp){ return !!(sp && sp.kind === 'zone' && sp.zone === 'honin'); }
 function plSideLabel(side){ return side==='hd' ? '🩸 HD' : '🩺 CE'; }
 
 function plNewPerson(o){
@@ -7830,6 +7840,13 @@ function plDerive(ds){
     var hr = plHdRole(h.shift);
     put(h.name, hr ? {base:'help', shift:hr, side:'hd', spot:hr}
                    : {base:'help', shift:'ヘルプ', side:'ce', spot:'pool'});
+  });
+  /* 本院へヘルプに出る人。分院の勤務コードがあっても無くても「🏥本院へ」に置く
+     ——上段に「本院」、下段に CE・A1 等がある行は、本院でのその勤務を表しているため、
+     素通しすると分院の未割当やHD担当表に並んでしまう。担当枠に入れてあればそちらが勝つ（下の処理）。 */
+  (si.hn||[]).forEach(function(h){
+    var q = put(h.name, {base:'', shift:'', side:'ce', spot:'honin'});
+    if (q) { q.spot = 'honin'; q.hn = h.code; }
   });
 
   /* 旧 hdDuty.overrides（HD担当表での差し替え）を読み替える：
@@ -8064,7 +8081,9 @@ function plPlaceLabel(ds, name, ppl){
     }
   } else if (sp.kind === 'zone') {
     var z = plZone(sp.zone), zl = z ? z.label : sp.zone;
-    lab = {short:zl, long:zl, side:sp.side};
+    /* 本院へ出ている人は HD 勤務者でも担当表（CE画面）・CSV に出す。本院での勤務コードも添える */
+    if (plAway(sp)) lab = {short:'🏥本院', long:'本院へ' + (p && p.hn && p.hn !== '本院' ? '（' + p.hn + '）' : ''), side:'ce'};
+    else lab = {short:zl, long:zl, side:sp.side};
   } else if (sp.kind === 'hdrole') {
     lab = sp.role
       ? {short:'', long:'', side:'hd'} /* 役割名はマイ担当の「🩸 A1」側が出すのでここでは出さない */
@@ -8218,19 +8237,20 @@ function plResync(ds){
     return !fresh[n] && !cur[n].manual && plSpot(ds,n).kind !== 'duty';
   });
   var changed = Object.keys(fresh).filter(function(n){
-    return cur[n] && (cur[n].shift||'') !== (fresh[n].shift||'');
+    return cur[n] && ((cur[n].shift||'') !== (fresh[n].shift||'') || (cur[n].hn||'') !== (fresh[n].hn||''));
   });
   if (!added.length && !removed.length && !changed.length) { toast('勤務表と一致しています。変更はありません', 'ok'); return; }
   var msg = '';
   if (added.length)   msg += '<div style="margin-bottom:6px"><strong style="color:var(--gr)">＋ 追加</strong>　' + escH(added.join('、')) + '</div>';
   if (removed.length) msg += '<div style="margin-bottom:6px"><strong style="color:var(--rd)">－ 除外</strong>　' + escH(removed.join('、')) + '</div>';
   if (changed.length) msg += '<div style="margin-bottom:6px"><strong style="color:var(--or)">↻ 勤務コード変更</strong>　'
-    + escH(changed.map(function(n){ return n+'（'+(cur[n].shift||'—')+'→'+(fresh[n].shift||'—')+'）'; }).join('、')) + '</div>';
+    + escH(changed.map(function(n){ return n+'（'+plResyncCode(cur[n])+'→'+plResyncCode(fresh[n])+'）'; }).join('、')) + '</div>';
   msg += '<div style="margin-top:8px;color:var(--txt3)">担当枠に入っている人の割り当ては変えません。</div>';
   plDialog({ title:'🔄 勤務表から取り込み直す', body: msg, okLabel:'反映する' }, function(){
     plResyncApply(ds, added, removed, changed, fresh);
   });
 }
+function plResyncCode(p){ return p.hn ? '🏥'+p.hn : (p.shift||'—'); }
 function plResyncApply(ds, added, removed, changed, fresh){
   var p = plFix(ds);
   added.forEach(function(n){ p.people[n] = fresh[n]; });
@@ -8240,6 +8260,13 @@ function plResyncApply(ds, added, removed, changed, fresh){
     q.shift = fresh[n].shift; q.night = fresh[n].night; q.oc = fresh[n].oc;
     /* まだ既定の役割のままHDに居る人は、新しいコードへ追随させる */
     if (q.side === 'hd' && q.base === 'hd' && !q.from) q.spot = fresh[n].spot;
+    /* 本院への勤務が付いた・外れた。担当枠・フリー枠に入れてある人は動かさない */
+    var hnBefore = q.hn || '', k = plSpot(ds, n).kind;
+    if (fresh[n].hn) q.hn = fresh[n].hn; else delete q.hn;
+    if (k !== 'duty' && k !== 'free') {
+      if (fresh[n].hn) q.spot = 'honin';
+      else if (hnBefore && q.spot === 'honin') { q.spot = fresh[n].spot; q.side = fresh[n].side; if (fresh[n].base) q.base = fresh[n].base; }
+    }
   });
   saveD(); renderPlacementBoard(ds, D.pages[ds], !can('duty'));
   updateStaffZoneBadge(ds); updateCloseBar(ds); safeRenderPage();
@@ -8251,21 +8278,23 @@ function plResyncApply(ds, added, removed, changed, fresh){
 function plCounts(ds){
   var dat = D.pages[ds]; if (!dat) return {staffN:0, unassignedN:0, ceN:0, hdN:0, offerN:0};
   var names = plNames(ds), ceN=0, hdN=0, offerN=0;
+  var ppl = plPeople(ds), awayN = 0;
   names.forEach(function(n){
-    var sp = plSpot(ds, n), pp = plPeople(ds)[n];
+    var sp = plSpot(ds, n, ppl), pp = ppl[n];
+    if (plAway(sp)) { awayN++; return; } /* 本院へ出ている人は分院の人数に数えない */
     if (pp && pp.offer) offerN++;
     if (sp.side === 'hd') hdN++; else ceN++;
   });
   var duties = getDutyCfg(dat);
   var unassignedN = duties.filter(function(d){ return !(dat.duties && dat.duties[d.id]); }).length;
-  return {staffN:names.length, unassignedN:unassignedN, ceN:ceN, hdN:hdN, offerN:offerN};
+  return {staffN:names.length - awayN, unassignedN:unassignedN, ceN:ceN, hdN:hdN, offerN:offerN, awayN:awayN};
 }
 /* 担当表（renderAT）・CSVの「余剰」列。ゾーン分類済みも含めて「担当枠に入っていないCE側の人」 */
 function plSurplusNames(ds){
   var out = [];
   plNames(ds).forEach(function(n){
     var sp = plSpot(ds, n);
-    if (sp.side !== 'ce') return;
+    if (sp.side !== 'ce' || plAway(sp)) return; /* 本院へ出ている人は余剰ではない */
     if (sp.kind === 'surplus' || sp.kind === 'zone') out.push(n);
   });
   return out;
@@ -8414,7 +8443,7 @@ function renderPlacementBoard(ds, dat, locked){
   var ppl = plPeople(ds);
   names.forEach(function(n){
     var pp = ppl[n] || plNewPerson({}), sp = plSpot(ds, n);
-    sideN[sp.side === 'hd' ? 'hd' : 'ce']++;
+    if (!plAway(sp)) sideN[sp.side === 'hd' ? 'hd' : 'ce']++; /* 本院へ出ている人は数えない（plCounts と同じ） */
     if (pp.offer === 'hd') { ce.surplus.push(n); hd.offeredToHd.push(n); return; }
     if (pp.offer === 'ce') { hd.surplus.push(n); ce.offeredToCe.push(n); return; }
     if (sp.kind === 'zone')    { zones[sp.zone].push(n); return; }
@@ -8763,6 +8792,8 @@ function renderPlacementBoardV2(ds, dat){
     var pp = ppl[n] || {}, s = '';
     if (pp.oc) s += '<span class="pl2-mk oc">OC</span>';
     if (pp.base === 'help') s += '<span class="pl2-mk help" title="他部署からのヘルプ">🆘</span>';
+    /* 勤務表では本院へ行く日なのに、分院の担当枠などに入れてある人（担当枠が優先される）。気づけるように印を出す */
+    if (pp.hn && !plAway(sp[n])) s += '<span class="pl2-mk from" title="勤務表では本院（' + escH(pp.hn) + '）">🏥</span>';
     if (pp.from) s += '<span class="pl2-mk from" title="応援で来ています">' + (pp.from === 'ce' ? '🩺' : '🩸') + '</span>';
     if (pp.offer) s += '<span class="pl2-mk offer">→' + (pp.offer === 'hd' ? 'HD' : 'CE') + '</span>';
     if (pp.memo) s += '<span class="pl2-mk from" title="' + escH(pp.memo) + '">📝</span>';
@@ -8781,7 +8812,7 @@ function renderPlacementBoardV2(ds, dat){
 
   /* --- CE列：担当枠を1行ずつ（空きは点線）、その下にフリー枠に居る人 --- */
   var emptyN = 0, ceN = 0, hdN = 0;
-  names.forEach(function(n){ if (sp[n].side === 'hd') hdN++; else ceN++; });
+  names.forEach(function(n){ if (plAway(sp[n])) return; if (sp[n].side === 'hd') hdN++; else ceN++; });
   var ceH = '';
   cfg.forEach(function(s){
     var n = (dat.duties && dat.duties[s.id]) || '';
@@ -8815,7 +8846,9 @@ function renderPlacementBoardV2(ds, dat){
   });
   function chip(n){
     var s = sp[n], pp = ppl[n] || {}, sel = pick && pick.name === n;
-    var sub = pp.shift && pp.shift !== 'ヘルプ' ? '<small>' + escH(pp.shift) + '</small>' : '';
+    /* 本院へ出ている人は本院での勤務コード（本CE等。上段の「本院」だけなら出さない） */
+    var code = plAway(s) ? (pp.hn && pp.hn !== '本院' ? pp.hn : '') : (pp.shift && pp.shift !== 'ヘルプ' ? pp.shift : '');
+    var sub = code ? '<small>' + escH(code) + '</small>' : '';
     return '<span class="pl2-chip ' + (s.side === 'hd' ? 'hd' : 'ce') + (sel ? ' pl2-sel' : '') + '" data-t="chip" data-name="' + escH(n) + '"' + (dlk ? '' : ' draggable="true"') + '>'
       + escH(n) + sub + marks(n) + more(n) + '</span>';
   }
@@ -16113,7 +16146,26 @@ function togLk(id, v) {
    全員に常時配る必要も無いので /data の外に置き、月表を開いたときだけ1か月分を読む。
    分院の名簿・担当枠・配置・公平性には混ぜない。
    { ts, by, secs:[{t:部署名, rows:[{n:氏名, a:上段(タブ区切り), b:下段(タブ区切り)}]}] } */
-var HN_CODE_RE = /^本(?!院$)/;
+/* 分院の勤務表の1日分（上段＝職員番号行・下段＝氏名行）から、本院へのヘルプかを決める。
+   決まり（2026-11-09 本人）：上段か下段に「本院」か「宿直」と書いてあれば本院へのヘルプ。下段が本CE・本遅など「本」で始まるものも同じ。
+   ただし下段が休み（休・年・夏・振休など）の日と、上段が「宿直明け」「前宿直」で下段が空の日は入れない
+   ——実物の「宿直明け／休」「前宿直／休」は休みの日のため。
+   戻り値は画面に出す勤務の文字（例：「本CE・CE宿直」「ICU・CE宿直」「OR」）。ヘルプでなければ ''。 */
+function shiftHnCode(up, lo){
+  up = (up || '').trim(); lo = (lo || '').trim();
+  /* 休みの日は入れない。「休」を含む書き方（振休・代休・年休・育休など）も休み */
+  if (lo && (HN_OFF_RE.test(lo) || /休/.test(lo))) return '';
+  /* 上段の「宿直明け」「前宿直」は宿直の前後の日の印。下段が空ならヘルプの日ではない */
+  if (!lo && /明け|前宿直/.test(up)) return '';
+  var upHit = /本院|宿直/.test(up), loHit = /^本/.test(lo) || /本院|宿直/.test(lo);
+  if (!upHit && !loHit) return '';
+  if (!lo) return up;
+  return lo + (upHit && up !== '本院' ? '・' + up : '');
+}
+/* 1日分は2列ある（勤務表は日付ごとに2列結合）。2列をつないだ文字を返す */
+function shiftCellPair(row, c, sep){
+  return [row[c], row[c + 1]].map(function(v){ return v == null ? '' : v.toString().replace(/[\u3000\s]+/g, ' ').trim(); }).filter(Boolean).join(sep);
+}
 var HN_SEC_ENDS = ['CE勤務者数','HD勤務者数','OR勤務者数'];
 var HN_SEC_NAMES = ['CE管理科','本院血液浄化','手術室'];
 var HN_LOCAL_KEY = 'ce2_honin_pv'; /* プレビューは端末内に置く（判定は roboIsLocal） */
@@ -16375,7 +16427,7 @@ function saveHdShiftTime(code){
 }
 function getShiftForDay(ds) {
   var pt = ds.split('-'); var ym = pt[0]+'-'+pt[1]; var day = parseInt(pt[2]);
-  var res = {ce:[], oc:[], evts:[], hd:[], nd:[], help:[]};
+  var res = {ce:[], oc:[], evts:[], hd:[], nd:[], help:[], hn:[]};
   var md = D.shift[ym];
   if (md) {
     for (var name in md) {
@@ -16385,6 +16437,14 @@ function getShiftForDay(ds) {
          ——HDの役割コード（A1・A2等）を持つので、素通しすると通常のHD勤務者として
          二重に数えられ、HD担当表にも分院スタッフとして並んでしまう。 */
       if (info.help) { res.help.push({name:name, shift:info.shift || 'ヘルプ'}); continue; }
+      /* 本院へのヘルプ（shiftHnCode が決めた hn）。その日は分院で働かないので CE・HD・宿直の一覧に入れない
+         ——入れると月次自動割り当て（si.ce が候補）で分院の担当に割り当てられ、公平性の出勤日数にも数えられる。
+         OC（自宅待機）は別の印なので残す。 */
+      if (info.hn) {
+        res.hn.push({name:name, code:info.hn});
+        if (info.oc) res.oc.push({name:name, shift:''});
+        continue;
+      }
       /* CE：シフト値が "CE" に完全一致 → プール表示（OC兼任でも勤務者一覧に表示） */
       if (info.shift === 'CE') {
         res.ce.push({name:name, shift:'CE', oc:!!info.oc});
@@ -16972,18 +17032,15 @@ function parseShiftSheet(wb, fileName) {
         result[name][dayNum].nd = true;
       }
 
-      /* 本院での勤務（本CE・本HD・本遅など）。マイ担当に出すだけで、分院の配置には入れない */
-      if (HN_CODE_RE.test(shiftVal)) {
+      /* 本院へのヘルプ。判断は分院の勤務表だけで行う（shiftHnCode）。配置盤では「🏥本院へ」に入る */
+      var hnCode = shiftHnCode(shiftCellPair(numRow, ciInt, ' '), shiftCellPair(grid[ri], ciInt, ''));
+      if (hnCode) {
         if (!result[name][dayNum]) result[name][dayNum] = {};
-        result[name][dayNum].hn = shiftVal;
+        result[name][dayNum].hn = hnCode;
       }
 
       /* 職員番号行: OC完全一致（OC×は除外） */
       var ocVal = (numRow[ciInt] || '').toString().trim().toUpperCase();
-      if (ocVal === '本院' && !(result[name][dayNum] && result[name][dayNum].hn)) {
-        if (!result[name][dayNum]) result[name][dayNum] = {};
-        result[name][dayNum].hn = '本院';
-      }
       if (ocVal === 'OC') {
         if (!result[name][dayNum]) result[name][dayNum] = {};
         result[name][dayNum].oc = true;
@@ -27746,7 +27803,8 @@ function renderMySchedule(overrideName) {
          （plPlaceLabel は担当枠・フリー・役割ありのHDには null/空を返すので二重にはならない） */
       var ppl = plPeople(ds);
       var myLab = plPlaceLabel(ds, selfName, ppl);
-      if (myLab && myLab.long) slots.push({t: myLab.long, st:true});
+      /* 本院へ出ている日は下の「🏥 本CE」だけを出す（「本院へ（本CE）」と二重にしない） */
+      if (myLab && myLab.long && !(hnCode && plAway(plSpot(ds, selfName, ppl)))) slots.push({t: myLab.long, st:true});
       if (hnCode) slots.push({t:'🏥 ' + hnCode, st:false});
       if (slots.length) cards.push({ds: ds, slots: slots});
     }
