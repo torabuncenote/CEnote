@@ -8265,7 +8265,7 @@ function plResyncApply(ds, added, removed, changed, fresh){
     if (fresh[n].hn) q.hn = fresh[n].hn; else delete q.hn;
     if (k !== 'duty' && k !== 'free') {
       if (fresh[n].hn) q.spot = 'honin';
-      else if (hnBefore && q.spot === 'honin') { q.spot = fresh[n].spot; q.side = fresh[n].side; }
+      else if (hnBefore && q.spot === 'honin') { q.spot = fresh[n].spot; q.side = fresh[n].side; if (fresh[n].base) q.base = fresh[n].base; }
     }
   });
   saveD(); renderPlacementBoard(ds, D.pages[ds], !can('duty'));
@@ -8792,6 +8792,8 @@ function renderPlacementBoardV2(ds, dat){
     var pp = ppl[n] || {}, s = '';
     if (pp.oc) s += '<span class="pl2-mk oc">OC</span>';
     if (pp.base === 'help') s += '<span class="pl2-mk help" title="他部署からのヘルプ">🆘</span>';
+    /* 勤務表では本院へ行く日なのに、分院の担当枠などに入れてある人（担当枠が優先される）。気づけるように印を出す */
+    if (pp.hn && !plAway(sp[n])) s += '<span class="pl2-mk from" title="勤務表では本院（' + escH(pp.hn) + '）">🏥</span>';
     if (pp.from) s += '<span class="pl2-mk from" title="応援で来ています">' + (pp.from === 'ce' ? '🩺' : '🩸') + '</span>';
     if (pp.offer) s += '<span class="pl2-mk offer">→' + (pp.offer === 'hd' ? 'HD' : 'CE') + '</span>';
     if (pp.memo) s += '<span class="pl2-mk from" title="' + escH(pp.memo) + '">📝</span>';
@@ -16146,11 +16148,15 @@ function togLk(id, v) {
    { ts, by, secs:[{t:部署名, rows:[{n:氏名, a:上段(タブ区切り), b:下段(タブ区切り)}]}] } */
 /* 分院の勤務表の1日分（上段＝職員番号行・下段＝氏名行）から、本院へのヘルプかを決める。
    決まり（2026-11-09 本人）：上段か下段に「本院」か「宿直」と書いてあれば本院へのヘルプ。下段が本CE・本遅など「本」で始まるものも同じ。
-   ただし下段が休み（休・年・夏など）の日は入れない——実物の「宿直明け／休」「前宿直／休」は休みの日のため。
+   ただし下段が休み（休・年・夏・振休など）の日と、上段が「宿直明け」「前宿直」で下段が空の日は入れない
+   ——実物の「宿直明け／休」「前宿直／休」は休みの日のため。
    戻り値は画面に出す勤務の文字（例：「本CE・CE宿直」「ICU・CE宿直」「OR」）。ヘルプでなければ ''。 */
 function shiftHnCode(up, lo){
   up = (up || '').trim(); lo = (lo || '').trim();
-  if (lo && HN_OFF_RE.test(lo)) return '';
+  /* 休みの日は入れない。「休」を含む書き方（振休・代休・年休・育休など）も休み */
+  if (lo && (HN_OFF_RE.test(lo) || /休/.test(lo))) return '';
+  /* 上段の「宿直明け」「前宿直」は宿直の前後の日の印。下段が空ならヘルプの日ではない */
+  if (!lo && /明け|前宿直/.test(up)) return '';
   var upHit = /本院|宿直/.test(up), loHit = /^本/.test(lo) || /本院|宿直/.test(lo);
   if (!upHit && !loHit) return '';
   if (!lo) return up;
@@ -16431,6 +16437,14 @@ function getShiftForDay(ds) {
          ——HDの役割コード（A1・A2等）を持つので、素通しすると通常のHD勤務者として
          二重に数えられ、HD担当表にも分院スタッフとして並んでしまう。 */
       if (info.help) { res.help.push({name:name, shift:info.shift || 'ヘルプ'}); continue; }
+      /* 本院へのヘルプ（shiftHnCode が決めた hn）。その日は分院で働かないので CE・HD・宿直の一覧に入れない
+         ——入れると月次自動割り当て（si.ce が候補）で分院の担当に割り当てられ、公平性の出勤日数にも数えられる。
+         OC（自宅待機）は別の印なので残す。 */
+      if (info.hn) {
+        res.hn.push({name:name, code:info.hn});
+        if (info.oc) res.oc.push({name:name, shift:''});
+        continue;
+      }
       /* CE：シフト値が "CE" に完全一致 → プール表示（OC兼任でも勤務者一覧に表示） */
       if (info.shift === 'CE') {
         res.ce.push({name:name, shift:'CE', oc:!!info.oc});
@@ -16450,8 +16464,6 @@ function getShiftForDay(ds) {
       if (info.nd) {
         res.nd.push({name:name, shift:info.shift});
       }
-      /* 本院での勤務（本CE・本HD・上段の「本院」など）。配置盤では「🏥本院へ」に置く */
-      if (info.hn) res.hn.push({name:name, code:info.hn});
     }
   }
   var ed = D.evts[ym];
