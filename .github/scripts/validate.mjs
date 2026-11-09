@@ -201,6 +201,19 @@ if (existsSync(htmlPath)) {
     else ok(`CLAUDE.md の関数参照OK（${names.size}件）`);
   }
 
+  /* --- 4-4b. トップレベルの関数名が重複していない ---
+     function 宣言は後に書いた方が黙って勝つ。2026-10-29 に開発パネルの renderDevPanel() を足したとき、
+     機器の消し込み欄の renderDevPanel(ds, it, wrapEl) が上書きされ、🩺ボタンが空のまま潰れて
+     機器リストが一切出なくなった（例外も出ないので気づけない）。 */
+  {
+    const seen = new Map(), dups = new Set();
+    for (const m of H.matchAll(/^function ([A-Za-z0-9_$]+)\s*\(/gm)) {
+      if (seen.has(m[1])) dups.add(m[1]); else seen.set(m[1], true);
+    }
+    if (dups.size) fail(`同じ名前のトップレベル関数が複数あります（後の定義が前を上書きします）: ${[...dups].join(', ')}`);
+    else ok(`トップレベル関数名の重複なし（${seen.size}件）`);
+  }
+
   /* --- 4-5. マスタタブのセクションはグループ(.mgrp-body)の中に置く（外に置くと画面に出ない） --- */
   const pmStart = H.indexOf('<div id="pane-master"');
   const pmEnd   = H.indexOf('<!-- ロックタブ -->');
