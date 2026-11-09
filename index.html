@@ -6320,11 +6320,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/09-154';
+var APP_VERSION = 'Ver.2026/11/09-155';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/09-155', date:'2026-11-09', title:'緊急透析にも翌日の出勤ルールを出すようにしました', items:[
+    {t:'new', d:'🌙 HDの緊急透析の終了時刻を入れると、CEのオンコールと同じ翌日の出勤ルール（0〜6時の終了は翌日休み取得可、21時過ぎは11時間後から遅出）を知らせます'},
+    {t:'new', admin:true, d:'🌙 翌日のHD連絡表の上に、前日の緊急透析で遅くなった人の出勤ルールを出します（「確認済み」で消せます）'}
+  ]},
   { ver:'Ver.2026/11/09-154', date:'2026-11-09', title:'メーカー連絡先を会社ごとにまとめる準備をしました', items:[
     {t:'new', notify:true, admin:true, d:'🏭 メーカー連絡先を「会社 → 担当者」にまとめた新しい表示を作りました。まず管理者だけに出ます。「🧹 整理」で似た会社名やまったく同じ記録をまとめ、済んだら「全員に公開する」を押すと一般職員にも出ます'},
     {t:'new', notify:true, admin:true, d:'🏢 代表番号は、2人以上が共通で持つ固定電話を自動で選びます。「🏢 代表番号」の一覧と各会社の「✏️ 会社」から、確かめて選び直したり、会社名をまとめて変えたりできます'},
@@ -23815,6 +23819,13 @@ function renderPageHD(ds) {
   for (var ei = 0; ei < pageEvts.length; ei++) { if (allEvts.indexOf(pageEvts[ei]) === -1) allEvts.push(pageEvts[ei]); }
   h += evtAreaHTML(ds, dat, allEvts);
 
+  /* 前日の緊急透析で遅くなった人の翌日の出勤ルール（CEのオンコールの帯と同じ。管理者向け） */
+  if (adminLike() && !dat.hdEmAlertSeen) {
+    var emAl = hdEmAlertFor(ds);
+    if (emAl.length) h += '<div class="oc-alert-banner">⚠️ 前日の緊急透析：' + emAl.map(function(a){
+      return '<strong>' + escH(a.staff || '担当者') + '</strong> さん <strong>' + escH(a.rule.label) + '</strong>（終了 ' + escH(a.end) + '）';
+    }).join('／') + '（' + escH(fmtJ(emAl[0].sourceDs)) + '）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissHdEmAlert(\'' + ds + '\')">確認済み ✕</button></div>';
+  }
   /* 血液浄化の実施件数（ダッシュボード） */
   h += '<div class="hdash" id="hd-count-panel">' + hdCountPanelInnerHTML(ds, dat) + '</div>';
 
@@ -23918,6 +23929,7 @@ function renderPageHD(ds) {
         var durEl = f.closest('.hdem-row') && f.closest('.hdem-row').querySelector('.hdem-dur');
         if (durEl) durEl.textContent = hdEmDurLabel(hdEmMin(row));
         hdEmTotalOnly();
+        if (f.getAttribute('data-hdem-field') === 'end') notifyHdEmRule(ds, row); /* CEのオンコールと同じ翌日の出勤ルール */
         return;
       }
       var add = e.target.closest('select[data-hdem-add]');
@@ -27757,6 +27769,29 @@ function notifyOcRule(ds) {
   /* 翌日ページが既に確認済み扱いなら、内容が変わった可能性があるので再表示できるよう解除 */
   var nextDs = getNextDs(ds);
   if (D.pages[nextDs] && D.pages[nextDs].ocAlertSeen) { delete D.pages[nextDs].ocAlertSeen; saveD(); }
+}
+/* ===== HDの緊急透析にもCEのオンコールと同じ翌日の出勤ルール（2026-11-09 本人「一緒でいい」） =====
+   判定は calcOcNextDayRule（終了が0〜6時→翌日休み取得可、21時過ぎ→11時間後から遅出）をそのまま使う。
+   終了を入れたときに知らせ（notifyHdEmRule）、翌日のHD連絡表の上に管理者向けの帯（hdEmAlertFor）を出す。保存はしない（都度計算）。 */
+function hdEmAlertFor(ds) {
+  var pdat = D.pages[getPrevDs(ds)]; if (!pdat) return [];
+  return hdEmArr(pdat).filter(function(it){ return hdEmFilled(it) && it.end; }).map(function(it){
+    var rule = calcOcNextDayRule(it.end);
+    return (rule && rule.type !== 'normal') ? { staff: it.staff.join('、'), rule: rule, end: it.end, sourceDs: getPrevDs(ds) } : null;
+  }).filter(Boolean);
+}
+function notifyHdEmRule(ds, it) {
+  if (!it || !it.end) return;
+  var rule = calcOcNextDayRule(it.end);
+  if (!rule || rule.type === 'normal') return;
+  showNotifToast('🌙 緊急透析の翌出勤ルール', (it.staff.length ? it.staff.join('、') : '担当者') + '：' + rule.label);
+  var nextDs = getNextDs(ds);
+  if (D.pages[nextDs] && D.pages[nextDs].hdEmAlertSeen) { delete D.pages[nextDs].hdEmAlertSeen; saveDPage(nextDs); }
+}
+function dismissHdEmAlert(ds) {
+  if (!D.pages[ds]) return;
+  D.pages[ds].hdEmAlertSeen = true;
+  saveDPage(ds); safeRenderPage();
 }
 function dismissOcAlert(ds) {
   if (!D.pages[ds]) return;
