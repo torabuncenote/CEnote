@@ -1411,6 +1411,9 @@ body.has-psgb{--psgb-h:36px}
 .uc-name.admin{background:var(--gd-bg);border-color:var(--gd-bdr);color:var(--gd)}
 .btn-logout{font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid var(--bdr2);background:var(--sur2);color:var(--txt2);cursor:pointer;font-family:var(--fn)}
 .btn-logout:hover{background:var(--rd-bg);border-color:var(--rd);color:var(--rd)}
+/* 電源マークは文字（⏻ U+23FB）ではなく絵で描く。Android の標準の文字にこの記号が無く、スマホでは「ログアウト」の文字も隠すのでボタンが空に見えていた */
+.btn-logout{display:inline-flex;align-items:center;gap:2px}
+.btn-logout .lo-ic{width:1.15em;height:1.15em;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;flex:none}
 /* ===== MEMO POSTS ===== */
 /* 件数ぶん縦に伸ばす（高さを決めて中でスクロールさせると、見切れて量が把握できない） */
 .memo-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
@@ -2232,7 +2235,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
   <span class="sl" id="month-size" style="display:none;margin-left:6px;color:var(--txt3);font-size:10px"></span>
   <button id="dev-view-btn" class="btn btn-g btn-sm dev-view-btn" style="display:none" onclick="openDevPanel()"></button>
   <div id="uc-label" class="uc-name" style="display:none" onclick="openNameModal()" title="クリックして表示名・パスワードを変更"></div>
-  <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()" title="ログアウト">⏻<span class="lo-text"> ログアウト</span></button>
+  <button class="btn-logout" id="btn-logout" style="display:none" onclick="doLogout()" title="ログアウト" aria-label="ログアウト"><svg class="lo-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg><span class="lo-text"> ログアウト</span></button>
 </div>
 
 <div class="ab" id="ab">
@@ -6320,11 +6323,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/09-155';
+var APP_VERSION = 'Ver.2026/11/10-156';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/10-156', date:'2026-11-10', title:'ログアウトボタンの表示を直しました', items:[
+    {t:'fix', d:'⏻ 右上のログアウトボタンの電源マークが、Androidで表示されず空のボタンに見えていたのを直しました'}
+  ]},
   { ver:'Ver.2026/11/09-155', date:'2026-11-09', title:'緊急透析にも翌日の出勤ルールを出すようにしました', items:[
     {t:'new', notify:true, d:'🌙 HDの緊急透析の終了時刻を入れると、CEのオンコールと同じ翌日の出勤ルール（0〜6時の終了は翌日休み取得可、21時過ぎは11時間後から遅出）を知らせます'},
     {t:'new', notify:true, admin:true, d:'🌙 翌日のHD連絡表の上に、前日の緊急透析で遅くなった人の出勤ルールを出します（「確認済み」で消せます）'}
