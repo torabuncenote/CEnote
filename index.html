@@ -1863,6 +1863,26 @@ body.has-psgb{--psgb-h:36px}
 .task-tag-doing{background:var(--ac-bg);color:var(--ac);border-color:var(--ac)}
 .task-tag-done{background:var(--gr-bg);color:var(--gr);border-color:var(--gr)}
 .task-due-over{color:var(--rd);font-weight:700}
+.task-due{font-size:11px;margin-left:8px;white-space:nowrap}
+.task-due-soon{color:var(--or);font-weight:700}
+.task-card.due-over{border-left-color:var(--rd)}
+.task-card.urgent{box-shadow:inset 0 0 0 1px var(--rd-bdr)}
+.task-urgent{font-size:10px;font-weight:700;color:var(--on-ac);background:var(--rd);border-radius:20px;padding:2px 7px;white-space:nowrap}
+.task-md-urg{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;margin-top:10px;cursor:pointer}
+.task-cmt{margin-top:6px;border-top:1px dashed var(--bdr);padding-top:5px}
+.task-cmt-tg{background:none;border:none;padding:2px 0;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit}
+.task-cmt-tg:hover{color:var(--txt)}
+.task-cmt-tg.unread{color:var(--rd);font-weight:700}
+.task-cmt-new{display:inline-block;margin-left:5px;background:var(--rd);color:var(--on-ac);border-radius:9px;font-size:9px;font-weight:700;padding:0 6px;line-height:15px}
+.task-cmt-item{background:var(--sur);border:1px solid var(--bdr);border-radius:6px;padding:5px 8px;margin:5px 0}
+.task-cmt-item.mine{background:var(--ac-bg)}
+.task-cmt-meta{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--txt3)}
+.task-cmt-del{margin-left:auto;background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;padding:0 2px}
+.task-cmt-del:hover{color:var(--rd)}
+.task-cmt-txt{font-size:12px;color:var(--txt);white-space:pre-wrap;word-break:break-word;margin-top:2px}
+.task-cmt-empty{font-size:11px;color:var(--txt3);margin:4px 0}
+.task-cmt-form{display:flex;gap:6px;align-items:flex-end;margin-top:5px}
+.task-cmt-in{flex:1;min-width:0;resize:vertical;font-size:12px;box-sizing:border-box}
 .task-asg{display:inline-block;font-size:10px;background:var(--sur);border:1px solid var(--bdr);border-radius:20px;padding:1px 7px;margin-right:3px}
 .task-media{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .task-media img{max-width:110px;max-height:84px;border-radius:5px;border:1px solid var(--bdr);cursor:pointer;object-fit:cover;display:block}
@@ -3526,7 +3546,7 @@ function ensureTasksListener() {
     _tasksLoaded = true;
     sweepDoneTaskMedia(); /* 完了から7日たった画像を消す */
     var tp = document.getElementById('pane-task');
-    if (tp && tp.style.display !== 'none') renderTasks();
+    if (tp && tp.style.display !== 'none') renderTasks(); else taskRefreshBadge();
   }, function(){ _tasksListenerOn = false; _tasksLoaded = true; var tp = document.getElementById('pane-task'); if (tp && tp.style.display !== 'none') renderTasks(); });
 }
 var _taskView = null;  /* null=俯瞰ビュー / スタッフ名=個人詳細ビュー */
@@ -3723,7 +3743,7 @@ function init() {
   document.addEventListener('compositionend', function(){ _imeComposing = false; _lastInputTs = Date.now(); }, true);
   document.addEventListener('pointerup', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
   document.addEventListener('pointercancel', function(){ _pointerDown = false; schedulePendingFlush(); }, true);
-  if (isPreview) { dreqLoadLocal(); dreqRefreshBadge(); carryOverMemos(); openDefaultPage(); maybeShowWhatsNew(); }
+  if (isPreview) { dreqLoadLocal(); dreqRefreshBadge(); taskRefreshBadge(); carryOverMemos(); openDefaultPage(); maybeShowWhatsNew(); }
 }
 
 /* ローカルフォールバック用 */
@@ -3926,6 +3946,7 @@ function fbInit() {
         dataListenerOn = false;
         _hnData = {}; _hnErr = {};
         _tasksData = {}; _tasksListenerOn = false; _tasksLoaded = false; _taskView = null; _taskFilter = 'all'; _taskDoneOpen = {}; _taskDoneItemOpen = {};
+        _taskWho = 'all'; _taskCmtOpen = {}; _taskChkTried = ''; taskRefreshBadge();
         _mySchedName = null; _mySchedPick = false; /* 次に別の人がログインしたとき、前の人の担当が出たままにならないように */
         /* 実績サブタブも同じ理由でリセットする。_perfName が残ると次の人に前ユーザーの
            実績・教育到達度が表示され続ける（宣言側コメントの「ログアウトで破棄する」を実装する） */
@@ -4257,6 +4278,7 @@ function fbInit() {
             /* saveD()後2秒以内はリスナーからの再描画を抑制（保存直後に古いデータで上書きされるのを防ぐ） */
             var justSaved = (Date.now() - _savingTs) < 2000;
             if (wasFirstLoad) carryOverMemos(); /* 未済で繰り越しONの申し送りを今日（以降）へ */
+            if (wasFirstLoad) setTimeout(taskDailyCheck, 6000); /* 期限の前日・当日・超過の知らせ（1日1回） */
             if (wasFirstLoad && !curDs) {
               openDefaultPage();
             } else if (curDs && D.pages[curDs]) {
@@ -6323,11 +6345,20 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/10-156';
+var APP_VERSION = 'Ver.2026/11/11-157';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/11-157', date:'2026-11-11', title:'タスクにコメントと期限の知らせを足しました', items:[
+    {t:'new', d:'💬 タスクにコメントを書けるようになりました。担当者と作成者に「📬お知らせ」が届き、📋タスクのタブとカードに新着の印が付きます'},
+    {t:'new', d:'⏰ 担当しているタスクの期限の前日・当日・過ぎたときに「📬お知らせ」で知らせます（その日に初めてアプリを開いたとき）'},
+    {t:'imp', d:'📅 タスクのカードに「今日まで」「明日まで」「あと3日」「2日超過」を出し、近いほど橙→赤で目立たせます'},
+    {t:'imp', d:'＋ 自分のページ（タスク画面を開いた最初の画面）にも「＋タスクを追加」を置きました。担当者にはそのページの人が最初から選ばれます'},
+    {t:'new', d:'✅ 頼んだタスクを担当者が完了にすると、作成した人に「📬お知らせ」が届きます'},
+    {t:'new', d:'👤 タスク一覧を「自分あて」「自分が頼んだ」で絞り込めます'},
+    {t:'new', d:'🔥 タスクに「急ぎ」の印を付けると、一覧の一番上に出ます'}
+  ]},
   { ver:'Ver.2026/11/10-156', date:'2026-11-10', title:'ログアウトボタンの表示を直しました', items:[
     {t:'fix', d:'⏻ 右上のログアウトボタンの電源マークが、Androidで表示されず空のボタンに見えていたのを直しました'}
   ]},
@@ -27818,6 +27849,7 @@ function checkTimeNotifs() {
     if (document.getElementById('tablet-panel-ov')) renderTabletPanelBody(_tabletPanelDs || curDs);
   }
   refreshPriorMemoAlert(); /* 日付をまたいだ未完了をページ全体の再描画なしで反映 */
+  taskDailyCheck(); /* 開いたまま日付が変わったら期限の知らせ（同じ日は2回目以降なにもしない） */
   /* 毎日業務 */
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], n = dlyNotif(it);
@@ -27966,6 +27998,7 @@ function startNotifListener() {
     if (!currentUser) return; /* ログアウト直後にコールバックが発火した場合のガード */
     var items = [];
     snap.forEach(function(c) { items.push(Object.assign({ key: c.key }, c.val())); });
+    taskNoteNotifs(items); /* コメントの知らせが来たタスクに未読の印（タブのバッジ） */
     if (items.length > 0) {
       var hasNew = !document.getElementById('notif-popup-ov') ||
                    items.some(function(it) { return _pendingNotifKeys.indexOf(it.key) === -1; });
@@ -29015,6 +29048,228 @@ function notifyTaskAssigned(name, t) {
   });
 }
 
+/* ===== タスクのコメント・未読・期限と完了の知らせ（2026-11-11 合意） =====
+   知らせはアプリ内（/notifications → 「📬 お知らせ」）だけでメールは送らない（sendNotificationToUid は使わない）。
+   未読は端末内に持つ：既読時刻 ce2_taskseen_{uid}（{タスクid: 時刻}）と、届いたコメントの知らせで
+   印を付ける ce2_taskunread_{uid}。/tasks を常に受信しなくても、知らせの受信だけでタブに印を出せる。 */
+var _taskCmtOpen = {};     /* コメント欄を開いているタスク（非永続） */
+var _taskWho = 'all';      /* 俯瞰リストの絞り込み: all|mine（自分あて）|req（自分が頼んだ） */
+var _taskChkTried = '';    /* 期限の確認を試みた日（読み込みに失敗しても毎分読み直さない） */
+function notifyInApp(uid, title, body, type, extra) {
+  if (_offlineMode || !FB_ON || !fbDB || !uid) return;
+  if (currentUser && uid === currentUser.uid) return;
+  fbDB.ref('/notifications/' + uid).push(Object.assign({ type: type || 'info', title: title, body: body, ts: Date.now(), read: false }, extra || {}));
+}
+function taskMyName() { return (currentUser && (currentUser.displayName || currentUser.email)) || ''; }
+/* 担当者（名前）と作成者（uid）の両方へ。同じ人には1回だけ、自分には送らない */
+function taskNotifyRelated(t, title, body, type, extra) {
+  if (_offlineMode || !FB_ON || !fbDB || !currentUser) return;
+  var sent = {}; sent[currentUser.uid] = true;
+  var cu = t.createdBy && t.createdBy.uid;
+  if (cu && !sent[cu]) { sent[cu] = true; notifyInApp(cu, title, body, type, extra); }
+  taskAssignees(t).forEach(function(n){
+    getUidByName(n, function(uid){
+      if (!uid || sent[uid]) return;
+      sent[uid] = true;
+      notifyInApp(uid, title, body, type, extra);
+    });
+  });
+}
+/* 担当者が完了にしたら作成者へ */
+function taskNotifyDone(id, t) {
+  var cu = t.createdBy && t.createdBy.uid;
+  if (!cu || !currentUser || cu === currentUser.uid) return;
+  notifyInApp(cu, '✅ 頼んだタスクが完了しました', (t.title || '') + ' / 完了: ' + taskMyName(), 'taskdone', { taskId: id });
+}
+function taskComments(t) {
+  if (!t || !t.comments) return [];
+  return Object.keys(t.comments).map(function(k){ return Object.assign({ _cid: k }, t.comments[k]); })
+    .filter(function(c){ return c && c.ts; })
+    .sort(function(a, b){ return a.ts - b.ts; });
+}
+/* 自分が関係するタスクか（担当者か作成者） */
+function taskRelated(t) {
+  if (!t || !currentUser) return false;
+  if (t.createdBy && t.createdBy.uid === currentUser.uid) return true;
+  var self = taskSelfName();
+  return !!(self && taskAssignees(t).indexOf(self) !== -1);
+}
+function _taskLsGet(k) { try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch(e) { return {}; } }
+function _taskLsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+function _taskSeenKey() { return 'ce2_taskseen_' + (currentUser ? currentUser.uid : 'local'); }
+function _taskPendKey() { return 'ce2_taskunread_' + (currentUser ? currentUser.uid : 'local'); }
+/* この端末で初めて使った時刻。既読の記録が無いタスクはここより後のコメントだけを未読にする
+   （端末を替えたときに過去のコメントが全部未読に並ばないように） */
+function taskSeenBase() {
+  var k = 'ce2_taskseen0_' + (currentUser ? currentUser.uid : 'local');
+  var v = 0; try { v = parseInt(localStorage.getItem(k), 10) || 0; } catch(e) {}
+  if (!v) { v = Date.now(); try { localStorage.setItem(k, String(v)); } catch(e) {} }
+  return v;
+}
+/* そのタスクの未読コメント数（自分が関係するタスクだけ・自分の書き込みは数えない） */
+function taskUnreadN(id, t) {
+  if (!currentUser || !taskRelated(t)) return 0;
+  var seen = _taskLsGet(_taskSeenKey())[id] || taskSeenBase();
+  var n = taskComments(t).filter(function(c){ return c.uid !== currentUser.uid && c.ts > seen; }).length;
+  if (!n && _taskLsGet(_taskPendKey())[id]) n = 1;
+  return n;
+}
+/* 未読のあるタスクのid。/tasks を読んでいなくても、届いた知らせの印は数える */
+function taskUnreadIds() {
+  var out = {};
+  Object.keys(_taskLsGet(_taskPendKey())).forEach(function(id){ if (!_tasksData[id] || taskUnreadN(id, _tasksData[id])) out[id] = true; });
+  Object.keys(_tasksData).forEach(function(id){ if (_tasksData[id] && taskUnreadN(id, _tasksData[id])) out[id] = true; });
+  return Object.keys(out);
+}
+function taskMarkSeen(id) {
+  var s = _taskLsGet(_taskSeenKey()); s[id] = Date.now(); _taskLsSet(_taskSeenKey(), s);
+  var p = _taskLsGet(_taskPendKey()); if (p[id]) { delete p[id]; _taskLsSet(_taskPendKey(), p); }
+  taskRefreshBadge();
+}
+/* 知らせの受信（startNotifListener）から呼ぶ：コメントの知らせが来たタスクに未読の印 */
+function taskNoteNotifs(items) {
+  var p = _taskLsGet(_taskPendKey()), ch = false;
+  (items || []).forEach(function(it){
+    if (it && it.type === 'taskc' && it.taskId && !p[it.taskId]) { p[it.taskId] = it.ts || Date.now(); ch = true; }
+  });
+  if (ch) _taskLsSet(_taskPendKey(), p);
+  taskRefreshBadge();
+}
+function taskRefreshBadge() {
+  var tab = document.getElementById('tab-task');
+  if (!tab) return;
+  var n = (currentUser || !FB_ON) ? taskUnreadIds().length : 0;
+  var b = tab.querySelector('.tab-badge');
+  if (n > 0) {
+    if (!b) { b = document.createElement('span'); b.className = 'tab-badge'; tab.appendChild(b); }
+    b.textContent = n > 99 ? '99+' : String(n);
+    b.title = '新しいコメントのあるタスク';
+  } else if (b) b.remove();
+}
+function taskToggleComments(id) {
+  _taskCmtOpen[id] = !_taskCmtOpen[id];
+  if (_taskCmtOpen[id]) taskMarkSeen(id);
+  renderTasks();
+  if (_taskCmtOpen[id]) setTimeout(function(){ var e = document.getElementById('task-cmt-in-' + id); if (e) e.focus(); }, 30);
+}
+/* コメントのブロック（カードの下）。閉じているときは「💬 コメント N」の1行だけ */
+function taskCommentsHTML(id, t) {
+  var list = taskComments(t), un = taskUnreadN(id, t), open = !!_taskCmtOpen[id];
+  var h = '<div class="task-cmt">'
+    + '<button class="task-cmt-tg' + (un ? ' unread' : '') + '" onclick="taskToggleComments(\'' + escJs(id) + '\')">💬 コメント' + (list.length ? ' ' + list.length : 'する')
+    + (un ? '<span class="task-cmt-new">新着</span>' : '') + ' ' + (open ? '▾' : '▸') + '</button>';
+  if (!open) return h + '</div>';
+  list.forEach(function(c){
+    var mine = currentUser && c.uid === currentUser.uid;
+    var canDel = mine || adminLike();
+    h += '<div class="task-cmt-item' + (mine ? ' mine' : '') + '"><div class="task-cmt-meta">' + escH(c.name || '') + '　' + fmtTS(c.ts)
+      + (canDel ? '<button class="task-cmt-del" title="コメントを消す" onclick="taskDelComment(\'' + escJs(id) + '\',\'' + escJs(c._cid) + '\')">✕</button>' : '')
+      + '</div><div class="task-cmt-txt">' + escH(c.text || '') + '</div></div>';
+  });
+  if (!list.length) h += '<div class="task-cmt-empty">まだコメントはありません。担当者と作成者に知らせが届きます</div>';
+  h += '<div class="task-cmt-form"><textarea id="task-cmt-in-' + escH(id) + '" class="fi task-cmt-in" rows="2" maxlength="500" placeholder="コメント（患者情報は書かない）"></textarea>'
+    + '<button class="btn btn-p btn-sm" onclick="taskPostComment(\'' + escJs(id) + '\')">送信</button></div>';
+  return h + '</div>';
+}
+function taskPostComment(id) {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
+  var t = _tasksData[id]; if (!t) return;
+  var inp = document.getElementById('task-cmt-in-' + id);
+  var text = inp ? inp.value.trim() : '';
+  if (!text) { toast('コメントを入力してください', 'warn'); return; }
+  var go = function(){
+    var cur = _tasksData[id]; if (!cur) { toast('タスクが見つかりません（削除された可能性があります）', 'warn'); return; }
+    var cid = (FB_ON && fbDB) ? fbDB.ref('/tasks/' + id + '/comments').push().key : 'c' + Date.now();
+    var c = { uid: currentUser ? currentUser.uid : 'local', name: taskMyName() || 'プレビュー', text: text, ts: Date.now() };
+    var nt = Object.assign({}, cur); nt.comments = Object.assign({}, cur.comments || {}); nt.comments[cid] = c;
+    _tasksData[id] = nt;
+    var e2 = document.getElementById('task-cmt-in-' + id); if (e2) e2.value = '';
+    taskMarkSeen(id); renderTasks();
+    if (FB_ON && fbDB) {
+      fbDB.ref('/tasks/' + id + '/comments/' + cid).set(c).catch(function(e){
+        var x = _tasksData[id]; if (x && x.comments) { x = Object.assign({}, x); x.comments = Object.assign({}, x.comments); delete x.comments[cid]; _tasksData[id] = x; }
+        renderTasks(); toast('コメントを送れませんでした: ' + e.message, 'err');
+      });
+      taskNotifyRelated(nt, '💬 タスクにコメント：' + (nt.title || ''), taskMyName() + '「' + text.substring(0, 60) + (text.length > 60 ? '…' : '') + '」', 'taskc', { taskId: id });
+      writeLog('タスクにコメント', (nt.title || '').substring(0, 30));
+    }
+  };
+  /* 止めるのは赤（患者IDなど）だけ。黄色（氏名らしい文字列）は「了解」「確認」のような短い返事でも当たり、
+     毎回止めると警告を読み飛ばすようになる（改善要望の本文と同じ判断） */
+  var phiRes = detectPHI(text);
+  if (phiRes.red.length) {
+    showPHIPopup({ result: { red: phiRes.red, yellow: [] }, mode: 'memo', onProceed: phiHasBlock(phiRes) ? null : go,
+      onFix: function(){ var e = document.getElementById('task-cmt-in-' + id); if (e) e.focus(); } });
+    return;
+  }
+  go();
+}
+function taskDelComment(id, cid) {
+  if (_offlineMode) { toast('📴 災害モードでは使えません（申し送り・チェックなど決めた記録だけ残せます）', 'warn'); return; }
+  var t = _tasksData[id]; if (!t || !t.comments || !t.comments[cid]) return;
+  var c = t.comments[cid];
+  if (!(adminLike() || (currentUser && c.uid === currentUser.uid))) return;
+  if (!confirm('このコメントを消しますか？')) return;
+  var nt = Object.assign({}, t); nt.comments = Object.assign({}, t.comments); delete nt.comments[cid];
+  _tasksData[id] = nt; renderTasks();
+  if (FB_ON && fbDB) fbDB.ref('/tasks/' + id + '/comments/' + cid).remove().catch(function(e){
+    var x = Object.assign({}, _tasksData[id] || t); x.comments = Object.assign({}, x.comments || {}); x.comments[cid] = c; _tasksData[id] = x;
+    renderTasks(); toast('消せませんでした: ' + e.message, 'err');
+  });
+}
+/* 期限まであと何日か（今日=0、過ぎていれば負） */
+function taskDaysTo(due, today) {
+  return Math.round((new Date(due + 'T00:00:00') - new Date(today + 'T00:00:00')) / 86400000);
+}
+function taskDueHTML(t, today) {
+  if (!t || !t.due) return '';
+  var p = t.due.split('-'), md = parseInt(p[1], 10) + '/' + parseInt(p[2], 10);
+  if ((t.status || 'todo') === 'done') return '<span class="task-due">📅 ' + md + '</span>';
+  var d = taskDaysTo(t.due, today), cls = '', txt;
+  if (d < 0) { cls = 'task-due-over'; txt = '⚠️ ' + md + '（' + (-d) + '日超過）'; }
+  else if (d === 0) { cls = 'task-due-over'; txt = '⏰ ' + md + '（今日まで）'; }
+  else if (d === 1) { cls = 'task-due-soon'; txt = '⏰ ' + md + '（明日まで）'; }
+  else if (d <= 3) { cls = 'task-due-soon'; txt = '📅 ' + md + '（あと' + d + '日）'; }
+  else txt = '📅 ' + md + '（あと' + d + '日）';
+  return '<span class="task-due ' + cls + '">' + txt + '</span>';
+}
+/* 期限の前日・当日・超過を担当者に知らせる。サーバーが無いので、本人の端末がその日に初めて開いたときに
+   自分あての知らせを作る。知らせのキーを「タスク・種類・期限」で固定し、無いときだけ書くので、
+   端末を2台使っても・日付が変わって開き直しても同じ知らせは1回だけ（超過は期限ごとに1回だけ）。 */
+function taskDailyCheck() {
+  if (!FB_ON || !fbDB || !currentUser || !_fbDataLoaded || _offlineMode || _staleApp) return;
+  var today = toDS(new Date());
+  if (_taskChkTried === today) return;
+  var lk = 'ce2_taskchk_' + currentUser.uid;
+  try { if (localStorage.getItem(lk) === today) { _taskChkTried = today; return; } } catch(e) {}
+  _taskChkTried = today;
+  var run = function(){
+    var self = taskSelfName(), uid = currentUser && currentUser.uid;
+    if (!uid) return;
+    if (self) Object.keys(_tasksData).forEach(function(id){
+      var t = _tasksData[id];
+      if (!t || !t.due || t.status === 'done' || taskAssignees(t).indexOf(self) === -1) return;
+      var d = taskDaysTo(t.due, today);
+      var kind = d === 1 ? 'd1' : d === 0 ? 'd0' : d < 0 ? 'over' : '';
+      if (!kind) return;
+      var title = kind === 'd1' ? '⏰ 明日が期限のタスク' : kind === 'd0' ? '⏰ 今日が期限のタスク' : '⚠️ 期限を過ぎたタスク';
+      var ref = fbDB.ref('/notifications/' + uid + '/due_' + id + '_' + kind + '_' + t.due);
+      ref.once('value', function(s){
+        if (s.exists()) return;
+        ref.set({ type: 'taskdue', title: title, body: (t.title || '') + '（期限: ' + t.due.replace(/-/g, '/') + '）', ts: Date.now(), read: false, taskId: id });
+      });
+    });
+    try { localStorage.setItem(lk, today); } catch(e) {}
+    taskRefreshBadge();
+  };
+  if (_tasksLoaded) { run(); return; }
+  /* タスク画面をまだ開いていなければ、1日1回だけ読み込む（常に受信し続けない） */
+  fbDB.ref('/tasks').once('value', function(s){
+    if (!_tasksListenerOn) _tasksData = s.val() || {};
+    run();
+  }, function(){ /* 読めなかった日は翌日にまた試す */ });
+}
+
 function taskSelfName() {
   if (!currentUser) return null;
   if (D.stf.indexOf(currentUser.displayName) >= 0) return currentUser.displayName;
@@ -29041,11 +29296,17 @@ function taskCanStatus(t) {
   var self = taskSelfName();
   return !!(self && taskAssignees(t).indexOf(self) !== -1); /* 担当者はステータスのみ */
 }
-/* 永続化（FB/ローカル両対応 — postBoard 系と同パターン） */
+/* 永続化（FB/ローカル両対応 — postBoard 系と同パターン）
+   set(t) で丸ごと書くと、編集画面を開いている間に他の人が付けたコメント（/tasks/{id}/comments）が消える。
+   コメント以外の決まった欄だけを update() で送る（undefined の欄は null＝消す）。 */
+var TASK_FIELDS = ['title','desc','assignees','status','due','media','createdBy','ts','updatedTs','doneAt','urgent'];
 function taskPersist(id, t) {
   var prev = _tasksData[id]; /* 書き込み失敗時のロールバック用 */
+  if (prev && prev.comments && !t.comments) t = Object.assign({}, t, { comments: prev.comments });
   _tasksData[id] = t; renderTasks(); /* 楽観更新 → リスナーエコーで確定 */
-  if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).set(t).catch(function(e){
+  var upd = {};
+  TASK_FIELDS.forEach(function(k){ var v = t[k]; upd[k] = (v === undefined || v === false || v === '' && k === 'due') ? null : v; });
+  if (FB_ON && fbDB) fbDB.ref('/tasks/'+id).update(upd).catch(function(e){
     if (prev === undefined) delete _tasksData[id]; else _tasksData[id] = prev;
     renderTasks();
     toast('保存エラー: '+e.message, 'err');
@@ -29075,6 +29336,7 @@ function taskCycleStatus(id) {
   t.doneAt = next === 'done' ? Date.now() : 0;
   t.updatedTs = Date.now();
   taskPersist(id, t);
+  if (next === 'done') taskNotifyDone(id, t);
   if (FB_ON) writeLog('タスク状態変更', (t.title||'').substring(0,20)+' → '+TASK_ST_LABEL[next]);
 }
 function setTaskFilter(f) { _taskFilter = f; renderTasks(); }
@@ -29135,12 +29397,12 @@ function taskCardHTML(id, t, today) {
   var canSt = taskCanStatus(t), canAll = taskCanEditAll(t), canDel = taskCanDelete(t);
   var tag = '<span class="task-tag task-tag-'+st+(canSt?' clickable" title="クリックで状態変更" onclick="taskCycleStatus(\''+id+'\')':'"')+'">'
     + TASK_ST_ICON[st]+' '+TASK_ST_LABEL[st]+'</span>';
-  var over = t.due && st !== 'done' && t.due < today;
-  var dueH = t.due ? '<span style="font-size:11px;margin-left:8px" class="'+(over?'task-due-over':'')+'">'
-    + (over?'⚠️ ':'📅 ')+escH(t.due.replace(/-/g,'/'))+(over?' 期限超過':'')+'</span>' : '';
-  var h = '<div class="task-card st-'+st+'">'
+  var over = t.due && st !== 'done' && t.due <= today;
+  var dueH = taskDueHTML(t, today);
+  var urg = t.urgent && st !== 'done' ? '<span class="task-urgent">🔥 急ぎ</span>' : '';
+  var h = '<div class="task-card st-'+st+(over?' due-over':'')+(t.urgent && st !== 'done'?' urgent':'')+'">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-    + tag + '<span style="font-weight:700;font-size:13px;flex:1;min-width:120px">'+escH(t.title||'')+'</span>' + dueH;
+    + tag + urg + '<span style="font-weight:700;font-size:13px;flex:1;min-width:120px">'+escH(t.title||'')+'</span>' + dueH;
   if (st === 'done') h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="toggleTaskDoneItem(\'t:'+escJs(id)+'\')">▴ たたむ</button>';
   if (canAll) h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="openTaskModal(\''+id+'\')">✎ 編集</button>';
   if (canDel) h += '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px;color:var(--rd)" onclick="taskDelete(\''+id+'\')">🗑</button>';
@@ -29149,8 +29411,9 @@ function taskCardHTML(id, t, today) {
   h += taskMediaHTML(t) + _taskMediaExpireNote(t);
   h += '<div style="margin-top:5px;font-size:10px;color:var(--txt3)">'
     + taskAssignees(t).map(function(n){ return '<span class="task-asg">👤 '+escH(n)+'</span>'; }).join('')
-    + '<span style="margin-left:6px">作成: '+escH((t.createdBy&&t.createdBy.name)||'')+'</span></div></div>';
-  return h;
+    + '<span style="margin-left:6px">作成: '+escH((t.createdBy&&t.createdBy.name)||'')+'</span></div>';
+  h += taskCommentsHTML(id, t);
+  return h + '</div>';
 }
 
 /* 自分専用メモのカード。担当者・作成者は出さず、鍵アイコンで区別する */
@@ -29158,10 +29421,9 @@ function memoCardHTML(id, m, today) {
   var st = m.status || 'todo';
   var tag = '<span class="task-tag task-tag-'+st+' clickable" title="クリックで状態変更" onclick="memoCycleStatus(\''+escJs(id)+'\')">'
     + TASK_ST_ICON[st]+' '+TASK_ST_LABEL[st]+'</span>';
-  var over = m.due && st !== 'done' && m.due < today;
-  var dueH = m.due ? '<span style="font-size:11px;margin-left:8px" class="'+(over?'task-due-over':'')+'">'
-    + (over?'⚠️ ':'📅 ')+escH(m.due.replace(/-/g,'/'))+(over?' 期限超過':'')+'</span>' : '';
-  var h = '<div class="task-card st-'+st+'">'
+  var over = m.due && st !== 'done' && m.due <= today;
+  var dueH = taskDueHTML(m, today);
+  var h = '<div class="task-card st-'+st+(over?' due-over':'')+'">'
     + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
     + tag + '<span style="font-weight:700;font-size:13px;flex:1;min-width:120px">🔒 '+escH(m.title||'')+'</span>' + dueH
     + (st === 'done' ? '<button class="btn btn-g btn-sm" style="font-size:10px;padding:2px 8px" onclick="toggleTaskDoneItem(\'m:'+escJs(id)+'\')">▴ たたむ</button>' : '')
@@ -29287,25 +29549,51 @@ function renderTasks() {
     var on = _taskFilter === c[0];
     return '<button class="btn btn-sm '+(on?'btn-p':'btn-g')+'" style="font-size:11px" onclick="setTaskFilter(\''+c[0]+'\')">'+c[1]+'</button>';
   }).join('') + '</div>';
+  /* 誰のタスクか（自分あて＝担当者に自分／自分が頼んだ＝作成者が自分） */
+  var whoChips = [['all','👥 全員分'],['mine','👤 自分あて'],['req','📤 自分が頼んだ']];
+  h += '<div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">' + whoChips.map(function(c){
+    var on = _taskWho === c[0];
+    return '<button class="btn btn-sm '+(on?'btn-p':'btn-g')+'" style="font-size:11px" onclick="setTaskWho(\''+c[0]+'\')">'+c[1]+'</button>';
+  }).join('') + '</div>';
 
-  /* --- タスクリスト: 未完了（期限昇順→作成降順）、完了は下部に薄く --- */
-  var act = [], done = [];
+  /* --- タスクリスト: 未完了（急ぎ→期限昇順→作成降順）、完了は下部に薄く --- */
+  var act = [], done = [], selfNm = taskSelfName();
   ids.forEach(function(id){
     var t = _tasksData[id]; if (!t) return;
     if (_taskFilter !== 'all' && (t.status||'todo') !== _taskFilter) return;
+    if (_taskWho === 'mine' && !(selfNm && taskAssignees(t).indexOf(selfNm) !== -1)) return;
+    if (_taskWho === 'req' && !(currentUser && t.createdBy && t.createdBy.uid === currentUser.uid)) return;
     (t.status === 'done' ? done : act).push([id, t]);
   });
-  act.sort(function(a,b){
-    var da = a[1].due || '9999', db2 = b[1].due || '9999';
-    return da !== db2 ? (da < db2 ? -1 : 1) : (b[1].ts||0) - (a[1].ts||0);
-  });
+  act.sort(taskActSort);
   done.sort(function(a,b){ return (b[1].doneAt||0) - (a[1].doneAt||0); });
 
-  if (!act.length && !done.length) h += '<div class="pool-empty" style="padding:20px 0">タスクはありません</div>';
+  if (!act.length && !done.length) h += '<div class="pool-empty" style="padding:20px 0">'
+    + (_taskWho === 'mine' && !selfNm ? 'アカウントがスタッフ名に紐付いていないため「自分あて」を判断できません' : 'タスクはありません') + '</div>';
   act.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); });
   h += taskDoneSectionHTML('all', done, false, today, _taskFilter === 'done');
 
+  taskSetBody(el, h);
+}
+function setTaskWho(w) { _taskWho = w; renderTasks(); }
+/* 未完了の並び：急ぎ → 期限の近い順（期限なしは後ろ）→ 新しい順 */
+function taskActSort(a, b) {
+  var ua = a[1].urgent ? 0 : 1, ub = b[1].urgent ? 0 : 1;
+  if (ua !== ub) return ua - ub;
+  var da = a[1].due || '9999', db2 = b[1].due || '9999';
+  return da !== db2 ? (da < db2 ? -1 : 1) : (b[1].ts||0) - (a[1].ts||0);
+}
+/* タスク画面を描き直す。受信のたびに作り直すので、書きかけのコメントとカーソルを拾って戻す */
+function taskSetBody(el, h) {
+  var drafts = {}, focus = null, act = document.activeElement;
+  el.querySelectorAll('.task-cmt-in').forEach(function(t){ if (t.value) drafts[t.id] = t.value; });
+  if (act && act.classList && act.classList.contains('task-cmt-in') && el.contains(act)) focus = { id: act.id, s: act.selectionStart, e: act.selectionEnd };
   el.innerHTML = h;
+  Object.keys(drafts).forEach(function(k){ var t = document.getElementById(k); if (t) t.value = drafts[k]; });
+  if (focus) { var f = document.getElementById(focus.id); if (f) { f.focus(); try { f.setSelectionRange(focus.s, focus.e); } catch(e) {} } }
+  /* 開いているコメント欄は描いた時点で既読にする（他の人の新しいコメントが届いたときも） */
+  Object.keys(_taskCmtOpen).forEach(function(id){ if (_taskCmtOpen[id] && _tasksData[id] && taskUnreadN(id, _tasksData[id])) taskMarkSeen(id); });
+  taskRefreshBadge();
 }
 
 /* 自分専用メモの一覧HTML。俯瞰ビュー・個人ページの両方から呼ぶ共通ヘルパー。
@@ -29354,25 +29642,30 @@ function renderTaskPerson(el, name) {
   var todo = mine.filter(function(p){ return (p[1].status||'todo') === 'todo'; });
   var doing = mine.filter(function(p){ return p[1].status === 'doing'; });
   var done = mine.filter(function(p){ return p[1].status === 'done'; });
-  var sortByDue = function(a,b){ var da=a[1].due||'9999', db2=b[1].due||'9999'; return da!==db2?(da<db2?-1:1):(b[1].ts||0)-(a[1].ts||0); };
-  todo.sort(sortByDue); doing.sort(sortByDue);
+  todo.sort(taskActSort); doing.sort(taskActSort);
   done.sort(function(a,b){ return (b[1].doneAt||0) - (a[1].doneAt||0); });
 
-  var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">'
+  var isSelf = name === taskSelfName();
+  /* 作るボタンは個人ページにも置く（全体へ戻らなくても作れるように）。担当者はこのページの人を最初から選ぶ */
+  var h = '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">'
     + '<button class="btn btn-g btn-sm" onclick="taskBackOverview()">← 全体へ戻る</button>'
-    + '<span style="font-size:14px;font-weight:800">👤 '+escH(name)+' のタスク</span></div>';
+    + '<span style="font-size:14px;font-weight:800">👤 '+escH(name)+' のタスク</span>'
+    + '<button class="btn btn-p btn-sm" style="margin-left:auto" onclick="taskNewForView()">＋ タスクを追加</button>'
+    + (isSelf ? '<button class="btn btn-g btn-sm" onclick="openTaskModal(null,true)" title="自分だけが見られるメモ">🔒 ＋ メモ</button>' : '')
+    + '</div>';
 
   /* 自分自身のページを開いているときだけ、自分専用メモも一番上に出す
      （他の人の個人ページでは、その人の担当タスクだけを見せる） */
-  if (name === taskSelfName()) h += taskMemoListHTML(today, {filter:false});
+  if (isSelf) h += taskMemoListHTML(today, {filter:false});
 
-  if (!mine.length) { h += '<div class="pool-empty" style="padding:20px 0">タスクはありません</div>'; el.innerHTML = h; return; }
+  if (!mine.length) { h += '<div class="pool-empty" style="padding:20px 0">タスクはありません</div>'; taskSetBody(el, h); return; }
 
   if (todo.length) { h += '<div style="font-size:12px;font-weight:700;color:var(--or);margin:8px 0 4px">⚪ 未着手（'+todo.length+'件）</div>'; todo.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); }); }
   if (doing.length) { h += '<div style="font-size:12px;font-weight:700;color:var(--ac);margin:12px 0 4px">🔵 進行中（'+doing.length+'件）</div>'; doing.forEach(function(p){ h += taskCardHTML(p[0], p[1], today); }); }
   h += taskDoneSectionHTML('person', done, false, today, false);
-  el.innerHTML = h;
+  taskSetBody(el, h);
 }
+function taskNewForView() { openTaskModal(null, false, _taskView || null); }
 
 /* タスク／メモモーダルの添付状態。モーダルを開くたびにリセットする。
    _taskMediaBuf   … これから追加する画像（未アップロード）
@@ -29380,15 +29673,16 @@ function renderTaskPerson(el, name) {
    _taskMediaDrop  … 保存時に Storage からも消す既存の添付 */
 var _taskMediaBuf = [], _taskMediaKeep = [], _taskMediaDrop = [];
 
-function openTaskModal(id, isMemo) {
-  /* isMemo=true なら自分専用メモ。担当者欄を出さず、保存先も /taskMemos になる */
+function openTaskModal(id, isMemo, presetAsg) {
+  /* isMemo=true なら自分専用メモ。担当者欄を出さず、保存先も /taskMemos になる。
+     presetAsg：新しく作るとき最初から選んでおく担当者（個人ページから作るときはその人） */
   var t = id ? (isMemo ? _memosData[id] : _tasksData[id]) : null;
   if (id && !t) return;
   if (!isMemo && t && !taskCanEditAll(t)) return;
   var oldOv = document.getElementById('task-md-ov'); if (oldOv) oldOv.remove(); /* 二重表示防止 */
   _taskMediaBuf = []; _taskMediaDrop = [];
   _taskMediaKeep = t ? taskMediaArr(t).slice() : [];
-  var cur = (t && !isMemo) ? taskAssignees(t) : [];
+  var cur = (t && !isMemo) ? taskAssignees(t) : (presetAsg ? [presetAsg] : []);
   var names = D.stf.filter(function(n){ return !(D.stfHidden && D.stfHidden[n]); });
   var checks = names.map(function(n){
     return '<label class="dc-cb-item'+(cur.indexOf(n)!==-1?' checked':'')+'">'
@@ -29416,6 +29710,7 @@ function openTaskModal(id, isMemo) {
     + '<div class="md-frow">'
     + '<div class="md-fcol"><div class="md-flbl">期限（任意）</div><input type="date" id="task-md-due" class="fi" value="'+escH(t?(t.due||''):'')+'"></div>'
     + '<div class="md-fcol"><div class="md-flbl">ステータス</div><select id="task-md-st" class="ds2">'+stOpts+'</select></div></div>'
+    + (isMemo ? '' : '<label class="task-md-urg"><input type="checkbox" id="task-md-urg"'+(t&&t.urgent?' checked':'')+'> 🔥 急ぎ（一覧の一番上に出します）</label>')
     + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
     + '<button class="btn btn-g" onclick="document.getElementById(\'task-md-ov\').remove()">キャンセル</button>'
     + '<button class="btn btn-p" id="task-md-save">保存</button></div>';
@@ -29479,7 +29774,8 @@ function saveTaskFromModal(id, isMemo) {
   var form = {
     title: title, desc: desc, asg: asg,
     due: document.getElementById('task-md-due').value || '',
-    st:  document.getElementById('task-md-st').value || 'todo'
+    st:  document.getElementById('task-md-st').value || 'todo',
+    urgent: !isMemo && !!(document.getElementById('task-md-urg') || {}).checked
   };
   var save = function(){ isMemo ? _doSaveMemo(id, form) : _doSaveTask(id, form); };
   /* PHI検知（#main外なので明示呼び出し必須。自分専用メモでも患者情報は書かせない） */
@@ -29556,6 +29852,7 @@ function _doSaveTask(id, form) {
       title: form.title, desc: form.desc || '',
       assignees: form.asg, status: st,
       due: form.due,
+      urgent: form.urgent || undefined,
       media: media,
       createdBy: old ? old.createdBy : { uid: currentUser.uid, name: currentUser.displayName || currentUser.email || '' },
       ts: old ? (old.ts || Date.now()) : Date.now(),
@@ -29564,6 +29861,7 @@ function _doSaveTask(id, form) {
     };
     taskMediaCleanup(_taskMediaDrop); _taskMediaDrop = [];
     taskPersist(key, t);
+    if (st === 'done' && (!old || old.status !== 'done')) taskNotifyDone(key, t);
     /* 新しく担当になった人にだけ通知する（元から担当だった人・自分自身には出さない） */
     var prevAsg = old ? taskAssignees(old) : [];
     var selfNm = taskSelfName();
