@@ -86,6 +86,7 @@ var D = {
   evtRanges: [],    // 期間イベント [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]。1日ずつの events / D.evts とは別に持ち、表示のときだけ合わせる（evtRangesOn(ds)）
   hnEduItems: [],   // 本院ヘルプへの分院ルールの説明項目 [{id:'he_…', t:'項目'}]（教育担当・管理者が編集）
   hnEdu: {},        // その記録 { ヘルプの氏名: { 項目id: {by, ts} } }。キーがある＝説明済み。詳細は「本院ヘルプへの分院ルールの説明」節
+  lendBook: {},     // 本分院の貸出返却の台帳 { id: {dev, dir:'h2b'|'b2h', from, to, by, note, …} }。詳細は「掲示板のカテゴリ」節の台帳の項
   boardCats: [],    // 掲示板のカテゴリ [{id:'bc_…', n:'透析'}]。空なら初期の5つ。詳細は「掲示板のカテゴリ」節
   opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
   _migVer: 6        // data migration version flag (increment when running one-time migrations)
@@ -522,6 +523,7 @@ All class names are abbreviated:
 | `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board (also handles read-receipt marking, tag/resolved rendering, pin-expiry sort/cleanup, filter chips) |
 | `boardCats()` / `boardCatsForWrite()` / `boardCatOf(p)` / `boardCatName(id)` / `setBoardCat(c)` / `setBoardSearch(v)` | 掲示板のカテゴリ：マスタの読み出し／書き換え用／投稿のカテゴリ（以前の投稿は kind で読み替え）／表示名／チップ／検索（「掲示板のカテゴリ」節） |
 | `openBoardImpModal()` / `parseBoardBook(wb)` / `doBoardImport()` / `boardImpRemoveAll()` | CE長期申し送り（Excel）の取り込み（管理者だけ）／取り込んだ投稿をまとめて消す |
+| `lendList()` / `lendSave(id, rec)` / `openLendModal(id)` / `openLendReturn(id)` / `delLend(id)` / `parseLendSheet(sh, rows)` | 本分院の貸出返却の台帳：一覧／書き込みの唯一の口／記録・修正／返却／削除（管理者）／Excelのシートの読み取り |
 | `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
 | `toggleBoardReads(id)` / `setBoardFilter(f)` | Board: 既読者一覧の開閉／フィルタチップ切替（`_boardFilter`） |
 | `renderPlacementBoard(ds, dat, locked)` / `bindPlacementDnD(ds)` | 配置盤の描画／クリック・ドラッグの委譲登録（`#placement-wrap` に1回だけ） |
@@ -725,6 +727,7 @@ dat.placement = {
 - **Excel取り込み（`openBoardImpModal` / `parseBoardBook` / `doBoardImport`、管理者だけ）**：見出しに「申し送り内容」がある行を探し、日付／分類＝件名／申し送り内容＝本文／担当者＝投稿者名（アカウントと紐付けない）／備考＝`p.note`（本文の下の「追記」）。タグは `info`、`imp:true`、`impKey`（日付＋件名＋本文。同じものは二度入れない）。患者情報は**赤だけ**止める（氏名の判定は外す。本文に医師名・PHSが普通に入るため）。日付の無い行は確認画面で選んだときだけ直前の行の日付で入れる。取り込み分は未読に数えず既読記録も付けない（`boardUnreadCount`・`renderBoard`）、消せるのは管理者だけ。まとめて消すのは `boardImpRemoveAll()`。
 - 既読の基準時刻は利用者ごと（`boardReadKey()`＝`ce2_boardread_{uid}`）。以前HD側に残した `ce2_boardread_hd_{uid}` も `getBoardReadTs()` が読んで新しい方を使う。**ログアウトで消さないこと**（`clearSensitiveLocalCache` の対象外。消すとログインのたびに全投稿が未読に戻る——10/19 に現場から指摘）。端末で初めてのときは投稿の既読記録 `reads/{uid}` の最新時刻から割り出す。
 - **本番で管理者以外がカテゴリを編集するには `database.rules.json` の `boardCats` の反映が必要**。
+- **本分院の貸出返却の台帳（`D.lendBook`、2026-11-16）**：カテゴリのチップの右端「🔁 本分院貸出返却」（`_boardCat === '__lend'`）で、投稿の代わりに表（`lendBookHTML`、貸出中が上・返却済みは30件ずつ）を出し、投稿欄を隠す。カテゴリのマスタには入れない（固定）。1件＝`{dev, dir:'h2b'(本院→分院)|'b2h'(分院→本院), from, to?, by?, note?, ts, upd?, updBy?, imp?, impKey?}`、返却日が空なら貸出中（`lendOpen`）。**1件ずつ別キーで持ち、書き込みは `lendSave(id, rec)` だけ**（`saveDPaths([['lendBook', id]])`。配列にすると同時に書いた人の記録を消す）。記録・返却・修正は職員なら誰でも（`DATA_WRITE_PERM` は `'all'`）、削除は管理者だけ（アプリ側のガードレール）。機器名・備考は赤（氏名以外）だけ止める（`lendCheckText`）。チップの数は貸出中だけ（`lendOpenCount`）。`/data` の受信で開いていれば `refreshLendIfOpen()` が描き直す。Excel取り込みは見出しに「医療機器名」のあるシートを `parseLendSheet` が読み、`impKey`（貸出日＋機器名＋区分）で二重取り込みを防ぐ。`boardImpRemoveAll()` は台帳の取り込み分も消す。**本番で一般職員が記録するには `database.rules.json` の `lendBook` の反映が必要**。
 - **横断検索と自動削除のメディア掃除は両スレッドを走査する** — 検索は「どこかに書いたはず」を探す機能なので主観に関係なくヒットさせ、掃除は片方だけだと添付がStorageに残り続けるため。
 - **マイ担当（`renderMySchedule`）も両方のタイムテーブルを見る**（HD分は`🩸`付き）。自分の予定であることは主観と無関係なので。
 
