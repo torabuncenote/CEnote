@@ -424,7 +424,7 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
-**今日へ戻る（`pageNavToday()`、2026-11-16）**：見出しの ‹ › の横に、今日以外を開いているときだけ「今日」を出す（`pageNavTitleHTML`）。今日の連絡表が無ければ、作れる人には「1日分を追加」を開き、作れない人には知らせる。
+**今日へ戻る（`pageNavToday()`、2026-11-16）**：見出しの ‹ › の横に、今日以外を開いているときだけ「本日へ」を出す（`pageNavTitleHTML`）。今日の連絡表が無ければ、作れる人には「1日分を追加」を開き、作れない人には知らせる。
 
 連絡表を1日だけ作る入り口は、カレンダーで連絡表の無い日を押したとき（`renderCal` の日セル）だけ。トップバーの「＋ 1日追加」ボタンは使われていなかったので削除した（`openNM` と `#modal-nm` はこの入り口のために残してある）。
 
@@ -692,7 +692,7 @@ dat.placement = {
 
 **緊急透析（時間外、`dat.hdCount.em`）**：血液浄化の欄の「🚑 緊急」。1件＝`{id, place:'room'|'ward'|'icu'|'other', start, end, staff[], note}`（場所は `HD_EM_PLACES`）。読み出しは必ず `hdEmArr(dat)`、件数は `hdEmCount(dat)`（空行は `hdEmFilled` で除く）、書き込みは `hdEmEnsureArr(dat)` で行を ID で引き直す。**血液浄化の合計に足す**（準夜・病棟などの内数にしない＝二重に数えない、2026-11-09 本人）。日付をまたぐ対応は始まった日に1件、長さは `hdEmMin(it)`（終了＜開始なら24時間足す）。時刻・場所の変更ではパネルを描き直さない（PCの時刻欄は打ち込み途中でも change が来るため）。翌日の出勤ルールはCEのオンコールと同じ（2026-11-09 本人）：終了を入れると `notifyHdEmRule` が知らせ、翌日のHD連絡表の上に管理者向けの帯（`hdEmAlertFor(ds)`、判定は `calcOcNextDayRule`、「確認済み」は `dat.hdEmAlertSeen`）。HD集計・CSVに「緊急」の列と場所別・時間の合計。編集権限は血液浄化と同じ `ops`。
 
-**血液浄化はタイルを直接押して直す（2026-11-16）**：「✏️ 編集」ボタンは廃止。日中透析室・準夜・BW・病棟はタイルの数字がそのまま入力欄（`.hdash-n-in`、見た目は表示と同じ。数字以外は除く・全角数字は半角に）で、保存は従来の `data-hdcnt-field` の処理（600ms 間引き）。特殊・緊急のタイルを押すと、その区分の行だけがタイルの下に開く（`_hdCountOpen` ＝ `''|'sp'|'em'`、`data-action="hdcnt-open"`）。ロック中（`ops`）は押せない。
+**血液浄化はタイルを直接押して直す（2026-11-16）**：「✏️ 編集」ボタンは廃止。日中透析室・準夜・BW・病棟はタイルの数字がそのまま入力欄（`.hdash-n-in`、見た目は表示と同じ。鉛筆の目印は付けない（2026-11-16 本人）。数字以外は除く・全角数字は半角に）で、保存は従来の `data-hdcnt-field` の処理（600ms 間引き）。特殊・緊急のタイルを押すと、その区分の行だけがタイルの下に開く（`_hdCountOpen` ＝ `''|'sp'|'em'`、`data-action="hdcnt-open"`）。ロック中（`ops`）は押せない。
 
 **兼務（`dat.coDuty`、2026-11-16）**：`{ce: {担当枠id: [氏名]}, hd: {役割コード: [氏名]}}`。CEは担当カードの「＋兼務」（`coDutyRowHTML`）、HDは担当表の下の1行（`hdCoLineHTML`）から `openCoModal(ds, side, key)`。**印だけ**で、`dat.placement`・`dat.duties`・人数・公平性・未割当には一切入れない（配置の「1人1か所」を崩さないため）。マイ担当には「（兼務）」で出す（`coDutyOf`）。権限は `can('duty')`、保存は `saveDPage(ds)`。
 
