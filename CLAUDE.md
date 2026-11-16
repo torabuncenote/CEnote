@@ -86,6 +86,7 @@ var D = {
   evtRanges: [],    // 期間イベント [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]。1日ずつの events / D.evts とは別に持ち、表示のときだけ合わせる（evtRangesOn(ds)）
   hnEduItems: [],   // 本院ヘルプへの分院ルールの説明項目 [{id:'he_…', t:'項目'}]（教育担当・管理者が編集）
   hnEdu: {},        // その記録 { ヘルプの氏名: { 項目id: {by, ts} } }。キーがある＝説明済み。詳細は「本院ヘルプへの分院ルールの説明」節
+  boardCats: [],    // 掲示板のカテゴリ [{id:'bc_…', n:'透析'}]。空なら初期の5つ。詳細は「掲示板のカテゴリ」節
   opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
   _migVer: 6        // data migration version flag (increment when running one-time migrations)
 };
@@ -113,7 +114,7 @@ When adding a new top-level property to `D`, update **all five** of these locati
 - **Firebase OFF / fallback**: writes to `localStorage` key `'ce2'`
 - **Logs**: written via `writeLog()` to Firebase `/logs`
 - **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}` (manuals), `memo/{ds}/{ts}_{idx}_{filename}` (memos), `board/{ts}_{idx}_{filename}` (board post images), `board/reply_{ts}_{idx}_{filename}` (board reply images)
-- **Board**: stored at Firebase `/board` (independent of `/data`). Posts (and replies) may carry a `media` array (images only); non-admin uploads get `pending: true` and go through the same approval flow as memo media (`approveBoardMedia`/`rejectBoardMedia` for posts, `approveBoardReplyMedia`/`rejectBoardReplyMedia` for replies — both scanned by `listPendingMedia`, which emits `kind:'board'` and `kind:'boardReply'` entries)
+- **Board**: stored at Firebase `/board` (independent of `/data`). One board for CE and HD since 2026-11-16, split by category `p.cat` (see 掲示板のカテゴリ). Posts (and replies) may carry a `media` array (images only); non-admin uploads get `pending: true` and go through the same approval flow as memo media (`approveBoardMedia`/`rejectBoardMedia` for posts, `approveBoardReplyMedia`/`rejectBoardReplyMedia` for replies — both scanned by `listPendingMedia`, which emits `kind:'board'` and `kind:'boardReply'` entries)
   - **既読 (read receipts)**: each post carries `reads: { uid: { n: displayName, ts } }`. `renderBoard()` writes the current user's read entry the first time it renders a post they haven't read yet (checked via `p.reads[currentUser.uid]` so it never re-writes — no infinite loop). The 👀 count shown excludes the post author's own read; `toggleBoardReads(id)` expands the name+time list.
   - **カテゴリタグ**: posts carry `tag` (`'info'`|`'req'`|`'etc'`, default `'etc'`, see `BOARD_TAGS`). `req`-tagged posts can be marked `resolved: true/false` (with `resolvedBy`/`resolvedAt`) by the author or an admin via `toggleBoardResolved()`; resolved posts render dimmed (`.brd-post.resolved`). `board-list` has a filter chip row (`setBoardFilter()`, module-level `_boardFilter`) for all/info/req/etc/unresolved-only.
   - **ピン留め期限**: `pinBoard(id, pin)` prompts for a number of days when pinning (blank = no expiry) and stores `pinUntil` (ts). `boardPinActive(p)` — `p.pin && (!p.pinUntil || p.pinUntil > Date.now())` — is the single source of truth for sort order and the 📌 badge/expiry-date label. Admins auto-clear expired pins (`/board/{id}/pin` → `false`) inside `renderBoard()`.
@@ -519,6 +520,8 @@ All class names are abbreviated:
 | `openWdSubsModal(i)` / `renderWdSubsModalBody(i)` / `addWdDeptFromModal(i)` / `saveWdSubs(i)` | Per-item department picker modal — checkboxes sourced from `D.wdDepts`; `addWdDeptFromModal` adds to the master inline without closing the modal |
 | `renderSched()` / `timelineEvents(ds)` / `tlFlowHTML(ds, evs)` / `tlLayoutAuto(list, nowM)` | タイムライン（旧スケジュール）の描画／自動の予定を集める唯一の入口（書き込まない）／流れの一覧／担当別で重なる自動の予定を横に並べる |
 | `renderBoard()` / `postBoard()` / `postBoardReply()` | Bulletin board (also handles read-receipt marking, tag/resolved rendering, pin-expiry sort/cleanup, filter chips) |
+| `boardCats()` / `boardCatsForWrite()` / `boardCatOf(p)` / `boardCatName(id)` / `setBoardCat(c)` / `setBoardSearch(v)` | 掲示板のカテゴリ：マスタの読み出し／書き換え用／投稿のカテゴリ（以前の投稿は kind で読み替え）／表示名／チップ／検索（「掲示板のカテゴリ」節） |
+| `openBoardImpModal()` / `parseBoardBook(wb)` / `doBoardImport()` / `boardImpRemoveAll()` | CE長期申し送り（Excel）の取り込み（管理者だけ）／取り込んだ投稿をまとめて消す |
 | `toggleBoardResolved(id, val)` / `pinBoard(id, pin)` / `boardPinActive(p)` | Board: 依頼解決トグル／ピン留め（期限プロンプト）／ピン有効判定 |
 | `toggleBoardReads(id)` / `setBoardFilter(f)` | Board: 既読者一覧の開閉／フィルタチップ切替（`_boardFilter`） |
 | `renderPlacementBoard(ds, dat, locked)` / `bindPlacementDnD(ds)` | 配置盤の描画／クリック・ドラッグの委譲登録（`#placement-wrap` に1回だけ） |
@@ -701,23 +704,27 @@ dat.placement = {
 
 **貸出・返却の日付規則**：新規貸出は今日の連絡表だけで許可する。過去・未来ページからは理由と「今日の連絡表へ」を表示し、今日のページが無い場合は作成権限のある既存導線で利用者が作る。モーダル開始時・保存直前・PHI確認後に権限、日付、CE/HDモードを再確認する。貸出中記録は貸出日のページに保持し、`tabletCarryOver(ds, mode)` と `tabletReturnedHere(ds, mode)` は保存済みページ全体を走査する（7日制限なし）。同一タブレットの未返却記録がある間は再貸出できず、保存直前にも確認する。返却日は今日が初期値で、貸出日から今日までの後追い入力が可能。未来日・貸出前の返却日時は拒否する。日付をまたいで開いたモーダルは保存せず、再入力を促す。
 
-**申し送り・スケジュール・掲示板・イベントのCE/HD分離**：どれも「読む相手が違う」ため分ける。関数は複製せず、主観で切り替えるアクセサ1組で扱う（`dat.checks`のような添字の共有規約が無いので複製が不要）。
+**申し送り・スケジュール・イベントのCE/HD分離**（掲示板は2026-11-16に1つにまとめた。下の「掲示板のカテゴリ」節）：どれも「読む相手が違う」ため分ける。関数は複製せず、主観で切り替えるアクセサ1組で扱う（`dat.checks`のような添字の共有規約が無いので複製が不要）。
 
 | 対象 | CE | HD | アクセサ |
 |---|---|---|---|
 | 申し送り | `dat.memos` | `dat.hdMemos` | `memoKey()` / `memosOf(dat)` / `ensureMemos(dat)` |
 | スケジュール | `dat.schedule` | `dat.hdSchedule` | `schedKey()` / `schedOf(dat)` / `ensureSched(dat)` ＋ 列は `schedColumns(ds,dat)` |
 | タブレット台帳 | `D.tablets` / `dat.tabletLogs` | `D.hdTablets` / `dat.hdTabletLogs` | `tabletMaster()` / `tabletLogsOf(dat)` / `ensureTabletLogs(dat)` |
-| 掲示板 | `/board` の投稿（`kind`無しまたは`'ce'`） | `/board` の投稿（`kind:'hd'`） | `boardKindOf(p)` / `boardInView(p)` / `boardReadKey()` |
 
-- **掲示板だけは保存先を分けない。** `/board` 1つのまま投稿に `kind` を付けて振り分ける——**Firebaseのセキュリティルールを触らずに済み**（別パス新設は管理画面での手作業が要る）、既読・ピン留め・タグ・返信の仕組みをそのまま使えるため。`renderBoard`/`boardUnreadCount`/既読マークの3箇所すべてで `boardInView` を通す（画面に出ていない投稿を既読にしないため）。
-- **`kind`／`hdMemos`／`hdSchedule` が無い既存データは全てCE扱い**になるので、移行処理は不要。
+- **`hdMemos`／`hdSchedule` が無い既存データは全てCE扱い**になるので、移行処理は不要。
 - **読み取りは `*Of`、要素を足し引きするときは `ensure*` を使う。** `memosOf`/`schedOf` は `normArr` を通すため、Firebaseがオブジェクト形状で返したときには**正規化した別配列**を返す。その戻り値に対して `splice`/`push` しても元データは変わらないので、削除が効かない・移動すると移動元に残って二重になる、という形で壊れる（`delMemo`/`moveMemo` で実際に起きていた）。`ensure*` は `dat[k]` を実配列に置き換えてからその実体を返すので、破壊的操作はこちらを通すこと。
 - **`*Of` / `ensure*` アクセサは必ず `normArr(v)` を通す。** Firebaseは疎な配列をオブジェクトとして返すことがあり（`ensureStaffZone` で実害が出たのと同じ罠）、`Array.isArray` だけで判定して空配列に差し替えると**既存データを破壊する**。`renderSched` は開くたびに `ensureSched` を呼ぶため、その日のスケジュールが消える事故になる。
-- **既読の基準時刻は主観ごと・利用者ごとに分ける**（`boardReadKey()` が `ce2_boardread[_hd]_{uid}` を返す）。1つのキーを共有すると、HDの掲示板を開いただけでCEの未読バッジが0になる／共用PCで別の人が開くと自分の未読が消える。**ログアウトで消さないこと**（`clearSensitiveLocalCache` の対象外。消すとログインのたびに全投稿が未読に戻る——10/19 に現場から指摘）。端末で初めてのときは `getBoardReadTs()` が投稿の既読記録 `reads/{uid}` の最新時刻から割り出す。
 - **`schedImportDuties`（🔄 業務割当から取込）はCE専用。** 取り込み元の `dat.duties`/`getDutyCfg` がCEのデータなので、HD主観ではボタンを出さず実行側でも弾く（通すとCEの担当枠が `hdSchedule` に流れ込む）。
-- 掲示板・スケジュールのパネルは同じモーダルが主観で別スレッドを映すので、**見出しに主観を出す**（`📢 掲示板（CE/HD）`／`🩺 CE|🩸 HD …のスケジュール`）。
-- `setViewMode` は掲示板のバッジ更新と、開いていればパネルの再描画も行う。
+- スケジュールのパネルは同じモーダルが主観で別スレッドを映すので、**見出しに主観を出す**（`🩺 CE|🩸 HD …のスケジュール`）。
+
+**掲示板のカテゴリ（`D.boardCats`、2026-11-16）**：掲示板はCE/HDで1つ（どちらの主観でも全投稿が見える）。代わりにカテゴリで分ける。元は Excel「CE長期申し送り」のシート名。
+- マスタは `D.boardCats = [{id:'bc_…', n:名前}]`（マスタ「🔔 通知・連絡」の「📢 掲示板のカテゴリ」、`mst`）。読み出しは `boardCats()`（空なら `DEF_BOARD_CATS` の5つ＝透析／呼吸器・HOT・6MW・PSG／オペ室／カテ室／その他。**D は読むだけで書かない**——読むたびに埋めると権限の無い職員の保存に毎回混ざる）、書き換えは `boardCatsForWrite()` で取ってから `saveD()`。
+- 投稿はカテゴリを**固定ID** `p.cat` で持つ（改名が過去の投稿にも効く）。読むのは必ず `boardCatOf(p)`：`cat` が無い以前の投稿は `kind` で読み替える（HD発→`bc_hd`、それ以外→`bc_etc`）。マスタに無いIDは `''`＝未分類。**削除・改名で `/board` は書き換えない**。新しい投稿には `kind` を付けない。
+- 投稿欄はカテゴリ必須（初期値なし、2026-11-16 本人）・件名 `p.title` は任意（40字）。絞り込みは カテゴリのチップ（`_boardCat`）→ 種類のタグ（`_boardFilter`）→ 検索（`_boardQ`、`boardPostMatches`）。新しい順に `BOARD_PAGE`（30）件ずつ（`_boardShowN`、絞り込みを変えたら `boardResetPage()`）。検索欄とチップは `#board-list` の外（`.brd-head`）にあり、検索欄は描き直さない。
+- **Excel取り込み（`openBoardImpModal` / `parseBoardBook` / `doBoardImport`、管理者だけ）**：見出しに「申し送り内容」がある行を探し、日付／分類＝件名／申し送り内容＝本文／担当者＝投稿者名（アカウントと紐付けない）／備考＝`p.note`（本文の下の「追記」）。タグは `info`、`imp:true`、`impKey`（日付＋件名＋本文。同じものは二度入れない）。患者情報は**赤だけ**止める（氏名の判定は外す。本文に医師名・PHSが普通に入るため）。日付の無い行は確認画面で選んだときだけ直前の行の日付で入れる。取り込み分は未読に数えず既読記録も付けない（`boardUnreadCount`・`renderBoard`）、消せるのは管理者だけ。まとめて消すのは `boardImpRemoveAll()`。
+- 既読の基準時刻は利用者ごと（`boardReadKey()`＝`ce2_boardread_{uid}`）。以前HD側に残した `ce2_boardread_hd_{uid}` も `getBoardReadTs()` が読んで新しい方を使う。**ログアウトで消さないこと**（`clearSensitiveLocalCache` の対象外。消すとログインのたびに全投稿が未読に戻る——10/19 に現場から指摘）。端末で初めてのときは投稿の既読記録 `reads/{uid}` の最新時刻から割り出す。
+- **本番で管理者以外がカテゴリを編集するには `database.rules.json` の `boardCats` の反映が必要**。
 - **横断検索と自動削除のメディア掃除は両スレッドを走査する** — 検索は「どこかに書いたはず」を探す機能なので主観に関係なくヒットさせ、掃除は片方だけだと添付がStorageに残り続けるため。
 - **マイ担当（`renderMySchedule`）も両方のタイムテーブルを見る**（HD分は`🩸`付き）。自分の予定であることは主観と無関係なので。
 
