@@ -337,6 +337,8 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /recent_backup_staff/{uid}  — the same, written by each approved staff member's own saves (staff cannot overwrite each other's or the shared one)
 ```
 
+**症例の変更のログ（`opsRowLog(ds, kindOrKey, before, after)`、2026-11-16）**：術式・入室時間・担当者・終了の違いだけを1行にまとめる。1文字ごとには呼ばず、ポップアップの決定（`opsApplyLiveRow`）・担当者の追加削除・終了ボタンのときだけ。同じ日に OC の対応済み・時刻・年休、CE の休み、申し送りの済、その日だけのイベント、血液浄化の件数（タイルから離れたとき）・特殊治療、兼務もログに残すようにした。
+
 **操作ログのCE/HD主観**: `writeLog()` writes the current `_viewMode` into each entry as `view` (`'ce'|'hd'`) — the ~80 existing call sites need no changes, it's picked up automatically. Logs written before this field existed have no `view`; reading always goes through `logViewOf(l)` (defaults to `'ce'`, mirrors the board's `boardKindOf`). Admin actions (master-data edits, user permissions, backups, etc.) are classified by whatever subjective mode was open at the time, so the ログ screen's default tab is **「すべて」**, not `'ce'`/`_viewMode`-linked — otherwise an admin watching only one tab would miss the other's admin actions. Display filters by subjective mode first, then caps at `LOG_SHOW_MAX` (100); fetch size is fixed at `LOG_FETCH_MAX` (3000 — ~60 days' worth at the observed ~35 logs/day). There used to be a「⬇️ さらに読み込む」button that grew the fetch size, but since the display cap never moved, pressing it never showed more rows — removed as confusing.
 
 **ログの自動削除**: `cleanOldLogs()` deletes logs older than `logKeepDays()` (default 60 — return value of `D.autoDelCfg.logKeepDays`, falling back to `LOG_KEEP_DAYS_DEF`; `0` disables it) in one login-time pass, capped at once per day via `D.autoDelCfg.logLastClean`. **This runs independently of `D.autoDelCfg.enabled`** (the 連絡表/画像 auto-delete toggle) — logs cost everyone's bandwidth if left to grow, whereas skipping them doesn't stall any workflow, so it must not be nested inside `checkAutoDelTiming()`'s `!enabled` early-return. **`D.autoDelCfg`'s default-value literal (`{enabled:false,period:365,interval:30,lastClean:0}`) is duplicated at several call sites — do not add `logKeepDays`/`logLastClean` to any of them.** `logKeepDays()` fills in the default at read time instead (same pattern as `ensureStaffZone`/`hdCountSpArr`), so a missed call site can never leak a stale value. Deletion is a keyed bulk `update({key:null,...})` in batches of 500 (`logSplitBatches(keys)`) rather than removing one key at a time — the first run had ~1,300 rows to clear and per-key removal would be far too slow.
@@ -421,6 +423,8 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 **紙用の様式・災害用セット（`openPaperSheet(ds)` / `paperDocHTML(dsList, blank, hd)` / `paperDaySheetHTML(ds, hd)`）**：連絡表ヘッダーの「📄 紙用」。停電・回線断のときにアナログで記録するための紙で、**災害当日、まだ電源と院内ネットが生きているうちに「🆘 災害用セット」（開いている日から3日分＋日付なしの白紙）をまとめて刷る**のが前提（2026-10-21 合意。正本は Obsidian `60_アプリ開発/2026-10-21_CENOTE災害モード設計.md`）。1日分だけ・白紙だけも刷れる。各ページには災害モードで記録する操作と同じ欄（担当表と休／チェックリスト／申し送り／CEはオペ・カテ症例とOC／タブレット貸出）を並べ、行ごとに「入力済」の□（復旧後にアプリへ書き写した印）を付ける。主観で CE/HD を出し分け、済んだ項目は☑で刷る。白紙版（`ds=null`）は毎日の項目と担当枠・HDの役割だけを入れる。チェック項目は `_paperChecklistRows(ns, ds, dat)` が `CL_CE`/`CL_HD` の記述子で集める（CE/HDの双子を作らない）。データは書き換えない。画面の印刷（`window.print()`）とは別物。**選ぶといきなり印刷せず、`openPaperPreview(html, label)` の確認画面（枠＝iframe の中に紙の見た目をそのまま出す）を開き、そこで「🖨 印刷」（枠の中だけを刷る）か「別のタブで開く」（`_paperPrint`、枠の中だけを刷れない端末向け）を押す。** 紙は画面ではA4幅（794px）で灰色の地に並べ、狭い画面では `PAPER_FIT_JS` が幅に合わせて縮める（`@media print` で zoom を1に戻すので印刷には効かない）。
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
+
+**今日へ戻る（`pageNavToday()`、2026-11-16）**：見出しの ‹ › の横に、今日以外を開いているときだけ「本日へ」を出す（`pageNavTitleHTML`）。今日の連絡表が無ければ、作れる人には「1日分を追加」を開き、作れない人には知らせる。
 
 連絡表を1日だけ作る入り口は、カレンダーで連絡表の無い日を押したとき（`renderCal` の日セル）だけ。トップバーの「＋ 1日追加」ボタンは使われていなかったので削除した（`openNM` と `#modal-nm` はこの入り口のために残してある）。
 
@@ -688,6 +692,10 @@ dat.placement = {
 
 **緊急透析（時間外、`dat.hdCount.em`）**：血液浄化の欄の「🚑 緊急」。1件＝`{id, place:'room'|'ward'|'icu'|'other', start, end, staff[], note}`（場所は `HD_EM_PLACES`）。読み出しは必ず `hdEmArr(dat)`、件数は `hdEmCount(dat)`（空行は `hdEmFilled` で除く）、書き込みは `hdEmEnsureArr(dat)` で行を ID で引き直す。**血液浄化の合計に足す**（準夜・病棟などの内数にしない＝二重に数えない、2026-11-09 本人）。日付をまたぐ対応は始まった日に1件、長さは `hdEmMin(it)`（終了＜開始なら24時間足す）。時刻・場所の変更ではパネルを描き直さない（PCの時刻欄は打ち込み途中でも change が来るため）。翌日の出勤ルールはCEのオンコールと同じ（2026-11-09 本人）：終了を入れると `notifyHdEmRule` が知らせ、翌日のHD連絡表の上に管理者向けの帯（`hdEmAlertFor(ds)`、判定は `calcOcNextDayRule`、「確認済み」は `dat.hdEmAlertSeen`）。HD集計・CSVに「緊急」の列と場所別・時間の合計。編集権限は血液浄化と同じ `ops`。
 
+**血液浄化はタイルを直接押して直す（2026-11-16）**：「✏️ 編集」ボタンは廃止。日中透析室・準夜・BW・病棟はタイルの数字がそのまま入力欄（`.hdash-n-in`、見た目は表示と同じ。鉛筆の目印は付けない（2026-11-16 本人）。数字以外は除く・全角数字は半角に）で、保存は従来の `data-hdcnt-field` の処理（600ms 間引き）。特殊・緊急のタイルを押すと、その区分の行だけがタイルの下に開く（`_hdCountOpen` ＝ `''|'sp'|'em'`、`data-action="hdcnt-open"`）。ロック中（`ops`）は押せない。
+
+**兼務（`dat.coDuty`、2026-11-16）**：`{ce: {担当枠id: [氏名]}, hd: {役割コード: [氏名]}}`。CEは担当カードの「＋兼務」（`coDutyRowHTML`）、HDは担当表の下の1行（`hdCoLineHTML`）から `openCoModal(ds, side, key)`。**印だけ**で、`dat.placement`・`dat.duties`・人数・公平性・未割当には一切入れない（配置の「1人1か所」を崩さないため）。マイ担当には「（兼務）」で出す（`coDutyOf`）。権限は `can('duty')`、保存は `saveDPage(ds)`。
+
 **HD集計（`renderHdSummary()`）**：`dat.hdCount`の期間集計。📈 集計タブ（`pane-sum`）の `subpane-hd` にCE集計・OC集計と並べて置く。**主観でもパーミッションでも出し分けない**——集計は「どちらの目で見るか」に依らない事実なので、CE主観からもHD集計が見える（逆も同様）。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
 
 **HDモードのタブ構成**：**タブの並び自体は主観で変わらない**（予定 / 担当表 / 集計 / タスク / 資料、＋管理者専用タブ）。主観で切り替わるのは担当表タブの中のサブタブだけで、`updateTabVisibility()` が HD主観で `subtab-at`（CE担当表）と `subtab-fair`（公平性）を隠す。管理者専用タブはHD主観でも管理者には出したままにする（モード切替はボタン1回なので締め出さない）。マスタタブ（`master`）はタブ自体は両モードで出し、**中身のセクションを `data-mode` で出し分ける**（pane-master Section Gating 節を参照）——HD主観ではHD共通業務・HD曜日別業務・HD特殊治療マスタと、CE/HD共通の設置部署マスタだけが残る。
@@ -732,6 +740,8 @@ dat.placement = {
 - **マイ担当（`renderMySchedule`）も両方のタイムテーブルを見る**（HD分は`🩸`付き）。自分の予定であることは主観と無関係なので。
 
 **期間イベント（`D.evtRanges`）**：「＋ イベント追加」（`addEvtPrompt`、小窓）で「期間」を選ぶと、開いている日から終了日までの毎日に出る。読み出しは `evtRangesOn(ds)`（`skip` の日は除く）。連絡表では点線の枠、カレンダーは期間中の毎日に印、月の一覧には始まりの日（月をまたぐときは1日）だけ期間付きで出す。消すときは `openEvtRangeRemove(ds, rid)` で「この日だけ外す（`skip`）／この日で終わり（`to` を縮める）／期間ごと消す」。権限は1日のイベントと同じ `can('pg')`。
+
+**イベントの時刻・スタッフ名（2026-11-16）**：その日だけのイベントは名前の文字列のまま、時刻と名前は別のマップ `dat.evtMeta = { fbSafeKey(名前): {s, e, staff[]} }`（勤務表由来の `D.evts` にも付く）。期間イベントはスタッフ名だけ（`r.staff`、毎日同じ時刻とは限らないため時刻は持たない）。読み出しは `evtMetaOf(dat, name)`、表示は `evtTimeLabel`（終了が空なら開始だけ）。追加と直すは同じ小窓 `addEvtPrompt(ds, edit)`（`edit`＝`{name}`／`{rid}`。直すときは名前を変えない＝名前がキーのため）。チップを押すと直す（`editEvt`／`editEvtRange`）。スタッフは名簿から選び、連絡表に出すだけ（マイ担当・通知には使わない）。`removeEvt` は `evtMeta` も片付ける。
 
 **イベントはCE/HD共通で見せ、登録した側で色分けする**（`evtAreaHTML(ds,dat,allEvts)`／`evtKindOf(dat,name)`）。同じ日の同じ現場の予定なので両方から見えるべきだが、どちら発かは分かったほうがよい。出所は `dat.evtKinds = { イベント名:'hd' }` の**別マップ**で持つ——イベント本体は文字列の配列（`dat.events` / `D.evts[ym][day]`）で既存データが入っているため、形を変えずに横へ足せる。**印が無いものはCE扱い**（CE発＝橙・📅／HD発＝紫・🩸）。`removeEvt` は削除時に印も片付ける。
 
