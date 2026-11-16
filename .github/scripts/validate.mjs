@@ -105,7 +105,11 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
         : p === 'edu' ? `auth != null && (${ADM} || ${DEV} || (${ACC} && root.child('userPerms').child(auth.uid).child('perm_edu').val() === true))`
         : `auth != null && (${ADM} || ${DEV} || (${ACC} && (root.child('data').child('lk').child('${p}').val() !== true || root.child('userPerms').child(auth.uid).child('${p}').val() === true)))`;
       const bad = [];
-      for (const [k, p] of Object.entries(table)) if (db[k]?.['.write'] !== want(p)) bad.push(k);
+      /* 'rec'＝1件ずつなら職員も追加・変更できる、削除と丸ごとは管理者とデベロッパだけ（親は管理者・デベロッパ、子 $id で newData.exists() を条件に職員を許す） */
+      const recOk = n => n?.['.write'] === `auth != null && (${ADM} || ${DEV})`
+        && n?.$id?.['.write'] === `auth != null && (${ADM} || ${DEV} || (${ACC} && newData.exists()))`
+        && typeof n?.$id?.['.validate'] === 'string';
+      for (const [k, p] of Object.entries(table)) if (p === 'rec' ? !recOk(db[k]) : db[k]?.['.write'] !== want(p)) bad.push(k);
       for (const k of Object.keys(db)) if (k[0] !== '.' && !(k in table)) bad.push(k + '（ルールのみ）');
       if (bad.length) fail('DATA_WRITE_PERM と database.rules.json の data が食い違っています: ' + bad.join(', '));
       else ok('書き込み権限表とDBルール一致（' + Object.keys(table).length + '項目）');
