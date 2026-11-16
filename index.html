@@ -4376,8 +4376,8 @@ function fbInit() {
           /* 掲示板リスナー（初回ログイン時に一度だけ設定） */
           fbDB.ref('/board').on('value', function(bsnap) {
             _boardData = bsnap.val() || {};
-            var bp = document.getElementById('pane-board');
-            if (bp && bp.style.display !== 'none') {
+            /* 掲示板の画面（モーダル）を開いているときだけ描き直す。#pane-board は閉じていても display が none にならない */
+            if (boardPanelOpen()) {
               /* 返信を書いている間は描き直さない（書き終えて離れたら flushPendingRender が描く） */
               if (boardEditing()) { _boardRenderPending = true; schedulePendingFlush(); }
               else renderBoard();
@@ -6427,11 +6427,18 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/16-160';
+var APP_VERSION = 'Ver.2026/11/16-161';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/16-161', date:'2026-11-16', title:'掲示板の既読などを直しました', items:[
+    {t:'fix', d:'👀 掲示板を開いていない人まで既読に数えられていたのを直しました（掲示板を開いたときだけ既読になります）'},
+    {t:'fix', d:'📢 掲示板を開き直したとき、前回の「本分院貸出返却」や検索語が残って投稿欄が隠れたままになっていたのを直しました'},
+    {t:'fix', d:'📅 カレンダーの月の予定一覧に、イベントの時刻も出すようにしました'},
+    {t:'fix', d:'🩸 別の日を開いたとき、血液浄化の特殊・緊急の入力欄が開いたままになっていたのを直しました'},
+    {t:'fix', d:'📴 災害モードでは兼務を付けられないようにしました（復旧後の取り込みに入らず、付けても消えてしまうため）'}
+  ]},
   { ver:'Ver.2026/11/16-160', date:'2026-11-16', title:'イベントに時刻と名前、担当に兼務を付けられるようにしました', items:[
     {t:'new', notify:true, d:'⏰ イベントに開始・終了の時刻を付けられるようになりました（終了は空でもよく、そのときは開始だけ出ます）。イベントを押すとあとから直せます'},
     {t:'new', notify:true, d:'👤 イベントにスタッフの名前を付けられるようになりました（名簿から複数選べます。期間のイベントは名前だけ）'},
@@ -13078,7 +13085,7 @@ function renderCal() {
     /* 期間イベント：カレンダーは期間中の毎日に印を付け、月の一覧にはその月で出ている最初の日だけ期間付きで出す（初日を外した期間も消えない） */
     var rgsD = evtRangesOn(ds);
     var hasEvt = dayEvts.length > 0 || rgsD.length > 0;
-    var listEvts = dayEvts.slice();
+    var listEvts = dayEvts.map(function(nm){ var tl = evtTimeLabel(evtMetaOf(D.pages[ds], nm)); return tl ? tl + ' ' + nm : nm; });
     rgsD.forEach(function(r){ if (!shownRng[r.id]) { shownRng[r.id] = 1; listEvts.push(r.n + '（' + evtRangeLabel(r) + '）'); } });
     if (listEvts.length) evtRows.push({d:d, ds:ds, w:w, evts:listEvts});
     var cls = 'cd' + (w===0?' sun':w===6?' sat':'') + (ds===today?' tod':'') +
@@ -18270,8 +18277,7 @@ function flushPendingRender() {
   if (_pointerDown) return; /* 指を離したとき（pointerup）にもう一度予約される */
   if (_boardRenderPending && !boardEditing()) {
     _boardRenderPending = false;
-    var bp = document.getElementById('pane-board');
-    if (bp && bp.style.display !== 'none') renderBoard();
+    if (boardPanelOpen()) renderBoard();
   }
   if (!_pageRenderPending) { hidePendingRenderChip(); return; }
   if (!curDs || !D.pages[curDs]) { _pageRenderPending = false; hidePendingRenderChip(); return; }
@@ -18459,6 +18465,7 @@ function initPageSwipe() {
 function openPage(ds) {
   var prev = curDs;
   curDs = ds;
+  if (prev !== ds) _hdCountOpen = '';
   renderCal();
   /* 同じページなら再描画しない（入力内容保持のため） */
   if (prev !== ds || !document.getElementById('main').querySelector('.pt2')) {
@@ -23224,6 +23231,7 @@ function hdCoLineHTML(ds, dat) {
 }
 /* 兼務を付ける小窓。HDで key が空なら役割から選ぶ */
 function openCoModal(ds, side, key) {
+  if (_offlineMode) { toast('📴 災害モードでは兼務を付けられません（復旧後に付けてください）', 'warn'); return; }
   if (!can('duty')) return;
   var dat = D.pages[ds]; if (!dat) return;
   var old = document.getElementById('co-ov'); if (old) old.remove();
@@ -32714,7 +32722,7 @@ function setViewMode(m) {
   updatePsgRemovalBanner(curDs && D.pages[curDs] ? curDs : null);
   /* カレンダーの完了ドットは pctForView 経由で主観に追従するため、切替時に塗り直す */
   renderCal();
-  /* 掲示板は主観ごとに別スレッド。未読バッジの数も切り替える（開いていれば中身も差し替える） */
+  /* 掲示板の未読バッジ（CE/HDで1つの掲示板なので数は変わらないが、開いていれば描き直す） */
   updateBoardBadge();
   var bov = document.getElementById('board-panel-ov');
   if (bov && !bov.classList.contains('hd')) renderBoard();
@@ -32872,7 +32880,9 @@ window.addEventListener('resize', syncCbarHeight);
 function openBoardPanel() {
   var ov = document.getElementById('board-panel-ov'); if (!ov) return;
   ov.classList.remove('hd');
-  _boardShowN = BOARD_PAGE; /* 開くたびに最初の30件から */
+  _boardShowN = BOARD_PAGE; /* 開くたびに最初の30件・「すべて」・検索なしから（前回の台帳や検索語が残ると投稿欄が隠れたまま始まるため） */
+  _boardCat = 'all'; _boardQ = '';
+  var bsIn = document.getElementById('board-search'); if (bsIn) bsIn.value = '';
   renderBoard();
   markBoardRead();
 }
@@ -32961,6 +32971,10 @@ function renderBoardCatChips(allPosts) {
     /* 本分院の貸出返却の台帳（投稿ではなく表）。数は貸出中だけ */
     + '<button type="button" class="brd-chip lend' + (_boardCat === '__lend' ? ' on' : '') + '" onclick="setBoardCat(\x27__lend\x27)">🔁 本分院貸出返却<span class="n">' + lendOpenCount() + '</span></button>';
 }
+function boardPanelOpen() {
+  var ov = document.getElementById('board-panel-ov');
+  return !!(ov && !ov.classList.contains('hd'));
+}
 function renderBoard() {
   var el = document.getElementById('board-list');
   if (!el) return;
@@ -32970,8 +32984,10 @@ function renderBoard() {
   renderBoardCatSel();
   var readTs = getBoardReadTs();
   /* 既読マーク：ログイン中ユーザーの既読がまだ無い投稿に記録する（無ければ書き込み、あれば何もしない＝無限ループ防止）。
-     Excelから取り込んだ過去の投稿（p.imp）には付けない——数百件を全員が一度に書き込むことになり、👀も出さないため */
-  if (currentUser) {
+     Excelから取り込んだ過去の投稿（p.imp）には付けない——数百件を全員が一度に書き込むことになり、👀も出さないため。
+     **掲示板を実際に開いているときだけ付ける**（2026-11-16）。以前は /board の受信のたびに、閉じたままの画面でも
+     描き直して既読を書いていたため、開いてもいない人まで「👀 既読」に数えられていた */
+  if (currentUser && boardPanelOpen()) {
     Object.keys(_boardData).forEach(function(id) {
       var p = _boardData[id];
       if (!p || p.imp) return;
