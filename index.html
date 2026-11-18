@@ -6444,11 +6444,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/18-164';
+var APP_VERSION = 'Ver.2026/11/18-165';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/18-165', date:'2026-11-18', title:'兼務でどの担当でも選べるようにしました', items:[
+    {t:'imp', d:'🤝 兼務で選べる担当を、その日にカードがある担当だけでなく、担当枠マスタにある担当すべてに広げました'}
+  ]},
   { ver:'Ver.2026/11/18-164', date:'2026-11-18', title:'兼務を本人のカードから付けるようにしました', items:[
     {t:'imp', d:'🤝 兼務は、本人の担当カード（HDは担当表のその人の行）の「＋兼務」から、一緒に受け持つ担当を選ぶようにしました。例：病棟外回りの人に急なカテが入ったら、病棟外回りのカードからカテを選びます'},
     {t:'imp', d:'👀 本人のカードに「🤝 兼務：カテ」、兼ねられた側のカードに「🤝 ○○（病棟外回り）が兼務」と出るので、ほかの人にもすぐ分かります'}
@@ -23398,8 +23401,27 @@ function coDutyOf(dat, side, key) {
 }
 function coRoleLabel(side, key, dat) {
   if (side === 'hd') return key === '準' ? '準夜' : key;
-  var s = getDutyCfg(dat).filter(function(x){ return x.id === key; })[0];
+  var s = getDutyCfg(dat).concat(getDutyMaster()).filter(function(x){ return x.id === key; })[0];
   return s ? (s.label || key) : key;
+}
+/* 兼務で選べるCEの担当：その日のカードに限らず、担当枠マスタの全部（＋その日だけの枠）。
+   カードのidは日ごとに振り直されるので、同じ名前のカードがその日にあればそのidを使う（兼ねられた側のカードにも出るように） */
+function coCeKeys(dat) {
+  var day = getDutyCfg(dat), out = [], seen = {};
+  function add(id, label) { var l = String(label || '').trim() || id; if (seen[l]) return; seen[l] = 1; out.push(id); }
+  getDutyMaster().forEach(function(m){
+    var hit = day.filter(function(x){ return String(x.label || '').trim() === String(m.label || '').trim(); })[0];
+    add(hit ? hit.id : m.id, m.label);
+  });
+  day.forEach(function(x){ add(x.id, x.label); });
+  return out;
+}
+/* 名前が同じ担当のキーすべてで兼務している人（マスタのidで付けた後にその日のカードを足した場合も拾う） */
+function coDutyOfLabel(dat, side, key) {
+  if (side !== 'ce') return coDutyOf(dat, side, key);
+  var lb = coRoleLabel('ce', key, dat), m = (dat && dat.coDuty && dat.coDuty.ce) || {}, out = [];
+  Object.keys(m).forEach(function(k){ if (k === key || coRoleLabel('ce', k, dat) === lb) coDutyOf(dat, 'ce', k).forEach(function(n){ if (out.indexOf(n) < 0) out.push(n); }); });
+  return out;
 }
 /* ある人が兼ねている担当（自分の持ち場以外）。side の中だけを見る */
 function coDutyKeysOf(dat, side, name) {
@@ -23412,7 +23434,7 @@ function coRowInnerHTML(ds, dat, side, name, ownKey, locked) {
   var h = '';
   var mine = name ? coDutyKeysOf(dat, side, name) : [];
   if (mine.length) h += '<span class="co-lbl">🤝 兼務：</span>' + mine.map(function(k){ return '<span class="co-chip">' + escH(coRoleLabel(side, k, dat)) + '</span>'; }).join('');
-  var others = ownKey ? coDutyOf(dat, side, ownKey).filter(function(n){ return n !== name; }) : [];
+  var others = ownKey ? coDutyOfLabel(dat, side, ownKey).filter(function(n){ return n !== name; }) : [];
   if (others.length) h += '<span class="co-lbl co-by">🤝 ' + others.map(function(n){
     var main = coMainLabel(ds, dat, side, n);
     return escH(n) + (main ? '（' + escH(main) + '）' : '');
@@ -23449,10 +23471,13 @@ function openCoPick(ds, side, name) {
   var dat = D.pages[ds]; if (!dat) return;
   var old = document.getElementById('co-ov'); if (old) old.remove();
   var ownLabel = coMainLabel(ds, dat, side, name);
-  var keys = side === 'hd' ? CO_HD_ROLES() : getDutyCfg(dat).map(function(x){ return x.id; });
+  var keys = side === 'hd' ? CO_HD_ROLES() : coCeKeys(dat);
   var ownKey = coMainKey(ds, dat, side, name);
-  keys = keys.filter(function(k){ return k !== ownKey; });
-  var picked = coDutyKeysOf(dat, side, name);
+  var ownLb = ownKey ? coRoleLabel(side, ownKey, dat) : '';
+  keys = keys.filter(function(k){ return k !== ownKey && (!ownLb || coRoleLabel(side, k, dat) !== ownLb); });
+  /* 以前その日のカードのidで付けた兼務も、名前で同じ担当として選択済みに見せる */
+  var pickedLb = coDutyKeysOf(dat, side, name).map(function(k){ return coRoleLabel(side, k, dat); });
+  var picked = keys.filter(function(k){ return pickedLb.indexOf(coRoleLabel(side, k, dat)) >= 0; });
   var ov = document.createElement('div'); ov.id = 'co-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '400px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
@@ -23481,7 +23506,8 @@ function openCoPick(ds, side, name) {
     var before = coDutyKeysOf(pg, side, name);
     pg.coDuty = pg.coDuty || {};
     var m = pg.coDuty[side] = pg.coDuty[side] || {};
-    keys.forEach(function(k){
+    /* この人の兼務を一度すべて外してから、選んだ担当にだけ付け直す（以前の日のカードのidで付けた分も重ならない） */
+    Object.keys(m).concat(keys).forEach(function(k){
       var arr = coDutyOf(pg, side, k).filter(function(n){ return n !== name; });
       if (picked.indexOf(k) >= 0) arr.push(name);
       if (arr.length) m[k] = arr; else delete m[k];
