@@ -6442,11 +6442,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/16-162';
+var APP_VERSION = 'Ver.2026/11/18-163';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/18-163', date:'2026-11-18', title:'HD担当表にも本院ヘルプへの説明の印を出しました', items:[
+    {t:'imp', d:'📘 本院から来たヘルプの人に、分院ルールの説明が済んだかの印（📘 未説明N／📘 ✓）を、HD担当表の名前の横にも出すようにしました。押すと配置盤と同じチェック表が開きます'}
+  ]},
   { ver:'Ver.2026/11/16-162', date:'2026-11-16', title:'ロボット配置図を画像プールから使い回せるようにしました', items:[
     {t:'new', admin:true, d:'🖼 ロボット配置マスタに「画像プール」を追加しました。図を一度入れれば、各配置の📷の「プールから選ぶ」で何個の配置にでも付けられます（押すと付く・もう一度押すと外れる）'},
     {t:'new', admin:true, d:'📷 図をまとめて何枚も選んで追加できるようになりました（プールは50枚まで、1つの配置に付けられるのは5枚まで）'},
@@ -23249,14 +23252,19 @@ function hdAbsentOffRows(ds, dat) {
   return rows;
 }
 /* 通常表示の1行（役割／スタッフ文字／備考）。役割なしは「—」。 */
-function hdRosterNormalRowHTML(dat, r) {
+/* 本院ヘルプへの説明の印（配置盤と同じ hnEduMarkHTML）。ヘルプの人だけ */
+function hdrHnEduMarkHTML(ds, name) {
+  var p = ds && name ? plPeople(ds)[name] : null;
+  return (p && p.base === 'help') ? ' ' + hnEduMarkHTML(name, 'pl-chip-hnedu') : '';
+}
+function hdRosterNormalRowHTML(dat, r, ds) {
   var note = (dat.hdNotes && dat.hdNotes[r.name]) ? dat.hdNotes[r.name] : '';
   var support = !!r.from; /* CEから受け取った応援 */
   var absent = hdIsAbsent(dat, r.name);
   var absentChk = (can('duty') || absent)
     ? '<label class="hdr-absent-lbl" title="休みの印"><input type="checkbox" class="hdr-absent-cb" data-name="' + escH(r.name) + '"' + (absent ? ' checked' : '') + (can('duty') ? '' : ' disabled') + '>休</label>'
     : '';
-  var staffCell = '<span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '') + absentChk;
+  var staffCell = '<span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '') + hdrHnEduMarkHTML(ds, r.name) + absentChk;
   var noteCell = can('duty')
     ? '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>'
     : (note ? escH(note) : '<span class="muted">—</span>');
@@ -23271,9 +23279,9 @@ function hdRosterNormalTableHTML(ds, dat) {
   var nightRows = rows.filter(function (r) { return r.night; });
   var h = '<div class="data-wrap"><table class="data-tbl">';
   h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th style="width:100%">備考</th></tr></thead><tbody>';
-  if (dayRows.length)   { h += hdRosterGroupRowHTML('🔵 日勤', btn); btn = ''; dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
-  if (nightRows.length) { h += hdRosterGroupRowHTML('🌙 準夜', btn); btn = ''; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
-  if (offRows.length)   { h += hdRosterGroupRowHTML('🏖️ 休み', btn); btn = ''; offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
+  if (dayRows.length)   { h += hdRosterGroupRowHTML('🔵 日勤', btn); btn = ''; dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
+  if (nightRows.length) { h += hdRosterGroupRowHTML('🌙 準夜', btn); btn = ''; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
+  if (offRows.length)   { h += hdRosterGroupRowHTML('🏖️ 休み', btn); btn = ''; offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
   h += '</tbody></table></div>';
   return h;
 }
@@ -23347,7 +23355,7 @@ function hdRosterEditTableHTML(ds, dat) {
   data.night.forEach(function (p) { h += hdRosterEditRowHTML(dat, '準', p, picking); });
   h += '<tr class="hdr-row hdr-add" data-hdr-role="準"><td style="font-weight:700">準夜</td><td><span class="hdr-empty">＋ 準夜に追加（ここへ）</span></td><td></td></tr>';
   var offRows = hdAbsentOffRows(ds, dat);
-  if (offRows.length) { h += hdRosterGroupRowHTML('🏖️ 休み', ''); offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r); }); }
+  if (offRows.length) { h += hdRosterGroupRowHTML('🏖️ 休み', ''); offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
   h += '</tbody></table></div>';
   h += hdRosterTrayHTML(data.tray, picking);
   return h;
@@ -23638,6 +23646,8 @@ function hdRosterBindEvents(box, ds){
        真偽値のフラグだと立てっぱなしのまま「次に本当にタップした1回」まで捨ててしまう。 */
     if (box._hdrTapGuardTs && (Date.now() - box._hdrTapGuardTs) < 600) return;
 
+    var hnBtn = e.target.closest('[data-pl-act="hnedu"]');
+    if (hnBtn) { openHnEduModal(hnBtn.getAttribute('data-name')); return; }
     var editBtn = e.target.closest('[data-action="hdr-edit-toggle"]');
     if (editBtn) { hdRosterToggleEdit(cds); return; }
     var addBtn = e.target.closest('[data-action="hdr-add-person"]');
