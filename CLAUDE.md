@@ -696,7 +696,7 @@ dat.placement = {
 
 **血液浄化はタイルを直接押して直す（2026-11-16）**：「✏️ 編集」ボタンは廃止。日中透析室・準夜・BW・病棟はタイルの数字がそのまま入力欄（`.hdash-n-in`、見た目は表示と同じ。鉛筆の目印は付けない（2026-11-16 本人）。数字以外は除く・全角数字は半角に）で、保存は従来の `data-hdcnt-field` の処理（600ms 間引き）。特殊・緊急のタイルを押すと、その区分の行だけがタイルの下に開く（`_hdCountOpen` ＝ `''|'sp'|'em'`、`data-action="hdcnt-open"`）。ロック中（`ops`）は押せない。
 
-**兼務（`dat.coDuty`、2026-11-16）**：`{ce: {担当枠id: [氏名]}, hd: {役割コード: [氏名]}}`。CEは担当カードの「＋兼務」（`coDutyRowHTML`）、HDは担当表の下の1行（`hdCoLineHTML`）から `openCoModal(ds, side, key)`。**印だけ**で、`dat.placement`・`dat.duties`・人数・公平性・未割当には一切入れない（配置の「1人1か所」を崩さないため）。マイ担当には「（兼務）」で出す（`coDutyOf`）。権限は `can('duty')`、保存は `saveDPage(ds)`。災害モードでは付けさせない（`coDuty` は `OF_REC_FIELDS` に無く、復旧後の取り込みで消えるため）。
+**兼務（`dat.coDuty`、2026-11-16）**：`{ce: {担当枠id: [氏名]}, hd: {役割コード: [氏名]}}`。**付けるのは本人の持ち場から**（2026-11-18 作り替え。例：病棟外回りの人に急なカテ→病棟外回りのカードからカテを選ぶ）：CEは担当カード（`coDutyRowHTML`）、HDは担当表の通常表示のその人の行（`hdCoCellHTML`、休みの行は除く）の「＋兼務」→ `openCoPick(ds, side, 氏名)` で、同じ側の担当枠／役割から自分の持ち場（`coMainKey`）以外を選ぶ。表示は `coRowInnerHTML` 1つで、本人のカードに「🤝 兼務：カテ」、兼ねられた側のカードに「🤝 ○○（病棟外回り）が兼務」。帯・お知らせは出さない（カードの中で完結させる、本人判断）。保存の形は以前のまま。**印だけ**で、`dat.placement`・`dat.duties`・人数・公平性・未割当には一切入れない（配置の「1人1か所」を崩さないため）。マイ担当には「（兼務）」で出す（`coDutyOf`）。権限は `can('duty')`、保存は `saveDPage(ds)`。災害モードでは付けさせない（`coDuty` は `OF_REC_FIELDS` に無く、復旧後の取り込みで消えるため）。
 
 **HD集計（`renderHdSummary()`）**：`dat.hdCount`の期間集計。📈 集計タブ（`pane-sum`）の `subpane-hd` にCE集計・OC集計と並べて置く。**主観でもパーミッションでも出し分けない**——集計は「どちらの目で見るか」に依らない事実なので、CE主観からもHD集計が見える（逆も同様）。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
 
