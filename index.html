@@ -301,6 +301,8 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .co-hd{margin-top:8px}
 .co-chip{font-size:11px;padding:2px 8px;border-radius:12px;border:1.5px solid var(--pu);background:var(--pu-bg);color:var(--pu);font-family:inherit;cursor:pointer}
 .co-chip:disabled{cursor:default}
+span.co-chip{cursor:default;padding:1px 7px}
+.co-by{color:var(--pu);font-weight:600}
 @media print{.co-add{display:none!important}}
 @keyframes pnav-in-l{from{transform:translateX(-28px);opacity:.3}to{transform:none;opacity:1}}
 @keyframes pnav-in-r{from{transform:translateX(28px);opacity:.3}to{transform:none;opacity:1}}
@@ -6442,11 +6444,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/18-163';
+var APP_VERSION = 'Ver.2026/11/18-164';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/18-164', date:'2026-11-18', title:'兼務を本人のカードから付けるようにしました', items:[
+    {t:'imp', d:'🤝 兼務は、本人の担当カード（HDは担当表のその人の行）の「＋兼務」から、一緒に受け持つ担当を選ぶようにしました。例：病棟外回りの人に急なカテが入ったら、病棟外回りのカードからカテを選びます'},
+    {t:'imp', d:'👀 本人のカードに「🤝 兼務：カテ」、兼ねられた側のカードに「🤝 ○○（病棟外回り）が兼務」と出るので、ほかの人にもすぐ分かります'}
+  ]},
   { ver:'Ver.2026/11/18-163', date:'2026-11-18', title:'HD担当表にも本院ヘルプへの説明の印を出しました', items:[
     {t:'imp', d:'📘 本院から来たヘルプの人に、分院ルールの説明が済んだかの印（📘 未説明N／📘 ✓）を、HD担当表の名前の横にも出すようにしました。押すと配置盤と同じチェック表が開きます'}
   ]},
@@ -23247,7 +23253,7 @@ function hdAbsentOffRows(ds, dat) {
   Object.keys(of).forEach(function(n) {
     var f = of[n]; if (!f || f.kind !== 'hdrole') return;
     var sp = plSpot(ds, n, ppl); if (sp.kind !== 'zone' || sp.zone !== 'off') return;
-    rows.push({ role: f.role || '', name: n, night: f.role === '準', from: (ppl[n] || {}).from || '' });
+    rows.push({ role: f.role || '', name: n, night: f.role === '準', from: (ppl[n] || {}).from || '', off: true });
   });
   return rows;
 }
@@ -23264,7 +23270,7 @@ function hdRosterNormalRowHTML(dat, r, ds) {
   var absentChk = (can('duty') || absent)
     ? '<label class="hdr-absent-lbl" title="休みの印"><input type="checkbox" class="hdr-absent-cb" data-name="' + escH(r.name) + '"' + (absent ? ' checked' : '') + (can('duty') ? '' : ' disabled') + '>休</label>'
     : '';
-  var staffCell = '<span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '') + hdrHnEduMarkHTML(ds, r.name) + absentChk;
+  var staffCell = '<span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '') + hdrHnEduMarkHTML(ds, r.name) + absentChk + (ds && !r.off ? hdCoCellHTML(ds, dat, r.name, r.role) : '');
   var noteCell = can('duty')
     ? '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>'
     : (note ? escH(note) : '<span class="muted">—</span>');
@@ -23395,73 +23401,98 @@ function coRoleLabel(side, key, dat) {
   var s = getDutyCfg(dat).filter(function(x){ return x.id === key; })[0];
   return s ? (s.label || key) : key;
 }
+/* ある人が兼ねている担当（自分の持ち場以外）。side の中だけを見る */
+function coDutyKeysOf(dat, side, name) {
+  var m = (dat && dat.coDuty && dat.coDuty[side]) || {};
+  return Object.keys(m).filter(function(k){ return name && coDutyOf(dat, side, k).indexOf(name) >= 0; });
+}
+/* 兼務の行（2026-11-18 作り替え）：本人のカード（行）に「🤝 兼務：カテ」と「＋兼務」、
+   兼ねられている側のカードには「🤝 ○○（病棟外回り）が兼務」を出す。どちらもカードの中で完結させる */
+function coRowInnerHTML(ds, dat, side, name, ownKey, locked) {
+  var h = '';
+  var mine = name ? coDutyKeysOf(dat, side, name) : [];
+  if (mine.length) h += '<span class="co-lbl">🤝 兼務：</span>' + mine.map(function(k){ return '<span class="co-chip">' + escH(coRoleLabel(side, k, dat)) + '</span>'; }).join('');
+  var others = ownKey ? coDutyOf(dat, side, ownKey).filter(function(n){ return n !== name; }) : [];
+  if (others.length) h += '<span class="co-lbl co-by">🤝 ' + others.map(function(n){
+    var main = coMainLabel(ds, dat, side, n);
+    return escH(n) + (main ? '（' + escH(main) + '）' : '');
+  }).join('、') + ' が兼務</span>';
+  if (name && !locked) h += '<button type="button" class="db-add-link co-add" data-co-ds="' + escH(ds) + '" data-co-side="' + side + '" data-co-name="' + escH(name) + '" onclick="openCoPick(this.dataset.coDs, this.dataset.coSide, this.dataset.coName)">' + (mine.length ? '✏️ 兼務' : '＋ 兼務') + '</button>';
+  return h ? '<div class="co-row">' + h + '</div>' : '';
+}
+/* その人の本来の持ち場（CE＝担当枠id、HD＝役割コード）と表示名。無ければ '' */
+function coMainKey(ds, dat, side, name) {
+  if (side === 'ce') {
+    var d = (dat && dat.duties) || {};
+    return Object.keys(d).filter(function(k){ return d[k] === name; })[0] || '';
+  }
+  var sp = plSpot(ds, name);
+  return (sp.kind === 'hdrole' && sp.role) ? sp.role : '';
+}
+function coMainLabel(ds, dat, side, name) {
+  var k = coMainKey(ds, dat, side, name);
+  return k ? coRoleLabel(side, k, dat) : '';
+}
 /* CEの担当カードに置く1行 */
 function coDutyRowHTML(ds, dat, slotId, locked) {
-  var arr = coDutyOf(dat, 'ce', slotId);
-  if (!arr.length && locked) return '';
-  return '<div class="co-row">' + (arr.length ? '<span class="co-lbl">🤝 兼務：' + arr.map(escH).join('、') + '</span>' : '')
-    + (locked ? '' : '<button type="button" class="db-add-link co-add" data-co-ds="' + escH(ds) + '" data-co-side="ce" data-co-key="' + escH(slotId) + '" onclick="openCoModal(this.dataset.coDs, this.dataset.coSide, this.dataset.coKey)">' + (arr.length ? '✏️' : '＋ 兼務') + '</button>')
-    + '</div>';
+  var name = (dat.duties && dat.duties[slotId]) || '';
+  return coRowInnerHTML(ds, dat, 'ce', name, slotId, locked);
 }
-/* HD担当表の下に置く1行（役割ごとの兼務の一覧と追加ボタン） */
-function hdCoLineHTML(ds, dat) {
-  var locked = !can('duty');
-  var m = (dat.coDuty && dat.coDuty.hd) || {};
-  var items = CO_HD_ROLES().filter(function(r){ return coDutyOf(dat, 'hd', r).length; }).map(function(r){
-    return '<button type="button" class="co-chip" data-co-ds="' + escH(ds) + '" data-co-side="hd" data-co-key="' + escH(r) + '"'
-      + (locked ? ' disabled' : ' onclick="openCoModal(this.dataset.coDs, this.dataset.coSide, this.dataset.coKey)"') + '>'
-      + escH(coRoleLabel('hd', r)) + '：' + coDutyOf(dat, 'hd', r).map(escH).join('、') + '</button>';
-  });
-  if (!items.length && locked) return '';
-  return '<div class="co-row co-hd"><span class="co-lbl">🤝 兼務</span>' + items.join('')
-    + (locked ? '' : '<button type="button" class="db-add-link co-add" data-co-ds="' + escH(ds) + '" onclick="openCoModal(this.dataset.coDs, \'hd\', \'\')">＋ 兼務</button>')
-    + '</div>';
+/* HD担当表の1行に置く兼務（行の人＝本人） */
+function hdCoCellHTML(ds, dat, name, role) {
+  return coRowInnerHTML(ds, dat, 'hd', name, role || '', !can('duty'));
 }
-/* 兼務を付ける小窓。HDで key が空なら役割から選ぶ */
-function openCoModal(ds, side, key) {
+/* 本人が兼ねる担当を選ぶ小窓。自分の持ち場は選べない */
+function openCoPick(ds, side, name) {
   if (_offlineMode) { toast('📴 災害モードでは兼務を付けられません（復旧後に付けてください）', 'warn'); return; }
-  if (!can('duty')) return;
+  if (!can('duty') || !name) return;
   var dat = D.pages[ds]; if (!dat) return;
   var old = document.getElementById('co-ov'); if (old) old.remove();
-  var roleKey = key || (side === 'hd' ? CO_HD_ROLES()[0] : '');
-  var picked = coDutyOf(dat, side, roleKey).slice();
-  var list = evtStaffChoices(picked);
+  var ownLabel = coMainLabel(ds, dat, side, name);
+  var keys = side === 'hd' ? CO_HD_ROLES() : getDutyCfg(dat).map(function(x){ return x.id; });
+  var ownKey = coMainKey(ds, dat, side, name);
+  keys = keys.filter(function(k){ return k !== ownKey; });
+  var picked = coDutyKeysOf(dat, side, name);
   var ov = document.createElement('div'); ov.id = 'co-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '400px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
-  var head = side === 'hd' && !key
-    ? '<div class="md-flbl">役割</div><select id="co-role" class="fi">' + CO_HD_ROLES().map(function(r){ return '<option value="' + escH(r) + '">' + escH(coRoleLabel('hd', r)) + '</option>'; }).join('') + '</select>'
-    : '<div style="font-size:14px;font-weight:700;margin-bottom:4px">' + escH(coRoleLabel(side, roleKey, dat)) + '</div>';
-  md.innerHTML = '<h3>🤝 兼務</h3>' + head
-    + '<div class="pn" style="font-size:11px;margin:6px 0">この担当を兼ねる人を選びます。印だけで、人員配置・人数・公平性には数えません（その人のマイ担当には出ます）。</div>'
-    + '<div class="evt-stf-pick" id="co-stf"></div>'
+  md.innerHTML = '<h3>🤝 兼務</h3>'
+    + '<div style="font-size:14px;font-weight:700;margin-bottom:4px">' + escH(name) + (ownLabel ? '<span style="font-weight:400;color:var(--txt3)">（' + escH(ownLabel) + '）</span>' : '') + '</div>'
+    + '<div class="pn" style="font-size:11px;margin:6px 0">一緒に受け持つ' + (side === 'hd' ? '役割' : '担当') + 'を選びます。両方のカードに表示されます。印だけで、人員配置・人数・公平性には数えません。</div>'
+    + '<div class="evt-stf-pick" id="co-keys"></div>'
     + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'co-ov\').remove()">キャンセル</button><button class="btn btn-p" id="co-save">保存</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
-  function paint() {
-    var box = document.getElementById('co-stf');
-    box.innerHTML = list.length ? list.map(function(n, i){ return '<button type="button" class="evt-stf-btn' + (picked.indexOf(n) >= 0 ? ' on' : '') + '" data-i="' + i + '">' + escH(n) + '</button>'; }).join('') : '<span style="font-size:12px;color:var(--txt3)">スタッフ名簿が空です</span>';
-  }
-  paint();
-  var roleSel = document.getElementById('co-role');
-  if (roleSel) roleSel.onchange = function(){ roleKey = roleSel.value; picked = coDutyOf(D.pages[ds], 'hd', roleKey).slice(); list = evtStaffChoices(picked); paint(); };
-  document.getElementById('co-stf').onclick = function(e){
+  var box = document.getElementById('co-keys');
+  box.innerHTML = keys.length ? keys.map(function(k, i){
+    var cur = coDutyOf(dat, side, k).filter(function(n){ return n !== name; });
+    var holder = side === 'ce' ? ((dat.duties && dat.duties[k]) || '') : '';
+    var sub = holder ? holder : (cur.length ? cur.join('、') + ' 兼務' : '');
+    return '<button type="button" class="evt-stf-btn' + (picked.indexOf(k) >= 0 ? ' on' : '') + '" data-i="' + i + '">' + escH(coRoleLabel(side, k, dat)) + (sub ? '<small style="opacity:.7"> ' + escH(sub) + '</small>' : '') + '</button>';
+  }).join('') : '<span style="font-size:12px;color:var(--txt3)">選べる担当がありません</span>';
+  box.onclick = function(e){
     var b = e.target.closest('.evt-stf-btn'); if (!b) return;
-    var n = list[+b.getAttribute('data-i')]; if (n == null) return;
-    var k = picked.indexOf(n); if (k >= 0) picked.splice(k, 1); else picked.push(n);
-    b.classList.toggle('on', k < 0);
+    var k = keys[+b.getAttribute('data-i')]; if (k == null) return;
+    var at = picked.indexOf(k); if (at >= 0) picked.splice(at, 1); else picked.push(k);
+    b.classList.toggle('on', at < 0);
   };
   document.getElementById('co-save').onclick = function(){
     if (!can('duty')) return;
     var pg = D.pages[ds]; if (!pg) { ov.remove(); return; }
-    var before = coDutyOf(pg, side, roleKey);
+    var before = coDutyKeysOf(pg, side, name);
     pg.coDuty = pg.coDuty || {};
-    pg.coDuty[side] = pg.coDuty[side] || {};
-    if (picked.length) pg.coDuty[side][roleKey] = picked.slice(); else delete pg.coDuty[side][roleKey];
-    if (!Object.keys(pg.coDuty[side]).length) delete pg.coDuty[side];
+    var m = pg.coDuty[side] = pg.coDuty[side] || {};
+    keys.forEach(function(k){
+      var arr = coDutyOf(pg, side, k).filter(function(n){ return n !== name; });
+      if (picked.indexOf(k) >= 0) arr.push(name);
+      if (arr.length) m[k] = arr; else delete m[k];
+    });
+    if (!Object.keys(m).length) delete pg.coDuty[side];
     if (!Object.keys(pg.coDuty).length) delete pg.coDuty;
+    var after = coDutyKeysOf(pg, side, name);
     ov.remove();
     saveDPage(ds);
-    writeLog('兼務を設定', fmtJ(ds) + ' ' + (side === 'hd' ? 'HD ' : '') + coRoleLabel(side, roleKey, pg) + '：' + (before.join('、') || 'なし') + ' → ' + (picked.join('、') || 'なし'));
+    var lb = function(a){ return a.map(function(k){ return coRoleLabel(side, k, pg); }).join('、') || 'なし'; };
+    writeLog('兼務を設定', fmtJ(ds) + ' ' + (side === 'hd' ? 'HD ' : '') + name + '：' + lb(before) + ' → ' + lb(after));
     renderPage(ds);
   };
 }
@@ -23482,12 +23513,12 @@ function hdRosterBoxHTML(ds, dat, variant) {
     h += '<span class="staffz-arrow" id="hd-ref-arrow">' + (_hdRefOpen ? '▲' : '▼') + '</span>';
     h += '</div>';
     h += '<div id="hd-ref-body" style="display:' + (_hdRefOpen ? 'block' : 'none') + ';padding-top:10px">';
-    h += hdRosterTableHTML(ds, dat, editing) + hdCoLineHTML(ds, dat);
+    h += hdRosterTableHTML(ds, dat, editing);
     h += '</div></div>';
     return h;
   }
   var h2 = '<div class="st">🩸 HD担当表</div>';
-  h2 += '<div id="hd-roster-wrap">' + hdRosterTableHTML(ds, dat, editing) + '</div>' + hdCoLineHTML(ds, dat);
+  h2 += '<div id="hd-roster-wrap">' + hdRosterTableHTML(ds, dat, editing) + '</div>';
   return h2;
 }
 /* 安定要素 #hd-roster-box の中身を作り直す唯一の入口。box が無い・表示中の日と違う
