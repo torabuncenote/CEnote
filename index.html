@@ -287,6 +287,10 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .pnav-btn:hover{background:var(--sur2);color:var(--txt)}
 .pnav-today{flex:0 0 auto;height:28px;padding:0 10px;border-radius:14px;border:1.5px solid var(--ac);background:var(--ac-bg);color:var(--ac);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
 .pnav-today:hover{background:var(--ac);color:var(--on-ac)}
+.btn.pnav-today-m{display:none;border:1.5px solid var(--ac);background:var(--ac-bg);color:var(--ac);font-weight:700;white-space:nowrap}
+@media (max-width:768px){.pnav .pnav-today{display:none}.btn.pnav-today-m{display:inline-flex;align-items:center}}
+/* 「本日へ」が出ている日は、タイムラインと本日へを絵だけにして1行に収める（タブレット・掲示板は文字を残す。2026-11-19 本人） */
+@media (max-width:480px){.pg-hd:has(.pnav-today-m) #sched-btn .hd-btn-text,.pg-hd .pnav-today-m .hd-btn-text{display:none}}
 .evt-chip{display:inline-flex;align-items:center;gap:2px;border-radius:6px;padding:2px 4px 2px 10px;font-size:12px;font-weight:700;max-width:100%}
 .evt-chip-body{background:none;border:none;padding:2px 0;font:inherit;font-weight:700;cursor:pointer;text-align:left;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
 .evt-chip-body:disabled{cursor:default}
@@ -308,7 +312,7 @@ span.co-chip{cursor:default;padding:1px 7px}
 @keyframes pnav-in-r{from{transform:translateX(28px);opacity:.3}to{transform:none;opacity:1}}
 .main.pnav-from-l>*{animation:pnav-in-l .18s ease-out}
 .main.pnav-from-r>*{animation:pnav-in-r .18s ease-out}
-@media print{.pnav-btn,.pnav-today{display:none!important}}
+@media print{.pnav-btn,.pnav-today,.pnav-today-m{display:none!important}}
 /* ページの途中でも日付を移れる左右の丸ボタン。普段は薄くして本文の邪魔をしない（マウスを乗せる・押すと濃くなる） */
 #pnav-float .pnav-fl{position:fixed;top:50%;transform:translateY(-50%);z-index:150;width:34px;height:34px;border-radius:50%;border:1px solid var(--bdr);background:var(--sur);color:var(--txt2);font-size:20px;font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;opacity:.2;transition:opacity .15s;box-shadow:var(--sh)}
 #pnav-float .pnav-fl.l{left:calc(var(--pnf-l,0px) + 4px)}
@@ -6444,11 +6448,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/18-165';
+var APP_VERSION = 'Ver.2026/11/19-166';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/19-166', date:'2026-11-19', title:'スマホの「本日へ」ボタンの場所を変えました', items:[
+    {t:'imp', d:'📅 スマホでは「本日へ」ボタンを📅の絵にして、タイムラインのボタンの横に移しました（次の日へ › と隣り合って押し間違えないように）。PCは今までどおりです'}
+  ]},
   { ver:'Ver.2026/11/18-165', date:'2026-11-18', title:'兼務でどの担当でも選べるようにしました', items:[
     {t:'imp', d:'🤝 兼務で選べる担当を、その日にカードがある担当だけでなく、担当枠マスタにある担当すべてに広げました'}
   ]},
@@ -18376,8 +18383,15 @@ function pageNavTitleHTML(title) {
     + '<span class="pnav-ttl">' + title + '</span>'
     + '<button class="pnav-btn" onclick="pageNav(1)" title="次の日" aria-label="次の日">›</button>'
     /* 今日以外を開いているときだけ「今日」を出す（2026-11-16 本人） */
-    + (curDs && curDs !== tabletTodayStr() ? '<button class="pnav-today" onclick="pageNavToday()" title="本日の連絡表へ">本日へ</button>' : '')
+    + pageNavTodayBtnHTML('pnav-today')
     + '</span>';
+}
+/* 「本日へ」ボタン。PCは見出しの › の右（pnav-today）、スマホは › と隣り合って押し間違えるので
+   ヘッダーのタイムラインの横（pnav-today-m）に出す。どちらを見せるかはCSSの幅で決める（2026-11-19 本人） */
+function pageNavTodayBtnHTML(cls) {
+  if (!curDs || curDs === tabletTodayStr()) return '';
+  var mob = cls.indexOf('pnav-today-m') >= 0;
+  return '<button class="' + cls + '" onclick="pageNavToday()" title="本日の連絡表へ" aria-label="本日へ">' + (mob ? '📅<span class="hd-btn-text"> 本日へ</span>' : '本日へ') + '</button>';
 }
 /* 今日の連絡表へ一気に戻る。無ければ、作れる人には作るか聞き、作れない人には知らせる */
 function pageNavToday() {
@@ -22010,6 +22024,7 @@ function renderPage(ds) {
   /* サイドバーのタブに置いていると活用されないため、タブレット・掲示板と同じ並びで
      連絡表ヘッダーから直接開けるようにする（サイドバー側のスケジュールタブは廃止） */
   h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">🕒<span class="hd-btn-text"> タイムライン</span></button>';
+  h+=pageNavTodayBtnHTML('btn btn-sm pnav-today-m');
   h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h+='<button class="btn btn-g btn-sm paper-btn" onclick="openPaperSheet(curDs)" title="停電・回線断のときに紙で使う様式を印刷">📄<span class="hd-btn-text"> 紙用</span></button>';
   h+='</div>';
@@ -24441,6 +24456,7 @@ function renderPageHD(ds) {
   var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
   h += '<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"' + (_brdN ? '' : ' style="display:none"') + '>' + (_brdN > 99 ? '99+' : _brdN) + '</span></button>';
   h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">🕒<span class="hd-btn-text"> タイムライン</span></button>';
+  h += pageNavTodayBtnHTML('btn btn-sm pnav-today-m');
   h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
   h += '<button class="btn btn-g btn-sm paper-btn" onclick="openPaperSheet(curDs)" title="停電・回線断のときに紙で使う様式を印刷">📄<span class="hd-btn-text"> 紙用</span></button>';
   h += '</div>';
