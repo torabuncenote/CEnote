@@ -412,6 +412,27 @@ button.hdash-tile{font-family:inherit;cursor:pointer;width:100%;color:inherit}
 .hdash-tile.em:not(.zero){background:var(--rd-bg);border-color:var(--rd)}
 .hdash-tile.em:not(.zero) .n,.hdash-tile.em:not(.zero) .l{color:var(--rd)}
 .hdash-sp-tag.em{background:var(--rd-bg);color:var(--rd);border-color:var(--rd)}
+.hdash-sp-tag.smp{background:var(--oc-bg);color:var(--oc);border-color:var(--oc)}
+.hdwt-smp{display:block;font-size:10px;font-weight:700;color:var(--oc);opacity:1}
+.hdwt-row{padding:6px 0;border-bottom:1px dashed var(--bdr)}
+.hdwt-no{font-size:11px;font-weight:700;color:var(--txt2);white-space:nowrap}
+.hdwt-segs{display:inline-flex;border:1px solid var(--bdr2);border-radius:8px;overflow:hidden}
+.hdwt-seg{border:none;background:var(--sur);color:var(--txt2);font:inherit;font-size:12px;font-weight:700;padding:6px 8px;cursor:pointer;min-height:32px}
+.hdwt-seg+.hdwt-seg{border-left:1px solid var(--bdr2)}
+.hdwt-seg.on{background:var(--pu);color:var(--on-ac)}
+.hdwt-sum-list{margin:0 0 14px}
+.hdwt-sum-list summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:6px}
+.hdr-ward-btn{margin-left:6px;font:inherit;font-size:11px;font-weight:700;line-height:1;padding:2px 5px;border-radius:10px;border:1px solid transparent;background:none;color:var(--txt3);cursor:pointer;vertical-align:middle;opacity:.45}
+.hdr-ward-btn.on{opacity:1;color:var(--oc);background:var(--oc-bg);border-color:var(--oc)}
+.hdr-ward-btn:disabled{cursor:default}
+@media (hover:hover){.hdr-ward-btn:not(.on):not(:disabled):hover{opacity:1}}
+@media print{.hdr-ward-btn:not(.on){display:none}}
+.pl2-mk.ward{background:var(--oc-bg);color:var(--oc)}
+.brk-row{margin:4px 0 2px}
+.brk-btn{font:inherit;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;border:1px dashed var(--bdr2);background:none;color:var(--txt3);cursor:pointer}
+.brk-btn.on{border-style:solid;border-color:var(--gd);background:var(--gd-bg,#fff8e1);color:var(--gd)}
+.brk-btn:disabled{cursor:default}
+@media print{.brk-btn:not(.on){display:none}}
 .hdem-row{padding:6px 0;border-bottom:1px dashed var(--bdr)}
 .hdem-line{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .hdem-line input[type=time]{width:96px;font-size:13px;padding:4px 6px}
@@ -6444,11 +6465,17 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/18-165';
+var APP_VERSION = 'Ver.2026/11/19-167';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/19-167', date:'2026-11-19', title:'病棟タンクの記録・病棟の印・休憩の時刻', items:[
+    {t:'new', d:'🛏 HDの「病棟」タイルを押すと、病棟タンクを1件ずつ記録できるようになりました（No1/No2・病棟透析/検体採取・使った人）。病棟の件数は病棟透析の数から自動で数え、検体採取はタイルに「＋検体」と出します'},
+    {t:'new', d:'📊 HD集計に、病棟タンクのNo1/No2の件数（用途別）・最後に使った日・1件ずつの記録を出しました（CSVにも出ます）'},
+    {t:'new', d:'🛏 HD担当表の名前の横の🛏を押すと、病棟透析に行く人に「病棟」の印が付きます（役割はそのまま。配置ボードの名札にも出ます）'},
+    {t:'new', d:'☕ CEの担当カードに「休憩」ボタンを付けました。押した時刻が「☕ 12:05〜」と全員に表示されます（今日の連絡表だけ・もう一度押すと取り消し）'}
+  ]},
   { ver:'Ver.2026/11/18-165', date:'2026-11-18', title:'兼務でどの担当でも選べるようにしました', items:[
     {t:'imp', d:'🤝 兼務で選べる担当を、その日にカードがある担当だけでなく、担当枠マスタにある担当すべてに広げました'}
   ]},
@@ -9075,6 +9102,7 @@ function renderPlacementBoardV2(ds, dat){
   function marks(n){
     var pp = ppl[n] || {}, s = '';
     if (pp.oc) s += '<span class="pl2-mk oc">OC</span>';
+    if (wardGoOn(dat, n)) s += '<span class="pl2-mk ward" title="病棟透析に行く">🛏病棟</span>';
     if (pp.base === 'help') s += '<span class="pl2-mk help" title="他部署からのヘルプ">🆘</span>' + hnEduMarkHTML(n, 'pl2-mk hnedu');
     /* 勤務表では本院へ行く日なのに、分院の担当枠などに入れてある人（担当枠が優先される）。気づけるように印を出す */
     if (pp.hn && !plAway(sp[n])) s += '<span class="pl2-mk from" title="勤務表では本院（' + escH(pp.hn) + '）">🏥</span>';
@@ -10015,12 +10043,14 @@ function renderHdSummary() {
   sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
     if (!pg || !pg.hdCount) return;
-    var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdCountN(pg.hdCount.ward);
+    var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdWardN(pg);
     var sp = hdCountSpFilled(pg);
     var em = hdEmArr(pg).filter(hdEmFilled);
+    var wt = hdWtArr(pg);
     var total = day + night + bw + ward + sp.length + em.length;
-    if (!total) return; /* 全区分0件の日は一覧に出さない（OC集計が担当者未設定日をスキップするのと同じ考え方） */
-    rows.push({ ds: ds, day: day, night: night, bw: bw, ward: ward, sp: sp, em: em, total: total });
+    if (!total && !wt.length) return; /* 全区分0件の日は一覧に出さない（検体採取だけの日は出す） */
+    rows.push({ ds: ds, day: day, night: night, bw: bw, ward: ward, sp: sp, em: em, wt: wt, total: total,
+      t1: wt.filter(function(x){ return x.tank === '1'; }).length, t2: wt.filter(function(x){ return x.tank === '2'; }).length });
   });
   var h = sumCtlHTML('hd');
   /* 月送り。OC集計・業務集計は担当表タブ上部の月ナビ（asPrevM/asNextM）を共有しているが、
@@ -10112,8 +10142,11 @@ function renderHdSummary() {
     }
     h += '</div>';
   }
+  h += hdWtSumHTML(rows);
   /* 日別テーブル */
   var hdSorted = sumSortRows('hd', rows, {
+    t1:    function(r){ return r.t1 || null; },
+    t2:    function(r){ return r.t2 || null; },
     ds:    function(r){ return r.ds; },
     day:   function(r){ return r.day || null; },
     night: function(r){ return r.night || null; },
@@ -10129,6 +10162,7 @@ function renderHdSummary() {
     + sumSortTh('hd','day','日中透析室') + sumSortTh('hd','night','準夜')
     + sumSortTh('hd','bw','BW') + sumSortTh('hd','ward','病棟')
     + sumSortTh('hd','sp','特殊') + sumSortTh('hd','em','緊急') + sumSortTh('hd','total','計')
+    + sumSortTh('hd','t1','タンクNo1') + sumSortTh('hd','t2','タンクNo2')
     + '</tr></thead><tbody>';
   hdSorted.forEach(function(r) {
     var w = new Date(r.ds).getDay();
@@ -10144,13 +10178,43 @@ function renderHdSummary() {
     h += '<td class="num">'+(r.sp.length||'<span class="muted">—</span>')+'</td>';
     h += '<td class="num"'+(r.em.length?' style="color:var(--rd);font-weight:700"':'')+'>'+(r.em.length||'<span class="muted">—</span>')+'</td>';
     h += '<td class="num" style="font-weight:700;color:var(--pu)">'+r.total+'</td>';
+    h += '<td class="num">'+(r.t1||'<span class="muted">—</span>')+'</td>';
+    h += '<td class="num">'+(r.t2||'<span class="muted">—</span>')+'</td>';
     h += '</tr>';
   });
   h += '<tr class="total"><td>合計</td><td class="num">'+sums.day+'</td><td class="num">'+sums.night+'</td>'
     + '<td class="num">'+sums.bw+'</td><td class="num">'+sums.ward+'</td><td class="num">'+sums.sp+'</td><td class="num">'+sums.em+'</td>'
-    + '<td class="num" style="color:var(--pu)">'+grandTotal+'</td></tr>';
+    + '<td class="num" style="color:var(--pu)">'+grandTotal+'</td>'
+    + '<td class="num">'+rows.reduce(function(a,r){ return a + r.t1; }, 0)+'</td><td class="num">'+rows.reduce(function(a,r){ return a + r.t2; }, 0)+'</td></tr>';
   h += '</tbody></table></div>';
   el.innerHTML = h;
+}
+/* HD集計の「🛏 病棟タンク」：タンクごとの件数（用途別）・最後に使った日と、1件ずつの一覧（新しい順） */
+function hdWtSumHTML(rows) {
+  var list = [];
+  rows.forEach(function(r){ (r.wt || []).forEach(function(it, i){ list.push({ ds: r.ds, no: i + 1, it: it }); }); });
+  if (!list.length) return '';
+  var agg = {}, keys = ['1', '2', ''];
+  keys.forEach(function(k){ agg[k] = { hd: 0, smp: 0, last: '' }; });
+  list.forEach(function(x){ var a = agg[x.it.tank]; a[x.it.use]++; if (x.ds > a.last) a.last = x.ds; });
+  var md = function(ds){ var p = ds.split('-'); return parseInt(p[1],10) + '/' + parseInt(p[2],10); };
+  var h = '<div class="sum-card-grid"><div class="sum-card"><div class="sum-card-ttl">🛏 病棟タンク</div>';
+  keys.forEach(function(k){
+    var a = agg[k], n = a.hd + a.smp;
+    if (!n && !k) return;
+    h += '<div class="sum-card-row"><span class="lbl">' + (k ? 'No' + k : 'タンク未選択') + '</span><span class="n">' + n + '件'
+      + (n ? '<span class="muted" style="font-weight:400">（病棟透析' + a.hd + '・検体採取' + a.smp + '）</span>' : '') + '</span></div>';
+    if (k) h += '<div class="sum-card-row"><span class="lbl muted">　最後に使った日</span><span class="n muted">' + (a.last ? md(a.last) : '—') + '</span></div>';
+  });
+  h += '</div></div>';
+  list.sort(function(a, b){ return a.ds < b.ds ? 1 : a.ds > b.ds ? -1 : a.no - b.no; });
+  h += '<details class="hdwt-sum-list"><summary>病棟タンクの記録を1件ずつ見る（' + list.length + '件）</summary><div class="data-wrap"><table class="data-tbl"><thead><tr><th>日付</th><th>件目</th><th>タンク</th><th>用途</th><th>使った人</th></tr></thead><tbody>';
+  list.forEach(function(x){
+    var w = new Date(x.ds).getDay();
+    h += '<tr><td style="white-space:nowrap">' + md(x.ds) + ' ' + WDL[w] + '</td><td class="num">' + x.no + '</td><td>' + (x.it.tank ? 'No' + x.it.tank : '<span class="muted">未選択</span>') + '</td><td>' + hdWtUseLabel(x.it.use) + '</td><td>' + (x.it.staff.length ? x.it.staff.map(escH).join('、') : '<span class="muted">—</span>') + '</td></tr>';
+  });
+  h += '</tbody></table></div></details>';
+  return h;
 }
 
 /* ===== 業務集計シート ===== */
@@ -23273,7 +23337,7 @@ function hdRosterNormalRowHTML(dat, r, ds) {
   var absentChk = (can('duty') || absent)
     ? '<label class="hdr-absent-lbl" title="休みの印"><input type="checkbox" class="hdr-absent-cb" data-name="' + escH(r.name) + '"' + (absent ? ' checked' : '') + (can('duty') ? '' : ' disabled') + '>休</label>'
     : '';
-  var staffCell = '<span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '') + hdrHnEduMarkHTML(ds, r.name) + absentChk + (ds && !r.off ? hdCoCellHTML(ds, dat, r.name, r.role) : '');
+  var staffCell = '<span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + (ds && !r.off ? wardGoBtnHTML(dat, r.name) : '') + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '') + hdrHnEduMarkHTML(ds, r.name) + absentChk + (ds && !r.off ? hdCoCellHTML(ds, dat, r.name, r.role) : '');
   var noteCell = can('duty')
     ? '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>'
     : (note ? escH(note) : '<span class="muted">—</span>');
@@ -23696,6 +23760,12 @@ function hdRosterMove(ds, name, spec){
 function hdRosterBindEvents(box, ds){
   if (box._hdrBound) return;
   box._hdrBound = true;
+  /* 病棟透析に行く印（通常表示の行の🛏） */
+  box.addEventListener('click', function(e){
+    var b = e.target.closest('.hdr-ward-btn'); if (!b) return;
+    e.stopPropagation();
+    wardGoToggle(box.getAttribute('data-ds') || ds, b.getAttribute('data-name'));
+  });
 
   box.addEventListener('click', function(e){
     var cds = box.getAttribute('data-ds') || ds;
@@ -23947,6 +24017,128 @@ function hdCountSpArr(dat) {
 /* 件数として数える特殊治療。治療を選ぶ前の空行は「＋追加」で行だけ先に増えている途中の状態なので、
    件数からは除く（hdCountSpArr は編集フォームの行数をそのまま返すので、行の描画にはそちらを使う）。 */
 function hdCountSpFilled(dat) { return hdCountSpArr(dat).filter(function(x){ return !!x.n; }); }
+
+/* ===== 病棟タンク（dat.hdCount.wt、2026-11-19） =====
+   病棟タイルの下に「1件目・2件目…」と並べ、1件 = {id, tank:'1'|'2'|'', use:'hd'(病棟透析)|'smp'(検体採取), staff:[氏名]}。
+   病棟の件数は行があれば「病棟透析」の行の数（hdWardN）。検体採取は血液浄化の合計に入れず、タイルに「＋検体N」と出す。
+   行の無い以前の日は、手で入れた hdCount.ward の数字をそのまま使う（書き換えない） */
+var HD_WT_USES = [{k:'hd', l:'病棟透析'}, {k:'smp', l:'検体採取'}];
+function hdWtUseLabel(k){ return k === 'smp' ? '検体採取' : '病棟透析'; }
+function hdWtNorm(v){
+  v = (v && typeof v === 'object') ? v : {};
+  var t = String(v.tank == null ? '' : v.tank);
+  return { id: v.id || '', tank: (t === '1' || t === '2') ? t : '', use: v.use === 'smp' ? 'smp' : 'hd', staff: normArr(v.staff).filter(Boolean) };
+}
+/* 読み出しは必ずこれ（Firebaseの配列→オブジェクト化対策） */
+function hdWtArr(dat){
+  var e = dat && dat.hdCount && dat.hdCount.wt;
+  return normArr(e).filter(function(x){ return x != null; }).map(hdWtNorm);
+}
+function hdWtNewId(){ return 'hdwt_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+/* 書き込み用：実配列に直してIDを付けて書き戻す（行の追加・削除・編集の直前だけ呼ぶ） */
+function hdWtEnsureArr(dat){
+  dat.hdCount = dat.hdCount || {};
+  dat.hdCount.wt = hdWtArr(dat);
+  dat.hdCount.wt.forEach(function(it){ if (!it.id) it.id = hdWtNewId(); });
+  return dat.hdCount.wt;
+}
+/* 病棟の件数（血液浄化の合計・集計・CSVはすべてこれを通す） */
+function hdWardN(dat){
+  var a = hdWtArr(dat);
+  if (a.length) return a.filter(function(x){ return x.use === 'hd'; }).length;
+  return hdCountN(dat && dat.hdCount && dat.hdCount.ward);
+}
+function hdWtSmpN(dat){ return hdWtArr(dat).filter(function(x){ return x.use === 'smp'; }).length; }
+/* 編集の1件分（何件目・タンク・用途・使った人） */
+function hdWtRowHTML(it, i, cands){
+  var rid = escH(it.id || '');
+  var seg = function(act, v, lb, on){ return '<button type="button" class="hdwt-seg' + (on ? ' on' : '') + '" data-action="' + act + '" data-row-id="' + rid + '" data-v="' + v + '">' + lb + '</button>'; };
+  var h = '<div class="hdwt-row"><div class="hdem-line">';
+  h += '<span class="hdwt-no">' + (i + 1) + '件目</span>';
+  h += '<span class="hdwt-segs">' + seg('hdwt-tank', '1', 'No1', it.tank === '1') + seg('hdwt-tank', '2', 'No2', it.tank === '2') + '</span>';
+  h += '<span class="hdwt-segs">' + HD_WT_USES.map(function(u){ return seg('hdwt-use', u.k, u.l, it.use === u.k); }).join('') + '</span>';
+  h += '<button class="pool-chip-x" data-action="hdwt-del" data-row-id="' + rid + '" style="position:static;font-size:16px;margin-left:auto" title="この1件を消す">×</button>';
+  h += '</div>';
+  h += '<div class="ops-staff-row" style="margin:4px 0 2px 2px"><span class="ops-meta-lbl">👤</span>';
+  it.staff.forEach(function(nm){
+    h += '<span class="ops-staff-chip">' + escH(nm) + '<button type="button" class="ops-staff-chip-x" data-action="hdwt-ppl-rm" data-row-id="' + rid + '" data-name="' + escH(nm) + '" title="外す">×</button></span>';
+  });
+  var duty = cands.duty.filter(function(n){ return it.staff.indexOf(n) === -1; });
+  var all = cands.all.filter(function(n){ return it.staff.indexOf(n) === -1 && duty.indexOf(n) === -1; });
+  var oh = '<option value="">＋ 使った人</option>';
+  if (duty.length) { oh += '<optgroup label="本日の勤務">'; duty.forEach(function(n){ oh += '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }); oh += '</optgroup>'; }
+  if (all.length) { oh += '<optgroup label="スタッフ">'; all.forEach(function(n){ oh += '<option value="' + escH(n) + '">' + escH(n) + '</option>'; }); oh += '</optgroup>'; }
+  h += '<select class="ops-staff-add" data-hdwt-add="' + rid + '">' + oh + '</select>';
+  h += '</div></div>';
+  return h;
+}
+/* 閉じているときの一覧（1件ずつ） */
+function hdWtListHTML(arr){
+  if (!arr.length) return '';
+  var h = '<div class="hdash-sp"><span class="hdash-sp-lbl">病棟タンク</span><div class="hdash-sp-list">';
+  arr.forEach(function(it, i){
+    h += '<div class="hdash-sp-item"><span class="hdwt-no">' + (i + 1) + '件目</span>'
+      + '<span class="hdash-sp-tag' + (it.use === 'smp' ? ' smp' : '') + '">' + (it.tank ? 'No' + it.tank : 'タンク未選択') + '・' + hdWtUseLabel(it.use) + '</span>'
+      + (it.staff.length ? '<span class="hdash-sp-ppl">👤 ' + it.staff.map(escH).join('、') + '</span>' : '<span class="hdash-sp-none">👤 未入力</span>')
+      + '</div>';
+  });
+  return h + '</div></div>';
+}
+
+/* ===== 病棟透析に行く人の印（dat.wardGo = {氏名:true}、2026-11-19） =====
+   役割は動かさず、HD担当表の行と配置ボードの名札に小さな印（🛏 病棟）を出すだけ。
+   🏥 は本院へのヘルプの印に使っているので別の絵にする */
+function wardGoOn(dat, name){ return !!(dat && dat.wardGo && name && dat.wardGo[name]); }
+function wardGoBtnHTML(dat, name){
+  var on = wardGoOn(dat, name), ok = can('duty');
+  if (!on && !ok) return '';
+  return '<button type="button" class="hdr-ward-btn' + (on ? ' on' : '') + '" data-name="' + escH(name) + '" title="' + (on ? '病棟透析に行く印（押すと外す）' : '病棟透析に行く印を付ける') + '"' + (ok ? '' : ' disabled') + '>🛏' + (on ? '病棟' : '') + '</button>';
+}
+function wardGoToggle(ds, name){
+  if (_offlineMode) { toast('📴 災害モードでは病棟の印を付けられません', 'warn'); return; }
+  if (!can('duty')) return;
+  var pg = D.pages[ds]; if (!pg || !name) return;
+  pg.wardGo = pg.wardGo || {};
+  var on = !pg.wardGo[name];
+  if (on) pg.wardGo[name] = true; else delete pg.wardGo[name];
+  if (!Object.keys(pg.wardGo).length) delete pg.wardGo;
+  saveDPage(ds);
+  writeLog(on ? '病棟透析の印' : '病棟透析の印を外した', fmtJ(ds) + ' ' + name);
+  renderPlacementBoard(ds, D.pages[ds], !can('duty')); /* HD担当表（refreshHdRoster）と配置ボードの名札が揃う */
+}
+
+/* ===== 休憩に入った時刻（CE、dat.brk = {氏名:{t:'HH:MM', by, ts}}、2026-11-19） =====
+   担当カードの名前の下の☕を誰でも押せる。押した時刻が「☕ 12:05〜」とその日ずっと出る（終わりは記録しない）。
+   押せるのは今日の連絡表だけ。もう一度押すと（確認のうえ）取り消す */
+function brkBtnHTML(ds, dat, name){
+  if (!name) return '';
+  var rec = dat && dat.brk && dat.brk[name], today = ds === tabletTodayStr();
+  if (!rec && !today) return '';
+  var dis = today && !_offlineMode ? '' : ' disabled';
+  return '<div class="brk-row"><button type="button" class="brk-btn' + (rec ? ' on' : '') + '" data-ds="' + escH(ds) + '" data-name="' + escH(name) + '" onclick="brkToggle(this)"'
+    + ' title="' + (rec ? '休憩に入った時刻（' + escH(rec.by || '') + 'が記録。押すと取り消し）' : '休憩に入ったら押す（押した時刻が全員に表示されます）') + '"' + dis + '>'
+    + (rec ? '☕ ' + escH(rec.t) + '〜' : '☕ 休憩') + '</button></div>';
+}
+function brkToggle(btn){
+  var ds = btn.getAttribute('data-ds'), name = btn.getAttribute('data-name');
+  if (_offlineMode) { toast('📴 災害モードでは休憩を記録できません', 'warn'); return; }
+  if (ds !== tabletTodayStr()) { toast('休憩は今日の連絡表でだけ記録できます', 'warn'); return; }
+  var pg = D.pages[ds]; if (!pg || !name) return;
+  pg.brk = pg.brk || {};
+  var rec = pg.brk[name];
+  if (rec) {
+    if (!confirm(name + 'の休憩（' + rec.t + '〜）を取り消しますか？')) return;
+    delete pg.brk[name];
+    if (!Object.keys(pg.brk).length) delete pg.brk;
+    writeLog('休憩を取り消し', fmtJ(ds) + ' ' + name + '（' + rec.t + '〜）');
+  } else {
+    var d = new Date(), t = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    pg.brk[name] = { t: t, by: (currentUser && currentUser.displayName) || '', ts: Date.now() };
+    writeLog('休憩に入った', fmtJ(ds) + ' ' + name + ' ' + t);
+  }
+  saveDPage(ds);
+  var row = btn.closest('.brk-row'); if (row) row.outerHTML = brkBtnHTML(ds, D.pages[ds], name);
+}
 
 /* ===== 緊急透析（時間外。dat.hdCount.em） =====
    1件 = {id, place:'room'|'ward'|'icu'|'other', start:'HH:MM', end:'HH:MM', staff:[氏名], note}。
@@ -24211,14 +24403,15 @@ function hdTreatMailSendNext(ds, eventId, targets, index, preview) {
 }
 function hdCountTotal(dat) {
   var c = dat.hdCount || {};
-  return hdCountN(c.day) + hdCountN(c.night) + hdCountN(c.bw) + hdCountN(c.ward) + hdCountSpFilled(dat).length + hdEmCount(dat);
+  return hdCountN(c.day) + hdCountN(c.night) + hdCountN(c.bw) + hdWardN(dat) + hdCountSpFilled(dat).length + hdEmCount(dat);
 }
 /* #hd-count-panel の中身（チップ表示 or 編集フォーム）。renderPageHD の初回描画と
    refreshHdCountPanel の両方から呼ばれる —  #hd-count-panel 自体は常に存在する安定要素にして、
    中身だけ差し替えることで編集ボタン・特殊行の追加/削除のたびにHD日ページ全体を再描画せずに済む。 */
 function hdCountPanelInnerHTML(ds, dat) {
   var c = dat.hdCount || {};
-  var day = hdCountN(c.day), night = hdCountN(c.night), bw = hdCountN(c.bw), ward = hdCountN(c.ward);
+  var day = hdCountN(c.day), night = hdCountN(c.night), bw = hdCountN(c.bw), ward = hdWardN(dat);
+  var wtArr = hdWtArr(dat), wtSmp = hdWtSmpN(dat), wardLegacy = !wtArr.length && hdCountN(c.ward);
   var spArr = hdCountSpArr(dat);        /* 編集フォームの行（空行を含む） */
   var spFilled = hdCountSpFilled(dat);  /* 件数として数える分（空行を除く） */
   var emArr = hdEmArr(dat), emFilled = emArr.filter(hdEmFilled);
@@ -24240,20 +24433,31 @@ function hdCountPanelInnerHTML(ds, dat) {
      （_hdCountOpen = '' | 'sp' | 'em'）。入力の保存・合計の差し替えは従来の data-hdcnt-field の処理がそのまま受け持つ */
   h += '<div class="hdash-hd"><span class="hdash-ttl">🩸 血液浄化</span></div>';
   h += '<div class="hdash-tiles' + (locked ? '' : ' editable') + '">';
-  [[day,'日中透析室','day'],[night,'準夜','night'],[bw,'BW','bw'],[ward,'病棟','ward']].forEach(function(t){
+  [[day,'日中透析室','day'],[night,'準夜','night'],[bw,'BW','bw']].forEach(function(t){
     h += '<label class="hdash-tile' + (t[0] ? '' : ' zero') + '">';
     if (locked) h += '<div class="n">' + t[0] + '</div>';
     else h += '<input class="n hdash-n-in" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" data-hdcnt-field="' + t[2] + '" value="' + (t[0] || '') + '" placeholder="0" aria-label="' + t[1] + 'の件数">';
     h += '<div class="l">' + t[1] + '</div></label>';
   });
-  [[spFilled.length,'特殊','sp',''],[emFilled.length,'🚑 緊急','em','em']].forEach(function(t){
+  /* 病棟：押すと下に病棟タンクの1件ずつの行が開く。件数は行の「病棟透析」の数、検体採取は「＋検体N」で別に出す */
+  var wardLb = '病棟' + (wtSmp ? '<span class="hdwt-smp">＋検体' + wtSmp + '</span>' : '');
+  [[ward,wardLb,'wt','',ward || wtSmp],[spFilled.length,'特殊','sp',''],[emFilled.length,'🚑 緊急','em','em']].forEach(function(t){
+    var nz = t.length > 4 ? t[4] : t[0];
     var open = _hdCountOpen === t[2];
-    if (locked) { h += '<div class="hdash-tile' + (t[3] ? ' ' + t[3] : '') + (t[0] ? '' : ' zero') + '"><div class="n">' + t[0] + '</div><div class="l">' + t[1] + '</div></div>'; return; }
-    h += '<button type="button" class="hdash-tile' + (t[3] ? ' ' + t[3] : '') + (t[0] ? '' : ' zero') + (open ? ' open' : '') + '" data-action="hdcnt-open" data-sec="' + t[2] + '" aria-expanded="' + open + '">'
+    if (locked) { h += '<div class="hdash-tile' + (t[3] ? ' ' + t[3] : '') + (nz ? '' : ' zero') + '"><div class="n">' + t[0] + '</div><div class="l">' + t[1] + '</div></div>'; return; }
+    h += '<button type="button" class="hdash-tile' + (t[3] ? ' ' + t[3] : '') + (nz ? '' : ' zero') + (open ? ' open' : '') + '" data-action="hdcnt-open" data-sec="' + t[2] + '" aria-expanded="' + open + '">'
       + '<div class="n">' + t[0] + '</div><div class="l">' + t[1] + '</div></button>';
   });
   h += '</div>';
   var spCands = (_hdCountOpen && !locked) ? hdSpStaffCandidates(ds) : [];
+  if (_hdCountOpen === 'wt' && !locked) {
+    h += '<div class="hdash-edit"><div class="hdash-edit-hd"><span>🛏 病棟（病棟タンク）</span><button class="btn btn-g btn-sm" data-action="hdcnt-open" data-sec="">✕ 閉じる</button></div>';
+    h += '<div style="display:flex;flex-direction:column;gap:4px">';
+    wtArr.forEach(function (it, i) { h += hdWtRowHTML(it, i, spCands); });
+    if (!wtArr.length) h += '<span style="font-size:12px;color:var(--txt3)">' + (wardLegacy ? 'この日は1件ずつの記録が無く、以前の入力の ' + wardLegacy + '件 を使っています（足すと行の数に切り替わります）' : 'なし（病棟タンクを使うたびに1件足す）') + '</span>';
+    h += '<button class="btn btn-g btn-sm" style="align-self:flex-start;margin-top:2px" data-action="hdwt-add">＋ 1件追加</button>';
+    h += '</div></div>';
+  } else h += hdWtListHTML(wtArr);
   if (_hdCountOpen === 'sp' && !locked) {
     h += '<div class="hdash-edit"><div class="hdash-edit-hd"><span>特殊治療</span><button class="btn btn-g btn-sm" data-action="hdcnt-open" data-sec="">✕ 閉じる</button></div>';
     h += '<div class="ops-row" style="align-items:flex-start"><span class="ops-lbl" style="margin-top:6px">特殊</span><div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">';
@@ -24533,6 +24737,48 @@ function renderPageHD(ds) {
     /* 緊急透析（時間外）の操作。行は安定ID（data-row-id）で引き直す——添字だと他の人の追加・削除でずれる */
     var hdEmRow = function (pg, rid) { return hdEmEnsureArr(pg).find(function (it) { return it.id === rid; }) || null; };
     var hdEmTotalOnly = function () { var el = hdCountPanel.querySelector('.hdash-total b'), pg = D.pages[ds]; if (el && pg) el.textContent = hdCountTotal(pg); };
+    /* 病棟タンクの操作。行は安定ID（data-row-id）で引き直す */
+    var hdWtRow = function (pg, rid) { return hdWtEnsureArr(pg).find(function (it) { return it.id === rid; }) || null; };
+    hdCountPanel.addEventListener('click', function (e) {
+      var btn = e.target.closest('button[data-action^="hdwt-"]');
+      if (!btn || !can('ops')) return;
+      var pg = D.pages[ds]; if (!pg) return;
+      var act = btn.getAttribute('data-action'), rid = btn.getAttribute('data-row-id') || '', v = btn.getAttribute('data-v') || '';
+      if (act === 'hdwt-add') {
+        hdWtEnsureArr(pg).push({ id: hdWtNewId(), tank: '', use: 'hd', staff: [] });
+        writeLog('病棟タンクを追加', fmtJ(ds));
+      } else if (act === 'hdwt-del') {
+        var arr = hdWtEnsureArr(pg), i = arr.findIndex(function (it) { return it.id === rid; });
+        if (i < 0) return;
+        if ((arr[i].tank || arr[i].staff.length) && !confirm((i + 1) + '件目の記録を消しますか？')) return;
+        var gone = arr.splice(i, 1)[0];
+        writeLog('病棟タンクを削除', fmtJ(ds) + ' ' + (gone.tank ? 'No' + gone.tank : 'タンク未選択') + '・' + hdWtUseLabel(gone.use));
+      } else if (act === 'hdwt-tank' || act === 'hdwt-use') {
+        var row = hdWtRow(pg, rid); if (!row) return;
+        var k = act === 'hdwt-tank' ? 'tank' : 'use';
+        if (k === 'tank' && row.tank === v) v = ''; /* 同じタンクをもう一度押すと未選択に戻す */
+        if (row[k] === v) return;
+        row[k] = v;
+        writeLog('病棟タンク', fmtJ(ds) + ' ' + (row.tank ? 'No' + row.tank : 'タンク未選択') + '・' + hdWtUseLabel(row.use));
+      } else if (act === 'hdwt-ppl-rm') {
+        var row2 = hdWtRow(pg, rid); if (!row2) return;
+        var nm = btn.getAttribute('data-name');
+        row2.staff = row2.staff.filter(function (n) { return n !== nm; });
+      } else return;
+      saveDPage(ds);
+      refreshHdCountPanel(ds);
+    });
+    hdCountPanel.addEventListener('change', function (e) {
+      var add = e.target.closest('select[data-hdwt-add]');
+      if (!add || !can('ops')) return;
+      var v = add.value, rid = add.getAttribute('data-hdwt-add') || ''; add.value = '';
+      if (!v) return;
+      var pg = D.pages[ds]; if (!pg) return;
+      var row = hdWtRow(pg, rid); if (!row) return;
+      if (row.staff.indexOf(v) === -1) row.staff.push(v);
+      saveDPage(ds);
+      refreshHdCountPanel(ds);
+    });
     hdCountPanel.addEventListener('click', function (e) {
       var btn = e.target.closest('button[data-action^="hdem-"]');
       if (!btn || !can('ops')) return;
@@ -26807,6 +27053,7 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   }
 
   html += '<select class="ds2'+(sv?' set':'')+'"'+(locked?' disabled':'')+' id="sel-'+d.id+'">'+opts+'</select>';
+  html += brkBtnHTML(ds, dat, sv); /* 休憩に入った時刻（2026-11-19） */
   html += coDutyRowHTML(ds, dat, d.id, locked); /* 兼務の印（2026-11-16） */
 
   /* PHS番号（常時入力欄を表示。show_phsロックによる表示/非表示の出し分けのみ維持） */
@@ -30579,18 +30826,21 @@ function exportOcCsv() {
   downloadCsv('分院CE_OC集計_'+sumFileLabel()+'.csv', rows);
 }
 function exportHdCsv() {
-  var rng = sumRange(), rows = [['日付','曜日','日中透析室','準夜','BW','病棟','特殊','緊急','緊急の時間（分）','計']];
+  var rng = sumRange(), rows = [['日付','曜日','日中透析室','準夜','BW','病棟','特殊','緊急','緊急の時間（分）','計','タンクNo1','タンクNo2','検体採取']];
   sumDsList().forEach(function(ds){
     var pg = D.pages[ds];
     if (!pg || !pg.hdCount) return;
-    var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdCountN(pg.hdCount.ward);
+    var day = hdCountN(pg.hdCount.day), night = hdCountN(pg.hdCount.night), bw = hdCountN(pg.hdCount.bw), ward = hdWardN(pg);
+    var wt = hdWtArr(pg);
     var spLen = hdCountSpFilled(pg).length;
     var em = hdEmArr(pg).filter(hdEmFilled);
     var emMin = em.reduce(function(a, it){ var m = hdEmMin(it); return m == null ? a : a + m; }, 0);
     var total = day + night + bw + ward + spLen + em.length;
-    if (!total) return;
+    if (!total && !wt.length) return;
     var pt = ds.split('-');
-    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], day||'', night||'', bw||'', ward||'', spLen||'', em.length||'', emMin||'', total]);
+    var cnt = function(f){ var n = wt.filter(f).length; return n || ''; };
+    rows.push([pt[0]+'/'+parseInt(pt[1],10)+'/'+parseInt(pt[2],10), WDL[new Date(ds).getDay()], day||'', night||'', bw||'', ward||'', spLen||'', em.length||'', emMin||'', total,
+      cnt(function(x){ return x.tank === '1'; }), cnt(function(x){ return x.tank === '2'; }), cnt(function(x){ return x.use === 'smp'; })]);
   });
   if (rows.length===1){toast(rng.label+'に血液浄化の記録がありません', 'warn');return;}
   downloadCsv('分院CE_HD集計_'+sumFileLabel()+'.csv', rows);
