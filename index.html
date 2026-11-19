@@ -289,8 +289,8 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .pnav-today:hover{background:var(--ac);color:var(--on-ac)}
 .btn.pnav-today-m{display:none;border:1.5px solid var(--ac);background:var(--ac-bg);color:var(--ac);font-weight:700;white-space:nowrap}
 @media (max-width:768px){.pnav .pnav-today{display:none}.btn.pnav-today-m{display:inline-flex;align-items:center}}
-/* 「本日へ」が出ている日は、タブレット・掲示板を絵だけにしてタイムラインと同じ行に収める（タイムラインは文字を残す） */
-@media (max-width:480px){.pg-hd:has(.pnav-today-m) #tablet-btn .hd-btn-text,.pg-hd:has(.pnav-today-m) #board-btn .hd-btn-text{display:none}}
+/* 「本日へ」が出ている日は、タイムラインと本日へを絵だけにして1行に収める（タブレット・掲示板は文字を残す。2026-11-19 本人） */
+@media (max-width:480px){.pg-hd:has(.pnav-today-m) #sched-btn .hd-btn-text,.pg-hd .pnav-today-m .hd-btn-text{display:none}}
 .evt-chip{display:inline-flex;align-items:center;gap:2px;border-radius:6px;padding:2px 4px 2px 10px;font-size:12px;font-weight:700;max-width:100%}
 .evt-chip-body{background:none;border:none;padding:2px 0;font:inherit;font-weight:700;cursor:pointer;text-align:left;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
 .evt-chip-body:disabled{cursor:default}
@@ -6454,7 +6454,7 @@ var APP_VERSION = 'Ver.2026/11/19-166';
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
   { ver:'Ver.2026/11/19-166', date:'2026-11-19', title:'スマホの「本日へ」ボタンの場所を変えました', items:[
-    {t:'imp', d:'📅 スマホでは「本日へ」ボタンをタイムラインのボタンの横に移しました（次の日へ › と隣り合って押し間違えないように）。PCは今までどおりです'}
+    {t:'imp', d:'📅 スマホでは「本日へ」ボタンを📅の絵にして、タイムラインのボタンの横に移しました（次の日へ › と隣り合って押し間違えないように）。PCは今までどおりです'}
   ]},
   { ver:'Ver.2026/11/18-165', date:'2026-11-18', title:'兼務でどの担当でも選べるようにしました', items:[
     {t:'imp', d:'🤝 兼務で選べる担当を、その日にカードがある担当だけでなく、担当枠マスタにある担当すべてに広げました'}
@@ -18390,7 +18390,8 @@ function pageNavTitleHTML(title) {
    ヘッダーのタイムラインの横（pnav-today-m）に出す。どちらを見せるかはCSSの幅で決める（2026-11-19 本人） */
 function pageNavTodayBtnHTML(cls) {
   if (!curDs || curDs === tabletTodayStr()) return '';
-  return '<button class="' + cls + '" onclick="pageNavToday()" title="本日の連絡表へ">本日へ</button>';
+  var mob = cls.indexOf('pnav-today-m') >= 0;
+  return '<button class="' + cls + '" onclick="pageNavToday()" title="本日の連絡表へ" aria-label="本日へ">' + (mob ? '📅<span class="hd-btn-text"> 本日へ</span>' : '本日へ') + '</button>';
 }
 /* 今日の連絡表へ一気に戻る。無ければ、作れる人には作るか聞き、作れない人には知らせる */
 function pageNavToday() {
