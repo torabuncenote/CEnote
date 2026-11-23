@@ -61,6 +61,7 @@ var D = {
   supMaster: [],    // 使用物品マスタ [{kind:'タワー', items:[{n:'ウロタワー', depts:['泌尿器科'], all:true?}]}]。詳細は「OPE / カテカード」節
   roboLayouts: [],  // ロボット配置マスタ [{id:'rl_…', n:'配置A', imgs:[{k}]}]。imgs は画像プールの図の置き場所。詳細は「OPE / カテカード」節
   roboPool: [],     // ロボット配置図の画像プール [{k, ts, sz, cap}]。図そのものは /robotImg/{k}
+  featCfg: {},      // 機能のオン・オフ（管理者だけ）{ brk:false } のようにオフにした機能だけ持つ。読み出しは featOn(名前)
   dutyCfgMaster: [], dutyCfg: [],     // duty slot definitions
   opsCfg: [], oc: [],                 // ops config, on-call config
   shift: {}, evts: {},                // shift/event data
@@ -694,9 +695,15 @@ dat.placement = {
 
 **緊急透析（時間外、`dat.hdCount.em`）**：血液浄化の欄の「🚑 緊急」。1件＝`{id, place:'room'|'ward'|'icu'|'other', start, end, staff[], note}`（場所は `HD_EM_PLACES`）。読み出しは必ず `hdEmArr(dat)`、件数は `hdEmCount(dat)`（空行は `hdEmFilled` で除く）、書き込みは `hdEmEnsureArr(dat)` で行を ID で引き直す。**血液浄化の合計に足す**（準夜・病棟などの内数にしない＝二重に数えない、2026-11-09 本人）。日付をまたぐ対応は始まった日に1件、長さは `hdEmMin(it)`（終了＜開始なら24時間足す）。時刻・場所の変更ではパネルを描き直さない（PCの時刻欄は打ち込み途中でも change が来るため）。翌日の出勤ルールはCEのオンコールと同じ（2026-11-09 本人）：終了を入れると `notifyHdEmRule` が知らせ、翌日のHD連絡表の上に管理者向けの帯（`hdEmAlertFor(ds)`、判定は `calcOcNextDayRule`、「確認済み」は `dat.hdEmAlertSeen`）。HD集計・CSVに「緊急」の列と場所別・時間の合計。編集権限は血液浄化と同じ `ops`。
 
+**病棟タンク（`dat.hdCount.wt`、2026-11-19）**：病棟タイルは入力欄ではなくボタンで、押すと下に「🛏 病棟透析」「🧪 検体採取」の2つの枠が開く（`_hdCountOpen='wt'`。用途は追加ボタンで決まり、行の中では切り替えない。番号は用途ごとに `hdWtNoLabel`＝「1件目」「検体1」——検体は透析の件数ではないため、2026-11-23 本人）。1件＝`{id, tank:'1'|'2'|'', use:'hd'|'smp', staff[]}`（`hdWtNorm`、読み出しは `hdWtArr`、書き込みは `hdWtEnsureArr` で行を ID で引き直す）。**病棟の件数は必ず `hdWardN(dat)` を通す**——行があれば `use:'hd'`（病棟透析）の行の数、無い以前の日は手入力の `hdCount.ward`（書き換えない）。検体採取（`hdWtSmpN`）は血液浄化の合計に入れず、タイルに「＋検体N」。`hdCountTotal`・HD集計・CSV はすべて `hdWardN`。HD集計には `hdWtSumHTML(rows)`（タンクごとの件数・用途別・最後に使った日・1件ずつの一覧）と日別表の「タンクNo1／No2」列、CSV に「タンクNo1・タンクNo2・検体採取」。編集は血液浄化と同じ `ops`。
+
+**病棟透析に行く人の印（`dat.wardGo = {氏名:true}`、2026-11-19）**：役割は動かさず、HD担当表の通常表示の行の名前の横（`wardGoBtnHTML`、押すと `wardGoToggle`）と配置ボードの名札（`.pl2-mk.ward`）に「🛏病棟」を出すだけ（🏥は本院の印に使っているので別の絵）。同じ行に収まる小さな印にする（2026-11-19 本人）。権限は `can('duty')`、保存は `saveDPage`。災害モードでは付けない（`OF_REC_FIELDS` に無い）。
+
+**休憩（CE、`dat.brk = {氏名:{t:'HH:MM', by, ts}}`、2026-11-19）**：担当カードの担当者の下の☕（`brkBtnHTML(ds, dat, 氏名)`／`brkToggle(btn)`）。誰でも押せ、押した時刻が「☕ 12:05〜」とその日ずっと出る（終わりは記録しない）。押せるのは今日の連絡表だけ、もう一度押すと確認のうえ取り消す。押した人は `by` とログに残す。災害モードでは記録しない。HDの休憩は未実装（CEで使ってから決める）。管理者はマスタの「☕ 休憩ボタン」（`renderFeatCfg`／`setFeat`、`D.featCfg.brk`、`DATA_WRITE_PERM` に載せない＝管理者だけ）で出す／出さないを切り替えられ、出さないときは記録済みの時刻も表示しない（`featOn('brk')`）。
+
 **血液浄化はタイルを直接押して直す（2026-11-16）**：「✏️ 編集」ボタンは廃止。日中透析室・準夜・BW・病棟はタイルの数字がそのまま入力欄（`.hdash-n-in`、見た目は表示と同じ。鉛筆の目印は付けない（2026-11-16 本人）。数字以外は除く・全角数字は半角に）で、保存は従来の `data-hdcnt-field` の処理（600ms 間引き）。特殊・緊急のタイルを押すと、その区分の行だけがタイルの下に開く（`_hdCountOpen` ＝ `''|'sp'|'em'`、`data-action="hdcnt-open"`）。ロック中（`ops`）は押せない。
 
-**兼務（`dat.coDuty`、2026-11-16）**：`{ce: {担当枠id: [氏名]}, hd: {役割コード: [氏名]}}`。**付けるのは本人の持ち場から**（2026-11-18 作り替え。例：病棟外回りの人に急なカテ→病棟外回りのカードからカテを選ぶ）：CEは担当カード（`coDutyRowHTML`）、HDは担当表の通常表示のその人の行（`hdCoCellHTML`、休みの行は除く）の「＋兼務」→ `openCoPick(ds, side, 氏名)` で、同じ側の担当枠／役割から自分の持ち場（`coMainKey`）以外を選ぶ。CEの候補はその日のカードに限らず**担当枠マスタ全部**（`coCeKeys`：その日に同じ名前のカードがあればそのid、無ければマスタのid）。カードのidは日ごとに振り直されるので、兼ねられた側の表示（`coDutyOfLabel`）と選択済みの判定は名前で照合し、保存はその人の兼務を一度すべて外してから付け直す。表示は `coRowInnerHTML` 1つで、本人のカードに「🤝 兼務：カテ」、兼ねられた側のカードに「🤝 ○○（病棟外回り）が兼務」。帯・お知らせは出さない（カードの中で完結させる、本人判断）。保存の形は以前のまま。**印だけ**で、`dat.placement`・`dat.duties`・人数・公平性・未割当には一切入れない（配置の「1人1か所」を崩さないため）。マイ担当には「（兼務）」で出す（`coDutyOf`）。権限は `can('duty')`、保存は `saveDPage(ds)`。災害モードでは付けさせない（`coDuty` は `OF_REC_FIELDS` に無く、復旧後の取り込みで消えるため）。
+**兼務（`dat.coDuty`、2026-11-16）**：`{ce: {担当枠id: [氏名]}, hd: {役割コード: [氏名]}}`。**付けるのは本人の持ち場から**（2026-11-18 作り替え。例：病棟外回りの人に急なカテ→病棟外回りのカードからカテを選ぶ）：CEは担当カード（`coDutyRowHTML`）、HDは担当表の通常表示のその人の行（`hdCoCellHTML`、休みの行は除く）の「＋兼務」→ `openCoPick(ds, side, 氏名)` で、CEの担当枠とHDの役割の両方（2026-11-23 本人：CEとHDをまたいだ兼務もある）から自分の持ち場（`coMainKey`）以外を選ぶ。反対側の担当は「HD A1」「CE カテ」のように側を付けて出す（`coMineAll`／`coPickLabel`／`coMainLabelAny`）。CEの候補はその日のカードに限らず**担当枠マスタ全部**（`coCeKeys`：その日に同じ名前のカードがあればそのid、無ければマスタのid）。カードのidは日ごとに振り直されるので、兼ねられた側の表示（`coDutyOfLabel`）と選択済みの判定は名前で照合し、保存はその人の兼務を一度すべて外してから付け直す。表示は `coRowInnerHTML` 1つで、本人のカードに「🤝 兼務：カテ」、兼ねられた側のカードに「🤝 ○○（病棟外回り）が兼務」。帯・お知らせは出さない（カードの中で完結させる、本人判断）。保存の形は以前のまま。**印だけ**で、`dat.placement`・`dat.duties`・人数・公平性・未割当には一切入れない（配置の「1人1か所」を崩さないため）。マイ担当には「（兼務）」で出す（`coDutyOf`）。権限は `can('duty')`、保存は `saveDPage(ds)`。災害モードでは付けさせない（`coDuty` は `OF_REC_FIELDS` に無く、復旧後の取り込みで消えるため）。
 
 **HD集計（`renderHdSummary()`）**：`dat.hdCount`の期間集計。📈 集計タブ（`pane-sum`）の `subpane-hd` にCE集計・OC集計と並べて置く。**主観でもパーミッションでも出し分けない**——集計は「どちらの目で見るか」に依らない事実なので、CE主観からもHD集計が見える（逆も同様）。集計の骨格は`renderOCSummary()`と同型（`sumRange()`/`sumDsList()`/`sumCtlHTML('hd')`/`sumMonthKeys()`を共有、グラフ無し）。詳細は Summary Period 節を参照。
 
