@@ -426,7 +426,7 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
 
-**今日へ戻る（`pageNavToday()`、2026-11-16）**：見出しの ‹ › の横に、今日以外を開いているときだけ「本日へ」を出す（`pageNavTitleHTML`）。今日の連絡表が無ければ、作れる人には「1日分を追加」を開き、作れない人には知らせる。
+**今日へ戻る（`pageNavToday()`、2026-11-16）**：見出しの ‹ › の横に、今日以外を開いているときだけ「本日へ」を出す（`pageNavTitleHTML`）。今日の連絡表が無ければ、作れる人には「1日分を追加」を開き、作れない人には知らせる。ボタンは `pageNavTodayBtnHTML(cls)` 1つで作り、PCは見出しの › の右（`.pnav-today`）、スマホ（768px以下）は › と押し間違えるのでヘッダーのタイムラインの横（`.pnav-today-m`）に出す（2026-11-19 本人）。480px以下で「本日へ」が出ている日は、タイムラインと本日へ（📅）を絵だけにして同じ行に収める（`.pg-hd:has(.pnav-today-m)`。タブレット・掲示板は文字を残す）。
 
 連絡表を1日だけ作る入り口は、カレンダーで連絡表の無い日を押したとき（`renderCal` の日セル）だけ。トップバーの「＋ 1日追加」ボタンは使われていなかったので削除した（`openNM` と `#modal-nm` はこの入り口のために残してある）。
 
