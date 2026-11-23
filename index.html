@@ -415,6 +415,8 @@ button.hdash-tile{font-family:inherit;cursor:pointer;width:100%;color:inherit}
 .hdash-sp-tag.smp{background:var(--oc-bg);color:var(--oc);border-color:var(--oc)}
 .hdwt-smp{display:block;font-size:10px;font-weight:700;color:var(--oc);opacity:1}
 .hdwt-row{padding:6px 0;border-bottom:1px dashed var(--bdr)}
+.hdwt-grp{margin-bottom:10px}
+.hdwt-grp-hd{font-size:12px;font-weight:800;color:var(--txt2);padding-bottom:2px;border-bottom:1.5px solid var(--bdr2)}
 .hdwt-no{font-size:11px;font-weight:700;color:var(--txt2);white-space:nowrap}
 .hdwt-segs{display:inline-flex;border:1px solid var(--bdr2);border-radius:8px;overflow:hidden}
 .hdwt-seg{border:none;background:var(--sur);color:var(--txt2);font:inherit;font-size:12px;font-weight:700;padding:6px 8px;cursor:pointer;min-height:32px}
@@ -6471,7 +6473,7 @@ var APP_VERSION = 'Ver.2026/11/19-167';
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
   { ver:'Ver.2026/11/19-167', date:'2026-11-19', title:'病棟タンクの記録・病棟の印・休憩の時刻', items:[
-    {t:'new', d:'🛏 HDの「病棟」タイルを押すと、病棟タンクを1件ずつ記録できるようになりました（No1/No2・病棟透析/検体採取・使った人）。病棟の件数は病棟透析の数から自動で数え、検体採取はタイルに「＋検体」と出します'},
+    {t:'new', d:'🛏 HDの「病棟」タイルを押すと、病棟タンクを1件ずつ記録できるようになりました。病棟透析と検体採取は別の枠で、それぞれタンク（No1/No2）と使った人を選びます。病棟の件数は病棟透析の数から自動で数え、検体採取はタイルに「＋検体」と出します'},
     {t:'new', d:'📊 HD集計に、病棟タンクのNo1/No2の件数（用途別）・最後に使った日・1件ずつの記録を出しました（CSVにも出ます）'},
     {t:'new', d:'🛏 HD担当表の名前の横の🛏を押すと、病棟透析に行く人に「病棟」の印が付きます（役割はそのまま。配置ボードの名札にも出ます）'},
     {t:'new', d:'☕ CEの担当カードに「休憩」ボタンを付けました。押した時刻が「☕ 12:05〜」と全員に表示されます（今日の連絡表だけ・もう一度押すと取り消し）'}
@@ -10192,7 +10194,7 @@ function renderHdSummary() {
 /* HD集計の「🛏 病棟タンク」：タンクごとの件数（用途別）・最後に使った日と、1件ずつの一覧（新しい順） */
 function hdWtSumHTML(rows) {
   var list = [];
-  rows.forEach(function(r){ (r.wt || []).forEach(function(it, i){ list.push({ ds: r.ds, no: i + 1, it: it }); }); });
+  rows.forEach(function(r){ var cnt = { hd: 0, smp: 0 }; (r.wt || []).forEach(function(it){ cnt[it.use]++; list.push({ ds: r.ds, no: cnt[it.use], it: it }); }); });
   if (!list.length) return '';
   var agg = {}, keys = ['1', '2', ''];
   keys.forEach(function(k){ agg[k] = { hd: 0, smp: 0, last: '' }; });
@@ -10207,11 +10209,11 @@ function hdWtSumHTML(rows) {
     if (k) h += '<div class="sum-card-row"><span class="lbl muted">　最後に使った日</span><span class="n muted">' + (a.last ? md(a.last) : '—') + '</span></div>';
   });
   h += '</div></div>';
-  list.sort(function(a, b){ return a.ds < b.ds ? 1 : a.ds > b.ds ? -1 : a.no - b.no; });
-  h += '<details class="hdwt-sum-list"><summary>病棟タンクの記録を1件ずつ見る（' + list.length + '件）</summary><div class="data-wrap"><table class="data-tbl"><thead><tr><th>日付</th><th>件目</th><th>タンク</th><th>用途</th><th>使った人</th></tr></thead><tbody>';
+  list.sort(function(a, b){ return a.ds < b.ds ? 1 : a.ds > b.ds ? -1 : (a.it.use === b.it.use ? a.no - b.no : (a.it.use === 'hd' ? -1 : 1)); });
+  h += '<details class="hdwt-sum-list"><summary>病棟タンクの記録を1件ずつ見る（' + list.length + '件）</summary><div class="data-wrap"><table class="data-tbl"><thead><tr><th>日付</th><th>用途</th><th>番号</th><th>タンク</th><th>使った人</th></tr></thead><tbody>';
   list.forEach(function(x){
     var w = new Date(x.ds).getDay();
-    h += '<tr><td style="white-space:nowrap">' + md(x.ds) + ' ' + WDL[w] + '</td><td class="num">' + x.no + '</td><td>' + (x.it.tank ? 'No' + x.it.tank : '<span class="muted">未選択</span>') + '</td><td>' + hdWtUseLabel(x.it.use) + '</td><td>' + (x.it.staff.length ? x.it.staff.map(escH).join('、') : '<span class="muted">—</span>') + '</td></tr>';
+    h += '<tr><td style="white-space:nowrap">' + md(x.ds) + ' ' + WDL[w] + '</td><td>' + hdWtUseLabel(x.it.use) + '</td><td>' + hdWtNoLabel(x.it.use, x.no) + '</td><td>' + (x.it.tank ? 'No' + x.it.tank : '<span class="muted">未選択</span>') + '</td><td>' + (x.it.staff.length ? x.it.staff.map(escH).join('、') : '<span class="muted">—</span>') + '</td></tr>';
   });
   h += '</tbody></table></div></details>';
   return h;
@@ -24050,13 +24052,14 @@ function hdWardN(dat){
 }
 function hdWtSmpN(dat){ return hdWtArr(dat).filter(function(x){ return x.use === 'smp'; }).length; }
 /* 編集の1件分（何件目・タンク・用途・使った人） */
+/* 病棟透析は「1件目・2件目」、検体採取は「検体1・検体2」と、用途ごとに数える（検体は透析の件数ではないため） */
+function hdWtNoLabel(use, n){ return use === 'smp' ? '検体' + n : n + '件目'; }
 function hdWtRowHTML(it, i, cands){
   var rid = escH(it.id || '');
   var seg = function(act, v, lb, on){ return '<button type="button" class="hdwt-seg' + (on ? ' on' : '') + '" data-action="' + act + '" data-row-id="' + rid + '" data-v="' + v + '">' + lb + '</button>'; };
   var h = '<div class="hdwt-row"><div class="hdem-line">';
-  h += '<span class="hdwt-no">' + (i + 1) + '件目</span>';
+  h += '<span class="hdwt-no">' + hdWtNoLabel(it.use, i + 1) + '</span>';
   h += '<span class="hdwt-segs">' + seg('hdwt-tank', '1', 'No1', it.tank === '1') + seg('hdwt-tank', '2', 'No2', it.tank === '2') + '</span>';
-  h += '<span class="hdwt-segs">' + HD_WT_USES.map(function(u){ return seg('hdwt-use', u.k, u.l, it.use === u.k); }).join('') + '</span>';
   h += '<button class="pool-chip-x" data-action="hdwt-del" data-row-id="' + rid + '" style="position:static;font-size:16px;margin-left:auto" title="この1件を消す">×</button>';
   h += '</div>';
   h += '<div class="ops-staff-row" style="margin:4px 0 2px 2px"><span class="ops-meta-lbl">👤</span>';
@@ -24075,14 +24078,20 @@ function hdWtRowHTML(it, i, cands){
 /* 閉じているときの一覧（1件ずつ） */
 function hdWtListHTML(arr){
   if (!arr.length) return '';
-  var h = '<div class="hdash-sp"><span class="hdash-sp-lbl">病棟タンク</span><div class="hdash-sp-list">';
-  arr.forEach(function(it, i){
-    h += '<div class="hdash-sp-item"><span class="hdwt-no">' + (i + 1) + '件目</span>'
-      + '<span class="hdash-sp-tag' + (it.use === 'smp' ? ' smp' : '') + '">' + (it.tank ? 'No' + it.tank : 'タンク未選択') + '・' + hdWtUseLabel(it.use) + '</span>'
-      + (it.staff.length ? '<span class="hdash-sp-ppl">👤 ' + it.staff.map(escH).join('、') + '</span>' : '<span class="hdash-sp-none">👤 未入力</span>')
-      + '</div>';
+  var h = '';
+  HD_WT_USES.forEach(function(u){
+    var rows = arr.filter(function(x){ return x.use === u.k; });
+    if (!rows.length) return;
+    h += '<div class="hdash-sp"><span class="hdash-sp-lbl">' + (u.k === 'smp' ? '🧪 検体採取' : '🛏 病棟透析') + '</span><div class="hdash-sp-list">';
+    rows.forEach(function(it, i){
+      h += '<div class="hdash-sp-item"><span class="hdwt-no">' + hdWtNoLabel(u.k, i + 1) + '</span>'
+        + '<span class="hdash-sp-tag' + (u.k === 'smp' ? ' smp' : '') + '">' + (it.tank ? 'タンクNo' + it.tank : 'タンク未選択') + '</span>'
+        + (it.staff.length ? '<span class="hdash-sp-ppl">👤 ' + it.staff.map(escH).join('、') + '</span>' : '<span class="hdash-sp-none">👤 未入力</span>')
+        + '</div>';
+    });
+    h += '</div></div>';
   });
-  return h + '</div></div>';
+  return h;
 }
 
 /* ===== 病棟透析に行く人の印（dat.wardGo = {氏名:true}、2026-11-19） =====
@@ -24452,11 +24461,14 @@ function hdCountPanelInnerHTML(ds, dat) {
   var spCands = (_hdCountOpen && !locked) ? hdSpStaffCandidates(ds) : [];
   if (_hdCountOpen === 'wt' && !locked) {
     h += '<div class="hdash-edit"><div class="hdash-edit-hd"><span>🛏 病棟（病棟タンク）</span><button class="btn btn-g btn-sm" data-action="hdcnt-open" data-sec="">✕ 閉じる</button></div>';
-    h += '<div style="display:flex;flex-direction:column;gap:4px">';
-    wtArr.forEach(function (it, i) { h += hdWtRowHTML(it, i, spCands); });
-    if (!wtArr.length) h += '<span style="font-size:12px;color:var(--txt3)">' + (wardLegacy ? 'この日は1件ずつの記録が無く、以前の入力の ' + wardLegacy + '件 を使っています（足すと行の数に切り替わります）' : 'なし（病棟タンクを使うたびに1件足す）') + '</span>';
-    h += '<button class="btn btn-g btn-sm" style="align-self:flex-start;margin-top:2px" data-action="hdwt-add">＋ 1件追加</button>';
-    h += '</div></div>';
+    if (!wtArr.length && wardLegacy) h += '<div style="font-size:12px;color:var(--txt3);margin-bottom:6px">この日は1件ずつの記録が無く、以前の入力の ' + wardLegacy + '件 を使っています（病棟透析を足すと行の数に切り替わります）</div>';
+    HD_WT_USES.forEach(function (u) {
+      var rows = wtArr.filter(function (x) { return x.use === u.k; });
+      h += '<div class="hdwt-grp"><div class="hdwt-grp-hd">' + (u.k === 'smp' ? '🧪 検体採取（' + rows.length + '回）' : '🛏 病棟透析（' + rows.length + '件）') + '</div>';
+      rows.forEach(function (it, i) { h += hdWtRowHTML(it, i, spCands); });
+      h += '<button class="btn btn-g btn-sm" style="margin-top:4px" data-action="hdwt-add" data-use="' + u.k + '">＋ ' + u.l + 'を追加</button></div>';
+    });
+    h += '</div>';
   } else h += hdWtListHTML(wtArr);
   if (_hdCountOpen === 'sp' && !locked) {
     h += '<div class="hdash-edit"><div class="hdash-edit-hd"><span>特殊治療</span><button class="btn btn-g btn-sm" data-action="hdcnt-open" data-sec="">✕ 閉じる</button></div>';
@@ -24745,12 +24757,13 @@ function renderPageHD(ds) {
       var pg = D.pages[ds]; if (!pg) return;
       var act = btn.getAttribute('data-action'), rid = btn.getAttribute('data-row-id') || '', v = btn.getAttribute('data-v') || '';
       if (act === 'hdwt-add') {
-        hdWtEnsureArr(pg).push({ id: hdWtNewId(), tank: '', use: 'hd', staff: [] });
-        writeLog('病棟タンクを追加', fmtJ(ds));
+        var use = btn.getAttribute('data-use') === 'smp' ? 'smp' : 'hd';
+        hdWtEnsureArr(pg).push({ id: hdWtNewId(), tank: '', use: use, staff: [] });
+        writeLog('病棟タンクを追加', fmtJ(ds) + ' ' + hdWtUseLabel(use));
       } else if (act === 'hdwt-del') {
         var arr = hdWtEnsureArr(pg), i = arr.findIndex(function (it) { return it.id === rid; });
         if (i < 0) return;
-        if ((arr[i].tank || arr[i].staff.length) && !confirm((i + 1) + '件目の記録を消しますか？')) return;
+        if ((arr[i].tank || arr[i].staff.length) && !confirm('この' + hdWtUseLabel(arr[i].use) + 'の記録を消しますか？')) return;
         var gone = arr.splice(i, 1)[0];
         writeLog('病棟タンクを削除', fmtJ(ds) + ' ' + (gone.tank ? 'No' + gone.tank : 'タンク未選択') + '・' + hdWtUseLabel(gone.use));
       } else if (act === 'hdwt-tank' || act === 'hdwt-use') {
