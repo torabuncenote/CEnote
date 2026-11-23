@@ -430,11 +430,6 @@ button.hdash-tile{font-family:inherit;cursor:pointer;width:100%;color:inherit}
 .hdwt-seg.on{background:var(--pu);color:var(--on-ac)}
 .hdwt-sum-list{margin:0 0 14px}
 .hdwt-sum-list summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--txt2);margin-bottom:6px}
-.hdr-ward-btn:not(.co-add){margin-left:6px;font:inherit;font-size:11px;font-weight:700;line-height:1;padding:2px 5px;border-radius:10px;border:1px solid transparent;background:none;color:var(--txt3);cursor:pointer;vertical-align:middle;opacity:.45}
-.hdr-ward-btn.on{opacity:1;color:var(--oc);background:var(--oc-bg);border-color:var(--oc)}
-.hdr-ward-btn:disabled{cursor:default}
-@media (hover:hover){.hdr-ward-btn:not(.on):not(:disabled):hover{opacity:1}}
-@media print{.hdr-ward-btn:not(.on){display:none}}
 .pl2-mk.ward{background:var(--oc-bg);color:var(--oc)}
 .brk-row{margin:4px 0 2px}
 .brk-btn{font:inherit;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;border:1px dashed var(--bdr2);background:none;color:var(--txt3);cursor:pointer}
@@ -802,7 +797,29 @@ button.pl-chip-hnedu{font-size:10px;font-weight:700;border-radius:4px;padding:0 
 .hdr-chip{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:4px;min-height:44px;box-sizing:border-box;background:var(--sur);border:1px solid var(--bdr);border-radius:14px;padding:5px 12px;font-size:13px;font-weight:700;color:var(--txt);cursor:grab;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;white-space:nowrap}
 .hdr-chip .hdr-grip{color:var(--txt3);font-size:12px}
 .hdr-chip-n{white-space:nowrap}
-.hdr-staff-td{white-space:nowrap}
+/* スタッフの欄＝名前のボタン（2026-11-23）。名前・印は折り返さず、備考の文字だけが折り返して全文を見せる */
+.hdr-staff-td{width:100%}
+.hdr-staff-btn{display:block;width:100%;min-height:34px;box-sizing:border-box;text-align:left;background:none;border:1px solid transparent;border-radius:6px;padding:4px 6px;margin:0;font:inherit;color:inherit;cursor:pointer}
+.hdr-staff-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+@media (hover:hover){.hdr-staff-btn:hover{background:var(--ac-bg);border-color:var(--bdr)}}
+.hdr-staff-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 6px}
+.hdr-staff-n{font-weight:700;white-space:nowrap}
+.hdr-mk{font-size:11px;font-weight:700;line-height:1.3;padding:1px 6px;border-radius:10px;white-space:nowrap;border:1px solid}
+.hdr-mk.ward{color:var(--oc);background:var(--oc-bg);border-color:var(--oc)}
+.hdr-mk.off{color:var(--rd);background:var(--rd-bg);border-color:var(--rd)}
+.hdr-mk.hn{color:var(--or);background:var(--or-bg);border-color:var(--or)}
+.hdr-mk.hn.ok{color:var(--gr);background:var(--gr-bg);border-color:var(--gr)}
+.hdr-note-tx{flex:1 1 120px;min-width:0;font-size:12px;font-weight:400;color:var(--txt2);white-space:pre-wrap;word-break:break-word}
+.hdr-staff-btn .co-row{margin-top:2px}
+/* スタッフのポップアップ */
+.hdst-toggles{display:flex;flex-wrap:wrap;gap:8px}
+.hdst-tg{flex:1 1 150px;display:flex;align-items:center;gap:8px;min-height:44px;box-sizing:border-box;border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;font-size:14px;font-weight:700;cursor:pointer}
+.hdst-tg input{width:18px;height:18px;margin:0}
+.hdst-tg.off:has(input:checked){border-color:var(--rd);background:var(--rd-bg);color:var(--rd)}
+.hdst-tg.ward:has(input:checked){border-color:var(--oc);background:var(--oc-bg);color:var(--oc)}
+.hdst-sec{margin-top:14px}
+.hdst-hd{font-size:12px;font-weight:800;color:var(--txt2);margin-bottom:6px}
+.hdst-hd small{font-weight:400;color:var(--txt3)}
 /* 紙用（災害用の紙）ボタン：平常時は出さず、災害時（body.disaster-on）だけ出す。applyDisasterUi 参照 */
 .paper-btn{display:none!important}
 @media screen{body.disaster-on .paper-btn{display:inline-flex!important}}
@@ -810,19 +827,8 @@ button.pl-chip-hnedu{font-size:10px;font-weight:700;border-radius:4px;padding:0 
 body.offline-mode .cbar{display:none!important}
 body.offline-trial #offline-mode-bar{background:var(--pu)}
 body.offline-mode{--cbar-h:56px} /* 消し込みバーの代わりに下の帯が出るので、ページの末尾と下端のボタンをその分だけ上げる */
-/* HD担当表の欠勤マーク（CE担当カードの .dc.absent と同じ色づかい） */
-.hdr-absent-lbl{display:inline-flex;align-items:center;gap:3px;margin-left:8px;font-size:11px;font-weight:400;color:var(--rd);cursor:pointer;vertical-align:middle}
-.hdr-absent-lbl input{margin:0;accent-color:var(--rd)}
-/* HD担当表は項目が少なく、赤い「休」が全員の行に並ぶと目立ちすぎる。付けていない間は
-   業務カードの急患・中止（.ops-tag-btn:not(.on)）と同じく薄く灰色に寄せ、
-   付けた行と、マウスを乗せた・キーボードで選んだときだけ元の赤に戻す。 */
-tr:not(.hdr-absent) .hdr-absent-lbl{opacity:.35;filter:grayscale(1);transition:opacity .15s,filter .15s}
-tr:not(.hdr-absent) .hdr-absent-lbl:focus-within{opacity:1;filter:none}
-@media (hover:hover){tr:not(.hdr-absent) .hdr-absent-lbl:hover{opacity:1;filter:none}}
-@media print{tr:not(.hdr-absent) .hdr-absent-lbl{display:none}}
 tr.hdr-absent td{background:var(--rd-bg)}
 tr.hdr-absent .hdr-staff-n{color:var(--rd);text-decoration:line-through}
-.hd-note-ta{min-width:64px}
 .hdr-chip.dragging{opacity:.6;box-shadow:var(--shl);transform:scale(1.06)}
 .hdr-chip.picked{border-color:var(--ac);background:var(--ac-bg);box-shadow:0 0 0 2px var(--ac) inset}
 .hdr-tray{margin-top:8px;border:1.5px dashed var(--bdr2);border-radius:8px;padding:8px 10px}
@@ -2216,15 +2222,9 @@ select.srq-in{-webkit-appearance:none;appearance:none;padding-right:30px;cursor:
   /* 折りたたみ中でも紙には出す（相互参照の担当表も含めて、紙が当日の全体像になるように） */
   #staffz-body,#ce-ref-body,#hd-ref-body{display:block!important}
   .pchip{font-size:11px!important;padding:3px 8px!important}
-  /* HD担当表：備考は院内配布物に出さない（要件16）ので列ごと非表示。HD日ページの表
-     （#hd-roster-wrap）と、CE日ページに出す相互参照（#hd-ref-body）の両方に効かせる
-     — 片方だけ伏せても、もう片方の紙に同じ備考が載ってしまい要件を満たせないため。
-     group-hd行（🔵日勤/🌙準夜の区切り行）はcolspanの単一tdで:last-childにも該当してしまうため
-     :not(.group-hd)で明示的に除外する。 */
-  #hd-roster-wrap thead th:last-child,
-  #hd-roster-wrap tbody tr:not(.group-hd) td:last-child,
-  #hd-ref-body thead th:last-child,
-  #hd-ref-body tbody tr:not(.group-hd) td:last-child{display:none!important}
+  /* HD担当表：備考は院内配布物に出さない（要件16）。備考は名前の横の文字（.hdr-note-tx）なので
+     それだけを伏せる。HD日ページ・CE日ページの相互参照のどちらの表もこのクラスで描く */
+  .hdr-note-tx{display:none!important}
 }
 /* ===== 通知トースト ===== */
 .notif-toast{position:fixed;bottom:80px;right:16px;z-index:9998;background:var(--toast-bg);color:var(--toast-fg);padding:12px 16px;border-radius:10px;font-size:13px;box-shadow:0 4px 20px rgba(0,0,0,.35);max-width:300px;cursor:pointer;line-height:1.5;animation:notifSlideIn .3s ease}
@@ -6480,11 +6480,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/23-168';
+var APP_VERSION = 'Ver.2026/11/23-169';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/23-169', date:'2026-11-23', title:'HD担当表をすっきりさせました', items:[
+    {t:'imp', d:'🩸 HD担当表のスタッフの欄を名前のボタン1つにしました。押すと開く画面で、休み・病棟透析・兼務・備考をまとめて入れて「決定」で保存します（備考の入力欄の列はなくなり、備考は名前の横に出ます）'}
+  ]},
   { ver:'Ver.2026/11/23-168', date:'2026-11-23', title:'病棟透析の印の付け方を変えました', items:[
     {t:'imp', d:'🛏 HD担当表で、病棟透析の印を付けるボタンを全員の行に出すのをやめ、「＋ 兼務」の横の「＋ 病棟」から付けるようにしました（付いた印を押すと外れます）'}
   ]},
@@ -23362,18 +23365,24 @@ function hdrHnEduMarkHTML(ds, name) {
   var p = ds && name ? plPeople(ds)[name] : null;
   return (p && p.base === 'help') ? ' ' + hnEduMarkHTML(name, 'pl-chip-hnedu') : '';
 }
+/* HD担当表の1行（2026-11-23 作り替え）：スタッフの欄は名前のボタン1つ。中に印（🛏病棟・🩺CEから・📘説明・🤝兼務）と
+   備考の文字を並べ、押すと openHdStaffModal で休み・兼務・病棟・備考をまとめて直す（「決定」で保存）。
+   備考の入力欄・「休」のチェック・「＋兼務」「＋ 病棟」は行に置かない（表が散らかるため、本人） */
 function hdRosterNormalRowHTML(dat, r, ds) {
   var note = (dat.hdNotes && dat.hdNotes[r.name]) ? dat.hdNotes[r.name] : '';
-  var support = !!r.from; /* CEから受け取った応援 */
-  var absent = hdIsAbsent(dat, r.name);
-  var absentChk = (can('duty') || absent)
-    ? '<label class="hdr-absent-lbl" title="休みの印"><input type="checkbox" class="hdr-absent-cb" data-name="' + escH(r.name) + '"' + (absent ? ' checked' : '') + (can('duty') ? '' : ' disabled') + '>休</label>'
-    : '';
-  var staffCell = '<span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + (ds && !r.off ? wardGoBtnHTML(dat, r.name) : '') + (support ? ' <span class="hd-changed-badge">🩺 CEから</span>' : '') + hdrHnEduMarkHTML(ds, r.name) + absentChk + (ds && !r.off ? hdCoCellHTML(ds, dat, r.name, r.role) : '');
-  var noteCell = can('duty')
-    ? '<textarea class="ds2 hd-note-ta" data-name="' + escH(r.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>'
-    : (note ? escH(note) : '<span class="muted">—</span>');
-  return '<tr' + (absent ? ' class="hdr-absent"' : '') + '><td style="font-weight:700">' + (r.role ? hdRoleCellHTML(r.role) : '<span class="muted">—</span>') + '</td><td class="hdr-staff-td">' + staffCell + '</td><td>' + noteCell + '</td></tr>';
+  var absent = hdIsAbsent(dat, r.name) || !!r.off;
+  var marks = '';
+  if (wardGoOn(dat, r.name) && !r.off) marks += '<span class="hdr-mk ward">🛏病棟</span>';
+  if (r.from) marks += '<span class="hd-changed-badge">🩺 CEから</span>';
+  if (absent) marks += '<span class="hdr-mk off">休</span>';
+  var p = ds && r.name ? plPeople(ds)[r.name] : null;
+  if (p && p.base === 'help') { var st = hnEduStatus(r.name); if (st.total) marks += '<span class="hdr-mk hn' + (st.undone ? '' : ' ok') + '">' + (st.undone ? '📘 未説明' + st.undone : '📘 ✓') + '</span>'; }
+  var co = (ds && !r.off) ? coRowInnerHTML(ds, dat, 'hd', r.name, r.role || '', true) : '';
+  var btn = '<button type="button" class="hdr-staff-btn" data-hdr-staff="' + escH(r.name || '') + '" title="押すと休み・兼務・病棟・備考を直せます">'
+    + '<span class="hdr-staff-line"><span class="hdr-staff-n">' + escH(r.name || '') + '</span>' + marks
+    + (note ? '<span class="hdr-note-tx">' + escH(note) + '</span>' : '') + '</span>'
+    + co + '</button>';
+  return '<tr' + (absent ? ' class="hdr-absent"' : '') + '><td style="font-weight:700">' + (r.role ? hdRoleCellHTML(r.role) : '<span class="muted">—</span>') + '</td><td class="hdr-staff-td">' + btn + '</td></tr>';
 }
 function hdRosterNormalTableHTML(ds, dat) {
   var rows = buildHdRoster(ds);
@@ -23383,7 +23392,7 @@ function hdRosterNormalTableHTML(ds, dat) {
   var dayRows = rows.filter(function (r) { return !r.night; });
   var nightRows = rows.filter(function (r) { return r.night; });
   var h = '<div class="data-wrap"><table class="data-tbl">';
-  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th style="width:100%">備考</th></tr></thead><tbody>';
+  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th></tr></thead><tbody>';
   if (dayRows.length)   { h += hdRosterGroupRowHTML('🔵 日勤', btn); btn = ''; dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
   if (nightRows.length) { h += hdRosterGroupRowHTML('🌙 準夜', btn); btn = ''; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
   if (offRows.length)   { h += hdRosterGroupRowHTML('🏖️ 休み', btn); btn = ''; offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
@@ -23424,12 +23433,10 @@ function hdrChipHTML(name, from, picked) {
 function hdRosterEditRowHTML(dat, role, person, picking) {
   if (!person) {
     return '<tr class="hdr-row hdr-empty-row" data-hdr-role="' + escH(role) + '"><td style="font-weight:700">' + hdRoleCellHTML(role) + '</td>'
-      + '<td><span class="hdr-empty">空き（ここへ）</span></td><td></td></tr>';
+      + '<td><span class="hdr-empty">空き（ここへ）</span></td></tr>';
   }
   var cell = hdrChipHTML(person.name, person.from, picking === person.name);
-  var note = (dat.hdNotes && dat.hdNotes[person.name]) || '';
-  var noteCell = '<textarea class="ds2 hd-note-ta" data-name="' + escH(person.name) + '" rows="1" style="margin-bottom:0;cursor:text" placeholder="備考...">' + escH(note) + '</textarea>';
-  return '<tr class="hdr-row' + (hdIsAbsent(dat, person.name) ? ' hdr-absent' : '') + '" data-hdr-role="' + escH(role) + '" data-hdr-with="' + escH(person.name) + '"><td style="font-weight:700">' + hdRoleCellHTML(role) + '</td><td>' + cell + '</td><td>' + noteCell + '</td></tr>';
+  return '<tr class="hdr-row' + (hdIsAbsent(dat, person.name) ? ' hdr-absent' : '') + '" data-hdr-role="' + escH(role) + '" data-hdr-with="' + escH(person.name) + '"><td style="font-weight:700">' + hdRoleCellHTML(role) + '</td><td>' + cell + '</td></tr>';
 }
 /* 控え：HD側で役割なしの人＋HD余剰の人。枠自体も落とし先（→HD余剰）。 */
 function hdRosterTrayHTML(tray, picking) {
@@ -23449,7 +23456,7 @@ function hdRosterEditTableHTML(ds, dat) {
     : '名前を長押しで運ぶか、名前→役割の順にタップ';
   var h = '<div class="hdr-hint">' + escH(hintText) + '</div>';
   h += '<div class="data-wrap"><table class="data-tbl hdr-edit-tbl' + (picking ? ' picking' : '') + '">';
-  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th><th style="width:100%">備考</th></tr></thead><tbody>';
+  h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th></tr></thead><tbody>';
   h += hdRosterGroupRowHTML('🔵 日勤', hdRosterEditBtnHTML(true));
   HD_DAY_CODES.forEach(function (role) {
     var people = data.dayByRole[role];
@@ -23458,7 +23465,7 @@ function hdRosterEditTableHTML(ds, dat) {
   });
   h += hdRosterGroupRowHTML('🌙 準夜', '');
   data.night.forEach(function (p) { h += hdRosterEditRowHTML(dat, '準', p, picking); });
-  h += '<tr class="hdr-row hdr-add" data-hdr-role="準"><td style="font-weight:700">準夜</td><td><span class="hdr-empty">＋ 準夜に追加（ここへ）</span></td><td></td></tr>';
+  h += '<tr class="hdr-row hdr-add" data-hdr-role="準"><td style="font-weight:700">準夜</td><td><span class="hdr-empty">＋ 準夜に追加（ここへ）</span></td></tr>';
   var offRows = hdAbsentOffRows(ds, dat);
   if (offRows.length) { h += hdRosterGroupRowHTML('🏖️ 休み', ''); offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
   h += '</tbody></table></div>';
@@ -23471,7 +23478,7 @@ function hdRosterTableHTML(ds, dat, editing) {
 /* 区切り行（🔵 日勤／🌙 準夜）。btn は最初の区切り行にだけ渡し、右端に置く
    （td の中をflexにして左にラベル・右にボタン。区切り行自体の背景・文字色は変えない）。 */
 function hdRosterGroupRowHTML(label, btn) {
-  return '<tr class="group-hd"><td colspan="3"><span style="display:flex;align-items:center">' + label + (btn || '') + '</span></td></tr>';
+  return '<tr class="group-hd"><td colspan="2"><span style="display:flex;align-items:center">' + label + (btn || '') + '</span></td></tr>';
 }
 function hdRosterEditBtnHTML(editing) {
   if (!can('duty')) return '';
@@ -23575,24 +23582,12 @@ function coDutyRowHTML(ds, dat, slotId, locked) {
   var name = (dat.duties && dat.duties[slotId]) || '';
   return coRowInnerHTML(ds, dat, 'ce', name, slotId, locked);
 }
-/* HD担当表の1行に置く兼務（行の人＝本人） */
-function hdCoCellHTML(ds, dat, name, role) {
-  /* 病棟透析の印を付ける入口（付いていないときだけ。付いたら名前の横の「🛏病棟」を押すと外れる） */
-  var ward = (name && can('duty') && !wardGoOn(dat, name)) ? '<button type="button" class="db-add-link co-add hdr-ward-btn" data-name="' + escH(name) + '" title="病棟透析に行く印を付ける">＋ 病棟</button>' : '';
-  return coRowInnerHTML(ds, dat, 'hd', name, role || '', !can('duty'), ward);
-}
-/* 本人が兼ねる担当を選ぶ小窓。自分の持ち場は選べない */
-function openCoPick(ds, side, name) {
-  if (_offlineMode) { toast('📴 災害モードでは兼務を付けられません（復旧後に付けてください）', 'warn'); return; }
-  if (!can('duty') || !name) return;
-  var dat = D.pages[ds]; if (!dat) return;
-  var old = document.getElementById('co-ov'); if (old) old.remove();
-  var ownLabel = coMainLabel(ds, dat, side, name);
+/* 兼務で選べる担当 [{side,key}] と、いま選んでいるか（openCoPick と HDスタッフのポップアップで共用）。
+   自分の側の担当＋反対側の担当（CEとHDをまたいだ兼務もある、2026-11-23 本人）。自分の持ち場は除く */
+function coPickItems(ds, dat, side, name) {
   var ownKey = coMainKey(ds, dat, side, name);
   var ownLb = ownKey ? coRoleLabel(side, ownKey, dat) : '';
-  /* 選べるのは自分の側の担当＋反対側の担当（CEとHDをまたいだ兼務もある、2026-11-23 本人）。自分の持ち場は除く */
-  var sides = [side, side === 'ce' ? 'hd' : 'ce'];
-  var items = [];
+  var sides = [side, side === 'ce' ? 'hd' : 'ce'], items = [];
   sides.forEach(function(s){
     var keys = s === 'hd' ? CO_HD_ROLES() : coCeKeys(dat);
     keys.forEach(function(k){
@@ -23601,11 +23596,53 @@ function openCoPick(ds, side, name) {
     });
   });
   /* 以前その日のカードのidで付けた兼務も、名前で同じ担当として選択済みに見せる */
-  var isPicked = function(it){
+  var picked = items.map(function(it){
     var lbs = coDutyKeysOf(dat, it.side, name).map(function(k){ return coRoleLabel(it.side, k, dat); });
     return lbs.indexOf(coRoleLabel(it.side, it.key, dat)) >= 0;
-  };
-  var picked = items.map(isPicked);
+  });
+  return { sides: sides, items: items, picked: picked };
+}
+/* 担当のボタン群（選択は .on）。data-i が items の添字 */
+function coPickButtonsHTML(dat, name, cp, disabled) {
+  return cp.sides.map(function(s){
+    var btns = cp.items.map(function(it, i){
+      if (it.side !== s) return '';
+      var cur = coDutyOf(dat, s, it.key).filter(function(n){ return n !== name; });
+      var holder = s === 'ce' ? ((dat.duties && dat.duties[it.key]) || '') : '';
+      var sub = holder ? holder : (cur.length ? cur.join('、') + ' 兼務' : '');
+      return '<button type="button" class="evt-stf-btn' + (cp.picked[i] ? ' on' : '') + '" data-i="' + i + '"' + (disabled ? ' disabled' : '') + '>' + escH(coRoleLabel(s, it.key, dat)) + (sub ? '<small style="opacity:.7"> ' + escH(sub) + '</small>' : '') + '</button>';
+    }).join('');
+    return '<div class="co-pick-sec"><div class="co-pick-hd">' + (s === 'hd' ? '🩸 HDの役割' : '🩺 CEの担当') + '</div><div class="evt-stf-pick">' + (btns || '<span style="font-size:12px;color:var(--txt3)">選べる担当がありません</span>') + '</div></div>';
+  }).join('');
+}
+/* 選んだ兼務をページに書く（保存はしない）。この人の兼務を一度すべて外してから選んだ担当にだけ付け直す
+   （以前の日のカードのidで付けた分も重ならない）。戻り値は {before, after}（ログ用の表示名） */
+function coApplyPicks(pg, side, name, cp) {
+  var before = coMineAll(pg, side, name);
+  pg.coDuty = pg.coDuty || {};
+  cp.sides.forEach(function(s){
+    var m = pg.coDuty[s] = pg.coDuty[s] || {};
+    var keys = cp.items.filter(function(it){ return it.side === s; }).map(function(it){ return it.key; });
+    Object.keys(m).concat(keys).forEach(function(k){
+      var arr = coDutyOf(pg, s, k).filter(function(n){ return n !== name; });
+      if (cp.items.some(function(it, i){ return cp.picked[i] && it.side === s && it.key === k; })) arr.push(name);
+      if (arr.length) m[k] = arr; else delete m[k];
+    });
+    if (!Object.keys(m).length) delete pg.coDuty[s];
+  });
+  if (!Object.keys(pg.coDuty).length) delete pg.coDuty;
+  var after = coMineAll(pg, side, name);
+  var lb = function(a){ return a.map(function(x){ return coPickLabel(side, x.side, x.key, pg); }).join('、') || 'なし'; };
+  return { before: lb(before), after: lb(after) };
+}
+/* 本人が兼ねる担当を選ぶ小窓（CE担当カードから）。自分の持ち場は選べない */
+function openCoPick(ds, side, name) {
+  if (_offlineMode) { toast('📴 災害モードでは兼務を付けられません（復旧後に付けてください）', 'warn'); return; }
+  if (!can('duty') || !name) return;
+  var dat = D.pages[ds]; if (!dat) return;
+  var old = document.getElementById('co-ov'); if (old) old.remove();
+  var ownLabel = coMainLabel(ds, dat, side, name);
+  var cp = coPickItems(ds, dat, side, name);
   var ov = document.createElement('div'); ov.id = 'co-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
@@ -23616,46 +23653,111 @@ function openCoPick(ds, side, name) {
     + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'co-ov\').remove()">キャンセル</button><button class="btn btn-p" id="co-save">保存</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
   var box = document.getElementById('co-keys');
-  box.innerHTML = sides.map(function(s){
-    var btns = items.map(function(it, i){
-      if (it.side !== s) return '';
-      var cur = coDutyOf(dat, s, it.key).filter(function(n){ return n !== name; });
-      var holder = s === 'ce' ? ((dat.duties && dat.duties[it.key]) || '') : '';
-      var sub = holder ? holder : (cur.length ? cur.join('、') + ' 兼務' : '');
-      return '<button type="button" class="evt-stf-btn' + (picked[i] ? ' on' : '') + '" data-i="' + i + '">' + escH(coRoleLabel(s, it.key, dat)) + (sub ? '<small style="opacity:.7"> ' + escH(sub) + '</small>' : '') + '</button>';
-    }).join('');
-    return '<div class="co-pick-sec"><div class="co-pick-hd">' + (s === 'hd' ? '🩸 HDの役割' : '🩺 CEの担当') + '</div><div class="evt-stf-pick">' + (btns || '<span style="font-size:12px;color:var(--txt3)">選べる担当がありません</span>') + '</div></div>';
-  }).join('');
+  box.innerHTML = coPickButtonsHTML(dat, name, cp, false);
   box.onclick = function(e){
     var b = e.target.closest('.evt-stf-btn'); if (!b) return;
-    var i = +b.getAttribute('data-i'); if (!items[i]) return;
-    picked[i] = !picked[i];
-    b.classList.toggle('on', picked[i]);
+    var i = +b.getAttribute('data-i'); if (!cp.items[i]) return;
+    cp.picked[i] = !cp.picked[i];
+    b.classList.toggle('on', cp.picked[i]);
   };
   document.getElementById('co-save').onclick = function(){
     if (!can('duty')) return;
     var pg = D.pages[ds]; if (!pg) { ov.remove(); return; }
-    var before = coMineAll(pg, side, name);
-    pg.coDuty = pg.coDuty || {};
-    sides.forEach(function(s){
-      var m = pg.coDuty[s] = pg.coDuty[s] || {};
-      var keys = items.filter(function(it){ return it.side === s; }).map(function(it){ return it.key; });
-      /* この人の兼務を一度すべて外してから、選んだ担当にだけ付け直す（以前の日のカードのidで付けた分も重ならない） */
-      Object.keys(m).concat(keys).forEach(function(k){
-        var arr = coDutyOf(pg, s, k).filter(function(n){ return n !== name; });
-        if (items.some(function(it, i){ return picked[i] && it.side === s && it.key === k; })) arr.push(name);
-        if (arr.length) m[k] = arr; else delete m[k];
-      });
-      if (!Object.keys(m).length) delete pg.coDuty[s];
-    });
-    if (!Object.keys(pg.coDuty).length) delete pg.coDuty;
-    var after = coMineAll(pg, side, name);
+    var r = coApplyPicks(pg, side, name, cp);
     ov.remove();
     saveDPage(ds);
-    var lb = function(a){ return a.map(function(x){ return coPickLabel(side, x.side, x.key, pg); }).join('、') || 'なし'; };
-    writeLog('兼務を設定', fmtJ(ds) + ' ' + (side === 'hd' ? 'HD ' : '') + name + '：' + lb(before) + ' → ' + lb(after));
+    writeLog('兼務を設定', fmtJ(ds) + ' ' + (side === 'hd' ? 'HD ' : '') + name + '：' + r.before + ' → ' + r.after);
     renderPage(ds);
   };
+}
+
+/* ===== HD担当表のスタッフのポップアップ（2026-11-23） =====
+   休み・病棟の印・兼務・備考をまとめて直し、「決定」で一度に書く（「やめる」なら何も変えない）。
+   書くときは D.pages[ds] を読み直し、開いたときから変えた項目だけを当てる（開いている間の他の人の変更を消さない）。
+   担当のロックで編集できない人には見るだけで開く。本院ヘルプへの説明はチェック表（openHnEduModal、その場で保存）を開くボタン */
+function openHdStaffModal(ds, name) {
+  var dat = D.pages[ds]; if (!dat || !name) return;
+  var old = document.getElementById('hdst-ov'); if (old) old.remove();
+  var ok = can('duty') && !_offlineMode;
+  var sp = plSpot(ds, name);
+  var off = sp.kind === 'zone' && sp.zone === 'off';
+  var role = sp.kind === 'hdrole' ? sp.role : ((absentOffFrom(dat, name) || {}).role || '');
+  var o = { absent: hdIsAbsent(dat, name) || off, ward: wardGoOn(dat, name), note: (dat.hdNotes && dat.hdNotes[name]) || '' };
+  var cp = coPickItems(ds, dat, 'hd', name);
+  var coOpen = cp.picked.slice();
+  var p = plPeople(ds)[name];
+  var hn = (p && p.base === 'help' && hnEduStatus(name).total) ? hnEduMarkHTML(name, 'btn btn-g btn-sm') : '';
+  var ov = document.createElement('div'); ov.id = 'hdst-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md hdst-md'; md.style.maxWidth = '440px'; md.style.maxHeight = 'calc(88vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
+  var dis = ok ? '' : ' disabled';
+  md.innerHTML = '<h3>👤 ' + escH(name) + (role ? '<span style="font-weight:400;color:var(--txt3);font-size:13px">（' + escH(role === '準' ? '準夜' : role) + '）</span>' : '') + '</h3>'
+    + (ok ? '' : '<div class="pn" style="font-size:11px;margin:0 0 8px">' + (_offlineMode ? '📴 災害モードではここから変えられません' : '🔒 担当の編集はロックされています（見るだけ）') + '</div>')
+    + '<div class="hdst-toggles">'
+    + '<label class="hdst-tg off"><input type="checkbox" id="hdst-absent"' + (o.absent ? ' checked' : '') + dis + '><span>🏖️ 休み</span></label>'
+    + '<label class="hdst-tg ward"><input type="checkbox" id="hdst-ward"' + (o.ward ? ' checked' : '') + dis + '><span>🛏 病棟透析に行く</span></label>'
+    + '</div>'
+    + '<div class="hdst-sec"><div class="hdst-hd">🤝 兼務 <small>一緒に受け持つ担当（印だけで人数には数えません）</small></div><div id="hdst-co">' + coPickButtonsHTML(dat, name, cp, !ok) + '</div></div>'
+    + '<div class="hdst-sec"><div class="hdst-hd">📝 備考</div><textarea id="hdst-note" class="ds2" rows="3" style="width:100%;box-sizing:border-box;margin:0" placeholder="' + (ok ? '備考（患者さんの情報は書かない）' : '') + '"' + (ok ? '' : ' readonly') + '>' + escH(o.note) + '</textarea></div>'
+    + (hn ? '<div class="hdst-sec"><div class="hdst-hd">📘 分院ルールの説明</div><div id="hdst-hn">' + hn + '</div></div>' : '')
+    + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + (ok ? '<button class="btn btn-g" id="hdst-cancel">やめる</button><button class="btn btn-p" id="hdst-save">決定</button>' : '<button class="btn btn-p" id="hdst-cancel">閉じる</button>')
+    + '</div>';
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('hdst-cancel').onclick = function(){ ov.remove(); };
+  var hnBox = document.getElementById('hdst-hn');
+  if (hnBox) hnBox.onclick = function(e){ if (e.target.closest('[data-pl-act="hnedu"]')) { ov.remove(); openHnEduModal(name); } };
+  if (!ok) return;
+  document.getElementById('hdst-co').onclick = function(e){
+    var b = e.target.closest('.evt-stf-btn'); if (!b) return;
+    var i = +b.getAttribute('data-i'); if (!cp.items[i]) return;
+    cp.picked[i] = !cp.picked[i];
+    b.classList.toggle('on', cp.picked[i]);
+  };
+  document.getElementById('hdst-save').onclick = function(){
+    var absent = document.getElementById('hdst-absent').checked;
+    var ward = document.getElementById('hdst-ward').checked;
+    var note = document.getElementById('hdst-note').value.replace(/\s+$/, '');
+    var go = function(){ ov.remove(); hdStaffApply(ds, name, o, { absent: absent, ward: ward, note: note }, cp, coOpen); };
+    if (note && note !== o.note) phiGuardText(note, go, function(){ var ta = document.getElementById('hdst-note'); if (ta) ta.focus(); });
+    else go();
+  };
+}
+/* ポップアップの「決定」：開いたとき（o・coOpen）から変わった項目だけを、いまのページに当てる */
+function hdStaffApply(ds, name, o, n, cp, coOpen) {
+  if (!can('duty') || _offlineMode) return;
+  var pg = D.pages[ds]; if (!pg) return;
+  var logs = [];
+  if (n.note !== o.note) {
+    pg.hdNotes = pg.hdNotes || {};
+    if (n.note) pg.hdNotes[name] = n.note; else delete pg.hdNotes[name];
+    if (!Object.keys(pg.hdNotes).length) delete pg.hdNotes;
+    logs.push(['HD備考', fmtJ(ds) + ' ' + name + (n.note ? '' : '（消した）')]);
+  }
+  if (n.ward !== o.ward) {
+    pg.wardGo = pg.wardGo || {};
+    if (n.ward) pg.wardGo[name] = true; else delete pg.wardGo[name];
+    if (!Object.keys(pg.wardGo).length) delete pg.wardGo;
+    logs.push([n.ward ? '病棟透析の印' : '病棟透析の印を外した', fmtJ(ds) + ' ' + name]);
+  }
+  if (cp.picked.some(function(v, i){ return v !== coOpen[i]; })) {
+    var r = coApplyPicks(pg, 'hd', name, cp);
+    logs.push(['兼務を設定', fmtJ(ds) + ' HD ' + name + '：' + r.before + ' → ' + r.after]);
+  }
+  logs.forEach(function(l){ writeLog(l[0], l[1]); });
+  if (n.absent !== o.absent) {
+    writeLog(n.absent ? 'HD休みの印' : 'HD休みの印を解除', fmtJ(ds) + ' ' + name);
+    /* 役割を持っている人は人員配置の休み枠へ移す／休み枠から戻す（plMove の保存で上の変更も一緒に送られる） */
+    if (n.absent) {
+      var sp = plSpot(ds, name);
+      if (sp.kind === 'hdrole') { absentSet(ds, name, {kind:'hdrole', role: sp.role || '', side:'hd'}, function(d){ d.hdAbsent = d.hdAbsent || {}; d.hdAbsent[name] = true; }); return; }
+      pg.hdAbsent = pg.hdAbsent || {}; pg.hdAbsent[name] = true;
+    } else if (absentOffFrom(pg, name)) { absentRestore(ds, name); return; }
+    else if (pg.hdAbsent) delete pg.hdAbsent[name];
+  } else if (!logs.length) return; /* 何も変えていない */
+  saveDPage(ds);
+  renderPlacementBoard(ds, D.pages[ds], !can('duty')); /* HD担当表（refreshHdRoster）と配置ボードの名札が揃う */
+  if (logs.some(function(l){ return l[0] === '兼務を設定'; })) safeRenderPage(); /* CE担当カードの「○○が兼務」も揃える */
 }
 
 function hdRosterBoxHTML(ds, dat, variant) {
@@ -23831,13 +23933,12 @@ function hdRosterMove(ds, name, spec){
 function hdRosterBindEvents(box, ds){
   if (box._hdrBound) return;
   box._hdrBound = true;
-  /* 病棟透析に行く印（通常表示の行の🛏） */
+  /* スタッフの欄（名前のボタン）→ 休み・兼務・病棟・備考のポップアップ。編集表の休みの行からも開く */
   box.addEventListener('click', function(e){
-    var b = e.target.closest('.hdr-ward-btn'); if (!b) return;
+    var b = e.target.closest('.hdr-staff-btn'); if (!b) return;
     e.stopPropagation();
-    wardGoToggle(box.getAttribute('data-ds') || ds, b.getAttribute('data-name'));
+    openHdStaffModal(box.getAttribute('data-ds') || ds, b.getAttribute('data-hdr-staff'));
   });
-
   box.addEventListener('click', function(e){
     var cds = box.getAttribute('data-ds') || ds;
     /* フラグではなく時刻で守る：長押しドラッグの直後は合成clickが来ないことが多く、
@@ -23874,42 +23975,6 @@ function hdRosterBindEvents(box, ds){
     if (row) { hdRosterApplyPick(cds, row); return; }
     var trayEl = e.target.closest('[data-hdr-tray]');
     if (trayEl) { hdRosterApplyPick(cds, trayEl); return; }
-  });
-
-  /* 欠勤マーク（通常表示の行）。その日のページだけの印なので saveDPage。
-     表全体は作り直さず行の見た目だけ切り替える（隣の備考欄の入力を巻き込まないため）。 */
-  box.addEventListener('change', function(e){
-    var cb = e.target.closest('input.hdr-absent-cb');
-    if (!cb) return;
-    if (!can('duty')) { cb.checked = !cb.checked; return; }
-    var cds = box.getAttribute('data-ds') || ds;
-    var pg = D.pages[cds]; if (!pg) return;
-    var key = cb.getAttribute('data-name');
-    writeLog(cb.checked ? 'HD休みの印' : 'HD休みの印を解除', fmtJ(cds) + ' ' + key);
-    /* 役割を持っている人は人員配置の休み枠へ移す／休み枠から戻す（表は plMove → refreshHdRoster で描き直る） */
-    if (cb.checked) {
-      var spA = plSpot(cds, key);
-      if (spA.kind === 'hdrole') { absentSet(cds, key, {kind:'hdrole', role: spA.role || '', side:'hd'}, function(d){ d.hdAbsent = d.hdAbsent || {}; d.hdAbsent[key] = true; }); return; }
-    } else if (absentOffFrom(pg, key)) { absentRestore(cds, key); return; }
-    pg.hdAbsent = pg.hdAbsent || {};
-    if (cb.checked) pg.hdAbsent[key] = true; else delete pg.hdAbsent[key];
-    var tr = cb.closest('tr'); if (tr) tr.classList.toggle('hdr-absent', cb.checked);
-    saveDPage(cds);
-  });
-
-  var hdrNoteTimers = {}; /* 備考は氏名ごとに独立してデバウンスする（renderPageHDの旧実装と同じ理由） */
-  box.addEventListener('input', function(e){
-    var ta = e.target.closest('textarea.hd-note-ta');
-    if (!ta || !can('duty')) return;
-    var cds = box.getAttribute('data-ds') || ds;
-    var key = ta.getAttribute('data-name'), v = ta.value;
-    if (hdrNoteTimers[key]) clearTimeout(hdrNoteTimers[key]);
-    hdrNoteTimers[key] = setTimeout(function(){
-      var pg = D.pages[cds]; if (!pg) return;
-      pg.hdNotes = pg.hdNotes || {};
-      if (v) pg.hdNotes[key] = v; else delete pg.hdNotes[key];
-      saveDPage(cds);
-    }, 600);
   });
 
   /* ===== デスクトップ：HTML5 drag & drop ===== */
@@ -24167,23 +24232,6 @@ function hdWtListHTML(arr){
    役割は動かさず、HD担当表の行と配置ボードの名札に小さな印（🛏 病棟）を出すだけ。
    🏥 は本院へのヘルプの印に使っているので別の絵にする */
 function wardGoOn(dat, name){ return !!(dat && dat.wardGo && name && dat.wardGo[name]); }
-function wardGoBtnHTML(dat, name){
-  var on = wardGoOn(dat, name), ok = can('duty');
-  if (!on) return ''; /* 付いていない行には何も出さない（付けるのは兼務の横の「＋ 病棟」から、2026-11-23 本人） */
-  return '<button type="button" class="hdr-ward-btn' + (on ? ' on' : '') + '" data-name="' + escH(name) + '" title="' + (on ? '病棟透析に行く印（押すと外す）' : '病棟透析に行く印を付ける') + '"' + (ok ? '' : ' disabled') + '>🛏' + (on ? '病棟' : '') + '</button>';
-}
-function wardGoToggle(ds, name){
-  if (_offlineMode) { toast('📴 災害モードでは病棟の印を付けられません', 'warn'); return; }
-  if (!can('duty')) return;
-  var pg = D.pages[ds]; if (!pg || !name) return;
-  pg.wardGo = pg.wardGo || {};
-  var on = !pg.wardGo[name];
-  if (on) pg.wardGo[name] = true; else delete pg.wardGo[name];
-  if (!Object.keys(pg.wardGo).length) delete pg.wardGo;
-  saveDPage(ds);
-  writeLog(on ? '病棟透析の印' : '病棟透析の印を外した', fmtJ(ds) + ' ' + name);
-  renderPlacementBoard(ds, D.pages[ds], !can('duty')); /* HD担当表（refreshHdRoster）と配置ボードの名札が揃う */
-}
 
 /* ===== 休憩に入った時刻（CE、dat.brk = {氏名:{t:'HH:MM', by, ts}}、2026-11-19） =====
    担当カードの名前の下の☕を誰でも押せる。押した時刻が「☕ 12:05〜」とその日ずっと出る（終わりは記録しない）。
