@@ -303,6 +303,8 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .co-chip:disabled{cursor:default}
 span.co-chip{cursor:default;padding:1px 7px}
 .co-by{color:var(--pu);font-weight:600}
+.co-pick-sec+.co-pick-sec{margin-top:10px}
+.co-pick-hd{font-size:12px;font-weight:800;color:var(--txt2);margin-bottom:5px}
 @media print{.co-add{display:none!important}}
 @keyframes pnav-in-l{from{transform:translateX(-28px);opacity:.3}to{transform:none;opacity:1}}
 @keyframes pnav-in-r{from{transform:translateX(28px);opacity:.3}to{transform:none;opacity:1}}
@@ -6476,6 +6478,7 @@ var APP_CHANGELOG = [
     {t:'new', d:'🛏 HDの「病棟」タイルを押すと、病棟タンクを1件ずつ記録できるようになりました。病棟透析と検体採取は別の枠で、それぞれタンク（No1/No2）と使った人を選びます。病棟の件数は病棟透析の数から自動で数え、検体採取はタイルに「＋検体」と出します'},
     {t:'new', d:'📊 HD集計に、病棟タンクのNo1/No2の件数（用途別）・最後に使った日・1件ずつの記録を出しました（CSVにも出ます）'},
     {t:'new', d:'🛏 HD担当表の名前の横の🛏を押すと、病棟透析に行く人に「病棟」の印が付きます（役割はそのまま。配置ボードの名札にも出ます）'},
+    {t:'imp', d:'🤝 兼務で、CEとHDをまたいで担当を選べるようにしました（例：CEの人がHDの役割を兼ねる）'},
     {t:'new', d:'☕ CEの担当カードに「休憩」ボタンを付けました。押した時刻が「☕ 12:05〜」と全員に表示されます（今日の連絡表だけ・もう一度押すと取り消し）'}
   ]},
   { ver:'Ver.2026/11/18-165', date:'2026-11-18', title:'兼務でどの担当でも選べるようにしました', items:[
@@ -23498,11 +23501,12 @@ function coDutyKeysOf(dat, side, name) {
    兼ねられている側のカードには「🤝 ○○（病棟外回り）が兼務」を出す。どちらもカードの中で完結させる */
 function coRowInnerHTML(ds, dat, side, name, ownKey, locked) {
   var h = '';
-  var mine = name ? coDutyKeysOf(dat, side, name) : [];
-  if (mine.length) h += '<span class="co-lbl">🤝 兼務：</span>' + mine.map(function(k){ return '<span class="co-chip">' + escH(coRoleLabel(side, k, dat)) + '</span>'; }).join('');
+  /* CEとHDをまたいだ兼務もある（2026-11-23 本人）。自分の側の担当はそのまま、反対側は「HD A1」「CE カテ」と頭に付ける */
+  var mine = name ? coMineAll(dat, side, name) : [];
+  if (mine.length) h += '<span class="co-lbl">🤝 兼務：</span>' + mine.map(function(x){ return '<span class="co-chip">' + escH(coPickLabel(side, x.side, x.key, dat)) + '</span>'; }).join('');
   var others = ownKey ? coDutyOfLabel(dat, side, ownKey).filter(function(n){ return n !== name; }) : [];
   if (others.length) h += '<span class="co-lbl co-by">🤝 ' + others.map(function(n){
-    var main = coMainLabel(ds, dat, side, n);
+    var main = coMainLabelAny(ds, dat, side, n);
     return escH(n) + (main ? '（' + escH(main) + '）' : '');
   }).join('、') + ' が兼務</span>';
   if (name && !locked) h += '<button type="button" class="db-add-link co-add" data-co-ds="' + escH(ds) + '" data-co-side="' + side + '" data-co-name="' + escH(name) + '" onclick="openCoPick(this.dataset.coDs, this.dataset.coSide, this.dataset.coName)">' + (mine.length ? '✏️ 兼務' : '＋ 兼務') + '</button>';
@@ -23521,6 +23525,23 @@ function coMainLabel(ds, dat, side, name) {
   var k = coMainKey(ds, dat, side, name);
   return k ? coRoleLabel(side, k, dat) : '';
 }
+/* 兼ねている人の本来の持ち場。同じ側に無ければ反対側を見て「HD A1」「CE 病棟外回り」のように側を付ける */
+function coMainLabelAny(ds, dat, side, name) {
+  var own = coMainLabel(ds, dat, side, name); if (own) return own;
+  var other = side === 'ce' ? 'hd' : 'ce', o = coMainLabel(ds, dat, other, name);
+  return o ? (other === 'hd' ? 'HD ' : 'CE ') + o : '';
+}
+/* ある人の兼務を両方の側から集める [{side, key}] */
+function coMineAll(dat, side, name) {
+  var out = [];
+  [side, side === 'ce' ? 'hd' : 'ce'].forEach(function(s){ coDutyKeysOf(dat, s, name).forEach(function(k){ out.push({ side: s, key: k }); }); });
+  return out;
+}
+/* 表示名。見ている側（viewSide）と違う側の担当には「HD」「CE」を頭に付ける */
+function coPickLabel(viewSide, s, k, dat) {
+  var lb = coRoleLabel(s, k, dat);
+  return s === viewSide ? lb : (s === 'hd' ? 'HD ' : 'CE ') + lb;
+}
 /* CEの担当カードに置く1行 */
 function coDutyRowHTML(ds, dat, slotId, locked) {
   var name = (dat.duties && dat.duties[slotId]) || '';
@@ -23537,53 +23558,71 @@ function openCoPick(ds, side, name) {
   var dat = D.pages[ds]; if (!dat) return;
   var old = document.getElementById('co-ov'); if (old) old.remove();
   var ownLabel = coMainLabel(ds, dat, side, name);
-  var keys = side === 'hd' ? CO_HD_ROLES() : coCeKeys(dat);
   var ownKey = coMainKey(ds, dat, side, name);
   var ownLb = ownKey ? coRoleLabel(side, ownKey, dat) : '';
-  keys = keys.filter(function(k){ return k !== ownKey && (!ownLb || coRoleLabel(side, k, dat) !== ownLb); });
+  /* 選べるのは自分の側の担当＋反対側の担当（CEとHDをまたいだ兼務もある、2026-11-23 本人）。自分の持ち場は除く */
+  var sides = [side, side === 'ce' ? 'hd' : 'ce'];
+  var items = [];
+  sides.forEach(function(s){
+    var keys = s === 'hd' ? CO_HD_ROLES() : coCeKeys(dat);
+    keys.forEach(function(k){
+      if (s === side && (k === ownKey || (ownLb && coRoleLabel(s, k, dat) === ownLb))) return;
+      items.push({ side: s, key: k });
+    });
+  });
   /* 以前その日のカードのidで付けた兼務も、名前で同じ担当として選択済みに見せる */
-  var pickedLb = coDutyKeysOf(dat, side, name).map(function(k){ return coRoleLabel(side, k, dat); });
-  var picked = keys.filter(function(k){ return pickedLb.indexOf(coRoleLabel(side, k, dat)) >= 0; });
+  var isPicked = function(it){
+    var lbs = coDutyKeysOf(dat, it.side, name).map(function(k){ return coRoleLabel(it.side, k, dat); });
+    return lbs.indexOf(coRoleLabel(it.side, it.key, dat)) >= 0;
+  };
+  var picked = items.map(isPicked);
   var ov = document.createElement('div'); ov.id = 'co-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
-  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '400px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
+  var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
   md.innerHTML = '<h3>🤝 兼務</h3>'
     + '<div style="font-size:14px;font-weight:700;margin-bottom:4px">' + escH(name) + (ownLabel ? '<span style="font-weight:400;color:var(--txt3)">（' + escH(ownLabel) + '）</span>' : '') + '</div>'
-    + '<div class="pn" style="font-size:11px;margin:6px 0">一緒に受け持つ' + (side === 'hd' ? '役割' : '担当') + 'を選びます。両方のカードに表示されます。印だけで、人員配置・人数・公平性には数えません。</div>'
-    + '<div class="evt-stf-pick" id="co-keys"></div>'
+    + '<div class="pn" style="font-size:11px;margin:6px 0">一緒に受け持つ担当を選びます（CEとHDをまたいでも選べます）。両方の表に表示されます。印だけで、人員配置・人数・公平性には数えません。</div>'
+    + '<div id="co-keys"></div>'
     + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px"><button class="btn btn-g" onclick="document.getElementById(\'co-ov\').remove()">キャンセル</button><button class="btn btn-p" id="co-save">保存</button></div>';
   ov.appendChild(md); document.body.appendChild(ov);
   var box = document.getElementById('co-keys');
-  box.innerHTML = keys.length ? keys.map(function(k, i){
-    var cur = coDutyOf(dat, side, k).filter(function(n){ return n !== name; });
-    var holder = side === 'ce' ? ((dat.duties && dat.duties[k]) || '') : '';
-    var sub = holder ? holder : (cur.length ? cur.join('、') + ' 兼務' : '');
-    return '<button type="button" class="evt-stf-btn' + (picked.indexOf(k) >= 0 ? ' on' : '') + '" data-i="' + i + '">' + escH(coRoleLabel(side, k, dat)) + (sub ? '<small style="opacity:.7"> ' + escH(sub) + '</small>' : '') + '</button>';
-  }).join('') : '<span style="font-size:12px;color:var(--txt3)">選べる担当がありません</span>';
+  box.innerHTML = sides.map(function(s){
+    var btns = items.map(function(it, i){
+      if (it.side !== s) return '';
+      var cur = coDutyOf(dat, s, it.key).filter(function(n){ return n !== name; });
+      var holder = s === 'ce' ? ((dat.duties && dat.duties[it.key]) || '') : '';
+      var sub = holder ? holder : (cur.length ? cur.join('、') + ' 兼務' : '');
+      return '<button type="button" class="evt-stf-btn' + (picked[i] ? ' on' : '') + '" data-i="' + i + '">' + escH(coRoleLabel(s, it.key, dat)) + (sub ? '<small style="opacity:.7"> ' + escH(sub) + '</small>' : '') + '</button>';
+    }).join('');
+    return '<div class="co-pick-sec"><div class="co-pick-hd">' + (s === 'hd' ? '🩸 HDの役割' : '🩺 CEの担当') + '</div><div class="evt-stf-pick">' + (btns || '<span style="font-size:12px;color:var(--txt3)">選べる担当がありません</span>') + '</div></div>';
+  }).join('');
   box.onclick = function(e){
     var b = e.target.closest('.evt-stf-btn'); if (!b) return;
-    var k = keys[+b.getAttribute('data-i')]; if (k == null) return;
-    var at = picked.indexOf(k); if (at >= 0) picked.splice(at, 1); else picked.push(k);
-    b.classList.toggle('on', at < 0);
+    var i = +b.getAttribute('data-i'); if (!items[i]) return;
+    picked[i] = !picked[i];
+    b.classList.toggle('on', picked[i]);
   };
   document.getElementById('co-save').onclick = function(){
     if (!can('duty')) return;
     var pg = D.pages[ds]; if (!pg) { ov.remove(); return; }
-    var before = coDutyKeysOf(pg, side, name);
+    var before = coMineAll(pg, side, name);
     pg.coDuty = pg.coDuty || {};
-    var m = pg.coDuty[side] = pg.coDuty[side] || {};
-    /* この人の兼務を一度すべて外してから、選んだ担当にだけ付け直す（以前の日のカードのidで付けた分も重ならない） */
-    Object.keys(m).concat(keys).forEach(function(k){
-      var arr = coDutyOf(pg, side, k).filter(function(n){ return n !== name; });
-      if (picked.indexOf(k) >= 0) arr.push(name);
-      if (arr.length) m[k] = arr; else delete m[k];
+    sides.forEach(function(s){
+      var m = pg.coDuty[s] = pg.coDuty[s] || {};
+      var keys = items.filter(function(it){ return it.side === s; }).map(function(it){ return it.key; });
+      /* この人の兼務を一度すべて外してから、選んだ担当にだけ付け直す（以前の日のカードのidで付けた分も重ならない） */
+      Object.keys(m).concat(keys).forEach(function(k){
+        var arr = coDutyOf(pg, s, k).filter(function(n){ return n !== name; });
+        if (items.some(function(it, i){ return picked[i] && it.side === s && it.key === k; })) arr.push(name);
+        if (arr.length) m[k] = arr; else delete m[k];
+      });
+      if (!Object.keys(m).length) delete pg.coDuty[s];
     });
-    if (!Object.keys(m).length) delete pg.coDuty[side];
     if (!Object.keys(pg.coDuty).length) delete pg.coDuty;
-    var after = coDutyKeysOf(pg, side, name);
+    var after = coMineAll(pg, side, name);
     ov.remove();
     saveDPage(ds);
-    var lb = function(a){ return a.map(function(k){ return coRoleLabel(side, k, pg); }).join('、') || 'なし'; };
+    var lb = function(a){ return a.map(function(x){ return coPickLabel(side, x.side, x.key, pg); }).join('、') || 'なし'; };
     writeLog('兼務を設定', fmtJ(ds) + ' ' + (side === 'hd' ? 'HD ' : '') + name + '：' + lb(before) + ' → ' + lb(after));
     renderPage(ds);
   };
@@ -29704,7 +29743,7 @@ function renderMySchedule(overrideName) {
         if (r.name === selfName && r.role) slots.push({t:'🩸 ' + r.role + (hdShiftTimeLabel(r.role) ? '（' + hdShiftTimeLabel(r.role) + '）' : ''), st:false});
       });
       /* 兼務（印だけ。公平性には数えないがマイ担当には出す） */
-      dutyCfg.forEach(function(slot){ if (coDutyOf(dat, 'ce', slot.id).indexOf(selfName) >= 0) slots.push({t:(slot.label || slot.id) + '（兼務）', st:false}); });
+      coDutyKeysOf(dat, 'ce', selfName).forEach(function(k){ slots.push({t:coRoleLabel('ce', k, dat) + '（兼務）', st:false}); });
       CO_HD_ROLES().forEach(function(role){ if (coDutyOf(dat, 'hd', role).indexOf(selfName) >= 0) slots.push({t:'🩸 ' + coRoleLabel('hd', role) + '（兼務）', st:false}); });
       /* 担当枠・HD役割が無い日も「CE（未振り分け）」「HD（未振り分け）」として出す
          （plPlaceLabel は担当枠・フリー・役割ありのHDには null/空を返すので二重にはならない） */
