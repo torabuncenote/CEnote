@@ -2618,6 +2618,11 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
               <div class="pt">🎲 月次自動割り当てモード</div>
               <div id="auto-assign-mode-form"></div>
             </div>
+            <div id="feat-brk-cfg" data-perm="admin" data-mode="ce">
+              <div class="pt">☕ 休憩ボタン</div>
+              <div class="pn" style="margin-bottom:8px">CEの担当カードに「☕ 休憩」ボタンを出すかどうか。出さないときは、記録済みの休憩の時刻も表示しません（記録は消えません）。</div>
+              <div id="feat-brk-form"></div>
+            </div>
             <!-- 勤務希望の種類マスタ（D.shiftReqCodes）。D.wdDepts と同型で、改名ボタンは無い——
                  過去の希望は文字列で D.shiftReq にそのまま残るため、改名すると過去分の表記だけ
                  食い違ってしまう（追加・削除・並べ替えのみ）。data-mode を付けず両モードで出す。 -->
@@ -3635,7 +3640,7 @@ var DEF_SUP_TREE = [
 ];
 
 /* ===== STATE ===== */
-var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},evtRanges:[],hnEduItems:[],hnEdu:{},boardCats:[],lendBook:{},hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],roboPool:[],shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},hdShiftTimes:{},holidayOv:{},stfNo:{},disasterCfg:{}};
+var D = {pages:{},stf:[],phs:[],dly:[],wd:{},lk:{},schedPresets:[],ope:[],cath:[],sup:[],opeTree:[],cathTree:[],supTree:[],supMaster:[],dutyCfgMaster:[],dutyCfg:[],opsCfg:[],oc:[],shift:{},evts:{},manual:{},stfLinks:{},fcmCfg:{},stfEdu:{},autoAssignMode:'weekday',emailjsCfg:{},psgAlertTime:'10:00',psgBannerStart:'07:30',psgBannerEnd:'08:30',stfHidden:{},autoDelCfg:{enabled:false,period:365,interval:30,lastClean:0},tablets:[],ocFlow:'',makers:{cats:[],list:[]},wdDepts:[],devMaster:[],opsChk:{},evtRanges:[],hnEduItems:[],hnEdu:{},boardCats:[],lendBook:{},hdTreatments:[],hdDly:[],hdWd:{},hdTablets:[],eduProgress:{},eduCfg:{ceEdu:false},eduItems:{ward:[],device:[],hd:[]},roboLayouts:[],roboPool:[],featCfg:{},shiftReq:{},shiftReqCodes:[],shiftReqCfg:{},hdShiftTimes:{},holidayOv:{},stfNo:{},disasterCfg:{}};
 var curDs = null, calY, calM, asY, asM, sbOpen = true, selWd = '月', _hdSelWd = '月', isAdmin = false;
 var curTab = 'cal'; /* 現在表示中のサイドバータブ。スマホの自動クローズ判定に使用 */
 var currentUser = null; /* { uid, email, displayName, isAdmin } */
@@ -3920,6 +3925,7 @@ function loadD() {
     D.eduItems = s.eduItems || {ward:[],device:[],hd:[]};
     D.roboLayouts = s.roboLayouts || [];
     D.roboPool = s.roboPool || [];
+    D.featCfg = s.featCfg || {};
     D.shiftReq = s.shiftReq || {};
     D.shiftReqCodes = (s.shiftReqCodes && s.shiftReqCodes.length) ? s.shiftReqCodes : DEF_SHIFT_REQ_CODES.slice();
     D.shiftReqCfg = s.shiftReqCfg || {};
@@ -4085,7 +4091,7 @@ function fbInit() {
         D.ope=[]; D.cath=[]; D.sup=[]; D.opeTree=[]; D.cathTree=[]; D.supTree=[]; D.supMaster=[];
         D.dutyCfg=[]; D.dutyCfgMaster=[]; D.opsCfg=[]; D.oc=[]; D.shift={}; D.evts={}; D.manual={}; D.schedPresets=[];
         D.emailjsCfg={}; D.psgAlertTime='10:00'; D.psgBannerStart='07:30'; D.psgBannerEnd='08:30'; D.stfLinks={}; D.fcmCfg={}; D.stfEdu={}; D.stfHidden={}; D.autoAssignMode='weekday';
-        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.evtRanges=[]; D.hnEduItems=[]; D.boardCats=[]; D.lendBook={}; D.hnEdu={}; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.roboPool=[]; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.hdShiftTimes={}; D.stfNo={}; D.disasterCfg={};
+        D.autoDelCfg={enabled:false,period:365,interval:30,lastClean:0}; D.tablets=[]; D.ocFlow=''; D.makers={cats:[],list:[]}; D.wdDepts=[]; D.devMaster=[]; D.opsChk={}; D.evtRanges=[]; D.hnEduItems=[]; D.boardCats=[]; D.lendBook={}; D.hnEdu={}; D.hdTreatments=[]; D.hdDly=[]; D.hdWd={}; D.hdTablets=[]; D.eduProgress={}; D.eduCfg={ceEdu:false}; D.eduItems={ward:[],device:[],hd:[]}; D.roboLayouts=[]; D.roboPool=[]; D.featCfg={}; D.shiftReq={}; D.shiftReqCodes=[]; D.shiftReqCfg={}; D.holidayOv={}; D.hdShiftTimes={}; D.stfNo={}; D.disasterCfg={};
         _roboImgCache = {}; /* 配置図のキャッシュも次の人に残さない */
         _fcmToken=null; _messaging=null; _pendingNotifKeys=[];
         clearTimeout(_toastTimer);
@@ -4300,6 +4306,7 @@ function fbInit() {
             D.eduItems = d.eduItems || {ward:[],device:[],hd:[]};
             D.roboLayouts = d.roboLayouts || [];
             D.roboPool = d.roboPool || [];
+            D.featCfg = d.featCfg || {};
             D.shiftReq = d.shiftReq || {};
             D.shiftReqCodes = (d.shiftReqCodes && d.shiftReqCodes.length) ? d.shiftReqCodes : DEF_SHIFT_REQ_CODES.slice();
             D.shiftReqCfg = d.shiftReqCfg || {};
@@ -4394,7 +4401,7 @@ function fbInit() {
             renderStfList(); renderPhsList(); renderTabletList();
             renderDlyList(); renderWdlyList(); renderWdDeptList(); renderHdTreatList(); renderHdDlyList(); renderHdWdlyList(); renderHdTabletList();
             renderOpeList(); renderCathList();
-            renderLockList(); renderAutoAssignModeSetting();
+            renderLockList(); renderAutoAssignModeSetting(); renderFeatCfg();
             updateTabVisibility();
             /* 入力フォーカス中はページを再描画しない（入力内容が消えるのを防ぐ） */
             var isEditingInPage = mainEditing();
@@ -6480,6 +6487,7 @@ var APP_CHANGELOG = [
     {t:'new', d:'🛏 HD担当表の名前の横の🛏を押すと、病棟透析に行く人に「病棟」の印が付きます（役割はそのまま。配置ボードの名札にも出ます）'},
     {t:'imp', d:'🤝 兼務で、CEとHDをまたいで担当を選べるようにしました（例：CEの人がHDの役割を兼ねる）'},
     {t:'new', d:'☕ CEの担当カードに「休憩」ボタンを付けました。押した時刻が「☕ 12:05〜」と全員に表示されます（今日の連絡表だけ・もう一度押すと取り消し）'}
+    {t:'new', admin:true, d:'⚙ マスタの「担当・スケジュール」に「☕ 休憩ボタン」を追加しました。休憩ボタンを出す／出さないを管理者が切り替えられます'},
   ]},
   { ver:'Ver.2026/11/18-165', date:'2026-11-18', title:'兼務でどの担当でも選べるようにしました', items:[
     {t:'imp', d:'🤝 兼務で選べる担当を、その日にカードがある担当だけでなく、担当枠マスタにある担当すべてに広げました'}
@@ -13814,7 +13822,7 @@ function renderDlyList() {
   if (_beEl) { _beEl.value = D.psgBannerEnd   || '08:30'; _beEl.disabled = !ok; }
   var _ofEl = document.getElementById('oc-flow-text');
   if (_ofEl) { if(!mstHasDraft('oc-flow-text')) _ofEl.value = D.ocFlow || ''; _ofEl.disabled = !can('mst'); }
-  renderEmailjsCfg(); renderHdTreatMailCfg(); renderFCMCfg(); renderAutoAssignModeSetting();
+  renderEmailjsCfg(); renderHdTreatMailCfg(); renderFCMCfg(); renderAutoAssignModeSetting(); renderFeatCfg();
   for (var i = 0; i < D.dly.length; i++) {
     var it = D.dly[i], text = dlyText(it), notif = dlyNotif(it);
     var el = document.createElement('div'); el.className = 'ri';
@@ -15244,6 +15252,7 @@ function mstEntryState(entry) {
   if(el.querySelector('#hd-shift-times')) return '遅1 '+hdShiftTimeLabel('遅1')+'／遅2 '+hdShiftTimeLabel('遅2');
   if(el.querySelector('#psg-alert-time')) return '通知 '+(D.psgAlertTime||'10:00');
   if(el.id==='auto-assign-mode-cfg') return D.autoAssignMode==='weekday'?'曜日に合わせて割り当て':'設定済み';
+  if(el.id==='feat-brk-cfg') return featOn('brk')?'出す':'出さない';
   return '設定を確認';
 }
 function initMstNavigation() {
@@ -24159,7 +24168,7 @@ function wardGoToggle(ds, name){
    担当カードの名前の下の☕を誰でも押せる。押した時刻が「☕ 12:05〜」とその日ずっと出る（終わりは記録しない）。
    押せるのは今日の連絡表だけ。もう一度押すと（確認のうえ）取り消す */
 function brkBtnHTML(ds, dat, name){
-  if (!name) return '';
+  if (!name || !featOn('brk')) return '';
   var rec = dat && dat.brk && dat.brk[name], today = ds === tabletTodayStr();
   if (!rec && !today) return '';
   var dis = today && !_offlineMode ? '' : ' disabled';
@@ -29178,6 +29187,25 @@ function saveFCMCfg() {
   return;
 }
 
+/* ===== 機能のオン・オフ（D.featCfg、管理者だけ。2026-11-23） =====
+   既定はオン。オフにした機能だけ D.featCfg[名前] = false を持つ（featOn が読むときに補う） */
+function featOn(k) { return !(D.featCfg && D.featCfg[k] === false); }
+function renderFeatCfg() {
+  var el = document.getElementById('feat-brk-form'); if (!el || !isAdmin) return;
+  var on = featOn('brk');
+  el.innerHTML = '<div style="display:flex;gap:8px">'
+    + '<button class="btn ' + (on ? 'btn-p' : 'btn-g') + '" style="flex:1" onclick="setFeat(\'brk\', true)">出す</button>'
+    + '<button class="btn ' + (on ? 'btn-g' : 'btn-p') + '" style="flex:1" onclick="setFeat(\'brk\', false)">出さない</button></div>';
+}
+function setFeat(k, on) {
+  if (!isAdmin) return;
+  D.featCfg = D.featCfg || {};
+  if (on) delete D.featCfg[k]; else D.featCfg[k] = false;
+  saveD();
+  writeLog('機能の切り替え', k + '：' + (on ? 'オン' : 'オフ'));
+  renderFeatCfg();
+  if (curDs) safeRenderPage();
+}
 /* ===== 月次自動割り当てモード設定 ===== */
 function renderAutoAssignModeSetting() {
   var sec = document.getElementById('auto-assign-mode-cfg');
@@ -35272,7 +35300,7 @@ function restoreFirebaseSnapshot(dateStr) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hnEduItems','boardCats','lendBook','hnEdu','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','roboPool','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hnEduItems','boardCats','lendBook','hnEdu','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','roboPool','featCfg','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -35335,7 +35363,7 @@ function renderAutoBackups() {
    「復元」はデータ全体を戻すので、マスタ1つが消えただけでも今日の連絡表まで巻き戻ってしまう。
    ここでは選んだ項目だけを D に戻す。連絡表（pages）は対象にしない——日々の記録を戻すなら全体復元を使う */
 var PARTIAL_RESTORE_LABELS = {
-  supMaster:'🧰 使用物品マスタ', roboLayouts:'🤖 ロボット配置マスタ', roboPool:'🖼 ロボット配置図のプール', opeTree:'🏥 OPE術式マスタ', cathTree:'💉 カテ術式マスタ', supTree:'📦 物品マスタ（旧）',
+  supMaster:'🧰 使用物品マスタ', roboLayouts:'🤖 ロボット配置マスタ', roboPool:'🖼 ロボット配置図のプール', featCfg:'⚙ 機能のオン・オフ', opeTree:'🏥 OPE術式マスタ', cathTree:'💉 カテ術式マスタ', supTree:'📦 物品マスタ（旧）',
   dutyCfgMaster:'📋 担当枠マスタ', dutyCfg:'📋 担当枠テンプレ', opsCfg:'⚙ 業務カードのテンプレ', schedPresets:'🕒 タイムラインのプリセット',
   dly:'✅ チェックリスト（共通）', wd:'✅ チェックリスト（曜日別）', hdDly:'🩸 HDチェックリスト（共通）', hdWd:'🩸 HDチェックリスト（曜日別）',
   wdDepts:'🏥 設置部署マスタ', hdTreatments:'🩸 HD特殊治療マスタ', tablets:'📱 タブレット台帳', hdTablets:'📱 HDタブレット台帳',
@@ -35430,7 +35458,7 @@ function restoreAutoBackup(i) {
     ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
      'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
      'opsCfg','oc','shift','evts','manual','schedPresets',
-     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hnEduItems','boardCats','lendBook','hnEdu','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','roboPool','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
+     'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hnEduItems','boardCats','lendBook','hnEdu','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','roboPool','featCfg','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
       if (data[k] !== undefined) D[k] = data[k];
     });
     supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */
@@ -35522,7 +35550,7 @@ function importBackup(file) {
       ['pages','stf','phs','dly','wd','lk','ope','cath','sup',
        'opeTree','cathTree','supTree','supMaster','dutyCfgMaster','dutyCfg',
        'opsCfg','oc','shift','evts','manual','schedPresets',
-       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hnEduItems','boardCats','lendBook','hnEdu','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','roboPool','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
+       'emailjsCfg','fcmCfg','stfLinks','psgAlertTime','psgBannerStart','psgBannerEnd','stfEdu','stfHidden','autoAssignMode','autoDelCfg','tablets','ocFlow','makers','wdDepts','devMaster','opsChk','evtRanges','hnEduItems','boardCats','lendBook','hnEdu','hdTreatments','hdDly','hdWd','hdTablets','eduProgress','eduCfg','eduItems','roboLayouts','roboPool','featCfg','shiftReq','shiftReqCodes','shiftReqCfg','holidayOv','hdShiftTimes','stfNo','disasterCfg'].forEach(function(k){
         if (data[k] !== undefined) D[k] = data[k];
       });
       supMasterAfterRestore(data); /* 旧バックアップの supTree を新しい形へ（_migVer は回し直さないため） */

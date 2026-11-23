@@ -61,6 +61,7 @@ var D = {
   supMaster: [],    // 使用物品マスタ [{kind:'タワー', items:[{n:'ウロタワー', depts:['泌尿器科'], all:true?}]}]。詳細は「OPE / カテカード」節
   roboLayouts: [],  // ロボット配置マスタ [{id:'rl_…', n:'配置A', imgs:[{k}]}]。imgs は画像プールの図の置き場所。詳細は「OPE / カテカード」節
   roboPool: [],     // ロボット配置図の画像プール [{k, ts, sz, cap}]。図そのものは /robotImg/{k}
+  featCfg: {},      // 機能のオン・オフ（管理者だけ）{ brk:false } のようにオフにした機能だけ持つ。読み出しは featOn(名前)
   dutyCfgMaster: [], dutyCfg: [],     // duty slot definitions
   opsCfg: [], oc: [],                 // ops config, on-call config
   shift: {}, evts: {},                // shift/event data
@@ -698,7 +699,7 @@ dat.placement = {
 
 **病棟透析に行く人の印（`dat.wardGo = {氏名:true}`、2026-11-19）**：役割は動かさず、HD担当表の通常表示の行の名前の横（`wardGoBtnHTML`、押すと `wardGoToggle`）と配置ボードの名札（`.pl2-mk.ward`）に「🛏病棟」を出すだけ（🏥は本院の印に使っているので別の絵）。同じ行に収まる小さな印にする（2026-11-19 本人）。権限は `can('duty')`、保存は `saveDPage`。災害モードでは付けない（`OF_REC_FIELDS` に無い）。
 
-**休憩（CE、`dat.brk = {氏名:{t:'HH:MM', by, ts}}`、2026-11-19）**：担当カードの担当者の下の☕（`brkBtnHTML(ds, dat, 氏名)`／`brkToggle(btn)`）。誰でも押せ、押した時刻が「☕ 12:05〜」とその日ずっと出る（終わりは記録しない）。押せるのは今日の連絡表だけ、もう一度押すと確認のうえ取り消す。押した人は `by` とログに残す。災害モードでは記録しない。HDの休憩は未実装（CEで使ってから決める）。
+**休憩（CE、`dat.brk = {氏名:{t:'HH:MM', by, ts}}`、2026-11-19）**：担当カードの担当者の下の☕（`brkBtnHTML(ds, dat, 氏名)`／`brkToggle(btn)`）。誰でも押せ、押した時刻が「☕ 12:05〜」とその日ずっと出る（終わりは記録しない）。押せるのは今日の連絡表だけ、もう一度押すと確認のうえ取り消す。押した人は `by` とログに残す。災害モードでは記録しない。HDの休憩は未実装（CEで使ってから決める）。管理者はマスタの「☕ 休憩ボタン」（`renderFeatCfg`／`setFeat`、`D.featCfg.brk`、`DATA_WRITE_PERM` に載せない＝管理者だけ）で出す／出さないを切り替えられ、出さないときは記録済みの時刻も表示しない（`featOn('brk')`）。
 
 **血液浄化はタイルを直接押して直す（2026-11-16）**：「✏️ 編集」ボタンは廃止。日中透析室・準夜・BW・病棟はタイルの数字がそのまま入力欄（`.hdash-n-in`、見た目は表示と同じ。鉛筆の目印は付けない（2026-11-16 本人）。数字以外は除く・全角数字は半角に）で、保存は従来の `data-hdcnt-field` の処理（600ms 間引き）。特殊・緊急のタイルを押すと、その区分の行だけがタイルの下に開く（`_hdCountOpen` ＝ `''|'sp'|'em'`、`data-action="hdcnt-open"`）。ロック中（`ops`）は押せない。
 
