@@ -23,12 +23,12 @@ function setup({ server, local, connected }) {
   const queued = [];                   // つながっていない間に積まれた書き込み
   const ctx = {
     D: { pages: clone(local) }, _viewMode: 'ce', FB_ON: true, _fbDataLoaded: true, _fbConnected: connected,
-    curDs: '', _savePageQueue: {}, _saveWriting: false, _savePending: false,
+    curDs: '', _savePageQueue: {}, _saveWriting: false, _savePending: false, _savePageWriting: false,
     toDS: () => TODAY,
     normArr: v => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.keys(v).map(k => v[k]).filter(Boolean) : []),
     memoKeyOf: m => String(m && m.ts || 0) + '_' + String((m && m.uid) || ''),
     writeLog() {}, fmtJ: s => s, renderCal() {}, safeRenderPage() {}, updateCloseBar() {}, toast() {},
-    escH: s => s, can: () => true, console,
+    escH: s => s, can: () => true, console, setTimeout: (f, ms) => { const t = setTimeout(f, ms); t.unref(); return t; },
     saveD() {
       const out = {};
       Object.keys(ctx.D.pages).forEach(ds => {

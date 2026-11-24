@@ -27069,6 +27069,7 @@ function carryOverMemos() {
    つながっていない・保存待ちがあるときは何もせず、次の1分で試し直す（_memoCarryDay を進めない）。
    起動時（初回受信の直後）は受信したばかりなので、従来どおり carryOverMemos を直接呼ぶ。 */
 var _memoCarryBusy = false;
+var MEMO_CARRY_TIMEOUT_MS = 15000; /* 読み直しが返ってこないときに入口が止まったままにならないように */
 function memoCarryOnDayChange() {
   if (!FB_ON || !fbDB) { carryOverMemos(); return Promise.resolve(); }
   if (_memoCarryBusy || !_fbDataLoaded || !_fbConnected) return Promise.resolve();
@@ -27082,12 +27083,17 @@ function memoCarryOnDayChange() {
   });
   if (!want.some(function(k){ return k < today; })) { _memoCarryDay = today; return Promise.resolve(); }
   _memoCarryBusy = true;
-  return Promise.all(want.map(function(ds){ return fbDB.ref('/data/pages/' + ds).get(); })).then(function(snaps){
-    /* 手元に送っていない変更があるページは上書きしない（次の1分で試し直す） */
-    if (_saveWriting || _savePending || want.some(function(ds){ return _savePageQueue[ds]; })) return;
+  /* 読んでいる間に手元でそのページを書き換えたら、読んだ値で上書きしない（印で比べる） */
+  var sig = function(){ return want.map(function(ds){ return JSON.stringify(D.pages[ds] || null); }).join('\n'); };
+  var before = sig();
+  var busy = function(){ return _saveWriting || _savePending || _savePageWriting || Object.keys(_savePageQueue || {}).length > 0; };
+  var timeout = new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('timeout')); }, MEMO_CARRY_TIMEOUT_MS); });
+  return Promise.race([Promise.all(want.map(function(ds){ return fbDB.ref('/data/pages/' + ds).get(); })), timeout]).then(function(snaps){
+    /* 手元に送っていない変更がある・読む間に変わった・切れたときは何もしない（次の1分で試し直す） */
+    if (busy() || !_fbConnected || sig() !== before) return;
     snaps.forEach(function(s, i){ var v = s.val(); if (v) D.pages[want[i]] = v; });
     carryOverMemos();
-  }).catch(function(){ /* 読めなければ次の1分で試し直す */ }).then(function(){ _memoCarryBusy = false; });
+  }).catch(function(){ /* 読めない・時間切れなら次の1分で試し直す */ }).then(function(){ _memoCarryBusy = false; });
 }
 
 function fmtTS(ts) {
