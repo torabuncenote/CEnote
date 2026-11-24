@@ -102,4 +102,17 @@ const allReplies = srv => {
   ok((t.srv.pages[TODAY].memos || []).length === 1, '4. つながった後に繰り越されていない');
 }
 
+// 5. 2回目以降の繰越：「→繰越」の記録を書く最初の日のページも読み直す（そこに付いた他の人の返事を消さない）
+{
+  const FIRST = '2026-11-20';
+  const carried = Object.assign(memo(R1), { origDs: FIRST, lastMove: 'carry' });
+  const other = (r) => ({ ts: 50, uid: 'u9', name: 'D', text: '別の申し送り', done: false, replies: r });
+  const server = { [FIRST]: { memos: [other(R12)], memoCarry: { '100_u1': { to: YDAY } } }, [YDAY]: { memos: [carried] }, [TODAY]: { memos: [] } };
+  const local  = { [FIRST]: { memos: [other(R1)],  memoCarry: { '100_u1': { to: YDAY } } }, [YDAY]: { memos: [carried] }, [TODAY]: { memos: [] } };
+  const t = setup({ server, local, connected: true });
+  await t.dayChange();
+  ok(allReplies(t.srv).includes(FIRST + ':r2'), '5. 最初の日の別の申し送りの返事 r2 が消えた：' + JSON.stringify(allReplies(t.srv)));
+  ok(t.srv.pages[FIRST].memoCarry['100_u1'].to === TODAY, '5. 最初の日の記録の行き先が今日になっていない');
+}
+
 console.log('OK ' + pass + '件');

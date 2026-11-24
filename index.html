@@ -27079,7 +27079,13 @@ function memoCarryOnDayChange() {
   keys.forEach(function(ds){
     var pg = D.pages[ds];
     if (ds >= today) { if (!want.some(function(k){ return k >= today; })) want.push(ds); return; }
-    if (MEMO_THREADS.some(function(th){ return normArr(pg && pg[th[0]]).some(function(m){ return m && m.carry && !m.done; }); })) want.push(ds);
+    MEMO_THREADS.forEach(function(th){
+      normArr(pg && pg[th[0]]).forEach(function(m){
+        if (!(m && m.carry && !m.done)) return;
+        /* 「→繰越」の記録は最初に書かれた日（memoOrigDs）に書くので、そのページも読み直す */
+        [ds, memoOrigDs(m, ds)].forEach(function(k){ if (k && D.pages[k] && want.indexOf(k) < 0) want.push(k); });
+      });
+    });
   });
   if (!want.some(function(k){ return k < today; })) { _memoCarryDay = today; return Promise.resolve(); }
   _memoCarryBusy = true;
