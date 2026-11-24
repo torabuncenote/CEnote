@@ -156,6 +156,12 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .brd-reply{padding:5px 0;border-bottom:1px solid var(--bdr);font-size:12px}
 .brd-reply:last-child{border-bottom:none}
 .brd-rtext{color:var(--txt1);white-space:pre-wrap;word-break:break-word;line-height:1.5}
+.brd-newrep{color:var(--ac);font-weight:700;font-size:10px}
+.brd-reply.new{border-left:3px solid var(--ac);background:var(--ac-bg);padding-left:6px;border-radius:4px}
+.brd-edited{font-size:10px;color:var(--txt3)}
+.brd-ed-lb{display:block;font-size:11px;color:var(--txt3);margin:8px 0 3px}
+.brd-ed-in{width:100%;box-sizing:border-box;font-size:13px;padding:6px 8px;border:1px solid var(--bdr);border-radius:var(--rs);background:var(--sur2);color:var(--txt1)}
+textarea.brd-ed-in{resize:vertical}
 .brd-compose{padding:10px 12px;border-top:1px solid var(--bdr);background:var(--sur);flex-shrink:0}
 .brd-compose-row{display:flex;gap:6px;margin-bottom:6px}
 .brd-cat-sel,.brd-title-in{font-size:12px;padding:5px 7px;border-radius:var(--rs);border:1.5px solid var(--bdr2);background:var(--sur2);color:var(--txt1);min-width:0}
@@ -6480,11 +6486,15 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/24-170';
+var APP_VERSION = 'Ver.2026/11/24-171';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/24-171', date:'2026-11-24', title:'掲示板：返信が付いた投稿が上に来るようにしました', items:[
+    { t:'imp', d:'掲示板は、返信が付いた投稿が一番上（ピン留めの下）に来るようになりました。まだ読んでいない返信には「💬 新しい返信」と出ます' },
+    { t:'new', d:'自分の投稿を「✏️ 編集」から直せるようになりました（カテゴリ・件名・本文）。直した投稿には「○○が編集」と出ます' }
+  ]},
   { ver:'Ver.2026/11/24-170', date:'2026-11-24', title:'申し送りの繰越で返事が消える不具合を直しました', items:[
     { t:'fix', d:'開いたまま日付をまたいだ端末が古いデータで申し送りを繰り越すと、受信していなかった返事が消えることがあったのを直しました（繰り越す前にサーバーから読み直します）' }
   ]},
@@ -33511,10 +33521,8 @@ function boardUnreadCount() {
     var p = _boardData[id];
     if (!p) return;
     if (!p.imp && (p.ts || 0) > readTs) count++;
-    var replies = p.replies || {};
-    Object.keys(replies).forEach(function(rid) {
-      if ((replies[rid].ts || 0) > readTs) count++;
-    });
+    /* 自分の返信は未読に数えない（掲示板の「💬 新しい返信」と同じ数え方＝boardNewReplies） */
+    count += boardNewReplies(p, readTs, currentUser && currentUser.uid).length;
   });
   return count;
 }
@@ -33574,6 +33582,7 @@ function openBoardPanel() {
   _boardShowN = BOARD_PAGE; /* 開くたびに最初の30件・「すべて」・検索なしから（前回の台帳や検索語が残ると投稿欄が隠れたまま始まるため） */
   _boardCat = 'all'; _boardQ = '';
   var bsIn = document.getElementById('board-search'); if (bsIn) bsIn.value = '';
+  _boardOpenReadTs = getBoardReadTs(); /* 開いている間は「開く前に見た時刻」でNEW・新しい返信を出し続ける */
   renderBoard();
   markBoardRead();
 }
@@ -33632,6 +33641,95 @@ var BOARD_PAGE = 30;
 var _boardCat = 'all';   /* 'all' | カテゴリID | '__none'（未分類） */
 var _boardQ = '';
 var _boardShowN = BOARD_PAGE;
+/* ===== 掲示板：返信順の並び・新しい返信・投稿の編集（2026-11-24 現場要望） ===== */
+var _boardOpenReadTs = null; /* 掲示板を開いた時点の既読時刻（開いている間はこれでNEW・新しい返信を判定） */
+/* 最後に意見が足された時刻＝投稿か返信の新しい方。編集・既読・ピン留めでは動かさない */
+function boardLastAct(p) {
+  var t = p && p.ts || 0;
+  if (p && p.replies) Object.keys(p.replies).forEach(function(rid){ var r = p.replies[rid]; if (r && (r.ts || 0) > t) t = r.ts; });
+  return t;
+}
+/* 自分以外が書いた、まだ見ていない返信の id（既読時刻より後） */
+function boardNewReplies(p, readTs, myUid) {
+  if (!p || !p.replies) return [];
+  return Object.keys(p.replies).filter(function(rid){
+    var r = p.replies[rid];
+    return r && (r.ts || 0) > readTs && (!myUid || r.uid !== myUid);
+  });
+}
+/* 投稿を直せるのは書いた本人だけ。Excelから取り込んだ投稿は書いた人のアカウントが無いので管理者が直す（2026-11-24 本人） */
+function boardCanEdit(p) {
+  if (!p || !currentUser || _offlineMode) return false;
+  if (p.imp) return !!isAdmin;
+  return !!p.uid && p.uid === currentUser.uid;
+}
+function openBoardEdit(id) {
+  var p = _boardData[id];
+  if (!boardCanEdit(p)) { toast('この投稿は書いた本人だけが直せます', 'warn'); return; }
+  var old = document.getElementById('board-edit-ov'); if (old) old.remove();
+  var cur = boardCatOf(p);
+  var ov = document.createElement('div');
+  ov.className = 'ov'; ov.id = 'board-edit-ov'; ov.style.zIndex = '500'; /* 掲示板パネル（400）より上、患者情報の確認（900）より下 */
+  ov.innerHTML = '<div class="md" style="max-width:520px">'
+    + '<h3 style="margin:0 0 10px">✏️ 投稿を編集</h3>'
+    + '<label class="brd-ed-lb">カテゴリ</label>'
+    + '<select id="brd-ed-cat" class="brd-ed-in">' + boardCats().map(function(c){
+        return '<option value="' + escH(c.id) + '"' + (c.id === cur ? ' selected' : '') + '>' + escH(c.n) + '</option>';
+      }).join('') + (cur ? '' : '<option value="" selected>未分類</option>') + '</select>'
+    + '<label class="brd-ed-lb">件名（任意）</label>'
+    + '<input id="brd-ed-title" class="brd-ed-in" maxlength="40" value="' + escH(p.title || '') + '">'
+    + '<label class="brd-ed-lb">本文</label>'
+    + '<textarea id="brd-ed-text" class="brd-ed-in" rows="6">' + escH(p.text || '') + '</textarea>'
+    + '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">'
+    + '<button class="btn btn-g" onclick="closeBoardEdit()">やめる</button>'
+    + '<button class="btn btn-p" onclick="saveBoardEdit(\'' + id + '\')">保存</button></div></div>';
+  ov.addEventListener('click', function(e){ if (e.target === ov) closeBoardEdit(); });
+  document.body.appendChild(ov);
+  var ta = document.getElementById('brd-ed-text'); if (ta) ta.focus();
+}
+function closeBoardEdit() { var ov = document.getElementById('board-edit-ov'); if (ov) ov.remove(); }
+function saveBoardEdit(id) {
+  var p = _boardData[id];
+  if (!boardCanEdit(p)) { closeBoardEdit(); toast('この投稿は書いた本人だけが直せます', 'warn'); return; }
+  var cat = (document.getElementById('brd-ed-cat') || {}).value || '';
+  var title = ((document.getElementById('brd-ed-title') || {}).value || '').trim().slice(0, 40);
+  var text = ((document.getElementById('brd-ed-text') || {}).value || '').trim();
+  if (!text && !title && !_boardMediaArr(p).length) { toast('件名か本文を入れてください', 'warn'); return; }
+  if (cat && !boardCatFind(cat)) cat = '';
+  var patch = {};
+  if (cat && cat !== boardCatOf(p)) patch.cat = cat;
+  if (title !== (p.title || '')) patch.title = title || null;
+  if (text !== (p.text || '')) patch.text = text;
+  if (!Object.keys(patch).length) { closeBoardEdit(); return; }
+  var go = function(){ _doSaveBoardEdit(id, patch); };
+  var chk = ('title' in patch || 'text' in patch) ? ((title ? title + '\n' : '') + text) : '';
+  if (chk) {
+    var phiRes = detectPHI(chk);
+    if (phiRes.red.length || phiRes.yellow.length) {
+      showPHIPopup({ result: phiRes, mode: 'memo', onProceed: go,
+        onFix: function(){ var ta = document.getElementById('brd-ed-text'); if (ta) ta.focus(); } });
+      return;
+    }
+  }
+  go();
+}
+function _doSaveBoardEdit(id, patch) {
+  var p = _boardData[id]; if (!p) { closeBoardEdit(); return; }
+  var before = (p.title ? p.title + '／' : '') + (p.text || '');
+  patch.editedAt = Date.now();
+  patch.editedBy = currentUser.displayName || currentUser.email || '';
+  var done = function(){
+    closeBoardEdit();
+    toast('投稿を直しました', 'ok');
+    if (FB_ON) writeLog('掲示板投稿編集', before.slice(0, 20) + (patch.cat ? '（カテゴリ：' + boardCatName(patch.cat) + '）' : ''));
+  };
+  if (FB_ON && fbDB) {
+    fbDB.ref('/board/' + id).update(patch).then(done).catch(function(e){ toast('保存できませんでした: ' + e.message, 'err'); });
+  } else {
+    Object.keys(patch).forEach(function(k){ if (patch[k] == null) delete p[k]; else p[k] = patch[k]; });
+    renderBoard(); done();
+  }
+}
 function boardPostMatches(p, q) {
   if (!q) return true;
   var parts = [p.title, p.text, p.note, p.author, boardCatName(boardCatOf(p))];
@@ -33673,7 +33771,8 @@ function renderBoard() {
   var bt = document.getElementById('board-panel-title');
   if (bt) bt.textContent = '📢 掲示板';
   renderBoardCatSel();
-  var readTs = getBoardReadTs();
+  var readTs = (boardPanelOpen() && _boardOpenReadTs != null) ? _boardOpenReadTs : getBoardReadTs();
+  var myUid = currentUser && currentUser.uid;
   /* 既読マーク：ログイン中ユーザーの既読がまだ無い投稿に記録する（無ければ書き込み、あれば何もしない＝無限ループ防止）。
      Excelから取り込んだ過去の投稿（p.imp）には付けない——数百件を全員が一度に書き込むことになり、👀も出さないため。
      **掲示板を実際に開いているときだけ付ける**（2026-11-16）。以前は /board の受信のたびに、閉じたままの画面でも
@@ -33704,11 +33803,11 @@ function renderBoard() {
   var allPosts = Object.keys(_boardData).filter(function(id) { return !!_boardData[id]; }).map(function(id) {
     return Object.assign({ _id: id }, _boardData[id]);
   });
-  /* ピン留め（有効期限内のもののみ）→ 新しい順 */
+  /* ピン留め（有効期限内のもののみ）→ 最後に投稿・返信があった順（2026-11-24 現場要望：返信が付いた話題を上へ） */
   allPosts.sort(function(a, b) {
     var ap = boardPinActive(a), bp = boardPinActive(b);
     if (ap !== bp) return bp ? 1 : -1;
-    return (b.ts || 0) - (a.ts || 0);
+    return boardLastAct(b) - boardLastAct(a);
   });
   renderBoardCatChips(allPosts);
   var compose = document.querySelector('#pane-board .brd-compose');
@@ -33754,6 +33853,8 @@ function renderBoard() {
     /* 取り込んだ投稿は日付だけ（Excelに時刻が無い。年もまたぐので年から出す） */
     var dt = p.ts ? (p.imp ? (function(d){ return d.getFullYear() + '/' + (d.getMonth()+1) + '/' + d.getDate(); })(new Date(p.ts)) : fmtDT(p.ts)) : '';
     var canResolve = p.tag === 'req' && (adminLike() || isMine);
+    var canEdit = boardCanEdit(p);
+    var newReps = boardNewReplies(p, readTs, myUid);
     var pinActive = boardPinActive(p);
     var catId = boardCatOf(p), cc = boardCatColor(catId);
     html += '<div class="brd-post' + (pinActive ? ' pin' : '') + (p.resolved ? ' resolved' : '') + '" id="bpost-' + p._id + '">';
@@ -33764,6 +33865,7 @@ function renderBoard() {
       html += '<span style="color:var(--or);font-weight:700">' + pinLabel + '</span>';
     }
     if (isNew) html += '<span style="color:var(--rd);font-weight:700;font-size:10px">NEW</span>';
+    else if (newReps.length) html += '<span class="brd-newrep">💬 新しい返信 ' + newReps.length + '</span>';
     html += '<span class="brd-cat" style="color:' + cc.fg + '">' + escH(boardCatName(catId)) + '</span>';
     if (p.tag && BOARD_TAGS[p.tag]) {
       var tg = BOARD_TAGS[p.tag];
@@ -33773,6 +33875,7 @@ function renderBoard() {
     html += '<span style="font-weight:600;color:var(--txt1)">' + escH(p.author || '匿名') + '</span>';
     html += '<span>' + dt + '</span>';
     if (p.imp) html += '<span class="brd-imp" title="CE長期申し送り（Excel）から取り込んだ投稿">📥 Excelから</span>';
+    if (p.editedAt) html += '<span class="brd-edited">' + escH(fmtDT(p.editedAt)) + ' に' + escH(p.editedBy || '') + 'が編集</span>';
     html += '</div>';
     if (p.title) html += '<div class="brd-title">' + escH(p.title) + '</div>';
     if (p.text) html += '<div class="brd-text">' + escH(p.text) + '</div>';
@@ -33806,6 +33909,7 @@ function renderBoard() {
     html += '<div class="brd-acts">';
     html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardReply(\'' + p._id + '\')">💬 返信</button>';
     if (canPin) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="pinBoard(\'' + p._id + '\',' + (!pinActive) + ')">' + (pinActive ? '📌解除' : '📌留め') + '</button>';
+    if (canEdit) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="openBoardEdit(\'' + p._id + '\')">✏️ 編集</button>';
     if (canResolve) html += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" onclick="toggleBoardResolved(\'' + p._id + '\',' + (!p.resolved) + ')">' + (p.resolved ? '解決を取消' : '✅解決') + '</button>';
     if (canDel) html += '<button class="btn btn-d btn-sm" style="font-size:11px;padding:2px 8px" onclick="deleteBoard(\'' + p._id + '\')">削除</button>';
     if (!p.imp) html += '<span class="brd-read-toggle" style="margin-left:auto;font-size:11px;color:var(--txt3);cursor:pointer;user-select:none" onclick="toggleBoardReads(\'' + p._id + '\')">👀 ' + readCount + '</span>';
@@ -33825,7 +33929,7 @@ function renderBoard() {
       html += '<div class="brd-replies">';
       replies.forEach(function(r) {
         var rMine = currentUser && r.uid === currentUser.uid;
-        html += '<div class="brd-reply">';
+        html += '<div class="brd-reply' + (newReps.indexOf(r._rid) >= 0 ? ' new' : '') + '">';
         html += '<div class="brd-meta" style="margin-bottom:3px"><span style="font-weight:600;color:var(--txt1)">' + escH(r.author||'匿名') + '</span><span>' + fmtDT(r.ts) + '</span>';
         if (adminLike() || rMine) html += '<button class="btn btn-d btn-sm" style="font-size:10px;padding:1px 6px;margin-left:auto" onclick="deleteReply(\'' + p._id + '\',\'' + r._rid + '\')">削除</button>';
         html += '</div>';
