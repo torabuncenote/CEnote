@@ -1290,7 +1290,7 @@ The day page does **not** show an inline tablet section (it would occupy too muc
 紙・Excelで管理していた物品請求。トップレベルタブ `pane-supreq`（全ユーザー・主観で出し分けない。トップページを作るときにそちらへ移す）。
 - 1件＝`{n:品名, mk?:メーカー, model?:型番, qty?:数量(文字), note?, reqDs:依頼日, reqBy, reqUid, ts, ordDs?/ordBy?/ordUid?, rcvDs?/rcvBy?/rcvUid?, cxl?:{by,uid,ts}, upd?, updBy?}`。状態は保存せず `srState(r)`（取消＞受取済＞発注済＞未発注）。
 - **書き込みは `srSave(id, rec)` だけ**（`saveDPaths([['supReq', id]])`）。作りは `lendBook` と同じ：`DATA_WRITE_PERM` は `'rec'`、`syncSigMap` で1件ずつの経路、ルールの子 `$id` に `.validate`。**本番で一般職員が書くには `database.rules.json` の `supReq` の反映が必要**。
-- 請求・発注・受取は全員。直す・取り消すのは入れた本人だけ（品目と取消＝`reqUid`、発注の取消＝`ordUid`、受取の取消＝`rcvUid`。アプリ側の判定）。取消は消さずに `cxl` を付けて一覧に残す。完全に消すのは `isAdmin`（`srDelete`）。
+- 請求・発注・受取は全員。直す・取り消すのは入れた本人だけ（品目と取消＝`reqUid`、発注の取消＝`ordUid`、受取の取消＝`rcvUid`）。**ルールの `.validate` でも強制**：新規は `reqUid === auth.uid`、`reqUid` は変えられない、品目（n/mk/model/qty/note/reqDs/reqBy）と `cxl` を変えられるのは `reqUid` 本人だけ、`ord*`/`rcv*` は空のときに自分の uid で入れるか、入れた本人が直す・消すだけ。取消は消さずに `cxl` を付けて一覧に残す。完全に消すのは `isAdmin`（`srDelete`）。
 - 発注・受取を入れたら依頼者へ `notifyInApp`（アプリ内だけ、type `'supreq'`）。自由入力は `lendCheckText`（赤の氏名以外だけ止める）。
 - 一覧は未完了（未発注→発注済）が上、絞り込み `_srFilter`、検索 `_srQ`。`/data` 受信で `refreshSupReqIfOpen()`。
 
