@@ -156,6 +156,15 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .brd-reply{padding:5px 0;border-bottom:1px solid var(--bdr);font-size:12px}
 .brd-reply:last-child{border-bottom:none}
 .brd-rtext{color:var(--txt1);white-space:pre-wrap;word-break:break-word;line-height:1.5}
+.psg-badge{font-size:11px;font-weight:700;border-radius:10px;padding:1px 8px;margin-left:4px;vertical-align:middle}
+.psg-badge.both{background:var(--pu);color:var(--on-ac)}
+.psg-badge.off{background:var(--warn-bg);color:var(--warn-fg);border:1px solid var(--warn-bdr)}
+.ops-card.psg-both{border-color:var(--pu);box-shadow:0 0 0 1px var(--pu) inset}
+.psg-sec{border:1px solid var(--bdr);border-radius:var(--rs);padding:6px 8px 4px;margin:6px 0}
+.psg-sec.off{background:var(--warn-bg);border-color:var(--warn-bdr)}
+.psg-sec.on{background:var(--ac-bg)}
+.psg-sec-hd{font-size:12px;font-weight:700;color:var(--txt1);margin-bottom:4px}
+.psg-sec-sub{font-size:10px;font-weight:400;color:var(--txt3);margin-left:6px}
 .brd-newrep{color:var(--ac);font-weight:700;font-size:10px}
 .brd-reply.new{border-left:3px solid var(--ac);background:var(--ac-bg);padding-left:6px;border-radius:4px}
 .brd-edited{font-size:10px;color:var(--txt3)}
@@ -6486,11 +6495,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/24-171';
+var APP_VERSION = 'Ver.2026/11/24-172';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/24-172', date:'2026-11-24', title:'PSGの外しと装着が重なる日を分かりやすくしました', items:[
+    { notify:true, t:'imp', d:'PSGのカードを「☀️ 朝：外し」「🌙 夕：装着」の2段に分けました。両方ある日はカードの見出しに「☀️外し＋🌙装着」、外しだけの日は「☀️外しのみ」と出ます' }
+  ]},
   { ver:'Ver.2026/11/24-171', date:'2026-11-24', title:'掲示板：返信が付いた投稿が上に来るようにしました', items:[
     { notify:true, t:'imp', d:'掲示板は、返信が付いた投稿が一番上（ピン留めの下）に来るようになりました。まだ読んでいない返信には「💬 新しい返信」と出ます' },
     { notify:true, t:'new', d:'自分の投稿を「✏️ 編集」から直せるようになりました（カテゴリ・件名・本文）。直した投稿には「○○が編集」と出ます' }
@@ -28546,36 +28558,49 @@ function buildOPS(ds,dat,locked) {
     if (!uid) c3.id = 'ops-card-psg';
     var sfx=uid?'-'+uid:'';
     var fusenChecked=!!(ops.psg_fusen);
-    /* 装着行：外し専用日（前日装着分の外しのみを表示する日）には不要なので非表示 */
+    /* 外しは前日に PSG カードがある日だけ（psg_off は当日データに保存）。
+       psg_on テキストの有無だけでなく ops_cards に 'psg' があれば対象にする */
+    var prevDsPsg = getPrevDs(ds);
+    var prevDatPsg = D.pages[prevDsPsg];
+    var prevHasPsgCard = !!(prevDatPsg && (
+      (prevDatPsg.ops_cards && prevDatPsg.ops_cards.indexOf('psg') !== -1) ||
+      (prevDatPsg.ops && prevDatPsg.ops.psg_on)
+    ));
+    /* 朝の外し→夕の装着の2段にし、両方ある日は見出しで分かるようにする（2026-11-24 現場要望：重なると分かりづらい） */
+    var both = prevHasPsgCard && !removalOnly;
+    var ttl = c3.querySelector('.ops-ttl');
+    if (ttl) ttl.innerHTML += both ? ' <span class="psg-badge both">☀️外し＋🌙装着</span>'
+      : prevHasPsgCard ? ' <span class="psg-badge off">☀️外しのみ</span>' : '';
+    if (both) c3.classList.add('psg-both');
+    function sec(cls, label){
+      var d=document.createElement('div'); d.className='psg-sec '+cls;
+      d.innerHTML='<div class="psg-sec-hd">'+label+'</div>';
+      c3.appendChild(d); return d;
+    }
+    if (prevHasPsgCard) {
+      var offSec = sec('off', '☀️ 朝：外し<span class="psg-sec-sub">前日に装着した分</span>');
+      var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
+      var psgOffDefault = ops.psg_off || (prevDatPsg && prevDatPsg.ops && prevDatPsg.ops.psg_on) || '';
+      psgOffRow.innerHTML='<span class="ops-lbl">号室</span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(psgOffDefault)+'</textarea>';
+      offSec.appendChild(psgOffRow);
+      /* 確認項目が無くてもマニュアルは開けるように、外しの折りたたみは常に出す */
+      var offW=document.createElement('div');
+      offW.innerHTML=opsChkDetailsHTML('psgOff','✅ 外しの確認',opsChkList('psgOff'),ops.psg_chk_off||{},locked,null,'PSG 外し');
+      offSec.appendChild(offW.firstChild);
+    }
+    /* 装着：外し専用日（前日装着分の外しのみを表示する日）には出さない */
     if (!removalOnly) {
+      var onSec = prevHasPsgCard ? sec('on', '🌙 夕：装着<span class="psg-sec-sub">今日の分</span>') : c3;
       var psgOnRow=document.createElement('div'); psgOnRow.className='ops-row';
       psgOnRow.innerHTML=
-        '<span class="ops-lbl">装着</span>'
+        '<span class="ops-lbl">'+(prevHasPsgCard?'号室':'装着')+'</span>'
         +'<textarea class="ops-txt" id="ops-psg-on'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(ops.psg_on||'')+'</textarea>';
-      c3.appendChild(psgOnRow);
+      onSec.appendChild(psgOnRow);
       /* 装着の確認（付箋入力済＋マスタの項目）。普段は閉じて進み具合だけ見せる */
       var fus='<label class="dc-cb-item psg-fusen-wrap'+(fusenChecked?' checked':'')+'"><input type="checkbox" class="psg-fusen-cb" id="ops-psg-fusen'+sfx+'"'+(fusenChecked?' checked':'')+(locked?' disabled':'')+'><span class="psg-fusen-lbl">付箋入力済</span></label>';
       var onW=document.createElement('div');
       onW.innerHTML=opsChkDetailsHTML('psgOn','✅ 装着の確認',opsChkList('psgOn'),ops.psg_chk_on||{},locked,{html:fus,done:fusenChecked},'PSG 装着');
-      c3.appendChild(onW.firstChild);
-    }
-    /* 外し行（前日に PSG カードがある日だけ表示。psg_off は当日データに保存）
-       psg_on テキストの有無だけでなく ops_cards に 'psg' があれば表示する */
-    var prevDsPsg = getPrevDs(ds);
-    var prevDatPsg = D.pages[prevDsPsg];
-    var prevHasPsgCard = prevDatPsg && (
-      (prevDatPsg.ops_cards && prevDatPsg.ops_cards.indexOf('psg') !== -1) ||
-      (prevDatPsg.ops && prevDatPsg.ops.psg_on)
-    );
-    if (prevHasPsgCard) {
-      var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
-      var psgOffDefault = ops.psg_off || (prevDatPsg && prevDatPsg.ops && prevDatPsg.ops.psg_on) || '';
-      psgOffRow.innerHTML='<span class="ops-lbl">外し<br><span style="font-size:10px;color:var(--txt3);white-space:nowrap">（前日装着分）</span></span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(psgOffDefault)+'</textarea>';
-      c3.appendChild(psgOffRow);
-      /* 確認項目が無くてもマニュアルは開けるように、外しの折りたたみは常に出す */
-      var offW=document.createElement('div');
-      offW.innerHTML=opsChkDetailsHTML('psgOff','✅ 外しの確認',opsChkList('psgOff'),ops.psg_chk_off||{},locked,null,'PSG 外し');
-      c3.appendChild(offW.firstChild);
+      onSec.appendChild(onW.firstChild);
     }
     var psgRestRow=document.createElement('div'); psgRestRow.className='ops-row';
     psgRestRow.innerHTML='<span class="ops-lbl">解析残</span><input type="number" class="ops-num" id="ops-psg-rest'+sfx+'" min="0" value="'+(ops.psg_rest||'')+'" placeholder="0"'+dis+'><span class="ops-unit">件</span>';
