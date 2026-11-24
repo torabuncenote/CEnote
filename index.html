@@ -6480,11 +6480,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/23-169';
+var APP_VERSION = 'Ver.2026/11/24-170';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/24-170', date:'2026-11-24', title:'申し送りの繰越で返事が消える不具合を直しました', items:[
+    { t:'fix', d:'開いたまま日付をまたいだ端末が古いデータで申し送りを繰り越すと、受信していなかった返事が消えることがあったのを直しました（繰り越す前にサーバーから読み直します）' }
+  ]},
   { ver:'Ver.2026/11/23-169', date:'2026-11-23', title:'HD担当表をすっきりさせました', items:[
     {t:'imp', notify:true, d:'🩸 HD担当表のスタッフの欄を名前のボタン1つにしました。押すと開く画面で、休み・病棟透析・兼務・備考をまとめて入れて「決定」で保存します（備考の入力欄の列はなくなり、備考は名前の横に出ます）'}
   ]},
@@ -27058,6 +27061,35 @@ function carryOverMemos() {
   return moved;
 }
 
+/* 開いたまま日付をまたいだときの入口（checkTimeNotifs から毎分呼ばれる）。
+   carryOverMemos は元の日と繰越先のページを丸ごと保存するので、手元のデータが古いまま走ると
+   受信できていなかった他の人の返事・編集をサーバーから消してしまう（2026-11-24 現場報告：
+   繰越先で返事が消えた。スマホを閉じていた・受信が遅れていた端末が深夜に繰り越していた）。
+   そこで、つながっているときだけ、関係するページをサーバーから読み直してから繰り越す。
+   つながっていない・保存待ちがあるときは何もせず、次の1分で試し直す（_memoCarryDay を進めない）。
+   起動時（初回受信の直後）は受信したばかりなので、従来どおり carryOverMemos を直接呼ぶ。 */
+var _memoCarryBusy = false;
+function memoCarryOnDayChange() {
+  if (!FB_ON || !fbDB) { carryOverMemos(); return Promise.resolve(); }
+  if (_memoCarryBusy || !_fbDataLoaded || !_fbConnected) return Promise.resolve();
+  var today = toDS(new Date());
+  var keys = Object.keys(D.pages || {}).sort();
+  var want = [];
+  keys.forEach(function(ds){
+    var pg = D.pages[ds];
+    if (ds >= today) { if (!want.some(function(k){ return k >= today; })) want.push(ds); return; }
+    if (MEMO_THREADS.some(function(th){ return normArr(pg && pg[th[0]]).some(function(m){ return m && m.carry && !m.done; }); })) want.push(ds);
+  });
+  if (!want.some(function(k){ return k < today; })) { _memoCarryDay = today; return Promise.resolve(); }
+  _memoCarryBusy = true;
+  return Promise.all(want.map(function(ds){ return fbDB.ref('/data/pages/' + ds).get(); })).then(function(snaps){
+    /* 手元に送っていない変更があるページは上書きしない（次の1分で試し直す） */
+    if (_saveWriting || _savePending || want.some(function(ds){ return _savePageQueue[ds]; })) return;
+    snaps.forEach(function(s, i){ var v = s.val(); if (v) D.pages[want[i]] = v; });
+    carryOverMemos();
+  }).catch(function(){ /* 読めなければ次の1分で試し直す */ }).then(function(){ _memoCarryBusy = false; });
+}
+
 function fmtTS(ts) {
   var d = new Date(ts);
   return (d.getMonth()+1) + '/' + d.getDate() + ' ' +
@@ -28863,7 +28895,7 @@ function checkTimeNotifs() {
   var hhmm = pad(now.getHours()) + ':' + pad(now.getMinutes());
   /* 開いたまま日付をまたいだら申し送りを更新し、貸出パネルが開いていればその部分だけ描き直す */
   if (_memoCarryDay !== ds) {
-    carryOverMemos();
+    memoCarryOnDayChange();
     if (document.getElementById('tablet-panel-ov')) renderTabletPanelBody(_tabletPanelDs || curDs);
   }
   refreshPriorMemoAlert(); /* 日付をまたいだ未完了をページ全体の再描画なしで反映 */
