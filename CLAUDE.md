@@ -88,6 +88,7 @@ var D = {
   evtRanges: [],    // 期間イベント [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]。1日ずつの events / D.evts とは別に持ち、表示のときだけ合わせる（evtRangesOn(ds)）
   hnEduItems: [],   // 本院ヘルプへの分院ルールの説明項目 [{id:'he_…', t:'項目'}]（教育担当・管理者が編集）
   hnEdu: {},        // その記録 { ヘルプの氏名: { 項目id: {by, ts} } }。キーがある＝説明済み。詳細は「本院ヘルプへの分院ルールの説明」節
+  supReqItems: {},  // よく使う物品 { id: {n, mk?, model?, qty?, by, ts} }（部署で共通）。詳細は「物品請求」節
   supReq: {},       // 物品請求 { id: {n, mk?, model?, qty?, note?, reqDs, reqBy, reqUid, ts, ordDs?…, rcvDs?…, cxl?} }。詳細は「物品請求」節
   lendBook: {},     // 本分院の貸出返却の台帳 { id: {dev, dir:'h2b'|'b2h', from, to, by, note, …} }。詳細は「掲示板のカテゴリ」節の台帳の項
   boardCats: [],    // 掲示板のカテゴリ [{id:'bc_…', n:'透析'}]。空なら初期の5つ。詳細は「掲示板のカテゴリ」節
@@ -1293,6 +1294,7 @@ The day page does **not** show an inline tablet section (it would occupy too muc
 - 請求・発注・受取は全員。直す・取り消すのは入れた本人だけ（品目と取消＝`reqUid`、発注の取消＝`ordUid`、受取の取消＝`rcvUid`）。**ルールの `.validate` でも強制**：新規は `reqUid === auth.uid`、`reqUid` は変えられない、品目（n/mk/model/qty/note/reqDs/reqBy）と `cxl` を変えられるのは `reqUid` 本人だけ、`ord*`/`rcv*` は空のときに自分の uid で入れるか、入れた本人が直す・消すだけ。取消は消さずに `cxl` を付けて一覧に残す。完全に消すのは `isAdmin`（`srDelete`）。
 - 発注・受取を入れたら依頼者へ `notifyInApp`（アプリ内だけ、type `'supreq'`）。自由入力は `lendCheckText`（赤の氏名以外だけ止める）。
 - 一覧は未完了（未発注→発注済）が上、絞り込み `_srFilter`、検索 `_srQ`。`/data` 受信で `refreshSupReqIfOpen()`。
+- **よく使う物品（`D.supReqItems`）**：一覧の「⭐ 登録」（`srItemFromReq`）か、請求するときの「よく使う物品にも登録する」で登録し、請求の入力画面の「⭐ よく使う物品から選ぶ」（`srFillFromItem`）で品名・メーカー・型番・数量を呼び出す（備考は入れない）。部署で共通、誰でも登録・削除（`DATA_WRITE_PERM` は `'all'`、ただし `syncSigMap` で1件ずつの経路）。同じ品名・メーカー・型番は1つだけ（`srItemFind`）。書き込みは `srItemSave` だけ。ヘッダーの「⭐ よく使う物品」（`openSrItems`）で一覧・削除・そのまま請求。
 
 ### メーカー担当者連絡先 (`D.makers`)
 
