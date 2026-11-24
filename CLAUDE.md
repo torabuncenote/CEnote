@@ -88,6 +88,7 @@ var D = {
   evtRanges: [],    // 期間イベント [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]。1日ずつの events / D.evts とは別に持ち、表示のときだけ合わせる（evtRangesOn(ds)）
   hnEduItems: [],   // 本院ヘルプへの分院ルールの説明項目 [{id:'he_…', t:'項目'}]（教育担当・管理者が編集）
   hnEdu: {},        // その記録 { ヘルプの氏名: { 項目id: {by, ts} } }。キーがある＝説明済み。詳細は「本院ヘルプへの分院ルールの説明」節
+  supReq: {},       // 物品請求 { id: {n, mk?, model?, qty?, note?, reqDs, reqBy, reqUid, ts, ordDs?…, rcvDs?…, cxl?} }。詳細は「物品請求」節
   lendBook: {},     // 本分院の貸出返却の台帳 { id: {dev, dir:'h2b'|'b2h', from, to, by, note, …} }。詳細は「掲示板のカテゴリ」節の台帳の項
   boardCats: [],    // 掲示板のカテゴリ [{id:'bc_…', n:'透析'}]。空なら初期の5つ。詳細は「掲示板のカテゴリ」節
   opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
@@ -1283,6 +1284,15 @@ The day page does **not** show an inline tablet section (it would occupy too muc
 - 連絡表（CE）の「🎯 担当割り当て」見出しの右に小ボタン `#dreq-box`（`dutyReqBoxHTML` / `refreshDutyReqBox`）だけを置き、押すとその日に関係する希望（`dreqForDay`）を小窓（`openDutyReqModal(ds, true)` → `dreqDayHTML`）で開く。管理者は希望がある日だけ「🙋 希望 N」（受付中があれば橙）、一般職員は「🙋 希望を出す／希望 N」。**欄として担当カードの上に並べないこと**（2026-10-28、担当カードを押し下げて邪魔だと言われて小ボタンにした）。**担当の割り当て経路はすべて `updateCloseBar` を通るので、そこから `refreshDutyReqBox` を呼んで「叶った」を追随させている。** 予定タブの「🙋 担当の希望」（`openDutyReqModal(null)`、`#dreq-badge`＝管理者は受付中の件数、本人は見送りの未読）からは日付を問わず出せる・一覧できる。書き込みは `dreqWrite(uid, id, rec)` だけを通す。
 - 月次自動割り当てには反映しない。「避けたい」希望・HDの役割は対象外。印刷では隠す。
 - **本番で使うには `database.rules.json` の `dutyReq` の反映が必要**（未反映だと「サーバー側の準備がまだ」と表示し、保存は戻す）。
+
+### 物品請求（`D.supReq`、📦 物品請求タブ、2026-11-24）
+
+紙・Excelで管理していた物品請求。トップレベルタブ `pane-supreq`（全ユーザー・主観で出し分けない。トップページを作るときにそちらへ移す）。
+- 1件＝`{n:品名, mk?:メーカー, model?:型番, qty?:数量(文字), note?, reqDs:依頼日, reqBy, reqUid, ts, ordDs?/ordBy?/ordUid?, rcvDs?/rcvBy?/rcvUid?, cxl?:{by,uid,ts}, upd?, updBy?}`。状態は保存せず `srState(r)`（取消＞受取済＞発注済＞未発注）。
+- **書き込みは `srSave(id, rec)` だけ**（`saveDPaths([['supReq', id]])`）。作りは `lendBook` と同じ：`DATA_WRITE_PERM` は `'rec'`、`syncSigMap` で1件ずつの経路、ルールの子 `$id` に `.validate`。**本番で一般職員が書くには `database.rules.json` の `supReq` の反映が必要**。
+- 請求・発注・受取は全員。直す・取り消すのは入れた本人だけ（品目と取消＝`reqUid`、発注の取消＝`ordUid`、受取の取消＝`rcvUid`。アプリ側の判定）。取消は消さずに `cxl` を付けて一覧に残す。完全に消すのは `isAdmin`（`srDelete`）。
+- 発注・受取を入れたら依頼者へ `notifyInApp`（アプリ内だけ、type `'supreq'`）。自由入力は `lendCheckText`（赤の氏名以外だけ止める）。
+- 一覧は未完了（未発注→発注済）が上、絞り込み `_srFilter`、検索 `_srQ`。`/data` 受信で `refreshSupReqIfOpen()`。
 
 ### メーカー担当者連絡先 (`D.makers`)
 
