@@ -30,9 +30,31 @@
         }
       },
       "supReqItems": {
-        ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)",
+        ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))",
         "$id": {
-          ".validate": "!newData.exists() || (newData.child('n').isString() && newData.child('n').val().length >= 1 && newData.child('n').val().length <= 80 && (!newData.child('mk').exists() || (newData.child('mk').isString() && newData.child('mk').val().length <= 60)) && (!newData.child('model').exists() || (newData.child('model').isString() && newData.child('model').val().length <= 60)) && (!newData.child('qty').exists() || (newData.child('qty').isString() && newData.child('qty').val().length <= 20)))"
+          ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true) || root.child('access').child(auth.uid).val() === true)",
+          ".validate": "newData.hasChildren(['n'])",
+          "n": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80"
+          },
+          "mk": {
+            ".validate": "newData.isString() && newData.val().length <= 60"
+          },
+          "model": {
+            ".validate": "newData.isString() && newData.val().length <= 60"
+          },
+          "qty": {
+            ".validate": "newData.isString() && newData.val().length <= 20"
+          },
+          "by": {
+            ".validate": "newData.isString() && newData.val().length <= 40"
+          },
+          "ts": {
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       },
       "_appSeq": {
