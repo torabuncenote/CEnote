@@ -6492,8 +6492,8 @@ var APP_VERSION = 'Ver.2026/11/24-171';
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
   { ver:'Ver.2026/11/24-171', date:'2026-11-24', title:'掲示板：返信が付いた投稿が上に来るようにしました', items:[
-    { t:'imp', d:'掲示板は、返信が付いた投稿が一番上（ピン留めの下）に来るようになりました。まだ読んでいない返信には「💬 新しい返信」と出ます' },
-    { t:'new', d:'自分の投稿を「✏️ 編集」から直せるようになりました（カテゴリ・件名・本文）。直した投稿には「○○が編集」と出ます' }
+    { notify:true, t:'imp', d:'掲示板は、返信が付いた投稿が一番上（ピン留めの下）に来るようになりました。まだ読んでいない返信には「💬 新しい返信」と出ます' },
+    { notify:true, t:'new', d:'自分の投稿を「✏️ 編集」から直せるようになりました（カテゴリ・件名・本文）。直した投稿には「○○が編集」と出ます' }
   ]},
   { ver:'Ver.2026/11/24-170', date:'2026-11-24', title:'申し送りの繰越で返事が消える不具合を直しました', items:[
     { t:'fix', d:'開いたまま日付をまたいだ端末が古いデータで申し送りを繰り越すと、受信していなかった返事が消えることがあったのを直しました（繰り越す前にサーバーから読み直します）' }
@@ -33717,7 +33717,7 @@ function _doSaveBoardEdit(id, patch) {
   var p = _boardData[id]; if (!p) { closeBoardEdit(); return; }
   var before = (p.title ? p.title + '／' : '') + (p.text || '');
   patch.editedAt = Date.now();
-  patch.editedBy = currentUser.displayName || currentUser.email || '';
+  patch.editedBy = currentUser.displayName || ''; /* メールアドレスは画面に出さない */
   var done = function(){
     closeBoardEdit();
     toast('投稿を直しました', 'ok');
