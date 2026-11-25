@@ -261,6 +261,9 @@ body{font-family:var(--fn);background:var(--bg);color:var(--txt);min-height:100v
 .dreq-pane{width:100%;max-width:520px;box-sizing:border-box}
 .dreq-pane h3{font-size:16px;font-weight:900;margin-bottom:5px}
 .hm-sic svg{display:block}
+/* 画面の部品（見出し・ボタン・チップ）の線のアイコン（ico() が返す）。色は文字色。flex の中でも縮まない。文字との間は、ふつうの行では直後の空白、flex は gap */
+.ico{display:inline-flex;align-items:center;vertical-align:-3px;flex:none}
+.ico svg{display:block}
 .brd-post{background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:11px 13px;margin-bottom:8px}
 .brd-post.pin{border-color:var(--or);background:color-mix(in srgb,var(--or) 6%,var(--sur2))}
 .brd-post.resolved{opacity:0.6}
@@ -6727,11 +6730,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/26-175';
+var APP_VERSION = 'Ver.2026/11/26-176';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/26-176', date:'2026-11-26', title:'連絡表のページの絵文字を線のアイコンにしました', items:[
+    { t:'imp', d:'連絡表のページ（CE・HD）の、ヘッダーのボタン・セクションの見出し・上の進捗や業務のチップ・担当カードと各ポップアップの項目名・申し送りのボタンなどの絵文字を、トップページと同じ線のアイコンにしました。担当枠に設定した絵文字と、休・✓・⚠ などの状態の印はそのままです' }
+  ]},
   { ver:'Ver.2026/11/26-175', date:'2026-11-26', title:'CE担当カードを名前のボタン1つにしました', items:[
     { t:'imp', d:'CE担当カードを、名前のボタン1つにしました。押すと開く画面で、担当者・休み・役割・業務のチェック・PHS・兼務・備考をまとめて入れて「決定」で保存します。☕休憩はカードに残しています' }
   ]},
@@ -8399,12 +8405,12 @@ function markDutyEdited(ds) {
 
 /* 持ち場ゾーン。CE→HD / HD→CE は「提供」という別の仕組みになったのでここには無い */
 var PL_ZONES = [
-  {key:'maint', icon:'🔧', label:'メンテ',  color:'var(--or)',   bg:'var(--or-bg)',        border:'var(--or)'},
-  {key:'off',   icon:'🏖️', label:'休み',    color:'var(--gr)',   bg:'var(--gr-bg,#f0fff4)',border:'var(--gr)'},
-  {key:'other', icon:'📝', label:'その他',  color:'var(--txt2)', bg:'var(--sur2)',         border:'var(--bdr2)'},
+  {key:'maint', icon:'🔧', ic:'tool', label:'メンテ',  color:'var(--or)',   bg:'var(--or-bg)',        border:'var(--or)'},
+  {key:'off',   icon:'🏖️', ic:'beach', label:'休み',    color:'var(--gr)',   bg:'var(--gr-bg,#f0fff4)',border:'var(--gr)'},
+  {key:'other', icon:'📝', ic:'notes', label:'その他',  color:'var(--txt2)', bg:'var(--sur2)',         border:'var(--bdr2)'},
   /* 本院へヘルプに出ている人。勤務表の本CE・本HD等（D.shift の hn）から自動で入る。
      分院には居ないので、人数（plCounts・配置ボードの CE/HD 名）にも余剰にも数えない（plAway） */
-  {key:'honin', icon:'🏥', label:'本院へ',  color:'var(--oc)',   bg:'var(--oc-bg)',         border:'var(--oc-bdr)'}
+  {key:'honin', icon:'🏥', ic:'building-hospital', label:'本院へ',  color:'var(--oc)',   bg:'var(--oc-bg)',         border:'var(--oc-bdr)'}
 ];
 /* HDの役割として妥当なコードだけを通す。勤務表で shift='CE' + hd='day' のように
    HDコード以外が入っている行は「役割なし」でHD側に置く——素通しすると 'CE' や
@@ -9457,7 +9463,7 @@ function renderPlacementBoardV2(ds, dat){
     if (!list.length) { if (HD_OPTIONAL_CODES.indexOf(c) === -1) emptyN++; hdH += row(' data-t="role" data-role="' + c + '"', c, '', 'var(--rd)'); }
     else list.forEach(function(n){ hdH += row(' data-t="role" data-role="' + c + '"', c, n, 'var(--rd)'); });
   });
-  hdH += '<div class="pl2-grp">🌙 準夜 <span class="pl2-add" data-t="night">＋追加</span></div>';
+  hdH += '<div class="pl2-grp">' + ico('moon', '1.15em') + ' 準夜 <span class="pl2-add" data-t="night">＋追加</span></div>';
   (byRole['準'] || []).forEach(function(n){ hdH += row(' data-t="role" data-role="準"', '準夜', n, 'var(--pu)'); });
 
   /* --- 控え：未割当（CE未割当＋HDで役割なし）・余剰・メンテ・休み・その他 --- */
@@ -9480,31 +9486,31 @@ function renderPlacementBoardV2(ds, dat){
     return '<div class="pl2-tg" data-t="grp" data-grp="' + key + '"><span class="pl2-tgl">' + label + '</span>'
       + (list.length ? list.map(chip).join('') : '<span class="pl2-none">—</span>') + '</div>';
   }
-  var tray = '<div class="pl2-tray">' + tg('pool', '📋 未割当', grp.pool) + tg('surplus', '🔄 余剰', grp.surplus);
-  PL_ZONES.forEach(function(z){ tray += tg('zone:' + z.key, z.icon + ' ' + z.label, grp[z.key]); });
+  var tray = '<div class="pl2-tray">' + tg('pool', ico('clipboard-list', '1.15em') + ' 未割当', grp.pool) + tg('surplus', ico('refresh', '1.15em') + ' 余剰', grp.surplus);
+  PL_ZONES.forEach(function(z){ tray += tg('zone:' + z.key, ico(z.ic, '1.15em') + ' ' + z.label, grp[z.key]); });
   tray += '</div>';
   /* 提供されている人（相手の判断待ち）は受け取りボタンを控えの下にまとめて出す */
   var offered = names.filter(function(n){ return (ppl[n] || {}).offer; });
   if (offered.length && !dlk) {
-    tray += '<div class="pl2-tg" style="cursor:default"><span class="pl2-tgl">🤝 提供中</span>'
+    tray += '<div class="pl2-tg" style="cursor:default"><span class="pl2-tgl">' + ico('users-group', '1.15em') + ' 提供中</span>'
       + offered.map(function(n){ var o = ppl[n].offer; return '<span class="pl2-chip ' + (o === 'hd' ? 'hd' : 'ce') + '" style="cursor:default">' + escH(n) + '<small>→' + (o === 'hd' ? 'HD' : 'CE') + '</small>'
         + '<button type="button" class="pl-btn ok" data-pl-act="accept" data-name="' + escH(n) + '">受け取る</button></span>'; }).join('')
       + '</div>';
   }
 
-  var h = '<div class="pl2-sum"><span>🩺 CE ' + ceN + '名</span><span>🩸 HD ' + hdN + '名</span>'
+  var h = '<div class="pl2-sum"><span>' + ico('stethoscope', '1.15em') + ' CE ' + ceN + '名</span><span>' + ico('droplet', '1.15em') + ' HD ' + hdN + '名</span>'
     + (emptyN ? '<span class="emp-n">空き ' + emptyN + '</span>' : '<span>空きなし</span>')
     + '<span class="pl2-hint">' + (dlk ? '閲覧のみ' : '名前をタップ → 行き先をタップ（人がいれば入れ替え）') + '</span></div>';
   if (!dlk) {
     h += '<div class="pl-toolbar" style="margin-bottom:6px">'
       + '<button type="button" class="btn btn-g btn-sm" data-pl-act="add" data-side="ce">＋ CE</button>'
       + '<button type="button" class="btn btn-g btn-sm" data-pl-act="add" data-side="hd">＋ HD</button>'
-      + '<button type="button" class="btn btn-g btn-sm" data-pl-act="resync" title="勤務表を直したあとに押すと差分を確認して反映します">🔄 取り込み直す</button>'
+      + '<button type="button" class="btn btn-g btn-sm" data-pl-act="resync" title="勤務表を直したあとに押すと差分を確認して反映します">' + ico('refresh', 13) + ' 取り込み直す</button>'
       + '<button type="button" class="pl2-switch" data-pl2="old" style="margin-left:auto">以前の画面に戻す</button></div>';
   }
   h += '<div class="pl2-cols">'
-    + '<div class="pl2-col' + (pick && pick.cross && pickSide === 'ce' ? ' same' : '') + '" data-col="ce"><div class="pl2-ch ce"><span>🩺 CE</span><span>' + ceN + '</span></div>' + ceH + '</div>'
-    + '<div class="pl2-col' + (pick && pick.cross && pickSide === 'hd' ? ' same' : '') + '" data-col="hd"><div class="pl2-ch hd"><span>🩸 HD</span><span>' + hdN + '</span></div>' + hdH + '</div>'
+    + '<div class="pl2-col' + (pick && pick.cross && pickSide === 'ce' ? ' same' : '') + '" data-col="ce"><div class="pl2-ch ce"><span>' + ico('stethoscope', '1.15em') + ' CE</span><span>' + ceN + '</span></div>' + ceH + '</div>'
+    + '<div class="pl2-col' + (pick && pick.cross && pickSide === 'hd' ? ' same' : '') + '" data-col="hd"><div class="pl2-ch hd"><span>' + ico('droplet', '1.15em') + ' HD</span><span>' + hdN + '</span></div>' + hdH + '</div>'
     + '</div>' + tray;
   if (pick) {
     var otherSide = pickSide === 'hd' ? 'CE' : 'HD';
@@ -15928,7 +15934,7 @@ function clMineBtnHTML(isHd) {
                    : [D.dly].concat(Object.keys(D.wd || {}).map(function(k){ return D.wd[k]; }));
   var any = lists.some(function(arr){ return normArr(arr).some(function(it){ return itemRoles(it).length; }); });
   if (!any) return '';
-  return '<button type="button" class="cl-mine-btn' + (_clMineOnly ? ' on' : '') + '" onclick="toggleClMineOnly()" title="自分の役割の項目だけを表示（役割の無い項目は常に表示）">' + (_clMineOnly ? '👤 自分の役割だけ' : '👥 すべて表示') + '</button>';
+  return '<button type="button" class="cl-mine-btn' + (_clMineOnly ? ' on' : '') + '" onclick="toggleClMineOnly()" title="自分の役割の項目だけを表示（役割の無い項目は常に表示）">' + (_clMineOnly ? ico('user', 12) + ' 自分の役割だけ' : ico('users', 12) + ' すべて表示') + '</button>';
 }
 function toggleClMineOnly() {
   _clMineOnly = !_clMineOnly;
@@ -16096,7 +16102,7 @@ function renderDevChkPanel(ds, it, wrapEl) {
   var note = cfg.r === 'cycle' ? ('🔁 一巡したらリセット' + (pr.last ? '・前回の一巡 ' + fmtMD(pr.last.ds) : '')) : (cfg.r === 'day' ? '📅 毎日リセット' : '🗓 月内に1回');
   /* 一巡がこの日に完了していれば、ここから取り消せる（トーストを見逃したときの戻り道） */
   if (cfg.r === 'cycle' && pr.last && pr.last.ds === ds) note += ' <button type="button" class="btn btn-g btn-sm" data-dev-undo="1" style="font-size:10px;padding:1px 7px;margin-left:4px">一巡を取り消す</button>';
-  if (chip) chip.textContent = '🩺 ' + doneN + '/' + total + (stN ? ' ⏸' + stN : '') + ' ▾';
+  if (chip) chip.innerHTML = ico('stethoscope', 12) + ' ' + doneN + '/' + total + (stN ? ' ⏸' + stN : '') + ' ▾';
   if (box) {
     box.innerHTML = '<div class="dev-sub" style="margin:2px 0 2px">' + note + '</div>' + (h || '<span class="cle">対象の機器がマスタにありません</span>');
     box.querySelectorAll('details.dev-kind').forEach(function(dt){ dt.addEventListener('toggle', function(){ _devKindOpen[dt.getAttribute('data-key')] = dt.open; }); });
@@ -17486,7 +17492,7 @@ function evtAreaHTML(ds, dat, allEvts) {
       var bg  = isHd ? 'var(--pu-bg)' : 'var(--or-bg)';
       var m = evtMetaOf(dat, nm);
       h += '<div class="evt-chip" style="background:'+bg+';border:1.5px solid '+col+';color:'+col+'" title="'+(isHd?'HDで登録されたイベント':'CEで登録されたイベント')+'">';
-      h += '<button class="evt-chip-body" data-ds="'+ds+'" data-evt="'+escH(nm)+'" data-action="editEvt"'+(ok?'':' disabled')+' style="color:'+col+'">' + (isHd ? '🩸 ' : '📅 ') + evtChipInnerHTML(nm, m) + '</button>';
+      h += '<button class="evt-chip-body" data-ds="'+ds+'" data-evt="'+escH(nm)+'" data-action="editEvt"'+(ok?'':' disabled')+' style="color:'+col+'">' + (isHd ? ico('droplet', 13) : ico('calendar-event', 13)) + evtChipInnerHTML(nm, m) + '</button>';
       if (ok) h += '<button data-ds="'+ds+'" data-evt="'+escH(nm)+'" data-action="removeEvt" class="evt-chip-x" style="color:'+col+'" aria-label="消す">×</button>';
       h += '</div>';
     }
@@ -17498,7 +17504,7 @@ function evtAreaHTML(ds, dat, allEvts) {
     var bg  = isHd ? 'var(--pu-bg)' : 'var(--or-bg)';
     var m = { s: '', e: '', staff: normArr(r.staff).filter(Boolean) };
     h += '<div class="evt-chip evt-range-chip" style="background:'+bg+';border:1.5px dashed '+col+';color:'+col+'" title="期間のイベント（'+evtRangeLabel(r)+'）">';
-    h += '<button class="evt-chip-body" data-ds="'+ds+'" data-rid="'+escH(r.id)+'" data-action="editEvtRange"'+(ok?'':' disabled')+' style="color:'+col+'">' + (isHd ? '🩸 ' : '📅 ') + evtChipInnerHTML(r.n, m, '<span style="font-weight:400;font-size:11px">（'+evtRangeLabel(r)+'）</span>') + '</button>';
+    h += '<button class="evt-chip-body" data-ds="'+ds+'" data-rid="'+escH(r.id)+'" data-action="editEvtRange"'+(ok?'':' disabled')+' style="color:'+col+'">' + (isHd ? ico('droplet', 13) : ico('calendar-event', 13)) + evtChipInnerHTML(r.n, m, '<span style="font-weight:400;font-size:11px">（'+evtRangeLabel(r)+'）</span>') + '</button>';
     if (ok) h += '<button data-ds="'+ds+'" data-rid="'+escH(r.id)+'" data-action="removeEvtRange" class="evt-chip-x" style="color:'+col+'" aria-label="消す">×</button>';
     h += '</div>';
   });
@@ -18766,7 +18772,7 @@ function pageNavTitleHTML(title) {
 function pageNavTodayBtnHTML(cls) {
   if (!curDs || curDs === tabletTodayStr()) return '';
   var mob = cls.indexOf('pnav-today-m') >= 0;
-  return '<button class="' + cls + '" onclick="pageNavToday()" title="本日の連絡表へ" aria-label="本日へ">' + (mob ? '📅<span class="hd-btn-text"> 本日へ</span>' : '本日へ') + '</button>';
+  return '<button class="' + cls + '" onclick="pageNavToday()" title="本日の連絡表へ" aria-label="本日へ">' + (mob ? ico('calendar-event') + '<span class="hd-btn-text"> 本日へ</span>' : '本日へ') + '</button>';
 }
 /* 今日の連絡表へ一気に戻る。無ければ、作れる人には作るか聞き、作れない人には知らせる */
 function pageNavToday() {
@@ -20901,7 +20907,7 @@ function opsChkDetailsHTML(key, title, list, ck, locked, pre, man) {
   var total = list.length + (pre ? 1 : 0);
   var dn = list.filter(function(c){ return ck[c.id]; }).length + (pre && pre.done ? 1 : 0);
   var h = '<details class="ops-chk" data-chkkey="' + escH(key) + '"' + (_opsChkOpen[key] ? ' open' : '') + '><summary><span class="ops-chk-t">' + title + '</span>'
-    + (man ? '<button type="button" class="ops-chk-man' + (opsManualHas(man) ? ' has' : '') + '" data-man="' + escH(man) + '" title="' + escH(man) + 'のマニュアル（文章・画像）">📖 マニュアル</button>' : '')
+    + (man ? '<button type="button" class="ops-chk-man' + (opsManualHas(man) ? ' has' : '') + '" data-man="' + escH(man) + '" title="' + escH(man) + 'のマニュアル（文章・画像）">' + ico('book', 12) + ' マニュアル</button>' : '')
     + (total ? '<span class="ops-chk-n' + (dn === total ? ' all' : '') + '">' + dn + ' / ' + total + '</span>' : '') + '</summary><div class="ops-chk-body">'
     + (total ? '' : '<div class="cle" style="font-size:11px">確認項目はマスタの「✅ 6MW・PSGの確認項目」で登録できます</div>');
   if (pre) h += pre.html;
@@ -20995,7 +21001,7 @@ function renderMwBlocks(ds, box, locked) {
   its.forEach(function(it, i){
     var rid = it._rid || '', ck = mwChk(it), stf = opsItemStaff(it);
     h += '<div class="mw-blk" data-rid="' + escH(rid) + '">';
-    h += '<div class="mw-hd"><span class="mw-no">🚶 ' + (i + 1) + '件目</span><input type="time" step="300" class="mw-time" value="' + escH(it.time || '') + '"' + dis + ' aria-label="開始時刻">'
+    h += '<div class="mw-hd"><span class="mw-no">' + ico('walk', 14) + ' ' + (i + 1) + '件目</span><input type="time" step="300" class="mw-time" value="' + escH(it.time || '') + '"' + dis + ' aria-label="開始時刻">'
       + (locked ? '' : '<button type="button" class="mw-del" data-act="del" title="この6MWを削除" aria-label="この6MWを削除">✕</button>') + '</div>';
     h += '<div class="ops-row"><span class="ops-lbl">担当医</span><input type="text" class="ops-txt mw-doc" list="mw-doc-list" data-no-phi="1" maxlength="30" placeholder="〇〇先生" value="' + escH(it.doc || '') + '"' + dis + '></div>';
     h += '<div class="ops-row"><span class="ops-lbl">実施CE</span><div class="mw-stf">' + stf.map(function(n, k){
@@ -21004,7 +21010,7 @@ function renderMwBlocks(ds, box, locked) {
       + (cand.duty.length ? '<optgroup label="本日の担当">' + cand.duty.map(opt).join('') + '</optgroup>' : '')
       + '<optgroup label="スタッフ">' + cand.all.map(opt).join('') + '</optgroup></select>') + '</div></div>';
     h += '<div class="ops-row"><span class="ops-lbl">備考</span><textarea class="ops-txt mw-note" rows="1" placeholder="検査室・号室など（患者名・IDは書かない）"' + dis + '>' + escH(it.note || '') + '</textarea></div>';
-    if (list.length) h += opsChkDetailsHTML('mw:' + rid, '✅ 確認', list, ck, locked, null);
+    if (list.length) h += opsChkDetailsHTML('mw:' + rid, ico('checklist', 13) + ' 確認', list, ck, locked, null);
     h += '</div>';
   });
   if (!locked) h += '<button type="button" class="btn btn-g btn-sm mw-add" data-act="add">＋ 6MWを追加</button>';
@@ -22292,7 +22298,7 @@ function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone,opeCance
   opeDone=opeDone||0; cathDone=cathDone||0; opeCancelled=opeCancelled||0; cathCancelled=cathCancelled||0;
   var s='';
   var GR_CHIP='background:var(--gr-bg,#f0fff4);color:var(--gr);border:1px solid var(--gr);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer';
-  if(psgRemoval) s+='<span style="background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">🌙 PSG外し</span> ';
+  if(psgRemoval) s+='<span style="background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">'+ico('moon', 12)+' PSG外し</span> ';
   if(opeN){
     /* 終了の進捗は中止を除いた分母で数える（中止症例に「終了を押せ」と迫らないため） */
     var opeActive=opeN-opeCancelled;
@@ -22301,18 +22307,18 @@ function opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone,opeCance
        画面から消える。人を多めに配置した根拠はその総数なので、そのときだけ「3件中1件中止」と
        総数を添える。件数だけを出すときは opeN 自体が総数なので「うち1件中止」で足りる。 */
     var opeCxTxt=opeCancelled?(opeDone>0?('（'+opeN+'件中'+opeCancelled+'件中止）'):('（うち'+opeCancelled+'件中止）')):'';
-    var opeTxt=opeDone>0?('🔪 オペ '+opeDone+'/'+opeActive+'件終了'+opeCxTxt+(opeAll?' ✅':'')):('🔪 オペ '+opeN+'件'+opeCxTxt);
+    var opeTxt=opeDone>0?(ico('blade', 12)+' オペ '+opeDone+'/'+opeActive+'件終了'+opeCxTxt+(opeAll?' ✅':'')):(ico('blade', 12)+' オペ '+opeN+'件'+opeCxTxt);
     s+='<span style="'+(opeAll?GR_CHIP:'background:var(--ac-bg);color:var(--ac);border:1px solid var(--ac);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer')+'" onclick="dashJump(\'#ops-card-ope\')">'+opeTxt+'</span> ';
   }
   if(cathN){
     var cathActive=cathN-cathCancelled;
     var cathAll=(cathActive>0&&cathDone>=cathActive);
     var cathCxTxt=cathCancelled?(cathDone>0?('（'+cathN+'件中'+cathCancelled+'件中止）'):('（うち'+cathCancelled+'件中止）')):'';
-    var cathTxt=cathDone>0?('🫀 カテ '+cathDone+'/'+cathActive+'件終了'+cathCxTxt+(cathAll?' ✅':'')):('🫀 カテ '+cathN+'件'+cathCxTxt);
+    var cathTxt=cathDone>0?(ico('heart-rate-monitor', 12)+' カテ '+cathDone+'/'+cathActive+'件終了'+cathCxTxt+(cathAll?' ✅':'')):(ico('heart-rate-monitor', 12)+' カテ '+cathN+'件'+cathCxTxt);
     s+='<span style="'+(cathAll?GR_CHIP:'background:var(--rd-bg,#fff0f0);color:var(--rd);border:1px solid var(--rd);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer')+'" onclick="dashJump(\'#ops-card-cath\')">'+cathTxt+'</span> ';
   }
-  if(mwN)   s+='<span style="'+GR_CHIP+'" onclick="dashJump(\'#ops-card-mw\')">🚶 6MW '+mwN+'件</span> ';
-  if(psgN)  s+='<span style="background:var(--or-bg);color:var(--or);border:1px solid var(--or);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">🌙 PSG 1件</span> ';
+  if(mwN)   s+='<span style="'+GR_CHIP+'" onclick="dashJump(\'#ops-card-mw\')">'+ico('walk', 12)+' 6MW '+mwN+'件</span> ';
+  if(psgN)  s+='<span style="background:var(--or-bg);color:var(--or);border:1px solid var(--or);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer" onclick="dashJump(\'#ops-card-psg\')">'+ico('moon', 12)+' PSG 1件</span> ';
   return s;
 }
 function updateOpsHeader(ds){
@@ -22331,7 +22337,7 @@ function updateOpsHeader(ds){
   var prevDsOH=getPrevDs(ds),prevDatOH=D.pages[prevDsOH];
   var psgRemoval=!!(prevDatOH&&((prevDatOH.ops_cards&&prevDatOH.ops_cards.indexOf('psg')!==-1)||(prevDatOH.ops&&prevDatOH.ops.psg_on)));
   var chips=opsHeaderChips(opeN,cathN,mwN,psgN,psgRemoval,opeDone,cathDone,opeCancelled,cathCancelled);
-  el.innerHTML=chips?'<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
+  el.innerHTML=chips?'<div class="pr"><span class="pl">'+ico('chart-bar', 13)+' 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+chips+'</span></div>':'';
   updateCloseBar(ds);
 }
 /* 人員配置管理バッジ（当日N名／未割当N）の数え方。renderPage・updateStaffZoneBadge の両方から呼ぶ（数え方を2箇所に書かない） */
@@ -22391,17 +22397,17 @@ function renderPage(ds) {
   h+='<div class="pt2" style="flex:1">'+pageNavTitleHTML('分院CE連絡表　'+fmtJ(ds)+'（'+wf+'）')+'</div>';
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
   var _tblOut=tabletUnreturnedCount(ds);
-  h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
+  h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">'+ico('device-tablet')+'<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
   /* 掲示板はタブだと気づかれにくいので、連絡表からも直接開けるようにする。
      未読数は updateBoardBadge が boardUnreadCount を元にタブと同時に更新する */
   var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
-  h+='<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"'+(_brdN?'':' style="display:none"')+'>'+(_brdN>99?'99+':_brdN)+'</span></button>';
+  h+='<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">'+ico('speakerphone')+'<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"'+(_brdN?'':' style="display:none"')+'>'+(_brdN>99?'99+':_brdN)+'</span></button>';
   /* サイドバーのタブに置いていると活用されないため、タブレット・掲示板と同じ並びで
      連絡表ヘッダーから直接開けるようにする（サイドバー側のスケジュールタブは廃止） */
-  h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">🕒<span class="hd-btn-text"> タイムライン</span></button>';
+  h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">'+ico('clock')+'<span class="hd-btn-text"> タイムライン</span></button>';
   h+=pageNavTodayBtnHTML('btn btn-sm pnav-today-m');
-  h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
-  h+='<button class="btn btn-g btn-sm paper-btn" onclick="openPaperSheet(curDs)" title="停電・回線断のときに紙で使う様式を印刷">📄<span class="hd-btn-text"> 紙用</span></button>';
+  h+='<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">'+ico('printer')+'<span class="hd-btn-text"> 印刷</span></button>';
+  h+='<button class="btn btn-g btn-sm paper-btn" onclick="openPaperSheet(curDs)" title="停電・回線断のときに紙で使う様式を印刷">'+ico('file-text')+'<span class="hd-btn-text"> 紙用</span></button>';
   h+='</div>';
   h+='<div id="prior-memo-alert" style="display:none">'+priorMemoAlertContents(ds)+'</div>';
   /* イベント表示エリア */
@@ -22422,13 +22428,13 @@ function renderPage(ds) {
   var _psgRemoval=!!(_prevDatRP&&((_prevDatRP.ops_cards&&_prevDatRP.ops_cards.indexOf('psg')!==-1)||(_prevDatRP.ops&&_prevDatRP.ops.psg_on)));
   var _hasOps=_opeN||_cathN||_mwN||_psgN||_psgRemoval;
   h+='<div class="pp">';
-  h+='<div class="pr dash-chip" onclick="dashJump(\'.clg\')" title="チェックリストへジャンプ"><span class="pl">✅ 進捗</span><span class="pv pv-p" id="prp">'+done+' / '+total+' 完了</span></div>';
-  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">📊 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone,_opeCancelled,_cathCancelled)+'</span></div>' : '') +'</div>';
+  h+='<div class="pr dash-chip" onclick="dashJump(\'.clg\')" title="チェックリストへジャンプ"><span class="pl">'+ico('circle-check', 13)+' 進捗</span><span class="pv pv-p" id="prp">'+done+' / '+total+' 完了</span></div>';
+  h+='<div id="ops-header-row">'+ (_hasOps ? '<div class="pr"><span class="pl">'+ico('chart-bar', 13)+' 業務</span><span class="pv" style="display:flex;flex-wrap:wrap;gap:4px">'+opsHeaderChips(_opeN,_cathN,_mwN,_psgN,_psgRemoval,_opeDone,_cathDone,_opeCancelled,_cathCancelled)+'</span></div>' : '') +'</div>';
   var _ocStaff = dat.ocData.staff || '';
   var _ocCls = !_ocStaff ? ' dash-warn' : (dat.ocData.done ? ' pv-p' : '');
-  h+='<div class="pr dash-chip" id="oc-dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">📞 オンコール</span><span class="pv'+_ocCls+'" id="oc-dash-val">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅'+ocKindLabel(ocKind(dat.ocData)):'')+'</span></div>';
+  h+='<div class="pr dash-chip" id="oc-dash-chip" onclick="dashJump(\'.oc-card\')" title="オンコールへジャンプ"><span class="pl">'+ico('phone-call', 13)+' オンコール</span><span class="pv'+_ocCls+'" id="oc-dash-val">'+(_ocStaff?escH(_ocStaff):'未設定')+(dat.ocData.done?' ✅'+ocKindLabel(ocKind(dat.ocData)):'')+'</span></div>';
   var _memoUndone = memosOf(dat).filter(function(m){return !m.done;}).length;
-  h+='<div class="pr dash-chip" onclick="dashJump(\'#memo-list\')" title="申し送りへジャンプ"><span class="pl">📝 申し送り</span><span class="pv'+(_memoUndone?'':' dash-muted')+'">'+_memoUndone+'件</span></div>';
+  h+='<div class="pr dash-chip" onclick="dashJump(\'#memo-list\')" title="申し送りへジャンプ"><span class="pl">'+ico('message-2', 13)+' 申し送り</span><span class="pv'+(_memoUndone?'':' dash-muted')+'">'+_memoUndone+'件</span></div>';
   h+='</div>';
   if(adminLike()&&!dat.ocAlertSeen){var al=ocAlertFor(ds);if(al)h+='<div class="oc-alert-banner">⚠️ <strong>'+escH(al.staff||'担当者')+'</strong> さん前日'+escH(ocKindLabel(al.kind))+'：<strong>'+escH(al.rule.label)+'</strong>（退勤 '+escH(al.endTime)+'　'+escH(fmtJ(al.sourceDs))+'）<button class="btn btn-sm btn-g" style="float:right;margin-top:-2px" onclick="dismissOcAlert(\''+ds+'\')">確認済み ✕</button></div>';}
 
@@ -22437,7 +22443,7 @@ function renderPage(ds) {
   var _szc = plCounts(ds);
   h+='<div class="staffz">';
   h+='<div class="staffz-hd" onclick="toggleStaffZone()">';
-  h+='<span class="staffz-ttl">👥 人員配置管理</span>';
+  h+='<span class="staffz-ttl">'+ico('users')+' 人員配置管理</span>';
   h+='<span class="staffz-badge" id="staffz-badge-staff">当日'+_szc.staffN+'名</span>';
   h+='<span class="staffz-badge" id="staffz-badge-unassigned" style="color:var(--rd)'+(_szc.unassignedN?'':';display:none')+'">未割当'+_szc.unassignedN+'</span>';
   h+='<span class="staffz-arrow" id="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
@@ -22453,17 +22459,17 @@ function renderPage(ds) {
   h+='<div id="hd-roster-box" data-ds="'+ds+'" data-variant="ce"></div>';
 
   /* 担当割り当て */
-  h+='<div class="st" style="display:flex;align-items:center">🎯 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
+  h+='<div class="st" style="display:flex;align-items:center">'+ico('clipboard-list', 14)+' 担当割り当て'+(dlk?'<span class="slb lk">🔒</span>':'');
   /* 担当の希望は見出しの小ボタンだけ（本人と管理者だけ。押すとその日の希望を小窓で開く）。欄として並べると担当カードを押し下げて邪魔なため。
      中身は dutyReqBoxHTML、担当を動かすたび updateCloseBar 経由で refreshDutyReqBox が描き直す */
   h+='<span style="margin-left:auto;display:flex;align-items:center;gap:6px"><span id="dreq-box" data-ds="'+ds+'">'+dutyReqBoxHTML(ds)+'</span>';
-  if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">🎲 自動割り当て</button>';
+  if(!dlk) h+='<button id="aa-trigger" class="btn btn-g btn-sm" style="font-size:11px" onclick="autoAssignDuties(\''+ds+'\')">'+ico('dice-3', 13)+' 自動割り当て</button>';
   h+='</span></div>';
   if(dlk)h+='<div class="ln">'+(_offlineMode?'📴 災害モードでは変更できません':'🔒 担当割り当ては管理者によってロックされています')+'</div>';
   h+='<div class="dg" id="dg"></div>';
 
   /* OC担当（担当ロックに連動） */
-  h+='<div class="oc-card"><div class="oc-ttl">📞 オンコール（OC）担当'+(dlk?'<span class="slb lk">🔒</span>':'')+'</div>';
+  h+='<div class="oc-card"><div class="oc-ttl">'+ico('phone-call', 14)+' オンコール（OC）担当'+(dlk?'<span class="slb lk">🔒</span>':'')+'</div>';
   h+='<div class="oc-row"><span class="oc-lbl">担当者</span><select class="oc-sel'+(dat.ocData.staff?' set':'')+'" id="oc-staff"'+(dlk?' disabled':'')+'>';
   h+='<option value="">— 担当者を選択 —</option>';
   for(var i=0;i<D.stf.length;i++) h+='<option value="'+D.stf[i]+'"'+(dat.ocData.staff===D.stf[i]?' selected':'')+'>'+D.stf[i]+'</option>';
@@ -22477,12 +22483,12 @@ function renderPage(ds) {
   h+='<div class="oc-row oc-done-row">';
   h+='<label class="oc-done-lbl" title="病院からのコールで出動した場合">';
   h+='<input type="checkbox" id="oc-done-dispatch"'+(ocDone&&ocK===OC_KIND_DISPATCH?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
-  h+='🚑 OC出動対応</label>';
+  h+=ico('ambulance', 15)+' OC出動対応</label>';
   h+='<label class="oc-done-lbl" title="日勤帯で終わらない手術の残りを引き継いだ場合">';
   h+='<input type="checkbox" id="oc-done-leftover"'+(ocDone&&ocK===OC_KIND_LEFTOVER?' checked':'')+(dlk?' disabled':'')+' style="width:16px;height:16px;cursor:pointer;accent-color:var(--oc)">';
-  h+='🕔 残り当番</label>';
+  h+=ico('clock-hour-5', 15)+' 残り当番</label>';
   /* 対応フローは閲覧のみのため、担当ロック中でも押せるようにする（disabledにしない） */
-  h+='<button type="button" class="btn btn-g btn-sm oc-flow-btn" onclick="openOcFlowModal()" title="OC対応フローを開く">📄<span class="oc-flow-text"> 対応フロー</span></button>';
+  h+='<button type="button" class="btn btn-g btn-sm oc-flow-btn" onclick="openOcFlowModal()" title="OC対応フローを開く">'+ico('file-text', 13)+'<span class="oc-flow-text"> 対応フロー</span></button>';
   h+='</div>';
   h+='<div class="oc-hint">開始と退勤が揃うと自動でチェックが付きます。残り当番は日勤から引き継ぐので、開始に '+OC_LEFTOVER_START+' が入ります</div>';
   /* 対応時間・年休。「退勤時間を入れたら対応済み」を成立させるため、チェックの有無に関わらず常時表示する
@@ -22502,7 +22508,7 @@ function renderPage(ds) {
   h+='</div><hr>';
 
   /* 業務内容 */
-  h+='<div class="st">🏥 当日業務内容'+(olk?'<span class="slb lk">🔒</span>':'')+'</div>';
+  h+='<div class="st">'+ico('building-hospital', 14)+' 当日業務内容'+(olk?'<span class="slb lk">🔒</span>':'')+'</div>';
   if(olk)h+='<div class="ln">'+(_offlineMode?'📴 災害モードでは変更できません':'🔒 業務内容は管理者によってロックされています')+'</div>';
   /* 業務カードコントローラー（ロック時以外は全ユーザーに表示） */
   if(!olk){
@@ -22513,10 +22519,10 @@ function renderPage(ds) {
       : (D.opsCfg && D.opsCfg.length ? D.opsCfg : []);
     var isCustomOps = (activeCards2 !== null && activeCards2 !== undefined);
     var opsCardDefs = [
-      {id:'ope', icon:'🔪', label:'オペ'},
-      {id:'cath',icon:'🫀', label:'カテ'},
-      {id:'mw',  icon:'🚶', label:'6MW'},
-      {id:'psg', icon:'🌙', label:'PSG'},
+      {id:'ope', ic:'blade', label:'オペ'},
+      {id:'cath',ic:'heart-rate-monitor', label:'カテ'},
+      {id:'mw',  ic:'walk', label:'6MW'},
+      {id:'psg', ic:'moon', label:'PSG'},
     ];
     /* 現在のカードタグ＋×削除ボタン（全ユーザー）＋テンプレ操作（管理者のみ） */
     if(displayCards2.length>0 || adminLike()){
@@ -22525,15 +22531,15 @@ function renderPage(ds) {
       displayCards2.forEach(function(cid){
         var def2=null;
         for(var di=0;di<opsCardDefs.length;di++){if(opsCardDefs[di].id===cid){def2=opsCardDefs[di];break;}}
-        var lbl2=def2?def2.icon+' '+def2.label:(cid.indexOf('free_')===0?'➕ フリー':'?');
+        var lbl2=def2?ico(def2.ic,12)+' '+def2.label:(cid.indexOf('free_')===0?ico('plus',12)+' フリー':'?');
         h+='<span style="display:inline-flex;align-items:center;gap:2px;background:var(--ac-bg);border:1px solid var(--ac);border-radius:10px;padding:1px 6px;font-size:11px">';
         h+=lbl2+'<button type="button" onclick="removeOpsCard(\''+ds+'\',\''+cid+'\')" style="background:none;border:none;cursor:pointer;color:var(--rd);font-size:11px;padding:0 0 0 2px;line-height:1">×</button></span>';
       });
       h+='<span style="flex:1"></span>';
       if(adminLike()){
-        h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:var(--on-ac);border:none;border-radius:6px;cursor:pointer;white-space:nowrap">💾 テンプレ保存</button>';
-        if(isCustomOps) h+='<button type="button" onclick="resetOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap">↩ 戻す</button>';
-        if(displayCards2.length>0) h+='<button type="button" onclick="clearOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap" title="全カードを削除">🗑</button>';
+        h+='<button type="button" onclick="saveOpsCfg(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--ac);color:var(--on-ac);border:none;border-radius:6px;cursor:pointer;white-space:nowrap">'+ico('device-floppy',12)+' テンプレ保存</button>';
+        if(isCustomOps) h+='<button type="button" onclick="resetOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap">'+ico('arrow-back-up',12)+' 戻す</button>';
+        if(displayCards2.length>0) h+='<button type="button" onclick="clearOpsCards(\''+ds+'\')" style="font-size:10px;padding:3px 6px;background:var(--sur);border:1px solid var(--bdr);border-radius:6px;cursor:pointer;white-space:nowrap" title="全カードを削除">'+ico('trash',12)+'</button>';
       }
       h+='</div>';
     }
@@ -22543,17 +22549,17 @@ function renderPage(ds) {
     opsCardDefs.forEach(function(def3){
       var already3=displayCards2.indexOf(def3.id)!==-1;
       h+='<button type="button" onclick="addOpsCard(\''+ds+'\',\''+def3.id+'\')"'+(already3?' disabled':'');
-      h+=' style="font-size:11px;padding:2px 8px;border:1px solid var(--bdr);border-radius:10px;background:var(--sur);cursor:pointer;white-space:nowrap'+(already3?';opacity:0.4':'')+'">'+def3.icon+' '+def3.label+'</button>';
+      h+=' style="font-size:11px;padding:2px 8px;border:1px solid var(--bdr);border-radius:10px;background:var(--sur);cursor:pointer;white-space:nowrap'+(already3?';opacity:0.4':'')+'">'+ico(def3.ic,12)+' '+def3.label+'</button>';
     });
-    h+='<button type="button" onclick="addOpsCard(\''+ds+'\',\'free_\'+Date.now())" style="font-size:11px;padding:2px 8px;border:1px solid var(--bdr);border-radius:10px;background:var(--sur);cursor:pointer;white-space:nowrap">➕ フリー</button>';
+    h+='<button type="button" onclick="addOpsCard(\''+ds+'\',\'free_\'+Date.now())" style="font-size:11px;padding:2px 8px;border:1px solid var(--bdr);border-radius:10px;background:var(--sur);cursor:pointer;white-space:nowrap">'+ico('plus',12)+' フリー</button>';
     h+='</div>';
   }
   h+='<div class="ops-grid" id="ops-grid"></div><hr>';
 
   /* チェックリスト */
-  h+='<div class="st">✅ 業務チェックリスト'+(clk?'<span class="slb lk">🔒</span>':'')+'</div>';
-  h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> 共通業務（毎日・'+D.dly.length+'項目）'+clMineBtnHTML(false)+'</div><div id="dcl"></div></div>';
-  h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> 曜日別業務 <span class="wb">'+wf+'</span></div><div id="wcl"></div></div><hr>';
+  h+='<div class="st">'+ico('checklist', 14)+' 業務チェックリスト'+(clk?'<span class="slb lk">🔒</span>':'')+'</div>';
+  h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt">'+ico('pin', 14)+' 共通業務（毎日・'+D.dly.length+'項目）'+clMineBtnHTML(false)+'</div><div id="dcl"></div></div>';
+  h+='<div class="clg'+(clk?' lg':'')+'"><div class="clt">'+ico('calendar-week', 14)+' 曜日別業務 <span class="wb">'+wf+'</span></div><div id="wcl"></div></div><hr>';
 
   /* 業務連絡（マークアップは memoSectionHTML に集約。HD日ページと同一のものを使う） */
   h+=memoSectionHTML(ds, mlk);
@@ -22568,8 +22574,8 @@ function renderPage(ds) {
   var _pbytes = _enc ? _enc.encode(_pjson).length : (function(s){var b=0;for(var ci=0;ci<s.length;ci++){var code=s.charCodeAt(ci);if(code<0x80)b+=1;else if(code<0x800)b+=2;else if(code<0xD800||code>=0xE000)b+=3;else{b+=4;ci++;}}return b;})(_pjson);
   var _pstr = _pbytes < 1024 ? _pbytes+'B' : _pbytes < 1048576 ? (_pbytes/1024).toFixed(1)+'KB' : (_pbytes/1048576).toFixed(2)+'MB';
   h+='<div style="margin-top:13px;display:flex;justify-content:flex-end;align-items:center;gap:10px">';
-  h+='<span style="font-size:10px;color:var(--txt3)">💾 このページ: '+_pstr+'</span>';
-  if(can('pg')) h+='<button class="btn btn-d btn-sm" onclick="delPage(\''+ds+'\')">🗑 削除</button>';
+  h+='<span style="font-size:10px;color:var(--txt3)">'+ico('device-floppy',12)+' このページ: '+_pstr+'</span>';
+  if(can('pg')) h+='<button class="btn btn-d btn-sm" onclick="delPage(\''+ds+'\')">'+ico('trash',13)+' 削除</button>';
   h+='</div>';
 
   document.getElementById('main').innerHTML = h;
@@ -23684,9 +23690,9 @@ function hdRosterNormalTableHTML(ds, dat) {
   var nightRows = rows.filter(function (r) { return r.night; });
   var h = '<div class="data-wrap"><table class="data-tbl">';
   h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th></tr></thead><tbody>';
-  if (dayRows.length)   { h += hdRosterGroupRowHTML('🔵 日勤', btn); btn = ''; dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
-  if (nightRows.length) { h += hdRosterGroupRowHTML('🌙 準夜', btn); btn = ''; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
-  if (offRows.length)   { h += hdRosterGroupRowHTML('🏖️ 休み', btn); btn = ''; offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
+  if (dayRows.length)   { h += hdRosterGroupRowHTML(ico('sun', 14) + ' 日勤', btn); btn = ''; dayRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
+  if (nightRows.length) { h += hdRosterGroupRowHTML(ico('moon', 14) + ' 準夜', btn); btn = ''; nightRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
+  if (offRows.length)   { h += hdRosterGroupRowHTML(ico('beach', 14) + ' 休み', btn); btn = ''; offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
   h += '</tbody></table></div>';
   return h;
 }
@@ -23748,17 +23754,17 @@ function hdRosterEditTableHTML(ds, dat) {
   var h = '<div class="hdr-hint">' + escH(hintText) + '</div>';
   h += '<div class="data-wrap"><table class="data-tbl hdr-edit-tbl' + (picking ? ' picking' : '') + '">';
   h += '<thead><tr><th style="width:64px">役割</th><th>スタッフ</th></tr></thead><tbody>';
-  h += hdRosterGroupRowHTML('🔵 日勤', hdRosterEditBtnHTML(true));
+  h += hdRosterGroupRowHTML(ico('sun', 14) + ' 日勤', hdRosterEditBtnHTML(true));
   HD_DAY_CODES.forEach(function (role) {
     var people = data.dayByRole[role];
     if (!people.length) h += hdRosterEditRowHTML(dat, role, null, picking);
     else people.forEach(function (p) { h += hdRosterEditRowHTML(dat, role, p, picking); });
   });
-  h += hdRosterGroupRowHTML('🌙 準夜', '');
+  h += hdRosterGroupRowHTML(ico('moon', 14) + ' 準夜', '');
   data.night.forEach(function (p) { h += hdRosterEditRowHTML(dat, '準', p, picking); });
   h += '<tr class="hdr-row hdr-add" data-hdr-role="準"><td style="font-weight:700">準夜</td><td><span class="hdr-empty">＋ 準夜に追加（ここへ）</span></td></tr>';
   var offRows = hdAbsentOffRows(ds, dat);
-  if (offRows.length) { h += hdRosterGroupRowHTML('🏖️ 休み', ''); offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
+  if (offRows.length) { h += hdRosterGroupRowHTML(ico('beach', 14) + ' 休み', ''); offRows.forEach(function (r) { h += hdRosterNormalRowHTML(dat, r, ds); }); }
   h += '</tbody></table></div>';
   h += hdRosterTrayHTML(data.tray, picking);
   return h;
@@ -23775,7 +23781,7 @@ function hdRosterEditBtnHTML(editing) {
   if (!can('duty')) return '';
   /* 新しい配置ボードでは人を動かす場所をボードに集めたので、HD担当表は見る専用（備考は書ける） */
   if (plBoardV2() && !editing) return '';
-  return '<button type="button" class="btn btn-g btn-sm hdr-edit-btn" data-action="hdr-edit-toggle" style="margin-left:auto;font-size:11px">' + (editing ? '✅ 完了' : '✏️ 役割を編集') + '</button>';
+  return '<button type="button" class="btn btn-g btn-sm hdr-edit-btn" data-action="hdr-edit-toggle" style="margin-left:auto;font-size:11px">' + (editing ? ico('check', 12) + ' 完了' : ico('pencil', 12) + ' 役割を編集') + '</button>';
 }
 /* variant='hd'：HD日ページの「🩸 HD担当表」見出し＋表（常に出す。0件でも編集で人を入れられる）。
    variant='ce'：CE日ページに出す相互参照の折りたたみ（.staffz シェル流用）。
@@ -23828,13 +23834,13 @@ function coRowInnerHTML(ds, dat, side, name, ownKey, locked, extra) {
   var h = '';
   /* CEとHDをまたいだ兼務もある（2026-11-23 本人）。自分の側の担当はそのまま、反対側は「HD A1」「CE カテ」と頭に付ける */
   var mine = name ? coMineAll(dat, side, name) : [];
-  if (mine.length) h += '<span class="co-lbl">🤝 兼務：</span>' + mine.map(function(x){ return '<span class="co-chip">' + escH(coPickLabel(side, x.side, x.key, dat)) + '</span>'; }).join('');
+  if (mine.length) h += '<span class="co-lbl">' + ico('users-group', 13) + ' 兼務：</span>' + mine.map(function(x){ return '<span class="co-chip">' + escH(coPickLabel(side, x.side, x.key, dat)) + '</span>'; }).join('');
   var others = ownKey ? coDutyOfLabel(dat, side, ownKey).filter(function(n){ return n !== name; }) : [];
-  if (others.length) h += '<span class="co-lbl co-by">🤝 ' + others.map(function(n){
+  if (others.length) h += '<span class="co-lbl co-by">' + ico('users-group', 13) + ' ' + others.map(function(n){
     var main = coMainLabelAny(ds, dat, side, n);
     return escH(n) + (main ? '（' + escH(main) + '）' : '');
   }).join('、') + ' が兼務</span>';
-  if (name && !locked) h += '<button type="button" class="db-add-link co-add" data-co-ds="' + escH(ds) + '" data-co-side="' + side + '" data-co-name="' + escH(name) + '" onclick="openCoPick(this.dataset.coDs, this.dataset.coSide, this.dataset.coName)">' + (mine.length ? '✏️ 兼務' : '＋ 兼務') + '</button>';
+  if (name && !locked) h += '<button type="button" class="db-add-link co-add" data-co-ds="' + escH(ds) + '" data-co-side="' + side + '" data-co-name="' + escH(name) + '" onclick="openCoPick(this.dataset.coDs, this.dataset.coSide, this.dataset.coName)">' + (mine.length ? ico('pencil', 12) + ' 兼務' : '＋ 兼務') + '</button>';
   if (extra) h += extra;
   return h ? '<div class="co-row">' + h + '</div>' : '';
 }
@@ -23903,7 +23909,7 @@ function coPickButtonsHTML(dat, name, cp, disabled) {
       var sub = holder ? holder : (cur.length ? cur.join('、') + ' 兼務' : '');
       return '<button type="button" class="evt-stf-btn' + (cp.picked[i] ? ' on' : '') + '" data-i="' + i + '"' + (disabled ? ' disabled' : '') + '>' + escH(coRoleLabel(s, it.key, dat)) + (sub ? '<small style="opacity:.7"> ' + escH(sub) + '</small>' : '') + '</button>';
     }).join('');
-    return '<div class="co-pick-sec"><div class="co-pick-hd">' + (s === 'hd' ? '🩸 HDの役割' : '🩺 CEの担当') + '</div><div class="evt-stf-pick">' + (btns || '<span style="font-size:12px;color:var(--txt3)">選べる担当がありません</span>') + '</div></div>';
+    return '<div class="co-pick-sec"><div class="co-pick-hd">' + (s === 'hd' ? ico('droplet', 13) + ' HDの役割' : ico('stethoscope', 13) + ' CEの担当') + '</div><div class="evt-stf-pick">' + (btns || '<span style="font-size:12px;color:var(--txt3)">選べる担当がありません</span>') + '</div></div>';
   }).join('');
 }
 /* 選んだ兼務をページに書く（保存はしない）。この人の兼務を一度すべて外してから選んだ担当にだけ付け直す
@@ -23937,7 +23943,7 @@ function openCoPick(ds, side, name) {
   var ov = document.createElement('div'); ov.id = 'co-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '420px'; md.style.maxHeight = 'calc(85vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
-  md.innerHTML = '<h3>🤝 兼務</h3>'
+  md.innerHTML = '<h3>' + ico('users-group', 18) + ' 兼務</h3>'
     + '<div style="font-size:14px;font-weight:700;margin-bottom:4px">' + escH(name) + (ownLabel ? '<span style="font-weight:400;color:var(--txt3)">（' + escH(ownLabel) + '）</span>' : '') + '</div>'
     + '<div class="pn" style="font-size:11px;margin:6px 0">一緒に受け持つ担当を選びます（CEとHDをまたいでも選べます）。両方の表に表示されます。印だけで、人員配置・人数・公平性には数えません。</div>'
     + '<div id="co-keys"></div>'
@@ -23982,15 +23988,15 @@ function openHdStaffModal(ds, name) {
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var md = document.createElement('div'); md.className = 'md hdst-md'; md.style.maxWidth = '440px'; md.style.maxHeight = 'calc(88vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
   var dis = ok ? '' : ' disabled';
-  md.innerHTML = '<h3>👤 ' + escH(name) + (role ? '<span style="font-weight:400;color:var(--txt3);font-size:13px">（' + escH(role === '準' ? '準夜' : role) + '）</span>' : '') + '</h3>'
+  md.innerHTML = '<h3>' + ico('user', 18) + ' ' + escH(name) + (role ? '<span style="font-weight:400;color:var(--txt3);font-size:13px">（' + escH(role === '準' ? '準夜' : role) + '）</span>' : '') + '</h3>'
     + (ok ? '' : '<div class="pn" style="font-size:11px;margin:0 0 8px">' + (_offlineMode ? '📴 災害モードではここから変えられません' : '🔒 担当の編集はロックされています（見るだけ）') + '</div>')
     + '<div class="hdst-toggles">'
-    + '<label class="hdst-tg off"><input type="checkbox" id="hdst-absent"' + (o.absent ? ' checked' : '') + dis + '><span>🏖️ 休み</span></label>'
-    + '<label class="hdst-tg ward"><input type="checkbox" id="hdst-ward"' + (o.ward ? ' checked' : '') + dis + '><span>🛏 病棟透析に行く</span></label>'
+    + '<label class="hdst-tg off"><input type="checkbox" id="hdst-absent"' + (o.absent ? ' checked' : '') + dis + '><span>' + ico('beach', 16) + ' 休み</span></label>'
+    + '<label class="hdst-tg ward"><input type="checkbox" id="hdst-ward"' + (o.ward ? ' checked' : '') + dis + '><span>' + ico('bed', 16) + ' 病棟透析に行く</span></label>'
     + '</div>'
-    + '<div class="hdst-sec"><div class="hdst-hd">🤝 兼務 <small>一緒に受け持つ担当（印だけで人数には数えません）</small></div><div id="hdst-co">' + coPickButtonsHTML(dat, name, cp, !ok) + '</div></div>'
-    + '<div class="hdst-sec"><div class="hdst-hd">📝 備考</div><textarea id="hdst-note" class="ds2" rows="3" style="width:100%;box-sizing:border-box;margin:0" placeholder="' + (ok ? '備考（患者さんの情報は書かない）' : '') + '"' + (ok ? '' : ' readonly') + '>' + escH(o.note) + '</textarea></div>'
-    + (hn ? '<div class="hdst-sec"><div class="hdst-hd">📘 分院ルールの説明</div><div id="hdst-hn">' + hn + '</div></div>' : '')
+    + '<div class="hdst-sec"><div class="hdst-hd">' + ico('users-group') + ' 兼務 <small>一緒に受け持つ担当（印だけで人数には数えません）</small></div><div id="hdst-co">' + coPickButtonsHTML(dat, name, cp, !ok) + '</div></div>'
+    + '<div class="hdst-sec"><div class="hdst-hd">' + ico('notes') + ' 備考</div><textarea id="hdst-note" class="ds2" rows="3" style="width:100%;box-sizing:border-box;margin:0" placeholder="' + (ok ? '備考（患者さんの情報は書かない）' : '') + '"' + (ok ? '' : ' readonly') + '>' + escH(o.note) + '</textarea></div>'
+    + (hn ? '<div class="hdst-sec"><div class="hdst-hd">' + ico('book') + ' 分院ルールの説明</div><div id="hdst-hn">' + hn + '</div></div>' : '')
     + '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
     + (ok ? '<button class="btn btn-g" id="hdst-cancel">やめる</button><button class="btn btn-p" id="hdst-save">決定</button>' : '<button class="btn btn-p" id="hdst-cancel">閉じる</button>')
     + '</div>';
@@ -24062,7 +24068,7 @@ function hdRosterBoxHTML(ds, dat, variant) {
     var absN = hdAll.filter(function (h) { return hdIsAbsent(dat, h.name); }).length + offN;
     var h = '<div class="staffz">';
     h += '<div class="staffz-hd">';
-    h += '<span class="staffz-ttl">🩸 HD担当表</span>';
+    h += '<span class="staffz-ttl">' + ico('droplet') + ' HD担当表</span>';
     h += '<span class="staffz-badge">' + hdAll.length + '名' + (noteN ? '・備考' + noteN : '') + (absN ? '・休' + absN : '') + '</span>';
     h += '<span class="staffz-arrow" id="hd-ref-arrow">' + (_hdRefOpen ? '▲' : '▼') + '</span>';
     h += '</div>';
@@ -24071,7 +24077,7 @@ function hdRosterBoxHTML(ds, dat, variant) {
     h += '</div></div>';
     return h;
   }
-  var h2 = '<div class="st">🩸 HD担当表</div>';
+  var h2 = '<div class="st">' + ico('droplet') + ' HD担当表</div>';
   h2 += '<div id="hd-roster-wrap">' + hdRosterTableHTML(ds, dat, editing) + '</div>';
   return h2;
 }
@@ -24392,7 +24398,7 @@ function openHdRolePicker(ds, name){
   var ov = document.createElement('div'); ov.id = 'pl-dlg-ov'; ov.className = 'ov';
   ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
   var md = document.createElement('div'); md.className = 'md'; md.style.maxWidth = '360px';
-  var h = '<h3 style="margin-bottom:2px">🩸 ' + escH(name) + ' さんの役割</h3>';
+  var h = '<h3 style="margin-bottom:2px">' + ico('droplet', 18) + ' ' + escH(name) + ' さんの役割</h3>';
   h += '<div style="font-size:11px;color:var(--txt3);margin-bottom:10px">押すとその役割にします。すでに誰か居る役割は入れ替わります</div>';
   h += '<div class="hdrp-grid">';
   HD_DAY_CODES.forEach(function(c){
@@ -24402,7 +24408,7 @@ function openHdRolePicker(ds, name){
   h += '<button type="button" class="hdrp-btn" data-hdrp-role="準" style="grid-column:span 2"><span class="hdrp-role">準夜</span><span class="hdrp-occ">追加されます</span></button>';
   h += '</div>';
   h += '<div class="pl-mgrp" style="margin-top:12px">その他</div>';
-  h += '<button type="button" class="pl-mrow" data-hdrp-tray="1"><span>🔄 控え（HD余剰）へ</span></button>';
+  h += '<button type="button" class="pl-mrow" data-hdrp-tray="1"><span>' + ico('refresh', 14) + ' 控え（HD余剰）へ</span></button>';
   h += '<div style="margin-top:12px;display:flex;justify-content:flex-end"><button class="btn btn-g" id="pl-dlg-cancel">キャンセル</button></div>';
   md.innerHTML = h;
   ov.appendChild(md); document.body.appendChild(ov);
@@ -24487,7 +24493,7 @@ function hdWtRowHTML(it, i, cands){
   h += '<span class="hdwt-segs">' + seg('hdwt-tank', '1', 'No1', it.tank === '1') + seg('hdwt-tank', '2', 'No2', it.tank === '2') + '</span>';
   h += '<button class="pool-chip-x" data-action="hdwt-del" data-row-id="' + rid + '" style="position:static;font-size:16px;margin-left:auto" title="この1件を消す">×</button>';
   h += '</div>';
-  h += '<div class="ops-staff-row" style="margin:4px 0 2px 2px"><span class="ops-meta-lbl">👤</span>';
+  h += '<div class="ops-staff-row" style="margin:4px 0 2px 2px"><span class="ops-meta-lbl">'+ico('user', 13)+'</span>';
   it.staff.forEach(function(nm){
     h += '<span class="ops-staff-chip">' + escH(nm) + '<button type="button" class="ops-staff-chip-x" data-action="hdwt-ppl-rm" data-row-id="' + rid + '" data-name="' + escH(nm) + '" title="外す">×</button></span>';
   });
@@ -24507,11 +24513,11 @@ function hdWtListHTML(arr){
   HD_WT_USES.forEach(function(u){
     var rows = arr.filter(function(x){ return x.use === u.k; });
     if (!rows.length) return;
-    h += '<div class="hdash-sp"><span class="hdash-sp-lbl">' + (u.k === 'smp' ? '🧪 検体採取' : '🛏 病棟透析') + '</span><div class="hdash-sp-list">';
+    h += '<div class="hdash-sp"><span class="hdash-sp-lbl">' + (u.k === 'smp' ? ico('test-pipe', 11) + ' 検体採取' : ico('bed', 11) + ' 病棟透析') + '</span><div class="hdash-sp-list">';
     rows.forEach(function(it, i){
       h += '<div class="hdash-sp-item"><span class="hdwt-no">' + hdWtNoLabel(u.k, i + 1) + '</span>'
         + '<span class="hdash-sp-tag' + (u.k === 'smp' ? ' smp' : '') + '">' + (it.tank ? 'タンクNo' + it.tank : 'タンク未選択') + '</span>'
-        + (it.staff.length ? '<span class="hdash-sp-ppl">👤 ' + it.staff.map(escH).join('、') + '</span>' : '<span class="hdash-sp-none">👤 未入力</span>')
+        + (it.staff.length ? '<span class="hdash-sp-ppl">' + ico('user', 12) + ' ' + it.staff.map(escH).join('、') + '</span>' : '<span class="hdash-sp-none">' + ico('user', 12) + ' 未入力</span>')
         + '</div>';
     });
     h += '</div></div>';
@@ -24534,7 +24540,7 @@ function brkBtnHTML(ds, dat, name){
   var dis = today && !_offlineMode ? '' : ' disabled';
   return '<div class="brk-row"><button type="button" class="brk-btn' + (rec ? ' on' : '') + '" data-ds="' + escH(ds) + '" data-name="' + escH(name) + '" onclick="brkToggle(this)"'
     + ' title="' + (rec ? '休憩に入った時刻（' + escH(rec.by || '') + 'が記録。押すと取り消し）' : '休憩に入ったら押す（押した時刻が全員に表示されます）') + '"' + dis + '>'
-    + (rec ? '☕ ' + escH(rec.t) + '〜' : '☕ 休憩') + '</button></div>';
+    + ico('coffee', 13) + (rec ? ' ' + escH(rec.t) + '〜' : ' 休憩') + '</button></div>';
 }
 function brkToggle(btn){
   var ds = btn.getAttribute('data-ds'), name = btn.getAttribute('data-name');
@@ -24609,7 +24615,7 @@ function hdEmRowHTML(it, locked, cands){
   if (!locked) h += '<button class="pool-chip-x" data-action="hdem-del" data-row-id="' + rid + '" style="position:static;font-size:16px;margin-left:auto" title="この1件を消す">×</button>';
   h += '</div>';
   /* 担当者：特殊治療の実施者と同じ見た目（チップ＋追加の選択欄） */
-  h += '<div class="ops-staff-row" style="margin:4px 0 2px 2px"><span class="ops-meta-lbl">👤</span>';
+  h += '<div class="ops-staff-row" style="margin:4px 0 2px 2px"><span class="ops-meta-lbl">'+ico('user', 13)+'</span>';
   it.staff.forEach(function(nm){
     h += '<span class="ops-staff-chip">' + escH(nm)
       + (locked ? '' : '<button type="button" class="ops-staff-chip-x" data-action="hdem-ppl-rm" data-row-id="' + rid + '" data-name="' + escH(nm) + '" title="外す">×</button>')
@@ -24848,7 +24854,7 @@ function hdCountPanelInnerHTML(ds, dat) {
   /* タイルを直接押して直す（2026-11-16 本人。以前は「✏️ 編集」で入力フォームに切り替えていた）。
      数字の4区分はタイルの数字がそのまま入力欄（見た目は変えない）。特殊・緊急は押すとその区分の行だけがタイルの下に開く
      （_hdCountOpen = '' | 'sp' | 'em'）。入力の保存・合計の差し替えは従来の data-hdcnt-field の処理がそのまま受け持つ */
-  h += '<div class="hdash-hd"><span class="hdash-ttl">🩸 血液浄化</span></div>';
+  h += '<div class="hdash-hd"><span class="hdash-ttl">' + ico('droplet') + ' 血液浄化</span></div>';
   h += '<div class="hdash-tiles' + (locked ? '' : ' editable') + '">';
   [[day,'日中透析室','day'],[night,'準夜','night'],[bw,'BW','bw']].forEach(function(t){
     h += '<label class="hdash-tile' + (t[0] ? '' : ' zero') + '">';
@@ -24858,7 +24864,7 @@ function hdCountPanelInnerHTML(ds, dat) {
   });
   /* 病棟：押すと下に病棟タンクの1件ずつの行が開く。件数は行の「病棟透析」の数、検体採取は「＋検体N」で別に出す */
   var wardLb = '病棟' + (wtSmp ? '<span class="hdwt-smp">＋検体' + wtSmp + '</span>' : '');
-  [[ward,wardLb,'wt','',ward || wtSmp],[spFilled.length,'特殊','sp',''],[emFilled.length,'🚑 緊急','em','em']].forEach(function(t){
+  [[ward,wardLb,'wt','',ward || wtSmp],[spFilled.length,'特殊','sp',''],[emFilled.length,ico('ambulance', 12) + ' 緊急','em','em']].forEach(function(t){
     var nz = t.length > 4 ? t[4] : t[0];
     var open = _hdCountOpen === t[2];
     if (locked) { h += '<div class="hdash-tile' + (t[3] ? ' ' + t[3] : '') + (nz ? '' : ' zero') + '"><div class="n">' + t[0] + '</div><div class="l">' + t[1] + '</div></div>'; return; }
@@ -24868,11 +24874,11 @@ function hdCountPanelInnerHTML(ds, dat) {
   h += '</div>';
   var spCands = (_hdCountOpen && !locked) ? hdSpStaffCandidates(ds) : [];
   if (_hdCountOpen === 'wt' && !locked) {
-    h += '<div class="hdash-edit"><div class="hdash-edit-hd"><span>🛏 病棟（病棟タンク）</span><button class="btn btn-g btn-sm" data-action="hdcnt-open" data-sec="">✕ 閉じる</button></div>';
+    h += '<div class="hdash-edit"><div class="hdash-edit-hd"><span>' + ico('bed', 14) + ' 病棟（病棟タンク）</span><button class="btn btn-g btn-sm" data-action="hdcnt-open" data-sec="">✕ 閉じる</button></div>';
     if (!wtArr.length && wardLegacy) h += '<div style="font-size:12px;color:var(--txt3);margin-bottom:6px">この日は1件ずつの記録が無く、以前の入力の ' + wardLegacy + '件 を使っています（病棟透析を足すと行の数に切り替わります）</div>';
     HD_WT_USES.forEach(function (u) {
       var rows = wtArr.filter(function (x) { return x.use === u.k; });
-      h += '<div class="hdwt-grp"><div class="hdwt-grp-hd">' + (u.k === 'smp' ? '🧪 検体採取（' + rows.length + '回）' : '🛏 病棟透析（' + rows.length + '件）') + '</div>';
+      h += '<div class="hdwt-grp"><div class="hdwt-grp-hd">' + (u.k === 'smp' ? ico('test-pipe', 14) + ' 検体採取（' + rows.length + '回）' : ico('bed', 14) + ' 病棟透析（' + rows.length + '件）') + '</div>';
       rows.forEach(function (it, i) { h += hdWtRowHTML(it, i, spCands); });
       h += '<button class="btn btn-g btn-sm" style="margin-top:4px" data-action="hdwt-add" data-use="' + u.k + '">＋ ' + u.l + 'を追加</button></div>';
     });
@@ -24897,17 +24903,17 @@ function hdCountPanelInnerHTML(ds, dat) {
       spFilled.forEach(function(sp){
         var st = sp.staff || [], ed = sp.edu || [];
         h += '<div class="hdash-sp-item"><span class="hdash-sp-tag">'+escH(sp.n)+'</span>'
-          + (st.length ? '<span class="hdash-sp-ppl">👤 '+st.map(escH).join('、')+'</span>' : '<span class="hdash-sp-none">👤 実施者未入力</span>')
-          + (ed.length ? '<span class="hdash-sp-ppl">🎓 '+ed.map(escH).join('、')+'</span>' : '')
+          + (st.length ? '<span class="hdash-sp-ppl">'+ico('user', 12)+' '+st.map(escH).join('、')+'</span>' : '<span class="hdash-sp-none">'+ico('user', 12)+' 実施者未入力</span>')
+          + (ed.length ? '<span class="hdash-sp-ppl">'+ico('school', 12)+' '+ed.map(escH).join('、')+'</span>' : '')
           + '</div>';
       });
       h += '</div></div>';
     }
   }
   if (_hdCountOpen === 'em' && !locked) {
-    h += '<div class="hdash-edit"><div class="hdash-edit-hd"><span>🚑 緊急透析</span><button class="btn btn-g btn-sm" data-action="hdcnt-open" data-sec="">✕ 閉じる</button></div>';
+    h += '<div class="hdash-edit"><div class="hdash-edit-hd"><span>' + ico('ambulance', 14) + ' 緊急透析</span><button class="btn btn-g btn-sm" data-action="hdcnt-open" data-sec="">✕ 閉じる</button></div>';
     /* 緊急透析（時間外）。1件ずつ足す */
-    h += '<div class="ops-row" style="align-items:flex-start"><span class="ops-lbl" style="margin-top:6px;color:var(--rd)">🚑 緊急</span><div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">';
+    h += '<div class="ops-row" style="align-items:flex-start"><span class="ops-lbl" style="margin-top:6px;color:var(--rd)">' + ico('ambulance', 13) + ' 緊急</span><div style="flex:1;display:flex;flex-direction:column;gap:4px;min-width:0">';
     emArr.forEach(function (it) { h += hdEmRowHTML(it, locked, spCands); });
     if (!emArr.length) h += '<span style="font-size:12px;color:var(--txt3)">なし（時間外に緊急で透析したときに足す）</span>';
     if (!locked) h += '<button class="btn btn-g btn-sm" style="align-self:flex-start;margin-top:2px" data-action="hdem-add">＋ 緊急透析を追加</button>';
@@ -24918,9 +24924,9 @@ function hdCountPanelInnerHTML(ds, dat) {
     if (emFilled.length) {
       h += '<div class="hdash-sp"><span class="hdash-sp-lbl">緊急透析</span><div class="hdash-sp-list">';
       emFilled.forEach(function(it){
-        h += '<div class="hdash-sp-item"><span class="hdash-sp-tag em">🚑 '+escH(hdEmPlaceLabel(it.place) || '場所未入力')+'</span>'
+        h += '<div class="hdash-sp-item"><span class="hdash-sp-tag em">'+ico('ambulance', 12)+' '+escH(hdEmPlaceLabel(it.place) || '場所未入力')+'</span>'
           + (hdEmTimeLabel(it) ? '<span class="hdash-sp-ppl">'+escH(hdEmTimeLabel(it))+'</span>' : '<span class="hdash-sp-none">時間未入力</span>')
-          + (it.staff.length ? '<span class="hdash-sp-ppl">👤 '+it.staff.map(escH).join('、')+'</span>' : '<span class="hdash-sp-none">👤 担当者未入力</span>')
+          + (it.staff.length ? '<span class="hdash-sp-ppl">'+ico('user', 12)+' '+it.staff.map(escH).join('、')+'</span>' : '<span class="hdash-sp-none">'+ico('user', 12)+' 担当者未入力</span>')
           + (it.note ? '<span class="hdash-sp-none">'+escH(it.note)+'</span>' : '')
           + '</div>';
       });
@@ -24954,8 +24960,8 @@ function hdSpRowHTML(sp, i, locked, cands) {
   h += '<select class="ds2" style="margin-bottom:0;flex:1;min-width:0" data-hdcnt-sp="' + i + '" data-row-id="' + escH(sp.id || '') + '"' + (locked ? ' disabled' : '') + '>' + hdTreatOptsHTML(sp.n) + '</select>';
   if (!locked) h += '<button class="pool-chip-x" data-action="hdcnt-sp-del" data-idx="' + i + '" data-row-id="' + escH(sp.id || '') + '" style="position:static;font-size:16px">×</button>';
   h += '</div>';
-  h += hdSpPeopleRowHTML(sp.staff, sp.id, 'staff', '👤', '実施者', locked, cands, sp.n);
-  h += hdSpPeopleRowHTML(sp.edu, sp.id, 'edu', '🎓', '教育者', locked, cands);
+  h += hdSpPeopleRowHTML(sp.staff, sp.id, 'staff', ico('user', 13), '実施者', locked, cands, sp.n);
+  h += hdSpPeopleRowHTML(sp.edu, sp.id, 'edu', ico('school', 13), '教育者', locked, cands);
   h += '</div>';
   return h;
 }
@@ -24967,7 +24973,7 @@ function hdSpPeopleRowHTML(list, rowId, role, icon, label, locked, cands, treat)
   h += '<span class="ops-meta-lbl">' + icon + '</span>';
   list.forEach(function (nm) {
     h += '<span class="ops-staff-chip">' + escH(nm);
-    if (role === 'staff' && treat && canEdu()) h += '<button type="button" class="ops-staff-chip-edu" data-action="hdcnt-sp-edu" data-name="' + escH(nm) + '" data-treat="' + escH(treat) + '" title="この治療の到達度を付ける">🎓</button>';
+    if (role === 'staff' && treat && canEdu()) h += '<button type="button" class="ops-staff-chip-edu" data-action="hdcnt-sp-edu" data-name="' + escH(nm) + '" data-treat="' + escH(treat) + '" title="この治療の到達度を付ける">' + ico('school', 13) + '</button>';
     if (!locked) h += '<button type="button" class="ops-staff-chip-x" data-action="hdcnt-sp-ppl-rm" data-row-id="' + escH(rowId || '') + '" data-role="' + role + '" data-name="' + escH(nm) + '" title="外す">×</button>';
     h += '</span>';
   });
@@ -24983,7 +24989,7 @@ function hdSpPeopleRowHTML(list, rowId, role, icon, label, locked, cands, treat)
     oh += '<option value="__free__">自由入力...</option>';
     h += '<select class="ops-staff-add" data-hdcnt-sp-add="' + escH(rowId || '') + '" data-role="' + role + '">' + oh + '</select>';
   }
-  if (role === 'staff' && treat) h += '<button type="button" class="lastasg-btn" data-action="hdcnt-sp-hist" data-treat="' + escH(treat) + '" title="この治療に前回入った人">🕘</button>';
+  if (role === 'staff' && treat) h += '<button type="button" class="lastasg-btn" data-action="hdcnt-sp-hist" data-treat="' + escH(treat) + '" title="この治療に前回入った人">' + ico('history', 13) + '</button>';
   h += '</div>';
   return h;
 }
@@ -25018,7 +25024,7 @@ function ceRosterRefHTML(ds, dat) {
   var filled = slots.filter(function(s){ return !!duties[s.id]; }).length;
   var h = '<div class="staffz">';
   h += '<div class="staffz-hd" onclick="toggleCeRef()">';
-  h += '<span class="staffz-ttl">🩺 CE担当表</span>';
+  h += '<span class="staffz-ttl">'+ico('stethoscope')+' CE担当表</span>';
   h += '<span class="staffz-badge">'+filled+' / '+slots.length+' 枠</span>';
   h += '<span class="staffz-arrow" id="ce-ref-arrow">'+(_ceRefOpen?'▲':'▼')+'</span>';
   h += '</div>';
@@ -25057,17 +25063,17 @@ function renderPageHD(ds) {
   var hdPct = hdTotal===0 ? 100 : Math.round(hdDone/hdTotal*100);
 
   var h = '<div class="pg-hd" style="display:flex;align-items:center;gap:6px;margin-bottom:2px">';
-  h += '<div class="pt2" style="flex:1">' + pageNavTitleHTML('🩸 HD連絡表　' + fmtJ(ds) + '（' + wf + '）') + '</div>';
+  h += '<div class="pt2" style="flex:1">' + pageNavTitleHTML(ico('droplet', 22) + ' HD連絡表　' + fmtJ(ds) + '（' + wf + '）') + '</div>';
   var _tblOut = tabletUnreturnedCount(ds);
-  h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">📱<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
+  h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">'+ico('device-tablet')+'<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
   /* 掲示板・スケジュールもCE版と同じ並びで出す。中身は主観ごとに別スレッド
      （掲示板は kind、スケジュールは dat.hdSchedule）なので、HDにはHDの分だけが出る。 */
   var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
-  h += '<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">📢<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"' + (_brdN ? '' : ' style="display:none"') + '>' + (_brdN > 99 ? '99+' : _brdN) + '</span></button>';
-  h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">🕒<span class="hd-btn-text"> タイムライン</span></button>';
+  h += '<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">'+ico('speakerphone')+'<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"' + (_brdN ? '' : ' style="display:none"') + '>' + (_brdN > 99 ? '99+' : _brdN) + '</span></button>';
+  h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">'+ico('clock')+'<span class="hd-btn-text"> タイムライン</span></button>';
   h += pageNavTodayBtnHTML('btn btn-sm pnav-today-m');
-  h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">🖨️<span class="hd-btn-text"> 印刷</span></button>';
-  h += '<button class="btn btn-g btn-sm paper-btn" onclick="openPaperSheet(curDs)" title="停電・回線断のときに紙で使う様式を印刷">📄<span class="hd-btn-text"> 紙用</span></button>';
+  h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">'+ico('printer')+'<span class="hd-btn-text"> 印刷</span></button>';
+  h += '<button class="btn btn-g btn-sm paper-btn" onclick="openPaperSheet(curDs)" title="停電・回線断のときに紙で使う様式を印刷">'+ico('file-text')+'<span class="hd-btn-text"> 紙用</span></button>';
   h += '</div>';
   h += '<div id="prior-memo-alert" style="display:none">' + priorMemoAlertContents(ds) + '</div>';
 
@@ -25092,7 +25098,7 @@ function renderPageHD(ds) {
   var _hszc = plCounts(ds);
   h += '<div class="staffz">';
   h += '<div class="staffz-hd" onclick="toggleStaffZone()">';
-  h += '<span class="staffz-ttl">👥 人員配置管理</span>';
+  h += '<span class="staffz-ttl">'+ico('users')+' 人員配置管理</span>';
   h += '<span class="staffz-badge" id="staffz-badge-staff">当日'+_hszc.staffN+'名</span>';
   h += '<span class="staffz-badge" id="staffz-badge-unassigned" style="color:var(--rd)'+(_hszc.unassignedN?'':';display:none')+'">未割当'+_hszc.unassignedN+'</span>';
   h += '<span class="staffz-arrow" id="staffz-arrow">'+(_staffZoneOpen?'▲':'▼')+'</span>';
@@ -25118,8 +25124,8 @@ function renderPageHD(ds) {
 
   /* HDチェックリスト（共通業務・曜日別業務）。.clgラッパーはCE版と同じクラスなので、
      dashJump('.clg')・closeItemsの sel:'.clg' がCE/HDどちらの日ページでも無改造で動く */
-  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📌</span> HD共通業務（毎日・'+D.hdDly.length+'項目）'+clMineBtnHTML(true)+'</div><div id="hdcl"></div></div>';
-  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt"><span>📅</span> HD曜日別業務 <span class="wb">'+wf+'</span></div><div id="hdwcl"></div></div><hr>';
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt">'+ico('pin', 14)+' HD共通業務（毎日・'+D.hdDly.length+'項目）'+clMineBtnHTML(true)+'</div><div id="hdcl"></div></div>';
+  h += '<div class="clg'+(clk?' lg':'')+'"><div class="clt">'+ico('calendar-week', 14)+' HD曜日別業務 <span class="wb">'+wf+'</span></div><div id="hdwcl"></div></div><hr>';
 
   /* 業務連絡・申し送り（HD専用スレッド dat.hdMemos。マークアップは memoSectionHTML でCEと共通） */
   h += memoSectionHTML(ds, mlk);
@@ -25450,12 +25456,12 @@ function renderPageHD(ds) {
    とくに患者情報を書かせないための注意書き（.memo-notice）が2箇所にあり、片方だけ文面を直すと
    もう一方の主観だけ古い注意書きが残る——患者安全に関わる文言なので、1箇所に集約する。 */
 function memoSectionHTML(ds, mlk){
-  var h = '<div class="st">📝 業務連絡・申し送り'+(mlk?'<span class="slb lk">🔒</span>':'')+'</div>';
+  var h = '<div class="st">'+ico('message-2', 14)+' 業務連絡・申し送り'+(mlk?'<span class="slb lk">🔒</span>':'')+'</div>';
   h += '<div class="memo-list" id="memo-list"></div>';
   if (mlk) return h;
   h += '<div class="memo-input-area">';
   /* 注意書き（常時表示） */
-  h += '<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">💡 <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
+  h += '<div class="memo-notice">⚠️ <strong>患者氏名・病室番号・診断名・カルテ番号は入力しないでください。</strong>このデータはクラウドに保存されます。<br><span style="font-size:11px;color:var(--txt3)">'+ico('bulb', 12)+' <strong>@</strong> を入力するとスタッフ名をメンションできます。</span></div>';
   /* 患者情報検知警告エリア */
   h += '<div id="memo-phi-warn" class="memo-phi-warn" style="display:none"></div>';
   h += '<div class="memo-media-preview" id="memo-media-preview"></div>';
@@ -25464,8 +25470,8 @@ function memoSectionHTML(ds, mlk){
   h += '<button class="btn btn-p" style="align-self:flex-end" onclick="postMemo(\''+ds+'\')" id="memo-send-btn">送信</button>';
   h += '</div>';
   h += '<div class="memo-tools">';
-  h += '<label class="memo-media-btn">📎 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
-  h += '<label class="memo-carry-lbl" title="この申し送りが済にならないまま日付が変わったら、次に連絡表がある日へ自動で移します"><input type="checkbox" id="memo-carry">🔁 済でなければ次の日へ繰り越す</label>';
+  h += '<label class="memo-media-btn">'+ico('paperclip', 13)+' 画像/動画<input type="file" id="memo-media-input" accept="image/*,video/*" multiple style="display:none" onchange="onMemoMediaAdd(this)"></label>';
+  h += '<label class="memo-carry-lbl" title="この申し送りが済にならないまま日付が変わったら、次に連絡表がある日へ自動で移します"><input type="checkbox" id="memo-carry">'+ico('repeat', 13)+' 済でなければ次の日へ繰り越す</label>';
   h += '</div>';
   h += '</div>';
   return h;
@@ -25757,9 +25763,9 @@ function renderMemos(ds, dat, locked) {
        + (isDone ? ' checked' : '') + '>'
        + '<span class="memo-done-txt">済</span>'
        + '</label>';
-    if (showEdit) h += '<button class="mp-edit" data-mkey="' + escH(mkey) + '" data-action="editMemo" title="編集">✏️</button>';
-    if (canMove)  h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">📅</button>';
-    if (canMove)  h += '<button class="mp-carry' + (m.carry ? ' on' : '') + '" data-mkey="' + escH(mkey) + '" data-ds="' + ds + '" data-action="toggleMemoCarry" title="' + (m.carry ? '繰り越しON：済でなければ次の日へ移します（タップでOFF）' : '済でなければ次の日へ繰り越す（タップでON）') + '">🔁</button>';
+    if (showEdit) h += '<button class="mp-edit" data-mkey="' + escH(mkey) + '" data-action="editMemo" title="編集">' + ico('pencil', 14) + '</button>';
+    if (canMove)  h += '<button class="mp-move" data-idx="' + i + '" data-ds="' + ds + '" data-action="moveMemo" title="別日へ移動">' + ico('calendar-event', 14) + '</button>';
+    if (canMove)  h += '<button class="mp-carry' + (m.carry ? ' on' : '') + '" data-mkey="' + escH(mkey) + '" data-ds="' + ds + '" data-action="toggleMemoCarry" title="' + (m.carry ? '繰り越しON：済でなければ次の日へ移します（タップでOFF）' : '済でなければ次の日へ繰り越す（タップでON）') + '">' + ico('repeat', 14) + '</button>';
     if (canDel)   h += '<button class="mp-del" data-idx="' + i + '" data-ds="' + ds + '" data-action="delMemo" title="削除">✕</button>';
     h += '</div>';
     h += '<div class="mp-meta">';
@@ -25767,7 +25773,7 @@ function renderMemos(ds, dat, locked) {
     h += '<span>' + (m.ts ? fmtTS(m.ts) : '') + '</span>';
     if (m.isAdmin) h += '<span style="font-size:9px;background:var(--gd-bg);color:var(--gd);border-radius:4px;padding:1px 5px;border:1px solid var(--gd-bdr)">管理者</span>';
     /* 自動の繰り越しで来たものは最初に書かれた日と日数、手動の📅移動は従来どおり直前の日 */
-    if (m.lastMove === 'carry' && m.origDs) h += '<span class="mp-carried">🔁 ' + memoMD(m.origDs) + 'から繰越（' + memoCarryDays(m.origDs, ds) + '日目）</span>';
+    if (m.lastMove === 'carry' && m.origDs) h += '<span class="mp-carried">' + ico('repeat', 12) + ' ' + memoMD(m.origDs) + 'から繰越（' + memoCarryDays(m.origDs, ds) + '日目）</span>';
     else if (m.movedFrom) h += '<span style="font-size:10px;color:var(--txt3)">(' + memoMD(m.movedFrom) + 'から移動)</span>';
     h += '</div>';
     if (m.text) {
@@ -25827,7 +25833,7 @@ function renderMemos(ds, dat, locked) {
     /* 返信ボタン＋件数（返信の投稿は memo 権限に連動） */
     if (!locked || reps.length) {
       h += '<div class="mp-acts">';
-      if (!locked) h += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" data-action="toggleMemoReply" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '">💬 返信</button>';
+      if (!locked) h += '<button class="btn btn-g btn-sm" style="font-size:11px;padding:2px 8px" data-action="toggleMemoReply" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '">' + ico('message-circle', 13) + ' 返信</button>';
       if (reps.length) h += '<span class="mp-rcount">返信 ' + reps.length + '件</span>';
       h += '</div>';
     }
@@ -25837,7 +25843,7 @@ function renderMemos(ds, dat, locked) {
       h += '<div class="memo-media-preview" id="mp-rprev-' + escH(mkey) + '"></div>';
       h += '<textarea class="mp-ri" rows="2" placeholder="この申し送りに返信…" id="mp-ri-' + escH(mkey) + '"></textarea>';
       h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">';
-      h += '<label class="memo-media-btn">📎 画像<input type="file" accept="image/*" multiple style="display:none" data-action="memoReplyFile" data-mkey="' + escH(mkey) + '"></label>';
+      h += '<label class="memo-media-btn">' + ico('paperclip', 13) + ' 画像<input type="file" accept="image/*" multiple style="display:none" data-action="memoReplyFile" data-mkey="' + escH(mkey) + '"></label>';
       h += '<button class="btn btn-p btn-sm" style="font-size:11px" data-action="postMemoReply" data-ds="' + escH(ds) + '" data-mkey="' + escH(mkey) + '" id="mp-rsend-' + escH(mkey) + '">返信</button>';
       h += '</div></div>';
     }
@@ -27534,7 +27540,7 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   var marks = '';
   if (isAbsent) marks += '<span class="dc-mk off">休</span>';
   if (d.freeRole && svRole !== 'フリー') marks += '<span class="dc-mk role">' + escH(roleFree ? (svNote || '自由記述') : svRole) + '</span>';
-  if (showPhs && svp && svp !== '__free__') marks += '<span class="dc-mk phs">📞 ' + escH(svp) + '</span>';
+  if (showPhs && svp && svp !== '__free__') marks += '<span class="dc-mk phs">' + ico('phone', 11) + ' ' + escH(svp) + '</span>';
   var cks = '';
   dutyCardChecks(ds, dat, d).forEach(function(c){
     if (c.on) cks += '<span class="dc-mk ck' + (c.psg ? ' psg' : '') + '">✓' + escH(c.k) + '</span>';
@@ -27586,38 +27592,38 @@ function openDutyCardModal(ds, slotId) {
 
   var h = '<h3>' + escH(d.icon || '') + ' ' + escH(d.label || '') + '</h3>'
     + (ok ? '' : '<div class="pn" style="font-size:11px;margin:0 0 8px">🔒 担当の編集はロックされています（見るだけ）</div>')
-    + '<div class="hdst-sec" style="margin-top:0"><div class="hdst-hd">👤 担当者</div>'
+    + '<div class="hdst-sec" style="margin-top:0"><div class="hdst-hd">' + ico('user') + ' 担当者</div>'
     + '<select class="ds2" id="dcm-who" style="margin-bottom:0"' + dis + '>' + dutyCardWhoOptsHTML(sv) + '</select></div>'
-    + '<div class="hdst-sec"><div class="hdst-toggles"><label class="hdst-tg off"><input type="checkbox" id="dcm-absent"' + (o.absent ? ' checked' : '') + dis + '><span>🏖️ 休み</span></label></div>'
+    + '<div class="hdst-sec"><div class="hdst-toggles"><label class="hdst-tg off"><input type="checkbox" id="dcm-absent"' + (o.absent ? ' checked' : '') + dis + '><span>' + ico('beach', 16) + ' 休み</span></label></div>'
     + ((typeof stored === 'string' && stored) ? '<div class="pn" style="font-size:11px;margin:6px 0 0">休みにした人：' + escH(stored) + '（休みを外すと元の枠へ戻します）</div>' : '')
     + '</div>';
   if (d.freeRole) {
-    h += '<div class="hdst-sec"><div class="hdst-hd">🎭 役割</div><select class="ds2" id="dcm-role" style="margin-bottom:5px"' + dis + '>'
+    h += '<div class="hdst-sec"><div class="hdst-hd">' + ico('masks-theater') + ' 役割</div><select class="ds2" id="dcm-role" style="margin-bottom:5px"' + dis + '>'
       + roleOpts.map(function(r){ return '<option value="' + escH(r) + '"' + (svRole === r ? ' selected' : '') + '>' + escH(r) + '</option>'; }).join('') + '</select>'
       + '<input type="text" class="ds2" id="dcm-role-free" placeholder="役割を入力..." value="' + escH(roleFree ? svNote : '') + '"' + dis + ' style="margin-bottom:0;' + (roleFree ? '' : 'display:none') + '"></div>';
   }
   if (cks.length) {
-    h += '<div class="hdst-sec"><div class="hdst-hd">✅ 業務のチェック</div><div class="dc-cbs" id="dcm-cks" style="margin-bottom:0">'
+    h += '<div class="hdst-sec"><div class="hdst-hd">' + ico('checklist') + ' 業務のチェック</div><div class="dc-cbs" id="dcm-cks" style="margin-bottom:0">'
       + cks.map(function(c, i){
           return '<label class="dc-cb-item' + (c.psg ? ' psg-duty' : '') + (c.on ? ' checked' : '') + '" title="' + (c.psg ? '前日装着あり：担当者として割り当て済み' : '') + '">'
-            + '<input type="checkbox" data-i="' + i + '"' + (c.on ? ' checked' : '') + dis + '>' + (c.psg ? '🌙 PSG取り外し（担当）' : escH(c.k)) + '</label>';
+            + '<input type="checkbox" data-i="' + i + '"' + (c.on ? ' checked' : '') + dis + '>' + (c.psg ? ico('moon', 13) + ' PSG取り外し（担当）' : escH(c.k)) + '</label>';
         }).join('') + '</div></div>';
   }
   if (showPhs) {
-    h += '<div class="hdst-sec"><div class="hdst-hd">📞 PHS番号</div><select class="ds2" id="dcm-phs" style="margin-bottom:0"' + phsDis + '><option value="">PHS番号 —</option>'
+    h += '<div class="hdst-sec"><div class="hdst-hd">' + ico('phone') + ' PHS番号</div><select class="ds2" id="dcm-phs" style="margin-bottom:0"' + phsDis + '><option value="">PHS番号 —</option>'
       + D.phs.map(function(p){ return '<option value="' + escH(p) + '"' + (p === svp ? ' selected' : '') + '>' + escH(p) + '</option>'; }).join('')
       + '<option value="__free__"' + ((svp === '__free__' || phsCustom) ? ' selected' : '') + '>自由記述...</option></select>'
       + '<input type="text" class="ds2" id="dcm-phs-free" placeholder="PHS番号を入力..." value="' + escH(phsCustom ? svp : '') + '"' + phsDis
       + ' style="margin:5px 0 0;' + ((svp === '__free__' || phsCustom) ? '' : 'display:none') + '"></div>';
   }
-  h += '<div class="hdst-sec"><div class="hdst-hd">🤝 兼務 <small>' + (sv ? escH(sv) + ' さんが一緒に受け持つ担当（印だけで人数には数えません）' : '一緒に受け持つ担当') + '</small></div>'
+  h += '<div class="hdst-sec"><div class="hdst-hd">' + ico('users-group') + ' 兼務 <small>' + (sv ? escH(sv) + ' さんが一緒に受け持つ担当（印だけで人数には数えません）' : '一緒に受け持つ担当') + '</small></div>'
     + (sv
         ? '<div id="dcm-co">' + coPickButtonsHTML(dat, sv, cp, !okCo) + '</div>'
           + '<div class="pn" id="dcm-co-hint" style="font-size:11px;margin:6px 0 0;display:none">担当者を変えるときは、兼務は決定のあとにもう一度開いて付けてください（いまの兼務の選択は反映されません）</div>'
           + (_offlineMode ? '<div class="pn" style="font-size:11px;margin:6px 0 0">📴 災害モードでは兼務を付けられません</div>' : '')
         : '<div class="pn" style="font-size:11px;margin:0">担当者が入ってから付けられます（先に決定して、もう一度開いてください）</div>')
     + '</div>';
-  h += '<div class="hdst-sec" id="dcm-note-sec"' + (roleFree ? ' style="display:none"' : '') + '><div class="hdst-hd">📝 備考</div>'
+  h += '<div class="hdst-sec" id="dcm-note-sec"' + (roleFree ? ' style="display:none"' : '') + '><div class="hdst-hd">' + ico('notes') + ' 備考</div>'
     + '<textarea id="dcm-note" class="ds2" rows="3" style="width:100%;box-sizing:border-box;margin:0" placeholder="' + (ok ? '備考（患者さんの情報は書かない）' : '') + '"' + (ok ? '' : ' readonly') + '>' + escH(svNote) + '</textarea></div>';
   h += '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
     + (ok ? '<button class="btn btn-g" id="dcm-cancel">やめる</button><button class="btn btn-p" id="dcm-save">決定</button>' : '<button class="btn btn-p" id="dcm-cancel">閉じる</button>')
@@ -27786,7 +27792,7 @@ function buildDG(ds, dat, locked) {
         var tplBtn2=document.createElement('button');
         tplBtn2.className='btn btn-p btn-sm'; tplBtn2.type='button';
         tplBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
-        tplBtn2.textContent='💾 テンプレ保存';
+        tplBtn2.innerHTML=ico('device-floppy',12)+' テンプレ保存';
         tplBtn2.title='現在の枠設定をテンプレとして保存（担当未入力ページのみ適用）';
         tplBtn2.onclick=function(){
           if(!confirm('現在の枠設定をテンプレートとして保存しますか？\n担当者が未入力のページにのみ適用されます（入力済みページは変更されません）。')) return;
@@ -27804,7 +27810,7 @@ function buildDG(ds, dat, locked) {
           var rstBtn2=document.createElement('button');
           rstBtn2.className='btn btn-d btn-sm'; rstBtn2.type='button';
           rstBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
-          rstBtn2.textContent='↩';  rstBtn2.title='テンプレートに戻す';
+          rstBtn2.innerHTML=ico('arrow-back-up',12);  rstBtn2.title='テンプレートに戻す';
           rstBtn2.onclick=function(){ D.pages[ds].customDuties=null; saveD(); renderPage(ds); };
           tagRow.appendChild(rstBtn2);
         }
@@ -27812,7 +27818,7 @@ function buildDG(ds, dat, locked) {
           var clrBtn2=document.createElement('button');
           clrBtn2.className='btn btn-d btn-sm'; clrBtn2.type='button';
           clrBtn2.style.cssText='font-size:10px;padding:3px 6px;white-space:nowrap';
-          clrBtn2.textContent='🗑'; clrBtn2.title='全枠クリア';
+          clrBtn2.innerHTML=ico('trash',12); clrBtn2.title='全枠クリア';
           clrBtn2.onclick=function(){
             if(!confirm('全担当枠を削除しますか？')) return;
             /* 割り当て済みスタッフを余剰/ゾーンからも除いてプールへ戻す */
@@ -27998,12 +28004,12 @@ function renderExtraFrees(ds, dat, extras, locked, showPhs, phsLk) {
       D.phs.forEach(function(p){ popts+='<option value="'+p+'"'+(p===ef.phs?' selected':'')+'>'+p+'</option>'; });
       popts+='<option value="__free__"'+(ef.phs==='__free__'?' selected':'')+'>自由記述...</option>';
       var isCustomP = ef.phs && ef.phs!=='__free__' && D.phs.indexOf(ef.phs)===-1;
-      html += '<div class="pl2">📞 PHS番号</div>';
+      html += '<div class="pl2">'+ico('phone', 11)+' PHS番号</div>';
       html += '<select class="ps'+(ef.phs?' set':'')+'"'+((locked||phsLk)?' disabled':'')+' id="'+idPfx+'-phs">'+popts+'</select>';
       html += '<input type="text" class="ds2" id="'+idPfx+'-phstxt" placeholder="PHS番号を入力..." value="'+(isCustomP?ef.phs:'')+'"'+((locked||phsLk)?' disabled':'')+' style="margin-top:4px;'+(isCustomP||ef.phs==='__free__'?'':'display:none')+'">';
     }
 
-    html += '<div class="pl2" style="margin-top:5px">📝 備考</div>';
+    html += '<div class="pl2" style="margin-top:5px">'+ico('notes', 11)+' 備考</div>';
     html += '<input type="text" class="ds2" id="'+idPfx+'-note" placeholder="備考..." value="'+(ef.note||'')+'"'+(locked?' disabled':'')+'>';
 
     efCard.innerHTML = html;
@@ -28080,7 +28086,7 @@ function buildOPS(ds,dat,locked) {
     var cxBtn = document.createElement('button');
     cxBtn.type = 'button';
     cxBtn.className = 'ops-done-btn ops-tag-btn cx' + (item.cancelled ? ' on' : '');
-    cxBtn.textContent = item.cancelled ? '⛔ 中止済' : '⛔ 中止';
+    cxBtn.innerHTML = ico('ban', 12) + (item.cancelled ? ' 中止済' : ' 中止');
     cxBtn.title = item.cancelled ? 'タップで中止を取り消す' : 'タップで症例を中止にする';
     cxBtn.disabled = !!locked;
     if (!locked) cxBtn.onclick = function(){
@@ -28093,14 +28099,14 @@ function buildOPS(ds,dat,locked) {
        作りは「終了」トグルと同じで、押すと items[idx] を直接書き換えて保存・再描画する。 */
     if (itemId === 'ope' || picker) {
       var tagRow2 = document.createElement('div'); tagRow2.className = 'ops-staff-row';
-      var tagLbl = document.createElement('span'); tagLbl.className = 'ops-meta-lbl'; tagLbl.textContent = '🏷';
+      var tagLbl = document.createElement('span'); tagLbl.className = 'ops-meta-lbl'; tagLbl.innerHTML = ico('tag', 13);
       tagRow2.appendChild(tagLbl);
-      var tagDefs = itemId !== 'ope' ? [] : (picker ? [['emergency','em','🚑 急患']] : [['emergency','em','🚑 急患'], ['scope','sc','🔭 スコープ']]);
+      var tagDefs = itemId !== 'ope' ? [] : (picker ? [['emergency','em',ico('ambulance', 12) + ' 急患']] : [['emergency','em',ico('ambulance', 12) + ' 急患'], ['scope','sc',ico('telescope', 12) + ' スコープ']]);
       tagDefs.forEach(function(t){
         var b = document.createElement('button');
         b.type = 'button';
         b.className = 'ops-done-btn ops-tag-btn ' + t[1] + (item[t[0]] ? ' on' : '');
-        b.textContent = t[2];
+        b.innerHTML = t[2];
         b.disabled = !!locked;
         if (!locked) b.onclick = function(){ items[idx][t[0]] = !items[idx][t[0]]; if (t[0] === 'scope' && !items[idx].scope) delete items[idx].scopeDr; saveItems(); renderItems(); };
         tagRow2.appendChild(b);
@@ -28118,7 +28124,7 @@ function buildOPS(ds,dat,locked) {
     }
 
     var staffRow = document.createElement('div'); staffRow.className = 'ops-staff-row';
-    var staffLbl = document.createElement('span'); staffLbl.className = 'ops-meta-lbl'; staffLbl.textContent = '👤';
+    var staffLbl = document.createElement('span'); staffLbl.className = 'ops-meta-lbl'; staffLbl.innerHTML = ico('user', 13);
     staffRow.appendChild(staffLbl);
     var staffList = opsItemStaff(item);
     staffList.forEach(function(nm){
@@ -28127,7 +28133,7 @@ function buildOPS(ds,dat,locked) {
       /* 症例の直後にその場で到達度を付ける入口。教育の権限は業務のロックと別なので、ロック中でも出す */
       if (picker && canEdu() && opsItemName(item)) {
         var eBtn = document.createElement('button');
-        eBtn.type = 'button'; eBtn.className = 'ops-staff-chip-edu'; eBtn.textContent = '🎓'; eBtn.title = nm + ' さんのこの術式の到達度を付ける';
+        eBtn.type = 'button'; eBtn.className = 'ops-staff-chip-edu'; eBtn.innerHTML = ico('school', 13); eBtn.title = nm + ' さんのこの術式の到達度を付ける';
         eBtn.onclick = (function(name2){ return function(){
           var it2 = items[idx];
           openEduLvPicker(name2, eduKey(itemId, opsItemDept(it2), opsItemCat(it2), opsItemName(it2)));
@@ -28185,7 +28191,7 @@ function buildOPS(ds,dat,locked) {
     /* この術式に最近入った人の一覧（行の右端に薄く。ロック中でも見るだけはできる） */
     if (lastAsgKeyOps(itemId, item)) {
       var laBtn = document.createElement('button');
-      laBtn.type = 'button'; laBtn.className = 'lastasg-btn'; laBtn.textContent = '🕘'; laBtn.title = 'この術式に前回入った人';
+      laBtn.type = 'button'; laBtn.className = 'lastasg-btn'; laBtn.innerHTML = ico('history', 14); laBtn.title = 'この術式に前回入った人';
       laBtn.onclick = function(){ var it3 = items[idx]; openLastAsgModal(lastAsgKeyOps(itemId, it3), opsItemTitle(it3, itemId) || opsItemName(it3), ds, opsStaffCandidates(ds)); };
       staffRow.appendChild(laBtn);
     }
@@ -28197,7 +28203,7 @@ function buildOPS(ds,dat,locked) {
        主・サブは別途記録しない（教育者の有無が実質的にその役割を果たす）。 */
     if (D.eduCfg && D.eduCfg.ceEdu) {
       var eduRow = document.createElement('div'); eduRow.className = 'ops-staff-row';
-      var eduLbl = document.createElement('span'); eduLbl.className = 'ops-meta-lbl'; eduLbl.textContent = '🎓';
+      var eduLbl = document.createElement('span'); eduLbl.className = 'ops-meta-lbl'; eduLbl.innerHTML = ico('school', 13);
       eduRow.appendChild(eduLbl);
       var eduList = opsItemEdu(item);
       eduList.forEach(function(nm){
@@ -28254,7 +28260,7 @@ function buildOPS(ds,dat,locked) {
     /* フラット版は中止を終了の右に置く（ツリー版は🏷行へ移した） */
     if (!picker) endRow.appendChild(cxBtn);
     if (item.done || item.endTime != null) {
-      var endLbl = document.createElement('span'); endLbl.className = 'ops-meta-lbl'; endLbl.textContent = '🏁';
+      var endLbl = document.createElement('span'); endLbl.className = 'ops-meta-lbl'; endLbl.innerHTML = ico('flag', 13);
       endRow.appendChild(endLbl);
       var endInp = document.createElement('input');
       endInp.type = 'time'; endInp.className = 'ops-end-time'; endInp.disabled = !!locked;
@@ -28278,7 +28284,7 @@ function buildOPS(ds,dat,locked) {
     var noteDomId = itemId + '-' + idx;
     var noteLblId = 'ops-note-lbl-' + noteDomId, noteFieldId = 'ops-note-' + noteDomId, noteLinkId = 'ops-note-add-' + noteDomId;
     var noteRow = document.createElement('div'); noteRow.className = 'ops-staff-row';
-    var noteLbl = document.createElement('span'); noteLbl.className = 'ops-meta-lbl'; noteLbl.id = noteLblId; noteLbl.textContent = '📝';
+    var noteLbl = document.createElement('span'); noteLbl.className = 'ops-meta-lbl'; noteLbl.id = noteLblId; noteLbl.innerHTML = ico('notes', 13);
     if (noteCollapsed) noteLbl.style.display = 'none';
     noteRow.appendChild(noteLbl);
     var noteTa = document.createElement('textarea'); noteTa.className = 'ops-txt'; noteTa.id = noteFieldId;
@@ -28392,7 +28398,7 @@ function buildOPS(ds,dat,locked) {
           var legSpan=document.createElement('span'); legSpan.style.cssText='flex:1;font-size:12px;background:var(--sur2);border:1px solid var(--bdr);border-radius:var(--rs);padding:5px 8px;color:var(--txt2)';
           legSpan.textContent='（旧）'+item.sel;
           var legTm=withTime?opsItemTimeLabel(item):'';
-          if(legTm){ var legT=document.createElement('span'); legT.className='ops-pick-time'; legT.textContent='⏱ '+legTm; legRow.appendChild(legT); }
+          if(legTm){ var legT=document.createElement('span'); legT.className='ops-pick-time'; legT.innerHTML=ico('stopwatch',12)+' '+escH(legTm); legRow.appendChild(legT); }
           var resetBtn=document.createElement('button'); resetBtn.type='button'; resetBtn.disabled=!!locked;
           resetBtn.style.cssText='font-size:11px;padding:3px 8px;border:1px solid var(--bdr);border-radius:var(--rs);cursor:pointer;background:var(--sur);white-space:nowrap';
           resetBtn.textContent='再選択';
@@ -28403,9 +28409,9 @@ function buildOPS(ds,dat,locked) {
              「⏱ 9:00 腹腔鏡下胆嚢摘出術」の1行だけを出す（科は出さない）。 */
           var pickBtn=document.createElement('button'); pickBtn.type='button'; pickBtn.className='ops-pick-btn'; pickBtn.disabled=!!locked;
           var pTtl=opsItemTitle(item,itemId), pTm=withTime?opsItemTimeLabel(item):'';
-          pickBtn.innerHTML=(pTm?'<span class="ops-pick-time">⏱ '+escH(pTm)+'</span>':'')
+          pickBtn.innerHTML=(pTm?'<span class="ops-pick-time">'+ico('stopwatch',12)+' '+escH(pTm)+'</span>':'')
             +(pTtl?'<span class="ops-pick-title">'+escH(pTtl)+'</span>':'<span class="ops-pick-ph">＋ '+escH(labelName)+'を選ぶ</span>')
-            +(locked?'':'<span class="ops-pick-edit">✏️</span>');
+            +(locked?'':'<span class="ops-pick-edit">'+ico('pencil',13)+'</span>');
           if(!locked) pickBtn.onclick=openPick;
           hierDiv.appendChild(pickBtn);
         }
@@ -28417,12 +28423,12 @@ function buildOPS(ds,dat,locked) {
             if(rbv){
               var rChip=document.createElement('button'); rChip.type='button'; rChip.className='ops-robo-chip';
               var rbN=(roboFind(rbv.id)||{imgs:[]}).imgs.length;
-              rChip.textContent='🤖 '+(rbv.n||'配置')+(rbN?' 🖼'+(rbN>1?rbN:''):''); rChip.title='配置図を見る';
+              rChip.innerHTML=ico('robot',14)+' '+escH(rbv.n||'配置')+(rbN?' '+ico('photo',14)+(rbN>1?rbN:''):''); rChip.title='配置図を見る';
               rChip.onclick=(function(id2){return function(){openRoboImgModal(id2);};})(rbv.id);
               roboRow.appendChild(rChip);
             } else if(!locked){
               var rAdd=document.createElement('button'); rAdd.type='button'; rAdd.className='ops-robo-add';
-              rAdd.textContent='🤖 配置を選ぶ'; rAdd.onclick=openPick;
+              rAdd.innerHTML=ico('robot',14)+' 配置を選ぶ'; rAdd.onclick=openPick;
               roboRow.appendChild(rAdd);
             }
           }
@@ -28431,7 +28437,7 @@ function buildOPS(ds,dat,locked) {
             /* 依頼Dr.が無いものはスコープ依頼として出さず、入力を促す印にする（押すとポップアップ） */
             var sReq=opsItemScopeReq(item);
             var sChip=document.createElement('button'); sChip.type='button'; sChip.className=sReq?'ops-scope-chip':'ops-time-warn';
-            sChip.textContent=sReq?('🔭 スコープ（'+opsItemScopeDr(item)+'）'):'⚠ スコープの依頼Dr.未入力'; sChip.disabled=!!locked; sChip.title='ポップアップで変更';
+            sChip.innerHTML=sReq?(ico('telescope',14)+' スコープ（'+escH(opsItemScopeDr(item))+'）'):'⚠ スコープの依頼Dr.未入力'; sChip.disabled=!!locked; sChip.title='ポップアップで変更';
             if(!locked) sChip.onclick=openPick;
             roboRow.appendChild(sChip);
           }
@@ -28481,7 +28487,7 @@ function buildOPS(ds,dat,locked) {
           var supArr=opsItemSup(item);
           if(supArr.length){
             var supRow=document.createElement('div'); supRow.className='ops-sup-inline'+(locked?'':' tap');
-            supRow.innerHTML='<span class="ops-sup-lbl">🧰 使用物品</span>'+supViewHTML(supArr);
+            supRow.innerHTML='<span class="ops-sup-lbl">'+ico('tool',12)+' 使用物品</span>'+supViewHTML(supArr);
             if(!locked) supRow.onclick=(function(i2){return function(){openPickWith(i2,true);};})(idx);
             itemWrap.appendChild(supRow);
           }
@@ -28843,7 +28849,7 @@ function buildOPS(ds,dat,locked) {
   var activeOpsCards = dat.ops_cards; /* null=後方互換(全表示), []=0枠, ['ope','psg',...]=選択表示 */
 
   function buildOpeCard(){
-    var opeCard = card('🔪 オペ');
+    var opeCard = card(ico('blade',16)+' オペ');
     opeCard.id = 'ops-card-ope';
     if (D.opeTree && D.opeTree.length) {
       buildItemListTree(opeCard, 'ope_items', D.opeTree, '術式', 'ope', true, false, true);
@@ -28854,13 +28860,13 @@ function buildOPS(ds,dat,locked) {
     if (ops.ope_note) {
       var opeNoteRow = document.createElement('div'); opeNoteRow.className='ops-row';
       opeNoteRow.style.marginTop='6px';
-      opeNoteRow.innerHTML='<span class="ops-lbl">📝 備考（旧・カード共通）</span><textarea class="ops-txt" id="ops-ope-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.ope_note||'')+'</textarea>';
+      opeNoteRow.innerHTML='<span class="ops-lbl">'+ico('notes',13)+' 備考（旧・カード共通）</span><textarea class="ops-txt" id="ops-ope-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.ope_note||'')+'</textarea>';
       opeCard.appendChild(opeNoteRow);
     }
     g.appendChild(opeCard);
   }
   function buildCathCard(){
-    var cathCard = card('🫀 カテ');
+    var cathCard = card(ico('heart-rate-monitor',16)+' カテ');
     cathCard.id = 'ops-card-cath';
     var bh=ops.cath_briefing_h||'', bm=ops.cath_briefing_m||'';
     var hOpts='', mOpts='';
@@ -28881,24 +28887,24 @@ function buildOPS(ds,dat,locked) {
     if (ops.cath_note) {
       var cathNoteRow = document.createElement('div'); cathNoteRow.className='ops-row';
       cathNoteRow.style.marginTop='6px';
-      cathNoteRow.innerHTML='<span class="ops-lbl">📝 備考（旧・カード共通）</span><textarea class="ops-txt" id="ops-cath-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.cath_note||'')+'</textarea>';
+      cathNoteRow.innerHTML='<span class="ops-lbl">'+ico('notes',13)+' 備考（旧・カード共通）</span><textarea class="ops-txt" id="ops-cath-note" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.cath_note||'')+'</textarea>';
       cathCard.appendChild(cathNoteRow);
     }
     g.appendChild(cathCard);
   }
   function buildMwCard(uid){
-    var c2=card('🚶 6MW（6分間歩行）');
+    var c2=card(ico('walk',16)+' 6MW（6分間歩行）');
     if (!uid) c2.id = 'ops-card-mw';
     var sfx=uid?'-'+uid:'';
     /* 件数だけだった頃の日：件数は読むだけ（書き換えない）、カード共通の備考は値がある日だけ残す */
     if (ops.mw_n) c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">件数</span><span class="mw-legacy">'+escH(String(parseInt(ops.mw_n,10)||0))+'件（旧形式）'+(mwItems(dat).length?'・下のブロックと多い方で数えます':'')+'</span></div>';
-    if (ops.mw_note) c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">📝 備考（旧）</span><textarea class="ops-txt" id="ops-mw-note'+sfx+'" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.mw_note||'')+'</textarea></div>';
+    if (ops.mw_note) c2.innerHTML+='<div class="ops-row"><span class="ops-lbl">'+ico('notes',13)+' 備考（旧）</span><textarea class="ops-txt" id="ops-mw-note'+sfx+'" rows="2" placeholder="備考..."'+dis+'>'+escH(ops.mw_note||'')+'</textarea></div>';
     var mwBox=document.createElement('div'); mwBox.className='mw-list'; c2.appendChild(mwBox);
     g.appendChild(c2);
     renderMwBlocks(ds, mwBox, locked);
   }
   function buildPsgCard(uid, removalOnly){
-    var c3=card('🌙 PSG（睡眠検査）');
+    var c3=card(ico('moon',16)+' PSG（睡眠検査）');
     if (!uid) c3.id = 'ops-card-psg';
     var sfx=uid?'-'+uid:'';
     var fusenChecked=!!(ops.psg_fusen);
@@ -28913,8 +28919,8 @@ function buildOPS(ds,dat,locked) {
     /* 朝の外し→夕の装着の2段にし、両方ある日は見出しで分かるようにする（2026-11-24 現場要望：重なると分かりづらい） */
     var both = prevHasPsgCard && !removalOnly;
     var ttl = c3.querySelector('.ops-ttl');
-    if (ttl) ttl.innerHTML += both ? ' <span class="psg-badge both">☀️外し＋🌙装着</span>'
-      : prevHasPsgCard ? ' <span class="psg-badge off">☀️外しのみ</span>' : '';
+    if (ttl) ttl.innerHTML += both ? ' <span class="psg-badge both">'+ico('sun',12)+'外し＋'+ico('moon',12)+'装着</span>'
+      : prevHasPsgCard ? ' <span class="psg-badge off">'+ico('sun',12)+'外しのみ</span>' : '';
     if (both) c3.classList.add('psg-both');
     function sec(cls, label){
       var d=document.createElement('div'); d.className='psg-sec '+cls;
@@ -28922,19 +28928,19 @@ function buildOPS(ds,dat,locked) {
       c3.appendChild(d); return d;
     }
     if (prevHasPsgCard) {
-      var offSec = sec('off', '☀️ 朝：外し<span class="psg-sec-sub">前日に装着した分</span>');
+      var offSec = sec('off', ico('sun',14)+' 朝：外し<span class="psg-sec-sub">前日に装着した分</span>');
       var psgOffRow=document.createElement('div'); psgOffRow.className='ops-row';
       var psgOffDefault = ops.psg_off || (prevDatPsg && prevDatPsg.ops && prevDatPsg.ops.psg_on) || '';
       psgOffRow.innerHTML='<span class="ops-lbl">号室</span><textarea class="ops-txt" id="ops-psg-off'+sfx+'" rows="2" placeholder="号室など..."'+dis+'>'+escH(psgOffDefault)+'</textarea>';
       offSec.appendChild(psgOffRow);
       /* 確認項目が無くてもマニュアルは開けるように、外しの折りたたみは常に出す */
       var offW=document.createElement('div');
-      offW.innerHTML=opsChkDetailsHTML('psgOff','✅ 外しの確認',opsChkList('psgOff'),ops.psg_chk_off||{},locked,null,'PSG 外し');
+      offW.innerHTML=opsChkDetailsHTML('psgOff',ico('checklist',13)+' 外しの確認',opsChkList('psgOff'),ops.psg_chk_off||{},locked,null,'PSG 外し');
       offSec.appendChild(offW.firstChild);
     }
     /* 装着：外し専用日（前日装着分の外しのみを表示する日）には出さない */
     if (!removalOnly) {
-      var onSec = prevHasPsgCard ? sec('on', '🌙 夕：装着<span class="psg-sec-sub">今日の分</span>') : c3;
+      var onSec = prevHasPsgCard ? sec('on', ico('moon',14)+' 夕：装着<span class="psg-sec-sub">今日の分</span>') : c3;
       var psgOnRow=document.createElement('div'); psgOnRow.className='ops-row';
       psgOnRow.innerHTML=
         '<span class="ops-lbl">'+(prevHasPsgCard?'号室':'装着')+'</span>'
@@ -28943,7 +28949,7 @@ function buildOPS(ds,dat,locked) {
       /* 装着の確認（付箋入力済＋マスタの項目）。普段は閉じて進み具合だけ見せる */
       var fus='<label class="dc-cb-item psg-fusen-wrap'+(fusenChecked?' checked':'')+'"><input type="checkbox" class="psg-fusen-cb" id="ops-psg-fusen'+sfx+'"'+(fusenChecked?' checked':'')+(locked?' disabled':'')+'><span class="psg-fusen-lbl">付箋入力済</span></label>';
       var onW=document.createElement('div');
-      onW.innerHTML=opsChkDetailsHTML('psgOn','✅ 装着の確認',opsChkList('psgOn'),ops.psg_chk_on||{},locked,{html:fus,done:fusenChecked},'PSG 装着');
+      onW.innerHTML=opsChkDetailsHTML('psgOn',ico('checklist',13)+' 装着の確認',opsChkList('psgOn'),ops.psg_chk_on||{},locked,{html:fus,done:fusenChecked},'PSG 装着');
       onSec.appendChild(onW.firstChild);
     }
     var psgRestRow=document.createElement('div'); psgRestRow.className='ops-row';
@@ -28970,7 +28976,7 @@ function buildOPS(ds,dat,locked) {
     g.appendChild(c3);
   }
   function buildFreeCard(uid){
-    var fc=card('📋 フリー業務');
+    var fc=card(ico('clipboard-text',16)+' フリー業務');
     /* 業務名を付けられるように .ops-ttl 内に入力欄を追加（無入力なら従来どおり「フリー業務」のまま集計される） */
     var freeName = (ops.freeNames||{})[uid] || '';
     fc.querySelector('.ops-ttl').innerHTML += ' <input type="text" class="ops-free-name" id="ops-freename-'+uid+'" placeholder="業務名（任意）" maxlength="40" value="'+escH(freeName)+'"'+dis+'>';
@@ -30026,7 +30032,7 @@ function renderSubPanel(ds, it, wrapEl) {
     if (doneDs) doneN++;
     return '<label class="dc-cb-item'+(doneDs?' checked':'')+'"><input type="checkbox" data-dep="'+escH(name)+'"'+(doneDs?' checked':'')+'>'+escH(name)+(doneDs?'（'+fmtMD(doneDs)+'）':'')+'</label>';
   }).join('');
-  if (chipBtn) chipBtn.textContent = '🏥 '+doneN+'/'+subs.length+' ▾';
+  if (chipBtn) chipBtn.innerHTML = ico('building-hospital',12)+' '+doneN+'/'+subs.length+' ▾';
   if (subsEl) subsEl.innerHTML = '<div class="dc-cbs">'+html+'</div>';
 }
 /* チェックリスト進捗バーの更新（updProg/updHdProgの共通実装）。DOM idと「prp」要素の
@@ -33152,11 +33158,11 @@ function dutyReqBoxHTML(ds) {
   if (adminLike()) {
     if (!list.length) return '';
     var act = list.filter(function(r){ return dreqState(r) === 'open'; }).length; /* 受付中＝まだ管理者が手を付けていない */
-    return '<button class="btn btn-g btn-sm dreq-chip' + (act ? ' act' : '') + '" onclick="openDutyReqModal(\'' + ds + '\',true)" title="この日の担当の希望（本人と管理者だけに見えます）">🙋 希望 ' + list.length + '</button>';
+    return '<button class="btn btn-g btn-sm dreq-chip' + (act ? ' act' : '') + '" onclick="openDutyReqModal(\'' + ds + '\',true)" title="この日の担当の希望（本人と管理者だけに見えます）">' + ico('hand-stop', 13) + ' 希望 ' + list.length + '</button>';
   }
   if (!taskSelfName()) return '';
   var uid = currentUser.uid, n = list.filter(function(r){ return r._uid === uid; }).length;
-  return '<button class="btn btn-g btn-sm dreq-chip' + (n ? ' mine' : '') + '" onclick="openDutyReqModal(\'' + ds + '\',' + (n ? 'true' : 'false') + ')" title="管理者が担当を決めるときの参考に届けられます（ほかの職員には見えません）">🙋 ' + (n ? '希望 ' + n : '希望を出す') + '</button>';
+  return '<button class="btn btn-g btn-sm dreq-chip' + (n ? ' mine' : '') + '" onclick="openDutyReqModal(\'' + ds + '\',' + (n ? 'true' : 'false') + ')" title="管理者が担当を決めるときの参考に届けられます（ほかの職員には見えません）">' + ico('hand-stop', 13) + ' ' + (n ? '希望 ' + n : '希望を出す') + '</button>';
 }
 function refreshDutyReqBox(ds) {
   var el = document.getElementById('dreq-box'); if (!el) return;
@@ -33723,13 +33729,60 @@ var HOME_ICONS = {
   'shield-lock': '<path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/><path d="M12 11m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M12 12l0 2.5"/>',
   'tool': '<path d="M7 10h3v-3l-3.5 -3.5a6 6 0 0 1 8 8l6 6a2 2 0 0 1 -3 3l-6 -6a6 6 0 0 1 -8 -8l3.5 3.5"/>',
   'scale': '<path d="M7 20l10 0"/><path d="M6 6l6 -1l6 1"/><path d="M12 3l0 17"/><path d="M9 12l-3 -6l-3 6a3 3 0 0 0 6 0"/><path d="M21 12l-3 -6l-3 6a3 3 0 0 0 6 0"/>',
-  'history': '<path d="M12 8l0 4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/>'
+  'history': '<path d="M12 8l0 4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/>',
+  /* ここから下は連絡表のページ（日ページ）の見出し・ボタン・チップ用（ico() で使う） */
+  'printer': '<path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2"/><path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4"/><path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z"/>',
+  'file-text': '<path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/><path d="M9 9l1 0"/><path d="M9 13l6 0"/><path d="M9 17l6 0"/>',
+  'phone-call': '<path d="M5 4h4l2 5l-2.5 1.5a11 11 0 0 0 5 5l1.5 -2.5l5 2v4a2 2 0 0 1 -2 2a16 16 0 0 1 -15 -15a2 2 0 0 1 2 -2"/><path d="M15 7a2 2 0 0 1 2 2"/><path d="M15 3a6 6 0 0 1 6 6"/>',
+  'circle-check': '<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M9 12l2 2l4 -4"/>',
+  'pin': '<path d="M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5 -1.5l1.5 -4l4 -4"/><path d="M9 15l-4.5 4.5"/><path d="M14.5 4l5.5 5.5"/>',
+  'calendar-week': '<path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z"/><path d="M16 3v4"/><path d="M8 3v4"/><path d="M4 11h16"/><path d="M8 14v4"/><path d="M12 14v4"/><path d="M16 14v4"/>',
+  'message-2': '<path d="M8 9h8"/><path d="M8 13h6"/><path d="M9 18h-3a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-3l-3 3l-3 -3z"/>',
+  'blade': '<path d="M17.707 3.707l2.586 2.586a1 1 0 0 1 0 1.414l-.586 .586a1 1 0 0 0 0 1.414l.586 .586a1 1 0 0 1 0 1.414l-8.586 8.586a1 1 0 0 1 -1.414 0l-.586 -.586a1 1 0 0 0 -1.414 0l-.586 .586a1 1 0 0 1 -1.414 0l-2.586 -2.586a1 1 0 0 1 0 -1.414l.586 -.586a1 1 0 0 0 0 -1.414l-.586 -.586a1 1 0 0 1 0 -1.414l8.586 -8.586a1 1 0 0 1 1.414 0l.586 .586a1 1 0 0 0 1.414 0l.586 -.586a1 1 0 0 1 1.414 0z"/><path d="M8 16l3.2 -3.2"/><path d="M12.8 11.2l3.2 -3.2"/><path d="M14 8l2 2"/><path d="M8 14l2 2"/><path d="M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/>',
+  'heart-rate-monitor': '<path d="M3 4m0 1a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1z"/><path d="M7 20h10"/><path d="M9 16v4"/><path d="M15 16v4"/><path d="M7 10h2l2 3l2 -6l1 3h3"/>',
+  'walk': '<path d="M13 4m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M7 21l3 -4"/><path d="M16 21l-2 -4l-3 -3l1 -6"/><path d="M6 12l2 -3l4 -1l3 3l3 1"/>',
+  'moon': '<path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z"/>',
+  'sun': '<path d="M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"/><path d="M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"/>',
+  'clipboard-text': '<path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2"/><path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"/><path d="M9 12h6"/><path d="M9 16h6"/>',
+  'device-floppy': '<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2"/><path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M14 4l0 4l-6 0l0 -4"/>',
+  'trash': '<path d="M4 7l16 0"/><path d="M10 11l0 6"/><path d="M14 11l0 6"/><path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12"/><path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3"/>',
+  'arrow-back-up': '<path d="M9 14l-4 -4l4 -4"/><path d="M5 10h11a4 4 0 1 1 0 8h-1"/>',
+  'pencil': '<path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4"/><path d="M13.5 6.5l4 4"/>',
+  'repeat': '<path d="M4 12v-3a3 3 0 0 1 3 -3h13m-3 -3l3 3l-3 3"/><path d="M20 12v3a3 3 0 0 1 -3 3h-13m3 3l-3 -3l3 -3"/>',
+  'paperclip': '<path d="M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3l6.5 -6.5a3 3 0 0 0 -6 -6l-6.5 6.5a4.5 4.5 0 0 0 9 9l6.5 -6.5"/>',
+  'message-circle': '<path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1"/>',
+  'notes': '<path d="M5 3m0 2a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2z"/><path d="M9 7l6 0"/><path d="M9 11l6 0"/><path d="M9 15l4 0"/>',
+  'users-group': '<path d="M10 13a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/><path d="M8 21v-1a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v1"/><path d="M15 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/><path d="M17 10h2a2 2 0 0 1 2 2v1"/><path d="M5 5a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"/><path d="M3 13v-1a2 2 0 0 1 2 -2h2"/>',
+  'coffee': '<path d="M3 14c.83 .642 2.077 1.017 3.5 1c1.423 .017 2.67 -.358 3.5 -1c.83 -.642 2.077 -1.017 3.5 -1c1.423 -.017 2.67 .358 3.5 1"/><path d="M8 3a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/><path d="M12 3a2.4 2.4 0 0 0 -1 2a2.4 2.4 0 0 0 1 2"/><path d="M3 10h14v5a6 6 0 0 1 -6 6h-2a6 6 0 0 1 -6 -6v-5z"/><path d="M16.746 16.726a3 3 0 1 0 .252 -5.555"/>',
+  'beach': '<path d="M17.553 16.75a7.5 7.5 0 0 0 -10.606 0"/><path d="M18 3.804a6 6 0 0 0 -8.196 2.196l10.392 6a6 6 0 0 0 -2.196 -8.196z"/><path d="M16.732 10c1.658 -2.87 2.225 -5.644 1.268 -6.196c-.957 -.552 -3.075 1.326 -4.732 4.196"/><path d="M15 9l-3 5.196"/><path d="M3 19.25a2.4 2.4 0 0 1 1 -.25a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 2 1a2.4 2.4 0 0 0 2 1a2.4 2.4 0 0 0 2 -1a2.4 2.4 0 0 1 2 -1a2.4 2.4 0 0 1 1 .25"/>',
+  'bed': '<path d="M7 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M22 17v-3h-20"/><path d="M2 8v9"/><path d="M12 14h10v-2a3 3 0 0 0 -3 -3h-7v5z"/>',
+  'masks-theater': '<path d="M13.192 9h6.616a2 2 0 0 1 1.992 2.183l-.567 6.182a4 4 0 0 1 -3.983 3.635h-1.5a4 4 0 0 1 -3.983 -3.635l-.567 -6.182a2 2 0 0 1 1.992 -2.183z"/><path d="M15 13h.01"/><path d="M18 13h.01"/><path d="M15 16.5c1 .667 2 .667 3 0"/><path d="M8.632 15.982a4.037 4.037 0 0 1 -.382 .018h-1.5a4 4 0 0 1 -3.983 -3.635l-.567 -6.182a2 2 0 0 1 1.992 -2.183h6.616a2 2 0 0 1 2 2"/><path d="M6 8h.01"/><path d="M9 8h.01"/><path d="M6 12c.764 -.51 1.528 -.63 2.291 -.36"/>',
+  'stethoscope': '<path d="M6 4h-1a2 2 0 0 0 -2 2v3.5h0a5.5 5.5 0 0 0 11 0v-3.5a2 2 0 0 0 -2 -2h-1"/><path d="M8 15a6 6 0 1 0 12 0v-3"/><path d="M11 3v2"/><path d="M6 3v2"/><path d="M20 10m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/>',
+  'droplet': '<path d="M7.502 19.423c2.602 2.105 6.395 2.105 8.996 0c2.602 -2.105 3.262 -5.708 1.566 -8.546l-4.89 -7.26c-.42 -.625 -1.287 -.803 -1.936 -.397a1.376 1.376 0 0 0 -.41 .397l-4.893 7.26c-1.695 2.838 -1.035 6.441 1.567 8.546z"/>',
+  'ambulance': '<path d="M7 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M5 17h-2v-11a1 1 0 0 1 1 -1h9v12m-4 0h6m4 0h2v-6h-8m0 -5h5l3 5"/><path d="M6 10h4m-2 -2v4"/>',
+  'test-pipe': '<path d="M20 8.04l-12.122 12.124a2.857 2.857 0 1 1 -4.041 -4.04l12.122 -12.124"/><path d="M7 13h8"/><path d="M19 15l1.5 1.6a2 2 0 1 1 -3 0l1.5 -1.6z"/><path d="M15 3l6 6"/>',
+  'clock-hour-5': '<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M12 12l2 3"/><path d="M12 7v5"/>',
+  'tag': '<path d="M7.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/><path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3z"/>',
+  'flag': '<path d="M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9z"/><path d="M5 21v-7"/>',
+  'ban': '<path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M5.7 5.7l12.6 12.6"/>',
+  'telescope': '<path d="M6 21l6 -5l6 5"/><path d="M12 13v8"/><path d="M3.294 13.678l.166 .281c.52 .88 1.624 1.265 2.605 .91l14.242 -5.165a1.023 1.023 0 0 0 .565 -1.456l-2.62 -4.705a1.087 1.087 0 0 0 -1.447 -.42l-.056 .032l-12.694 7.618c-1.02 .613 -1.357 1.897 -.76 2.905z"/><path d="M14 5l3 5.5"/>',
+  'robot': '<path d="M6 4m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z"/><path d="M12 2v2"/><path d="M9 12v9"/><path d="M15 12v9"/><path d="M5 16l4 -2"/><path d="M15 14l4 2"/><path d="M9 18h6"/><path d="M10 8v.01"/><path d="M14 8v.01"/>',
+  'photo': '<path d="M15 8h.01"/><path d="M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z"/><path d="M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5"/><path d="M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3"/>',
+  'refresh': '<path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>',
+  'dice-3': '<path d="M3 3m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z"/><circle cx="8.5" cy="8.5" r=".5" fill="currentColor"/><circle cx="15.5" cy="15.5" r=".5" fill="currentColor"/><circle cx="12" cy="12" r=".5" fill="currentColor"/>',
+  'building-hospital': '<path d="M3 21l18 0"/><path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16"/><path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4"/><path d="M10 9l4 0"/><path d="M12 7l0 4"/>',
+  'stopwatch': '<path d="M5 13a7 7 0 1 0 14 0a7 7 0 0 0 -14 0z"/><path d="M14.5 10.5l-2.5 2.5"/><path d="M17 8l1 -1"/><path d="M14 3h-4"/>'
 };
 function homeIcon(name, size) {
   var b = HOME_ICONS[name]; if (!b) return '';
   var s = size || 20;
   return '<svg viewBox="0 0 24 24" width="' + s + '" height="' + s + '" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + b + '</svg>';
 }
+/* 画面の部品（見出し・ボタン・チップ）の線のアイコン。homeIcon（Tabler、HOME_ICONS）を <span class="ico"> で包んで返す。
+   size は数字（px）か '1.2em' のような長さ（既定14。本文14pxの見出しなら16、小さいボタン・チップなら12〜14が目安）。
+   色は文字色（currentColor）、縦の位置は .ico が揃える。絵が足りないときは HOME_ICONS に足す。
+   Dに保存されている絵文字（担当枠マスタの icon など）と状態の印（✓ ✕ ⚠ 休 ‹ ›）は置き換えない */
+function ico(name, size) { return '<span class="ico">' + homeIcon(name, size || 14) + '</span>'; }
 /* i＝アイコン名（HOME_ICONS）、c＝機能の色（CSS の .hc-xx。ac/or/gr/pu/rd/gd/oc＝アプリの意味色、gy＝グレー）。
    並びで隣どうしが同じ色にならないように割り振っている。
    p＝この機能が入っているまとめのid（すべての機能で、まとめの行の下に字下げで並べる。マイ担当・実績は「勤務・担当」の中の画面でもあり、単独でもトップに置ける）。
