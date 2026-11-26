@@ -6738,6 +6738,7 @@ var APP_CHANGELOG = [
   { ver:'Ver.2026/11/26-176', date:'2026-11-26', title:'連絡表のページの絵文字を線のアイコンにしました', items:[
     { t:'imp', d:'連絡表のページ（CE・HD）の、ヘッダーのボタン・セクションの見出し・上の進捗や業務のチップ・担当カードと各ポップアップの項目名・申し送りのボタンなどの絵文字を、トップページと同じ線のアイコンにしました。担当枠に設定した絵文字と、休・✓・⚠ などの状態の印はそのままです' },
     { t:'imp', d:'CEとHDの印を、CE＝心電図モニタ、HD＝ダイアライザの絵に変えました（右上の切り替えボタン・連絡表の見出し・人員配置・HD担当表・イベントなど）。' },
+      { t:'fix', admin:true, d:'分院の勤務表を取り込むとき、シートの中の日付の年がずれていても、シート名（202611 など）の年月で取り込むようにしました。違っていたときは確認画面で知らせます。' },
   ]},
   { ver:'Ver.2026/11/26-175', date:'2026-11-26', title:'CE担当カードを名前のボタン1つにしました', items:[
     { t:'imp', d:'CE担当カードを、名前のボタン1つにしました。押すと開く画面で、担当者・休み・役割・業務のチェック・PHS・兼務・備考をまとめて入れて「決定」で保存します。☕休憩はカードに残しています' }
@@ -17879,6 +17880,20 @@ function parseShiftSheet(wb, fileName) {
     }
   }
 
+  /* ── 年月はシート名（202611・分202611 など）を正にする ──
+     シートの中の日付は前の年のシートを写して作るので、年だけ直し忘れていることがある（原本で 202611 のシートの中が2027年だった）。
+     シート名に年月があればそちらを使い、中の日付と違えば確認画面で知らせる。 */
+  var ymNote = '';
+  var snM = /(\d{4})[-\/_\u5e74]?(\d{2})/.exec(sheetName);
+  if (snM) {
+    var snMon = parseInt(snM[2], 10), snYear = parseInt(snM[1], 10);
+    if (snMon >= 1 && snMon <= 12 && snYear >= 2000 && snYear <= 2099) {
+      var snYm = snM[1] + '-' + pad(snMon);
+      if (ym && ym !== snYm) ymNote = '\u30b7\u30fc\u30c8\u306e\u4e2d\u306e\u65e5\u4ed8\u306f ' + ym + ' \u3067\u3057\u305f\u304c\u3001\u30b7\u30fc\u30c8\u540d\u306b\u5408\u308f\u305b\u3066 ' + snYm + ' \u3068\u3057\u3066\u53d6\u308a\u8fbc\u307f\u307e\u3059';
+      ym = snYm;
+    }
+  }
+
   /* ── ym確定できない場合はシート名・ファイル名から抽出 ── */
   if (!ym) {
     var m2 = (sheetName + ' ' + fileName).match(/(\d{4})[_\-\u5e74\/]?(\d{2})/);
@@ -18086,6 +18101,7 @@ function parseShiftSheet(wb, fileName) {
   var html = '<div style="background:var(--gr-bg);border:1px solid #a7d9d0;border-radius:8px;padding:12px 14px;margin-bottom:10px">';
   html += '<div style="font-size:12px;font-weight:700;color:var(--gr);margin-bottom:4px">\u2705 \u8aad\u307f\u8fbc\u307f\u5b8c\u4e86\uff1a' + ym + '\uff08' + sheetName + '\uff09</div>';
   html += '<div style="font-size:11px;color:var(--txt2)">CE: ' + ceCount + '\u4ef6\u3000OC: ' + ocCount + '\u4ef6\u3000HD: ' + hdCount + '\u4ef6\u3000\ud83c\udd98 \u30d8\u30eb\u30d7: ' + helpCount + '\u4ef6\u3000\u30a4\u30d9\u30f3\u30c8: ' + evtCount + '\u4ef6</div>';
+  if (ymNote) html += '<div style="font-size:11px;color:var(--warn-fg);font-weight:700">\u26a0 ' + escH(ymNote) + '</div>';
   html += '<div style="font-size:11px;color:var(--txt2)">\ud83c\udd94 \u8077\u54e1\u756a\u53f7\u3092 ' + Object.keys(stfNo).length + '\u4ef6 \u53d6\u308a\u8fbc\u307f\u307e\u3059</div>';
   html += '<div style="font-size:10px;color:var(--txt3);margin-top:2px">\u65e5\u4ed8\u884c: ' + (dateRowIdx+1) + '\u884c\u76ee\u3000\u30a4\u30d9\u30f3\u30c8\u884c: ' + (evtRowIdx !== -1 ? evtRowIdx+1 : '\u691c\u51fa\u306a\u3057') + '\u884c\u76ee</div>';
   html += '</div>';
