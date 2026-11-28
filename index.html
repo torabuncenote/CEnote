@@ -6738,11 +6738,16 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/26-176';
+var APP_VERSION = 'Ver.2026/11/29-177';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/29-177', date:'2026-11-29', title:'患者情報の確認が普通の言葉で止まらないようにしました', items:[
+    { t:'fix', d:'「原因不明」「原則」「原液」など、苗字（原・林など）で始まる普通の言葉が患者の氏名と判定され、申し送りなどが送信できなくなっていたのを直しました。' },
+    { t:'fix', d:'「〇〇先生に確認」のように医師の名前に「先生」「様」が付くと送信できなくなっていたのを、確認のお知らせ（そのまま送れる）に変えました。' },
+    { t:'fix', d:'職員の名前のあとに書かれた患者の氏名を見落とすことがあったのを直しました。', admin:true }
+  ]},
   { ver:'Ver.2026/11/26-176', date:'2026-11-26', title:'自分の返事を直せるようになり、画面の絵をそろえました', items:[
     { t:'imp', d:'共通業務が曜日の設定で1つも無い日は、空の枠ではなく「今日は対象の項目はありません」と出すようにしました。スマホのメーカー連絡先は、件数を検索欄の下に出して案内文が切れないようにしました。' },
     { t:'fix', d:'スマホで連絡表から別の画面（トップなど）へ移っても、下の消し込みバー（残り○件）が出たままになっていたのを直しました。' },
@@ -26744,6 +26749,17 @@ var PHI_EXCLUDE_WORDS = [
 ];
 var _PHI_EXCLUDE_SET = {};
 PHI_EXCLUDE_WORDS.forEach(function(w){ _PHI_EXCLUDE_SET[w] = true; });
+/* 姓（特に1文字の姓）で始まる普通の言葉。text の idx から始まる語がこれなら、姓としては見ない。
+   実在の姓と重ならない語だけを足すこと（例：「原田」は姓なので足さない） */
+var PHI_SURNAME_WORDS = ['原因','原則','原本','原液','原料','原理','原稿','原点','原価','原文','原案','原状','原発','原疾患','原寸','原紙','原形','原型','原材料','原物','原書',
+  '林檎','辻褄','岸壁','泉質','星印','星型','堀割'];
+function phiSurnameWordAt(text, idx, sn) {
+  for (var i = 0; i < PHI_SURNAME_WORDS.length; i++) {
+    var w = PHI_SURNAME_WORDS[i];
+    if (w.indexOf(sn) === 0 && text.substr(idx, w.length) === w) return true;
+  }
+  return false;
+}
 /* word全体を除外語の連結だけで構成できるか（DPで分割判定） */
 function phiIsExcludedCompound(word) {
   if (!word) return false;
@@ -26768,32 +26784,41 @@ function detectPHI(text) {
   /* ── 氏名パターンの検知 ── */
   /* ① 苗字リスト＋直後に漢字が続く → フルネームの可能性（赤） */
   var foundName = false;
+  /* 姓の判定は、その姓が出てくる「すべての場所」を見る。姓で始まる普通の言葉（原因・原則・岸壁…）は飛ばす。
+     以前は最初の1か所だけを見て、そこが「原因不明」のような言葉でも赤（送信できない）にしていた（2026-11-29 現場報告） */
+  surnameLoop:
   for (var si=0; si<PHI_PATTERNS.surnames.length; si++) {
     var sn = PHI_PATTERNS.surnames[si];
-    var idx = text.indexOf(sn);
-    if (idx === -1) continue;
+    for (var idx = text.indexOf(sn); idx !== -1; idx = text.indexOf(sn, idx + 1)) {
+    if (phiSurnameWordAt(text, idx, sn)) continue;
     var after = text.slice(idx+sn.length, idx+sn.length+5);
+    /* 苗字＋敬称は先に見る（「先生」「様」「氏」は漢字なので、下の「直後に漢字＝フルネーム（赤）」に先に当たり、
+       医師への連絡「田中先生に確認」まで送信できなくなっていた。2026-11-29） */
+    if (/^\s*(?:さん|様|氏|先生)/.test(after)) {
+      yellow.push('氏名と思われる文字列（' + sn + '...）— 患者名の場合は送信しないでください');
+      foundName = true; break surnameLoop;
+    }
     if (/^[一-鿿]/.test(after)) {
       /* スタッフ名として登録済みならスキップ */
       var isStaffMatch = false;
       for (var wi=0; wi<staffNames.length; wi++) {
         if (staffNames[wi].indexOf(sn)===0 && text.indexOf(staffNames[wi])>=0) { isStaffMatch=true; break; }
       }
-      if (!isStaffMatch) {
-        red.push('氏名と思われる文字列（' + sn + after.slice(0,2) + '...）');
-        foundName = true;
-      }
-      break;
+      if (isStaffMatch) continue; /* 職員の名前なら、この場所は飛ばして続きを見る（後ろに患者名があるかもしれない） */
+      red.push('氏名と思われる文字列（' + sn + after.slice(0,2) + '...）');
+      foundName = true;
+      break surnameLoop;
     }
     /* 苗字＋敬称 → 黄 */
     if (/さん|様|氏|先生/.test(after)) {
       yellow.push('氏名と思われる文字列（' + sn + '...）— 患者名の場合は送信しないでください');
-      foundName = true; break;
+      foundName = true; break surnameLoop;
     }
     /* 姓＋大文字イニシャル → 黄（連合会認可形式） */
     if (/\s*[A-Z](?:[^A-Za-z]|$)/.test(after)) {
       yellow.push('姓＋イニシャル形式（' + sn + '...）— 連合会が認める匿名化形式です');
-      foundName = true; break;
+      foundName = true; break surnameLoop;
+    }
     }
   }
   /* ② 漢字2〜4文字の連続（苗字リスト外の名前もカバー） → ⚠️ 黄（確認後送信可）
@@ -26804,13 +26829,14 @@ function detectPHI(text) {
      毎回警告が出ると、現場が警告に慣れて本物の患者名も流してしまう（警告疲れ）。
      現場語彙で誤検知に気づいたら、姓と重ならないことを確かめた上でここに足す。 */
   if (!foundName) {
-    var KANJI_WL = /手術|看護|医師|病院|処置|業務|確認|連絡|対応|実施|完了|開始|終了|予定|担当|報告|依頼|検査|装着|外し|解析|件数|入室|退室|術式|種別|備考|管理|点検|記録|入力|更新|設定|変更|削除|追加|保存|送信|受信|準備|片付|清潔|滅菌|消毒|洗浄|補充|交換|確保|調整|修正|訂正|承認|許可|禁止|対処|処方|薬品|機材|装置|設備|機器|配置|担架|搬送|呼吸|循環|透析|観察|測定|採血|注射|投薬|輸血|ケア|病棟|外来|部署|部門|診療|科長|師長|技士|技師|職員|新人|研修|講習|会議|委員|委員会|勉強|勉強会|朝礼|夕礼|合同|全体|定例|臨時|緊急|通常|定期|月次|週次|年次|当番|待機|巡視|巡回|内科|外科|整形|循環|消化|泌尿|脳外|心外|呼吸器|麻酔|放射|検体|生理|薬剤|栄養|事務|立会|棚卸|在庫|発注|納品|搬入|搬出|貸出|返却|修理|故障|不具|導入|更新|廃棄|保守|校正|穿刺|返血|脱血|除水|回収|開催|参加|出席|欠席|中止|延期|変更|中材|滅菌室|材料|供給|本院|分院|本日|昨日|明日|今日|今朝|午前|午後|曜日|時間|時点|可能|出来|場合|以外|一緒|次第|一度|朝一|回診|指示|移行|輸液|酸素|療法|造影|生検|造設|穿孔|面談|健康|診断|見学|施設|回答|調査|窓口|本人|患者|機械|営業|作成|症例|件目|例目|未記入|運転|号室|遅出|早出|日勤|夜勤|宿直|心電図|単孔|鼠径|橈骨|逼迫|転院|使用|特定/;
+    var KANJI_WL = /手術|看護|医師|病院|処置|業務|確認|連絡|対応|実施|完了|開始|終了|予定|担当|報告|依頼|検査|装着|外し|解析|件数|入室|退室|術式|種別|備考|管理|点検|記録|入力|更新|設定|変更|削除|追加|保存|送信|受信|準備|片付|清潔|滅菌|消毒|洗浄|補充|交換|確保|調整|修正|訂正|承認|許可|禁止|対処|処方|薬品|機材|装置|設備|機器|配置|担架|搬送|呼吸|循環|透析|観察|測定|採血|注射|投薬|輸血|ケア|病棟|外来|部署|部門|診療|科長|師長|技士|技師|職員|新人|研修|講習|会議|委員|委員会|勉強|勉強会|朝礼|夕礼|合同|全体|定例|臨時|緊急|通常|定期|月次|週次|年次|当番|待機|巡視|巡回|内科|外科|整形|循環|消化|泌尿|脳外|心外|呼吸器|麻酔|放射|検体|生理|薬剤|栄養|事務|立会|棚卸|在庫|発注|納品|搬入|搬出|貸出|返却|修理|故障|不具|導入|更新|廃棄|保守|校正|穿刺|返血|脱血|除水|回収|開催|参加|出席|欠席|中止|延期|変更|中材|滅菌室|材料|供給|本院|分院|本日|昨日|明日|今日|今朝|午前|午後|曜日|時間|時点|可能|出来|場合|以外|一緒|次第|一度|朝一|回診|指示|移行|輸液|酸素|療法|造影|生検|造設|穿孔|面談|健康|診断|見学|施設|回答|調査|窓口|本人|患者|機械|営業|作成|症例|件目|例目|未記入|運転|号室|遅出|早出|日勤|夜勤|宿直|心電図|単孔|鼠径|橈骨|逼迫|転院|使用|特定|補液|輸液量|原因|不明|事例|何故|注意|発生|経過|様子|状態|状況|問題|対策|説明/;
     var kanjiPat = /[一-鿿]{2,4}/g;
     var km;
     while ((km = kanjiPat.exec(text)) !== null) {
       var word = km[0];
       if (KANJI_WL.test(word)) continue;
       if (phiIsExcludedCompound(word)) continue;
+      if (PHI_SURNAME_WORDS.some(function(w){ return word.indexOf(w) === 0; })) continue; /* 原則・原理など姓で始まる普通の言葉 */
       var isStaff2 = false;
       for (var wi2=0; wi2<staffNames.length; wi2++) {
         if (staffNames[wi2]===word || staffNames[wi2].indexOf(word)>=0) { isStaff2=true; break; }
