@@ -441,8 +441,8 @@ textarea.brd-ed-in{resize:vertical}
 .pnav-today:hover{background:var(--ac);color:var(--on-ac)}
 .btn.pnav-today-m{display:none;border:1.5px solid var(--ac);background:var(--ac-bg);color:var(--ac);font-weight:700;white-space:nowrap}
 @media (max-width:768px){.pnav .pnav-today{display:none}.btn.pnav-today-m{display:inline-flex;align-items:center}}
-/* 「本日へ」が出ている日は、タイムラインと本日へを絵だけにして1行に収める（タブレット・掲示板は文字を残す。2026-11-19 本人） */
-@media (max-width:480px){.pg-hd:has(.pnav-today-m) #sched-btn .hd-btn-text,.pg-hd .pnav-today-m .hd-btn-text{display:none}}
+/* 「本日へ」もタイムラインも文字を出す（2026-11-29 本人。掲示板のボタンを外して幅が空いた。375px で1行に収まる）。ごく狭い端末だけタイムラインを絵にする */
+@media (max-width:359px){.pg-hd:has(.pnav-today-m) #sched-btn .hd-btn-text{display:none}}
 .evt-chip{display:inline-flex;align-items:center;gap:2px;border-radius:6px;padding:2px 4px 2px 10px;font-size:12px;font-weight:700;max-width:100%}
 .evt-chip-body{background:none;border:none;padding:2px 0;font:inherit;font-weight:700;cursor:pointer;text-align:left;display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px 6px}
 .evt-chip-body:disabled{cursor:default}
@@ -2525,7 +2525,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <button class="btn btn-g btn-sm" id="theme-toggle" onclick="cycleTheme()" title="表示テーマ">☀️<span class="mt-text"> ライト</span></button>
     <button class="btn btn-g btn-sm" id="fs-toggle" onclick="cycleFontScale()" title="文字サイズ">🔠<span class="mt-text"> 標準</span></button>
     <button class="btn btn-g btn-sm srch-btn" onclick="openSearch()" title="横断検索"><span class="hm-sic" data-ic="search"></span></button>
-    <button class="btn btn-p btn-sm" onclick="openGM()"><span class="hm-sic" data-ic="calendar"></span><span class="btn-gm-text"> 1ヶ月生成</span></button>
+    <!-- 「1ヶ月生成」はここから外した（2026-11-29 本人：使わない。連絡表は1日ずつ作る）。担当表タブには残す -->
   </div>
   <div class="sd" id="sync-dot"></div>
   <span class="sl" id="sl">ローカル保存</span>
@@ -3432,7 +3432,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
     <div class="es">
       <div class="es-ic"><span class="hm-sic" data-ic="clipboard-list" data-s="44"></span></div>
       <div class="es-t">連絡表を選択または作成してください</div>
-      <p class="es-s">左のカレンダーから日付を選ぶか<br>「1ヶ月生成」で一括作成できます</p>
+      <p class="es-s">カレンダーで日付を選ぶと<br>開く・作成できます</p>
     </div>
   </div>
 </div>
@@ -6001,7 +6001,7 @@ function renderManual() {
   S += step(1,'カレンダーで連絡表の無い日をクリック（タップ）','1日追加の画面がその日付入りで開きます。');
   S += step(2,'日付を選んで「追加」をクリック','');
   S += h3('1ヶ月分まとめて作る（月初の作業）');
-  S += step(1,'ヘッダーの「📅」ボタンをクリック','PC：「📅 1ヶ月生成」　スマホ：「📅」と表示されます。');
+  S += step(1,'担当表を開き、上の「📅 1ヶ月生成」をクリック','');
   S += step(2,'対象の年月を選ぶ','');
   S += step(3,'「生成する」をクリック','その月分の連絡表が一括作成されます。');
   S += tip('毎月の初めに「1ヶ月生成」→「勤務表インポート（第8章）」の順で作業するとスムーズです。');
@@ -6135,7 +6135,7 @@ function renderManual() {
   // ===== 第11章　掲示板 =====
   S += h1('第11章　掲示板');
   S += '<div class="mn-p">掲示板は、連絡表とは別の部門内お知らせ板です。日付に関係ない連絡（勉強会・物品・全体周知など）に使います。連絡表の日ページを開き、上部の「📢 掲示板」ボタンから開きます。</div>';
-  S += step(1,'日ページ上部の「📢 掲示板」ボタンを押す','未読があるとボタンに赤い数字が出ます。開くと既読になります。');
+  S += step(1,'トップページの「掲示板」を押す','未読があるとボタンに赤い数字が出ます。開くと既読になります。');
   S += step(2,'投稿する','下の入力欄に書いて「投稿」をクリック。全員に表示されます。');
   S += step(3,'返信する','各投稿の「返信」から短いコメントを付けられます。');
   S += '<div class="mn-p">自分の投稿は自分で削除できます。他の人の投稿の削除や、重要な投稿のピン留め（上部固定）は管理者が行えます。</div>';
@@ -6739,6 +6739,8 @@ var APP_VERSION = 'Ver.2026/11/26-176';
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
   { ver:'Ver.2026/11/26-176', date:'2026-11-26', title:'連絡表のページの絵文字を線のアイコンにしました', items:[
+    { t:'imp', d:'連絡表のページの上の「掲示板」ボタンをなくしました（掲示板はトップページから開きます）。そのぶん、スマホでも「本日へ」「タイムライン」に文字が出ます。' },
+    { t:'imp', d:'画面の一番上の「1ヶ月生成」ボタンをなくしました。連絡表はカレンダーで日付を押して1日ずつ作れます（まとめて作るときは担当表の「1ヶ月生成」）。', admin:true },
     { t:'imp', d:'スマホでは、画面の上に並んでいたタブ（トップ・すべての機能・設定など）を出さないようにしました。左上の ☰ から同じところへ移れます。' },
     { t:'imp', d:'連絡表のページ（CE・HD）の、ヘッダーのボタン・セクションの見出し・上の進捗や業務のチップ・担当カードと各ポップアップの項目名・申し送りのボタンなどの絵文字を、トップページと同じ線のアイコンにしました。担当枠に設定した絵文字と、休・✓・⚠ などの状態の印はそのままです' },
     { t:'imp', d:'CEとHDの印を、CE＝心電図モニタ、HD＝ダイアライザの絵に変えました（右上の切り替えボタン・連絡表の見出し・人員配置・HD担当表・イベントなど）。' },
@@ -18583,7 +18585,7 @@ function showEmpty() {
   mainDraftsBefore(); /* 連絡表を閉じる前に下書きを拾っておく（同じ日を開き直せば戻る） */
   _pageRenderPending = false;
   document.getElementById('main').removeAttribute('data-draft-key');
-  document.getElementById('main').innerHTML='<div class="es"><div class="es-ic">' + ico('clipboard-list', 44) + '</div><div class="es-t">連絡表を選択または作成してください</div><p class="es-s">左のカレンダーから日付を選ぶか<br>「1ヶ月生成」で一括作成できます</p></div>';
+  document.getElementById('main').innerHTML='<div class="es"><div class="es-ic">' + ico('clipboard-list', 44) + '</div><div class="es-t">連絡表を選択または作成してください</div><p class="es-s">カレンダーで日付を選ぶと<br>開く・作成できます</p></div>';
   updateCloseBar(null);
 }
 
@@ -22421,10 +22423,7 @@ function renderPage(ds) {
   /* 前日以前から借りたままの分もバッジに含める（updateTabletBtnBadge と同じ数え方にすること） */
   var _tblOut=tabletUnreturnedCount(ds);
   h+='<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\''+ds+'\')" title="タブレット貸出・返却">'+ico('device-tablet')+'<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"'+(_tblOut?'':' style="display:none"')+'>'+_tblOut+'</span></button>';
-  /* 掲示板はタブだと気づかれにくいので、連絡表からも直接開けるようにする。
-     未読数は updateBoardBadge が boardUnreadCount を元にタブと同時に更新する */
-  var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
-  h+='<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">'+ico('speakerphone')+'<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"'+(_brdN?'':' style="display:none"')+'>'+(_brdN>99?'99+':_brdN)+'</span></button>';
+  /* 掲示板のボタンは外した（2026-11-29 本人：トップページのタイルから開く） */
   /* サイドバーのタブに置いていると活用されないため、タブレット・掲示板と同じ並びで
      連絡表ヘッダーから直接開けるようにする（サイドバー側のスケジュールタブは廃止） */
   h+='<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">'+ico('clock')+'<span class="hd-btn-text"> タイムライン</span></button>';
@@ -25089,10 +25088,7 @@ function renderPageHD(ds) {
   h += '<div class="pt2" style="flex:1">' + pageNavTitleHTML(ico('dialyzer', 22) + ' HD連絡表　' + fmtJ(ds) + '（' + wf + '）') + '</div>';
   var _tblOut = tabletUnreturnedCount(ds);
   h += '<button class="btn btn-g btn-sm" id="tablet-btn" onclick="openTabletPanel(\'' + ds + '\')" title="タブレット貸出・返却">'+ico('device-tablet')+'<span class="hd-btn-text"> タブレット</span><span id="tablet-btn-badge" class="tbl-badge"' + (_tblOut ? '' : ' style="display:none"') + '>' + _tblOut + '</span></button>';
-  /* 掲示板・スケジュールもCE版と同じ並びで出す。中身は主観ごとに別スレッド
-     （掲示板は kind、スケジュールは dat.hdSchedule）なので、HDにはHDの分だけが出る。 */
-  var _brdN = (typeof boardUnreadCount === 'function') ? boardUnreadCount() : 0;
-  h += '<button class="btn btn-g btn-sm" id="board-btn" onclick="openBoardPanel()" title="掲示板を開く">'+ico('speakerphone')+'<span class="hd-btn-text"> 掲示板</span><span id="board-btn-badge" class="tbl-badge"' + (_brdN ? '' : ' style="display:none"') + '>' + (_brdN > 99 ? '99+' : _brdN) + '</span></button>';
+  /* 掲示板のボタンは外した（2026-11-29 本人：トップページのタイルから開く） */
   h += '<button class="btn btn-g btn-sm" id="sched-btn" onclick="openSchedPanel()" title="タイムラインを開く">'+ico('clock')+'<span class="hd-btn-text"> タイムライン</span></button>';
   h += pageNavTodayBtnHTML('btn btn-sm pnav-today-m');
   h += '<button class="btn btn-g btn-sm print-btn" onclick="window.print()" title="印刷／PDF出力">'+ico('printer')+'<span class="hd-btn-text"> 印刷</span></button>';

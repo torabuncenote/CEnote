@@ -434,7 +434,7 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay. **The 
 
 `openDefaultPage()` — called at Firebase first-load and in preview mode. **By default it opens the トップページ (`swTab('home')`)**; only when the person chose 「今日の連絡表」 in ⚙ 設定 (`homeStart()` = `'today'`) or is in 災害モード does it keep the old behaviour: open today's page if it exists, else show the `.es` placeholder.
 
-**今日へ戻る（`pageNavToday()`、2026-11-16）**：見出しの ‹ › の横に、今日以外を開いているときだけ「本日へ」を出す（`pageNavTitleHTML`）。今日の連絡表が無ければ、作れる人には「1日分を追加」を開き、作れない人には知らせる。ボタンは `pageNavTodayBtnHTML(cls)` 1つで作り、PCは見出しの › の右（`.pnav-today`）、スマホ（768px以下）は › と押し間違えるのでヘッダーのタイムラインの横（`.pnav-today-m`）に出す（2026-11-19 本人）。480px以下で「本日へ」が出ている日は、タイムラインと本日へ（📅）を絵だけにして同じ行に収める（`.pg-hd:has(.pnav-today-m)`。タブレット・掲示板は文字を残す）。
+**今日へ戻る（`pageNavToday()`、2026-11-16）**：見出しの ‹ › の横に、今日以外を開いているときだけ「本日へ」を出す（`pageNavTitleHTML`）。今日の連絡表が無ければ、作れる人には「1日分を追加」を開き、作れない人には知らせる。ボタンは `pageNavTodayBtnHTML(cls)` 1つで作り、PCは見出しの › の右（`.pnav-today`）、スマホ（768px以下）は › と押し間違えるのでヘッダーのタイムラインの横（`.pnav-today-m`）に出す（2026-11-19 本人）。連絡表ヘッダーの掲示板ボタンは外した（2026-11-29 本人。掲示板はトップのタイルから）ので、スマホでも タブレット・タイムライン・本日へ は文字付きで1行に収まる（375px で確認）。359px以下だけタイムラインを絵にする（`.pg-hd:has(.pnav-today-m)`）。上のバーの「1ヶ月生成」も外した（担当表タブ・カレンダーの空表示には残る）。
 
 連絡表を1日だけ作る入り口は、カレンダーで連絡表の無い日を押したとき（`renderCal` の日セル）だけ。トップバーの「＋ 1日追加」ボタンは使われていなかったので削除した（`openNM` と `#modal-nm` はこの入り口のために残してある）。
 
