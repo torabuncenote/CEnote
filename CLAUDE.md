@@ -837,6 +837,8 @@ dat.placement = {
 
 **6MW（`ops.mw_items`）**：1件ずつのブロック `[{_rid, time:'HH:MM', doc, staff:[], note, chk:{確認項目id:true}}]`。描画・編集は `renderMwBlocks(ds, box, locked)`（ブロックの入れ物に1回だけ委譲。書き込みは毎回 `mwFind(ds, rid)` で `D.pages[ds]` から引き直す）。**件数は必ず `mwCount(pg, header)` を通す**——ブロックがある日はブロック数（集計は `mwItemFilled` の行だけ）、無い日は従来の `ops.mw_n`（書き換えない。画面では「N件（旧形式）」と読むだけ）。担当医は自由入力で `data-no-phi`（`initPHIGuard` は氏名の判定——赤の「氏名」も黄色も——を外し、患者IDなど氏名以外の赤だけ出す。「田中先生」も赤の氏名として検知されるため、`phiHasBlock` をそのまま当てると医師名を入れるたびに止まる）、候補は全ページの入力済みの名前（`mwDocNames`）。CE集計の `mwBreakdownHTML()` が担当医別・実施CE別、タイムラインは開始時刻のあるブロックだけ（`kind:'mw'`）。
 
+**PSGカードの2段（2026-11-24）**：`buildPsgCard` は前日に PSG がある日（外しの日）だけ、カードの中を「☀️ 朝：外し」（`.psg-sec.off`）→「🌙 夕：装着」（`.psg-sec.on`）の順に分け、見出しに `.psg-badge`（両方＝「☀️外し＋🌙装着」＋カードの枠 `.psg-both`、外しだけ＝「☀️外しのみ」）。外しが無い日は従来どおり区切りなし。入力欄の id（`ops-psg-on`/`ops-psg-off` ほか）と保存先は変えていない。
+
 **6MW・PSGの確認項目（`D.opsChk`）**：`{mw, psgOn, psgOff}` の各配列 `[{id, t}]`。読み出しは `opsChkList(kind)`、保存は `opsChkSave(kind, arr)`、マスタは業務マスタ🔪グループの「✅ 6MW・PSGの確認項目」（`renderOpsChkMaster`、`mst`）。当日の記録は**項目の id で持つ**（6MW＝各ブロックの `chk`、PSG＝`ops.psg_chk_on`／`psg_chk_off`）ので、改名・並べ替えでチェックは外れない。連絡表では `opsChkDetailsHTML(key, title, list, ck, locked, pre)` の折りたたみ（開閉は `_opsChkOpen`、非永続）。PSGの装着・外しの折りたたみの見出しには「📖 マニュアル」（`opsChkDetailsHTML` の第7引数 `man`、業務マニュアル `openSP('PSG 装着'|'PSG 外し')` と同じ `D.manual`）を置く。外しの折りたたみは確認項目が0件でもマニュアルのために出す。PSG装着の「付箋入力済」は従来の `ops.psg_fusen` のまま先頭に固定で置く（`runPsgFusenCheck` の10時のお知らせがこれを見ていて、お知らせのときは折りたたみを開く）。消し込みバーは `mwchk`（実施CEに自分がいれば自分あて）・`psgchk`（名前に「PSG」を含む担当枠の人が自分あて。装着は装着欄に入力がある日、外しは `tlIsPsgRemovalDay` の日）。
 
 カテカード固定フィールド（`ops.` に保存）:
