@@ -328,6 +328,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, stTs?, comments?, adminSeen?}（/data の外。全件は管理者、本人は uid で絞った自分の分だけ読める。作成は全員・変更削除は管理者、comments は本人も追加可＝ルールで強制）
 /userPrefs/{uid}           — 自分のトップページの設定 {home?:[機能id…], start?:'home'|'today', style?:'circle'|'tint', ts}（/data の外。本人だけが読み書き＝ルールで強制。/users は login のたびに set() で上書きされるので使えない）
 /dutyReq/{uid}/{id}         — 担当の希望 {name, kind:'day'|'range'|'open', ds?, from?, to?, slots?[], strength, note?, ts, status?:'consider'|'plan'|'skip', reply?, replyTs?}（/data の外。本人は自分の uid 配下、管理者は全体を読む。status/reply は管理者だけが変えられる＝ルールで強制）
+/usage/{YYYY-MM}/{機能id}    — 職員が画面を開いた回数（数字だけ。名前・uidなし、管理者とデベロッパは数えない）。usageHit(id) が swTab・swSubTab（assign_…）・swSumTab（sum_…）・openPage（page）・掲示板・タイムライン・タブレットから +1 の transaction で書く（ルールも前の値＋1だけ許す）。読むのは管理者とデベロッパ、表示はログ画面の上（loadUsage）。同じ画面を10秒以内に開き直した分は数えない
 /errLogs/{id}               — 画面で起きたエラー {ts, ver, msg, src, line, col, stack?, where, mode, dev}（名前・uidなし。作成は承認済みの職員、読む・消すは管理者とデベロッパ。30日で消す）
 /devs/{uid}                 — デベロッパの印（true。付け外しは管理者だけ）
 /feedbackMemo/{id}          — 改善要望の管理者メモ（文字列。管理者だけ。本人が要望を読めるので本体から分けた）
