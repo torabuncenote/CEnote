@@ -28,7 +28,7 @@ function setup({ server, local, connected }) {
     normArr: v => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === 'object' ? Object.keys(v).map(k => v[k]).filter(Boolean) : []),
     memoKeyOf: m => String(m && m.ts || 0) + '_' + String((m && m.uid) || ''),
     writeLog() {}, fmtJ: s => s, renderCal() {}, safeRenderPage() {}, updateCloseBar() {}, toast() {},
-    escH: s => s, can: () => true, console, setTimeout: (f, ms) => { const t = setTimeout(f, ms); t.unref(); return t; },
+    escH: s => s, can: () => true, console, setTimeout: (f, ms) => { const t = setTimeout(f, ms); t.unref(); return t; }, clearTimeout,
     saveD() {
       const out = {};
       Object.keys(ctx.D.pages).forEach(ds => {

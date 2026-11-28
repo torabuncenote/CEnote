@@ -284,8 +284,26 @@
         ".validate": "!newData.exists() || (newData.child('text').isString() && newData.child('text').val().length <= 4000 && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().beginsWith('data:image/') && newData.child('img').val().length <= 400000)))",
         "comments": {
           "$cid": {
-            ".write": "auth != null && root.child('access').child(auth.uid).val() === true && !data.exists() && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid",
-            ".validate": "newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))"
+            ".write": "auth != null && root.child('access').child(auth.uid).val() === true && (!data.exists() || data.child('by').val() === 'user') && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))",
+            "by": {
+              ".validate": "(!data.exists() || newData.val() === data.val()) && (newData.val() === 'user' || (newData.val() === 'admin' && root.child('admins').child(auth.uid).val() === true))"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().length <= 1000"
+            },
+            "ts": {
+              ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())"
+            },
+            "name": {
+              ".validate": "newData.isString() && newData.val().length <= 100"
+            },
+            "editedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         }
       }
@@ -301,6 +319,15 @@
         "$id": {
           ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && root.child('access').child(auth.uid).val() === true))",
           ".validate": "!newData.exists() || (newData.hasChildren(['name', 'kind', 'ts']) && newData.child('kind').isString() && newData.child('kind').val().matches(/^(day|range|open)$/) && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 300)) && (root.child('admins').child(auth.uid).val() === true || (newData.child('status').val() === data.child('status').val() && newData.child('reply').val() === data.child('reply').val())))"
+        }
+      }
+    },
+    "usage": {
+      ".read": "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))",
+      "$ym": {
+        "$id": {
+          ".write": "auth != null && newData.exists() && (root.child('admins').child(auth.uid).val() === true || root.child('access').child(auth.uid).val() === true)",
+          ".validate": "$ym.matches(/^20[0-9]{2}-(0[1-9]|1[0-2])$/) && $id.matches(/^[a-z0-9_]{1,24}$/) && newData.isNumber() && newData.val() === (data.exists() ? data.val() + 1 : 1)"
         }
       }
     },
