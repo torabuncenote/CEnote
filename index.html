@@ -6738,11 +6738,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/29-177';
+var APP_VERSION = 'Ver.2026/11/29-178';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/29-178', date:'2026-11-29', title:'トップのタイルが縦に伸びる不具合を直しました', items:[
+    { t:'fix', d:'スマホやタブレットを横向き・縦向きに回したときや、パソコンで窓の幅を変えたときに、トップのタイルが細く縦に伸びて表示されることがあったのを直しました。' }
+  ]},
   { ver:'Ver.2026/11/29-177', date:'2026-11-29', title:'患者情報の確認が普通の言葉で止まらないようにしました', items:[
     { t:'fix', d:'「原因不明」「原則」「原液」など、苗字（原・林など）で始まる普通の言葉が患者の氏名と判定され、申し送りなどが送信できなくなっていたのを直しました。' },
     { t:'fix', d:'「〇〇先生に確認」のように医師の名前に「先生」「様」が付くと送信できなくなっていたのを、確認のお知らせ（そのまま送れる）に変えました。' },
@@ -33736,6 +33739,20 @@ function devLoadErrLogs() {
 }
 
 /* ===== TABS / SIDEBAR ===== */
+/* 画面の幅がスマホ⇄PCの境（768px）をまたいだら、いま開いている画面の並べ方を付け直す（2026-11-29）。
+   swTab は開いたときにだけ「PCはサイドバーを全幅に広げる／スマホは連絡表の上に重ねる」を決めるので、
+   トップを開いたまま端末を回す・窓の幅を変えると、PCの並べ方なのにサイドバーが細いままでタイルが縦に間延びしていた。
+   連絡表（cal）を見ている間は付け直さない（スマホでカレンダーが連絡表の上に被さってしまうため）。使用回数には数えない */
+(function(){
+  if (!window.matchMedia) return;
+  var mq = window.matchMedia('(max-width:768px)');
+  var onChange = function(){
+    if (!curTab || curTab === 'cal') { if (!mq.matches) { var sb = document.getElementById('sb'); if (sb) sb.classList.remove('hm'); } return; }
+    _usageLast[curTab] = Date.now();
+    swTab(curTab);
+  };
+  if (mq.addEventListener) mq.addEventListener('change', onChange); else if (mq.addListener) mq.addListener(onChange);
+})();
 function swTab(t) {
   usageHit(t);
   if (t === 'feedback' && curTab !== 'feedback') _fbFrom = { tab: curTab, ds: curDs, mode: _viewMode }; /* どの画面から来たか（場所の初期値に使う） */
