@@ -2244,6 +2244,8 @@ body.has-psgb{--psgb-h:36px}
 .mk-search-clear{position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--txt3);cursor:pointer;font-size:12px;padding:5px 7px;line-height:1;border-radius:50%}
 .mk-search-clear:hover{color:var(--txt);background:var(--bdr)}
 .mk-count{font-size:11.5px;color:var(--txt3);white-space:nowrap;flex-shrink:0}
+/* スマホでは件数を検索欄の下へ回す（横に並べると検索欄の案内文が途中で切れる。2026-11-29） */
+@media (max-width:480px){.mk-search-wrap{flex-basis:100%}.mk-count{flex-basis:100%}}
 .mk-catnav{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px}
 .mk-cat-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:11.5px;font-weight:700;color:var(--txt2);background:var(--sur);border:1.5px solid var(--bdr2);cursor:pointer;transition:all .15s;font-family:var(--fn);white-space:nowrap}
 .mk-cat-chip:hover{background:var(--sur2)}
@@ -2600,10 +2602,7 @@ body.has-cbar #scroll-top-btn{bottom:calc(80px + var(--cbar-h, 0px))}
       <div style="padding:0 10px 6px"><button class="btn btn-g btn-sm btn-fw" onclick="openDutyReqModal(null)"><span class="hm-sic" data-ic="hand-stop"></span>担当の希望<span id="dreq-badge" class="fb-badge" style="display:none"></span></button></div>
       <div id="cal-evts-list" style="overflow-y:auto;max-height:200px;font-size:12px"></div>
       <div style="flex:1"></div>
-      <div class="sbf">
-        <p><span class="hm-sic" data-ic="bulb"></span>月初に「1ヶ月生成」で一括作成できます</p>
-        <button class="btn btn-p btn-fw" onclick="openGM()"><span class="hm-sic" data-ic="calendar"></span>1ヶ月分まとめて生成</button>
-      </div>
+      <!-- カレンダー下の「1ヶ月分まとめて生成」は外した（2026-11-29：使わない・スマホでは消し込みバーに隠れていた）。担当表の上に残す -->
     </div>
 
     <!-- トップページ・すべての機能・設定（2026-11-25）。中身は renderHome / renderAllFeat / renderMyPref が描く。
@@ -6745,6 +6744,7 @@ var APP_VERSION = 'Ver.2026/11/26-176';
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
   { ver:'Ver.2026/11/26-176', date:'2026-11-26', title:'連絡表のページの絵文字を線のアイコンにしました', items:[
+    { t:'imp', d:'共通業務が曜日の設定で1つも無い日は、空の枠ではなく「今日は対象の項目はありません」と出すようにしました。スマホのメーカー連絡先は、件数を検索欄の下に出して案内文が切れないようにしました。' },
     { t:'fix', d:'スマホで連絡表から別の画面（トップなど）へ移っても、下の消し込みバー（残り○件）が出たままになっていたのを直しました。' },
     { t:'fix', d:'日付をまたいだときの申し送りの繰り越しで、毎日エラーの記録が1件ずつ残っていたのを直しました。', admin:true },
     { t:'imp', d:'患者情報の確認が、「本院」「本日」「午前中」「回診」「指示書」のような普通の言葉で出にくくなりました。' },
@@ -29976,6 +29976,9 @@ function buildCL(ds,dat,wtl,all,locked) {
     if(!isDlyShownOnDate(D.dly[i],ds)) continue;
     document.getElementById('dcl').appendChild(mkCk(ds,i,dlyText(D.dly[i]),dat,locked,null,D.dly[i]));
   }
+  /* 曜日の設定（土日を除く・祝日のみ等）で今日は1つも出ないとき、空の箱だけ残さない（2026-11-29） */
+  var dclEl=document.getElementById('dcl');
+  if(dclEl && !dclEl.children.length && D.dly.length) dclEl.innerHTML='<p class="cle">今日は対象の項目はありません（曜日の設定でお休み）</p>';
   var we=document.getElementById('wcl');
   if(!wtl.length){we.innerHTML='<p class="cle">この曜日の追加業務はありません</p>';return;}
   var ents = wdEntriesForDate(ds);
@@ -30129,6 +30132,7 @@ function buildHdCL(ds,dat,locked) {
     if(!isDlyShownOnDate(D.hdDly[i],ds)) continue;
     dc.appendChild(mkHdCk(ds,i,dlyText(D.hdDly[i]),dat,locked,null,D.hdDly[i]));
   }
+  if(!dc.children.length && D.hdDly.length) dc.innerHTML='<p class="cle">今日は対象の項目はありません（曜日の設定でお休み）</p>';
   var we=document.getElementById('hdwcl'); if(!we) return;
   we.innerHTML='';
   var ents = hdWdEntriesForDate(ds);
@@ -31090,7 +31094,7 @@ function taskDoneSectionHTML(sec, pairs, isMemo, today, forceOpen) {
 function renderTasks() {
   var el = document.getElementById('task-body');
   if (!el) return;
-  if (FB_ON && currentUser && !_tasksLoaded) { el.innerHTML = '<div class="pool-empty" style="padding:20px 0">読み込み中…</div>'; return; }
+  if (FB_ON && fbDB && currentUser && !_tasksLoaded) { el.innerHTML = '<div class="pool-empty" style="padding:20px 0">読み込み中…</div>'; return; }
   if (_taskView) { renderTaskPerson(el, _taskView); return; }
 
   var ids = Object.keys(_tasksData);
