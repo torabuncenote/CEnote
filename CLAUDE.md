@@ -62,6 +62,7 @@ var D = {
   roboLayouts: [],  // ロボット配置マスタ [{id:'rl_…', n:'配置A', imgs:[{k}]}]。imgs は画像プールの図の置き場所。詳細は「OPE / カテカード」節
   roboPool: [],     // ロボット配置図の画像プール [{k, ts, sz, cap}]。図そのものは /robotImg/{k}
   featCfg: {},      // 機能のオン・オフ（管理者だけ）{ brk:false } のようにオフにした機能だけ持つ。読み出しは featOn(名前)
+  homeCfg: {},      // トップページの初期の並び（管理者だけ）{ tiles:['today','cal',…] }。無ければ既定の6つ。個人の並びは /userPrefs/{uid}（/data の外）。詳細は「トップページ」節
   dutyCfgMaster: [], dutyCfg: [],     // duty slot definitions
   opsCfg: [], oc: [],                 // ops config, on-call config
   shift: {}, evts: {},                // shift/event data
@@ -266,7 +267,7 @@ function can(id) {
 'docs':   isAdmin,
 ```
 
-`cal` / `assign` / `sum` / `task` / `lib` are deliberately **not** in the `show` map — they are visible to everyone in both modes, and the map only lists tabs that need controlling.
+`cal` / `assign` / `sum` / `task` / `shiftreq` / `supreq` / `lib` are deliberately **not** in the `show` map — they are usable by everyone in both modes, and the map only lists tabs that need controlling. **Since the トップページ they are also hidden in the tab strip** (`.stab-off` = `display:none!important`, so `updateTabVisibility` can never show them again; the buttons stay in the DOM because `swTab`'s highlight loop and the many `swTab('cal')` callers refer to the ids). The strip shows only トップ / すべての機能 / 設定 plus the admin tabs above (every visible tab and the 管理資料 submenu use line icons — `<span class="hm-sic" data-ic="…">` filled by `homeFillIcons()`, colour = text colour); every other feature is reached through `homeOpen(id)` (see トップページ).
 
 **主観モードによる出し分けはタブではなくサブタブで行う。** `updateTabVisibility()` の後半が `subtab-at`（CE担当表）と `subtab-fair`（CE公平性）を HD主観で、`subtab-hdfair`（HD公平性）を CE主観で隠し、隠れたサブタブを開いたままモードを切り替えたときは `swSubTab('my')` へ退避させる。公平性2つはどちらも管理者のみ。担当表タブごと隠さないのは、**マイ担当がHD勤務のシフトも出す画面**（`renderMySchedule` は `_viewMode` で分岐しない）で、HD主観からも辿れる必要があるため。`swTab('assign')` の既定サブタブも主観で変わる（HDなら `my`）。
 
@@ -325,6 +326,7 @@ On logout also reset: `_saveWriting`, `_savePending`, `_saveQueued`, `_fbEverCon
 /board/                     — 掲示板 posts (independent of /data)
 /tasks/                     — タスク管理 (independent of /data; see Task Management section)
 /feedback/{id}              — 改善要望 {kind, area, level, text, img?, anon, uid?, name?, ts, ver, dev, status, stTs?, comments?, adminSeen?}（/data の外。全件は管理者、本人は uid で絞った自分の分だけ読める。作成は全員・変更削除は管理者、comments は本人も追加可＝ルールで強制）
+/userPrefs/{uid}           — 自分のトップページの設定 {home?:[機能id…], start?:'home'|'today', style?:'circle'|'tint', ts}（/data の外。本人だけが読み書き＝ルールで強制。/users は login のたびに set() で上書きされるので使えない）
 /dutyReq/{uid}/{id}         — 担当の希望 {name, kind:'day'|'range'|'open', ds?, from?, to?, slots?[], strength, note?, ts, status?:'consider'|'plan'|'skip', reply?, replyTs?}（/data の外。本人は自分の uid 配下、管理者は全体を読む。status/reply は管理者だけが変えられる＝ルールで強制）
 /errLogs/{id}               — 画面で起きたエラー {ts, ver, msg, src, line, col, stack?, where, mode, dev}（名前・uidなし。作成は承認済みの職員、読む・消すは管理者とデベロッパ。30日で消す）
 /devs/{uid}                 — デベロッパの印（true。付け外しは管理者だけ）
@@ -391,7 +393,9 @@ Browser-held FCM server-key sending has been disabled (`sendFCMPush()` is inert)
 .tb       — top bar (fixed)
 .ab       — app body (flex row)
   .sb     — sidebar (left, collapsible)
-    .stabs — tab strip
+    .stabs — tab strip（🏠 トップ / 🗂 すべての機能 / ⚙ 設定 ＋ 管理者用タブだけ見える。他は .stab-off で隠す）
+    pane-home / pane-allfeat / pane-mypref — トップページ・すべての機能・設定（全ユーザー。「トップページ」節）
+    pane-dreq / pane-chglog — 「勤務・担当」の担当の希望／「ヘルプ」の変更履歴（左のメニューにタブは無い。「トップページ」節のまとめ）
     pane-cal    — calendar with month navigation
     pane-assign — 📊 担当表, with subtabs (swSubTab / `_curSubTab`):
                   at (担当表) / my (マイ担当) / fair (CE公平性) / hdfair (HD公平性)
@@ -410,7 +414,7 @@ Browser-held FCM server-key sending has been disabled (`sendFCMPush()` is inert)
 
 `pane-board`（掲示板）と `pane-sched`（🕒 タイムライン。旧⏰スケジュール）はどちらも元々サイドバーのタブだったが、タブに置いていると活用されないため連絡表ヘッダーのボタン（📢/⏰、`openBoardPanel()`/`openSchedPanel()`）から開くモーダルに変換済み——`.ov`/`.hd` トグルで開閉する `#board-panel-ov`/`#sched-panel-ov` が `<body>` 直下にあり、中身の要素 id（`#pane-board`、`#sched-title`/`#sched-tools`/`#sched-body`）は元のまま移設しているため `renderBoard()`/`renderSched()` は無改造で動く。`#pane-sched` は以前 `.sb` の内側にあり、スマホで `.sb` の `transform:translateX(-100%)` に巻き込まれて真っ白になる不具合を避ける防御コードが複数箇所に必要だったが、モーダル化によりその防御コードごと不要になった。
 
-Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled by `.hbg`. `#pane-assign` is a `position:fixed` full-screen overlay on mobile.
+Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay. **The top-left ☰ (`.hbg` → `togSB` → `toggleNavMenu`) no longer opens the sidebar** (2026-11-25, 本人: 押すとカレンダーが出るのは変): it shows a small menu over the current screen listing 「連絡表（開いている日）」 plus every visible `.stabs` tab (copied from the DOM, so `updateTabVisibility` still decides what shows). The old sidebar toggle is kept as `togSBLegacy` and is not called. `#pane-assign` is a `position:fixed` full-screen overlay on mobile.
 
 **前後の日への移動（`pageNav(dir)` / `pageNavTitleHTML(title)` / `initPageSwipe()`）**：連絡表の見出し（CE・HDとも）の左右に ‹ › を置く。連絡表が無い日は、`can('pg')` なら「1日分を追加」（`openNM`、カレンダーの空き日と同じ入口）を開き、無ければその方向で31日以内の一番近い連絡表へ飛ぶ。スワイプは `#main` に1回だけ登録し、横80px以上・縦の2倍以上・600ms以内・1本指だけを数える。入力欄・ボタン・配置盤（`#placement-wrap`）・HD担当表・担当カード（`.dg`）・プール・横スクロールできる箱・画面端24px・ピンチ拡大中・文字選択中は無視する（`pnavSwipeBlocked`）。**中でドラッグや横スワイプを使う部品を `#main` に足したら、`pnavSwipeBlocked` にも足すこと。** ページの途中用に、`#main` の左右の端へ薄い丸ボタン（`#pnav-float`、`updatePnavFloat(ds)`）を置く。出し入れは `updateCloseBar` の先頭から呼ぶ（日ページの表示・非表示・タブ切替がすべてそこを通るため）。普段は `opacity:.2`、マウスを乗せる・押すと濃くなる。スマホ（768px以下）は本文の左右の余白に収まる細いつまみ（幅16px）にする——丸ボタンだと本文の端に重なり、押したつもりが日付の移動になった。サイドバーの開閉（`togSB`）でも置き直す。「入力中」の判定は `isTextEntry(el)`（文字を打つ欄だけ）——Android の Chrome は押したチェックボックスにフォーカスを残すので、INPUT 全部を入力中とみなすとスワイプ・丸ボタン・消し込みバーが止まったままになる。スマホで入力中（キーボード表示中）は `body.pnav-kb` で隠す。z-index は150（スマホのサイドバー200・消し込みバー250より下）。
 
@@ -428,7 +432,7 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 **紙用の様式・災害用セット（`openPaperSheet(ds)` / `paperDocHTML(dsList, blank, hd)` / `paperDaySheetHTML(ds, hd)`）**：連絡表ヘッダーの「📄 紙用」。停電・回線断のときにアナログで記録するための紙で、**災害当日、まだ電源と院内ネットが生きているうちに「🆘 災害用セット」（開いている日から3日分＋日付なしの白紙）をまとめて刷る**のが前提（2026-10-21 合意。正本は Obsidian `60_アプリ開発/2026-10-21_CENOTE災害モード設計.md`）。1日分だけ・白紙だけも刷れる。各ページには災害モードで記録する操作と同じ欄（担当表と休／チェックリスト／申し送り／CEはオペ・カテ症例とOC／タブレット貸出）を並べ、行ごとに「入力済」の□（復旧後にアプリへ書き写した印）を付ける。主観で CE/HD を出し分け、済んだ項目は☑で刷る。白紙版（`ds=null`）は毎日の項目と担当枠・HDの役割だけを入れる。チェック項目は `_paperChecklistRows(ns, ds, dat)` が `CL_CE`/`CL_HD` の記述子で集める（CE/HDの双子を作らない）。データは書き換えない。画面の印刷（`window.print()`）とは別物。**選ぶといきなり印刷せず、`openPaperPreview(html, label)` の確認画面（枠＝iframe の中に紙の見た目をそのまま出す）を開き、そこで「🖨 印刷」（枠の中だけを刷る）か「別のタブで開く」（`_paperPrint`、枠の中だけを刷れない端末向け）を押す。** 紙は画面ではA4幅（794px）で灰色の地に並べ、狭い画面では `PAPER_FIT_JS` が幅に合わせて縮める（`@media print` で zoom を1に戻すので印刷には効かない）。
 
-`openDefaultPage()` — called at Firebase first-load and in preview mode; opens today's page if it exists, else shows the `.es` placeholder.
+`openDefaultPage()` — called at Firebase first-load and in preview mode. **By default it opens the トップページ (`swTab('home')`)**; only when the person chose 「今日の連絡表」 in ⚙ 設定 (`homeStart()` = `'today'`) or is in 災害モード does it keep the old behaviour: open today's page if it exists, else show the `.es` placeholder.
 
 **今日へ戻る（`pageNavToday()`、2026-11-16）**：見出しの ‹ › の横に、今日以外を開いているときだけ「本日へ」を出す（`pageNavTitleHTML`）。今日の連絡表が無ければ、作れる人には「1日分を追加」を開き、作れない人には知らせる。ボタンは `pageNavTodayBtnHTML(cls)` 1つで作り、PCは見出しの › の右（`.pnav-today`）、スマホ（768px以下）は › と押し間違えるのでヘッダーのタイムラインの横（`.pnav-today-m`）に出す（2026-11-19 本人）。480px以下で「本日へ」が出ている日は、タイムラインと本日へ（📅）を絵だけにして同じ行に収める（`.pg-hd:has(.pnav-today-m)`。タブレット・掲示板は文字を残す）。
 
@@ -438,9 +442,27 @@ Mobile (`max-width: 768px`): sidebar becomes a fixed full-screen overlay toggled
 
 CSVは対象を持つサブタブにだけ出す：担当表は `at` のみ（マイ担当・公平性はボタンごと隠す）、集計は3つとも出す。印刷は `_printSubPane(phId, subId)` が共通処理で、担当表(`at`)だけは専用レイアウトの `printAt()` へ抜ける。印刷CSSは `body[data-print-sub="…"]` で1枚だけ開くので、**サブタブを足したらこの行も足すこと**（足し忘れると紙が白紙になる）。
 
-**Adding a top-level sidebar tab** touches six places, and the last one is the easy miss: the `.stabs` button (`tab-{id}`), the `pane-{id}` div, `swTab`'s `tabs` array, `swTab`'s `contentPanes` array (PC full-width), the per-tab render call in `swTab`, and **any Firebase listener that re-renders only while that pane is visible**. When `task` was promoted out of `pane-assign`, the three `/tasks` + `/taskMemos` listeners still queried `#subpane-task`; leaving them would have silently stopped real-time updates.
+**Adding a top-level sidebar tab** touches six places (plus, for a feature people should reach from the トップページ: one entry in `HOME_FEATS` and one `case` in `homeOpen`, and hide its `.stabs` button with `.stab-off`. A screen that belongs to a まとめ — 勤務・担当／ヘルプ, `HOME_SETS` — needs no `.stabs` button at all: add it to `HOME_SETS`, put `<div class="hm-tabs-host" data-set="…"></div>` at the very top of its pane, and add its id to `swTab`'s `tabs`/`contentPanes`), and the last one is the easy miss: the `.stabs` button (`tab-{id}`), the `pane-{id}` div, `swTab`'s `tabs` array, `swTab`'s `contentPanes` array (PC full-width), the per-tab render call in `swTab`, and **any Firebase listener that re-renders only while that pane is visible**. When `task` was promoted out of `pane-assign`, the three `/tasks` + `/taskMemos` listeners still queried `#subpane-task`; leaving them would have silently stopped real-time updates.
 
 `init()` calls `updateTabVisibility()` once at startup (right after `fbInit()`). Without it the mode-dependent tabs are never evaluated on a cold load: `_viewMode` is restored from `localStorage` at the top of `init()`, but the Firebase path only re-evaluates on login and the preview path used to hand-set `display=''` on the admin tabs, so reloading while in HD mode left 担当表 showing and HD集計 hidden. Do not replace that call with per-tab `style.display` assignments again.
+
+### トップページ・すべての機能・設定（`pane-home` / `pane-allfeat` / `pane-mypref`、`D.homeCfg`、`/userPrefs/{uid}`、2026-11-25）
+
+アプリを開くと最初に出る画面。大きいタイル（線のアイコン・名前・一言・右上に赤い未読の数）を2列に並べ、押すとその機能を開く。左のメニューは「🏠 トップ／🗂 すべての機能／⚙ 設定」と管理者用のタブだけにした（他の機能のタブボタンは `.stab-off` で隠すだけで残す。Tab Visibility 節）。
+
+- **機能の一覧は `HOME_FEATS` が唯一の正本**（`{id, g:グループ, i:アイコン名, c:色, n, d:一言の既定, tab?, p?}`、グループは `HOME_GROUPS`。`p` は入っているまとめのid）。トップのタイル・すべての機能・管理者の初期設定がすべてこれを読む。**機能を開く処理は `homeOpen(id)` の1か所**（`today` は `homeOpenToday()`＝`swTab('cal')`→今日の連絡表を `openPage`、無ければ作れる人に `openNM`／作れない人に知らせる。`duty`/`help` は まとめ（下記）＝`swTab(homeSetLast(id))`。`my`/`perf` は `swTab('assign')`→`swSubTab`。`board` はモーダル。`sched`/`tablet` は開いている日（無ければ今日）の連絡表を開いてから `openSchedPanel()`／`openTabletPanel(ds)`。`docs` は `toggleDocsMenu()`）。機能を足すときは `HOME_FEATS` と `homeOpen` の両方。
+- **使えるかは `homeFeatOk(id)`**。管理者用（`tab` を持つもの）は `tab-{id}` の `style.display` をそのまま見る——**`updateTabVisibility` の判定を二重に持たない**ため。`my`/`perf` はサブタブのボタンが出ているか。
+- **並びの優先順位**：個人 `_homePref.home` → 管理者の `D.homeCfg.tiles` → `HOME_DEF`（既定の6つ：連絡表・カレンダー・勤務・担当・タスク・掲示板・メーカー連絡先。5つだと2列の最後が1つ余るので、連絡表ページのヘッダーから移った掲示板を足した）。読み出しは `homeList()`（知らない・重複idを除く）、画面に出す・個人設定として保存するのは `homeVisible()`（使えるものだけ）。個人の設定を初めて変えるときは、いま見えている `homeVisible()` から始める。**トップには最低1つ残す**（Firebase は空の配列を保存しないので、空にすると「設定なし＝初期に戻る」と区別できないため）。
+- **線のアイコンと見た目（絵文字はやめた、2026-11-25 本人「ダサい」）**：アイコンは Tabler Icons（MIT）3.19.0 の outline から使うものだけの中身を `HOME_ICONS`（名前→`<path …/>` の文字列）に埋め込み、`homeIcon(name, size)` が `<svg>` にして返す（外部の読み込みは増やさない。足すときは `curl -s https://unpkg.com/@tabler/icons@3.19.0/icons/outline/<名前>.svg` の中身を写す）。機能の色は `HOME_FEATS` の `c`（`ac/or/gr/pu/rd/gd/oc`＝アプリの意味色、`gy`＝グレー）で1つずつ固定し、CSS の `.hc-xx`（`--hc`）で当てる。並びで隣どうしが同じ色にならないように割り振ってあるので、機能を足すときも前後と違う色にする。見た目は個人の `style`：`'circle'`（既定。白いタイル＋機能の色の丸＋`--on-ac` の線）／`'tint'`（タイル全体を `color-mix(機能の色 12%, --sur)` で淡く塗る。ダークは濁らないよう17%。割合は `--hm-t1〜t3`）。`#home-body`・`#allfeat-body`・`#home-cfg-form` の `data-hs` で切り替え、アイコンの入れ物は `homeIc(f, kind)`（`t`＝タイル／`r`＝すべての機能の行／`s`＝マスタの行／`p`＝設定の見本）。色・影・枠は CSS 変数と `.hm-*`／`.af-*` に閉じている（タイルに影は付けない）。
+- **個人の設定は `/userPrefs/{uid}` = `{home?:[id…], start?:'home'|'today', style?:'circle'|'tint', ts}`**（`D` の外。本人だけが読み書き＝ルールで強制、`home` の各要素は `^[a-z0-9_]+$`・20字以内、知らないキーは拒否。`$uid` は home・start・style のどれかがあること）。`circle`・`home`（start）は既定なので保存しない（`homePrefSet` の `null` でキーごと消す）。`homePrefLoad()` がログイン後（とプレビュー起動時）に1回、端末の写し `ce2_home_{uid}` で先に動かし、`once()` の結果が新しければ入れ替える。書き込みは変えたときだけ `homePrefSet(patch)`（値 `null` のキーを消す。`home` も `start` も無くなったら node ごと消す）→ `homePrefPush()`。プレビュー・災害モード（`homeLocalOnly()`）は localStorage だけ。ログアウトで `_homePref` を捨てる（端末の写しは uid ごとなので残してよい）。**ルール未反映でも端末の写しで動く**（保存失敗は1セッション1回だけトーストで知らせる）。**本番で個人設定をサーバーに保存するには `database.rules.json` の `userPrefs` の反映が必要。**
+- **管理者の初期の並び `D.homeCfg`**：新しいトップレベルの `D` 項目（5か所＋バックアップ3配列は `featCfg` と同じ）。`DATA_WRITE_PERM` にも `database.rules.json` の `data` にも載せない＝管理者だけが書く（デベロッパにも書かせない）。マスタ「🔔 通知・連絡」の「トップページの初期の並び」（`renderHomeCfg` / `homeCfgToggle` / `homeCfgMove` / `homeCfgReset`、`data-perm="admin"`）。既定の6つと同じ並びなら `D.homeCfg = {}` にして持たない（読むと既定になる）。個人の設定を持つ人には効かない。
+- **タイルの一言・数字は読むだけ**（`homeInfo(id)`／数字は `homeBadgeN(id)`）：連絡表＝`closeItems(今日)` の残り（無ければ「未作成」）、タスク＝`taskUnreadIds()` の数（`/tasks` はログイン時に読まないので、未読の印だけで数える既存のタブのバッジと同じ）、物品請求＝未完了件数、掲示板＝`boardUnreadCount()`、メーカー＝件数、ヘルプ＝改善要望の未読 `fbUnreadN()`/`fbMineUnreadN()`（資料タブのバッジを隠したので、ここが見える場所）。**勤務・担当**＝今日の自分の担当（`myDutyLabels`、例「今日：オペ担当」）→ 無ければ勤務希望の今月・来月の次の締切（`homeShiftreqNote`＝`shiftReqDeadline`）→ 担当が無い日は「今日の担当はありません」。取れないものは `HOME_FEATS` の `d`。
+- **まとめ（`HOME_SETS`、2026-11-25 本人決定）**：**勤務・担当**（`duty`＝担当表 `assign`／勤務希望 `shiftreq`／担当の希望 `dreq`）と **ヘルプ**（`help`＝使い方 `guide`／変更履歴 `chglog`／改善要望 `feedback`）は、トップのタイルもすべての機能も**1項目**。押すと**前回見ていた中身**（端末ローカル `ce2_hset_{まとめのid}`、初回は先頭。`homeSetLast`）が開き、その画面の一番上に切り替えのタブが出る。タブは**部品1つ**＝`homeTabsRender(t)`（`swTab` が最後に呼ぶ）が、各画面（`pane-assign`・`pane-shiftreq`・`pane-dreq`・`pane-guide`・`pane-feedback`・`pane-chglog`）の先頭の `<div class="hm-tabs-host" data-set="…">` に描く。中身のidは `swTab` のid（`dreq`・`chglog` は左のメニューにタブを持たない画面）。**担当の希望はモーダルの描画をそのまま画面にも使う**：`renderDutyReqModalBody()` が `dreqHost()`（モーダル `#dreq-md` が開いていればそこ、無ければ `pane-dreq` が出ているときの `#dreq-pane-body`）へ描き、画面のときは「閉じる／キャンセル」を出さない（`dreqFootClose`・`dreqInModal`）。`swTab('dreq')` は `dreqOpenPane()`（モーダルを開くときと同じ初期状態）。変更履歴は `changelogPublicHTML()`（モーダル `openChangelogPublic` と同じ中身）を `renderChglog()` が `pane-chglog` に描く（管理者向けの全件 `pane-changelog` とは別）。災害モードでは担当の希望をタブから外す（`homeSetMembers`）。マイ担当（`my`）・実績（`perf`）は単独のタイルとしても残り、すべての機能では「勤務・担当」の下に**字下げで**並べた（`HOME_FEATS` の `p:'duty'`。まとめの行にも中身の名前を小さく添える＝個別の項目が消えたので「勤務希望はどこ？」で迷わないように）。担当表・集計のスマホ用「← 戻る」の戻り先は今までどおりトップ。
+- **古いidの読み替え（`HOME_ID_MAP` / `homeIdNorm`）**：以前の個人設定・管理者の初期の並びに `assign`/`shiftreq`/`dreq`/`guide`/`changelog`/`feedback` が入っていても、**読むとき**（`homeList()`・`homeCfgList()`）だけまとめのid（`duty`/`help`）に読み替え、重複は最初の1つにする。**保存済みのデータは書き換えない**（次に並びを変えて保存したとき新しいidで入る）。まとめを足す・分けるときは `HOME_ID_MAP` も直す。
+- **並べ替えは長押し→つかんで動かす（iPhone のホーム画面と同じ。2026-11-25）**：入り方は「編集」ボタン、またはタイルの**長押し**（`HOME_LP_MS`＝500ms。指が `HOME_LP_SLOP`＝8px 以上動いたら長押しを取り消してスクロールに任せる）。編集中はタイルが小さく揺れ（`rotate` のアニメ。`prefers-reduced-motion` では止める）、右上に丸い ✕（押すとトップから外す。最後の1つは外せない）、赤い数字は隠す。**↑↓ボタンは廃止**。Pointer Events（マウス・タッチ共通。`pane-home` に `homePtrDown` と `click` を1回だけ登録＝`homeBindOnce`）で、編集中のタイル（`touch-action:none`）を `HOME_DRAG_SLOP`＝4px 動かすとつかむ（`homeDragStart`）：**指に付くのは `#home-body` の中の position:fixed の複製**（`[data-hs]` の見た目が効く／`--ui-zoom` の zoom の中なので長さと位置を `uiZoom()` で割る。原点は left/top:0 のときの実測）、元のタイルは空き枠（`.hm-ghost`）。指の下のタイルと並びを入れ替えて場所を空け（`homeDragSwap`＝DOM の並びを入れ替え、ほかのタイルは FLIP で滑らせる。動いている最中の位置で判定し直すと連鎖するので `HOME_SWAP_MS` の間は判定しない）、画面の上下端 `HOME_SCROLL_EDGE` 以内では自動スクロール（`homeDragLoop`）。離したら複製が空き枠へ収まってから、並びが変わっていれば `homePrefSet({home:並び})` で保存（`homeDragEnd`）。**つかんでいる間は `renderHome()` が描き直しを見送り**（`_homeDragPending`、受信で DOM が作り直されて複製・並びが消えないように）、終わってから描く。編集中にタイルを押しても機能は開かず、「完了」またはタイル以外の所を押すと終わる（`homePaneClick`）。**長押しで編集に入った直後・ドラッグを離した直後に続けて来る `click` は1回だけ無視する**（`_homeSwallow`。無視しないと機能が開く・編集がすぐ終わる）。調整値（時間・px）は定数 `HOME_*`。キーボードだけで並べ替える手段は今のところ無い（✕ だけ押せる）。
+- **描き直し**：`refreshHomeIfOpen()`（トップ／すべての機能が開いていれば `renderHome()`／`renderAllFeat()`）。呼び元は `/data` の受信（リスナーの `refreshSupReqIfOpen` の次）・`/board` の受信・`taskRefreshBadge`・`fbRefreshBadge`・`updateTabVisibility`（管理者用機能の出し分けが変わったとき）。**直前に描いた HTML と同じなら `innerHTML` を触らない**（`_homeHtml`。受信のたびに作り直すとタップが空振りする）。編集中（`_homeEdit`）は ✕ と「機能を足す」（＝すべての機能へ。ドラッグの対象外で末尾に残る）を出し、別のタブへ移ると解除（`swTab` が `homeDragAbort()` も呼ぶ）。
+- 最初に開く画面（`start`）は ⚙ 設定（`renderMyPref` / `homeSetStart`）。`openDefaultPage()` が `homeStart()` を見る（既定はトップ。災害モードは今日の連絡表）。
+- `onclick` には機能の id だけを `data-f` 経由で渡す（`homeOpen(this.dataset.f)`）。
 
 ### 文字サイズ（`--ui-zoom`）
 
