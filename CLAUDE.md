@@ -1268,6 +1268,13 @@ Incomplete memo posts show a 📅 button (`.mp-move`) next to the 済 checkbox i
 - 保存は `saveDPage(ds)`（ページ単独スコープ）。`writeLog('申し送り編集', …)` に編集前後の冒頭20文字を残す。
 - **「済」チェックと操作ボタン（✏️📅✕）は `.mp-actions` の1つのflex行にまとめる。** 以前はそれぞれを個別に `position:absolute` ＋ 固定の `right` 値で並べており、編集ボタンを足したときに位置計算を更新し忘れて「済」の文字がボタンの下に隠れた。**個別の絶対配置に戻さないこと** — 横並びなら表示されるボタンの数が変わっても自動で詰まる。
 
+### 返事を書いた本人が直す（2026-11-29 本人）
+
+返事・コメントは**書いた本人だけ**が直せる（管理者でも他人の返事は直さない。消すのは従来どおり）。小窓は `openTextEditModal({title, text, max, phi, onSave})` の1つを共用し、空にはできない。直したものには `editedAt` を持たせ、`editedMarkHTML(x)` が「（編集済み）」を出す。
+- 申し送りの返信 `editMemoReply(ds, mkey, rid)`（`bindMemoListEvents` の `data-action="editMemoReply"`、`saveDPage`）、掲示板の返信 `editBoardReply(postId, rid)`（`/board/{id}/replies/{rid}` に text・editedAt だけ update）、タスクのコメント `taskEditComment(id, cid)`（同じく update。知らせは送り直さない）、改善要望のやり取り `fbEditComment(id, cid, role)`（本人は by:'user'、管理者は by:'admin' の分）、担当の希望 `dreqEdit(el)`（入力欄に戻して同じ id に書き直す。`_dreqEditId`。出した時刻・status・reply は元のまま）。
+- 患者情報の確認は投稿と同じ基準（申し送り・掲示板は赤も黄色、タスク・改善要望は赤だけ）。
+- **改善要望の本人の書き換えは `database.rules.json` の `feedback/$id/comments/$cid` の変更（`!data.exists() || data.child('by').val() === 'user'`）の反映が必要**。未反映だと直せず、トーストで知らせる。ほかの4つはルール変更なし。
+
 ### Memo Replies (申し送りの返信)
 
 Each memo carries `m.replies = { [rid]: {uid, name, isAdmin, text, media, ts} }` — **a keyed object, not an array**. `memos` itself is an array under `/data/pages/{ds}`, so a nested array would collide on index whenever two people reply at once; this mirrors the board's `/board/{id}/replies`. The key is `'r' + ts + '_' + uid.slice(0,8)`.
