@@ -285,7 +285,25 @@
         "comments": {
           "$cid": {
             ".write": "auth != null && root.child('access').child(auth.uid).val() === true && (!data.exists() || data.child('by').val() === 'user') && newData.exists() && root.child('feedback').child($id).child('uid').val() === auth.uid",
-            ".validate": "newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))"
+            ".validate": "newData.hasChildren(['by', 'text', 'ts']) && newData.child('text').isString() && newData.child('text').val().length <= 1000 && (newData.child('by').val() === 'admin' ? root.child('admins').child(auth.uid).val() === true : (newData.child('by').val() === 'user' && root.child('feedback').child($id).child('uid').val() === auth.uid))",
+            "by": {
+              ".validate": "(!data.exists() || newData.val() === data.val()) && (newData.val() === 'user' || (newData.val() === 'admin' && root.child('admins').child(auth.uid).val() === true))"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().length <= 1000"
+            },
+            "ts": {
+              ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())"
+            },
+            "name": {
+              ".validate": "newData.isString() && newData.val().length <= 100"
+            },
+            "editedAt": {
+              ".validate": "newData.isNumber()"
+            },
+            "$other": {
+              ".validate": false
+            }
           }
         }
       }
