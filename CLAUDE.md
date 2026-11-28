@@ -88,6 +88,9 @@ var D = {
   evtRanges: [],    // 期間イベント [{id, n, from, to, kind?:'hd', skip?:{日付:true}, by, ts}]。1日ずつの events / D.evts とは別に持ち、表示のときだけ合わせる（evtRangesOn(ds)）
   hnEduItems: [],   // 本院ヘルプへの分院ルールの説明項目 [{id:'he_…', t:'項目'}]（教育担当・管理者が編集）
   hnEdu: {},        // その記録 { ヘルプの氏名: { 項目id: {by, ts} } }。キーがある＝説明済み。詳細は「本院ヘルプへの分院ルールの説明」節
+  supReqCats: [],   // 物品請求のカテゴリ [{id:'sc_…', n:'透析'}]。空なら初期の5つ（srCats()）。「物品請求」節
+  supReqItems: {},  // よく使う物品 { id: {n, mk?, model?, qty?, by, ts} }（部署で共通）。詳細は「物品請求」節
+  supReq: {},       // 物品請求 { id: {n, mk?, model?, qty?, note?, reqDs, reqBy, reqUid, ts, ordDs?…, rcvDs?…, cxl?} }。詳細は「物品請求」節
   lendBook: {},     // 本分院の貸出返却の台帳 { id: {dev, dir:'h2b'|'b2h', from, to, by, note, …} }。詳細は「掲示板のカテゴリ」節の台帳の項
   boardCats: [],    // 掲示板のカテゴリ [{id:'bc_…', n:'透析'}]。空なら初期の5つ。詳細は「掲示板のカテゴリ」節
   opsChk: {},       // 6MW・PSGの確認項目 { mw:[{id,t}], psgOn:[…], psgOff:[…] }（既定値は読むときに補う。詳細は「OPE / カテカード」節）
@@ -113,7 +116,7 @@ When adding a new top-level property to `D`, update **all five** of these locati
   - **A permission denial never stalls later saves.** `_doFbWrite` sends through `_sendDataUpdate(upd)`: if the batch is still rejected with `PERMISSION_DENIED` (e.g. this device's copy of `D.lk` is stale), it re-sends path by path, commits what is allowed and drops only the denied paths (one toast + `writeLog` per key per session). Without this, `syncForget` re-queued the same rejected batch on every save and *all* saves failed until reload. `saveDPaths` falls back to `saveD()` on any error (including denial) for the same reason.
   - **The old "古いセッション上書き検出" no longer re-sends anything.** It compared `_savedAt` (each device's own clock) and, when an incoming value was 8 s older than this device's last save, discarded the incoming snapshot and re-sent this device's whole `D` (`_syncBase = null`). Since diff saves, a stale session can only send the paths it changed, so this guarded nothing and instead fired on clock skew alone (2026-10-14: a 10-second skew) — dropping the other person's newest change and re-sending every page. It now only writes a log line (at most every 10 min). Do not restore the re-send.
   - **Regular users never send a key they may not write.** `_doFbWrite` passes the diff through `regularDataUpdate()` for non-admins, which drops every path whose top-level key fails `dataWritable(key)`. A multi-path `update()` is rejected as a whole if any single path is denied, and that would stall every later save — so the filter is not optional. Dropped keys simply revert to the server value on the next `/data` event.
-  - **`DATA_WRITE_PERM` is the single table of who may write each `/data/{key}`** (`'all'` = every approved user, a lock id = `can(id)`, `'edu'` = `perm_edu`, `'rec'` = every approved user may create/update one child at a time but only admins/devs may delete or overwrite the whole key — the key must also be split per child in `syncSigMap`, absent = admin only). `database.rules.json`'s `data` children must list exactly the same keys with the matching condition — `validate.mjs` checks both directions. **When adding a new top-level `D` property that non-admins edit, add it to `DATA_WRITE_PERM` *and* `database.rules.json` (and `database.rules.prepare.json` is unaffected: it still allows all of `/data`).** Forgetting it doesn't throw; the edit just silently never reaches other staff once the final rules are live.
+  - **`DATA_WRITE_PERM` is the single table of who may write each `/data/{key}`** (`'all'` = every approved user, a lock id = `can(id)`, `'edu'` = `perm_edu`, `'rec'` = every approved user may create/update one child at a time but only admins/devs may delete or overwrite the whole key — the key must also be split per child in `syncSigMap`, `'recd'` = the same but staff may also delete one child (`supReqItems`), absent = admin only). `database.rules.json`'s `data` children must list exactly the same keys with the matching condition — `validate.mjs` checks both directions. **When adding a new top-level `D` property that non-admins edit, add it to `DATA_WRITE_PERM` *and* `database.rules.json` (and `database.rules.prepare.json` is unaffected: it still allows all of `/data`).** Forgetting it doesn't throw; the edit just silently never reaches other staff once the final rules are live.
 - **Firebase OFF / fallback**: writes to `localStorage` key `'ce2'`
 - **Logs**: written via `writeLog()` to Firebase `/logs`
 - **Media**: uploaded to Firebase Storage at `manual/{taskName}/{timestamp}_{filename}` (manuals), `memo/{ds}/{ts}_{idx}_{filename}` (memos), `board/{ts}_{idx}_{filename}` (board post images), `board/reply_{ts}_{idx}_{filename}` (board reply images)
@@ -1283,6 +1286,17 @@ The day page does **not** show an inline tablet section (it would occupy too muc
 - 連絡表（CE）の「🎯 担当割り当て」見出しの右に小ボタン `#dreq-box`（`dutyReqBoxHTML` / `refreshDutyReqBox`）だけを置き、押すとその日に関係する希望（`dreqForDay`）を小窓（`openDutyReqModal(ds, true)` → `dreqDayHTML`）で開く。管理者は希望がある日だけ「🙋 希望 N」（受付中があれば橙）、一般職員は「🙋 希望を出す／希望 N」。**欄として担当カードの上に並べないこと**（2026-10-28、担当カードを押し下げて邪魔だと言われて小ボタンにした）。**担当の割り当て経路はすべて `updateCloseBar` を通るので、そこから `refreshDutyReqBox` を呼んで「叶った」を追随させている。** 予定タブの「🙋 担当の希望」（`openDutyReqModal(null)`、`#dreq-badge`＝管理者は受付中の件数、本人は見送りの未読）からは日付を問わず出せる・一覧できる。書き込みは `dreqWrite(uid, id, rec)` だけを通す。
 - 月次自動割り当てには反映しない。「避けたい」希望・HDの役割は対象外。印刷では隠す。
 - **本番で使うには `database.rules.json` の `dutyReq` の反映が必要**（未反映だと「サーバー側の準備がまだ」と表示し、保存は戻す）。
+
+### 物品請求（`D.supReq`、📦 物品請求タブ、2026-11-24）
+
+紙・Excelで管理していた物品請求。トップレベルタブ `pane-supreq`（全ユーザー・主観で出し分けない。トップページを作るときにそちらへ移す）。
+- 1件＝`{n:品名, mk?:メーカー, model?:型番, qty?:数量(文字), note?, reqDs:依頼日, reqBy, reqUid, ts, ordDs?/ordBy?/ordUid?, rcvDs?/rcvBy?/rcvUid?, cxl?:{by,uid,ts}, upd?, updBy?}`。状態は保存せず `srState(r)`（取消＞受取済＞発注済＞未発注）。
+- **書き込みは `srSave(id, rec)` だけ**（`saveDPaths([['supReq', id]])`）。作りは `lendBook` と同じ：`DATA_WRITE_PERM` は `'rec'`、`syncSigMap` で1件ずつの経路、ルールの子 `$id` に `.validate`。**本番で一般職員が書くには `database.rules.json` の `supReq` の反映が必要**。
+- 請求・発注・受取は全員。直す・取り消すのは入れた本人だけ（品目と取消＝`reqUid`、発注の取消＝`ordUid`、受取の取消＝`rcvUid`）。**ルールの `.validate` でも強制**：新規は `reqUid === auth.uid`、`reqUid` は変えられない、品目（n/mk/model/qty/note/reqDs/reqBy）と `cxl` を変えられるのは `reqUid` 本人だけ、`ord*`/`rcv*` は空のときに自分の uid で入れるか、入れた本人が直す・消すだけ。取消は消さずに `cxl` を付けて一覧に残す。完全に消すのは `isAdmin`（`srDelete`）。
+- 発注・受取を入れたら依頼者へ `notifyInApp`（アプリ内だけ、type `'supreq'`）。自由入力は `lendCheckText`（赤の氏名以外だけ止める）。
+- 一覧は未完了（未発注→発注済）が上、絞り込み `_srFilter`、検索 `_srQ`。`/data` 受信で `refreshSupReqIfOpen()`。
+- **カテゴリ（`D.supReqCats`、2026-11-24 本人）**：請求とよく使う物品に固定ID `cat` を付ける（任意）。マスタは掲示板のカテゴリと同じ作りの別物（マスタタブ「備品・台帳」の「📦 物品請求のカテゴリ」、`mst`）。読み出しは `srCats()`（空なら `DEF_SR_CATS`。D は読むだけ）、書き換えは `srCatsForWrite()`、各記録は `srCatOf(r)`（マスタに無いIDは未分類）。一覧はカテゴリのチップ（`_srCat`）×状態のチップで絞る。よく使う物品から呼び出すとカテゴリも入る。
+- **よく使う物品（`D.supReqItems`）**：一覧の「⭐ 登録」（`srItemFromReq`）か、請求するときの「よく使う物品にも登録する」で登録し、請求の入力画面の「⭐ よく使う物品から選ぶ」ボタン（`openSrItems(true)`＝入力画面の上にポップアップ、カテゴリ別に絞れる。押すと `srFillFromItem` で入れて閉じる）で品名・メーカー・型番・数量を呼び出す（備考は入れない）。部署で共通、誰でも1件ずつ登録・削除できる（`DATA_WRITE_PERM` は `'recd'`＝子 `$id` は職員も書ける・消せる、`/data/supReqItems` 丸ごとは管理者とデベロッパだけ。`syncSigMap` で1件ずつの経路。ルールは項目ごとの `.validate` と `$other: false` で知らない欄を拒否）。同じ品名・メーカー・型番は1つだけ（`srItemFind`）。書き込みは `srItemSave` だけ。ヘッダーの「⭐ よく使う物品」（`openSrItems`）で一覧・削除・そのまま請求。
 
 ### メーカー担当者連絡先 (`D.makers`)
 

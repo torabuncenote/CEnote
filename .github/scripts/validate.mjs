@@ -109,7 +109,11 @@ if (existsSync(htmlPath) && existsSync('database.rules.json') && existsSync('sto
       const recOk = n => n?.['.write'] === `auth != null && (${ADM} || ${DEV})`
         && n?.$id?.['.write'] === `auth != null && (${ADM} || ${DEV} || (${ACC} && newData.exists()))`
         && typeof n?.$id?.['.validate'] === 'string';
-      for (const [k, p] of Object.entries(table)) if (p === 'rec' ? !recOk(db[k]) : db[k]?.['.write'] !== want(p)) bad.push(k);
+      /* 'recd'＝'rec' に加えて職員も1件ずつ消せる（子 $id の .write に newData.exists() を付けない）。丸ごとは管理者とデベロッパだけ */
+      const recdOk = n => n?.['.write'] === `auth != null && (${ADM} || ${DEV})`
+        && n?.$id?.['.write'] === `auth != null && (${ADM} || ${DEV} || ${ACC})`
+        && typeof n?.$id?.['.validate'] === 'string';
+      for (const [k, p] of Object.entries(table)) if (p === 'rec' ? !recOk(db[k]) : p === 'recd' ? !recdOk(db[k]) : db[k]?.['.write'] !== want(p)) bad.push(k);
       for (const k of Object.keys(db)) if (k[0] !== '.' && !(k in table)) bad.push(k + '（ルールのみ）');
       if (bad.length) fail('DATA_WRITE_PERM と database.rules.json の data が食い違っています: ' + bad.join(', '));
       else ok('書き込み権限表とDBルール一致（' + Object.keys(table).length + '項目）');
