@@ -6,23 +6,25 @@ const finalRules = JSON.parse(readFileSync('database.rules.json', 'utf8')).rules
 const prepRules = JSON.parse(readFileSync('database.rules.prepare.json', 'utf8')).rules;
 const storage = readFileSync('storage.rules', 'utf8');
 const admin = "auth != null && root.child('admins').child(auth.uid).val() === true";
+/* 管理者だけが読める場所は、デベロッパ（/devs が true かつ利用許可あり）も読める（2026-10-29〜） */
+const adminOrDev = "auth != null && (root.child('admins').child(auth.uid).val() === true || (root.child('devs').child(auth.uid).val() === true && root.child('access').child(auth.uid).val() === true))";
 
 assert.equal(finalRules.data['.write'], admin, 'whole D must be admin-only');
 const ADM = "root.child('admins').child(auth.uid).val() === true", ACC = "root.child('access').child(auth.uid).val() === true";
 const KEY = "$date.matches(/^\\d{4}-\\d{2}-\\d{2}_\\d{2}$/)";
-assert.deepEqual(finalRules.backup_meta, { '.read': admin, $date: {
+assert.deepEqual(finalRules.backup_meta, { '.read': adminOrDev, $date: {
   '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists()))`,
   '.validate': `${KEY} && newData.child('uid').val() === auth.uid && newData.child('ts').val() === now && newData.child('admin').val() === (${ADM})` } });
-assert.deepEqual(finalRules.backups, { '.read': admin, $date: {
+assert.deepEqual(finalRules.backups, { '.read': adminOrDev, $date: {
   '.write': `auth != null && (${ADM} || (${ACC} && !data.exists() && newData.exists() && root.child('backup_meta').child($date).child('uid').val() === auth.uid))`,
   '.validate': KEY } });
-assert.deepEqual(finalRules.recent_backup, { '.read': admin, '.write': admin }, 'shared recent backup must be admin-only');
+assert.deepEqual(finalRules.recent_backup, { '.read': adminOrDev, '.write': admin }, 'shared recent backup must be written by admins only');
 /* 画像は1枚ずつ：一覧（/media 全体）は誰も読めない、作るのは本人名義で新規だけ、消せるのは本人と管理者 */
 assert.equal(finalRules.media['.read'], undefined, 'no bulk read of /media');
 assert.equal(finalRules.media['.write'], undefined, 'no write grant above /media/$id');
 assert.ok(finalRules.media.$id['.write'].includes("newData.child('by').val() === auth.uid") && finalRules.media.$id['.write'].includes("data.child('by').val() === auth.uid"));
 assert.ok(prepRules.media && !prepRules.media['.read'], 'preparation rules must allow /media per item');
-assert.deepEqual(finalRules.recent_backup_staff, { '.read': admin, $uid: { '.write': `auth != null && auth.uid === $uid && ${ACC}`, '.validate': "newData.hasChild('pages')" } });
+assert.deepEqual(finalRules.recent_backup_staff, { '.read': adminOrDev, $uid: { '.write': `auth != null && auth.uid === $uid && ${ACC}`, '.validate': "newData.hasChild('pages')" } });
 /* ルート直下に書き込み許可が無いこと（下の階層の制限を全部打ち消すため） */
 assert.equal(finalRules['.write'], undefined, 'no root write grant');
 for (const k of ['backups', 'backup_meta', 'recent_backup_staff']) assert.equal(finalRules[k]['.write'], undefined, `${k}: no write grant above the per-key rule`);
@@ -41,7 +43,8 @@ const start = html.indexOf('var DATA_WRITE_PERM = {');
 const end = html.indexOf('/* リトライ付きFirebase書き込み', start);
 assert.ok(start >= 0 && end > start);
 const source = html.slice(start, end);
-const run = new Function('data', 'can', 'currentUser', 'isAdmin', source + '\nreturn regularDataUpdate(data);');
+const runAs = (dev) => new Function('data', 'can', 'currentUser', 'isAdmin', 'var devOn = function(){ return ' + dev + '; };\n' + source + '\nreturn regularDataUpdate(data);');
+const run = runAs(false);
 const keys = ['pages/2026-10-18','manual','stf','phs','lk','fcmCfg','emailjsCfg','autoDelCfg','stfNo','shift','dly','wd','makers','eduProgress','supMaster','_appSeq'];
 const fixture = Object.fromEntries(keys.map(k => [k, { example: true }]));
 const common = run(fixture, () => false, { perms: {} }, false);
@@ -55,4 +58,8 @@ for (const key of ['dly','wd','makers','eduProgress','supMaster']) assert.ok(key
 for (const key of ['stf','phs','lk','fcmCfg','emailjsCfg','autoDelCfg','stfNo','shift']) assert.ok(!(key in permitted), `admin-only field leaked: ${key}`);
 const adminAll = run(fixture, () => false, { perms: {} }, true);
 assert.equal(Object.keys(adminAll).length, keys.length, 'admin must send every changed path');
+/* デベロッパ：業務とマスタ（phs・shift を含む）は書けるが、人と安全（stf・lk・通知設定・自動削除・職員番号）は送らない */
+const dev = runAs(true)(fixture, () => true, { perms: {} }, false);
+for (const key of ['phs','shift','dly','wd','makers','supMaster']) assert.ok(key in dev, `developer cannot write ${key}`);
+for (const key of ['stf','lk','fcmCfg','emailjsCfg','autoDelCfg','stfNo']) assert.ok(!(key in dev), `developer unexpectedly writes ${key}`);
 console.log('Security rule structure and regular-user write selection: OK');
