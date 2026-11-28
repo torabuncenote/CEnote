@@ -1046,6 +1046,24 @@ tr.hdr-absent .hdr-staff-n{color:var(--rd);text-decoration:line-through}
 .dc .ps:hover{border-color:var(--txt3);background:transparent;color:var(--txt3)}
 .dc .ps:focus{border-color:var(--ac);background:transparent;color:var(--txt3);box-shadow:0 0 0 3px var(--ac-bg)}
 .dc .ps.set{border-style:solid;border-color:var(--bdr);background:var(--sur);color:var(--txt2);font-weight:700}
+/* 担当カードの名前のボタン（2026-11-26）：押すと openDutyCardModal。HD担当表の .hdr-staff-btn と同じ作りで、
+   枠線は旧の選択欄（.dc .ds2）に合わせる。ロック中のカード（.dc.lc は pointer-events:none）でも見るだけで開けるようにする */
+.dc-staff-btn{display:block;width:100%;min-height:36px;box-sizing:border-box;text-align:left;background:var(--sur2);border:1px solid var(--bdr);border-radius:8px;padding:6px 10px;margin:0 0 4px;font:inherit;color:var(--txt);cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.dc-staff-btn:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+@media (hover:hover){.dc-staff-btn:hover{border-color:var(--txt3)}}
+.dc.lc .dc-staff-btn{pointer-events:auto}
+.dc-staff-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 6px}
+.dc-staff-line+.dc-staff-line{margin-top:4px}
+.dc-staff-n{font-size:13px;font-weight:700;white-space:nowrap}
+.dc-staff-n.empty{color:var(--txt3);font-weight:600}
+.dc-mk{font-size:11px;font-weight:700;line-height:1.3;padding:1px 6px;border-radius:10px;border:1px solid;white-space:nowrap}
+.dc-mk.off{color:var(--rd);background:var(--rd-bg);border-color:var(--rd)}
+.dc-mk.role{color:var(--or);background:var(--or-bg);border-color:var(--or)}
+.dc-mk.phs{color:var(--txt2);background:var(--sur);border-color:var(--bdr);font-weight:600}
+.dc-mk.ck{color:var(--ac);background:var(--ac-bg);border-color:var(--ac)}
+.dc-mk.ck.psg{color:var(--pu);background:var(--pu-bg);border-color:var(--pu)}
+.dc-note-tx{display:block;margin-top:4px;font-size:12px;font-weight:400;color:var(--txt2);white-space:pre-wrap;word-break:break-word}
+.dc-staff-btn .co-row{margin-top:4px}
 .oc-card{background:var(--oc-bg);border:1.5px solid var(--oc-bdr);border-radius:var(--r);padding:13px 16px;margin-top:10px}
 .oc-ttl{font-size:11px;font-weight:700;color:var(--oc);margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .oc-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
@@ -5761,7 +5779,7 @@ function renderSpec() {
    ['個別設定','ページごとに枠構成を変更可。「↩」でテンプレに戻す'],
   ].forEach(function(r){S+='<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';});
   S += '</table>';
-  S += '<div class="spec-p">各枠にPHS番号（<code>D.pages[ds].phsNums</code>）・備考欄（<code>D.pages[ds].dutyNotes</code>）あり。PHS番号は常時表示、備考は入力があるときだけ表示（空欄時は「＋備考」リンク）。PHS番号はロック設定タブでOFF可。dutyNotes の内容は横断検索の対象。</div>';
+  S += '<div class="spec-p">各枠にPHS番号（<code>D.pages[ds].phsNums</code>）・備考欄（<code>D.pages[ds].dutyNotes</code>）あり。担当者・PHS番号・備考などは、カードの名前のボタンを押して開くポップアップでまとめて入れ、「決定」で保存（カードには入力済みの内容が表示される）。PHS番号はロック設定タブでOFF可。dutyNotes の内容は横断検索の対象。</div>';
   S += '<div class="spec-h2">4-3. OC（オンコール）担当</div>';
   S += '<div class="spec-p">担当者プルダウン＋備考欄。Excelインポート時にOCフラグがある人を自動セット。</div>';
   S += '<div class="spec-p">対応は2種別（<code>ocData.kind</code>）。<strong>🚑 OC出動対応</strong>（病院からのコールで出動）と <strong>🕔 残り当番</strong>（日勤帯で終わらない手術の残りを引き継ぐ）を横並びのチェックで排他選択する。対応時間（開始・退勤）と年休の欄は両種別で共用し、どちらにチェックを入れたかで計上先が変わる。残り当番をONにすると開始が空なら <code>OC_LEFTOVER_START</code>（16:45）を自動で入れる。読み取りは必ず <code>ocKind(od)</code> / <code>ocKindLabel(k)</code> を経由する（<code>kind</code> を持たない過去の記録はすべて出動対応として読むので移行処理は不要）。<code>done</code> と <code>kind</code> の書き換え口は <code>ocSetDone(ds, val, kind)</code> ひとつ。翌日の出勤ルール（<code>calcOcNextDayRule</code>）は種別を問わず両方に適用する。</div>';
@@ -6709,11 +6727,14 @@ function doRegister() {
 }
 
 /* ===== 変更履歴（バージョン履歴） ===== */
-var APP_VERSION = 'Ver.2026/11/25-174';
+var APP_VERSION = 'Ver.2026/11/26-175';
 /* リリース番号（APP_VERSION の末尾 -N）。保存のたびに /data._appSeq へ書き、
    自分より新しい番号が書かれていたら古いアプリとして保存を止める（checkStaleApp 参照） */
 var APP_SEQ = (function(){ var m = /-(\d+)$/.exec(APP_VERSION); return m ? parseInt(m[1], 10) : 0; })();
 var APP_CHANGELOG = [
+  { ver:'Ver.2026/11/26-175', date:'2026-11-26', title:'CE担当カードを名前のボタン1つにしました', items:[
+    { t:'imp', d:'CE担当カードを、名前のボタン1つにしました。押すと開く画面で、担当者・休み・役割・業務のチェック・PHS・兼務・備考をまとめて入れて「決定」で保存します。☕休憩はカードに残しています' }
+  ]},
   { ver:'Ver.2026/11/25-174', date:'2026-11-25', title:'トップページを作りました', items:[
     { notify:true, t:'new', d:'アプリを開くと「🏠 トップ」が出るようになりました。よく使う機能が大きなボタン（タイル）で並び、今日の残り件数・未読の数・勤務希望の締切などがひと目で分かります' },
     { notify:true, t:'new', d:'トップの「編集」で、タイルの並べ替え・外す・足すが自分用にできます。設定は自分のアカウントに保存されるので、ほかの端末でも同じ並びになります' },
@@ -25534,7 +25555,7 @@ function bindMemoInput(ds){
 }
 
 /* 値が空のときは「＋◯◯」リンクだけを出しておき、クリックでラベル欄と入力欄を展開するための共通処理。
-   担当カードのPHS番号／備考（dcExpandField）と、オペ・カテ症例行の備考（buildOPS内）の両方から使う。 */
+   オペ・カテ症例行の備考（buildOPS内）から使う。 */
 function expandField(lblId, fieldId, linkId){
   var lbl = document.getElementById(lblId);
   var field = document.getElementById(fieldId);
@@ -25542,11 +25563,6 @@ function expandField(lblId, fieldId, linkId){
   if (link) link.style.display = 'none';
   if (lbl) lbl.style.display = '';
   if (field) { field.style.display = ''; field.focus(); }
-}
-/* buildDutyCard：値が空のPHS番号／備考の折り畳みリンクをクリックして展開する（編集可能かつ値が空のときのみ） */
-function dcExpandField(did, kind){
-  if (kind === 'phs') expandField('phs-lbl-'+did, 'psel-'+did, 'dc-add-phs-'+did);
-  else expandField('note-lbl-'+did, 'note-'+did, 'dc-add-note-'+did);
 }
 
 /* ===== POOL =====
@@ -27420,6 +27436,83 @@ function reorderDutyCfg(ds, dat, fromIdx, toIdx) {
   writeLog('担当枠並び替え', '位置変更');
 }
 
+/* ===== CE担当カード（2026-11-26 作り替え） =====
+   カードは名前のボタン1つ（.dc-staff-btn）。中に担当者・印（休・役割・PHS）・済んだ業務チェック・兼務・備考の文字を並べ、
+   押すと openDutyCardModal で担当者・休み・役割・業務チェック・PHS・兼務・備考をまとめて直す（「決定」で一度に書く）。
+   書くときは D.pages[ds] を読み直し、開いたときから変えた項目だけを当てる（開いている間の他の人の変更を消さない）。
+   HD担当表の openHdStaffModal / hdStaffApply と同じ作り。☕休憩はカードに残す（brkBtnHTML）。 */
+
+/* 担当カードの業務チェック（マスタの checks ＋ 前日PSG装着があれば PSG取り外し）。カードとポップアップで共用。
+   slot_ward の静的 checks にも 'PSG取り外し' が含まれているため、前日装着ありのときは静的リストから除いて末尾に足し直す（重複防止）。
+   PSG取り外しは前日装着ありなら既定ON（まだ記録が無いときだけ）。戻り値は [{k, psg, on}] */
+function dutyCardChecks(ds, dat, d) {
+  var prevDat = D.pages[getPrevDs(ds)];
+  /* 前日PSG装着の有無：psg_on テキストの有無だけでなく ops_cards に 'psg' があれば対象にする */
+  var isPsgRemoval = !!(d.id === 'slot_ward' && prevDat && (
+    (prevDat.ops_cards && prevDat.ops_cards.indexOf('psg') !== -1) ||
+    (prevDat.ops && prevDat.ops.psg_on)
+  ));
+  var list = (d.checks && d.checks.length) ? d.checks.slice() : [];
+  if (isPsgRemoval) {
+    list = list.filter(function(c){ return c !== 'PSG取り外し'; });
+    list.push('PSG取り外し');
+  }
+  var sv = (dat.dutyChecks && dat.dutyChecks[d.id]) || {};
+  return list.map(function(ck){
+    var psg = (ck === 'PSG取り外し' && isPsgRemoval);
+    return { k: ck, psg: psg, on: psg ? (sv[ck] === undefined ? true : !!sv[ck]) : !!sv[ck] };
+  });
+}
+
+/* 担当者の選択肢。D.stf から非表示を除く（いま入っている人だけは残す）。名簿外・非表示の既存割当は注記付きで出す */
+function dutyCardWhoOptsHTML(sv) {
+  var opts = '<option value="">— 未割当 —</option>';
+  for (var j = 0; j < D.stf.length; j++) {
+    var sn = D.stf[j];
+    if (D.stfHidden && D.stfHidden[sn]) continue; /* 非表示の人は下の「（非表示）」だけに出す */
+    opts += '<option value="' + escH(sn) + '"' + (sn === sv ? ' selected' : '') + '>' + escH(sn) + '</option>';
+  }
+  if (sv && D.stf.indexOf(sv) === -1) opts += '<option value="' + escH(sv) + '" selected>' + escH(sv) + '（名簿外）</option>';
+  else if (sv && D.stfHidden && D.stfHidden[sv]) opts += '<option value="' + escH(sv) + '" selected>' + escH(sv) + '（非表示）</option>';
+  return opts;
+}
+
+/* 担当枠の担当者を付け替える。入れる＝plMove（台帳の唯一の移動口。前の担当者を余剰から外す・新しい担当者を
+   元の場所から外す、といった後始末は plMove の中で必ず行われる）／外す＝枠を空にして台帳からも外す。
+   画面の描き直しは呼び出し側（plMove の中では safeRenderPage まで行う） */
+function dutyAssign(ds, did, name) {
+  if (name) { plMove(ds, name, {kind:'duty', slot:did}); return; }
+  var pg = D.pages[ds]; if (!pg) return;
+  var _oldDuty = (pg.duties || {})[did];
+  if (!pg.duties) pg.duties = {};
+  pg.duties[did] = '';
+  if (_oldDuty) { plFix(ds); plClearSpot(ds, _oldDuty); }
+  markDutyEdited(ds);
+  saveD(); refreshPool(ds); updateStaffZoneBadge(ds); updateCloseBar(ds);
+  writeLog('担当クリア', fmtJ(ds) + ' ' + did);
+}
+
+/* 担当枠の「休」を付ける／外す（元の「欠勤チェックボックス」の処理）。
+   付ける：枠に人が居ればその人を人員配置の休み枠へ移す（absentSet → plMove）。居なければ枠に印だけ。
+   外す：休み枠に居る人（dutyAbsent[枠] が氏名）は元の枠へ戻す（absentRestore）。印だけなら消す。
+   戻り値は true＝この中で保存まで済ませた（plMove／absentRestore を通った）／false＝印を変えただけ（呼び出し側が保存する） */
+function dutyAbsentApply(ds, did, on) {
+  var pg = D.pages[ds]; if (!pg) return false;
+  if (!pg.dutyAbsent) pg.dutyAbsent = {};
+  var stored = pg.dutyAbsent[did];
+  var dSlot = getDutyCfg(pg).filter(function(x){ return x.id === did; })[0];
+  writeLog(on ? 'CE休みの印' : 'CE休みの印を解除', fmtJ(ds) + ' ' + ((dSlot && dSlot.label) || did) + (((pg.duties || {})[did] || (typeof stored === 'string' ? stored : '')) ? '（' + ((pg.duties || {})[did] || stored) + '）' : ''));
+  if (on) {
+    /* 枠に人が入っていれば、その人を人員配置の休み枠へ移す */
+    var who = (pg.duties || {})[did];
+    if (who && can('duty')) { absentSet(ds, who, {kind:'duty', slot:did, side:'ce'}, function(d){ d.dutyAbsent[did] = who; }); return true; }
+    pg.dutyAbsent[did] = true;
+  } else if (typeof stored === 'string' && absentOffFrom(pg, stored)) {
+    absentRestore(ds, stored); return true; /* 休み枠に居れば元の枠へ戻す */
+  } else delete pg.dutyAbsent[did];
+  return false;
+}
+
 function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   var sv     = (dat.duties    && dat.duties[d.id])    || '';
   var svp    = (dat.phsNums   && dat.phsNums[d.id])   || '';
@@ -27430,201 +27523,209 @@ function buildDutyCard(ds, dat, d, locked, showPhs, phsLk, g) {
   card.className = 'dc' + (locked ? ' lc' : '') + (isAbsent ? ' absent' : '');
   card.style.setProperty('--dc-c', dutyColorFor(d).fg);
 
-  /* 前日PSG装着の有無（slot_ward に PSG取り外しチェックを動的追加するため）
-     psg_on テキストの有無だけでなく ops_cards に 'psg' があれば対象にする */
-  var prevDsDC = getPrevDs(ds);
-  var prevDatDC = D.pages[prevDsDC];
-  var isPsgRemoval = !!(d.id === 'slot_ward' && prevDatDC && (
-    (prevDatDC.ops_cards && prevDatDC.ops_cards.indexOf('psg') !== -1) ||
-    (prevDatDC.ops && prevDatDC.ops.psg_on)
-  ));
-
-  var opts = '<option value="">— 未割当 —</option>';
-  for (var j=0; j<D.stf.length; j++) {
-    var _sn=D.stf[j], _hidden=D.stfHidden&&D.stfHidden[_sn]&&_sn!==sv;
-    if(!_hidden) opts += '<option value="'+escH(_sn)+'"'+(_sn===sv?' selected':'')+'>'+escH(_sn)+'</option>';
-  }
-  /* 名簿外の名前（HD勤務者など・非表示スタッフが既に割当済みの場合も含む）は専用optionを追加 */
-  if (sv && D.stf.indexOf(sv) === -1)
-    opts += '<option value="'+escH(sv)+'" selected>'+escH(sv)+'（名簿外）</option>';
-  else if (sv && D.stfHidden && D.stfHidden[sv])
-    opts += '<option value="'+escH(sv)+'" selected>'+escH(sv)+'（非表示）</option>';
-
-  /* ヘッダー（欠勤チェックを右端に配置） */
-  var absentChk = '<label style="margin-left:auto;display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer;flex-shrink:0" title="休みの印">'
-    + '<input type="checkbox" id="absent-cb-'+d.id+'"'+(isAbsent?' checked':'')+(locked?' disabled':'')+'>'
-    + '<span style="color:var(--rd)">休</span></label>';
-  /* 休み枠へ移した人は枠から外れるので、誰が休みかをカードに残す（ここで外すと元の枠へ戻る） */
+  /* ヘッダー（取っ手・アイコン・枠名）。休み枠へ移した人は枠から外れるので、誰が休みかをカードに残す
+     （休みの付け外しは名前のボタンのポップアップから。外すと元の枠へ戻る） */
   var absentWho = (isAbsent && typeof dat.dutyAbsent[d.id] === 'string' && !sv) ? '<span style="font-size:11px;color:var(--rd);font-weight:400">（休：' + escH(dat.dutyAbsent[d.id]) + '）</span>' : '';
-  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+absentWho+absentChk+'</div>';
+  var html = '<div class="dl" style="display:flex;align-items:center;gap:6px"><span class="duty-drag-handle" style="cursor:grab;font-size:14px;user-select:none">☰</span><span>'+d.icon+'</span>'+d.label+absentWho+'</div>';
 
-  /* チェックボックス（マスター定義 + 前日PSG装着があれば PSG取り外しを担当マークとして追加）
-     slot_ward の静的 checks にも 'PSG取り外し' が含まれているため、
-     isPsgRemoval=true のときは静的リストから除去してから末尾に追加し直す（重複防止） */
-  var dynChecks = (d.checks && d.checks.length) ? d.checks.slice() : [];
-  if (isPsgRemoval) {
-    dynChecks = dynChecks.filter(function(c){ return c !== 'PSG取り外し'; });
-    dynChecks.push('PSG取り外し');
-  }
-  if (dynChecks.length) {
-    var svChecks = (dat.dutyChecks && dat.dutyChecks[d.id]) || {};
-    html += '<div class="dc-cbs" id="dccbs-'+d.id+'">';
-    for (var ci=0; ci<dynChecks.length; ci++) {
-      var ck=dynChecks[ci];
-      var isPsgDutyChk = (ck === 'PSG取り外し' && isPsgRemoval);
-      var isChk = isPsgDutyChk
-        ? (svChecks[ck] === undefined ? true : !!svChecks[ck])
-        : !!svChecks[ck];
-      var extraCls = isPsgDutyChk ? ' psg-duty' : '';
-      var ckLabel = isPsgDutyChk ? '🌙 PSG取り外し（担当）' : ck;
-      html += '<label class="dc-cb-item'+extraCls+(isChk?' checked':'')+'" title="'+(isPsgDutyChk?'前日装着あり：担当者として割り当て済み':'')+'">';
-      html += '<input type="checkbox" data-duty="'+d.id+'" data-ck="'+ck+'"'+(isChk?' checked':'')+(locked?' disabled':'')+'>'+ckLabel+'</label>';
-    }
-    html += '</div>';
-  }
-
-  /* フリー役割 */
-  if (d.freeRole) {
-    var _roleOpts = (d.roleOpts && d.roleOpts.length) ? d.roleOpts : ['フリー','PSG解析','自由記述'];
-    html += '<select class="ds2 set" id="role-'+d.id+'"'+(locked?' disabled':'')+' style="margin-bottom:5px;font-size:11px;color:var(--txt3)">';
-    _roleOpts.forEach(function(r){
-      html += '<option value="'+escH(r)+'"'+(svRole===r?' selected':'')+'>'+escH(r)+'</option>';
-    });
-    html += '</select>';
-    html += '<input type="text" id="role-free-'+d.id+'" class="ds2" placeholder="役割を入力..." value="'+(svRole==='自由記述'&&svNote?svNote:'')+'"'+(locked?' disabled':'')+(svRole!=='自由記述'?' style="display:none;margin-bottom:5px"':' style="margin-bottom:5px"')+'>';
-  }
-
-  html += '<select class="ds2'+(sv?' set':'')+'"'+(locked?' disabled':'')+' id="sel-'+d.id+'">'+opts+'</select>';
-  html += brkBtnHTML(ds, dat, sv); /* 休憩に入った時刻（2026-11-19） */
-  html += coDutyRowHTML(ds, dat, d.id, locked); /* 兼務の印（2026-11-16） */
-
-  /* PHS番号（常時入力欄を表示。show_phsロックによる表示/非表示の出し分けのみ維持） */
-  if (showPhs) {
-    var popts = '<option value="">PHS番号 —</option>';
-    for (var j=0; j<D.phs.length; j++)
-      popts += '<option value="'+D.phs[j]+'"'+(D.phs[j]===svp?' selected':'')+'>'+D.phs[j]+'</option>';
-    popts += '<option value="__free__"'+(svp==='__free__'?' selected':'')+'>自由記述...</option>';
-    var isCustomP = svp && svp!=='__free__' && D.phs.indexOf(svp)===-1;
-    html += '<div class="pl2" id="phs-lbl-'+d.id+'">📞 PHS番号</div>';
-    html += '<select class="ps'+(svp?' set':'')+'"'+((locked||phsLk)?' disabled':'')+' id="psel-'+d.id+'">'+popts+'</select>';
-    html += '<input type="text" class="ds2" id="ptxt-'+d.id+'" placeholder="PHS番号を入力..." value="'+(isCustomP?svp:'')+'"'+((locked||phsLk)?' disabled':'')+' style="margin-top:4px;'+((isCustomP||svp==='__free__')?'':'display:none')+'">';
-  }
-
-  /* 備考（同様に値が空なら「＋備考」リンク） */
-  var _noteCollapsed = (!locked && !svNote);
-  html += '<div class="pl2" id="note-lbl-'+d.id+'" style="margin-top:5px'+(_noteCollapsed?';display:none':'')+'">📝 備考</div>';
-  html += '<textarea class="ds2" id="note-'+d.id+'" placeholder="備考..." rows="2" style="resize:vertical;min-height:34px;line-height:1.5'+(_noteCollapsed?';display:none':'')+'"'+(locked?' disabled':'')+'>'+(svNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'))+'</textarea>';
-  if (_noteCollapsed) html += '<button type="button" class="db-add-link" id="dc-add-note-'+d.id+'" onclick="dcExpandField(\''+d.id+'\',\'note\')">＋ 備考</button>';
+  /* 名前のボタン：担当者名・印（休／フリー以外の役割）・PHS・済んだ業務チェック・兼務・備考の文字。
+     自由記述の役割は備考と同じ dutyNotes に入るので、役割の印として出し、備考の文字としては重ねて出さない */
+  var roleFree = !!(d.freeRole && svRole === '自由記述');
+  var marks = '';
+  if (isAbsent) marks += '<span class="dc-mk off">休</span>';
+  if (d.freeRole && svRole !== 'フリー') marks += '<span class="dc-mk role">' + escH(roleFree ? (svNote || '自由記述') : svRole) + '</span>';
+  if (showPhs && svp && svp !== '__free__') marks += '<span class="dc-mk phs">📞 ' + escH(svp) + '</span>';
+  var cks = '';
+  dutyCardChecks(ds, dat, d).forEach(function(c){
+    if (c.on) cks += '<span class="dc-mk ck' + (c.psg ? ' psg' : '') + '">✓' + escH(c.k) + '</span>';
+  });
+  html += '<button type="button" class="dc-staff-btn" data-ds="' + escH(ds) + '" data-slot="' + escH(d.id) + '" onclick="openDutyCardModal(this.dataset.ds, this.dataset.slot)"'
+    + ' title="' + (locked ? '見るだけ（担当の編集はロックされています）' : '押すと担当者・休み・役割・業務のチェック・PHS・兼務・備考を直せます') + '">'
+    + '<span class="dc-staff-line"><span class="dc-staff-n' + (sv ? '' : ' empty') + '">' + (sv ? escH(sv) : '— 未割当 —') + '</span>' + marks + cks + '</span>' /* PHSと業務のチェックは名前と同じ行（入りきらなければ折り返す） */
+    + coDutyRowHTML(ds, dat, d.id, true) /* 兼務の印（2026-11-16）。付け外しはポップアップから */
+    + ((svNote && !roleFree) ? '<span class="dc-note-tx">' + escH(svNote) + '</span>' : '')
+    + '</button>';
+  html += brkBtnHTML(ds, dat, sv); /* 休憩に入った時刻（2026-11-19）。名前のボタンの外に置く */
 
   card.innerHTML = html;
   card.setAttribute('data-duty-id', d.id);
   card.setAttribute('data-ds', ds);
   g.appendChild(card);
+}
 
-  if (!locked) {
-    (function(did, hasFreeRole){
-      var el = document.getElementById('sel-'+did);
-      /* 担当の付け替えは plMove（台帳の唯一の移動口）に通す。
-         「前の担当者を余剰から外す」「新しい担当者を元の場所から外す」といった後始末は
-         plMove の中で必ず行われるので、ここで個別に消して回る必要はない。 */
-      if (el) el.onchange = function(){
-        var _oldDuty=(D.pages[ds].duties||{})[did];
-        this.classList.toggle('set',!!this.value);
-        if (this.value) { plMove(ds, this.value, {kind:'duty', slot:did}); return; }
-        if (!D.pages[ds].duties) D.pages[ds].duties={};
-        D.pages[ds].duties[did]='';
-        if (_oldDuty) { plFix(ds); plClearSpot(ds, _oldDuty); }
-        markDutyEdited(ds);
-        saveD(); refreshPool(ds); updateStaffZoneBadge(ds); updateCloseBar(ds);
-        writeLog('担当クリア', fmtJ(ds)+' '+did);
-      };
-      var cbsWrap = document.getElementById('dccbs-'+did);
-      if (cbsWrap) cbsWrap.addEventListener('change',function(e){
-        var cb=e.target; if(cb.type!=='checkbox') return;
-        if(!D.pages[ds].dutyChecks) D.pages[ds].dutyChecks={};
-        if(!D.pages[ds].dutyChecks[did]) D.pages[ds].dutyChecks[did]={};
-        D.pages[ds].dutyChecks[did][cb.getAttribute('data-ck')]=cb.checked;
-        var lbl=cb.closest('.dc-cb-item'); if(lbl) lbl.classList.toggle('checked',cb.checked);
-        saveD();
-      });
-      var noteEl = document.getElementById('note-'+did);
-      if (noteEl) noteEl.oninput=function(){
-        if(!D.pages[ds].dutyNotes)D.pages[ds].dutyNotes={};
-        D.pages[ds].dutyNotes[did]=this.value; saveD();
-      };
-      if (hasFreeRole) {
-        var roleEl=document.getElementById('role-'+did), roleFreeEl=document.getElementById('role-free-'+did);
-        if (roleEl) roleEl.onchange=function(){
-          if(!D.pages[ds].dutyRoles)D.pages[ds].dutyRoles={};
-          D.pages[ds].dutyRoles[did]=this.value;
-          if(roleFreeEl) roleFreeEl.style.display=this.value==='自由記述'?'':'none';
-          saveD();
-        };
-        if (roleFreeEl) roleFreeEl.oninput=function(){
-          if(!D.pages[ds].dutyNotes)D.pages[ds].dutyNotes={};
-          D.pages[ds].dutyNotes[did]=this.value; saveD();
-        };
-      }
-    })(d.id, !!d.freeRole);
+/* 担当カードのポップアップ。見出しは枠のアイコン＋枠名。担当者・休み・（フリー役割のとき）役割・業務のチェック・
+   PHS番号・兼務・備考をまとめて直し、「決定」で一度に書く（「やめる」なら何も変えない）。
+   担当のロック（can('duty')）で編集できない人には見るだけで開く。
+   兼務は「いまの担当者」に付く印なので、担当者を変えるときは決定のあとにもう一度開いて付けてもらう（災害モードでも付けられない）。
+   備考は #main の外なので initPHIGuard が効かない——決定のときに phiGuardText を明示的に通す。 */
+function openDutyCardModal(ds, slotId) {
+  var dat = D.pages[ds]; if (!dat || !slotId) return;
+  var d = getDutyCfg(dat).filter(function(x){ return x.id === slotId; })[0]; if (!d) return;
+  var old = document.getElementById('dcm-ov'); if (old) old.remove();
+  var ok = can('duty');
+  var showPhs = !(D.lk && D.lk.show_phs === true);
+  var phsOk = ok && can('phs');
+  var okCo = ok && !_offlineMode;
+  var sv = (dat.duties && dat.duties[slotId]) || '';
+  var stored = dat.dutyAbsent && dat.dutyAbsent[slotId];
+  var svp = (dat.phsNums && dat.phsNums[slotId]) || '';
+  var svRole = (dat.dutyRoles && dat.dutyRoles[slotId]) || 'フリー';
+  var svNote = (dat.dutyNotes && dat.dutyNotes[slotId]) || '';
+  var cks = dutyCardChecks(ds, dat, d);
+  /* 開いたときの値。決定のとき、ここから変わった項目だけを書く */
+  var o = { who: sv, absent: !!stored, role: svRole, note: svNote.replace(/\s+$/, ''), phs: svp, ck: {} };
+  cks.forEach(function(c){ o.ck[c.k] = c.on; });
+  var cp = sv ? coPickItems(ds, dat, 'ce', sv) : null;
+  var coOpen = cp ? cp.picked.slice() : [];
+  var noteVal = svNote; /* 自由記述の役割と備考は同じ dutyNotes に入るので、1つの値として持つ */
+  var dis = ok ? '' : ' disabled';
+  var phsDis = phsOk ? '' : ' disabled';
+  var phsCustom = !!(svp && svp !== '__free__' && D.phs.indexOf(svp) === -1);
+  var roleOpts = (d.roleOpts && d.roleOpts.length) ? d.roleOpts : ['フリー','PSG解析','自由記述'];
+  var roleFree = !!(d.freeRole && svRole === '自由記述');
 
-    /* 欠勤チェックボックス */
-    (function(did, cardEl){
-      var abEl = document.getElementById('absent-cb-'+did);
-      if (abEl) abEl.onchange = function(){
-        var pg = D.pages[ds];
-        if(!pg.dutyAbsent) pg.dutyAbsent={};
-        var stored = pg.dutyAbsent[did];
-        var dSlot = getDutyCfg(pg).filter(function(x){ return x.id === did; })[0];
-        writeLog(this.checked ? 'CE休みの印' : 'CE休みの印を解除', fmtJ(ds) + ' ' + ((dSlot && dSlot.label) || did) + (((pg.duties || {})[did] || (typeof stored === 'string' ? stored : '')) ? '（' + ((pg.duties || {})[did] || stored) + '）' : ''));
-        if (this.checked) {
-          /* 枠に人が入っていれば、その人を人員配置の休み枠へ移す（カードは plMove → safeRenderPage で描き直る） */
-          var who = (pg.duties || {})[did];
-          if (who && can('duty')) { absentSet(ds, who, {kind:'duty', slot:did, side:'ce'}, function(d){ d.dutyAbsent[did] = who; }); return; }
-          pg.dutyAbsent[did] = true;
-        } else if (typeof stored === 'string' && absentOffFrom(pg, stored)) {
-          absentRestore(ds, stored); return; /* 休み枠に居れば元の枠へ戻す */
-        } else delete pg.dutyAbsent[did];
-        cardEl.classList.toggle('absent',this.checked);
-        saveD();
-      };
-    })(d.id, card);
-
-    if (showPhs && !phsLk) {
-      (function(did){
-        var selP=document.getElementById('psel-'+did), txtP=document.getElementById('ptxt-'+did);
-        if(selP) selP.onchange=function(){
-          var v=this.value;
-          this.classList.toggle('set',!!v);
-          if(txtP){txtP.style.display=v==='__free__'?'':'none';if(v!=='__free__')txtP.value='';}
-          if(!D.pages[ds].phsNums)D.pages[ds].phsNums={};
-          D.pages[ds].phsNums[did]=v==='__free__'?'__free__':v;
-          if(v!=='__free__')saveD();
-        };
-        if(txtP) txtP.oninput=function(){
-          if(!D.pages[ds].phsNums)D.pages[ds].phsNums={};
-          D.pages[ds].phsNums[did]=this.value;
-          clearTimeout(txtP._t); txtP._t=setTimeout(saveD,600);
-        };
-      })(d.id);
-    }
-
-    /* 備考が空のまま、フォーカスがカードの外に出たら折り畳みに戻す（PHSは常時表示のため対象外）
-       （1文字でも入っていれば閉じない。値の取得はsetTimeoutでフォーカス移動確定後に行う） */
-    (function(did, cardEl){
-      cardEl.addEventListener('focusout', function(){
-        setTimeout(function(){
-          if (cardEl.contains(document.activeElement)) return;
-          var noteEl=document.getElementById('note-'+did);
-          if (noteEl && String(noteEl.value||'').trim().length===0) {
-            var lblN=document.getElementById('note-lbl-'+did), linkN=document.getElementById('dc-add-note-'+did);
-            if (lblN) lblN.style.display='none';
-            noteEl.style.display='none';
-            if (linkN) linkN.style.display='';
-          }
-        }, 0);
-      });
-    })(d.id, card);
+  var h = '<h3>' + escH(d.icon || '') + ' ' + escH(d.label || '') + '</h3>'
+    + (ok ? '' : '<div class="pn" style="font-size:11px;margin:0 0 8px">🔒 担当の編集はロックされています（見るだけ）</div>')
+    + '<div class="hdst-sec" style="margin-top:0"><div class="hdst-hd">👤 担当者</div>'
+    + '<select class="ds2" id="dcm-who" style="margin-bottom:0"' + dis + '>' + dutyCardWhoOptsHTML(sv) + '</select></div>'
+    + '<div class="hdst-sec"><div class="hdst-toggles"><label class="hdst-tg off"><input type="checkbox" id="dcm-absent"' + (o.absent ? ' checked' : '') + dis + '><span>🏖️ 休み</span></label></div>'
+    + ((typeof stored === 'string' && stored) ? '<div class="pn" style="font-size:11px;margin:6px 0 0">休みにした人：' + escH(stored) + '（休みを外すと元の枠へ戻します）</div>' : '')
+    + '</div>';
+  if (d.freeRole) {
+    h += '<div class="hdst-sec"><div class="hdst-hd">🎭 役割</div><select class="ds2" id="dcm-role" style="margin-bottom:5px"' + dis + '>'
+      + roleOpts.map(function(r){ return '<option value="' + escH(r) + '"' + (svRole === r ? ' selected' : '') + '>' + escH(r) + '</option>'; }).join('') + '</select>'
+      + '<input type="text" class="ds2" id="dcm-role-free" placeholder="役割を入力..." value="' + escH(roleFree ? svNote : '') + '"' + dis + ' style="margin-bottom:0;' + (roleFree ? '' : 'display:none') + '"></div>';
   }
+  if (cks.length) {
+    h += '<div class="hdst-sec"><div class="hdst-hd">✅ 業務のチェック</div><div class="dc-cbs" id="dcm-cks" style="margin-bottom:0">'
+      + cks.map(function(c, i){
+          return '<label class="dc-cb-item' + (c.psg ? ' psg-duty' : '') + (c.on ? ' checked' : '') + '" title="' + (c.psg ? '前日装着あり：担当者として割り当て済み' : '') + '">'
+            + '<input type="checkbox" data-i="' + i + '"' + (c.on ? ' checked' : '') + dis + '>' + (c.psg ? '🌙 PSG取り外し（担当）' : escH(c.k)) + '</label>';
+        }).join('') + '</div></div>';
+  }
+  if (showPhs) {
+    h += '<div class="hdst-sec"><div class="hdst-hd">📞 PHS番号</div><select class="ds2" id="dcm-phs" style="margin-bottom:0"' + phsDis + '><option value="">PHS番号 —</option>'
+      + D.phs.map(function(p){ return '<option value="' + escH(p) + '"' + (p === svp ? ' selected' : '') + '>' + escH(p) + '</option>'; }).join('')
+      + '<option value="__free__"' + ((svp === '__free__' || phsCustom) ? ' selected' : '') + '>自由記述...</option></select>'
+      + '<input type="text" class="ds2" id="dcm-phs-free" placeholder="PHS番号を入力..." value="' + escH(phsCustom ? svp : '') + '"' + phsDis
+      + ' style="margin:5px 0 0;' + ((svp === '__free__' || phsCustom) ? '' : 'display:none') + '"></div>';
+  }
+  h += '<div class="hdst-sec"><div class="hdst-hd">🤝 兼務 <small>' + (sv ? escH(sv) + ' さんが一緒に受け持つ担当（印だけで人数には数えません）' : '一緒に受け持つ担当') + '</small></div>'
+    + (sv
+        ? '<div id="dcm-co">' + coPickButtonsHTML(dat, sv, cp, !okCo) + '</div>'
+          + '<div class="pn" id="dcm-co-hint" style="font-size:11px;margin:6px 0 0;display:none">担当者を変えるときは、兼務は決定のあとにもう一度開いて付けてください（いまの兼務の選択は反映されません）</div>'
+          + (_offlineMode ? '<div class="pn" style="font-size:11px;margin:6px 0 0">📴 災害モードでは兼務を付けられません</div>' : '')
+        : '<div class="pn" style="font-size:11px;margin:0">担当者が入ってから付けられます（先に決定して、もう一度開いてください）</div>')
+    + '</div>';
+  h += '<div class="hdst-sec" id="dcm-note-sec"' + (roleFree ? ' style="display:none"' : '') + '><div class="hdst-hd">📝 備考</div>'
+    + '<textarea id="dcm-note" class="ds2" rows="3" style="width:100%;box-sizing:border-box;margin:0" placeholder="' + (ok ? '備考（患者さんの情報は書かない）' : '') + '"' + (ok ? '' : ' readonly') + '>' + escH(svNote) + '</textarea></div>';
+  h += '<div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">'
+    + (ok ? '<button class="btn btn-g" id="dcm-cancel">やめる</button><button class="btn btn-p" id="dcm-save">決定</button>' : '<button class="btn btn-p" id="dcm-cancel">閉じる</button>')
+    + '</div>';
+
+  var ov = document.createElement('div'); ov.id = 'dcm-ov'; ov.className = 'ov';
+  ov.onclick = function(e){ if (e.target === ov) ov.remove(); };
+  var md = document.createElement('div'); md.className = 'md dcm-md'; md.style.maxWidth = '440px'; md.style.maxHeight = 'calc(88vh / var(--ui-zoom,1))'; md.style.overflowY = 'auto';
+  md.innerHTML = h;
+  ov.appendChild(md); document.body.appendChild(ov);
+  document.getElementById('dcm-cancel').onclick = function(){ ov.remove(); };
+  if (!ok) return;
+
+  var whoSel = document.getElementById('dcm-who'), absCb = document.getElementById('dcm-absent');
+  var roleSel = document.getElementById('dcm-role'), roleFreeEl = document.getElementById('dcm-role-free');
+  var noteEl = document.getElementById('dcm-note'), noteSec = document.getElementById('dcm-note-sec');
+  var cksEl = document.getElementById('dcm-cks');
+  var phsSel = document.getElementById('dcm-phs'), phsFreeEl = document.getElementById('dcm-phs-free');
+  var coBox = document.getElementById('dcm-co'), coHint = document.getElementById('dcm-co-hint');
+  var isFreeRole = function(){ return !!(roleSel && roleSel.value === '自由記述'); };
+
+  /* 担当者を変えたら兼務の選択は受け付けない（兼務はいまの担当者に付く印） */
+  whoSel.onchange = function(){
+    var changed = whoSel.value !== o.who;
+    if (coBox) coBox.style.cssText = changed ? 'opacity:.45;pointer-events:none' : '';
+    if (coHint) coHint.style.display = changed ? '' : 'none';
+  };
+  if (coBox) coBox.onclick = function(e){
+    var b = e.target.closest('.evt-stf-btn'); if (!b || !okCo) return;
+    var i = +b.getAttribute('data-i'); if (!cp.items[i]) return;
+    cp.picked[i] = !cp.picked[i];
+    b.classList.toggle('on', cp.picked[i]);
+  };
+  if (cksEl) cksEl.onchange = function(e){
+    var cb = e.target; if (!cb || cb.type !== 'checkbox') return;
+    var lb = cb.closest('.dc-cb-item'); if (lb) lb.classList.toggle('checked', cb.checked);
+  };
+  /* 自由記述の役割と備考は同じ値（dutyNotes）。見えている方に入力し、役割を切り替えたらもう一方へ写す */
+  noteEl.oninput = function(){ noteVal = this.value; };
+  if (roleFreeEl) roleFreeEl.oninput = function(){ noteVal = this.value; };
+  if (roleSel) roleSel.onchange = function(){
+    var f = isFreeRole();
+    noteEl.value = noteVal; roleFreeEl.value = noteVal;
+    roleFreeEl.style.display = f ? '' : 'none';
+    noteSec.style.display = f ? 'none' : '';
+  };
+  if (phsSel) phsSel.onchange = function(){
+    var f = phsSel.value === '__free__';
+    phsFreeEl.style.display = f ? '' : 'none';
+    if (f) phsFreeEl.focus(); else phsFreeEl.value = '';
+  };
+
+  document.getElementById('dcm-save').onclick = function(){
+    var n = { who: whoSel.value, absent: absCb.checked, role: roleSel ? roleSel.value : o.role,
+              note: noteVal.replace(/\s+$/, ''), phs: o.phs, ck: {} };
+    if (phsSel && phsOk) n.phs = phsSel.value === '__free__' ? (phsFreeEl.value.trim() || '__free__') : phsSel.value;
+    cks.forEach(function(c, i){ var cb = cksEl && cksEl.querySelector('input[data-i="' + i + '"]'); n.ck[c.k] = cb ? cb.checked : o.ck[c.k]; });
+    var cpUse = (okCo && cp && n.who === o.who) ? cp : null;
+    var texts = [];
+    if (n.note !== o.note && n.note) texts.push(n.note);
+    if (n.phs !== o.phs && n.phs && n.phs !== '__free__' && D.phs.indexOf(n.phs) === -1) texts.push(n.phs);
+    var go = function(){ ov.remove(); dutyCardApply(ds, slotId, o, n, cpUse, coOpen); };
+    if (texts.length) phiGuardText(texts.join('\n'), go, function(){ var ta = isFreeRole() ? roleFreeEl : noteEl; if (ta) ta.focus(); });
+    else go();
+  };
+}
+
+/* ポップアップの「決定」：開いたとき（o・coOpen）から変わった項目だけを、いまのページに当てる。
+   役割・業務チェック・PHS・備考・兼務はページに書くだけ（保存は最後に1回）。担当者の変更と休みは
+   plMove／absentSet が保存まで行う。順番は 担当者 → 休み（休みは新しい担当者に対して付ける） */
+function dutyCardApply(ds, slotId, o, n, cp, coOpen) {
+  if (!can('duty')) return;
+  var pg = D.pages[ds]; if (!pg) return;
+  if (!getDutyCfg(pg).some(function(x){ return x.id === slotId; })) { toast('この担当枠は、もうありません', 'warn'); return; }
+  var changed = false, coLog = null;
+  if (n.role !== o.role) { pg.dutyRoles = pg.dutyRoles || {}; pg.dutyRoles[slotId] = n.role; changed = true; }
+  if (n.note !== o.note) {
+    pg.dutyNotes = pg.dutyNotes || {};
+    if (n.note) pg.dutyNotes[slotId] = n.note; else delete pg.dutyNotes[slotId];
+    changed = true;
+  }
+  if (n.phs !== o.phs) {
+    pg.phsNums = pg.phsNums || {};
+    if (n.phs) pg.phsNums[slotId] = n.phs; else delete pg.phsNums[slotId];
+    changed = true;
+  }
+  Object.keys(n.ck).forEach(function(k){
+    if (n.ck[k] === o.ck[k]) return;
+    pg.dutyChecks = pg.dutyChecks || {};
+    pg.dutyChecks[slotId] = pg.dutyChecks[slotId] || {};
+    pg.dutyChecks[slotId][k] = n.ck[k];
+    changed = true;
+  });
+  if (cp && cp.picked.some(function(v, i){ return v !== coOpen[i]; })) {
+    var r = coApplyPicks(pg, 'ce', n.who, cp);
+    coLog = ['兼務を設定', fmtJ(ds) + ' ' + n.who + '：' + r.before + ' → ' + r.after];
+    changed = true;
+  }
+  var whoChanged = n.who !== o.who, absChanged = n.absent !== o.absent;
+  if (!changed && !whoChanged && !absChanged) return; /* 何も変えていない */
+  if (coLog) writeLog(coLog[0], coLog[1]);
+  var dirty = changed;
+  if (whoChanged) { dutyAssign(ds, slotId, n.who); dirty = false; } /* plMove／クリアが、ここまでの変更も一緒に保存する */
+  if (absChanged) dirty = !dutyAbsentApply(ds, slotId, n.absent);   /* 印だけ変えたときは false が返るので下で保存する */
+  if (dirty) saveD();
+  safeRenderPage(); /* カードを描き直す（plMove の中でも行うが、役割・備考だけの変更でも要る） */
+  if (coLog) refreshHdRoster(ds); /* HD担当表の行にも「🤝 兼務」が出る */
+  updateCloseBar(ds);
 }
 
 function buildDG(ds, dat, locked) {
@@ -27790,8 +27891,6 @@ function buildDG(ds, dat, locked) {
         /* duty-card並び替えのドロップは別ハンドラで処理するためスキップ */
         if(!name||!did||name==='duty-card') return;
         /* 元の場所からの除去は plMove がまとめて行う */
-        var sel=document.getElementById('sel-'+did);
-        if (sel) { sel.value=name; sel.classList.toggle('set',!!name); }
         plMove(dropDs, name, {kind:'duty', slot:did});
       });
       document.addEventListener('dragend', function() {
@@ -28173,7 +28272,7 @@ function buildOPS(ds,dat,locked) {
     if (endRow.children.length) itemWrap.appendChild(endRow);
 
     /* 症例ごとの備考：カード全体の備考（ops.ope_note/cath_note）とは別物。
-       値が1文字でもあれば開いたまま、空なら「＋備考」リンクだけ（担当カードのdcExpandFieldと同じ考え方）。 */
+       値が1文字でもあれば開いたまま、空なら「＋備考」リンクだけ。 */
     var noteVal = item.note || '';
     var noteCollapsed = !locked && String(noteVal).trim().length === 0;
     var noteDomId = itemId + '-' + idx;
